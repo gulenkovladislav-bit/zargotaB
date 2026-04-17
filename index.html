@@ -7639,13 +7639,19 @@ window.zgData = (function() {
 // ═══════════════════════════════════════════════════════════════════
 
 window.zgExportDataJson = function(onProgress, onDone) {
-  // onProgress(pct, msg), onDone(sizeKb) — опционально
+  // Экспортирует ZIP с:
+  //   - data.json (мир, с путями к картинкам)
+  //   - manifest.json
+  //   - images/ — ТОЛЬКО новые картинки из IDB (published: false)
+  //
+  // После успешной упаковки помечает эти картинки как published,
+  // чтобы при следующем экспорте они не попадали в ZIP повторно.
+
   var report = function(pct, msg) { if (typeof onProgress === 'function') onProgress(pct, msg); };
 
   try {
     report(5, 'Собираю данные...');
 
-    // Собираем мир из текущего localStorage/IDB
     var output = {
       version: new Date().toISOString().slice(0, 10) + '-' + Date.now().toString(36),
       exportedAt: new Date().toISOString(),
@@ -7655,29 +7661,10 @@ window.zgExportDataJson = function(onProgress, onDone) {
       atlas: null,
       encyclopedia: null,
       htree: null,
-      map: 'images/map.jpg'  // путь по умолчанию, если карта лежит в репо
+      map: 'images/map.jpg'
     };
 
-    // Пул картинок для ZIP (base64 → отдельные файлы)
-    // ключ: "images/beasts/file.png" → { base64, mime }
-    var imagePool = {};
-
-    // ── Helper: извлечь base64 → вернуть относительный путь ──
-    function extractImage(base64Str, folder, idHint) {
-      if (!base64Str || typeof base64Str !== 'string') return '';
-      // Если это уже путь (не data URL) — оставляем
-      if (base64Str.indexOf('data:') !== 0) return base64Str;
-
-      var match = base64Str.match(/^data:image\/(\w+);base64,(.+)$/);
-      if (!match) return '';
-      var ext = match[1].replace('jpeg', 'jpg');
-      if (ext.length > 5) ext = 'png';
-      var b64 = match[2];
-      var filename = folder + '/' + idHint + '.' + ext;
-      imagePool[filename] = { base64: b64 };
-      return filename;
-    }
-
+    // ── Загружаем все локальные ключи ──
     try {
       var catalogRaw = localStorage.getItem('grimoire_v3');
       if (catalogRaw) output.catalog = JSON.parse(catalogRaw);
@@ -7685,17 +7672,7 @@ window.zgExportDataJson = function(onProgress, onDone) {
 
     try {
       var atlasRaw = localStorage.getItem('grimoire_world_atlas_v5');
-      if (atlasRaw) {
-        output.atlas = JSON.parse(atlasRaw);
-        // Extract faction images
-        if (output.atlas && Array.isArray(output.atlas.factions)) {
-          output.atlas.factions.forEach(function(f, idx) {
-            if (f.image && typeof f.image === 'string' && f.image.indexOf('data:') === 0) {
-              f.image = extractImage(f.image, 'images/factions', 'faction_' + (f.id || idx));
-            }
-          });
-        }
-      }
+      if (atlasRaw) output.atlas = JSON.parse(atlasRaw);
     } catch(e) {}
 
     try {
@@ -7705,22 +7682,7 @@ window.zgExportDataJson = function(onProgress, onDone) {
 
     try {
       var htreeRaw = localStorage.getItem('grimoire_htree_v1');
-      if (htreeRaw) {
-        output.htree = JSON.parse(htreeRaw);
-        // Extract tree node portraits
-        if (output.htree && typeof output.htree === 'object') {
-          Object.keys(output.htree).forEach(function(entryId) {
-            var entry = output.htree[entryId];
-            if (entry && Array.isArray(entry.nodes)) {
-              entry.nodes.forEach(function(node, nIdx) {
-                if (node.portrait && typeof node.portrait === 'string' && node.portrait.indexOf('data:') === 0) {
-                  node.portrait = extractImage(node.portrait, 'images/portraits', 'tree_' + entryId + '_' + (node.id || nIdx));
-                }
-              });
-            }
-          });
-        }
-      }
+      if (htreeRaw) output.htree = JSON.parse(htreeRaw);
     } catch(e) {}
 
     try {
@@ -7728,9 +7690,19 @@ window.zgExportDataJson = function(onProgress, onDone) {
       if (typesRaw) output.beastTypes = JSON.parse(typesRaw);
     } catch(e) {}
 
-    report(20, 'Читаю бестиарий из IDB...');
+    // ── Legacy base64 stripping (на случай если где-то остались base64) ──
+    function stripLegacyBase64(obj, key) {
+      if (!obj || !obj[key] || typeof obj[key] !== 'string') return;
+      if (obj[key].indexOf('data:') === 0) {
+        // У нас нет пути — выкидываем старый base64, чтобы не раздувать data.json
+        // (если это было что-то важное, оно уже должно быть в IDB с путём)
+        obj[key] = '';
+      }
+    }
 
-    // Бестиарий — из IDB
+    report(15, 'Читаю бестиарий из IDB...');
+
+    // ── Читаем бестиарий из IDB ──
     var idbReq = indexedDB.open('zargota_beasts', 1);
     idbReq.onsuccess = function(e) {
       var db = e.target.result;
@@ -7746,15 +7718,13 @@ window.zgExportDataJson = function(onProgress, onDone) {
             } catch(e2) {}
           }
           db.close();
-          finishExport();
+          continueExport();
         };
-      } catch(ex) { db.close(); finishExport(); }
+      } catch(ex) { db.close(); continueExport(); }
     };
-    idbReq.onerror = function() { finishExport(); };
+    idbReq.onerror = function() { continueExport(); };
 
-    function finishExport() {
-      report(40, 'Извлекаю картинки...');
-
+    function continueExport() {
       // Fallback для бестиария из LS
       if (!output.beasts) {
         try {
@@ -7763,39 +7733,60 @@ window.zgExportDataJson = function(onProgress, onDone) {
         } catch(e) {}
       }
 
-      // Strip base64 from beasts
+      // Стрипаем legacy base64 (они больше не нужны)
       if (Array.isArray(output.beasts)) {
-        output.beasts.forEach(function(b, idx) {
-          if (b.portrait && typeof b.portrait === 'string' && b.portrait.indexOf('data:') === 0) {
-            b.portrait = extractImage(b.portrait, 'images/beasts', 'beast_' + (b.id || idx));
-          }
-          // Также поле b.image на всякий случай
-          if (b.image && typeof b.image === 'string' && b.image.indexOf('data:') === 0) {
-            b.image = extractImage(b.image, 'images/beasts', 'beast_' + (b.id || idx));
+        output.beasts.forEach(function(b) {
+          stripLegacyBase64(b, 'portrait');
+          stripLegacyBase64(b, 'image');
+        });
+      }
+      if (output.atlas && Array.isArray(output.atlas.factions)) {
+        output.atlas.factions.forEach(function(f) { stripLegacyBase64(f, 'image'); });
+      }
+      if (output.htree) {
+        Object.keys(output.htree).forEach(function(entryId) {
+          var entry = output.htree[entryId];
+          if (entry && Array.isArray(entry.nodes)) {
+            entry.nodes.forEach(function(node) { stripLegacyBase64(node, 'portrait'); });
           }
         });
       }
 
-      // ── User portraits from chars ──
-      // Персонажи экспортируются вместе с миром, но это user-data, а НЕ world-data
-      // Они не должны попадать в data.json в твоей архитектуре
-      // Но картинки персонажей можно экспортировать в ZIP отдельно под images/portraits
-      try {
-        var charsRaw = localStorage.getItem('grimoire_chars');
-        if (charsRaw) {
-          var chars = JSON.parse(charsRaw);
-          if (Array.isArray(chars)) {
-            chars.forEach(function(c, cIdx) {
-              if (c.portrait && typeof c.portrait === 'string' && c.portrait.indexOf('data:') === 0) {
-                // Извлекаем ТОЛЬКО для ZIP, но в LS оставляем как есть
-                extractImage(c.portrait, 'images/portraits', 'char_' + (c.id || cIdx));
-              }
-            });
-          }
-        }
-      } catch(e) {}
+      report(35, 'Собираю новые картинки из локального кеша...');
 
-      // manifest
+      // ── Собираем unpublished картинки из zgImageStore ──
+      if (!window.zgImageStore) {
+        finishZipping([]);
+        return;
+      }
+
+      window.zgImageStore.listAll(function(items) {
+        var pending = items.filter(function(it) { return !it.published; });
+
+        if (!pending.length) {
+          finishZipping([]);
+          return;
+        }
+
+        // Конвертируем каждый blob в base64 для JSZip
+        var prepared = [];
+        var done = 0;
+        pending.forEach(function(item) {
+          window.zgImageStore.blobToBase64(item.blob, function(b64) {
+            if (b64) {
+              prepared.push({ path: item.path, base64: b64 });
+            }
+            done++;
+            report(35 + Math.round(done / pending.length * 20), 'Подготовка: ' + done + ' / ' + pending.length);
+            if (done === pending.length) {
+              finishZipping(prepared);
+            }
+          });
+        });
+      });
+    }
+
+    function finishZipping(preparedImages) {
       var manifest = {
         version: output.version,
         generatedAt: output.exportedAt,
@@ -7804,58 +7795,81 @@ window.zgExportDataJson = function(onProgress, onDone) {
           catalog: output.catalog && output.catalog.entries ? output.catalog.entries.length : 0,
           beasts: output.beasts ? output.beasts.length : 0,
           atlasObjects: output.atlas && output.atlas.objects ? output.atlas.objects.length : 0,
-          images: Object.keys(imagePool).length
+          newImages: preparedImages.length
         }
       };
 
-      report(60, 'Собираю ZIP (' + Object.keys(imagePool).length + ' картинок)...');
+      report(60, 'Упаковываю ZIP...');
 
-      // ── ZIP ──
-      if (window.JSZip) {
-        var zip = new JSZip();
-        zip.file('data.json', JSON.stringify(output));
-        zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-
-        // Add images
-        Object.keys(imagePool).forEach(function(path) {
-          zip.file(path, imagePool[path].base64, { base64: true });
-        });
-
-        zip.generateAsync(
-          { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } },
-          function(meta) {
-            report(60 + meta.percent * 0.4, 'Сжимаю: ' + Math.round(meta.percent) + '%');
-          }
-        ).then(function(blob) {
-          report(100, 'Готово');
-          triggerDownload(blob, 'zargota_export_' + output.version + '.zip');
-          if (typeof showToast === 'function') {
-            var mb = blob.size > 1048576 ? (blob.size/1048576).toFixed(1) + ' МБ' : Math.round(blob.size/1024) + ' КБ';
-            showToast('⬇ Экспорт готов: ' + mb);
-          }
-          if (typeof onDone === 'function') onDone(Math.round(blob.size/1024));
-        }).catch(function(err) {
-          if (typeof showToast === 'function') showToast('⚠ Ошибка ZIP: ' + err.message);
-          if (typeof onDone === 'function') onDone(-1);
-        });
-      } else {
-        // Фолбэк без JSZip — картинки НЕ экспортируем, только JSON
-        triggerDownload(
-          new Blob([JSON.stringify(output)], { type: 'application/json' }),
-          'data.json'
-        );
+      if (!window.JSZip) {
+        triggerDownload(new Blob([JSON.stringify(output)], { type: 'application/json' }), 'data.json');
         setTimeout(function() {
-          triggerDownload(
-            new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }),
-            'manifest.json'
-          );
-          if (typeof showToast === 'function') showToast('⬇ Скачаны 2 JSON (без картинок — JSZip не подгружен)');
+          triggerDownload(new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' }), 'manifest.json');
+          if (typeof showToast === 'function') showToast('⬇ Скачаны 2 JSON (без картинок — JSZip не загружен)');
           if (typeof onDone === 'function') onDone(-1);
         }, 300);
+        return;
       }
+
+      var zip = new JSZip();
+      zip.file('data.json', JSON.stringify(output));
+      zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+      // Картинки
+      preparedImages.forEach(function(img) {
+        zip.file(img.path, img.base64, { base64: true });
+      });
+
+      // README
+      zip.file('README.txt',
+        'Заргота · экспорт для GitHub · ' + output.exportedAt + '\n\n' +
+        'Что делать:\n' +
+        '1. Распакуй этот архив\n' +
+        '2. Перетащи data.json и manifest.json в папку Git-репо (замени старые)\n' +
+        (preparedImages.length
+          ? '3. Перетащи содержимое папки images/ в images/ репо (добавит новые файлы)\n'
+          : '3. Новых картинок в этом экспорте нет\n') +
+        '4. В GitHub Desktop → Commit + Push\n\n' +
+        'Содержимое:\n' +
+        '  data.json           — мир (каталог, бестиарий, атлас)\n' +
+        '  manifest.json       — версия + счётчики\n' +
+        (preparedImages.length
+          ? '  images/             — ' + preparedImages.length + ' новых картинок\n'
+          : '')
+      );
+
+      zip.generateAsync(
+        { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } },
+        function(meta) {
+          report(60 + meta.percent * 0.4, 'Сжатие: ' + Math.round(meta.percent) + '%');
+        }
+      ).then(function(blob) {
+        report(98, 'Помечаю картинки как опубликованные...');
+
+        // Помечаем экспортированные картинки как published
+        var paths = preparedImages.map(function(img) { return img.path; });
+        function downloadAndFinish() {
+          triggerDownload(blob, 'zargota_export_' + output.version + '.zip');
+          var mb = blob.size > 1048576 ? (blob.size/1048576).toFixed(1) + ' МБ' : Math.round(blob.size/1024) + ' КБ';
+          if (typeof showToast === 'function') {
+            showToast('⬇ Экспорт готов: ' + mb + (preparedImages.length ? ' (+ ' + preparedImages.length + ' новых картинок)' : ''));
+          }
+          report(100, 'Готово');
+          if (typeof onDone === 'function') onDone(Math.round(blob.size/1024));
+        }
+
+        if (paths.length && window.zgImageStore) {
+          window.zgImageStore.markPublished(paths, downloadAndFinish);
+        } else {
+          downloadAndFinish();
+        }
+      }).catch(function(err) {
+        if (typeof showToast === 'function') showToast('⚠ Ошибка ZIP: ' + (err.message || err));
+        if (typeof onDone === 'function') onDone(-1);
+      });
     }
   } catch(err) {
-    if (typeof showToast === 'function') showToast('⚠ Ошибка экспорта: ' + err.message);
+    if (typeof showToast === 'function') showToast('⚠ Ошибка экспорта: ' + (err.message || err));
     if (typeof onDone === 'function') onDone(-1);
   }
 };
@@ -7937,8 +7951,24 @@ window.showPublishModal = function() {
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Версия</span><span style="color:#6fcb83">' + (currentVersion.length > 15 ? currentVersion.slice(0,15) + '…' : currentVersion) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Каталог</span><span style="color:#6fcb83">' + stats.catalog + ' записей</span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Бестиарий</span><span style="color:#6fcb83">' + stats.beasts + ' существ</span></div>' +
-      '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Атлас</span><span style="color:#6fcb83">' + stats.atlas + ' объектов</span></div>';
+      '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Атлас</span><span style="color:#6fcb83">' + stats.atlas + ' объектов</span></div>' +
+      '<div id="zg-publish-imgcount" style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0;border-top:1px solid #2a1e10;margin-top:6px;padding-top:6px"><span>Новых картинок для публикации</span><span style="color:#888">считаю...</span></div>';
     box.appendChild(info);
+
+    // Load image count asynchronously
+    if (window.zgImageStore) {
+      window.zgImageStore.listAll(function(items) {
+        var unpublished = items.filter(function(it) { return !it.published; }).length;
+        var row = document.getElementById('zg-publish-imgcount');
+        if (row) {
+          var valEl = row.querySelector('span:last-child');
+          if (valEl) {
+            valEl.textContent = unpublished + ' шт.';
+            valEl.style.color = unpublished > 0 ? '#e8c060' : '#6fcb83';
+          }
+        }
+      });
+    }
 
     // Step list helper
     function makeStep(num, title, body) {
@@ -8622,6 +8652,246 @@ window.zgImportFile = function(file) {
     }
   }
 };
+
+
+
+// ═══════════════════════════════════════════════════════════════════
+//  ZG IMAGE STORE — локальный кеш картинок, которых ещё нет в Git
+// ═══════════════════════════════════════════════════════════════════
+//
+//  Задача: когда пользователь загружает новую картинку для существа /
+//  персонажа / фракции, мы должны:
+//  1. Сохранить её в IDB (НЕ в localStorage — места мало)
+//  2. В данные (beast.portrait и т.п.) записать путь, напр:
+//     "images/beasts/new_beast_1776420000.png"
+//  3. При рендере <img>, если браузер не может загрузить по пути
+//     (файла ещё нет в репо) — подставить blob-URL из IDB
+//  4. При публикации ZIP — упаковать все "unpublished" картинки
+//     в /images/ с правильными путями
+//
+//  IDB структура:
+//    DB:    zargota_imagestore
+//    store: images
+//    key:   "images/beasts/new_beast_1776420000.png" (путь = ключ)
+//    value: { blob: Blob, mime: string, createdAt: number, published: boolean }
+//
+// ═══════════════════════════════════════════════════════════════════
+
+window.zgImageStore = (function() {
+  'use strict';
+
+  var DB_NAME = 'zargota_imagestore';
+  var STORE = 'images';
+  var DB_VERSION = 1;
+
+  // Blob URL cache (чтобы не создавать каждый раз)
+  var blobUrlCache = {};
+
+  function _open(cb) {
+    try {
+      var req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          db.createObjectStore(STORE);
+        }
+      };
+      req.onsuccess = function(e) { cb(e.target.result); };
+      req.onerror = function() { cb(null); };
+    } catch(e) { cb(null); }
+  }
+
+  // Сохранить картинку
+  // file: File object, folder: "beasts"|"portraits"|"factions", idHint: unique id
+  // Returns path (через cb)
+  function put(file, folder, idHint, cb) {
+    if (!file) { cb(null); return; }
+    var ext = (file.type || '').split('/')[1] || 'png';
+    if (ext === 'jpeg') ext = 'jpg';
+    if (ext.length > 5) ext = 'png';
+    var path = 'images/' + folder + '/' + idHint + '.' + ext;
+
+    _open(function(db) {
+      if (!db) { cb(null); return; }
+      try {
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).put({
+          blob: file,
+          mime: file.type || ('image/' + ext),
+          createdAt: Date.now(),
+          published: false
+        }, path);
+        tx.oncomplete = function() { db.close(); cb(path); };
+        tx.onerror = function() { db.close(); cb(null); };
+      } catch(e) { db.close(); cb(null); }
+    });
+  }
+
+  // Получить blob URL для картинки по её пути
+  function getBlobUrl(path, cb) {
+    if (!path) { cb(null); return; }
+    if (blobUrlCache[path]) { cb(blobUrlCache[path]); return; }
+    _open(function(db) {
+      if (!db) { cb(null); return; }
+      try {
+        var tx = db.transaction(STORE, 'readonly');
+        tx.objectStore(STORE).get(path).onsuccess = function(ev) {
+          var rec = ev.target.result;
+          db.close();
+          if (!rec || !rec.blob) { cb(null); return; }
+          var url = URL.createObjectURL(rec.blob);
+          blobUrlCache[path] = url;
+          cb(url);
+        };
+      } catch(e) { db.close(); cb(null); }
+    });
+  }
+
+  // Список всех картинок в сторе (unpublished и published)
+  function listAll(cb) {
+    _open(function(db) {
+      if (!db) { cb([]); return; }
+      try {
+        var tx = db.transaction(STORE, 'readonly');
+        var store = tx.objectStore(STORE);
+        var out = [];
+        var cursor = store.openCursor();
+        cursor.onsuccess = function(ev) {
+          var cur = ev.target.result;
+          if (cur) {
+            out.push({
+              path: cur.key,
+              blob: cur.value && cur.value.blob,
+              mime: cur.value && cur.value.mime,
+              createdAt: cur.value && cur.value.createdAt,
+              published: cur.value && cur.value.published
+            });
+            cur.continue();
+          } else {
+            db.close();
+            cb(out);
+          }
+        };
+      } catch(e) { db.close(); cb([]); }
+    });
+  }
+
+  // Пометить как опубликованное
+  function markPublished(paths, cb) {
+    if (!Array.isArray(paths) || !paths.length) { cb && cb(); return; }
+    _open(function(db) {
+      if (!db) { cb && cb(); return; }
+      try {
+        var tx = db.transaction(STORE, 'readwrite');
+        var store = tx.objectStore(STORE);
+        var done = 0;
+        paths.forEach(function(path) {
+          store.get(path).onsuccess = function(ev) {
+            var rec = ev.target.result;
+            if (rec) {
+              rec.published = true;
+              rec.publishedAt = Date.now();
+              store.put(rec, path);
+            }
+            done++;
+            if (done === paths.length) {
+              tx.oncomplete = function() { db.close(); cb && cb(); };
+            }
+          };
+        });
+      } catch(e) { db.close(); cb && cb(); }
+    });
+  }
+
+  // Удалить запись
+  function remove(path, cb) {
+    if (blobUrlCache[path]) {
+      try { URL.revokeObjectURL(blobUrlCache[path]); } catch(e) {}
+      delete blobUrlCache[path];
+    }
+    _open(function(db) {
+      if (!db) { cb && cb(); return; }
+      try {
+        var tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).delete(path);
+        tx.oncomplete = function() { db.close(); cb && cb(); };
+      } catch(e) { db.close(); cb && cb(); }
+    });
+  }
+
+  // Конвертировать File/Blob в base64 string (для JSZip)
+  function blobToBase64(blob, cb) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var result = e.target.result || '';
+      var idx = result.indexOf('base64,');
+      cb(idx >= 0 ? result.substring(idx + 7) : '');
+    };
+    reader.onerror = function() { cb(''); };
+    reader.readAsDataURL(blob);
+  }
+
+  return {
+    put: put,
+    getBlobUrl: getBlobUrl,
+    listAll: listAll,
+    markPublished: markPublished,
+    remove: remove,
+    blobToBase64: blobToBase64
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  ZG IMG RESOLVER — глобальный перехватчик ошибок загрузки <img>
+// ═══════════════════════════════════════════════════════════════════
+//
+//  Смысл: если <img src="images/..."> не загружается (файла нет в репо),
+//  проверяем zgImageStore — и подставляем blob-URL оттуда.
+//
+//  Работает через capture-слушатель на window, который ловит
+//  events типа 'error' от всех <img>.
+
+(function() {
+  'use strict';
+
+  function tryResolveFromStore(img) {
+    if (!img || !img.src) return;
+    var src = img.getAttribute('src') || '';
+    // Только для относительных путей "images/..."
+    if (src.indexOf('data:') === 0) return;
+    if (src.indexOf('blob:') === 0) return;
+    // Превращаем абсолютный URL обратно в относительный путь
+    var path = src;
+    try {
+      var u = new URL(src, location.href);
+      path = u.pathname.replace(/^\//, '');
+      // Если это текущий домен — берём pathname после base
+      var base = location.pathname.replace(/[^/]*$/, '');
+      if (u.origin === location.origin && path.indexOf(base.replace(/^\//, '')) === 0) {
+        path = path.substring(base.replace(/^\//, '').length);
+      }
+    } catch(e) {}
+
+    if (path.indexOf('images/') !== 0) return;
+    if (img.dataset.zgResolved === '1') return;
+    img.dataset.zgResolved = '1';
+
+    window.zgImageStore.getBlobUrl(path, function(url) {
+      if (url) {
+        img.src = url;
+      } else {
+        // Нет ни в репо, ни в IDB — скрываем
+        img.style.opacity = '0.15';
+      }
+    });
+  }
+
+  window.addEventListener('error', function(e) {
+    if (e.target && e.target.tagName === 'IMG') {
+      tryResolveFromStore(e.target);
+    }
+  }, true);
+})();
 
 </script>
 
@@ -9329,10 +9599,6 @@ window.zgImportFile = function(file) {
               <div class="world-intro-copy">Наводите на крупные области, открывайте ключевые узлы и постепенно собирайте карту в полноценный живой навигационный раздел с лором, фракциями и скрытыми заметками мастера.</div>
               <div class="world-intro-actions">
                 <button class="btn btn-gold btn-sm" id="world-intro-open-btn" onclick="dismissWorldIntro()" style="opacity:0.4;cursor:not-allowed" disabled>Открыть карту</button>
-                <label class="btn btn-dim btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;position:relative;touch-action:manipulation">
-                  🗺 Загрузить изображение
-                  <input type="file" accept="image/*" style="position:absolute;width:100%;height:100%;top:0;left:0;opacity:0;cursor:pointer" onchange="handleWorldMapUpload(event)">
-                </label>
               </div>
               <div id="world-intro-status" style="margin-top:10px;font-size:11px;color:var(--muted);font-family:'Cinzel',serif;letter-spacing:.5px;text-align:center"></div>
             </div>
@@ -9598,9 +9864,8 @@ window.zgImportFile = function(file) {
       <button class="wnb-tool" onclick="toggleWorldRenderMode()" id="world-quality-btn" title="Качество">🎨</button>
     </div>
     <div class="wnb-sep" id="world-markup-sep"></div>
-    <div id="world-upload-btn-wrap">
-      <button class="wnb-tool" onclick="triggerWorldMapUpload()" title="Загрузить карту">🗺</button>
-      <div class="wnb-sep"></div>
+    <div id="world-upload-btn-wrap" style="display:none">
+      <!-- Кнопка загрузки карты убрана — карта подтягивается автоматически из /images/map.jpg -->
     </div>
     <div id="world-enc-edit-btn-wrap" style="display:none">
       <button class="btn btn-dim btn-sm" id="world-enc-edit-nav-btn" onclick="toggleEncEditMode()">✏ Редактировать</button>
@@ -10332,12 +10597,10 @@ function renderWorldMapEmptyState() {
   el.innerHTML =
     '<div class="world-map-empty-card">' +
       '<div class="world-map-empty-title">Карта не найдена</div>' +
-      '<div class="world-map-empty-copy">На этом устройстве нет локального изображения карты. Можно выбрать файл вручную или положить изображение рядом с HTML, чтобы страница подхватила его автоматически.</div>' +
+      '<div class="world-map-empty-copy">Карта мира не обнаружена в репозитории. Положи файл <code style="background:#1a1208;padding:2px 6px;border-radius:3px;color:#e8c060;font-family:monospace">images/map.jpg</code> (или <code style="background:#1a1208;padding:2px 6px;border-radius:3px;color:#e8c060;font-family:monospace">.png</code>, <code style="background:#1a1208;padding:2px 6px;border-radius:3px;color:#e8c060;font-family:monospace">.webp</code>) в Git-репо и запушь через GitHub Desktop.</div>' +
       '<div class="world-chip-list" style="justify-content:center;position:relative;z-index:10">' +
-        '<label class="btn btn-gold btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;position:relative;z-index:10">'+'&#x1F5FA; Выбрать изображение<input type="file" accept="image/*" style="position:absolute;width:100%;height:100%;top:0;left:0;opacity:0;cursor:pointer" onchange="handleWorldMapUpload(event)">'+'</label>' +
         '<button class="btn btn-dim btn-sm" onclick="retryWorldMapAssetLoad()" style="touch-action:manipulation">Повторить</button>' +
       '</div>' +
-      '<div class="world-help-copy">Текущий источник: ' + escHTML(worldMapSourceLabel || 'не задан') + '</div>' +
     '</div>';
 }
 
@@ -11969,15 +12232,39 @@ function handleWorldFactionImageUpload(event) {
   var input = event && event.target;
   var file = input && input.files && input.files[0];
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(loadEvent) {
-    var result = loadEvent && loadEvent.target ? String(loadEvent.target.result || '') : '';
+
+  function applyResult(pathOrDataUrl, previewSrc) {
     var hidden = document.getElementById('world-faction-image');
     var preview = document.getElementById('world-faction-image-preview');
-    if (hidden) hidden.value = result;
-    if (preview) preview.innerHTML = result ? '<img src="' + escHTML(result) + '" alt="Faction">' : '<div style="font-size:30px;color:var(--gold2)">✦</div>';
-  };
-  reader.readAsDataURL(file);
+    if (hidden) hidden.value = pathOrDataUrl;
+    if (preview) preview.innerHTML = pathOrDataUrl ? '<img src="' + escHTML(previewSrc || pathOrDataUrl) + '" alt="Faction">' : '<div style="font-size:30px;color:var(--gold2)">✦</div>';
+  }
+
+  if (window.zgImageStore) {
+    var fidEl = document.getElementById('world-faction-id');
+    var fid = (fidEl && fidEl.value) ? fidEl.value : ('new_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
+    window.zgImageStore.put(file, 'factions', 'faction_' + fid, function(path) {
+      if (path) {
+        window.zgImageStore.getBlobUrl(path, function(blobUrl) {
+          applyResult(path, blobUrl || path);
+        });
+      } else {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          var r = String(ev.target.result || '');
+          applyResult(r, r);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(loadEvent) {
+      var result = loadEvent && loadEvent.target ? String(loadEvent.target.result || '') : '';
+      applyResult(result, result);
+    };
+    reader.readAsDataURL(file);
+  }
   if (input) input.value = '';
 }
 
@@ -23051,12 +23338,29 @@ function triggerPortraitUpload(id) {
 function handleSheetPortrait(id, event) {
   var file = event.target.files[0];
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var c = characters.find(function(x){ return x.id === id; });
-    if (c) { c.portrait = e.target.result; saveChars(); renderCharSheet(); }
-  };
-  reader.readAsDataURL(file);
+
+  if (window.zgImageStore) {
+    window.zgImageStore.put(file, 'portraits', 'char_' + id, function(path) {
+      if (path) {
+        var c = characters.find(function(x){ return x.id === id; });
+        if (c) { c.portrait = path; saveChars(); renderCharSheet(); }
+      } else {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var c = characters.find(function(x){ return x.id === id; });
+          if (c) { c.portrait = e.target.result; saveChars(); renderCharSheet(); }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var c = characters.find(function(x){ return x.id === id; });
+      if (c) { c.portrait = e.target.result; saveChars(); renderCharSheet(); }
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 // ── Editor ──
@@ -23112,15 +23416,39 @@ function setCharType(type) {
 function handlePortraitUpload(event, prefix) {
   var file = event.target.files[0];
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    efPortraitData = e.target.result;
+
+  function applyToForm(valueForPreview, valueToStore) {
+    efPortraitData = valueToStore;
     var prev = document.getElementById(prefix + '-portrait-preview');
-    prev.src = efPortraitData; prev.style.display = 'block';
-    document.getElementById(prefix + '-portrait-name').textContent = file.name;
-    document.getElementById(prefix + '-portrait-clear').style.display = 'inline-block';
-  };
-  reader.readAsDataURL(file);
+    if (prev) { prev.src = valueForPreview; prev.style.display = 'block'; }
+    var nameEl = document.getElementById(prefix + '-portrait-name');
+    if (nameEl) nameEl.textContent = file.name;
+    var clearBtn = document.getElementById(prefix + '-portrait-clear');
+    if (clearBtn) clearBtn.style.display = 'inline-block';
+  }
+
+  if (window.zgImageStore) {
+    var charId = (typeof currentEditingCharId !== 'undefined' && currentEditingCharId)
+      ? currentEditingCharId
+      : ('new_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
+
+    window.zgImageStore.put(file, 'portraits', 'char_' + charId, function(path) {
+      if (path) {
+        // Получаем blob URL для превью
+        window.zgImageStore.getBlobUrl(path, function(blobUrl) {
+          applyToForm(blobUrl || path, path);
+        });
+      } else {
+        var reader = new FileReader();
+        reader.onload = function(e) { applyToForm(e.target.result, e.target.result); };
+        reader.readAsDataURL(file);
+      }
+    });
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(e) { applyToForm(e.target.result, e.target.result); };
+    reader.readAsDataURL(file);
+  }
 }
 
 function clearPortrait(prefix) {
@@ -25897,12 +26225,34 @@ function beastAddLootItem(itemId) {
 function handleBeastPortrait(e) {
   var file = e.target.files[0];
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    beastEditorState.portrait = ev.target.result;
-    renderBeastEditor();
-  };
-  reader.readAsDataURL(file);
+  // Сохраняем картинку в локальный IDB кеш и пишем путь в beastEditorState
+  // ID формируется из текущего ID существа, или таймстампа если это новое
+  var beastId = beastEditorState.id || ('new_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
+  beastEditorState.id = beastId; // закрепляем ID если не был
+
+  if (window.zgImageStore) {
+    window.zgImageStore.put(file, 'beasts', 'beast_' + beastId, function(path) {
+      if (path) {
+        beastEditorState.portrait = path;
+        renderBeastEditor();
+      } else {
+        // Фоллбэк если IDB недоступен — старое поведение (base64)
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          beastEditorState.portrait = ev.target.result;
+          renderBeastEditor();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  } else {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      beastEditorState.portrait = ev.target.result;
+      renderBeastEditor();
+    };
+    reader.readAsDataURL(file);
+  }
 }
 
 // ── BEAST EQUIP MODAL ──
