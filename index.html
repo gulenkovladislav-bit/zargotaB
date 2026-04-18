@@ -9711,8 +9711,8 @@ window.zgImageStore = (function() {
           <!-- Mobile zoom & pan controls overlay -->
           <div class="world-mobile-controls" id="world-mobile-controls">
             <div class="wmc-zoom">
-              <button class="wmc-btn" onclick="worldZoomBy(0.2)" title="Увеличить">＋</button>
-              <button class="wmc-btn" onclick="worldZoomBy(-0.2)" title="Уменьшить">−</button>
+              <button class="wmc-btn" onclick="worldZoomBy(0.5)" title="Увеличить">＋</button>
+              <button class="wmc-btn" onclick="worldZoomBy(-0.5)" title="Уменьшить">−</button>
               <button class="wmc-btn wmc-reset" onclick="worldResetZoomAndPan()" title="Сброс">⟲</button>
               <button class="wmc-btn" onclick="openWorldMobileFullscreen()" title="Во весь экран" style="font-size:14px">⛶</button>
             </div>
@@ -13595,7 +13595,9 @@ function worldResetView() {
   var padY = 28;
   var fitScale = Math.min((wrap.clientWidth - padX * 2) / size.width, (wrap.clientHeight - padY * 2) / size.height);
   worldMinScale = Math.max(0.08, fitScale);
-  worldMaxScale = Math.max(worldMinScale, 0.8);
+  // Макс масштаб подняли до 4.0, иначе на мобилке fitScale~0.15 и старый maxScale=0.8
+  // визуально почти не отличаются — кнопки + / − не производили видимого эффекта.
+  worldMaxScale = Math.max(worldMinScale * 6, 4.0);
   worldScale = worldMinScale;
   worldOffsetX = (wrap.clientWidth - size.width * worldScale) / 2;
   worldOffsetY = (wrap.clientHeight - size.height * worldScale) / 2;
@@ -13608,7 +13610,7 @@ function worldRefreshBounds(keepView) {
   if (!wrap) return;
   var fitScale = Math.min((wrap.clientWidth - 56) / size.width, (wrap.clientHeight - 56) / size.height);
   worldMinScale = Math.max(0.08, fitScale);
-  worldMaxScale = Math.max(worldMinScale, 0.8);
+  worldMaxScale = Math.max(worldMinScale * 6, 4.0);
   if (!keepView) {
     worldScale = worldMinScale;
     worldOffsetX = (wrap.clientWidth - size.width * worldScale) / 2;
@@ -13652,161 +13654,89 @@ function worldResetZoomAndPan() {
   applyWorldTransform();
 }
 
-// ───── Мобильный fullscreen-режим карты с pinch-zoom ─────
-// Обходит глобальный user-scalable=no: временно включает pinch-zoom в meta viewport,
-// показывает snapshot текущей карты как img (fit=contain), позволяет pinch-zoom и тапы.
-// По тапу — ищем ближайший объект атласа в мировых координатах и показываем карточку с описанием.
-var _worldFsSavedViewport = null;
+// ───── Мобильный fullscreen-режим карты ─────
+// Вместо snapshot.toDataURL (падает на tainted canvas из-за картинки карты с другого origin)
+// — просто разворачиваем сам .world-map-wrap во весь экран через position:fixed. Все обычные
+// обработчики зум/панов продолжают работать. Pinch-zoom работает т.к. добавили его отдельно.
+var _worldFsSavedStyles = null;
 
 function openWorldMobileFullscreen() {
-  var canvas = document.getElementById('world-map-canvas');
-  if (!canvas) { showToast('Карта ещё не готова'); return; }
+  // DIAG: если этот toast не появляется при нажатии на ⛶ — значит onclick вообще не вызывается
+  // (возможно не то z-index, перекрыто hover-card, или js ещё не загрузился)
+  if (typeof showToast === 'function') showToast('⛶ Открываю во весь экран...');
+  var wrap = document.getElementById('world-map-wrap');
+  if (!wrap) { if (typeof showToast === 'function') showToast('⚠ wrap не найден'); return; }
+  if (_worldFsSavedStyles) { closeWorldMobileFullscreen(); return; } // toggle
 
-  var dataUrl = '';
-  try { dataUrl = canvas.toDataURL('image/png'); } catch(e) {
-    // canvas может быть "tainted" если на нём рендерилась внешняя картинка без CORS.
-    // В таком случае fullscreen не сможет сделать snapshot — покажем тост.
-    showToast('⚠ Не удалось сделать снимок карты');
-    return;
-  }
+  // Запоминаем исходные стили чтобы вернуть как было
+  _worldFsSavedStyles = {
+    position: wrap.style.position,
+    top: wrap.style.top,
+    left: wrap.style.left,
+    right: wrap.style.right,
+    bottom: wrap.style.bottom,
+    width: wrap.style.width,
+    height: wrap.style.height,
+    zIndex: wrap.style.zIndex,
+    margin: wrap.style.margin,
+    borderRadius: wrap.style.borderRadius,
+    background: wrap.style.background
+  };
 
-  // Временно включаем pinch-zoom браузера
-  var vp = document.querySelector('meta[name="viewport"]');
-  if (vp) {
-    _worldFsSavedViewport = vp.getAttribute('content');
-    vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
-  }
+  // Разворачиваем на весь экран
+  wrap.style.position = 'fixed';
+  wrap.style.top = '0';
+  wrap.style.left = '0';
+  wrap.style.right = '0';
+  wrap.style.bottom = '0';
+  wrap.style.width = '100vw';
+  wrap.style.height = '100vh';
+  wrap.style.zIndex = '99999';
+  wrap.style.margin = '0';
+  wrap.style.borderRadius = '0';
+  wrap.style.background = '#0a0604';
+  wrap.classList.add('world-map-fullscreen');
 
-  // Собираем список объектов атласа с их позициями в координатах канвы (px)
-  // Canvas snapshot имеет размеры canvas.width × canvas.height (реальные пиксели).
-  // Для hit-test нужны те же координаты, что рисует рендер. Здесь упрощение:
-  // используем worldAtlasState.objects с их мировыми координатами + запоминаем
-  // текущую трансформацию (worldScale/worldOffsetX/Y) на момент snapshot'а.
-  var snapshotScale = (typeof worldScale === 'number') ? worldScale : 1;
-  var snapshotOffsetX = (typeof worldOffsetX === 'number') ? worldOffsetX : 0;
-  var snapshotOffsetY = (typeof worldOffsetY === 'number') ? worldOffsetY : 0;
+  // Пересчитываем границы под новый размер и центрируем
+  setTimeout(function(){
+    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(false); } catch(e) {}
+    try { if (typeof queueWorldRender === 'function') queueWorldRender(); } catch(e) {}
+  }, 50);
 
-  function worldPointToCanvasPx(wp) {
-    if (!wp) return null;
-    return {
-      x: wp.x * snapshotScale + snapshotOffsetX,
-      y: wp.y * snapshotScale + snapshotOffsetY
-    };
-  }
-
-  // Центр объекта в мировых координатах
-  function getObjectCenter(obj) {
-    if (!obj || !obj.geometry) return null;
-    var g = obj.geometry;
-    if (g.kind === 'point' && typeof g.x === 'number') return { x: g.x, y: g.y };
-    if (g.kind === 'circle' && typeof g.x === 'number') return { x: g.x, y: g.y };
-    if (g.kind === 'rect') return { x: g.x + (g.w || 0)/2, y: g.y + (g.h || 0)/2 };
-    if (g.kind === 'polygon' && Array.isArray(g.points) && g.points.length) {
-      var sx = 0, sy = 0;
-      g.points.forEach(function(p){ sx += p.x; sy += p.y; });
-      return { x: sx / g.points.length, y: sy / g.points.length };
-    }
-    if (Array.isArray(g.points) && g.points.length) {
-      return { x: g.points[0].x, y: g.points[0].y };
-    }
-    return null;
-  }
-
-  var overlay = document.createElement('div');
-  overlay.id = 'world-mobile-fullscreen';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a0604;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pinch-zoom';
-
-  // Контейнер по размеру экрана, img внутри — fit=contain
-  var content = document.createElement('div');
-  content.style.cssText = 'position:relative;min-width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:60px 12px 80px;box-sizing:border-box';
-
-  var imgHolder = document.createElement('div');
-  imgHolder.style.cssText = 'position:relative;display:inline-block;max-width:100%';
-
-  var img = document.createElement('img');
-  img.src = dataUrl;
-  img.style.cssText = 'max-width:100%;width:auto;height:auto;display:block;user-select:none;-webkit-user-drag:none';
-  img.setAttribute('draggable', 'false');
-  imgHolder.appendChild(img);
-
-  // Клик по карте → hit-test ближайшего объекта + показ карточки
-  img.addEventListener('click', function(ev) {
-    var rect = img.getBoundingClientRect();
-    var imgX = ev.clientX - rect.left;
-    var imgY = ev.clientY - rect.top;
-    // Переводим в координаты canvas snapshot'а
-    if (!rect.width || !rect.height) return;
-    var cx = imgX * canvas.width / rect.width;
-    var cy = imgY * canvas.height / rect.height;
-
-    // Ищем объект с центром ближе всего к (cx, cy) в canvas px
-    var objs = (typeof worldAtlasState !== 'undefined' && worldAtlasState && worldAtlasState.objects) ? worldAtlasState.objects : [];
-    var best = null, bestDist = 60 * 60; // порог: 60px в canvas
-    objs.forEach(function(obj){
-      if (!obj || obj.visible === false) return;
-      var center = getObjectCenter(obj);
-      if (!center) return;
-      var px = worldPointToCanvasPx(center);
-      var dx = px.x - cx, dy = px.y - cy;
-      var d2 = dx*dx + dy*dy;
-      if (d2 < bestDist) { bestDist = d2; best = obj; }
-    });
-
-    var card = document.getElementById('world-fs-tap-card');
-    if (card) card.remove();
-    if (!best) return;
-
-    var typeLabel = best.type === 'marker' ? 'Маркер' : best.type === 'route' ? 'Маршрут' : 'Зона';
-    var loc = (best.meta && best.meta.locationType) ? best.meta.locationType : '';
-    var desc = (best.meta && best.meta.description) || (best.behavior && best.behavior.tooltipBody) || '';
-
-    card = document.createElement('div');
-    card.id = 'world-fs-tap-card';
-    // Карточка появляется рядом с точкой нажатия, но привязана к viewport (fixed)
-    var cardX = Math.min(window.innerWidth - 280, Math.max(10, ev.clientX + 12));
-    var cardY = Math.min(window.innerHeight - 180, Math.max(10, ev.clientY + 12));
-    card.style.cssText = 'position:fixed;left:' + cardX + 'px;top:' + cardY + 'px;z-index:100001;width:260px;max-width:calc(100vw - 20px);background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c4a84b;border-radius:10px;padding:12px 14px;box-shadow:0 16px 48px #000c;font-family:\'Lora\',serif';
-    card.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">' +
-        '<div style="flex:1;min-width:0">' +
-          '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#c4a84b;letter-spacing:1.5px">' + escHTML(typeLabel + (loc ? ' · ' + loc : '')) + '</div>' +
-          '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:#f4e5be;margin-top:2px;word-break:break-word">' + escHTML(best.name || 'Без имени') + '</div>' +
-        '</div>' +
-        '<button onclick="document.getElementById(\'world-fs-tap-card\').remove()" style="background:transparent;border:none;color:#888;font-size:18px;cursor:pointer;padding:0 4px;line-height:1">×</button>' +
-      '</div>' +
-      (desc ? '<div style="font-size:11px;color:var(--muted);line-height:1.55;margin-top:6px;max-height:100px;overflow-y:auto">' + escHTML(desc) + '</div>' : '<div style="font-size:10px;color:var(--dim);font-style:italic;margin-top:6px">Нет описания</div>');
-    document.body.appendChild(card);
-  });
-
-  // Кнопка закрытия
+  // Кнопка закрытия в левом верхнем углу fullscreen
   var closeBtn = document.createElement('button');
+  closeBtn.id = 'world-fs-close';
   closeBtn.textContent = '✕';
-  closeBtn.style.cssText = 'position:fixed;top:14px;right:14px;width:44px;height:44px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604ee;color:#c4a84b;font-size:20px;cursor:pointer;z-index:100000;box-shadow:0 4px 16px #000a;display:flex;align-items:center;justify-content:center';
+  closeBtn.style.cssText = 'position:fixed;top:14px;left:14px;width:44px;height:44px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604ee;color:#c4a84b;font-size:20px;cursor:pointer;z-index:100000;box-shadow:0 4px 16px #000a;display:flex;align-items:center;justify-content:center';
   closeBtn.onclick = closeWorldMobileFullscreen;
+  document.body.appendChild(closeBtn);
 
   // Подсказка
   var hint = document.createElement('div');
-  hint.style.cssText = 'position:fixed;bottom:14px;left:50%;transform:translateX(-50%);padding:8px 14px;background:#0a0604dd;border:1px solid #3a2918;border-radius:6px;color:#c4a84b;font-size:11px;font-family:\'Cinzel\',serif;letter-spacing:.5px;z-index:100000;white-space:nowrap';
+  hint.id = 'world-fs-hint';
+  hint.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);padding:6px 12px;background:#0a0604cc;border:1px solid #3a2918;border-radius:6px;color:#c4a84b;font-size:10px;font-family:\'Cinzel\',serif;letter-spacing:.5px;z-index:100000;white-space:nowrap;pointer-events:none';
   hint.textContent = 'Двумя пальцами — зум · Тап — инфо места';
-
-  content.appendChild(imgHolder);
-  overlay.appendChild(content);
-  overlay.appendChild(closeBtn);
-  overlay.appendChild(hint);
-  document.body.appendChild(overlay);
+  document.body.appendChild(hint);
+  setTimeout(function(){ if (hint) hint.style.opacity = '0'; hint.style.transition = 'opacity 1s'; }, 3500);
+  setTimeout(function(){ var h = document.getElementById('world-fs-hint'); if (h) h.remove(); }, 5000);
 }
 
 function closeWorldMobileFullscreen() {
-  var overlay = document.getElementById('world-mobile-fullscreen');
-  if (overlay) overlay.remove();
-  var card = document.getElementById('world-fs-tap-card');
-  if (card) card.remove();
-  // Восстанавливаем meta viewport
-  var vp = document.querySelector('meta[name="viewport"]');
-  if (vp && _worldFsSavedViewport) {
-    vp.setAttribute('content', _worldFsSavedViewport);
-    _worldFsSavedViewport = null;
-  }
+  var wrap = document.getElementById('world-map-wrap');
+  if (!wrap || !_worldFsSavedStyles) return;
+  // Возвращаем все стили
+  Object.keys(_worldFsSavedStyles).forEach(function(k) {
+    wrap.style[k] = _worldFsSavedStyles[k] || '';
+  });
+  wrap.classList.remove('world-map-fullscreen');
+  _worldFsSavedStyles = null;
+  var btn = document.getElementById('world-fs-close'); if (btn) btn.remove();
+  var hint = document.getElementById('world-fs-hint'); if (hint) hint.remove();
+  // Пересчёт границ под исходный размер
+  setTimeout(function(){
+    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(false); } catch(e) {}
+    try { if (typeof queueWorldRender === 'function') queueWorldRender(); } catch(e) {}
+  }, 50);
 }
 
 // Биндим pan-кнопки (непрерывный сдвиг при удержании)
@@ -14021,6 +13951,66 @@ function initWorldInteractions() {
     worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, hitObj: hit || null };
     wrap.classList.add('dragging');
   });
+
+  // ───── TOUCH PINCH-ZOOM ─────
+  // Важно: НЕ ставим touchAction:'none' глобально на wrap — это ломает существующую
+  // pointer-логику drag'а (она уже работает корректно через pointerdown/move/up).
+  // Вместо этого preventDefault() только внутри самого touchmove при 2 пальцах.
+  // Так нативный pinch-browser не вмешивается, а drag одним пальцем остаётся целым.
+  var _pinch = null;
+  wrap.addEventListener('touchstart', function(e) {
+    if (worldTab === 'lore') return;
+    if (e.touches && e.touches.length === 2) {
+      var t1 = e.touches[0], t2 = e.touches[1];
+      var dx = t2.clientX - t1.clientX, dy = t2.clientY - t1.clientY;
+      var rect = wrap.getBoundingClientRect();
+      _pinch = {
+        d: Math.sqrt(dx*dx + dy*dy),
+        s: worldScale,
+        cx: (t1.clientX + t2.clientX) / 2,
+        cy: (t1.clientY + t2.clientY) / 2,
+        rect: rect
+      };
+      // Сбрасываем pointer-drag чтобы карта не «уезжала» в сторону при пинче
+      worldDrag = null;
+      wrap.classList.remove('dragging');
+    }
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', function(e) {
+    if (worldTab === 'lore') return;
+    if (_pinch && e.touches && e.touches.length === 2) {
+      e.preventDefault();
+      var t1 = e.touches[0], t2 = e.touches[1];
+      var dx = t2.clientX - t1.clientX, dy = t2.clientY - t1.clientY;
+      var nd = Math.sqrt(dx*dx + dy*dy);
+      if (_pinch.d > 0) {
+        var ratio = nd / _pinch.d;
+        var targetScale = Math.max(worldMinScale, Math.min(worldMaxScale, _pinch.s * ratio));
+        var anchorX = _pinch.cx - _pinch.rect.left;
+        var anchorY = _pinch.cy - _pinch.rect.top;
+        var mapX = (anchorX - worldOffsetX) / worldScale;
+        var mapY = (anchorY - worldOffsetY) / worldScale;
+        worldScale = targetScale;
+        worldOffsetX = anchorX - mapX * targetScale;
+        worldOffsetY = anchorY - mapY * targetScale;
+        beginWorldFastRender();
+        applyWorldTransform();
+      }
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', function(e) {
+    if (_pinch && (!e.touches || e.touches.length < 2)) {
+      _pinch = null;
+      releaseWorldFastRenderSoon();
+    }
+  });
+  wrap.addEventListener('touchcancel', function() {
+    _pinch = null;
+    releaseWorldFastRenderSoon();
+  });
+
   window.addEventListener('pointermove', function(e){
     if (currentPage !== 'world') return;
     var point = getWorldCoordsFromEvent(e);
@@ -22422,6 +22412,15 @@ window.openSkillCardPopup = function(charId, field, idx) {
   }
 
   function closeAll() {
+    // Если юзер открыл пустой конструктор (через addListItem) и закрыл не сохранив —
+    // удалить заглушку из массива (clean() всё равно её выбросит при следующем saveChars,
+    // но визуально она останется в списке до перезагрузки).
+    var isEmpty = (!item.name || !item.name.trim()) && (!item.description || !item.description.trim());
+    if (isEmpty) {
+      var arr = c[field];
+      var idx2 = arr ? arr.indexOf(item) : -1;
+      if (idx2 >= 0) arr.splice(idx2, 1);
+    }
     refreshList();
     backdrop.remove();
   }
@@ -22535,8 +22534,10 @@ function addListItem(id, field) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   if (!c[field]) c[field] = [];
-  // Сразу создаём объект-заглушку и открываем конструктор (как у инвентаря/снаряжения).
-  // Старый UX с inline-textarea → замены на конструктор с полноценными полями.
+  // ВАЖНО: saveChars() фильтрует пустые объекты (без name и description) через clean().
+  // Если push() + saveChars() сделать ДО открытия попапа — наш пустой объект выбросит,
+  // и индекс, который мы передадим в openSkillCardPopup, окажется невалидным (item = undefined).
+  // Поэтому: push в массив памяти, но saveChars() НЕ вызываем. Сохранит сам попап по кнопке «Сохранить».
   c[field].push({
     name: '',
     type: field === 'skills' ? 'Активный' : 'Позиция',
@@ -22546,15 +22547,8 @@ function addListItem(id, field) {
     cdUsed: 0
   });
   var newIdx = c[field].length - 1;
-  saveChars();
-  // Перерисовываем только нужный список
-  var listId = field === 'skills' ? 'skills-list-' + id : 'mastery-list-' + id;
-  var container = document.getElementById(listId);
-  if (container) {
-    container.innerHTML = field === 'skills' ? buildSkillsList(c) : buildMasteryList(c);
-  }
-  // Откроем конструктор в edit-режиме
-  setTimeout(function(){ openSkillCardPopup(id, field, newIdx); }, 80);
+  // Открываем конструктор немедленно в edit-режиме
+  openSkillCardPopup(id, field, newIdx);
 }
 
 
