@@ -578,6 +578,13 @@
     #logo { font-size: 14px; gap: 7px; }
     #logo span.sub { display: none; }
     #nav { gap: 5px; flex-wrap: nowrap; align-items: center; }
+    /* На очень узких экранах сокращаем кнопку публикации до иконки */
+    #publish-btn .btn-label::before { content: '📤'; }
+    #publish-btn { padding: 0 10px !important; min-width: 42px; }
+    #publish-btn .btn-label { font-size: 0; }
+    #publish-btn .btn-label::before { font-size: 14px; }
+    #backup-menu-btn { padding: 0 10px !important; }
+    #backup-menu-btn .btn-label { font-size: 11px; }
     #nav-ctx-catalog { gap: 5px !important; }
     /* На мобайле в nav-ctx-catalog скрываем всё кроме Создать */
     #nav-ctx-catalog .btn-json,
@@ -2397,7 +2404,57 @@
     .sheet-right-col { border-left: none; border-top: 1px solid var(--border); }
     .sheet-header { grid-template-columns: auto 1fr; }
     .char-grid { grid-template-columns: repeat(2, 1fr); }
-    .stat-input { width: 40px; font-size: 14px; }
+    /* Arena equip modal — 1 колонка на мобиле */
+    .arena-equip-body {
+      grid-template-columns: 1fr !important;
+      min-height: auto !important;
+    }
+    .arena-equip-sil {
+      border-right: none !important;
+      border-bottom: 1px solid #2a1e10;
+      padding: 12px !important;
+    }
+    .arena-equip-items {
+      max-height: none !important;
+    }
+    /* Stat block на мобиле: крупные цифры, песочные часы в углу */
+    .stat-block {
+      padding: 10px 8px 12px;
+      position: relative;
+    }
+    .stat-name {
+      font-size: 10px;
+      margin-bottom: 4px;
+      padding-right: 28px; /* место под песочные часы */
+    }
+    .stat-fields {
+      justify-content: center;
+      gap: 0 !important;
+    }
+    .stat-sep { display: none; }
+    .stat-input {
+      width: 100% !important;
+      max-width: 100%;
+      font-size: 26px !important;
+      font-weight: 800;
+      padding: 6px 2px !important;
+      color: var(--text);
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      border-radius: 0;
+    }
+    /* Песочные часы — абсолютно, не выходят за рамку */
+    .stat-fields > div:last-child {
+      position: absolute !important;
+      top: 6px !important;
+      right: 6px !important;
+      width: 26px !important;
+      height: 26px !important;
+    }
+    .stat-fields > div:last-child span {
+      font-size: 11px !important;
+    }
   }
   @media (max-width: 560px) {
     .char-grid,
@@ -4018,7 +4075,7 @@
     overflow: hidden;
     border-radius: 12px;
     background: radial-gradient(circle at 50% 40%, #20150d 0%, #0d0905 78%);
-    touch-action: none;
+    touch-action: pinch-zoom pan-x pan-y;
   }
   .world-map-wrap::after {
     content: '';
@@ -4658,7 +4715,7 @@
     height: 100%;
     display: block;
     cursor: grab;
-    touch-action: none;
+    touch-action: pinch-zoom pan-x pan-y;
     opacity: 0;
   }
   .world-map-wrap.dragging .world-map-canvas {
@@ -8904,7 +8961,7 @@ window.zgImageStore = (function() {
   </div>
   <div id="nav">
     <button class="btn btn-nav" id="board-return-btn" onclick="wbReturnToBoard()" style="display:none"><span class="btn-label">↩ К доске</span></button>
-    <button class="btn btn-nav" id="publish-btn" onclick="showPublishModal()" title="Экспорт мира для GitHub" style="padding:0 12px;gap:4px;border-color:#c4a84b44"><span class="btn-label">📤 Опубликовать</span></button>
+    <button class="btn btn-nav" id="publish-btn" onclick="(window.showPublishModal||function(){alert('Модуль публикации не загружен')})()" title="Экспорт мира для GitHub" style="padding:0 12px;gap:4px;border-color:#c4a84b44"><span class="btn-label">📤 Опубликовать</span></button>
     <div style="position:relative;display:inline-block">
       <button class="btn btn-nav" onclick="(window.showBackupModal||toggleBackupMenu)()" id="backup-menu-btn" title="Бэкап и медиа" style="padding:0 12px;gap:4px"><span class="btn-label">💾 Бэкап ▾</span></button>
       <div id="backup-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:9999;background:#120c08;border:1px solid #3a2918;border-radius:8px;padding:4px 0;min-width:240px;box-shadow:0 8px 32px #000a">
@@ -10892,11 +10949,18 @@ function renderWorldMeta() {
   var selected = getWorldSelectedObject();
   var hovered = getWorldHoveredObject();
   var currentTab = (WORLD_TABS.find(function(tab){ return tab.key === worldTab; }) || WORLD_TABS[0] || {}).label || 'Карта';
-  el.innerHTML =
-    '<span class="world-map-badge">Режим: ' + escHTML(currentTab) + '</span>' +
-    '<span class="world-map-badge">Масштаб: ' + Math.round(worldScale * 100) + '%</span>' +
-    '<span class="world-map-badge">Инструмент: ' + escHTML(worldModeLabel(worldAtlasRuntime.mode)) + '</span>' +
-    '<span class="world-map-badge">Фокус: ' + escHTML((selected || hovered) ? (selected || hovered).name : 'Карта') + '</span>';
+  var isMobileView = window.innerWidth < 700;
+  if (isMobileView) {
+    // На мобиле — только зум (самое важное)
+    el.innerHTML = '<span class="world-map-badge">' + Math.round(worldScale * 100) + '%</span>' +
+      ((selected || hovered) ? '<span class="world-map-badge">' + escHTML((selected || hovered).name) + '</span>' : '');
+  } else {
+    el.innerHTML =
+      '<span class="world-map-badge">Режим: ' + escHTML(currentTab) + '</span>' +
+      '<span class="world-map-badge">Масштаб: ' + Math.round(worldScale * 100) + '%</span>' +
+      '<span class="world-map-badge">Инструмент: ' + escHTML(worldModeLabel(worldAtlasRuntime.mode)) + '</span>' +
+      '<span class="world-map-badge">Фокус: ' + escHTML((selected || hovered) ? (selected || hovered).name : 'Карта') + '</span>';
+  }
 }
 
 function renderWorldMap() {
@@ -16790,6 +16854,25 @@ function openDramaPopup(config) {
     html += '<div style="font-size:13px;line-height:1.6;color:var(--muted);margin-bottom:16px;word-wrap:break-word;overflow-wrap:break-word">' + config.message + '</div>';
   }
   var formState = {};
+
+  // AI template helper: если config.aiTemplate задан, добавим кнопку "ИИ-шаблон"
+  if (config.aiTemplate) {
+    html += '<div class="drama-popup-ai-section" style="padding:10px 12px;margin-bottom:14px;background:#080604;border:1px dashed #3a2918;border-radius:6px">' +
+      '<div style="font-size:10px;color:#8a6a2a;letter-spacing:1px;margin-bottom:6px">🤖 БЫСТРОЕ ЗАПОЛНЕНИЕ ЧЕРЕЗ ИИ</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+        '<button type="button" id="drama-popup-ai-copy" class="btn btn-dim btn-sm">📋 Шаблон для ИИ</button>' +
+        '<button type="button" id="drama-popup-ai-paste-btn" class="btn btn-dim btn-sm">📥 Вставить ответ ИИ</button>' +
+      '</div>' +
+      '<div id="drama-popup-ai-paste-area" style="display:none;margin-top:8px">' +
+        '<textarea id="drama-popup-ai-paste-input" style="width:100%;min-height:120px;padding:8px;background:#0a0704;border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:monospace;font-size:11px;box-sizing:border-box" placeholder="Вставь сюда ответ от ИИ..."></textarea>' +
+        '<div style="display:flex;gap:6px;margin-top:6px">' +
+          '<button type="button" id="drama-popup-ai-apply" class="btn btn-gold btn-sm">✅ Применить</button>' +
+          '<button type="button" id="drama-popup-ai-cancel" class="btn btn-dim btn-sm">Отмена</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   (config.fields||[]).forEach(function(f) {
     formState[f.key] = f.default || '';
     html += '<div class="drama-popup-row">';
@@ -16860,6 +16943,68 @@ function openDramaPopup(config) {
     closeDramaPopup();
     if (config.onSubmit) config.onSubmit(formState);
   });
+
+  // AI template buttons
+  if (config.aiTemplate) {
+    var copyBtn = document.getElementById('drama-popup-ai-copy');
+    var pasteBtn = document.getElementById('drama-popup-ai-paste-btn');
+    var pasteArea = document.getElementById('drama-popup-ai-paste-area');
+    var pasteInput = document.getElementById('drama-popup-ai-paste-input');
+    var applyBtn = document.getElementById('drama-popup-ai-apply');
+    var cancelAiBtn = document.getElementById('drama-popup-ai-cancel');
+
+    if (copyBtn) copyBtn.addEventListener('click', function() {
+      var tpl = typeof config.aiTemplate === 'function' ? config.aiTemplate() : config.aiTemplate;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tpl).then(function() {
+          copyBtn.textContent = '✅ Скопировано!';
+          setTimeout(function(){ copyBtn.textContent = '📋 Шаблон для ИИ'; }, 2000);
+        }).catch(function(){ fallbackCopy(tpl); });
+      } else { fallbackCopy(tpl); }
+
+      function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.top = '-9999px';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); copyBtn.textContent = '✅ Скопировано!'; } catch(e) {}
+        setTimeout(function(){ copyBtn.textContent = '📋 Шаблон для ИИ'; document.body.removeChild(ta); }, 2000);
+      }
+    });
+
+    if (pasteBtn && pasteArea) pasteBtn.addEventListener('click', function() {
+      pasteArea.style.display = pasteArea.style.display === 'none' ? 'block' : 'none';
+      if (pasteArea.style.display === 'block' && pasteInput) pasteInput.focus();
+    });
+
+    if (cancelAiBtn) cancelAiBtn.addEventListener('click', function() {
+      if (pasteArea) pasteArea.style.display = 'none';
+      if (pasteInput) pasteInput.value = '';
+    });
+
+    if (applyBtn && pasteInput) applyBtn.addEventListener('click', function() {
+      var text = pasteInput.value || '';
+      if (!text.trim()) return;
+      if (typeof config.aiParse === 'function') {
+        try {
+          var parsed = config.aiParse(text);
+          if (parsed && typeof parsed === 'object') {
+            Object.keys(parsed).forEach(function(k) {
+              var val = parsed[k];
+              var inp = popup.querySelector('[data-key="' + k + '"].drama-popup-input');
+              if (inp) inp.value = val;
+              var ta = popup.querySelector('[data-key="' + k + '"].drama-popup-textarea');
+              if (ta) ta.value = val;
+            });
+            if (pasteArea) pasteArea.style.display = 'none';
+            if (applyBtn) { applyBtn.textContent = '✓ Применено'; setTimeout(function(){ applyBtn.textContent = '✅ Применить'; }, 1500); }
+          }
+        } catch(e) {
+          alert('Не смог разобрать ответ: ' + e.message);
+        }
+      }
+    });
+  }
 
   // Focus first input
   var firstInput = popup.querySelector('.drama-popup-input');
@@ -18091,8 +18236,56 @@ function renderHtreeNodeRecursive(entryId, node, allNodes, editing, depth) {
 function addHtreeNode(entryId, parentId) {
   var charOpts = [{value:'',label:'Нет привязки'}];
   try { if (dramaState && dramaState.characters) dramaState.characters.forEach(function(c){ charOpts.push({value:c.id, label:c.icon + ' ' + c.name}); }); } catch(e){}
+
+  var entryName = '';
+  try {
+    var ent = (entries || []).find(function(e){ return String(e.id) === String(entryId); });
+    if (ent) entryName = ent.name || '';
+  } catch(e) {}
+
   openDramaPopup({
     title: '🌳 Новый узел',
+    aiTemplate: [
+      'Создай карточку узла для иерархии/энциклопедии' + (entryName ? ' (раздел: ' + entryName + ')' : '') + '.',
+      'Верни СТРОГО в формате ниже, без лишних пояснений:',
+      '',
+      '=== УЗЕЛ ===',
+      'ИМЯ: [имя персоны, фракции, должности]',
+      'ТИТУЛ: [должность или титул, 1 строка]',
+      'ИНФО: [2-4 предложения: кто это, что делает, особенности]',
+      '=== КОНЕЦ ==='
+    ].join('\n'),
+    aiParse: function(text) {
+      var out = {};
+      var lines = (text || '').split(/\r?\n/);
+      function grab(re) {
+        for (var i = 0; i < lines.length; i++) {
+          var m = lines[i].match(re);
+          if (m) return (m[1] || '').trim();
+        }
+        return '';
+      }
+      // Многострочная INFO — собираем всё от "ИНФО:" до "=== КОНЕЦ ===" или следующего поля
+      function grabMulti(key) {
+        var startIdx = -1;
+        for (var i = 0; i < lines.length; i++) {
+          if (new RegExp('^\\s*' + key + '\\s*:', 'i').test(lines[i])) { startIdx = i; break; }
+        }
+        if (startIdx < 0) return '';
+        var first = lines[startIdx].replace(new RegExp('^\\s*' + key + '\\s*:', 'i'), '').trim();
+        var rest = [];
+        for (var j = startIdx + 1; j < lines.length; j++) {
+          if (/^={2,}/.test(lines[j])) break;
+          if (/^(ИМЯ|ТИТУЛ)\s*:/i.test(lines[j])) break;
+          rest.push(lines[j]);
+        }
+        return (first + '\n' + rest.join('\n')).trim();
+      }
+      out.name  = grab(/^\s*ИМЯ\s*:\s*(.+)$/i);
+      out.title = grab(/^\s*ТИТУЛ\s*:\s*(.+)$/i);
+      out.info  = grabMulti('ИНФО');
+      return out;
+    },
     fields: [
       { key:'name', label:'Имя', type:'input', placeholder:'Имя персоны или титул' },
       { key:'title', label:'Должность / Титул', type:'input', placeholder:'Глава Рода, Маршал...' },
@@ -18126,8 +18319,59 @@ function editHtreeNode(entryId, nodeId) {
   if (!node) return;
   var charOpts = [{value:'',label:'Нет привязки'}];
   try { if (dramaState && dramaState.characters) dramaState.characters.forEach(function(c){ charOpts.push({value:c.id, label:c.icon + ' ' + c.name}); }); } catch(e){}
+
+  var entryName = '';
+  try {
+    var ent = (entries || []).find(function(e){ return String(e.id) === String(entryId); });
+    if (ent) entryName = ent.name || '';
+  } catch(e) {}
+
   openDramaPopup({
     title: '✏️ ' + escHTML(node.name),
+    aiTemplate: [
+      'Доработай карточку узла «' + (node.name || '?') + '»' + (entryName ? ' (' + entryName + ')' : '') + '.',
+      'Текущие данные:',
+      'ИМЯ: ' + (node.name || ''),
+      'ТИТУЛ: ' + (node.title || ''),
+      'ИНФО: ' + (node.info || ''),
+      '',
+      'Верни обновлённую карточку СТРОГО в формате:',
+      '=== УЗЕЛ ===',
+      'ИМЯ: [имя]',
+      'ТИТУЛ: [титул]',
+      'ИНФО: [описание]',
+      '=== КОНЕЦ ==='
+    ].join('\n'),
+    aiParse: function(text) {
+      var out = {};
+      var lines = (text || '').split(/\r?\n/);
+      function grab(re) {
+        for (var i = 0; i < lines.length; i++) {
+          var m = lines[i].match(re);
+          if (m) return (m[1] || '').trim();
+        }
+        return '';
+      }
+      function grabMulti(key) {
+        var startIdx = -1;
+        for (var i = 0; i < lines.length; i++) {
+          if (new RegExp('^\\s*' + key + '\\s*:', 'i').test(lines[i])) { startIdx = i; break; }
+        }
+        if (startIdx < 0) return '';
+        var first = lines[startIdx].replace(new RegExp('^\\s*' + key + '\\s*:', 'i'), '').trim();
+        var rest = [];
+        for (var j = startIdx + 1; j < lines.length; j++) {
+          if (/^={2,}/.test(lines[j])) break;
+          if (/^(ИМЯ|ТИТУЛ)\s*:/i.test(lines[j])) break;
+          rest.push(lines[j]);
+        }
+        return (first + '\n' + rest.join('\n')).trim();
+      }
+      out.name  = grab(/^\s*ИМЯ\s*:\s*(.+)$/i);
+      out.title = grab(/^\s*ТИТУЛ\s*:\s*(.+)$/i);
+      out.info  = grabMulti('ИНФО');
+      return out;
+    },
     fields: [
       { key:'name', label:'Имя', type:'input', default: node.name },
       { key:'title', label:'Должность', type:'input', default: node.title || '' },
@@ -21252,7 +21496,24 @@ function saveChars() {
     if (c.currentGoal === undefined) c.currentGoal = '';
     if (c.biography === undefined) c.biography = '';
   });
-  try { localStorage.setItem('grimoire_chars', JSON.stringify(characters)); } catch(e) {}
+  var json = JSON.stringify(characters);
+  try { localStorage.setItem('grimoire_chars', json); } catch(e) {}
+  // Резервная копия в IDB (на случай если LS очистится или превысит квоту)
+  try {
+    var r = indexedDB.open('zargota_chars', 1);
+    r.onupgradeneeded = function(e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains('data')) db.createObjectStore('data');
+    };
+    r.onsuccess = function(e) {
+      var db = e.target.result;
+      try {
+        var tx = db.transaction('data', 'readwrite');
+        tx.objectStore('data').put(json, 'grimoire_chars');
+        tx.oncomplete = function() { db.close(); };
+      } catch(ex) { db.close(); }
+    };
+  } catch(e) {}
 }
 
 // ── Tab switch ──
@@ -21407,16 +21668,29 @@ function removeBtn(onclick) {
 function buildSkillsList(c) {
   var items = c.skills || [];
   return items.map(function(sk, i) {
-    if (false) return "";
-    if (false) return ''; // placeholder
-    return '<div style="' + itemRowStyle() + '">' +
-      '<div style="width:5px;height:5px;border-radius:50%;background:var(--gold2);flex-shrink:0;margin-top:10px"></div>' +
-      '<textarea style="' + fieldStyle() + '" ' +
-        'placeholder="Описание навыка..." ' +
-        'onfocus="this.style.borderColor=\'var(--gold2)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
-        'onfocus="if(this.value==\'_new_\')this.value=\'\'" ' +
-        'oninput="autoResize(this);updateCharField(' + c.id + ',\'skills\',' + i + ',this.value)">' + escHTML(sk === '_new_' ? '' : (sk||'')) + '</textarea>' +
-      removeBtn('removeListItem(' + c.id + ',\'skills\',' + i + ')') +
+    var raw = sk === '_new_' ? '' : (sk || '');
+    var expanded = (c._skillsExpanded && c._skillsExpanded[i]) || !raw;
+    if (expanded) {
+      // Режим редактирования — textarea как раньше, растёт под текст
+      return '<div style="' + itemRowStyle() + '">' +
+        '<div style="width:5px;height:5px;border-radius:50%;background:var(--gold2);flex-shrink:0;margin-top:10px"></div>' +
+        '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+          '<textarea style="' + fieldStyle() + ';min-height:72px;line-height:1.5" ' +
+            'placeholder="Описание навыка... (можно несколько абзацев)" ' +
+            'onfocus="this.style.borderColor=\'var(--gold2)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
+            'oninput="autoResize(this);updateCharField(' + c.id + ',\'skills\',' + i + ',this.value)">' + escHTML(raw) + '</textarea>' +
+          (raw ? '<button onclick="collapseSkillItem(' + c.id + ',\'skills\',' + i + ')" style="align-self:flex-start;padding:2px 8px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--dim);font-size:10px;cursor:pointer">↑ Свернуть</button>' : '') +
+        '</div>' +
+        removeBtn('removeListItem(' + c.id + ',\'skills\',' + i + ')') +
+      '</div>';
+    }
+    // Режим просмотра — сокращённая карточка
+    var firstLine = (raw.split('\n')[0] || '').slice(0, 50) + (raw.length > 50 ? '…' : '');
+    var title = firstLine || 'Навык';
+    return '<div onclick="expandSkillItem(' + c.id + ',\'skills\',' + i + ')" style="display:flex;align-items:center;gap:7px;padding:7px 10px;margin-bottom:5px;border-left:3px solid var(--gold2);background:#0e0a06;border-radius:0 4px 4px 0;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#1a1208\'" onmouseout="this.style.background=\'#0e0a06\'">' +
+      '<span style="font-size:10px;color:var(--gold2)">🎯</span>' +
+      '<span style="flex:1;font-family:\'Cinzel\',serif;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(title) + '</span>' +
+      '<span style="font-size:9px;color:var(--dim)">▶</span>' +
     '</div>';
   }).join('');
 }
@@ -21424,17 +21698,105 @@ function buildSkillsList(c) {
 function buildMasteryList(c) {
   var items = c.mastery || [];
   return items.map(function(m, i) {
-    return '<div style="' + itemRowStyle() + '">' +
-      '<div style="width:5px;height:5px;border-radius:50%;background:var(--dim);flex-shrink:0;margin-top:10px"></div>' +
-      '<textarea style="' + fieldStyle() + '" ' +
-        'placeholder="Мастерство / Позиция..." ' +
-        'onfocus="this.style.borderColor=\'var(--gold2)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
-        'onfocus="if(this.value==\'_new_\')this.value=\'\'" ' +
-        'oninput="autoResize(this);updateCharField(' + c.id + ',\'mastery\',' + i + ',this.value)">' + escHTML(m === '_new_' ? '' : (m||'')) + '</textarea>' +
-      removeBtn('removeListItem(' + c.id + ',\'mastery\',' + i + ')') +
+    var raw = m === '_new_' ? '' : (m || '');
+    var expanded = (c._masteryExpanded && c._masteryExpanded[i]) || !raw;
+    if (expanded) {
+      return '<div style="' + itemRowStyle() + '">' +
+        '<div style="width:5px;height:5px;border-radius:50%;background:var(--dim);flex-shrink:0;margin-top:10px"></div>' +
+        '<div style="flex:1;display:flex;flex-direction:column;gap:4px">' +
+          '<textarea style="' + fieldStyle() + ';min-height:72px;line-height:1.5" ' +
+            'placeholder="Мастерство / Позиция... (можно несколько абзацев)" ' +
+            'onfocus="this.style.borderColor=\'var(--gold2)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
+            'oninput="autoResize(this);updateCharField(' + c.id + ',\'mastery\',' + i + ',this.value)">' + escHTML(raw) + '</textarea>' +
+          (raw ? '<button onclick="collapseSkillItem(' + c.id + ',\'mastery\',' + i + ')" style="align-self:flex-start;padding:2px 8px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--dim);font-size:10px;cursor:pointer">↑ Свернуть</button>' : '') +
+        '</div>' +
+        removeBtn('removeListItem(' + c.id + ',\'mastery\',' + i + ')') +
+      '</div>';
+    }
+    var firstLine = (raw.split('\n')[0] || '').slice(0, 50) + (raw.length > 50 ? '…' : '');
+    var title = firstLine || 'Мастерство';
+    return '<div onclick="expandSkillItem(' + c.id + ',\'mastery\',' + i + ')" style="display:flex;align-items:center;gap:7px;padding:7px 10px;margin-bottom:5px;border-left:3px solid #8f7f5f;background:#0e0a06;border-radius:0 4px 4px 0;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#1a1208\'" onmouseout="this.style.background=\'#0e0a06\'">' +
+      '<span style="font-size:10px;color:#8f7f5f">⚔</span>' +
+      '<span style="flex:1;font-family:\'Cinzel\',serif;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(title) + '</span>' +
+      '<span style="font-size:9px;color:var(--dim)">▶</span>' +
     '</div>';
   }).join('');
 }
+
+// Expand/collapse управление — hoverable скиллы открываются в полный режим
+window.expandSkillItem = function(charId, field, idx) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  var raw = (c[field] || [])[idx] || '';
+  // Открываем в popup для полного просмотра как у заклинаний
+  showSkillDetailPopup(charId, field, idx, raw);
+};
+
+window.collapseSkillItem = function(charId, field, idx) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  var key = field === 'skills' ? '_skillsExpanded' : '_masteryExpanded';
+  if (c[key]) delete c[key][idx];
+  var listId = (field === 'skills' ? 'skills-list-' : 'mastery-list-') + charId;
+  var el = document.getElementById(listId);
+  if (el) el.innerHTML = field === 'skills' ? buildSkillsList(c) : buildMasteryList(c);
+};
+
+window.showSkillDetailPopup = function(charId, field, idx, text) {
+  var old = document.getElementById('skill-detail-popup-backdrop');
+  if (old) old.remove();
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  var isMobile = window.innerWidth < 600;
+
+  var backdrop = document.createElement('div');
+  backdrop.id = 'skill-detail-popup-backdrop';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9998;display:flex;align-items:' + (isMobile?'flex-start':'center') + ';justify-content:center;' + (isMobile?'padding:48px 12px 12px':'padding:24px') + ';overflow-y:auto';
+  backdrop.addEventListener('click', function(e){ if(e.target===backdrop){ backdrop.remove(); } });
+
+  var popup = document.createElement('div');
+  popup.style.cssText = 'position:relative;background:#0e0a06;border:2px solid ' + (field==='skills'?'var(--gold2)':'#8f7f5f') + ';border-radius:10px;width:' + (isMobile?'calc(100vw - 24px)':'540px') + ';max-width:100%;padding:24px 22px 20px;box-shadow:0 20px 60px #000000cc';
+
+  var lines = (text || '').split('\n').filter(function(l){return l.trim();});
+  var title = (lines[0] || (field==='skills'?'Навык':'Мастерство')).slice(0, 80);
+  var body = lines.length > 1 ? lines.slice(1).join('\n') : '';
+
+  var titleColor = field==='skills' ? 'var(--gold2)' : '#8f7f5f';
+  var typeLabel = field==='skills' ? '🎯 Навык' : '⚔ Мастерство / Позиция';
+
+  popup.innerHTML =
+    '<button id="skill-popup-close-x" style="position:absolute;top:8px;right:10px;background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>' +
+    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:11px;color:' + titleColor + ';letter-spacing:2px;margin-bottom:6px">' + typeLabel + '</div>' +
+    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:18px;color:var(--text);margin-bottom:16px;padding-right:28px;line-height:1.3">' + escHTML(title) + '</div>' +
+    (body ? '<div style="color:var(--muted);line-height:1.7;white-space:pre-wrap;font-size:13px;font-family:\'Lora\',serif;padding:14px;background:#080604;border-radius:6px;border:1px solid #1e1508;margin-bottom:14px">' + escHTML(body) + '</div>' : '') +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button id="skill-popup-edit" style="flex:1;padding:10px;border:1px solid var(--gold2);background:#1a1208;color:var(--gold);font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px;min-height:40px">✏ Редактировать</button>' +
+      '<button id="skill-popup-close" style="padding:10px 20px;border:1px solid #333;background:transparent;color:#888;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px;min-height:40px">Закрыть</button>' +
+    '</div>';
+
+  backdrop.appendChild(popup);
+  document.body.appendChild(backdrop);
+
+  var closeBackdrop = function(){ backdrop.remove(); };
+  document.getElementById('skill-popup-close-x').onclick = closeBackdrop;
+  document.getElementById('skill-popup-close').onclick = closeBackdrop;
+  document.getElementById('skill-popup-edit').onclick = function() {
+    closeBackdrop();
+    var key = field === 'skills' ? '_skillsExpanded' : '_masteryExpanded';
+    if (!c[key]) c[key] = {};
+    c[key][idx] = true;
+    var listId = (field === 'skills' ? 'skills-list-' : 'mastery-list-') + charId;
+    var el = document.getElementById(listId);
+    if (el) {
+      el.innerHTML = field === 'skills' ? buildSkillsList(c) : buildMasteryList(c);
+      setTimeout(function(){
+        el.querySelectorAll('textarea').forEach(function(ta){ if (typeof autoResize === 'function') autoResize(ta); });
+        var targets = el.querySelectorAll('textarea');
+        if (targets[idx]) targets[idx].focus();
+      }, 50);
+    }
+  };
+};
 
 function buildEquipList(c) {
   var SICONS = {main_hand:'⚔️',off_hand:'🗡️',two_hand:'🏹',body:'🧥',shield:'🛡️',head:'⛑️',gloves:'🧤',boots:'👢',belt:'🔗',amulet:'📿',ring:'💍',cloak:'🧣',artifact:'✨',consumable:'🧪'};
@@ -21855,8 +22217,16 @@ function renderCharSheet() {
             (c.klasse?'<span style="font-size:11px;color:var(--dim)">·</span><span style="font-size:11px;color:var(--muted)">'+escHTML(c.klasse)+'</span>':'') +
           '</div>' +
         '</div>' +
-        // Fame (compact)
+        // Fame (compact) + Gold
         '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">' +
+          // Gold row
+          '<div style="display:flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid #c4a84b55;border-radius:3px;background:linear-gradient(90deg,#1a1208,#2a1d0a);height:34px;box-sizing:border-box">' +
+            '<span style="font-size:14px;line-height:1">🪙</span>' +
+            '<span style="font-family:\'Cinzel\',serif;font-size:11px;color:#d4a84b;letter-spacing:.5px;font-weight:500">Золото</span>' +
+            '<button onclick="addGold(' + c.id + ',-1)" style="width:22px;height:22px;border:1px solid #3a2918;border-radius:3px;background:#0a0704;color:#888;cursor:pointer;font-size:13px;line-height:1;padding:0">−</button>' +
+            '<input type="number" value="' + (parseInt(c.gold, 10) || 0) + '" onchange="setGold(' + c.id + ',this.value)" style="width:60px;text-align:center;padding:3px;border:1px solid #3a2918;border-radius:3px;background:#0a0704;color:#e8c060;font-family:\'Cinzel\',serif;font-size:13px;font-weight:700">' +
+            '<button onclick="addGold(' + c.id + ',1)" style="width:22px;height:22px;border:1px solid #3a2918;border-radius:3px;background:#0a0704;color:#888;cursor:pointer;font-size:13px;line-height:1;padding:0">+</button>' +
+          '</div>' +
           fameRowBig('fameMundo','🌍','Мировая слава','#e8c060',8) +
           fameRowBig('fameZargoty','⚔','Слава в Зарготе','#c06060',8) +
         '</div>' +
@@ -22479,7 +22849,8 @@ function calcArenaEquipBonus(c) {
   function parseEffectBonuses(text) {
     var lower = String(text || '');
     if (!lower) return;
-    result.acBonus += pickBonus(lower, [/\bac\s*([+-]?\d+)/i, /([+-]?\d+)\s*(?:к\s*)?ac\b/i, /брон[ьи].{0,12}?([+-]?\d+)/i]);
+    // AC — только явное upper-case AC или «брон» с числом рядом, чтобы не ловить слово «attack», «accept» и т.п.
+    result.acBonus += pickBonus(lower, [/\bAC\s*([+-]?\d+)/, /([+-]?\d+)\s*к\s*AC\b/, /брон[ьи][^.]{0,15}?\s([+-]?\d+)(?:$|\s|\.|,)/]);
     result.hpBonus += pickBonus(lower, [/max\s*hp\s*([+-]?\d+)/i, /hp\s*max\s*([+-]?\d+)/i, /(?:макс|maximum|maximum hp|здоров[ьяе]|хп).{0,12}?([+-]?\d+)/i, /([+-]?\d+)\s*(?:к\s*)?(?:макс\.?\s*)?(?:hp|хп|здоров[ьяе])/i]);
     result.speedBonus += pickBonus(lower, [/(?:скорост|движени|speed).{0,12}?([+-]?\d+)/i, /([+-]?\d+)\s*(?:к\s*)?(?:скорост|движени|speed)/i]);
     result.initiativeBonus += pickBonus(lower, [/(?:иниц|initiative).{0,12}?([+-]?\d+)/i, /([+-]?\d+)\s*(?:к\s*)?(?:иниц|initiative)/i]);
@@ -22721,13 +23092,13 @@ function _renderCharEquipModal() {
         + '</div>'
       + '</div>'
       // Body
-      + '<div style="display:grid;grid-template-columns:300px 1fr;min-height:500px">'
+      + '<div class="arena-equip-body" style="display:grid;grid-template-columns:300px 1fr;min-height:500px">'
         // Left: silhouette
-        + '<div style="border-right:1px solid #2a1e10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px">'
+        + '<div class="arena-equip-sil" style="border-right:1px solid #2a1e10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px">'
           + silHtml
         + '</div>'
         // Right: items
-        + '<div style="padding:16px;overflow-y:auto;max-height:75vh">'
+        + '<div class="arena-equip-items" style="padding:16px;overflow-y:auto;max-height:75vh">'
           + '<div style="font-size:9px;color:#555;letter-spacing:2px;font-family:Cinzel,serif;margin-bottom:12px">ПРЕДМЕТЫ — нажми или перетащи в слот</div>'
           + '<div id="char-equip-items">' + itemsHtml + '</div>'
         + '</div>'
@@ -22878,7 +23249,7 @@ function charOpenCreateItem() {
     + '<div id="ni-armor-fields" style="display:none;margin-bottom:8px"><div style="font-size:9px;color:#555;letter-spacing:1px;font-family:Cinzel,serif;margin-bottom:3px">БОНУС AC</div>'
       + '<input id="ni-ac" type="number" value="2" style="'+inp+';width:80px"></div>'
     + '<div style="margin-bottom:10px"><div style="font-size:9px;color:#555;letter-spacing:1px;font-family:Cinzel,serif;margin-bottom:3px">ЭФФЕКТ / ОПИСАНИЕ</div>'
-      + '<input id="ni-effects" placeholder="напр. +1 к броску" style="'+inp+'"></div>'
+      + '<textarea id="ni-effects" placeholder="напр. +1 к броску&#10;Можно несколько строк/абзацев" style="'+inp+';min-height:72px;resize:vertical;font-family:inherit;line-height:1.5"></textarea></div>'
     + '<div style="display:flex;gap:8px">'
       + '<button onclick="charSaveInlineItem()" style="padding:6px 16px;border:1px solid #d4a84b;border-radius:5px;background:#d4a84b18;color:#d4a84b;font-size:11px;cursor:pointer;font-family:Cinzel,serif">💾 Сохранить</button>'
       + '<button onclick="document.getElementById(\'char-inline-item-form\').remove()" style="padding:6px 10px;border:1px solid #333;border-radius:5px;background:transparent;color:#555;font-size:11px;cursor:pointer">Отмена</button>'
@@ -23329,6 +23700,22 @@ function toggleFame(id, field, idx) {
   c[field] = cur > idx ? idx : idx + 1;
   saveChars();
   renderCharSheet();
+}
+
+function addGold(id, delta) {
+  var c = characters.find(function(x){ return x.id === id; });
+  if (!c) return;
+  c.gold = Math.max(0, (parseInt(c.gold, 10) || 0) + delta);
+  saveChars();
+  renderCharSheet();
+}
+
+function setGold(id, val) {
+  var c = characters.find(function(x){ return x.id === id; });
+  if (!c) return;
+  c.gold = Math.max(0, parseInt(val, 10) || 0);
+  saveChars();
+  // не делаем renderCharSheet() чтобы не терять фокус поля при вводе
 }
 
 function triggerPortraitUpload(id) {
@@ -24023,9 +24410,23 @@ function openSpellPicker(charId) {
   if (!c) return;
   var existing = c.spellRefs || [];
 
+  // Mobile: use full overlay with backdrop, X in corner
+  var isMobile = window.innerWidth < 600;
+  var backdrop = document.createElement('div');
+  backdrop.id = 'spell-picker-backdrop';
+  backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9998;display:flex;align-items:' + (isMobile?'flex-start':'center') + ';justify-content:center;' + (isMobile?'padding-top:48px':'') + ';-webkit-overflow-scrolling:touch';
+  backdrop.addEventListener('click', function(e){ if(e.target===backdrop){ backdrop.remove(); } });
+  document.body.appendChild(backdrop);
+
   var popup = document.createElement('div');
   popup.id = 'spell-picker-popup';
-  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0e0a06;border:2px solid var(--gold2);border-radius:8px;min-width:360px;max-width:90vw;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px #000000cc,0 0 0 9999px #00000066;padding:20px 22px';
+  popup.style.cssText = 'position:relative;background:#0e0a06;border:2px solid var(--gold2);border-radius:8px;width:' + (isMobile?'calc(100vw - 24px)':'420px') + ';max-width:90vw;max-height:' + (isMobile?'calc(100vh - 100px)':'80vh') + ';overflow-y:auto;box-shadow:0 20px 60px #000000cc;padding:20px 22px';
+
+  // Close X in corner
+  var closeX = document.createElement('button');
+  closeX.setAttribute('style', 'position:absolute;top:8px;right:10px;background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px;z-index:10');
+  closeX.textContent = '×';
+  closeX.addEventListener('click', function(){ backdrop.remove(); });
 
   var typeIcons = { kodex:'🥋', folio:'📖', obrad:'🩸' };
   var typeColors = { kodex:'#c8d4dc', folio:'#5a9ae0', obrad:'#c03030' };
@@ -24034,14 +24435,34 @@ function openSpellPicker(charId) {
   if (entries.length === 0) {
     spellListHtml = '<div style="color:var(--dim);font-size:12px;padding:20px;text-align:center">Гримуар пуст — сначала добавь заклинания</div>';
   } else {
-    spellListHtml = '<input id="sp-picker-search" type="text" placeholder="Поиск..." oninput="filterSpellPicker(' + charId + ')" ' +
-      'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:3px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;margin-bottom:10px">' +
+    // Собираем уникальные уровни для чипов
+    var levelsSet = {};
+    entries.forEach(function(sp){ if (sp.level != null) levelsSet[sp.level] = 1; });
+    var levels = Object.keys(levelsSet).map(function(v){return parseInt(v,10);}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
+
+    var filtersHtml =
+      '<div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap">' +
+        '<button class="sp-type-chip active" data-type="all" style="padding:5px 10px;border:1px solid #3a2918;border-radius:14px;background:#1a1208;color:var(--gold);font-size:10px;cursor:pointer;font-family:\'Cinzel\',serif">Все</button>' +
+        '<button class="sp-type-chip" data-type="kodex" style="padding:5px 10px;border:1px solid #2a1e10;border-radius:14px;background:#0a0704;color:var(--muted);font-size:10px;cursor:pointer;font-family:\'Cinzel\',serif">🥋 Кодекс</button>' +
+        '<button class="sp-type-chip" data-type="folio" style="padding:5px 10px;border:1px solid #2a1e10;border-radius:14px;background:#0a0704;color:var(--muted);font-size:10px;cursor:pointer;font-family:\'Cinzel\',serif">📖 Фолио</button>' +
+        '<button class="sp-type-chip" data-type="obrad" style="padding:5px 10px;border:1px solid #2a1e10;border-radius:14px;background:#0a0704;color:var(--muted);font-size:10px;cursor:pointer;font-family:\'Cinzel\',serif">🩸 Обряд</button>' +
+      '</div>' +
+      '<div style="display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap">' +
+        '<button class="sp-lvl-chip active" data-lvl="all" style="padding:4px 9px;border:1px solid #3a2918;border-radius:14px;background:#1a1208;color:var(--gold);font-size:10px;cursor:pointer">Любой ур.</button>' +
+        levels.map(function(l){
+          return '<button class="sp-lvl-chip" data-lvl="' + l + '" style="padding:4px 9px;border:1px solid #2a1e10;border-radius:14px;background:#0a0704;color:var(--muted);font-size:10px;cursor:pointer">ур.' + l + '</button>';
+        }).join('') +
+      '</div>';
+
+    spellListHtml = filtersHtml +
+      '<input id="sp-picker-search" type="text" placeholder="Поиск..." oninput="filterSpellPicker(' + charId + ')" ' +
+      'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:3px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;margin-bottom:10px;box-sizing:border-box">' +
       '<div id="sp-picker-list" style="max-height:400px;overflow-y:auto">';
     entries.forEach(function(sp) {
       var isAdded = existing.indexOf(sp.id) >= 0;
       var col = typeColors[sp.spellType] || '#8a6a2a';
       var icon = typeIcons[sp.spellType] || '📜';
-      spellListHtml += '<div class="sp-picker-item" data-name="' + escHTML((sp.name||'').toLowerCase()) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-left:3px solid ' + col + ';background:' + (isAdded?col+'12':'#0a0704') + ';border-radius:0 3px 3px 0;cursor:pointer;transition:all .15s" ' +
+      spellListHtml += '<div class="sp-picker-item" data-name="' + escHTML((sp.name||'').toLowerCase()) + '" data-type="' + escHTML(sp.spellType||'') + '" data-lvl="' + (sp.level||0) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-left:3px solid ' + col + ';background:' + (isAdded?col+'12':'#0a0704') + ';border-radius:0 3px 3px 0;cursor:pointer;transition:all .15s" ' +
         'onclick="pickSpell(' + charId + ',' + sp.id + ',this)">' +
         '<span style="font-size:13px">' + icon + '</span>' +
         '<span style="flex:1;font-family:\'Cinzel\',serif;font-size:11px;color:' + (isAdded?col:'var(--text)') + '">' + escHTML(sp.name||'?') + '</span>' +
@@ -24053,20 +24474,63 @@ function openSpellPicker(charId) {
   }
 
   popup.innerHTML =
-    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:var(--gold);text-align:center;margin-bottom:14px">📚 Привязать заклинание</div>' +
+    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:var(--gold);text-align:center;margin-bottom:14px;padding-right:22px">📚 Привязать заклинание</div>' +
     spellListHtml +
-    '<div style="text-align:center;margin-top:14px">' +
-      '<button onclick="document.getElementById(\'spell-picker-popup\').remove()" style="padding:8px 24px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:3px">Готово</button>' +
+    '<div style="text-align:center;margin-top:14px;position:sticky;bottom:-22px;padding:12px 0 4px;background:linear-gradient(180deg,transparent,#0e0a06 40%)">' +
+      '<button onclick="var bd=document.getElementById(\'spell-picker-backdrop\');if(bd)bd.remove();" style="padding:10px 32px;border:1px solid var(--gold2);background:#1a1208;color:var(--gold);font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">Готово</button>' +
     '</div>';
 
-  document.body.appendChild(popup);
+  popup.insertBefore(closeX, popup.firstChild);
+  backdrop.appendChild(popup);
+
+  // Bind filter chip clicks
+  popup.querySelectorAll('.sp-type-chip').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      popup.querySelectorAll('.sp-type-chip').forEach(function(b){
+        b.classList.remove('active');
+        b.style.background = '#0a0704';
+        b.style.color = 'var(--muted)';
+        b.style.borderColor = '#2a1e10';
+      });
+      btn.classList.add('active');
+      btn.style.background = '#1a1208';
+      btn.style.color = 'var(--gold)';
+      btn.style.borderColor = '#3a2918';
+      filterSpellPicker(charId);
+    });
+  });
+  popup.querySelectorAll('.sp-lvl-chip').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      popup.querySelectorAll('.sp-lvl-chip').forEach(function(b){
+        b.classList.remove('active');
+        b.style.background = '#0a0704';
+        b.style.color = 'var(--muted)';
+        b.style.borderColor = '#2a1e10';
+      });
+      btn.classList.add('active');
+      btn.style.background = '#1a1208';
+      btn.style.color = 'var(--gold)';
+      btn.style.borderColor = '#3a2918';
+      filterSpellPicker(charId);
+    });
+  });
 }
 
 function filterSpellPicker(charId) {
-  var q = (document.getElementById('sp-picker-search').value||'').toLowerCase();
+  var qEl = document.getElementById('sp-picker-search');
+  var q = (qEl && qEl.value || '').toLowerCase();
+  var activeType = document.querySelector('.sp-type-chip.active');
+  var typeFilter = activeType ? activeType.getAttribute('data-type') : 'all';
+  var activeLvl = document.querySelector('.sp-lvl-chip.active');
+  var lvlFilter = activeLvl ? activeLvl.getAttribute('data-lvl') : 'all';
   document.querySelectorAll('.sp-picker-item').forEach(function(el) {
     var name = el.getAttribute('data-name') || '';
-    el.style.display = (!q || name.indexOf(q) >= 0) ? 'flex' : 'none';
+    var type = el.getAttribute('data-type') || '';
+    var lvl = el.getAttribute('data-lvl') || '';
+    var matchSearch = !q || name.indexOf(q) >= 0;
+    var matchType = typeFilter === 'all' || type === typeFilter;
+    var matchLvl = lvlFilter === 'all' || lvl === lvlFilter;
+    el.style.display = (matchSearch && matchType && matchLvl) ? 'flex' : 'none';
   });
 }
 
@@ -26365,8 +26829,8 @@ function beastOpenEquipModal() {
           + '<button onclick="beastCloseEquipModal()" style="padding:7px 10px;border:1px solid #333;border-radius:7px;background:#0a0704;color:#555;font-size:13px;cursor:pointer">✕</button>'
         + '</div>'
       + '</div>'
-      + '<div style="display:grid;grid-template-columns:290px 1fr;min-height:500px">'
-        + '<div style="border-right:1px solid #2a1e10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:6px">'
+      + '<div class="arena-equip-body" style="display:grid;grid-template-columns:290px 1fr;min-height:500px">'
+        + '<div class="arena-equip-sil" style="border-right:1px solid #2a1e10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;gap:6px">'
           + '<div style="font-size:9px;color:#555;letter-spacing:2px;font-family:Cinzel,serif;margin-bottom:4px">СНАРЯЖЕНИЕ</div>'
           + silRows
           + '<div style="width:100%;border-top:1px solid #2a1e10;margin-top:8px;padding-top:8px"><div style="font-size:9px;color:#555;font-family:Cinzel,serif;letter-spacing:1px;margin-bottom:4px">ИТОГО</div>' + statsHtml + '</div>'
@@ -26380,7 +26844,7 @@ function beastOpenEquipModal() {
                 +'</select><button onclick="beastApplyQuickSet()" style="padding:5px 8px;border:1px solid #4a3a1a;border-radius:5px;background:#1a1208;color:#d4a84b;font-size:11px;cursor:pointer">Надеть</button></div></div>';
             })()
         + '</div>'
-        + '<div style="padding:16px;overflow-y:auto;max-height:75vh">'
+        + '<div class="arena-equip-items" style="padding:16px;overflow-y:auto;max-height:75vh">'
           + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
           + '<div style="font-size:9px;color:#555;letter-spacing:2px;font-family:Cinzel,serif">ПРЕДМЕТЫ — нажми или перетащи в слот</div>'
           + '<button onclick="beastOpenCreateItem()" style="padding:4px 10px;border:1px solid #4a3a1a;border-radius:5px;background:#1a1208;color:#d4a84b;font-size:11px;cursor:pointer">➕ Предмет</button>'
@@ -26447,7 +26911,7 @@ function beastOpenCreateItem() {
       + '<div><div style="font-size:9px;color:#555;font-family:Cinzel,serif;letter-spacing:1px;margin-bottom:3px">ДАЛЬНОСТЬ</div><input id="bni-range" value="1 клетка" style="'+inp+'"></div>'
     + '</div>'
     + '<div id="bni-arm" style="display:none;margin-bottom:8px"><div style="font-size:9px;color:#555;font-family:Cinzel,serif;letter-spacing:1px;margin-bottom:3px">БОНУС AC</div><input id="bni-ac" type="number" value="2" style="'+inp+';width:80px"></div>'
-    + '<div style="margin-bottom:10px"><div style="font-size:9px;color:#555;font-family:Cinzel,serif;letter-spacing:1px;margin-bottom:3px">ЭФФЕКТ</div><input id="bni-effects" placeholder="напр. +1 к атаке" style="'+inp+'"></div>'
+    + '<div style="margin-bottom:10px"><div style="font-size:9px;color:#555;font-family:Cinzel,serif;letter-spacing:1px;margin-bottom:3px">ЭФФЕКТ</div><textarea id="bni-effects" placeholder="напр. +1 к атаке&#10;Можно несколько строк" style="'+inp+';min-height:72px;resize:vertical;font-family:inherit;line-height:1.5"></textarea></div>'
     + '<div style="display:flex;gap:8px"><button onclick="beastSaveInlineItem()" style="padding:6px 16px;border:1px solid #d4a84b;border-radius:5px;background:#d4a84b18;color:#d4a84b;font-size:11px;cursor:pointer;font-family:Cinzel,serif">💾 Сохранить</button>'
     + '<button onclick="document.getElementById(\'beast-inline-item-form\').remove()" style="padding:6px 10px;border:1px solid #333;border-radius:5px;background:transparent;color:#555;font-size:11px;cursor:pointer">Отмена</button></div>';
   pane.insertBefore(f, pane.firstChild);
