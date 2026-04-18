@@ -22038,22 +22038,54 @@ function buildEquipList(c) {
     }).filter(Boolean).join('');
   }
 
-  // Manual text items
+  // Manual text items (кастомное снаряжение: имя, иконка, описание, экипировано)
   var items = c.equipItems || [];
   var manualItems = items.map(function(eq, i) {
-    var isEq = eq.equipped || false;
-    return '<div style="' + itemRowStyle() + 'align-items:center;">' +
-      '<div onclick="toggleEquip(' + c.id + ',' + i + ')" title="Экипировано" ' +
-        'style="width:18px;height:18px;border-radius:3px;border:2px solid ' + (isEq ? '#60a060' : '#2a1a08') + ';' +
-        'background:' + (isEq ? '#60a06030' : 'transparent') + ';flex-shrink:0;cursor:pointer;transition:all .2s;' +
-        'display:flex;align-items:center;justify-content:center;font-size:10px;">' +
-        (isEq ? '✓' : '') +
+    // Миграция legacy {text, equipped} → используем text как fallback для name
+    var legacyMode = !eq.name && !eq.description && !eq.icon && typeof eq.text === 'string';
+    if (legacyMode) {
+      // Оставим полностью старый UX: textarea + checkbox. При клике на самом поле —
+      // не открываем конструктор, но дадим явную кнопку перехода.
+      var isEq = eq.equipped || false;
+      return '<div style="' + itemRowStyle() + 'align-items:center;">' +
+        '<div onclick="toggleEquip(' + c.id + ',' + i + ')" title="Экипировано" ' +
+          'style="width:18px;height:18px;border-radius:3px;border:2px solid ' + (isEq ? '#60a060' : '#2a1a08') + ';' +
+          'background:' + (isEq ? '#60a06030' : 'transparent') + ';flex-shrink:0;cursor:pointer;transition:all .2s;' +
+          'display:flex;align-items:center;justify-content:center;font-size:10px;">' +
+          (isEq ? '✓' : '') +
+        '</div>' +
+        '<textarea style="' + fieldStyle() + '" ' +
+          'placeholder="Оружие / Доспех / Снаряжение..." ' +
+          'onfocus="this.style.borderColor=\'var(--gold2)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
+          'oninput="autoResize(this);updateEquipText(' + c.id + ',' + i + ',this.value)">' + escHTML(eq.text||'') + '</textarea>' +
+        '<button onclick="openItemConstructor(' + c.id + ',\'equip\',' + i + ')" title="Открыть конструктор" ' +
+          'style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:12px;padding:4px 8px;flex-shrink:0;border-radius:3px;margin-top:2px">✎</button>' +
+        removeBtn('removeEquipItem(' + c.id + ',' + i + ')') +
+      '</div>';
+    }
+    // Новая карточка с конструктором
+    var icon = eq.icon || '🗃️';
+    var name = eq.name || eq.text || '';
+    var desc = (eq.description || '').trim();
+    var descPreview = desc ? desc.replace(/\s+/g, ' ').slice(0, 90) + (desc.length > 90 ? '…' : '') : '';
+    var hasName = !!name.trim();
+    var displayName = hasName ? name : '— без названия (нажми чтобы настроить) —';
+    var isEquipped = eq.equipped || false;
+    return '<div onclick="openItemConstructor(' + c.id + ',\'equip\',' + i + ')" ' +
+      'style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:6px 9px;border:1px solid ' + (isEquipped ? '#60a06055' : 'var(--border)') + ';border-radius:4px;background:' + (isEquipped ? '#60a0600d' : '#0c0904') + ';cursor:pointer;transition:background .15s" ' +
+      'onmouseover="this.style.background=\'#120d06\'" onmouseout="this.style.background=\'' + (isEquipped ? '#60a0600d' : '#0c0904') + '\'">' +
+      '<div onclick="event.stopPropagation();toggleEquip(' + c.id + ',' + i + ')" title="Экипировано" ' +
+        'style="width:18px;height:18px;border-radius:3px;border:2px solid ' + (isEquipped ? '#60a060' : '#2a1a08') + ';' +
+        'background:' + (isEquipped ? '#60a06030' : 'transparent') + ';flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px">' +
+        (isEquipped ? '✓' : '') +
       '</div>' +
-      '<textarea style="' + fieldStyle() + '" ' +
-        'placeholder="Оружие / Доспех / Снаряжение..." ' +
-        'onfocus="this.style.borderColor=\'var(--gold2)\'" onblur="this.style.borderColor=\'var(--border)\'" ' +
-        'oninput="autoResize(this);updateEquipText(' + c.id + ',' + i + ',this.value)">' + escHTML(eq.text||'') + '</textarea>' +
-      removeBtn('removeEquipItem(' + c.id + ',' + i + ')') +
+      '<div style="width:32px;height:32px;flex-shrink:0;border:1px solid var(--border);border-radius:4px;background:#0a0704;font-size:17px;display:flex;align-items:center;justify-content:center">' + icon + '</div>' +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
+        '<div style="font-family:\'Lora\',serif;font-size:12px;color:' + (hasName ? 'var(--text)' : 'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(displayName) + '</div>' +
+        (descPreview ? '<div style="font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic">ⓘ ' + escHTML(descPreview) + '</div>' : '') +
+      '</div>' +
+      '<button onclick="event.stopPropagation();removeEquipItem(' + c.id + ',' + i + ')" style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:15px;padding:2px 6px;flex-shrink:0" ' +
+        'onmouseover="this.style.color=\'#c05050\'" onmouseout="this.style.color=\'var(--dim)\'">✕</button>' +
     '</div>';
   }).join('');
 
@@ -22139,10 +22171,14 @@ function addEquipItem(id) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   if (!c.equipItems) c.equipItems = [];
-  c.equipItems.push({ text:'', equipped:false });
+  // Новые предметы создаём сразу в "конструктор"-модели (name + icon + description),
+  // чтобы клик по карточке открывал попап. text оставляем для совместимости.
+  c.equipItems.push({ name:'', text:'', icon:'🗃️', description:'', equipped:false });
+  var newIdx = c.equipItems.length - 1;
   saveChars();
-  var div = document.getElementById('equip-list-' + id);
-  if (div) div.innerHTML = buildEquipList(c);
+  renderCharSheet();
+  // Автоматически открываем конструктор на свежедобавленном — это ожидание пользователя
+  setTimeout(function(){ openItemConstructor(id, 'equip', newIdx); }, 80);
 }
 
 function removeEquipItem(id, idx) {
@@ -22331,13 +22367,13 @@ function renderCharSheet() {
     var bg = eff.bg || color + '20';
     var unitIcon = {rounds:'⚔',minutes:'⏱',hours:'🕐',days:'🌅'}[eff.unit] || '';
     var tickInfo = eff.tickType ? ' <span style="font-size:9px;opacity:.6">⚙' + (eff.tickValue>0?'+':'') + eff.tickValue + '/р</span>' : '';
-    return '<span onclick="toggleStatus(' + c.id + ',\'' + (eff.statusKey||'') + '\')" ' +
+    return '<span onclick="showStatusInfoPopup(' + c.id + ',\'' + (eff.statusKey||'') + '\')" ' +
       'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;cursor:pointer;' +
       'border:1px solid ' + color + ';color:' + color + ';background:' + bg + ';font-size:12px;margin:2px;' +
-      'font-family:\'Lora\',serif;transition:all .15s">' +
+      'font-family:\'Lora\',serif;transition:all .15s" title="Нажми для подробностей">' +
       escHTML(eff.label) + ' <span style="font-size:9px;opacity:.7">' + eff.remaining + unitIcon + '</span>' +
       tickInfo +
-      ' <span style="font-size:10px;opacity:.6">✕</span></span>';
+      ' <span style="font-size:10px;opacity:.5">ⓘ</span></span>';
   }).join('');
   // Also show legacy statuses that are NOT in tempEffects
   var legacyStatuses = (c.statuses||[]).filter(function(key) {
@@ -22345,11 +22381,11 @@ function renderCharSheet() {
   }).map(function(key) {
     var st = ALL_STATUSES.find(function(s){ return s.key === key; });
     if (!st) return '';
-    return '<span onclick="toggleStatus(' + c.id + ',\'' + key + '\')" ' +
+    return '<span onclick="showStatusInfoPopup(' + c.id + ',\'' + key + '\')" ' +
       'style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:12px;cursor:pointer;' +
       'border:1px solid ' + st.color + ';color:' + st.color + ';background:' + st.bg + ';font-size:12px;margin:2px;' +
-      'font-family:\'Lora\',serif;transition:all .15s">' +
-      st.icon + ' ' + st.label + ' <span style="font-size:10px;opacity:.6">✕</span></span>';
+      'font-family:\'Lora\',serif;transition:all .15s" title="Нажми для подробностей">' +
+      st.icon + ' ' + st.label + ' <span style="font-size:10px;opacity:.5">ⓘ</span></span>';
   }).join('');
   activeStatuses = activeStatuses + legacyStatuses;
 
@@ -22382,18 +22418,26 @@ function renderCharSheet() {
     var icon = item.icon || '📦';
     var name = item.name || '';
     var qty = parseInt(item.qty, 10) || 1;
-    return '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;padding:6px 9px;border:1px solid var(--border);border-radius:4px;background:#0c0904">' +
-      '<button onclick="openInventoryEmojiPicker(' + c.id + ',' + i + ',event)" style="width:34px;height:34px;flex-shrink:0;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0" title="Сменить иконку">' + icon + '</button>' +
-      '<input type="text" value="' + escHTML(name) + '" placeholder="Название предмета..." ' +
-        'onchange="updateInvField(' + c.id + ',' + i + ',\'name\',this.value)" ' +
-        'style="flex:1;min-width:0;padding:6px 10px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--text);font-family:\'Lora\',serif;font-size:12px">' +
-      '<div style="display:flex;align-items:center;gap:2px;flex-shrink:0">' +
+    var desc = (item.description || '').trim();
+    // Превью описания: первая строка/фраза, обрезанная до разумной длины
+    var descPreview = desc ? desc.replace(/\s+/g, ' ').slice(0, 90) + (desc.length > 90 ? '…' : '') : '';
+    var hasName = !!name.trim();
+    var displayName = hasName ? name : '— без названия (нажми чтобы настроить) —';
+    return '<div onclick="openItemConstructor(' + c.id + ',\'inventory\',' + i + ')" ' +
+      'style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:6px 9px;border:1px solid var(--border);border-radius:4px;background:#0c0904;cursor:pointer;transition:background .15s" ' +
+      'onmouseover="this.style.background=\'#120d06\'" onmouseout="this.style.background=\'#0c0904\'">' +
+      '<div style="width:34px;height:34px;flex-shrink:0;border:1px solid var(--border);border-radius:4px;background:#0a0704;font-size:18px;display:flex;align-items:center;justify-content:center">' + icon + '</div>' +
+      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
+        '<div style="font-family:\'Lora\',serif;font-size:12px;color:' + (hasName ? 'var(--text)' : 'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(displayName) + '</div>' +
+        (descPreview ? '<div style="font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic">ⓘ ' + escHTML(descPreview) + '</div>' : '') +
+      '</div>' +
+      '<div onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:2px;flex-shrink:0">' +
         '<button onclick="changeInvQty(' + c.id + ',' + i + ',-1)" style="width:26px;height:26px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;line-height:1;padding:0">−</button>' +
-        '<input type="number" min="1" value="' + qty + '" onchange="updateInvField(' + c.id + ',' + i + ',\'qty\',this.value)" ' +
+        '<input type="number" min="1" value="' + qty + '" onchange="updateInvField(' + c.id + ',' + i + ',\'qty\',this.value)" onclick="event.stopPropagation()" ' +
           'style="width:40px;text-align:center;padding:4px;border:1px solid var(--border);border-radius:3px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;font-weight:600">' +
         '<button onclick="changeInvQty(' + c.id + ',' + i + ',1)" style="width:26px;height:26px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;line-height:1;padding:0">+</button>' +
       '</div>' +
-      '<button onclick="removeInventoryItem(' + c.id + ',' + i + ')" style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:15px;padding:2px 6px;flex-shrink:0" ' +
+      '<button onclick="event.stopPropagation();removeInventoryItem(' + c.id + ',' + i + ')" style="background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:15px;padding:2px 6px;flex-shrink:0" ' +
         'onmouseover="this.style.color=\'#c05050\'" onmouseout="this.style.color=\'var(--dim)\'">✕</button>' +
     '</div>';
   }).join('');
@@ -22683,7 +22727,7 @@ function renderCharSheet() {
             '<input type="number" value="'+dispNum+'" min="-5" max="20" ' +
               'onchange="updateStatField('+c.id+',\''+s.key+'\',\'cur\',this.value)" ' +
               'onfocus="this.select()" ' +
-              'style="width:100%;height:60px;text-align:center;border:2px solid '+(hasTmp?(tempSum>0?'#50c08066':'#c8787866'):'#2a1e0e')+';border-radius:10px;background:#060402;color:'+(hasTmp?(tempSum>0?'#50c080':'#c87878'):'#c4a84b')+';font-family:\'Cinzel Decorative\',\'Cinzel\',serif;font-size:30px;font-weight:700;padding:0;touch-action:manipulation">' +
+              'style="width:100%;height:68px;text-align:center;border:2px solid '+(hasTmp?(tempSum>0?'#50c08066':'#c8787866'):'#2a1e0e')+';border-radius:10px;background:#060402;color:'+(hasTmp?(tempSum>0?'#50c080':'#c87878'):'#c4a84b')+';font-family:\'Cinzel Decorative\',\'Cinzel\',serif;font-size:38px;font-weight:700;padding:0;touch-action:manipulation;line-height:1;-webkit-text-fill-color:'+(hasTmp?(tempSum>0?'#50c080':'#c87878'):'#c4a84b')+';appearance:textfield;-moz-appearance:textfield;-webkit-appearance:none">' +
           '</div>';
         }).join('') +
       '</div>' +
@@ -22952,16 +22996,12 @@ function addInventoryItem(id) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   if (!c.inventoryItems) c.inventoryItems = [];
-  c.inventoryItems.push({ name: '', qty: 1, icon: '📦' });
+  c.inventoryItems.push({ name: '', qty: 1, icon: '📦', description: '' });
+  var newIdx = c.inventoryItems.length - 1;
   saveChars();
   renderCharSheet();
-  // Фокус на новое поле
-  setTimeout(function() {
-    var div = document.getElementById('inv-items-' + id);
-    if (!div) return;
-    var inputs = div.querySelectorAll('input[type="text"]');
-    if (inputs.length) inputs[inputs.length - 1].focus();
-  }, 100);
+  // Клик по «+ предмет» → сразу попадаем в конструктор (главное UX-ожидание пользователя)
+  setTimeout(function(){ openItemConstructor(id, 'inventory', newIdx); }, 80);
 }
 
 function removeInventoryItem(id, idx) {
@@ -23038,6 +23078,159 @@ function openInventoryEmojiPicker(charId, itemIdx, event) {
       renderCharSheet();
     };
   });
+}
+
+// ───── Универсальный конструктор предмета (inventory + equip) ─────
+// type: 'inventory' | 'equip'
+// idx: индекс в соответствующем массиве c.inventoryItems или c.equipItems
+// Хранит: name, icon, description (+ qty для inventory, equipped для equip).
+// Нажатие по предмету на листе → сюда. Здесь мини-форма: эмодзи (большой picker),
+// название, описание (с абзацами), сохранение.
+function openItemConstructor(charId, type, idx) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  var arrKey = type === 'equip' ? 'equipItems' : 'inventoryItems';
+  if (!c[arrKey]) c[arrKey] = [];
+  var item = c[arrKey][idx];
+  if (!item) return;
+  // Миграция: legacy-строка / чистый text → объект
+  if (typeof item === 'string') {
+    item = { name: item, icon: type === 'equip' ? '🗃️' : '📦', description: '', qty: 1 };
+    c[arrKey][idx] = item;
+  }
+  if (type === 'equip' && !item.name && item.text) {
+    // Если ранее был введён только text (legacy), используем его как имя
+    item.name = item.text;
+    if (!item.icon) item.icon = '🗃️';
+  }
+  if (!item.icon) item.icon = (type === 'equip' ? '🗃️' : '📦');
+  if (item.description === undefined) item.description = '';
+
+  var old = document.getElementById('item-constructor'); if (old) old.remove();
+
+  var backdrop = document.createElement('div');
+  backdrop.id = 'item-constructor';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  backdrop.addEventListener('click', function(e){ if (e.target === backdrop) closeIt(); });
+
+  var accent = type === 'equip' ? '#c4a84b' : '#d4a84b';
+  var title = type === 'equip' ? '⚔ Снаряжение' : '📦 Предмет';
+
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + accent + ';border-radius:10px;width:100%;max-width:460px;max-height:88vh;overflow-y:auto;padding:18px 18px 16px;box-shadow:0 24px 80px #000c;box-sizing:border-box';
+
+  // Эмодзи-кнопка: большая, заметная, по клику открывает picker (внутри этого же попапа)
+  panel.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:' + accent + ';letter-spacing:.5px">' + title + '</div>' +
+      '<button id="ic-close" style="background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>' +
+    '</div>' +
+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">' +
+      '<button id="ic-emoji-btn" style="width:66px;height:66px;flex-shrink:0;border:2px solid ' + accent + '55;border-radius:10px;background:#0a0704;color:var(--text);font-size:36px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center" title="Сменить иконку">' + (item.icon) + '</button>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">НАЗВАНИЕ</div>' +
+        '<input id="ic-name" type="text" value="' + escHTML(item.name || '') + '" placeholder="Зелье исцеления, Кольцо ветров..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;box-sizing:border-box">' +
+      '</div>' +
+    '</div>' +
+
+    '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">ОПИСАНИЕ</div>' +
+    '<textarea id="ic-desc" placeholder="Эффект, откуда взялось, особенности. Можно несколько абзацев." rows="6" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;line-height:1.6;resize:vertical;box-sizing:border-box;min-height:130px;margin-bottom:14px">' + escHTML(item.description || '') + '</textarea>' +
+
+    (type === 'inventory'
+      ? '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
+          '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px">КОЛИЧЕСТВО</div>' +
+          '<button id="ic-qty-minus" style="width:30px;height:30px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">−</button>' +
+          '<input id="ic-qty" type="number" min="1" value="' + (parseInt(item.qty,10) || 1) + '" style="width:56px;height:30px;text-align:center;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:14px">' +
+          '<button id="ic-qty-plus" style="width:30px;height:30px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">+</button>' +
+        '</div>'
+      : '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:14px">' +
+          '<input id="ic-equipped" type="checkbox"' + (item.equipped ? ' checked' : '') + ' style="width:15px;height:15px;cursor:pointer">' +
+          '<span style="font-family:\'Cinzel\',serif;font-size:11px;color:var(--muted)">Экипировано</span>' +
+        '</label>') +
+
+    // Встроенный эмодзи-picker — скрыт, разворачивается по клику на иконку
+    '<div id="ic-emoji-panel" style="display:none;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#080604">' +
+      '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:8px">ВЫБЕРИ ИКОНКУ</div>' +
+      '<div id="ic-emoji-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:4px;max-height:220px;overflow-y:auto">' +
+        (typeof INV_EMOJI_SET !== 'undefined' ? INV_EMOJI_SET : ['📦']).map(function(em){
+          return '<button data-em="' + em + '" class="ic-emoji-cell" style="width:100%;aspect-ratio:1;border:1px solid #2a1e10;border-radius:4px;background:#0a0704;font-size:20px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">' + em + '</button>';
+        }).join('') +
+      '</div>' +
+    '</div>' +
+
+    '<div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">' +
+      '<button id="ic-remove" style="padding:8px 14px;border:1px solid #8a4040;background:transparent;color:#d97878;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">🗑 Удалить</button>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button id="ic-cancel" style="padding:8px 14px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">Отмена</button>' +
+        '<button id="ic-save" style="padding:8px 22px;border:2px solid ' + accent + ';background:' + accent + '18;color:' + accent + ';font-family:\'Cinzel\',serif;font-size:12px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">✦ Сохранить</button>' +
+      '</div>' +
+    '</div>';
+
+  backdrop.appendChild(panel);
+  document.body.appendChild(backdrop);
+
+  // Автофокус на имя, если оно пустое
+  setTimeout(function(){
+    var nameEl = document.getElementById('ic-name');
+    if (nameEl && !nameEl.value) nameEl.focus();
+  }, 50);
+
+  function closeIt() { backdrop.remove(); }
+
+  document.getElementById('ic-close').onclick = closeIt;
+  document.getElementById('ic-cancel').onclick = closeIt;
+
+  // Развернуть / свернуть эмодзи-picker
+  var currentEmoji = item.icon;
+  document.getElementById('ic-emoji-btn').onclick = function() {
+    var p = document.getElementById('ic-emoji-panel');
+    p.style.display = p.style.display === 'none' ? 'block' : 'none';
+  };
+  panel.querySelectorAll('.ic-emoji-cell').forEach(function(btn) {
+    btn.onclick = function() {
+      currentEmoji = btn.getAttribute('data-em');
+      document.getElementById('ic-emoji-btn').textContent = currentEmoji;
+      document.getElementById('ic-emoji-panel').style.display = 'none';
+    };
+  });
+
+  if (type === 'inventory') {
+    document.getElementById('ic-qty-minus').onclick = function() {
+      var el = document.getElementById('ic-qty');
+      el.value = Math.max(1, (parseInt(el.value,10) || 1) - 1);
+    };
+    document.getElementById('ic-qty-plus').onclick = function() {
+      var el = document.getElementById('ic-qty');
+      el.value = Math.max(1, (parseInt(el.value,10) || 1) + 1);
+    };
+  }
+
+  document.getElementById('ic-remove').onclick = function() {
+    if (!confirm('Удалить предмет?')) return;
+    c[arrKey].splice(idx, 1);
+    saveChars();
+    closeIt();
+    renderCharSheet();
+  };
+
+  document.getElementById('ic-save').onclick = function() {
+    var newName = (document.getElementById('ic-name').value || '').trim();
+    var newDesc = document.getElementById('ic-desc').value || '';
+    item.icon = currentEmoji;
+    item.name = newName;
+    item.description = newDesc;
+    if (type === 'inventory') {
+      item.qty = Math.max(1, parseInt(document.getElementById('ic-qty').value, 10) || 1);
+    } else {
+      item.equipped = !!document.getElementById('ic-equipped').checked;
+      // Для equip синхронизируем legacy-поле text (используется в вёрстках сражений)
+      item.text = newName;
+    }
+    saveChars();
+    closeIt();
+    renderCharSheet();
+  };
 }
 
 
@@ -23865,6 +24058,9 @@ function openCustomStatusPopup(id) {
     '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">НАЗВАНИЕ</div>' +
     '<input id="cs-name" class="be-inp" placeholder="Кровотечение, Благословение..." style="width:100%;margin-bottom:12px">' +
 
+    '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">ОПИСАНИЕ</div>' +
+    '<textarea id="cs-desc" placeholder="Что делает этот эффект? Можно несколько абзацев." rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:12px;line-height:1.55;resize:vertical;box-sizing:border-box;margin-bottom:12px;min-height:60px"></textarea>' +
+
     '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">ЦВЕТ</div>' +
     '<div style="display:flex;gap:4px;margin-bottom:14px">' +
       ['#c02020','#e05020','#c0a020','#50c040','#4090d0','#9060c0','#e060a0','#808080','#a06030','#60c0c0','#c03030','#40b040'].map(function(col,i) {
@@ -23925,6 +24121,8 @@ function applyCustomStatus(charId) {
   ensureTempFields(c);
   var name = document.getElementById('cs-name').value.trim();
   if (!name) { showToast('⚠ Укажи название'); return; }
+  var descEl = document.getElementById('cs-desc');
+  var desc = descEl ? (descEl.value || '') : '';
   var emoji = window._csEmoji || '⚔';
   var color = window._csColor || '#c02020';
   var dur = parseInt(document.getElementById('sp-dur').value) || 3;
@@ -23938,6 +24136,7 @@ function applyCustomStatus(charId) {
     id: Date.now(), type:'status', statusKey: key,
     label: emoji + ' ' + name, value: name, icon: emoji,
     color: color, bg: color + '20',
+    description: desc,
     unit: unit, duration: dur, remaining: dur,
     remainingMins: unit !== 'rounds' ? dur * (UNIT_TO_MINS[unit]||1) : undefined,
     tickType: tickType || '', tickValue: tickVal || 0,
@@ -23946,6 +24145,98 @@ function applyCustomStatus(charId) {
   document.getElementById('status-popup').remove();
   renderCharSheet();
   showToast(emoji + ' ' + name + ' добавлен');
+}
+
+// ── Info-попап активного статуса: показывает описание, длительность, эффект.
+//    Клик по бейджу статуса в листе → сюда (не удаление). Удаление — через кнопку ниже.
+function showStatusInfoPopup(charId, statusKey) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  ensureTempFields(c);
+  var eff = (c.tempEffects||[]).find(function(e){ return e.type === 'status' && e.statusKey === statusKey; });
+  var st = ALL_STATUSES.find(function(s){ return s.key === statusKey; });
+
+  // Забираем описание из механик Арены (главный конструктор)
+  var mechDesc = '';
+  var mechRules = [];
+  try {
+    var mechs = (typeof getStatusMechanics === 'function') ? getStatusMechanics() : [];
+    var m = mechs.find(function(x){ return x.key === statusKey; });
+    if (m) {
+      mechDesc = m.description || '';
+      if (m.cantAct) mechRules.push({txt:'⛔ Блокирует действия', col:'#c87878'});
+      if (m.cantMove) mechRules.push({txt:'⛔ Блокирует движение', col:'#c87878'});
+      if (m.cantReact) mechRules.push({txt:'⛔ Без реакций', col:'#c87878'});
+      if (m.hasDisadvantage) mechRules.push({txt:'📉 Помеха атак', col:'#d4a84b'});
+      if (m.grantAdvantageToAttackers) mechRules.push({txt:'📈 Преим. атак по нему', col:'#d4a84b'});
+      if (m.startOfTurnEffect === 'damage') mechRules.push({txt:'🔥 DoT ' + (m.startOfTurnDice||'1d4'), col:'#e05020'});
+      if (m.startOfTurnEffect === 'heal') mechRules.push({txt:'💚 HoT ' + (m.startOfTurnDice||'1d4'), col:'#6fcb83'});
+      if (m.acMod) mechRules.push({txt:(m.acMod > 0 ? '+' : '') + m.acMod + ' AC', col: m.acMod > 0 ? '#6fcb83' : '#c87878'});
+      if (m.attackMod && Math.abs(m.attackMod) < 50) mechRules.push({txt:(m.attackMod > 0 ? '+' : '') + m.attackMod + ' атака', col: m.attackMod > 0 ? '#6fcb83' : '#c87878'});
+      if (m.damageMod) mechRules.push({txt:(m.damageMod > 0 ? '+' : '') + m.damageMod + ' урон', col: m.damageMod > 0 ? '#6fcb83' : '#c87878'});
+      if (m.speedMod) mechRules.push({txt:(m.speedMod > 0 ? '+' : '') + m.speedMod + ' скор.', col: m.speedMod > 0 ? '#6fcb83' : '#c87878'});
+    }
+  } catch(e) {}
+
+  // Объединяем инфо: имя/иконка/цвет — из eff (приоритет, т.к. может быть кастомный), fallback на ALL_STATUSES
+  var icon  = (eff && eff.icon) || (st && st.icon) || '💫';
+  var label = (eff && eff.value) || (st && st.label) || statusKey;
+  var color = (eff && eff.color) || (st && st.color) || '#a0a0a0';
+
+  // Описание: приоритет — описание, заданное при создании (для custom), потом механика из Арены
+  var description = (eff && eff.description) || mechDesc || '';
+
+  var durationTxt = '';
+  if (eff) {
+    var unitLabel = {rounds:'раунд.',minutes:'мин.',hours:'ч.',days:'дн.'}[eff.unit] || eff.unit || '';
+    durationTxt = eff.remaining + ' ' + unitLabel + (eff.duration && eff.duration !== eff.remaining ? ' / из ' + eff.duration : '');
+  }
+  var tickTxt = (eff && eff.tickType) ? ((eff.tickValue>0?'+':'') + eff.tickValue + ' к ' + eff.tickType + ' каждый раунд') : '';
+
+  var old = document.getElementById('status-info-popup'); if (old) old.remove();
+  var popup = document.createElement('div');
+  popup.id = 'status-info-popup';
+  popup.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  popup.onclick = function(ev) { if (ev.target === popup) popup.remove(); };
+
+  var card = document.createElement('div');
+  card.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + color + ';border-radius:10px;padding:20px 22px;min-width:300px;max-width:460px;width:100%;box-shadow:0 20px 60px #000000cc;max-height:85vh;overflow-y:auto;box-sizing:border-box';
+
+  var rulesHtml = mechRules.length
+    ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 14px">' +
+      mechRules.map(function(b){ return '<span style="padding:3px 8px;border:1px solid ' + b.col + '44;border-radius:5px;font-size:10px;color:' + b.col + ';background:' + b.col + '0a">' + b.txt + '</span>'; }).join('') +
+    '</div>'
+    : '';
+
+  card.innerHTML =
+    '<div style="text-align:center;margin-bottom:14px">' +
+      '<div style="font-size:38px;line-height:1">' + icon + '</div>' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:16px;color:' + color + ';margin-top:8px;letter-spacing:.5px">' + escHTML(label) + '</div>' +
+      (durationTxt ? '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:var(--muted);margin-top:4px">⏳ ' + durationTxt + '</div>' : '') +
+      (tickTxt ? '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:' + color + ';margin-top:3px;opacity:.85">⚙ ' + escHTML(tickTxt) + '</div>' : '') +
+    '</div>' +
+    rulesHtml +
+    (description
+      ? '<div style="background:#080604;border:1px solid #1e1508;border-radius:6px;padding:12px 14px;margin-bottom:14px;color:var(--muted);line-height:1.65;font-family:\'Lora\',serif;font-size:13px;white-space:pre-wrap">' + escHTML(description) + '</div>'
+      : '<div style="color:var(--dim);font-size:12px;font-style:italic;margin-bottom:14px;text-align:center;padding:10px">Нет описания. Настроить → Арена → Состояния.</div>') +
+    '<div style="display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap">' +
+      '<button onclick="removeStatusFromInfo(' + charId + ',\'' + statusKey + '\')" style="padding:8px 16px;border:1px solid #8a4040;background:transparent;color:#d97878;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">✕ Снять статус</button>' +
+      '<button onclick="document.getElementById(\'status-info-popup\').remove()" style="padding:8px 20px;border:1px solid ' + color + ';background:' + color + '18;color:' + color + ';font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">Закрыть</button>' +
+    '</div>';
+
+  popup.appendChild(card);
+  document.body.appendChild(popup);
+}
+
+function removeStatusFromInfo(charId, statusKey) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  ensureTempFields(c);
+  c.tempEffects = c.tempEffects.filter(function(e){ return !(e.type === 'status' && e.statusKey === statusKey); });
+  if (c.statuses) c.statuses = c.statuses.filter(function(k){ return k !== statusKey; });
+  saveChars();
+  var p = document.getElementById('status-info-popup'); if (p) p.remove();
+  renderCharSheet();
 }
 
 function toggleDeathSave(id, type, idx) {
@@ -24507,6 +24798,7 @@ function buildSpellRefsList(c) {
     return '<div style="color:var(--dim);font-size:11px;font-family:\'Lora\',serif;padding:4px 0">Нет привязанных заклинаний</div>';
   }
   if (!c.spellCD) c.spellCD = {};
+  if (!c.spellsLearned) c.spellsLearned = {};
   return c.spellRefs.map(function(sid) {
     var sp = entries.find(function(e){ return e.id === sid; });
     if (!sp) return '';
@@ -24523,21 +24815,41 @@ function buildSpellRefsList(c) {
     var cdInfo = c.spellCD[sid] || { used:0 };
     var usedCount = cdInfo.used || 0;
     var onCD = usedCount >= cdMax && cdText;
+    var partialCD = usedCount > 0 && usedCount < cdMax;
     var chargesLeft = cdMax - usedCount;
 
+    var learned = !!c.spellsLearned[sid];
+
+    // Более заметный CD-бейдж: крупнее, толще рамка, для ON_CD — пульсация красного
     var cdBadge = '';
     if (cdText) {
-      cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:' + (onCD?'#c04040':'#50a050') + ';white-space:nowrap">' +
-        (onCD ? '⏳КД' : chargesLeft + '/' + cdMax) + '</span>';
+      if (onCD) {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#ff6060;padding:3px 10px;border:2px solid #c04040;border-radius:10px;background:#c0404025;letter-spacing:.5px;white-space:nowrap;box-shadow:0 0 8px #c0404044">⏳ В КД</span>';
+      } else if (partialCD) {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#e0a040;padding:3px 9px;border:1px solid #e0a04088;border-radius:10px;background:#e0a04018;letter-spacing:.3px;white-space:nowrap">' + chargesLeft + '/' + cdMax + '</span>';
+      } else {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#60c060;padding:3px 9px;border:1px solid #60c06066;border-radius:10px;background:#60c06014;letter-spacing:.3px;white-space:nowrap">' + chargesLeft + '/' + cdMax + '</span>';
+      }
     }
 
-    return '<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;margin-bottom:4px;' +
-      'border-left:3px solid ' + accentColor + ';background:#0e0a06;border-radius:0 3px 3px 0;' +
-      'cursor:pointer;transition:all .15s;opacity:' + (onCD?'.5':'1') + '" ' +
+    // Бейдж «не изучено»
+    var learnBadge = learned
+      ? ''
+      : '<span style="font-family:\'Cinzel\',serif;font-size:9px;font-weight:600;color:#888;padding:2px 7px;border:1px dashed #666;border-radius:9px;background:#0a0a0a;white-space:nowrap;letter-spacing:.5px">🔒 НЕ ИЗУЧЕНО</span>';
+
+    // Визуально: не изучено → приглушенный цвет рамки, название serigrafy; в CD → opacity
+    var rowOpacity = onCD ? '.55' : (learned ? '1' : '.75');
+    var borderColor = learned ? accentColor : '#555';
+    var nameColor = onCD ? 'var(--dim)' : (learned ? 'var(--text)' : '#8a8a8a');
+
+    return '<div style="display:flex;align-items:center;gap:7px;padding:7px 10px;margin-bottom:5px;' +
+      'border-left:4px solid ' + borderColor + ';background:#0e0a06;border-radius:0 4px 4px 0;' +
+      'cursor:pointer;transition:all .15s;opacity:' + rowOpacity + '" ' +
       'onclick="showSpellDetail(' + c.id + ',' + sid + ')">' +
-      '<span style="font-size:12px">' + icon + '</span>' +
-      '<span style="flex:1;font-family:\'Cinzel\',serif;font-size:11px;color:' + (onCD?'var(--dim)':'var(--text)') + ';letter-spacing:.3px">' + escHTML(sp.name||'?') + '</span>' +
+      '<span style="font-size:14px">' + icon + '</span>' +
+      '<span style="flex:1;font-family:\'Cinzel\',serif;font-size:12px;color:' + nameColor + ';letter-spacing:.3px;text-decoration:' + (onCD ? 'line-through' : 'none') + ';min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(sp.name||'?') + '</span>' +
       '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim)">ур.' + sp.level + '</span>' +
+      learnBadge +
       cdBadge +
       '<span onclick="event.stopPropagation();removeSpellRef(' + c.id + ',' + sid + ')" style="color:var(--dim);font-size:11px;padding:0 4px;cursor:pointer" title="Убрать">✕</span>' +
     '</div>';
@@ -24555,7 +24867,9 @@ function showSpellDetail(charId, spellId) {
 
   // CD tracking
   if (!c.spellCD) c.spellCD = {};
+  if (!c.spellsLearned) c.spellsLearned = {};
   var cdInfo = c.spellCD[spellId] || { used:0, max:0, onCD:false };
+  var isLearned = !!c.spellsLearned[spellId];
   // Parse max charges from cd string
   var cdText = sp.cd || '';
   var cdMax = 1;
@@ -24600,8 +24914,27 @@ function showSpellDetail(charId, spellId) {
     '</div>';
   }).join('');
 
-  // CD widget
-  var usedCount = cdInfo.used || 0;
+  // Виджет «изучено / не изучено» — выводится всегда сверху cdWidgetHTML
+  var learnWidgetHTML = '';
+  if (isLearned) {
+    learnWidgetHTML = '<div style="background:#0a0804;border:1px solid #60c06044;border-radius:4px;padding:8px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">' +
+      '<span style="font-size:16px">🎓</span>' +
+      '<div style="flex:1">' +
+        '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:#60c060;letter-spacing:.5px;font-weight:600">ИЗУЧЕНО</div>' +
+        '<div style="font-family:\'Lora\',serif;font-size:10px;color:var(--dim);margin-top:1px">Заклинание доступно к использованию</div>' +
+      '</div>' +
+      '<button onclick="toggleSpellLearned(' + charId + ',' + spellId + ')" style="padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:3px">↩ Забыть</button>' +
+    '</div>';
+  } else {
+    learnWidgetHTML = '<div style="background:#0a0804;border:2px dashed #888;border-radius:4px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px">' +
+      '<span style="font-size:20px">🔒</span>' +
+      '<div style="flex:1">' +
+        '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:#aaa;letter-spacing:.5px;font-weight:600">НЕ ИЗУЧЕНО</div>' +
+        '<div style="font-family:\'Lora\',serif;font-size:10px;color:var(--dim);margin-top:1px">' + (sp.learnText ? 'См. блок «' + (learnLabels[sp.learnType] || '🧠 Обучение').replace(/^[^ ]+ /,'') + '»' : 'Заклинание ещё не освоено') + '</div>' +
+      '</div>' +
+      '<button onclick="toggleSpellLearned(' + charId + ',' + spellId + ')" style="padding:6px 16px;border:2px solid var(--gold);background:#e8c06018;color:var(--gold);font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;letter-spacing:.5px">🎓 Изучить</button>' +
+    '</div>';
+  }
   var cdWidgetHTML = '';
   if (cdText) {
     var charges = '';
@@ -24647,6 +24980,7 @@ function showSpellDetail(charId, spellId) {
       (!sp.effect && battleHTML ? detailBlock('⚔','БОЙ', sp.battle) : '') +
       optFieldsHTML +
       (sp.learnText ? detailBlock((learnLabels[sp.learnType] || '🧠 ОБУЧЕНИЕ').split(' ')[0], (learnLabels[sp.learnType] || '🧠 ОБУЧЕНИЕ').split(' ').slice(1).join(' ') || 'ОБУЧЕНИЕ', sp.learnText) : '') +
+      learnWidgetHTML +
       cdWidgetHTML +
       (sp.restriction ? detailBlock('🛑','ОГРАНИЧЕНИЯ', sp.restriction, '#4a2020') : '') +
       '</div>' +
@@ -24697,6 +25031,23 @@ function resetSpellCD(charId, spellId) {
   if (!c) return;
   if (!c.spellCD) c.spellCD = {};
   c.spellCD[spellId] = { used:0 };
+  saveChars();
+  rerenderSpellDetailPreservingScroll(charId, spellId);
+  renderCharSheet();
+}
+
+function toggleSpellLearned(charId, spellId) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  if (!c.spellsLearned) c.spellsLearned = {};
+  var wasLearned = !!c.spellsLearned[spellId];
+  if (wasLearned) {
+    delete c.spellsLearned[spellId];
+    showToast('🔒 Заклинание не изучено');
+  } else {
+    c.spellsLearned[spellId] = true;
+    showToast('🎓 Заклинание изучено');
+  }
   saveChars();
   rerenderSpellDetailPreservingScroll(charId, spellId);
   renderCharSheet();
