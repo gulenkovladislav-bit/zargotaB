@@ -9027,10 +9027,13 @@ window.zgImageStore = (function() {
         <button onclick="(window.showBackupModal||window.showBackupPreview)();toggleBackupMenu()" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background='#ffffff08'" onmouseout="this.style.background='transparent'">💾 Бэкап / Восстановление</button>
         <div style="height:1px;background:#2a1e10;margin:3px 0"></div>
         <button onclick="document.getElementById('media-pack-import').click();toggleBackupMenu()" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background='#ffffff08'" onmouseout="this.style.background='transparent'">🖼 Импорт медиапак</button>
+        <div style="height:1px;background:#2a1e10;margin:3px 0"></div>
+        <button onclick="document.getElementById('atlas-only-import').click();toggleBackupMenu()" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background='#ffffff08'" onmouseout="this.style.background='transparent'" title="Подтягивает обозначения на карте (зоны, маркеры, маршруты) из любого master-бэкапа, не трогая остальные данные">🗺 Импорт только атласа</button>
       </div>
     </div>
     <input type="file" id="master-backup-import" accept=".json" style="display:none" onchange="importMasterBackup(event)">
     <input type="file" id="media-pack-import" accept=".json" style="display:none" onchange="importMediaPack(event)">
+    <input type="file" id="atlas-only-import" accept=".json" style="display:none" onchange="importAtlasOnly(event)">
     <!-- Контекстный nav — показывается в зависимости от страницы -->
     <div id="nav-ctx-catalog" style="display:none;gap:7px;align-items:center" class="nav-ctx">
       <button class="btn btn-nav" id="nav-form" onclick="openNewForm()"><span class="btn-label">＋ Создать</span></button>
@@ -9711,6 +9714,7 @@ window.zgImageStore = (function() {
               <button class="wmc-btn" onclick="worldZoomBy(0.2)" title="Увеличить">＋</button>
               <button class="wmc-btn" onclick="worldZoomBy(-0.2)" title="Уменьшить">−</button>
               <button class="wmc-btn wmc-reset" onclick="worldResetZoomAndPan()" title="Сброс">⟲</button>
+              <button class="wmc-btn" onclick="openWorldMobileFullscreen()" title="Во весь экран" style="font-size:14px">⛶</button>
             </div>
             <div class="wmc-pan">
               <button class="wmc-btn" data-pan-dir="up" title="Вверх">▲</button>
@@ -13646,6 +13650,163 @@ function worldResetZoomAndPan() {
   worldOffsetX = (wrap.clientWidth - size.width * worldScale) / 2;
   worldOffsetY = (wrap.clientHeight - size.height * worldScale) / 2;
   applyWorldTransform();
+}
+
+// ───── Мобильный fullscreen-режим карты с pinch-zoom ─────
+// Обходит глобальный user-scalable=no: временно включает pinch-zoom в meta viewport,
+// показывает snapshot текущей карты как img (fit=contain), позволяет pinch-zoom и тапы.
+// По тапу — ищем ближайший объект атласа в мировых координатах и показываем карточку с описанием.
+var _worldFsSavedViewport = null;
+
+function openWorldMobileFullscreen() {
+  var canvas = document.getElementById('world-map-canvas');
+  if (!canvas) { showToast('Карта ещё не готова'); return; }
+
+  var dataUrl = '';
+  try { dataUrl = canvas.toDataURL('image/png'); } catch(e) {
+    // canvas может быть "tainted" если на нём рендерилась внешняя картинка без CORS.
+    // В таком случае fullscreen не сможет сделать snapshot — покажем тост.
+    showToast('⚠ Не удалось сделать снимок карты');
+    return;
+  }
+
+  // Временно включаем pinch-zoom браузера
+  var vp = document.querySelector('meta[name="viewport"]');
+  if (vp) {
+    _worldFsSavedViewport = vp.getAttribute('content');
+    vp.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover');
+  }
+
+  // Собираем список объектов атласа с их позициями в координатах канвы (px)
+  // Canvas snapshot имеет размеры canvas.width × canvas.height (реальные пиксели).
+  // Для hit-test нужны те же координаты, что рисует рендер. Здесь упрощение:
+  // используем worldAtlasState.objects с их мировыми координатами + запоминаем
+  // текущую трансформацию (worldScale/worldOffsetX/Y) на момент snapshot'а.
+  var snapshotScale = (typeof worldScale === 'number') ? worldScale : 1;
+  var snapshotOffsetX = (typeof worldOffsetX === 'number') ? worldOffsetX : 0;
+  var snapshotOffsetY = (typeof worldOffsetY === 'number') ? worldOffsetY : 0;
+
+  function worldPointToCanvasPx(wp) {
+    if (!wp) return null;
+    return {
+      x: wp.x * snapshotScale + snapshotOffsetX,
+      y: wp.y * snapshotScale + snapshotOffsetY
+    };
+  }
+
+  // Центр объекта в мировых координатах
+  function getObjectCenter(obj) {
+    if (!obj || !obj.geometry) return null;
+    var g = obj.geometry;
+    if (g.kind === 'point' && typeof g.x === 'number') return { x: g.x, y: g.y };
+    if (g.kind === 'circle' && typeof g.x === 'number') return { x: g.x, y: g.y };
+    if (g.kind === 'rect') return { x: g.x + (g.w || 0)/2, y: g.y + (g.h || 0)/2 };
+    if (g.kind === 'polygon' && Array.isArray(g.points) && g.points.length) {
+      var sx = 0, sy = 0;
+      g.points.forEach(function(p){ sx += p.x; sy += p.y; });
+      return { x: sx / g.points.length, y: sy / g.points.length };
+    }
+    if (Array.isArray(g.points) && g.points.length) {
+      return { x: g.points[0].x, y: g.points[0].y };
+    }
+    return null;
+  }
+
+  var overlay = document.createElement('div');
+  overlay.id = 'world-mobile-fullscreen';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0a0604;overflow:auto;-webkit-overflow-scrolling:touch;touch-action:pinch-zoom';
+
+  // Контейнер по размеру экрана, img внутри — fit=contain
+  var content = document.createElement('div');
+  content.style.cssText = 'position:relative;min-width:100vw;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:60px 12px 80px;box-sizing:border-box';
+
+  var imgHolder = document.createElement('div');
+  imgHolder.style.cssText = 'position:relative;display:inline-block;max-width:100%';
+
+  var img = document.createElement('img');
+  img.src = dataUrl;
+  img.style.cssText = 'max-width:100%;width:auto;height:auto;display:block;user-select:none;-webkit-user-drag:none';
+  img.setAttribute('draggable', 'false');
+  imgHolder.appendChild(img);
+
+  // Клик по карте → hit-test ближайшего объекта + показ карточки
+  img.addEventListener('click', function(ev) {
+    var rect = img.getBoundingClientRect();
+    var imgX = ev.clientX - rect.left;
+    var imgY = ev.clientY - rect.top;
+    // Переводим в координаты canvas snapshot'а
+    if (!rect.width || !rect.height) return;
+    var cx = imgX * canvas.width / rect.width;
+    var cy = imgY * canvas.height / rect.height;
+
+    // Ищем объект с центром ближе всего к (cx, cy) в canvas px
+    var objs = (typeof worldAtlasState !== 'undefined' && worldAtlasState && worldAtlasState.objects) ? worldAtlasState.objects : [];
+    var best = null, bestDist = 60 * 60; // порог: 60px в canvas
+    objs.forEach(function(obj){
+      if (!obj || obj.visible === false) return;
+      var center = getObjectCenter(obj);
+      if (!center) return;
+      var px = worldPointToCanvasPx(center);
+      var dx = px.x - cx, dy = px.y - cy;
+      var d2 = dx*dx + dy*dy;
+      if (d2 < bestDist) { bestDist = d2; best = obj; }
+    });
+
+    var card = document.getElementById('world-fs-tap-card');
+    if (card) card.remove();
+    if (!best) return;
+
+    var typeLabel = best.type === 'marker' ? 'Маркер' : best.type === 'route' ? 'Маршрут' : 'Зона';
+    var loc = (best.meta && best.meta.locationType) ? best.meta.locationType : '';
+    var desc = (best.meta && best.meta.description) || (best.behavior && best.behavior.tooltipBody) || '';
+
+    card = document.createElement('div');
+    card.id = 'world-fs-tap-card';
+    // Карточка появляется рядом с точкой нажатия, но привязана к viewport (fixed)
+    var cardX = Math.min(window.innerWidth - 280, Math.max(10, ev.clientX + 12));
+    var cardY = Math.min(window.innerHeight - 180, Math.max(10, ev.clientY + 12));
+    card.style.cssText = 'position:fixed;left:' + cardX + 'px;top:' + cardY + 'px;z-index:100001;width:260px;max-width:calc(100vw - 20px);background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c4a84b;border-radius:10px;padding:12px 14px;box-shadow:0 16px 48px #000c;font-family:\'Lora\',serif';
+    card.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#c4a84b;letter-spacing:1.5px">' + escHTML(typeLabel + (loc ? ' · ' + loc : '')) + '</div>' +
+          '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:#f4e5be;margin-top:2px;word-break:break-word">' + escHTML(best.name || 'Без имени') + '</div>' +
+        '</div>' +
+        '<button onclick="document.getElementById(\'world-fs-tap-card\').remove()" style="background:transparent;border:none;color:#888;font-size:18px;cursor:pointer;padding:0 4px;line-height:1">×</button>' +
+      '</div>' +
+      (desc ? '<div style="font-size:11px;color:var(--muted);line-height:1.55;margin-top:6px;max-height:100px;overflow-y:auto">' + escHTML(desc) + '</div>' : '<div style="font-size:10px;color:var(--dim);font-style:italic;margin-top:6px">Нет описания</div>');
+    document.body.appendChild(card);
+  });
+
+  // Кнопка закрытия
+  var closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'position:fixed;top:14px;right:14px;width:44px;height:44px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604ee;color:#c4a84b;font-size:20px;cursor:pointer;z-index:100000;box-shadow:0 4px 16px #000a;display:flex;align-items:center;justify-content:center';
+  closeBtn.onclick = closeWorldMobileFullscreen;
+
+  // Подсказка
+  var hint = document.createElement('div');
+  hint.style.cssText = 'position:fixed;bottom:14px;left:50%;transform:translateX(-50%);padding:8px 14px;background:#0a0604dd;border:1px solid #3a2918;border-radius:6px;color:#c4a84b;font-size:11px;font-family:\'Cinzel\',serif;letter-spacing:.5px;z-index:100000;white-space:nowrap';
+  hint.textContent = 'Двумя пальцами — зум · Тап — инфо места';
+
+  content.appendChild(imgHolder);
+  overlay.appendChild(content);
+  overlay.appendChild(closeBtn);
+  overlay.appendChild(hint);
+  document.body.appendChild(overlay);
+}
+
+function closeWorldMobileFullscreen() {
+  var overlay = document.getElementById('world-mobile-fullscreen');
+  if (overlay) overlay.remove();
+  var card = document.getElementById('world-fs-tap-card');
+  if (card) card.remove();
+  // Восстанавливаем meta viewport
+  var vp = document.querySelector('meta[name="viewport"]');
+  if (vp && _worldFsSavedViewport) {
+    vp.setAttribute('content', _worldFsSavedViewport);
+    _worldFsSavedViewport = null;
+  }
 }
 
 // Биндим pan-кнопки (непрерывный сдвиг при удержании)
@@ -18329,22 +18490,34 @@ function drawHtreeLines() {
 function renderHtreeNodeRecursive(entryId, node, allNodes, editing, depth) {
   var children = allNodes.filter(function(n) { return n.parentId === node.id; });
   var isRoot = !node.parentId;
+  var killed = !!node.killed;
   var portraitInner = node.portrait
     ? '<img src="' + node.portrait + '" alt="">'
     : '<span style="font-size:' + (isRoot ? 28 : 22) + 'px">' + (node.icon || '👤') + '</span>';
+  // Killed-overlay: череп поверх портрета
+  if (killed) {
+    portraitInner += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000000a6;font-size:' + (isRoot ? 36 : 26) + 'px;border-radius:50%;pointer-events:none">💀</div>';
+  }
+  // Общий стиль «убитого» — серая рамка, пониженная opacity, grayscale фильтр
+  var killedCardStyle = killed
+    ? 'filter:grayscale(1) brightness(.72);opacity:.78;border-color:#555 !important;'
+    : '';
   var html = '<div class="htree-node">';
-  html += '<div class="htree-card' + (isRoot ? ' root-card' : '') + '" data-node-id="' + node.id + '" data-parent-id="' + (node.parentId||'') + '" onclick="viewHtreeNode(\'' + entryId + '\',\'' + node.id + '\')">';
+  html += '<div class="htree-card' + (isRoot ? ' root-card' : '') + (killed ? ' killed-card' : '') + '" data-node-id="' + node.id + '" data-parent-id="' + (node.parentId||'') + '" style="' + killedCardStyle + '" onclick="viewHtreeNode(\'' + entryId + '\',\'' + node.id + '\')">';
   if (editing) {
     html += '<div class="htree-card-actions" style="display:flex">';
     html += '<button class="htree-card-action-btn" onclick="event.stopPropagation();editHtreeNode(\'' + entryId + '\',\'' + node.id + '\')" title="Редактировать">✏</button>';
+    html += '<button class="htree-card-action-btn" onclick="event.stopPropagation();duplicateHtreeNode(\'' + entryId + '\',\'' + node.id + '\')" title="Дублировать">⎘</button>';
+    html += '<button class="htree-card-action-btn" onclick="event.stopPropagation();toggleHtreeKilled(\'' + entryId + '\',\'' + node.id + '\')" title="' + (killed ? 'Воскресить (снять метку)' : 'Отметить как убит') + '" style="color:' + (killed ? '#a0a0a0' : '#c04040') + '">💀</button>';
     html += '<button class="htree-card-action-btn" onclick="event.stopPropagation();removeHtreeNode(\'' + entryId + '\',\'' + node.id + '\')" title="Удалить" style="color:#c04040">×</button>';
     html += '</div>';
   }
-  html += '<div class="htree-portrait" style="' + (isRoot ? 'border-color:#d4a04a;width:64px;height:64px' : '') + '"' +
+  html += '<div class="htree-portrait" style="position:relative;' + (isRoot ? 'border-color:#d4a04a;width:64px;height:64px' : '') + '"' +
     (editing ? ' onclick="event.stopPropagation();uploadHtreePortrait(\'' + entryId + '\',\'' + node.id + '\')" title="Загрузить фото"' : '') + '>' + portraitInner + '</div>';
-  html += '<div class="htree-card-name">' + escHTML(node.name || 'Без имени') + '</div>';
+  html += '<div class="htree-card-name" style="' + (killed ? 'text-decoration:line-through;color:#888' : '') + '">' + escHTML(node.name || 'Без имени') + '</div>';
   if (node.title) html += '<div class="htree-card-title">' + escHTML(node.title) + '</div>';
   if (node.info) html += '<div class="htree-card-info">' + escHTML(node.info) + '</div>';
+  if (killed) html += '<div style="margin-top:4px;font-size:9px;color:#c04040;letter-spacing:1px;font-family:\'Cinzel\',serif;font-weight:600">☠ УБИТ</div>';
   if (node.linkedCharId) html += '<div style="margin-top:4px;font-size:8px;color:#d4a04a;letter-spacing:.5px">🎭 ПЕРСОНАЖ</div>';
   html += '</div>';
   if (children.length > 0 || editing) {
@@ -18544,6 +18717,46 @@ function removeHtreeNode(entryId, nodeId) {
       renderHierarchyTree(entryId);
     }
   });
+}
+
+// Дубликат: копирует узел как брата-соседа (тот же parentId, новый id, пометка "(копия)").
+// linkedCharId НЕ копируется — чтобы не создавать двойных привязок к одному персонажу.
+function duplicateHtreeNode(entryId, nodeId) {
+  var tree = getHtree(entryId);
+  if (!tree.nodes) tree.nodes = [];
+  var orig = tree.nodes.find(function(n){ return n.id === nodeId; });
+  if (!orig) return;
+  var copy = {
+    id: 'hn_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    parentId: orig.parentId || null,
+    name: (orig.name || '') + ' (копия)',
+    title: orig.title || '',
+    info: orig.info || '',
+    icon: orig.icon || '👤',
+    portrait: orig.portrait || '',
+    killed: !!orig.killed,
+    linkedCharId: null   // намеренно не копируем, чтобы не было двойных связей
+  };
+  // Вставляем сразу после оригинала для удобства визуализации
+  var idx = tree.nodes.indexOf(orig);
+  if (idx >= 0) tree.nodes.splice(idx + 1, 0, copy);
+  else tree.nodes.push(copy);
+  saveHtreeData();
+  renderHierarchyTree(entryId);
+  if (typeof showToast === 'function') showToast('⎘ Дубликат создан');
+}
+
+// Метка «убит»: переключает node.killed. В рендере применяются grayscale, череп и текст «УБИТ».
+function toggleHtreeKilled(entryId, nodeId) {
+  var tree = getHtree(entryId);
+  var node = (tree.nodes || []).find(function(n){ return n.id === nodeId; });
+  if (!node) return;
+  node.killed = !node.killed;
+  saveHtreeData();
+  renderHierarchyTree(entryId);
+  if (typeof showToast === 'function') {
+    showToast(node.killed ? '💀 Отмечен как убит' : '↑ Метка снята');
+  }
 }
 function viewHtreeNode(entryId, nodeId) {
   var tree = getHtree(entryId);
@@ -19653,6 +19866,113 @@ function exportMasterBackup() {
     if (Object.keys(data).length) payload.idb['zargota_beasts'] = data;
     done();
   });
+}
+
+function importAtlasOnly(event) {
+  var file = event && event.target && event.target.files && event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      // Поддерживаем два формата:
+      // 1) zargota-master-backup — data.storage['grimoire_world_atlas_v5'] (строка с JSON)
+      // 2) чистый атлас — сам объект {version, layers, objects, factions}
+      var atlasRaw = null;
+      if (data && data.kind === 'zargota-master-backup' && data.storage && data.storage['grimoire_world_atlas_v5']) {
+        atlasRaw = data.storage['grimoire_world_atlas_v5'];
+      } else if (data && (Array.isArray(data.objects) || Array.isArray(data.layers))) {
+        atlasRaw = JSON.stringify(data);
+      } else {
+        showToast('\u26a0 \u0412 \u0444\u0430\u0439\u043b\u0435 \u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0430\u0442\u043b\u0430\u0441\u0430');
+        return;
+      }
+      var incoming;
+      try { incoming = JSON.parse(atlasRaw); } catch(err) {
+        showToast('\u26a0 \u0421\u043b\u043e\u043c\u0430\u043d JSON \u0430\u0442\u043b\u0430\u0441\u0430');
+        return;
+      }
+      if (!incoming || (!Array.isArray(incoming.objects) && !Array.isArray(incoming.layers))) {
+        showToast('\u26a0 \u041d\u0435\u0432\u0435\u0440\u043d\u0430\u044f \u0441\u0442\u0440\u0443\u043a\u0442\u0443\u0440\u0430 \u0430\u0442\u043b\u0430\u0441\u0430');
+        return;
+      }
+
+      var incomingObjCount = (incoming.objects || []).length;
+      var incomingLayerCount = (incoming.layers || []).length;
+      var currentObjCount = (worldAtlasState && worldAtlasState.objects) ? worldAtlasState.objects.length : 0;
+
+      // Диалог: заменить всё / добавить недостающие / отмена
+      var choice = '';
+      if (currentObjCount === 0) {
+        choice = 'replace'; // нечего терять
+      } else {
+        var answer = prompt(
+          '\u0412 \u0444\u0430\u0439\u043b\u0435: ' + incomingObjCount + ' \u043e\u0431\u044a\u0435\u043a\u0442\u043e\u0432, ' + incomingLayerCount + ' \u0441\u043b\u043e\u0451\u0432.\n' +
+          '\u0421\u0435\u0439\u0447\u0430\u0441 \u0432 \u0430\u0442\u043b\u0430\u0441\u0435: ' + currentObjCount + ' \u043e\u0431\u044a\u0435\u043a\u0442\u043e\u0432.\n\n' +
+          '\u0412\u0432\u0435\u0434\u0438:\n' +
+          '  1 = \u0417\u0430\u043c\u0435\u043d\u0438\u0442\u044c \u0432\u0441\u0435 \u043e\u0431\u043e\u0437\u043d\u0430\u0447\u0435\u043d\u0438\u044f\n' +
+          '  2 = \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043d\u0435\u0434\u043e\u0441\u0442\u0430\u044e\u0449\u0438\u0435 (merge)\n' +
+          '  \u043f\u0443\u0441\u0442\u043e = \u041e\u0442\u043c\u0435\u043d\u0430',
+          '2'
+        );
+        if (answer === '1') choice = 'replace';
+        else if (answer === '2') choice = 'merge';
+        else return;
+      }
+
+      // Нормализация через имеющийся хелпер, если есть
+      var normalized = (typeof normalizeWorldAtlasState === 'function')
+        ? normalizeWorldAtlasState(incoming)
+        : incoming;
+
+      if (choice === 'replace') {
+        worldAtlasState = normalized;
+      } else {
+        // Merge: добавляем только те объекты, чей id отсутствует в текущем состоянии
+        var existingIds = {};
+        (worldAtlasState.objects || []).forEach(function(o){ if (o && o.id) existingIds[o.id] = true; });
+        var added = 0;
+        (normalized.objects || []).forEach(function(o){
+          if (o && o.id && !existingIds[o.id]) {
+            worldAtlasState.objects.push(o);
+            added++;
+          }
+        });
+        // Слои — добавляем недостающие по id
+        var existingLayerIds = {};
+        (worldAtlasState.layers || []).forEach(function(l){ if (l && l.id) existingLayerIds[l.id] = true; });
+        (normalized.layers || []).forEach(function(l){
+          if (l && l.id && !existingLayerIds[l.id]) worldAtlasState.layers.push(l);
+        });
+        // Фракции атласа — аналогично
+        if (!worldAtlasState.factions) worldAtlasState.factions = [];
+        var existingFactionIds = {};
+        (worldAtlasState.factions || []).forEach(function(f){ if (f && f.id) existingFactionIds[f.id] = true; });
+        (normalized.factions || []).forEach(function(f){
+          if (f && f.id && !existingFactionIds[f.id]) worldAtlasState.factions.push(f);
+        });
+        showToast('\u2795 \u0414\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u043e \u043d\u043e\u0432\u044b\u0445: ' + added);
+      }
+
+      // Сохраняем
+      try { localStorage.setItem(WORLD_ATLAS_STORAGE_KEY, JSON.stringify(worldAtlasState)); }
+      catch(err) { try { localStorage.removeItem(WORLD_ATLAS_STORAGE_KEY); } catch(e2) {} }
+
+      if (choice === 'replace') {
+        showToast('\u2713 \u0410\u0442\u043b\u0430\u0441 \u0437\u0430\u043c\u0435\u043d\u0451\u043d: ' + (worldAtlasState.objects || []).length + ' \u043e\u0431\u044a\u0435\u043a\u0442\u043e\u0432');
+      }
+
+      // Перерисовываем всё, что есть
+      try { if (typeof drawWorldAtlas === 'function') drawWorldAtlas(); } catch(e) {}
+      try { if (typeof renderWorldLeftPanel === 'function') renderWorldLeftPanel(); } catch(e) {}
+      try { if (typeof renderWorldCanvas === 'function') renderWorldCanvas(); } catch(e) {}
+      try { if (typeof renderAtlasEverything === 'function') renderAtlasEverything(); } catch(e) {}
+    } catch (err) {
+      showToast('\u26a0 \u041e\u0448\u0438\u0431\u043a\u0430 \u0438\u043c\u043f\u043e\u0440\u0442\u0430: ' + (err.message || ''));
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 function importMasterBackup(event) {
@@ -21855,14 +22175,40 @@ function buildSkillsList(c) {
   return items.map(function(sk, i) {
     var name = (sk && sk.name) || '';
     var type = (sk && sk.type) || '';
-    var hasDesc = sk && sk.description && sk.description.trim();
+    var descRaw = (sk && sk.description) || '';
+    var hasDesc = descRaw && descRaw.trim();
+    var descPreview = hasDesc ? descRaw.replace(/\s+/g, ' ').slice(0, 70) + (descRaw.length > 70 ? '…' : '') : '';
     var displayName = name || 'Новый навык — нажми чтобы создать';
+
+    // CD-бейдж (как у заклинаний, только без parse из текста — прямое cdMax/cdUsed)
+    var cdMax = parseInt(sk.cdMax, 10) || 0;
+    var cdUsed = parseInt(sk.cdUsed, 10) || 0;
+    var cdBadge = '';
+    if (cdMax > 0) {
+      var onCD = cdUsed >= cdMax;
+      var partialCD = cdUsed > 0 && !onCD;
+      if (onCD) {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#ff6060;padding:2px 8px;border:2px solid #c04040;border-radius:9px;background:#c0404025;white-space:nowrap;box-shadow:0 0 6px #c0404044">⏳КД</span>';
+      } else if (partialCD) {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#e0a040;padding:2px 8px;border:1px solid #e0a04088;border-radius:9px;background:#e0a04018;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
+      } else {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#60c060;padding:2px 8px;border:1px solid #60c06066;border-radius:9px;background:#60c06014;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
+      }
+    }
+
     return '<div onclick="openSkillCardPopup(' + c.id + ',\'skills\',' + i + ')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:5px;border-left:3px solid var(--gold2);background:#0e0a06;border-radius:0 4px 4px 0;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#1a1208\'" onmouseout="this.style.background=\'#0e0a06\'">' +
       '<span style="font-size:13px;color:var(--gold2)">🎯</span>' +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:12px;color:' + (name?'var(--text)':'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:' + (name?'600':'400') + '">' + escHTML(displayName) + '</div>' +
-        (type ? '<div style="font-size:10px;color:var(--dim);letter-spacing:.3px">' + escHTML(type) + '</div>' : '') +
+        (type || descPreview
+          ? '<div style="font-size:10px;color:var(--dim);letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+              (type ? escHTML(type) : '') +
+              (type && descPreview ? ' · ' : '') +
+              (descPreview ? '<span style="font-style:italic">ⓘ ' + escHTML(descPreview) + '</span>' : '') +
+            '</div>'
+          : '') +
       '</div>' +
+      cdBadge +
       (hasDesc ? '<span style="font-size:10px;color:var(--dim)">▶</span>' : '<span style="font-size:10px;color:var(--gold2);opacity:.6">✎</span>') +
       '<button onclick="event.stopPropagation();removeListItem(' + c.id + ',\'skills\',' + i + ')" style="background:transparent;border:none;color:#444;font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Удалить">×</button>' +
     '</div>';
@@ -21882,14 +22228,39 @@ function buildMasteryList(c) {
   return items.map(function(m, i) {
     var name = (m && m.name) || '';
     var type = (m && m.type) || '';
-    var hasDesc = m && m.description && m.description.trim();
+    var descRaw = (m && m.description) || '';
+    var hasDesc = descRaw && descRaw.trim();
+    var descPreview = hasDesc ? descRaw.replace(/\s+/g, ' ').slice(0, 70) + (descRaw.length > 70 ? '…' : '') : '';
     var displayName = name || 'Новое мастерство — нажми чтобы создать';
+
+    var cdMax = parseInt(m.cdMax, 10) || 0;
+    var cdUsed = parseInt(m.cdUsed, 10) || 0;
+    var cdBadge = '';
+    if (cdMax > 0) {
+      var onCD = cdUsed >= cdMax;
+      var partialCD = cdUsed > 0 && !onCD;
+      if (onCD) {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#ff6060;padding:2px 8px;border:2px solid #c04040;border-radius:9px;background:#c0404025;white-space:nowrap;box-shadow:0 0 6px #c0404044">⏳КД</span>';
+      } else if (partialCD) {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#e0a040;padding:2px 8px;border:1px solid #e0a04088;border-radius:9px;background:#e0a04018;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
+      } else {
+        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#60c060;padding:2px 8px;border:1px solid #60c06066;border-radius:9px;background:#60c06014;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
+      }
+    }
+
     return '<div onclick="openSkillCardPopup(' + c.id + ',\'mastery\',' + i + ')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:5px;border-left:3px solid #8f7f5f;background:#0e0a06;border-radius:0 4px 4px 0;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#1a1208\'" onmouseout="this.style.background=\'#0e0a06\'">' +
       '<span style="font-size:13px;color:#8f7f5f">⚔</span>' +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:12px;color:' + (name?'var(--text)':'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:' + (name?'600':'400') + '">' + escHTML(displayName) + '</div>' +
-        (type ? '<div style="font-size:10px;color:var(--dim);letter-spacing:.3px">' + escHTML(type) + '</div>' : '') +
+        (type || descPreview
+          ? '<div style="font-size:10px;color:var(--dim);letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+              (type ? escHTML(type) : '') +
+              (type && descPreview ? ' · ' : '') +
+              (descPreview ? '<span style="font-style:italic">ⓘ ' + escHTML(descPreview) + '</span>' : '') +
+            '</div>'
+          : '') +
       '</div>' +
+      cdBadge +
       (hasDesc ? '<span style="font-size:10px;color:var(--dim)">▶</span>' : '<span style="font-size:10px;color:#8f7f5f;opacity:.6">✎</span>') +
       '<button onclick="event.stopPropagation();removeListItem(' + c.id + ',\'mastery\',' + i + ')" style="background:transparent;border:none;color:#444;font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Удалить">×</button>' +
     '</div>';
@@ -21944,6 +22315,15 @@ window.openSkillCardPopup = function(charId, field, idx) {
           '<div><div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">ИСПОЛЬЗОВАНИЯ</div>' +
             '<input class="sc-usages" type="text" value="' + escHTML(item.usages||'') + '" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box" placeholder="1 раз в бой"></div>' +
         '</div>' +
+        '<div style="margin-bottom:12px">' +
+          '<div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">⏱ КУЛДАУН · МАКС. ЗАРЯДОВ <span style="color:#444;letter-spacing:0">(0 = без CD)</span></div>' +
+          '<div style="display:flex;align-items:center;gap:8px">' +
+            '<button type="button" class="sc-cd-minus" style="width:32px;height:32px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">−</button>' +
+            '<input class="sc-cdmax" type="number" min="0" max="20" value="' + (parseInt(item.cdMax,10) || 0) + '" style="width:70px;height:32px;text-align:center;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:14px;font-weight:700">' +
+            '<button type="button" class="sc-cd-plus" style="width:32px;height:32px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">+</button>' +
+            '<span style="font-size:10px;color:var(--dim);font-family:\'Lora\',serif;margin-left:6px">Заряды покажутся на листе персонажа кружочками</span>' +
+          '</div>' +
+        '</div>' +
         '<div style="margin-bottom:14px"><div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">ОПИСАНИЕ</div>' +
           '<textarea class="sc-desc" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;min-height:140px;resize:vertical;line-height:1.6;box-sizing:border-box" placeholder="Описание, условия, эффекты. Можно несколько абзацев.">' + escHTML(item.description||'') + '</textarea></div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
@@ -21951,11 +22331,20 @@ window.openSkillCardPopup = function(charId, field, idx) {
           '<button class="sc-cancel-btn" style="padding:11px 20px;border:1px solid #333;background:transparent;color:#888;font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">Отмена</button>' +
         '</div>';
       popup.querySelector('.sc-close-x').onclick = closeAll;
+      // Обработчики для ± CD
+      var cdInp = popup.querySelector('.sc-cdmax');
+      popup.querySelector('.sc-cd-minus').onclick = function(){ cdInp.value = Math.max(0, (parseInt(cdInp.value,10)||0) - 1); };
+      popup.querySelector('.sc-cd-plus').onclick = function(){ cdInp.value = Math.min(20, (parseInt(cdInp.value,10)||0) + 1); };
       popup.querySelector('.sc-save-btn').onclick = function() {
         item.name = (popup.querySelector('.sc-name').value || '').trim();
         item.type = popup.querySelector('.sc-type').value || '';
         item.usages = (popup.querySelector('.sc-usages').value || '').trim();
         item.description = popup.querySelector('.sc-desc').value || '';
+        var newCdMax = Math.max(0, parseInt(popup.querySelector('.sc-cdmax').value, 10) || 0);
+        // Если CD меняется — сбрасываем used (чтобы не оставалось лишних потраченных зарядов)
+        if ((item.cdMax || 0) !== newCdMax) item.cdUsed = 0;
+        item.cdMax = newCdMax;
+        if (item.cdUsed === undefined) item.cdUsed = 0;
         saveChars();
         refreshList();
         popup.dataset.mode = 'view';
@@ -21964,11 +22353,41 @@ window.openSkillCardPopup = function(charId, field, idx) {
       popup.querySelector('.sc-cancel-btn').onclick = closeAll;
       setTimeout(function(){ popup.querySelector('.sc-name').focus(); }, 50);
     } else {
+      // VIEW mode: отображение + CD-виджет с зарядами (если cdMax > 0)
+      var cdMax = parseInt(item.cdMax, 10) || 0;
+      var cdUsed = parseInt(item.cdUsed, 10) || 0;
+      var cdWidgetHTML = '';
+      if (cdMax > 0) {
+        var charges = '';
+        for (var ci = 0; ci < cdMax; ci++) {
+          var spent = ci < cdUsed;
+          charges += '<div data-charge-idx="' + ci + '" class="sc-charge" ' +
+            'style="width:26px;height:26px;border-radius:50%;border:2px solid ' + (spent?'#c04040':'#50a050') + ';' +
+            'background:' + (spent?'#c0404030':'#50a05020') + ';cursor:pointer;display:flex;align-items:center;justify-content:center">' +
+            '<span style="font-size:11px;color:' + (spent?'#c04040':'#50a050') + '">' + (spent?'✕':'✓') + '</span></div>';
+        }
+        var onCD = cdUsed >= cdMax;
+        cdWidgetHTML = '<div style="background:#0a0804;border:1px solid ' + (onCD ? '#c04040' : 'var(--border)') + ';border-radius:4px;padding:10px 14px;margin-bottom:14px">' +
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
+            '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px">⏱ КУЛДАУН</span>' +
+            (onCD
+              ? '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#ff6060;padding:2px 10px;border:2px solid #c04040;border-radius:10px;background:#c0404025;letter-spacing:.5px">⏳ В КД</span>'
+              : '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#60c060;padding:2px 9px;border:1px solid #60c06066;border-radius:10px;background:#60c06014">' + (cdMax - cdUsed) + '/' + cdMax + '</span>') +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+            '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim)">Заряды:</span>' +
+            '<div class="sc-charges" style="display:flex;gap:5px;flex-wrap:wrap">' + charges + '</div>' +
+            (cdUsed > 0 ? '<button class="sc-cd-reset" style="margin-left:auto;padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:3px">↩ Сброс</button>' : '') +
+          '</div>' +
+        '</div>';
+      }
+
       popup.innerHTML =
         '<button class="sc-close-x" style="position:absolute;top:8px;right:10px;background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>' +
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:11px;color:' + typeColor + ';letter-spacing:2px;margin-bottom:6px">' + typeIcon + ' ' + typeLabel + (item.type ? ' · <span style="color:var(--muted)">' + escHTML(item.type) + '</span>' : '') + '</div>' +
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:19px;color:var(--text);margin-bottom:' + (item.usages?'6':'16') + 'px;padding-right:28px;line-height:1.3">' + escHTML(item.name || '—') + '</div>' +
         (item.usages ? '<div style="font-size:11px;color:var(--dim);margin-bottom:14px">⏳ ' + escHTML(item.usages) + '</div>' : '') +
+        cdWidgetHTML +
         (item.description ? '<div style="color:var(--muted);line-height:1.7;white-space:pre-wrap;font-size:13px;font-family:\'Lora\',serif;padding:14px;background:#080604;border-radius:6px;border:1px solid #1e1508;margin-bottom:14px">' + escHTML(item.description) + '</div>' : '<div style="color:var(--dim);font-size:12px;font-style:italic;margin-bottom:14px;padding:14px;background:#080604;border-radius:6px;border:1px dashed #1e1508">Нет описания. Нажми «Редактировать» чтобы добавить.</div>') +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           '<button class="sc-edit-btn" style="flex:1;padding:11px;border:1px solid ' + typeColor + ';background:#1a1208;color:var(--gold);font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">✏ Редактировать</button>' +
@@ -21980,6 +22399,25 @@ window.openSkillCardPopup = function(charId, field, idx) {
         popup.dataset.mode = 'edit';
         renderContent();
       };
+      // Кликабельные заряды: клик по чарджу тратит/возвращает
+      var cdReset = popup.querySelector('.sc-cd-reset');
+      if (cdReset) cdReset.onclick = function() {
+        item.cdUsed = 0;
+        saveChars();
+        refreshList();
+        renderContent();
+      };
+      popup.querySelectorAll('.sc-charge').forEach(function(ch){
+        ch.onclick = function() {
+          var i = parseInt(ch.getAttribute('data-charge-idx'), 10);
+          var curUsed = parseInt(item.cdUsed, 10) || 0;
+          if (i < curUsed) item.cdUsed = i;      // вернуть заряды с этой позиции
+          else item.cdUsed = i + 1;              // потратить до этой включительно
+          saveChars();
+          refreshList();
+          renderContent();
+        };
+      });
     }
   }
 
@@ -22097,58 +22535,26 @@ function addListItem(id, field) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   if (!c[field]) c[field] = [];
+  // Сразу создаём объект-заглушку и открываем конструктор (как у инвентаря/снаряжения).
+  // Старый UX с inline-textarea → замены на конструктор с полноценными полями.
+  c[field].push({
+    name: '',
+    type: field === 'skills' ? 'Активный' : 'Позиция',
+    description: '',
+    usages: '',
+    cdMax: 0,
+    cdUsed: 0
+  });
+  var newIdx = c[field].length - 1;
+  saveChars();
+  // Перерисовываем только нужный список
   var listId = field === 'skills' ? 'skills-list-' + id : 'mastery-list-' + id;
   var container = document.getElementById(listId);
-  if (!container) return;
-  // Create textarea directly without touching the data array yet
-  var row = document.createElement('div');
-  row.style.cssText = 'display:flex;align-items:flex-start;gap:6px;margin-bottom:6px';
-  var dot = document.createElement('div');
-  dot.style.cssText = 'width:5px;height:5px;border-radius:50%;background:' + (field==='skills'?'var(--gold2)':'var(--dim)') + ';flex-shrink:0;margin-top:10px';
-  var ta = document.createElement('textarea');
-  ta.style.cssText = 'flex:1;resize:none;overflow:hidden;padding:6px 10px;border:1px solid var(--gold2);border-radius:3px;background:#0c0904;color:var(--text);font-family:\'Lora\',serif;font-size:12px;line-height:1.5;box-sizing:border-box;min-height:34px;transition:border .15s';
-  ta.placeholder = field === 'skills' ? 'Описание навыка...' : 'Мастерство / Позиция...';
-  var newIdx = c[field].length;
-  ta.addEventListener('input', function() {
-    autoResize(this);
-    if (!c[field][newIdx]) c[field][newIdx] = this.value;
-    else c[field][newIdx] = this.value;
-  });
-  ta.addEventListener('blur', function() {
-    if (this.value.trim()) {
-      c[field][newIdx] = this.value;
-      saveChars();
-    }
-    // Don't push empty on blur
-  });
-  ta.addEventListener('focus', function() {
-    this.style.borderColor = 'var(--gold2)';
-  });
-  ta.addEventListener('blur', function() {
-    this.style.borderColor = 'var(--border)';
-  });
-  var rm = document.createElement('button');
-  rm.textContent = '×';
-  rm.style.cssText = 'background:transparent;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:3px 5px;margin-top:4px;flex-shrink:0';
-  rm.onclick = function() {
-    row.remove();
-    if (c[field][newIdx] !== undefined) {
-      c[field].splice(newIdx, 1);
-      saveChars();
-    }
-  };
-  row.appendChild(dot);
-  row.appendChild(ta);
-  row.appendChild(rm);
-  // Insert row before the add button (or append if not found)
-  var addBtn = container.querySelector('button');
-  if (addBtn && addBtn.parentNode === container) {
-    container.insertBefore(row, addBtn);
-  } else {
-    container.appendChild(row);
+  if (container) {
+    container.innerHTML = field === 'skills' ? buildSkillsList(c) : buildMasteryList(c);
   }
-  ta.focus();
-  autoResize(ta);
+  // Откроем конструктор в edit-режиме
+  setTimeout(function(){ openSkillCardPopup(id, field, newIdx); }, 80);
 }
 
 
@@ -23376,6 +23782,27 @@ function charOpenEquipModal(charId) {
   _renderCharEquipModal();
 }
 
+// Debounced перерендер модалки при вводе в поиск + восстановление фокуса и каретки.
+// Без debounce каждый символ пересоздаёт весь DOM, фокус теряется после 1 клавиши.
+var _charEquipSearchTimer = null;
+function _onCharEquipSearchInput() {
+  clearTimeout(_charEquipSearchTimer);
+  _charEquipSearchTimer = setTimeout(function(){
+    // Запомним, где был курсор в input, чтобы после перерендера его вернуть
+    var inp = document.getElementById('char-equip-search');
+    var caret = inp ? inp.selectionStart : null;
+    _renderCharEquipModal();
+    // После создания нового DOM — вернуть фокус в такой же input
+    requestAnimationFrame(function(){
+      var fresh = document.getElementById('char-equip-search');
+      if (fresh) {
+        fresh.focus();
+        try { if (caret !== null) fresh.setSelectionRange(caret, caret); } catch(e) {}
+      }
+    });
+  }, 140);
+}
+
 function _renderCharEquipModal() {
   var existing = document.getElementById('char-equip-modal-overlay');
   if (existing) existing.remove();
@@ -23385,7 +23812,24 @@ function _renderCharEquipModal() {
   if (!c) return;
   if (!c.arenaEquipSlots) c.arenaEquipSlots = {};
 
-  var allItems = typeof loadArmoryItems === 'function' ? loadArmoryItems() : [];
+  var allItemsRaw = typeof loadArmoryItems === 'function' ? loadArmoryItems() : [];
+  // Поиск по каталогу снаряжения — основная жалоба пользователя на скрине 4: «огромный список».
+  // Фильтруем по name/category/damageFormula/effects; регистр-независимо.
+  var _query = (window._charEquipFilter || '').trim().toLowerCase();
+  var allItems = _query
+    ? allItemsRaw.filter(function(it){
+        if (!it) return false;
+        var hay = (
+          String(it.name || '') + ' ' +
+          String(it.category || '') + ' ' +
+          String(it.slot || '') + ' ' +
+          String(it.damageFormula || '') + ' ' +
+          String(it.damageType || '') + ' ' +
+          String(it.effects || '')
+        ).toLowerCase();
+        return hay.indexOf(_query) >= 0;
+      })
+    : allItemsRaw;
   var equippedIds = Object.keys(c.arenaEquipSlots).map(function(k){ return c.arenaEquipSlots[k]; }).filter(Boolean);
 
   var CATS = {weapon:'#c87878',armor:'#8fa2c9',shield:'#7aadca',accessory:'#c4a84b',artifact:'#a07fd4',consumable:'#7dba7d'};
@@ -23492,9 +23936,17 @@ function _renderCharEquipModal() {
   // ── ITEMS PANEL ──
   var itemsHtml = '';
   if (!allItems.length) {
-    itemsHtml = '<div style="padding:40px;text-align:center;color:#444;font-size:13px;border:1px dashed #2a2a2a;border-radius:10px">'
-      + 'Нет предметов.<br><button onclick="charOpenCreateItem()" style="margin-top:8px;padding:5px 14px;border:1px solid #4a3a1a;border-radius:5px;background:#1a1208;color:#d4a84b;font-size:12px;cursor:pointer">➕ Создать предмет</button>'
-      + '</div>';
+    if (_query) {
+      itemsHtml = '<div style="padding:40px;text-align:center;color:#888;font-size:13px;border:1px dashed #2a2a2a;border-radius:10px">'
+        + '🔍 Ничего не найдено по запросу <b>«' + escHTML(window._charEquipFilter || '') + '»</b>'
+        + '<div style="margin-top:10px"><button onclick="window._charEquipFilter=\'\';_renderCharEquipModal()" style="padding:5px 14px;border:1px solid #4a3a1a;border-radius:5px;background:#1a1208;color:#d4a84b;font-size:11px;cursor:pointer">Сбросить фильтр</button>'
+        + ' <span style="color:#444;margin:0 6px">·</span> <span style="font-size:11px;color:#555">всего в каталоге: ' + allItemsRaw.length + '</span></div>'
+        + '</div>';
+    } else {
+      itemsHtml = '<div style="padding:40px;text-align:center;color:#444;font-size:13px;border:1px dashed #2a2a2a;border-radius:10px">'
+        + 'Нет предметов.<br><button onclick="charOpenCreateItem()" style="margin-top:8px;padding:5px 14px;border:1px solid #4a3a1a;border-radius:5px;background:#1a1208;color:#d4a84b;font-size:12px;cursor:pointer">➕ Создать предмет</button>'
+        + '</div>';
+    }
   } else {
     var grouped = {};
     allItems.forEach(function(item){ (grouped[item.category] = grouped[item.category]||[]).push(item); });
@@ -23532,15 +23984,22 @@ function _renderCharEquipModal() {
     + 'style="position:fixed;inset:0;z-index:10100;background:#000000a0;overflow-y:auto;display:flex;align-items:flex-start;justify-content:center;padding:70px 16px 24px">'
     + '<div onclick="event.stopPropagation()" style="width:min(980px,96vw);background:linear-gradient(170deg,#1c1308 0%,#0e0a06 100%);border:1px solid #4a3a1a;border-radius:18px;box-shadow:0 32px 80px #000000c0;overflow:hidden">'
       // Header
-      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(90deg,#1f1509,#160f06);border-bottom:1px solid #3a2918">'
-        + '<div style="display:flex;align-items:center;gap:12px">'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(90deg,#1f1509,#160f06);border-bottom:1px solid #3a2918;flex-wrap:wrap;gap:10px">'
+        + '<div style="display:flex;align-items:center;gap:12px;min-width:0">'
           + '<div style="font-size:20px">⚔️</div>'
-          + '<div>'
-            + '<div style="font-family:Cinzel Decorative,serif;font-size:15px;color:#d4a84b">' + escHTML(c.name || 'Персонаж') + '</div>'
+          + '<div style="min-width:0">'
+            + '<div style="font-family:Cinzel Decorative,serif;font-size:15px;color:#d4a84b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(c.name || 'Персонаж') + '</div>'
             + '<div style="font-size:10px;color:#555;margin-top:1px">Снаряжение арены · перетаскивай или нажимай предметы</div>'
           + '</div>'
         + '</div>'
-        + '<div style="display:flex;gap:8px">'
+        + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+          + '<div style="position:relative;display:flex;align-items:center">'
+            + '<span style="position:absolute;left:8px;font-size:11px;color:#555;pointer-events:none">🔍</span>'
+            + '<input id="char-equip-search" type="text" value="' + escHTML(window._charEquipFilter || '') + '" placeholder="Поиск: топор, 1d6, огонь..." '
+            + 'oninput="window._charEquipFilter=this.value;_onCharEquipSearchInput()" '
+            + 'style="width:190px;padding:6px 8px 6px 26px;border:1px solid #3a2918;border-radius:6px;background:#0a0704;color:#d4c9a8;font-family:Lora,serif;font-size:12px;box-sizing:border-box">'
+            + (window._charEquipFilter ? '<button onclick="window._charEquipFilter=\'\';_renderCharEquipModal()" title="Очистить" style="position:absolute;right:4px;background:transparent;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px;line-height:1">×</button>' : '')
+          + '</div>'
           + '<button onclick="charSaveEquip()" style="padding:7px 16px;border:1px solid #d4a84b;border-radius:7px;background:linear-gradient(180deg,#2a1d0a,#1a1005);color:#d4a84b;font-size:12px;cursor:pointer;font-family:Cinzel,serif;letter-spacing:.5px">💾 Сохранить</button>'
           + '<button onclick="charOpenCreateItem()" style="padding:7px 12px;border:1px solid #4a3a1a;border-radius:7px;background:#1a1208;color:#888;font-size:12px;cursor:pointer">➕ Предмет</button>'
           + '<button onclick="charCloseEquipModal()" style="padding:7px 10px;border:1px solid #333;border-radius:7px;background:#0a0704;color:#555;font-size:13px;cursor:pointer">✕</button>'
@@ -24935,6 +25394,7 @@ function showSpellDetail(charId, spellId) {
       '<button onclick="toggleSpellLearned(' + charId + ',' + spellId + ')" style="padding:6px 16px;border:2px solid var(--gold);background:#e8c06018;color:var(--gold);font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;letter-spacing:.5px">🎓 Изучить</button>' +
     '</div>';
   }
+  var usedCount = cdInfo.used || 0;
   var cdWidgetHTML = '';
   if (cdText) {
     var charges = '';
@@ -36130,17 +36590,110 @@ global.getStatusCombatMods = function(combatant) {
     return String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // ─── In-memory cache для Армори ──────────────────────────────────────
+  // Было: только localStorage, при quota-ошибке (iOS ~5 МБ) предметы тихо терялись.
+  // Стало: cache синхронно читается из LS на старте, затем async подтягивается из IDB
+  //        (если там больше предметов — подменяем). При сохранении пишем в IDB ВСЕГДА
+  //        + в LS (если влезает), при quota — чистим LS-ключ. Аналогично saveChars().
+  var _itemsCache = null;
+  var _setsCache = null;
+  var IDB_NAME = 'zargota_armory_db';
+  var IDB_STORE = 'kv';
+
+  function _openArmoryDB(cb) {
+    try {
+      var r = indexedDB.open(IDB_NAME, 1);
+      r.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      r.onsuccess = function(e) { cb(e.target.result); };
+      r.onerror = function() { cb(null); };
+    } catch(e) { cb(null); }
+  }
+
+  function _idbGet(key, cb) {
+    _openArmoryDB(function(db) {
+      if (!db) { cb(null); return; }
+      try {
+        var tx = db.transaction(IDB_STORE,'readonly');
+        tx.objectStore(IDB_STORE).get(key).onsuccess = function(ev){ db.close(); cb(ev.target.result); };
+      } catch(e) { try { db.close(); } catch(_){} cb(null); }
+    });
+  }
+  function _idbPut(key, val) {
+    _openArmoryDB(function(db) {
+      if (!db) return;
+      try {
+        var tx = db.transaction(IDB_STORE,'readwrite');
+        tx.objectStore(IDB_STORE).put(val, key);
+        tx.oncomplete = function(){ db.close(); };
+        tx.onerror = function(){ try { db.close(); } catch(_){} };
+      } catch(e) { try { db.close(); } catch(_){} }
+    });
+  }
+
   function loadItems() {
-    try { return JSON.parse(localStorage.getItem(ITEM_KEY) || '[]'); } catch(e) { return []; }
+    if (_itemsCache) return _itemsCache.slice();
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(ITEM_KEY) || '[]') || []; } catch(e) { arr = []; }
+    _itemsCache = Array.isArray(arr) ? arr : [];
+    // Async подтягиваем IDB — если там больше/нашёлся свежий merge
+    _idbGet(ITEM_KEY, function(raw) {
+      if (!raw) return;
+      try {
+        var idbArr = JSON.parse(raw) || [];
+        if (!Array.isArray(idbArr) || idbArr.length === 0) return;
+        var needReplace = idbArr.length > _itemsCache.length;
+        if (!needReplace) {
+          var lsIds = {};
+          _itemsCache.forEach(function(x){ if (x && x.id !== undefined) lsIds[String(x.id)] = true; });
+          needReplace = idbArr.some(function(x){ return x && x.id !== undefined && !lsIds[String(x.id)]; });
+        }
+        if (needReplace) {
+          _itemsCache = idbArr;
+          // Переотрисовать каталог/списки если кто-то их уже открыл
+          if (typeof global !== 'undefined') {
+            if (typeof global.renderArmoryCatalog === 'function') { try { global.renderArmoryCatalog(); } catch(e){} }
+            if (typeof global.renderCharSheet === 'function' && typeof global.viewingCharId !== 'undefined' && global.viewingCharId) { try { global.renderCharSheet(); } catch(e){} }
+          }
+        }
+      } catch(e) {}
+    });
+    return _itemsCache.slice();
   }
   function saveItems(arr) {
-    try { localStorage.setItem(ITEM_KEY, JSON.stringify(arr)); } catch(e) {}
+    _itemsCache = Array.isArray(arr) ? arr.slice() : [];
+    var json = JSON.stringify(_itemsCache);
+    // 1) IDB — основной сторедж (нет лимита 5МБ как в LS на iOS)
+    _idbPut(ITEM_KEY, json);
+    // 2) LS — быстрый кэш, при quota чистим
+    try { localStorage.setItem(ITEM_KEY, json); } catch(e) {
+      try { localStorage.removeItem(ITEM_KEY); } catch(e2) {}
+    }
   }
   function loadSets() {
-    try { return JSON.parse(localStorage.getItem(SET_KEY) || '[]'); } catch(e) { return []; }
+    if (_setsCache) return _setsCache.slice();
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(SET_KEY) || '[]') || []; } catch(e) { arr = []; }
+    _setsCache = Array.isArray(arr) ? arr : [];
+    _idbGet(SET_KEY, function(raw){
+      if (!raw) return;
+      try {
+        var idbArr = JSON.parse(raw) || [];
+        if (!Array.isArray(idbArr) || idbArr.length === 0) return;
+        if (idbArr.length > _setsCache.length) _setsCache = idbArr;
+      } catch(e) {}
+    });
+    return _setsCache.slice();
   }
   function saveSets(arr) {
-    try { localStorage.setItem(SET_KEY, JSON.stringify(arr)); } catch(e) {}
+    _setsCache = Array.isArray(arr) ? arr.slice() : [];
+    var json = JSON.stringify(_setsCache);
+    _idbPut(SET_KEY, json);
+    try { localStorage.setItem(SET_KEY, json); } catch(e) {
+      try { localStorage.removeItem(SET_KEY); } catch(e2) {}
+    }
   }
 
   function slotMeta(k) {
