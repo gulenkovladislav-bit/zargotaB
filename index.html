@@ -2736,6 +2736,58 @@
   .combat-panel.compact .combat-history-title {
     font-size: 8px !important;
   }
+  @media (max-width: 640px) {
+    .combat-panel.compact {
+      margin: 0 0 10px 0 !important;
+      padding: 10px !important;
+      border-radius: 10px !important;
+    }
+    .combat-panel.compact .combat-panel-title {
+      font-size: 11px !important;
+      letter-spacing: .8px !important;
+    }
+    .combat-panel.compact .combat-round-block {
+      grid-template-columns: 64px minmax(0, 1fr) !important;
+      gap: 6px !important;
+      padding: 8px !important;
+      margin-bottom: 10px !important;
+    }
+    .combat-panel.compact .combat-round-num {
+      font-size: 22px !important;
+    }
+    .combat-panel.compact .combat-next-btn {
+      padding: 8px 10px !important;
+      font-size: 10px !important;
+      border-radius: 7px !important;
+    }
+    .combat-panel.compact .combat-mini-btn {
+      padding: 5px 6px !important;
+      font-size: 8px !important;
+    }
+    .combat-panel.compact .combat-time-block {
+      padding: 10px !important;
+      margin-bottom: 10px !important;
+    }
+    .combat-panel.compact .combat-time-top {
+      gap: 8px !important;
+      margin-bottom: 8px !important;
+    }
+    .combat-panel.compact .combat-time-emoji {
+      font-size: 20px !important;
+    }
+    .combat-panel.compact .combat-time-value {
+      font-size: 14px !important;
+    }
+    .combat-panel.compact .combat-time-btn {
+      padding: 5px 6px !important;
+      font-size: 9px !important;
+      border-radius: 5px !important;
+    }
+    .combat-panel.compact .combat-effect-card {
+      padding: 7px 8px !important;
+      border-radius: 7px !important;
+    }
+  }
   @media (max-width: 600px) {
     .combat-panel.compact .combat-round-block {
       grid-template-columns: 70px minmax(0, 1fr) !important;
@@ -4354,22 +4406,22 @@
   @media (max-width: 900px) {
     .world-mobile-controls {
       display: block;
-      top: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       bottom: auto;
     }
     .wmc-zoom {
-      gap: 6px;
-      padding: 6px;
-      border-radius: 12px;
+      gap: 5px;
+      padding: 5px;
+      border-radius: 10px;
       background: rgba(10, 7, 4, 0.92);
       box-shadow: 0 10px 28px #00000066;
     }
     .wmc-btn {
-      width: 46px;
-      height: 46px;
-      border-radius: 10px;
-      font-size: 18px;
+      width: 40px;
+      height: 40px;
+      border-radius: 9px;
+      font-size: 16px;
     }
     .wmc-pan { display: none; }
   }
@@ -4377,8 +4429,8 @@
     overflow: hidden;
   }
   body.world-map-fs-active .world-mobile-controls {
-    top: calc(env(safe-area-inset-top, 0px) + 16px);
-    right: 16px;
+    top: calc(env(safe-area-inset-top, 0px) + 14px);
+    right: 14px;
     bottom: auto;
     z-index: 100001;
   }
@@ -7766,6 +7818,35 @@ window.zgData = (function() {
     } catch(e) { cb(false); }
   }
 
+  function idbGet(dbName, storeName, key, cb) {
+    try {
+      var req = indexedDB.open(dbName, 1);
+      req.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+      };
+      req.onsuccess = function(e) {
+        var db = e.target.result;
+        try {
+          var tx = db.transaction(storeName, 'readonly');
+          tx.objectStore(storeName).get(key).onsuccess = function(ev) {
+            var val = ev && ev.target ? ev.target.result : null;
+            try { db.close(); } catch(_) {}
+            cb(val);
+          };
+          tx.onerror = function() {
+            try { db.close(); } catch(_) {}
+            cb(null);
+          };
+        } catch(err) {
+          try { db.close(); } catch(_) {}
+          cb(null);
+        }
+      };
+      req.onerror = function() { cb(null); };
+    } catch(e) { cb(null); }
+  }
+
   // ── Fetch helpers ──
   function fetchJson(url) {
     return fetch(cacheBust(url), { cache: 'no-store' }).then(function(r) {
@@ -7786,6 +7867,22 @@ window.zgData = (function() {
   // ── Normalize & merge data into localStorage/IDB ──
   function applyDataToStorage(data, cb) {
     try {
+      var pending = 1;
+      function done() {
+        pending--;
+        if (pending <= 0 && cb) cb();
+      }
+      function queueIdbWrite(dbName, storeName, key, value, label) {
+        pending++;
+        idbPut(dbName, storeName, key, value, function(ok) {
+          if (label) log(label + ': ' + ok);
+          done();
+        });
+      }
+      function writeJsonLs(key, value) {
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) { log(key + ' LS fail: ' + e.message); }
+      }
+
       // catalog
       if (data.catalog) {
         var entries, customSchools;
@@ -7817,6 +7914,7 @@ window.zgData = (function() {
           localStorage.setItem('grimoire_enc_v1', JSON.stringify(data.encyclopedia));
         } catch(e) {}
       }
+      if (data.encyclopediaCategories) writeJsonLs('grimoire_enc_cats_v1', data.encyclopediaCategories);
 
       // htree
       if (data.htree) {
@@ -7838,6 +7936,30 @@ window.zgData = (function() {
           localStorage.setItem('grimoire_world_map_source_v1', data.map);
         } catch(e) {}
       }
+      if (data.worldCustomOptions) writeJsonLs('grimoire_world_custom_options_v1', data.worldCustomOptions);
+      if (data.worldboard) writeJsonLs('zargota_worldboard_v2', data.worldboard);
+      if (data.episodes) writeJsonLs('zargota_episodes_v1', data.episodes);
+      if (data.npcLines) writeJsonLs('zargota_npclines_v1', data.npcLines);
+      if (data.inbox) writeJsonLs('zargota_inbox_v1', data.inbox);
+      if (data.music) writeJsonLs('zargota_music_v2', data.music);
+      if (data.drama) writeJsonLs('grimoire_drama_v1', data.drama);
+      if (data.statusMechanics) writeJsonLs('zargota_status_mechanics_v1', data.statusMechanics);
+      if (data.arena) writeJsonLs('zargota_arena_state_v1', data.arena);
+
+      if (data.characters) {
+        writeJsonLs('grimoire_chars', data.characters);
+        queueIdbWrite('zargota_chars', 'data', 'grimoire_chars', JSON.stringify(data.characters), 'chars to IDB');
+      }
+
+      if (data.armoryItems) {
+        writeJsonLs('zargota_armory_v1', data.armoryItems);
+        queueIdbWrite('zargota_armory_db', 'kv', 'zargota_armory_v1', JSON.stringify(data.armoryItems), 'armory items to IDB');
+      }
+
+      if (data.armorySets) {
+        writeJsonLs('zargota_sets_v1', data.armorySets);
+        queueIdbWrite('zargota_armory_db', 'kv', 'zargota_sets_v1', JSON.stringify(data.armorySets), 'armory sets to IDB');
+      }
 
       // beasts — в IDB как строку
       if (data.beasts) {
@@ -7845,17 +7967,13 @@ window.zgData = (function() {
           beasts: data.beasts,
           types: data.beastTypes || []
         };
-        idbPut('zargota_beasts', 'data', 'beasts_data', JSON.stringify(beastsBundle), function(ok) {
-          log('beasts to IDB: ' + ok);
-          // также fallback в LS если влезет
-          try {
-            localStorage.setItem('grimoire_beasts', JSON.stringify(data.beasts));
-          } catch(e) {}
-          cb && cb();
-        });
-      } else {
-        cb && cb();
+        queueIdbWrite('zargota_beasts', 'data', 'beasts_data', JSON.stringify(beastsBundle), 'beasts to IDB');
+        // также fallback в LS если влезет
+        try {
+          localStorage.setItem('grimoire_beasts', JSON.stringify(data.beasts));
+        } catch(e) {}
       }
+      done();
     } catch(err) {
       log('applyDataToStorage error: ' + err.message);
       cb && cb();
@@ -8027,6 +8145,14 @@ window.zgExportDataJson = function(onProgress, onDone) {
   var report = function(pct, msg) { if (typeof onProgress === 'function') onProgress(pct, msg); };
 
   try {
+    try { if (typeof flushMasterBackupSources === 'function') flushMasterBackupSources(); } catch(e) {}
+    try { if (typeof loadChars === 'function') loadChars(); } catch(e) {}
+    try { if (typeof loadBeasts === 'function') loadBeasts(); } catch(e) {}
+    try { if (typeof loadWorldAtlas === 'function') loadWorldAtlas(); } catch(e) {}
+    try { if (typeof loadHtreeData === 'function') loadHtreeData(); } catch(e) {}
+    try { if (typeof loadEncState === 'function') loadEncState(); } catch(e) {}
+    try { if (typeof loadEncCategories === 'function') loadEncCategories(); } catch(e) {}
+
     report(5, 'Собираю данные...');
 
     var output = {
@@ -8037,9 +8163,46 @@ window.zgExportDataJson = function(onProgress, onDone) {
       beastTypes: null,
       atlas: null,
       encyclopedia: null,
+      encyclopediaCategories: null,
       htree: null,
+      characters: null,
+      arena: null,
+      armoryItems: null,
+      armorySets: null,
+      drama: null,
+      worldboard: null,
+      episodes: null,
+      npcLines: null,
+      inbox: null,
+      music: null,
+      statusMechanics: null,
+      worldCustomOptions: null,
       map: 'images/map.jpg'
     };
+
+    function shouldPreferCollection(current, incoming) {
+      if (!Array.isArray(incoming) || !incoming.length) return false;
+      if (!Array.isArray(current) || !current.length) return true;
+      if (incoming.length > current.length) return true;
+      var currentIds = {};
+      current.forEach(function(item) {
+        if (!item) return;
+        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
+        if (key) currentIds[key] = true;
+      });
+      return incoming.some(function(item) {
+        if (!item) return false;
+        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
+        return key && !currentIds[key];
+      });
+    }
+
+    function readIdbJson(dbName, storeName, key, next) {
+      idbGet(dbName, storeName, key, function(raw) {
+        if (!raw) { next(null); return; }
+        try { next(JSON.parse(raw)); } catch(e) { next(null); }
+      });
+    }
 
     // ── Загружаем все локальные ключи ──
     try {
@@ -8058,6 +8221,11 @@ window.zgExportDataJson = function(onProgress, onDone) {
     } catch(e) {}
 
     try {
+      var encCatsRaw = localStorage.getItem('grimoire_enc_cats_v1');
+      if (encCatsRaw) output.encyclopediaCategories = JSON.parse(encCatsRaw);
+    } catch(e) {}
+
+    try {
       var htreeRaw = localStorage.getItem('grimoire_htree_v1');
       if (htreeRaw) output.htree = JSON.parse(htreeRaw);
     } catch(e) {}
@@ -8066,6 +8234,79 @@ window.zgExportDataJson = function(onProgress, onDone) {
       var typesRaw = localStorage.getItem('grimoire_beast_types');
       if (typesRaw) output.beastTypes = JSON.parse(typesRaw);
     } catch(e) {}
+
+    try {
+      var charsRaw = localStorage.getItem('grimoire_chars');
+      if (charsRaw) output.characters = JSON.parse(charsRaw);
+    } catch(e) {}
+
+    try {
+      var arenaRaw = localStorage.getItem('zargota_arena_state_v1');
+      if (arenaRaw) output.arena = JSON.parse(arenaRaw);
+    } catch(e) {}
+
+    try {
+      var armoryItemsRaw = localStorage.getItem('zargota_armory_v1');
+      if (armoryItemsRaw) output.armoryItems = JSON.parse(armoryItemsRaw);
+    } catch(e) {}
+
+    try {
+      var armorySetsRaw = localStorage.getItem('zargota_sets_v1');
+      if (armorySetsRaw) output.armorySets = JSON.parse(armorySetsRaw);
+    } catch(e) {}
+
+    try {
+      var dramaRaw = localStorage.getItem('grimoire_drama_v1');
+      if (dramaRaw) output.drama = JSON.parse(dramaRaw);
+    } catch(e) {}
+
+    try {
+      var boardRaw = localStorage.getItem('zargota_worldboard_v2');
+      if (boardRaw) output.worldboard = JSON.parse(boardRaw);
+    } catch(e) {}
+
+    try {
+      var episodesRaw = localStorage.getItem('zargota_episodes_v1');
+      if (episodesRaw) output.episodes = JSON.parse(episodesRaw);
+    } catch(e) {}
+
+    try {
+      var npcLinesRaw = localStorage.getItem('zargota_npclines_v1');
+      if (npcLinesRaw) output.npcLines = JSON.parse(npcLinesRaw);
+    } catch(e) {}
+
+    try {
+      var inboxRaw = localStorage.getItem('zargota_inbox_v1');
+      if (inboxRaw) output.inbox = JSON.parse(inboxRaw);
+    } catch(e) {}
+
+    try {
+      var musicRaw = localStorage.getItem('zargota_music_v2');
+      if (musicRaw) output.music = JSON.parse(musicRaw);
+    } catch(e) {}
+
+    try {
+      var statusRaw = localStorage.getItem('zargota_status_mechanics_v1');
+      if (statusRaw) output.statusMechanics = JSON.parse(statusRaw);
+    } catch(e) {}
+
+    try {
+      var worldOptionsRaw = localStorage.getItem('grimoire_world_custom_options_v1');
+      if (worldOptionsRaw) output.worldCustomOptions = JSON.parse(worldOptionsRaw);
+    } catch(e) {}
+
+    if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
+      output.characters = JSON.parse(JSON.stringify(characters));
+    }
+    if (typeof loadArmoryItems === 'function') {
+      try { output.armoryItems = loadArmoryItems(); } catch(e) {}
+    }
+    if (typeof loadArmorySets === 'function') {
+      try { output.armorySets = loadArmorySets(); } catch(e) {}
+    }
+    if (typeof dramaState !== 'undefined' && dramaState && Array.isArray(dramaState.characters)) {
+      output.drama = JSON.parse(JSON.stringify(dramaState));
+    }
 
     // ── Legacy base64 stripping (на случай если где-то остались base64) ──
     function stripLegacyBase64(obj, key) {
@@ -8080,26 +8321,20 @@ window.zgExportDataJson = function(onProgress, onDone) {
     report(15, 'Читаю бестиарий из IDB...');
 
     // ── Читаем бестиарий из IDB ──
-    var idbReq = indexedDB.open('zargota_beasts', 1);
-    idbReq.onsuccess = function(e) {
-      var db = e.target.result;
-      try {
-        var tx = db.transaction('data', 'readonly');
-        tx.objectStore('data').get('beasts_data').onsuccess = function(ev) {
-          var v = ev.target.result;
-          if (v) {
-            try {
-              var parsed = JSON.parse(v);
-              if (parsed && parsed.beasts) output.beasts = parsed.beasts;
-              if (parsed && parsed.types) output.beastTypes = parsed.types;
-            } catch(e2) {}
-          }
-          db.close();
-          continueExport();
-        };
-      } catch(ex) { db.close(); continueExport(); }
-    };
-    idbReq.onerror = function() { continueExport(); };
+    readIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
+      if (parsed && parsed.beasts) output.beasts = parsed.beasts;
+      if (parsed && parsed.types) output.beastTypes = parsed.types;
+      readIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
+        if (shouldPreferCollection(output.characters, charsParsed)) output.characters = charsParsed;
+        readIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
+          if (shouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
+          readIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
+            if (shouldPreferCollection(output.armorySets, setsParsed)) output.armorySets = setsParsed;
+            continueExport();
+          });
+        });
+      });
+    });
 
     function continueExport() {
       // Fallback для бестиария из LS
@@ -8171,6 +8406,9 @@ window.zgExportDataJson = function(onProgress, onDone) {
         counts: {
           catalog: output.catalog && output.catalog.entries ? output.catalog.entries.length : 0,
           beasts: output.beasts ? output.beasts.length : 0,
+          characters: output.characters ? output.characters.length : 0,
+          encyclopedia: output.encyclopedia && output.encyclopedia.entries ? output.encyclopedia.entries.length : 0,
+          armoryItems: output.armoryItems ? output.armoryItems.length : 0,
           atlasObjects: output.atlas && output.atlas.objects ? output.atlas.objects.length : 0,
           newImages: preparedImages.length
         }
@@ -8208,7 +8446,7 @@ window.zgExportDataJson = function(onProgress, onDone) {
           : '3. Новых картинок в этом экспорте нет\n') +
         '4. В GitHub Desktop → Commit + Push\n\n' +
         'Содержимое:\n' +
-        '  data.json           — мир (каталог, бестиарий, атлас)\n' +
+        '  data.json           — мир (каталог, персонажи, арена, энциклопедия, атлас)\n' +
         '  manifest.json       — версия + счётчики\n' +
         (preparedImages.length
           ? '  images/             — ' + preparedImages.length + ' новых картинок\n'
@@ -8278,7 +8516,7 @@ window.showPublishModal = function() {
     try { currentVersion = localStorage.getItem('zg_data_version') || '—'; } catch(e) {}
 
     // Count current data
-    var stats = { catalog: 0, beasts: 0, atlas: 0 };
+    var stats = { catalog: 0, beasts: 0, atlas: 0, characters: 0, encyclopedia: 0, armory: 0 };
     try {
       var cat = JSON.parse(localStorage.getItem('grimoire_v3') || '{}');
       stats.catalog = (cat.entries || []).length;
@@ -8290,6 +8528,16 @@ window.showPublishModal = function() {
     // Beasts: from window.beasts (runtime)
     try {
       stats.beasts = (window.beasts || []).length;
+    } catch(e) {}
+    try {
+      stats.characters = (window.characters || []).length;
+    } catch(e) {}
+    try {
+      var enc = JSON.parse(localStorage.getItem('grimoire_enc_v1') || '{}');
+      stats.encyclopedia = (enc.entries || []).length;
+    } catch(e) {}
+    try {
+      stats.armory = typeof loadArmoryItems === 'function' ? (loadArmoryItems() || []).length : JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]').length;
     } catch(e) {}
 
     var ov = document.createElement('div');
@@ -8328,6 +8576,9 @@ window.showPublishModal = function() {
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Версия</span><span style="color:#6fcb83">' + (currentVersion.length > 15 ? currentVersion.slice(0,15) + '…' : currentVersion) + '</span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Каталог</span><span style="color:#6fcb83">' + stats.catalog + ' записей</span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Бестиарий</span><span style="color:#6fcb83">' + stats.beasts + ' существ</span></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Персонажи</span><span style="color:#6fcb83">' + stats.characters + ' листов</span></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Энциклопедия</span><span style="color:#6fcb83">' + stats.encyclopedia + ' статей</span></div>' +
+      '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Оружейная</span><span style="color:#6fcb83">' + stats.armory + ' предметов</span></div>' +
       '<div style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0"><span>Атлас</span><span style="color:#6fcb83">' + stats.atlas + ' объектов</span></div>' +
       '<div id="zg-publish-imgcount" style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0;border-top:1px solid #2a1e10;margin-top:6px;padding-top:6px"><span>Новых картинок для публикации</span><span style="color:#888">считаю...</span></div>';
     box.appendChild(info);
@@ -13911,6 +14162,17 @@ function worldResetZoomAndPan() {
 // — просто разворачиваем сам .world-map-wrap во весь экран через position:fixed. Все обычные
 // обработчики зум/панов продолжают работать. Pinch-zoom работает т.к. добавили его отдельно.
 var _worldFsSavedStyles = null;
+var _worldFsResizeHandler = null;
+
+function syncWorldMobileFullscreenSize() {
+  if (!_worldFsSavedStyles) return;
+  var wrap = document.getElementById('world-map-wrap');
+  if (!wrap) return;
+  var viewportW = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+  var viewportH = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+  if (viewportW > 0) wrap.style.width = viewportW + 'px';
+  if (viewportH > 0) wrap.style.height = viewportH + 'px';
+}
 
 function openWorldMobileFullscreen() {
   var wrap = document.getElementById('world-map-wrap');
@@ -13950,7 +14212,7 @@ function openWorldMobileFullscreen() {
   wrap.style.right = '0';
   wrap.style.bottom = '0';
   wrap.style.width = '100vw';
-  wrap.style.height = '100dvh';
+  wrap.style.height = '100vh';
   wrap.style.maxWidth = 'none';
   wrap.style.maxHeight = 'none';
   wrap.style.zIndex = '100000';
@@ -13958,6 +14220,14 @@ function openWorldMobileFullscreen() {
   wrap.style.borderRadius = '0';
   wrap.style.background = '#0a0604';
   wrap.classList.add('world-map-fullscreen');
+  syncWorldMobileFullscreenSize();
+  _worldFsResizeHandler = function() {
+    syncWorldMobileFullscreenSize();
+    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(true); } catch(e) {}
+    try { if (typeof queueWorldRender === 'function') queueWorldRender(); } catch(e) {}
+  };
+  window.addEventListener('resize', _worldFsResizeHandler);
+  window.addEventListener('orientationchange', _worldFsResizeHandler);
 
   setTimeout(function(){
     try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(true); } catch(e) {}
@@ -13984,6 +14254,11 @@ function closeWorldMobileFullscreen() {
   var wrap = document.getElementById('world-map-wrap');
   if (!wrap || !_worldFsSavedStyles) return;
   var saved = _worldFsSavedStyles;
+  if (_worldFsResizeHandler) {
+    window.removeEventListener('resize', _worldFsResizeHandler);
+    window.removeEventListener('orientationchange', _worldFsResizeHandler);
+    _worldFsResizeHandler = null;
+  }
   if (_worldFsSavedStyles.anchor && _worldFsSavedStyles.anchor.parentNode) {
     _worldFsSavedStyles.anchor.parentNode.insertBefore(wrap, _worldFsSavedStyles.anchor);
     _worldFsSavedStyles.anchor.remove();
