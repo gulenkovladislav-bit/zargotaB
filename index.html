@@ -3900,7 +3900,13 @@
   .htree-viewport {
     flex: 1; overflow: auto;
     padding: 30px 20px 60px;
-    display: flex; flex-direction: column; align-items: center;
+    position: relative;
+  }
+  .htree-content {
+    position: relative;
+    width: max-content;
+    min-width: max-content;
+    padding: 20px 140px 80px;
   }
   .htree-level {
     display: flex; justify-content: center; gap: 24px;
@@ -18412,7 +18418,11 @@ function renderHierarchyTree(entryId) {
   var tree = getHtree(entryId);
   var nodes = tree.nodes || [];
   var editing = !!tree.editMode;
+  var restoreScroll = vp.dataset.layoutReady === '1';
+  var prevScrollLeft = vp.scrollLeft;
+  var prevScrollTop = vp.scrollTop;
   if (!nodes.length) {
+    delete vp.dataset.layoutReady;
     vp.innerHTML =
       '<div style="text-align:center;padding:60px 20px">' +
         '<div style="font-size:40px;margin-bottom:12px">🌳</div>' +
@@ -18423,12 +18433,22 @@ function renderHierarchyTree(entryId) {
     return;
   }
   var roots = nodes.filter(function(n) { return !n.parentId; });
-  var html = '<div style="position:relative" id="htree-content">';
+  var html = '<div class="htree-content" id="htree-content">';
   roots.forEach(function(root) { html += renderHtreeNodeRecursive(entryId, root, nodes, editing, 0); });
   if (editing) html += '<div style="text-align:center;margin-top:20px"><button class="btn btn-dim btn-sm" onclick="addHtreeNode(\'' + entryId + '\',null)">＋ Ещё корень</button></div>';
   html += '</div>';
   vp.innerHTML = html;
-  setTimeout(function(){ drawHtreeLines(); }, 50);
+  requestAnimationFrame(function() {
+    if (restoreScroll) {
+      vp.scrollLeft = prevScrollLeft;
+      vp.scrollTop = prevScrollTop;
+    } else {
+      vp.scrollLeft = Math.max(0, Math.round((vp.scrollWidth - vp.clientWidth) / 2));
+      vp.scrollTop = 0;
+      vp.dataset.layoutReady = '1';
+    }
+    drawHtreeLines();
+  });
 }
 function drawHtreeLines() {
   var content = document.getElementById('htree-content');
