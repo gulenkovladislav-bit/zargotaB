@@ -2659,6 +2659,97 @@
     #char-sheet-view .zoom-controls { display: none !important; }
   }
 
+  .combat-panel.compact {
+    margin: 0 0 12px 0 !important;
+    padding: 12px !important;
+    border-width: 1px !important;
+    border-radius: 12px !important;
+  }
+  .combat-panel.compact .combat-panel-head {
+    gap: 8px;
+    margin-bottom: 10px !important;
+  }
+  .combat-panel.compact .combat-panel-title {
+    font-size: 12px !important;
+    letter-spacing: 1.2px !important;
+  }
+  .combat-panel.compact .combat-round-block {
+    display: grid !important;
+    grid-template-columns: 82px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 10px !important;
+    margin-bottom: 12px !important;
+  }
+  .combat-panel.compact .combat-round-side {
+    min-width: 0 !important;
+  }
+  .combat-panel.compact .combat-round-num {
+    font-size: 26px !important;
+  }
+  .combat-panel.compact .combat-next-btn {
+    padding: 10px 12px !important;
+    font-size: 11px !important;
+    letter-spacing: .4px !important;
+  }
+  .combat-panel.compact .combat-mini-actions {
+    gap: 5px !important;
+  }
+  .combat-panel.compact .combat-mini-btn {
+    padding: 6px 8px !important;
+    font-size: 9px !important;
+  }
+  .combat-panel.compact .combat-time-block {
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+  }
+  .combat-panel.compact .combat-time-top {
+    margin-bottom: 10px !important;
+  }
+  .combat-panel.compact .combat-time-emoji {
+    font-size: 22px !important;
+  }
+  .combat-panel.compact .combat-time-value {
+    font-size: 16px !important;
+  }
+  .combat-panel.compact .combat-time-groups {
+    gap: 8px !important;
+  }
+  .combat-panel.compact .combat-time-group {
+    min-width: 0 !important;
+  }
+  .combat-panel.compact .combat-time-buttons {
+    gap: 4px !important;
+  }
+  .combat-panel.compact .combat-time-btn {
+    min-width: 0 !important;
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+    flex: 1 1 0 !important;
+  }
+  .combat-panel.compact .combat-effects-title {
+    font-size: 8px !important;
+    margin-bottom: 6px !important;
+  }
+  .combat-panel.compact .combat-effect-card {
+    padding: 8px 10px !important;
+  }
+  .combat-panel.compact .combat-history-title {
+    font-size: 8px !important;
+  }
+  @media (max-width: 600px) {
+    .combat-panel.compact .combat-round-block {
+      grid-template-columns: 70px minmax(0, 1fr) !important;
+    }
+    .combat-panel.compact .combat-time-groups {
+      display: grid !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+    .combat-panel.compact .combat-time-buttons {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+  }
+
   @keyframes tabSlideIn {
     from { opacity: 0; transform: translateY(6px); }
     to   { opacity: 1; transform: translateY(0); }
@@ -4178,7 +4269,50 @@
   .wmc-btn:active { background: #2a1d0a; }
   .wmc-reset { font-size: 18px; }
   @media (max-width: 900px) {
-    .world-mobile-controls { display: block; }
+    .world-mobile-controls {
+      display: block;
+      top: 12px;
+      right: 12px;
+      bottom: auto;
+    }
+    .wmc-zoom {
+      gap: 6px;
+      padding: 6px;
+      border-radius: 12px;
+      background: rgba(10, 7, 4, 0.92);
+      box-shadow: 0 10px 28px #00000066;
+    }
+    .wmc-btn {
+      width: 46px;
+      height: 46px;
+      border-radius: 10px;
+      font-size: 18px;
+    }
+    .wmc-pan { display: none; }
+  }
+  body.world-map-fs-active {
+    overflow: hidden;
+  }
+  body.world-map-fs-active .world-mobile-controls {
+    top: calc(env(safe-area-inset-top, 0px) + 16px);
+    right: 16px;
+    bottom: auto;
+    z-index: 100001;
+  }
+  .world-map-wrap.world-map-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    z-index: 100000 !important;
+    background: #0a0604 !important;
   }
   .world-map-wrap::after {
     content: '';
@@ -9754,18 +9888,10 @@ window.zgImageStore = (function() {
           <!-- Mobile zoom & pan controls overlay -->
           <div class="world-mobile-controls" id="world-mobile-controls">
             <div class="wmc-zoom">
-              <button class="wmc-btn" onclick="worldZoomBy(0.5)" title="Увеличить">＋</button>
-              <button class="wmc-btn" onclick="worldZoomBy(-0.5)" title="Уменьшить">−</button>
-              <button class="wmc-btn wmc-reset" onclick="worldResetZoomAndPan()" title="Сброс">⟲</button>
-              <button class="wmc-btn" onclick="openWorldMobileFullscreen()" title="Во весь экран" style="font-size:14px">⛶</button>
-            </div>
-            <div class="wmc-pan">
-              <button class="wmc-btn" data-pan-dir="up" title="Вверх">▲</button>
-              <div class="wmc-pan-row">
-                <button class="wmc-btn" data-pan-dir="left" title="Влево">◀</button>
-                <button class="wmc-btn" data-pan-dir="right" title="Вправо">▶</button>
-              </div>
-              <button class="wmc-btn" data-pan-dir="down" title="Вниз">▼</button>
+              <button type="button" class="wmc-btn" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation();event.preventDefault();worldZoomBy(0.22)" onclick="event.stopPropagation();worldZoomBy(0.22)" title="Увеличить">＋</button>
+              <button type="button" class="wmc-btn" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation();event.preventDefault();worldZoomBy(-0.22)" onclick="event.stopPropagation();worldZoomBy(-0.22)" title="Уменьшить">−</button>
+              <button type="button" class="wmc-btn wmc-reset" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation();event.preventDefault();worldResetZoomAndPan()" onclick="event.stopPropagation();worldResetZoomAndPan()" title="Сброс">⟲</button>
+              <button type="button" class="wmc-btn" onpointerdown="event.stopPropagation()" ontouchstart="event.stopPropagation();event.preventDefault();openWorldMobileFullscreen()" onclick="event.stopPropagation();openWorldMobileFullscreen()" title="Во весь экран" style="font-size:14px">⛶</button>
             </div>
           </div>
           <div class="world-hover-card" id="world-hover-card" style="transform: translate(379.996px, 486.617px);"><div class="world-hover-eyebrow">Кладбище</div><div class="world-hover-title">Берег Мертвецов </div><div class="world-hover-copy">Гиблое место перенасыщенное кладбищами и могильникми.</div></div>
@@ -13704,15 +13830,19 @@ function worldResetZoomAndPan() {
 var _worldFsSavedStyles = null;
 
 function openWorldMobileFullscreen() {
-  // DIAG: если этот toast не появляется при нажатии на ⛶ — значит onclick вообще не вызывается
-  // (возможно не то z-index, перекрыто hover-card, или js ещё не загрузился)
-  if (typeof showToast === 'function') showToast('⛶ Открываю во весь экран...');
   var wrap = document.getElementById('world-map-wrap');
-  if (!wrap) { if (typeof showToast === 'function') showToast('⚠ wrap не найден'); return; }
+  if (!wrap) return;
   if (_worldFsSavedStyles) { closeWorldMobileFullscreen(); return; } // toggle
 
-  // Запоминаем исходные стили чтобы вернуть как было
+  var placeholder = document.createElement('div');
+  placeholder.id = 'world-map-wrap-anchor';
+  placeholder.style.display = 'none';
+  if (wrap.parentNode) wrap.parentNode.insertBefore(placeholder, wrap);
+
   _worldFsSavedStyles = {
+    anchor: placeholder,
+    bodyOverflow: document.body.style.overflow,
+    scrollY: window.scrollY || window.pageYOffset || 0,
     position: wrap.style.position,
     top: wrap.style.top,
     left: wrap.style.left,
@@ -13723,42 +13853,45 @@ function openWorldMobileFullscreen() {
     zIndex: wrap.style.zIndex,
     margin: wrap.style.margin,
     borderRadius: wrap.style.borderRadius,
-    background: wrap.style.background
+    background: wrap.style.background,
+    maxWidth: wrap.style.maxWidth,
+    maxHeight: wrap.style.maxHeight
   };
 
-  // Разворачиваем на весь экран
+  document.body.classList.add('world-map-fs-active');
+  document.body.style.overflow = 'hidden';
+  document.body.appendChild(wrap);
   wrap.style.position = 'fixed';
   wrap.style.top = '0';
   wrap.style.left = '0';
   wrap.style.right = '0';
   wrap.style.bottom = '0';
   wrap.style.width = '100vw';
-  wrap.style.height = '100vh';
-  wrap.style.zIndex = '99999';
+  wrap.style.height = '100dvh';
+  wrap.style.maxWidth = 'none';
+  wrap.style.maxHeight = 'none';
+  wrap.style.zIndex = '100000';
   wrap.style.margin = '0';
   wrap.style.borderRadius = '0';
   wrap.style.background = '#0a0604';
   wrap.classList.add('world-map-fullscreen');
 
-  // Пересчитываем границы под новый размер и центрируем
   setTimeout(function(){
-    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(false); } catch(e) {}
+    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(true); } catch(e) {}
     try { if (typeof queueWorldRender === 'function') queueWorldRender(); } catch(e) {}
   }, 50);
 
-  // Кнопка закрытия в левом верхнем углу fullscreen
   var closeBtn = document.createElement('button');
   closeBtn.id = 'world-fs-close';
   closeBtn.textContent = '✕';
-  closeBtn.style.cssText = 'position:fixed;top:14px;left:14px;width:44px;height:44px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604ee;color:#c4a84b;font-size:20px;cursor:pointer;z-index:100000;box-shadow:0 4px 16px #000a;display:flex;align-items:center;justify-content:center';
+  closeBtn.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 16px);left:16px;width:44px;height:44px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604ee;color:#c4a84b;font-size:20px;cursor:pointer;z-index:100002;box-shadow:0 4px 16px #000a;display:flex;align-items:center;justify-content:center';
   closeBtn.onclick = closeWorldMobileFullscreen;
   document.body.appendChild(closeBtn);
 
-  // Подсказка
   var hint = document.createElement('div');
   hint.id = 'world-fs-hint';
-  hint.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);padding:6px 12px;background:#0a0604cc;border:1px solid #3a2918;border-radius:6px;color:#c4a84b;font-size:10px;font-family:\'Cinzel\',serif;letter-spacing:.5px;z-index:100000;white-space:nowrap;pointer-events:none';
-  hint.textContent = 'Двумя пальцами — зум · Тап — инфо места';
+  hint.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 18px);left:50%;transform:translateX(-50%);padding:6px 12px;background:#0a0604cc;border:1px solid #3a2918;border-radius:6px;color:#c4a84b;font-size:10px;font-family:\'Cinzel\',serif;letter-spacing:.5px;z-index:100001;white-space:nowrap;pointer-events:none';
+  hint.textContent = 'Зум: кнопки или два пальца';
   document.body.appendChild(hint);
   setTimeout(function(){ if (hint) hint.style.opacity = '0'; hint.style.transition = 'opacity 1s'; }, 3500);
   setTimeout(function(){ var h = document.getElementById('world-fs-hint'); if (h) h.remove(); }, 5000);
@@ -13767,26 +13900,35 @@ function openWorldMobileFullscreen() {
 function closeWorldMobileFullscreen() {
   var wrap = document.getElementById('world-map-wrap');
   if (!wrap || !_worldFsSavedStyles) return;
-  // Возвращаем все стили
+  var saved = _worldFsSavedStyles;
+  if (_worldFsSavedStyles.anchor && _worldFsSavedStyles.anchor.parentNode) {
+    _worldFsSavedStyles.anchor.parentNode.insertBefore(wrap, _worldFsSavedStyles.anchor);
+    _worldFsSavedStyles.anchor.remove();
+  }
   Object.keys(_worldFsSavedStyles).forEach(function(k) {
+    if (k === 'anchor' || k === 'bodyOverflow' || k === 'scrollY') return;
     wrap.style[k] = _worldFsSavedStyles[k] || '';
   });
   wrap.classList.remove('world-map-fullscreen');
+  document.body.classList.remove('world-map-fs-active');
+  document.body.style.overflow = saved.bodyOverflow || '';
   _worldFsSavedStyles = null;
   var btn = document.getElementById('world-fs-close'); if (btn) btn.remove();
   var hint = document.getElementById('world-fs-hint'); if (hint) hint.remove();
-  // Пересчёт границ под исходный размер
   setTimeout(function(){
-    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(false); } catch(e) {}
+    try { if (typeof worldRefreshBounds === 'function') worldRefreshBounds(true); } catch(e) {}
     try { if (typeof queueWorldRender === 'function') queueWorldRender(); } catch(e) {}
+    try { window.scrollTo(0, saved.scrollY || 0); } catch(e) {}
   }, 50);
 }
 
 // Биндим pan-кнопки (непрерывный сдвиг при удержании)
 (function bindWorldPanButtons() {
   function attach() {
-    var btns = document.querySelectorAll('.world-mobile-controls [data-pan-dir]');
-    if (!btns.length) { setTimeout(attach, 500); return; }
+    var controls = document.getElementById('world-mobile-controls');
+    if (!controls) { setTimeout(attach, 500); return; }
+    var btns = controls.querySelectorAll('[data-pan-dir]');
+    if (!btns.length) return;
     btns.forEach(function(btn) {
       if (btn.dataset.bound === '1') return;
       btn.dataset.bound = '1';
@@ -23063,6 +23205,11 @@ function renderCharSheet() {
   // Надёжное определение мобайла: тач + узкий экран
   var isMobileDevice = window.innerWidth < 900;
   var isCompactDesktopSheet = window.innerWidth < 1120;
+  if (isMobileDevice) {
+    combatModeActive = false;
+    var strayCombatPanel = document.getElementById('combat-panel');
+    if (strayCombatPanel) strayCombatPanel.remove();
+  }
   if (!isMobileDevice) {
     var sheetD = document.getElementById('char-sheet');
     // Убираем мобильный tab bar если есть
@@ -23261,6 +23408,7 @@ function renderCharSheet() {
         '<button class="btn btn-red btn-sm" onclick="deleteChar('+c.id+')">🗑 Удалить</button>' +
       '</div>' +
     '</div>' +
+    '<div id="combat-panel-host"></div>' +
     buildJournalSection(c);
 
     setTimeout(function(){ document.querySelectorAll('#char-sheet textarea').forEach(function(ta){ autoResize(ta); }); }, 60);
@@ -23389,6 +23537,7 @@ function renderCharSheet() {
   // ─── ВКЛАДКА: БОЙ ───
   var tabCombat =
     '<div style="padding:14px">' +
+      renderCombatPanel(c, { compact:true, inline:true, showExit:false, id:'combat-panel-inline' }) +
       // HP — главный блок боя
       '<div style="background:#0e0a06;border:1px solid #5a181844;border-radius:12px;padding:14px;margin-bottom:10px">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">' +
@@ -23444,8 +23593,6 @@ function renderCharSheet() {
           '<span onclick="openCustomStatusPopup('+c.id+')" style="display:inline-flex;align-items:center;gap:3px;padding:5px 10px;border-radius:8px;cursor:pointer;margin:2px;border:1px dashed var(--gold2);color:var(--gold2);font-size:11px">＋ Свой</span>' +
         '</div>' +
       '</div>' +
-      // Режим боя
-      '<button onclick="toggleCombatMode('+c.id+')" id="combat-mode-btn" style="width:100%;padding:12px;border:1px solid #3a2918;border-radius:10px;background:#1a1208;color:#d4a04a;font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;letter-spacing:.5px">⚔ Режим Боя</button>' +
     '</div>';
 
   // ─── ВКЛАДКА: НАВЫКИ ───
@@ -25932,27 +26079,41 @@ var EFFECT_TYPES = [
 ];
 
 // ── Render combat panel ──
-function renderCombatPanel(c) {
+function renderCombatPanel(c, opts) {
+  opts = opts || {};
+  var compact = !!opts.compact;
+  var inline = !!opts.inline;
+  var showExit = opts.showExit !== false;
+  var panelId = opts.id || 'combat-panel';
   ensureTempFields(c);
   var activeEffects = c.tempEffects;
+  var panelMargin = inline ? 'margin:0 0 12px 0' : 'margin:12px 20px';
+  var panelPadding = compact ? 'padding:12px' : 'padding:18px 20px';
+  var panelBorder = compact ? 'border:1px solid #3a2010' : 'border:2px solid #3a2010';
+  var titleSize = compact ? '12px' : '13px';
+  var titleSpacing = compact ? '1.2px' : '2px';
+  var headMargin = compact ? 'margin-bottom:10px' : 'margin-bottom:14px';
+  var exitButton = showExit
+    ? '<button onclick="toggleCombatMode(' + c.id + ')" style="padding:' + (compact ? '5px 10px' : '4px 12px') + ';border:1px solid #5a3010;background:transparent;color:var(--muted);font-family:\'Cinzel\',serif;font-size:' + (compact ? '9px' : '10px') + ';cursor:pointer;border-radius:' + (compact ? '6px' : '2px') + ';letter-spacing:1px">✕ Выйти</button>'
+    : '';
 
   // ── Round counter ──
   var canUndo = (c.combatRound||0) > 0;
-  var roundHTML = '<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#0a0804;border:1px solid #3a2010;border-radius:4px;margin-bottom:14px">' +
-    '<div style="display:flex;flex-direction:column;align-items:center;min-width:80px">' +
+  var roundHTML = '<div class="combat-round-block" style="display:flex;align-items:center;gap:' + (compact ? '8px' : '14px') + ';padding:' + (compact ? '10px' : '12px 16px') + ';background:#0a0804;border:1px solid #3a2010;border-radius:' + (compact ? '10px' : '4px') + ';margin-bottom:' + (compact ? '12px' : '14px') + '">' +
+    '<div class="combat-round-side" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:' + (compact ? '68px' : '80px') + '">' +
       '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px">РАУНД</span>' +
-      '<span style="font-family:\'Cinzel Decorative\',serif;font-size:32px;font-weight:700;color:#e07020">' + (c.combatRound||0) + '</span>' +
+      '<span class="combat-round-num" style="font-family:\'Cinzel Decorative\',serif;font-size:' + (compact ? '28px' : '32px') + ';font-weight:700;color:#e07020">' + (c.combatRound||0) + '</span>' +
     '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:6px;flex:1">' +
+    '<div class="combat-round-side" style="display:flex;flex-direction:column;gap:' + (compact ? '5px' : '6px') + ';flex:1;min-width:0">' +
       '<button onclick="advanceRound(' + c.id + ')" ' +
-        'style="padding:10px 20px;border:2px solid #e07020;background:linear-gradient(135deg,#1a0e06,#120a04);color:#e07020;font-family:\'Cinzel\',serif;font-size:13px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:1px;transition:all .2s;width:100%" ' +
+        'class="combat-next-btn" style="padding:' + (compact ? '10px 12px' : '10px 20px') + ';border:2px solid #e07020;background:linear-gradient(135deg,#1a0e06,#120a04);color:#e07020;font-family:\'Cinzel\',serif;font-size:' + (compact ? '11px' : '13px') + ';font-weight:600;cursor:pointer;border-radius:' + (compact ? '8px' : '4px') + ';letter-spacing:' + (compact ? '.4px' : '1px') + ';transition:all .2s;width:100%" ' +
         'onmouseover="this.style.background=\'#2a1608\';this.style.boxShadow=\'0 0 12px #e0702033\'" ' +
         'onmouseout="this.style.background=\'linear-gradient(135deg,#1a0e06,#120a04)\';this.style.boxShadow=\'none\'">⚔ Следующий раунд</button>' +
-      '<div style="display:flex;gap:6px">' +
+      '<div class="combat-mini-actions" style="display:flex;gap:' + (compact ? '5px' : '6px') + '">' +
         '<button onclick="undoRound(' + c.id + ')" ' + (canUndo?'':'disabled ') +
-          'style="flex:1;padding:4px 12px;border:1px solid ' + (canUndo?'#a08060':'var(--border)') + ';background:transparent;color:' + (canUndo?'#a08060':'var(--dim)') + ';font-family:\'Cinzel\',serif;font-size:9px;cursor:' + (canUndo?'pointer':'default') + ';border-radius:2px;letter-spacing:1px;text-align:center;opacity:' + (canUndo?'1':'.4') + '">↩ Назад</button>' +
+          'class="combat-mini-btn" style="flex:1;padding:' + (compact ? '6px 8px' : '4px 12px') + ';border:1px solid ' + (canUndo?'#a08060':'var(--border)') + ';background:transparent;color:' + (canUndo?'#a08060':'var(--dim)') + ';font-family:\'Cinzel\',serif;font-size:' + (compact ? '9px' : '9px') + ';cursor:' + (canUndo?'pointer':'default') + ';border-radius:' + (compact ? '6px' : '2px') + ';letter-spacing:1px;text-align:center;opacity:' + (canUndo?'1':'.4') + '">↩ Назад</button>' +
         '<button onclick="resetRounds(' + c.id + ')" ' +
-          'style="flex:1;padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:9px;cursor:pointer;border-radius:2px;letter-spacing:1px;text-align:center">Сбросить</button>' +
+          'class="combat-mini-btn" style="flex:1;padding:' + (compact ? '6px 8px' : '4px 12px') + ';border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:9px;cursor:pointer;border-radius:' + (compact ? '6px' : '2px') + ';letter-spacing:1px;text-align:center">Сбросить</button>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -25974,21 +26135,21 @@ function renderCombatPanel(c) {
   var phaseColor = isNight ? '#4060a0' : isDawn ? '#e0a040' : isDay ? '#e8c060' : '#c06040';
   var phaseBg = isNight ? '#0a0c14' : isDawn ? '#1a120a' : isDay ? '#14100a' : '#140a06';
 
-  var timeHTML = '<div style="padding:14px 16px;background:linear-gradient(135deg,' + phaseBg + ',#0a0804);border:1px solid ' + phaseColor + '33;border-radius:6px;margin-bottom:14px">' +
-    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +
-      '<div style="font-size:28px;line-height:1">' + phaseIcon + '</div>' +
+  var timeHTML = '<div class="combat-time-block" style="padding:' + (compact ? '12px' : '14px 16px') + ';background:linear-gradient(135deg,' + phaseBg + ',#0a0804);border:1px solid ' + phaseColor + '33;border-radius:' + (compact ? '10px' : '6px') + ';margin-bottom:' + (compact ? '12px' : '14px') + '">' +
+    '<div class="combat-time-top" style="display:flex;align-items:center;gap:' + (compact ? '10px' : '12px') + ';margin-bottom:' + (compact ? '10px' : '12px') + '">' +
+      '<div class="combat-time-emoji" style="font-size:' + (compact ? '22px' : '28px') + ';line-height:1">' + phaseIcon + '</div>' +
       '<div style="flex:1">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:' + phaseColor + ';letter-spacing:2px;margin-bottom:2px">' + phaseName.toUpperCase() + '</div>' +
-        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:18px;color:' + phaseColor + ';letter-spacing:1px">' +
+        '<div class="combat-time-value" style="font-family:\'Cinzel Decorative\',serif;font-size:' + (compact ? '16px' : '18px') + ';color:' + phaseColor + ';letter-spacing:1px">' +
           (dispDays ? '<span style="color:var(--text)">' + dispDays + '</span><span style="font-size:10px;color:var(--dim)"> д </span>' : '') +
           '<span style="color:var(--text)">' + String(dispHours).padStart(2,'0') + '</span>' +
           '<span style="color:' + phaseColor + ';animation:blink 1s step-end infinite">:</span>' +
           '<span style="color:var(--text)">' + String(dispMins).padStart(2,'0') + '</span>' +
         '</div>' +
       '</div>' +
-      '<button onclick="resetGlobalTime(' + c.id + ')" style="padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:9px;cursor:pointer;border-radius:2px;font-family:\'Cinzel\',serif">Сброс</button>' +
+      '<button onclick="resetGlobalTime(' + c.id + ')" class="combat-mini-btn" style="padding:' + (compact ? '6px 10px' : '4px 10px') + ';border:1px solid var(--border);background:transparent;color:var(--dim);font-size:9px;cursor:pointer;border-radius:' + (compact ? '6px' : '2px') + ';font-family:\'Cinzel\',serif">Сброс</button>' +
     '</div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">';
+    '<div class="combat-time-groups" style="display:flex;gap:' + (compact ? '8px' : '8px') + ';flex-wrap:wrap">';
 
   var timeUnits = [
     {key:'minutes',label:'Минуты',amounts:[1,5,10,30]},
@@ -25996,12 +26157,12 @@ function renderCombatPanel(c) {
     {key:'days',label:'Дни',amounts:[1,3,7]},
   ];
   timeUnits.forEach(function(tu) {
-    timeHTML += '<div style="display:flex;flex-direction:column;gap:4px;min-width:80px">' +
+    timeHTML += '<div class="combat-time-group" style="display:flex;flex-direction:column;gap:4px;min-width:' + (compact ? '72px' : '80px') + '">' +
       '<span style="font-family:\'Cinzel\',serif;font-size:8px;color:var(--dim);letter-spacing:1px">' + tu.label.toUpperCase() + '</span>' +
-      '<div style="display:flex;gap:3px;flex-wrap:wrap">';
+      '<div class="combat-time-buttons" style="display:flex;gap:' + (compact ? '4px' : '3px') + ';flex-wrap:wrap">';
     tu.amounts.forEach(function(a) {
       timeHTML += '<button onclick="advanceGlobalTime(\'' + tu.key + '\',' + a + ',' + c.id + ')" ' +
-        'style="padding:4px 8px;border:1px solid #3a6a3a;background:#0e0a06;color:#50a050;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:2px;transition:all .15s;min-width:32px" ' +
+        'class="combat-time-btn" style="padding:' + (compact ? '6px 8px' : '4px 8px') + ';border:1px solid #3a6a3a;background:#0e0a06;color:#50a050;font-family:\'Cinzel\',serif;font-size:' + (compact ? '10px' : '11px') + ';cursor:pointer;border-radius:' + (compact ? '6px' : '2px') + ';transition:all .15s;min-width:' + (compact ? '0' : '32px') + '" ' +
         'onmouseover="this.style.background=\'#0a2a0a\'" onmouseout="this.style.background=\'#0e0a06\'">+' + a + '</button>';
     });
     timeHTML += '</div></div>';
@@ -26015,7 +26176,7 @@ function renderCombatPanel(c) {
         var unitInfo = UNITS.find(function(u){return u.key===eff.unit;}) || UNITS[0];
         var pct = eff.duration > 0 ? Math.round(eff.remaining / eff.duration * 100) : 0;
         var barColor = pct > 60 ? '#50a050' : pct > 25 ? '#a0a020' : '#a03020';
-        return '<div style="background:#0e0a06;border:1px solid var(--border);border-radius:3px;padding:8px 12px;margin-bottom:6px;border-left:3px solid ' + barColor + '">' +
+        return '<div class="combat-effect-card" style="background:#0e0a06;border:1px solid var(--border);border-radius:' + (compact ? '8px' : '3px') + ';padding:' + (compact ? '8px 10px' : '8px 12px') + ';margin-bottom:6px;border-left:3px solid ' + barColor + '">' +
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
             '<span style="font-family:\'Cinzel\',serif;font-size:11px;color:var(--text);flex:1">' +
               escHTML(eff.label) +
@@ -26038,10 +26199,10 @@ function renderCombatPanel(c) {
   var historyHTML = '';
   if ((c.effectHistory||[]).length > 0) {
     historyHTML = '<div style="margin-top:10px">' +
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
-        '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:2px">📜 ИСТЁКШИЕ</span>' +
+      '<div class="combat-history-title" style="display:flex;align-items:center;gap:8px;margin-bottom:6px">' +
+        '<span style="font-family:\'Cinzel\',serif;font-size:' + (compact ? '8px' : '9px') + ';color:var(--dim);letter-spacing:2px">📜 ИСТЁКШИЕ</span>' +
         '<div style="flex:1;height:1px;background:var(--border)"></div>' +
-        '<button onclick="clearHistory(' + c.id + ')" style="padding:2px 8px;border:1px solid var(--border);background:transparent;color:var(--dim);font-size:9px;cursor:pointer;border-radius:2px;font-family:\'Cinzel\',serif">Очистить</button>' +
+        '<button onclick="clearHistory(' + c.id + ')" class="combat-mini-btn" style="padding:' + (compact ? '6px 8px' : '2px 8px') + ';border:1px solid var(--border);background:transparent;color:var(--dim);font-size:9px;cursor:pointer;border-radius:' + (compact ? '6px' : '2px') + ';font-family:\'Cinzel\',serif">Очистить</button>' +
       '</div>';
     c.effectHistory.slice(-8).reverse().forEach(function(h) {
       historyHTML += '<div style="padding:4px 10px;margin-bottom:3px;font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);opacity:.6;border-left:2px solid #3a2010;background:#0a080422">' +
@@ -26051,28 +26212,36 @@ function renderCombatPanel(c) {
     historyHTML += '</div>';
   }
 
-  return '<div id="combat-panel" style="background:linear-gradient(160deg,#120e08,#0e0b06);border:2px solid #3a2010;border-radius:6px;padding:18px 20px;margin:12px 20px">' +
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
-      '<span style="font-family:\'Cinzel Decorative\',serif;font-size:13px;color:#e07020;letter-spacing:2px">⚔ РЕЖИМ БОЯ</span>' +
+  return '<div id="' + panelId + '" class="combat-panel' + (compact ? ' compact' : '') + (inline ? ' inline' : '') + '" style="background:linear-gradient(160deg,#120e08,#0e0b06);' + panelBorder + ';border-radius:' + (compact ? '12px' : '6px') + ';' + panelPadding + ';' + panelMargin + '">' +
+    '<div class="combat-panel-head" style="display:flex;align-items:center;gap:10px;' + headMargin + '">' +
+      '<span class="combat-panel-title" style="font-family:\'Cinzel Decorative\',serif;font-size:' + titleSize + ';color:#e07020;letter-spacing:' + titleSpacing + '">⚔ РЕЖИМ БОЯ</span>' +
       '<div style="flex:1;height:1px;background:linear-gradient(90deg,#3a2010,transparent)"></div>' +
-      '<button onclick="toggleCombatMode(' + c.id + ')" style="padding:4px 12px;border:1px solid #5a3010;background:transparent;color:var(--muted);font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:2px;letter-spacing:1px">✕ Выйти</button>' +
+      exitButton +
     '</div>' +
     roundHTML +
     timeHTML +
-    '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px">АКТИВНЫЕ ЭФФЕКТЫ (' + activeEffects.length + ')</div>' +
+    '<div class="combat-effects-title" style="font-family:\'Cinzel\',serif;font-size:' + (compact ? '8px' : '9px') + ';color:var(--dim);letter-spacing:2px;margin-bottom:' + (compact ? '6px' : '8px') + '">АКТИВНЫЕ ЭФФЕКТЫ (' + activeEffects.length + ')</div>' +
     '<div id="effects-list-' + c.id + '">' + effectsHTML + '</div>' +
     historyHTML +
   '</div>';
 }
 
 function findCombatPanelHost() {
-  return document.querySelector('.sheet-actions-bar')
+  return document.getElementById('combat-panel-host')
+    || document.querySelector('.sheet-actions-bar')
     || document.querySelector('#char-sheet .tab-content-wrap')
     || document.getElementById('char-sheet');
 }
 
 // ── Toggle combat mode ──
 function toggleCombatMode(id) {
+  if (window.innerWidth < 900) {
+    window._charSheetTab = 'combat';
+    combatModeActive = false;
+    _combatCharId = id;
+    renderCharSheet();
+    return;
+  }
   combatModeActive = !combatModeActive;
   _combatCharId = id;
   var panel = document.getElementById('combat-panel');
@@ -26133,7 +26302,7 @@ function wrapRenderCharSheet() {
     // Run original render (destroys combat panel)
     _origRenderCharSheet();
     // Re-inject combat panel if it was active
-    if (wasActive) {
+    if (wasActive && window.innerWidth >= 900) {
       combatModeActive = false;
       _combatCharId = cid;
       toggleCombatMode(cid);
