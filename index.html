@@ -3901,12 +3901,49 @@
     flex: 1; overflow: auto;
     padding: 30px 20px 60px;
     position: relative;
+    cursor: grab;
+    user-select: none;
   }
+  .htree-viewport.is-dragging { cursor: grabbing; }
   .htree-content {
     position: relative;
     width: max-content;
     min-width: max-content;
     padding: 20px 140px 80px;
+    transform-origin: 0 0;
+  }
+  .htree-empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    user-select: text;
+  }
+  .htree-hud {
+    position: sticky;
+    top: 10px;
+    left: 10px;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding: 8px 10px;
+    border: 1px solid #2f2112;
+    border-radius: 999px;
+    background: #0e0a06d8;
+    box-shadow: 0 8px 24px #00000033;
+    backdrop-filter: blur(6px);
+  }
+  .htree-hud-zoom {
+    min-width: 48px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+  }
+  .htree-hud-hint {
+    font-size: 10px;
+    color: var(--dim);
+    white-space: nowrap;
   }
   .htree-level {
     display: flex; justify-content: center; gap: 24px;
@@ -18006,7 +18043,6 @@ function manageEncCategories() {
 
     ENC_CATEGORIES.forEach(function(cat, ci) {
       var count = countEntries(cat.key);
-      var isDefault = !cat.key.startsWith('custom_');
       html += '<div class="enc-cat-row" draggable="true" data-ci="' + ci + '">' +
         '<div class="enc-cat-row-head">' +
           '<span class="enc-drag-handle" title="Перетащить категорию">⠿</span>' +
@@ -18015,7 +18051,7 @@ function manageEncCategories() {
           '</span>' +
           '<input class="enc-cat-name-input" value="' + escHTML(cat.label) + '" oninput="encCatRename(' + ci + ', this.value)" placeholder="Название">' +
           '<span style="font-size:11px;color:var(--dim);white-space:nowrap">' + count + '</span>' +
-          (!isDefault ? '<button class="enc-cat-del-btn" onclick="encCatDelete(' + ci + ')">🗑</button>' : '<span style="font-size:10px;color:#3a2e1a;padding:0 6px">базовая</span>') +
+          '<button class="enc-cat-del-btn" onclick="encCatDelete(' + ci + ')" title="Удалить главную категорию">🗑</button>' +
         '</div>';
 
       // Статьи без подкатегории
@@ -18068,7 +18104,10 @@ function manageEncCategories() {
 
     html +=
       '<div style="margin-top:16px;padding-top:16px;border-top:1px solid #2f2112">' +
-        '<div style="font-size:11px;color:var(--dim);font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:8px">НОВАЯ КАТЕГОРИЯ</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
+          '<div style="font-size:11px;color:var(--dim);font-family:\'Cinzel\',serif;letter-spacing:1px">НОВАЯ ГЛАВНАЯ КАТЕГОРИЯ</div>' +
+          '<button class="btn btn-dim btn-sm" onclick="encCatQuickAdd()">＋ Главная категория</button>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
           '<span id="enc-new-cat-icon-wrap" style="display:flex;gap:3px;flex-wrap:wrap;max-width:260px">' +
             ICONS.map(function(ic,ix){ return '<button class="enc-cat-ic-btn' + (ix===0?' active':'') + '" id="enc-newic_' + ix + '" data-ic="' + ic + '" onclick="encNewCatPickIcon(this)">' + ic + '</button>'; }).join('') +
@@ -18222,10 +18261,26 @@ function manageEncCategories() {
   };
   window.encCatDelete = function(ci) {
     var cat = ENC_CATEGORIES[ci]; if (!cat) return;
+    if (ENC_CATEGORIES.length <= 1) { showToast('Нужна хотя бы одна главная категория.'); return; }
     var count = countEntries(cat.key);
-    if (count > 0 && !confirm('В категории «' + cat.label + '» есть ' + count + ' записей. Удалить?')) return;
-    ENC_CATEGORIES.splice(ci, 1); saveEncCategories(); renderEncSidebar(); renderCatEditor();
-    showToast('Категория удалена.');
+    var hasChildren = Array.isArray(cat.subs) && cat.subs.length > 0;
+    var msg = count > 0
+      ? 'В главной категории «' + cat.label + '» есть ' + count + ' статей. Удалить категорию вместе со всеми её статьями?'
+      : hasChildren
+      ? 'Удалить главную категорию «' + cat.label + '» вместе со всеми её подкатегориями?'
+      : 'Удалить главную категорию «' + cat.label + '»?';
+    if (!confirm(msg)) return;
+    encState.entries = encState.entries.filter(function(e){ return e.category !== cat.key; });
+    if (encState.selectedId) {
+      var selected = getEncEntry(encState.selectedId);
+      if (!selected || selected.category === cat.key) encState.selectedId = null;
+    }
+    Object.keys(encState.openBranches || {}).forEach(function(k){
+      if (k === cat.key || k.indexOf(cat.key + '_') === 0) delete encState.openBranches[k];
+    });
+    ENC_CATEGORIES.splice(ci, 1);
+    saveEncState(); saveEncCategories(); renderEncSidebar(); renderCatEditor(); renderEncMain();
+    showToast('Главная категория удалена.');
   };
   window.encSubRename = function(ci, si, val) {
     var cat = ENC_CATEGORIES[ci]; if (!cat) return;
@@ -18280,9 +18335,21 @@ function manageEncCategories() {
     var icon = iconBtn ? iconBtn.dataset.ic : '📂';
     var key = 'custom_' + Date.now();
     ENC_CATEGORIES.push({ key:key, icon:icon, label:name, subs:[], subsubs:{} });
-    saveEncCategories(); encState.openBranches[key] = true;
-    renderEncSidebar(); renderCatEditor();
+    encState.openBranches[key] = true;
+    saveEncState(); saveEncCategories();
+    renderEncSidebar(); renderCatEditor(); renderEncMain();
     showToast('Категория «' + name + '» добавлена.');
+  };
+  window.encCatQuickAdd = function() {
+    var name = prompt('Название главной категории:');
+    if (!name || !name.trim()) return;
+    var clean = name.trim();
+    var key = 'custom_' + Date.now();
+    ENC_CATEGORIES.push({ key:key, icon:'📂', label:clean, subs:[], subsubs:{} });
+    encState.openBranches[key] = true;
+    saveEncState(); saveEncCategories();
+    renderEncSidebar(); renderCatEditor(); renderEncMain();
+    showToast('Главная категория «' + clean + '» добавлена.');
   };
 }
 
@@ -18302,7 +18369,6 @@ function manageEncCategories() {
 
     ENC_CATEGORIES.forEach(function(cat, ci) {
       var count = countEntries(cat.key);
-      var isDefault = !cat.key.startsWith('custom_');
       html += '<div class="enc-cat-row" draggable="true" data-ci="' + ci + '">' +
         '<div class="enc-cat-row-head">' +
           '<span class="enc-drag-handle" title="Перетащить">⠿</span>' +
@@ -18311,7 +18377,7 @@ function manageEncCategories() {
           '</span>' +
           '<input class="enc-cat-name-input" value="' + escHTML(cat.label) + '" oninput="encCatRename(' + ci + ', this.value)" placeholder="Название категории">' +
           '<span style="font-size:11px;color:var(--dim);white-space:nowrap">' + count + ' зап.</span>' +
-          (!isDefault ? '<button class="enc-cat-del-btn" onclick="encCatDelete(' + ci + ')" title="Удалить категорию">🗑</button>' : '<span style="font-size:10px;color:var(--dim);padding:0 6px">базовая</span>') +
+          '<button class="enc-cat-del-btn" onclick="encCatDelete(' + ci + ')" title="Удалить главную категорию">🗑</button>' +
         '</div>' +
         '<div class="enc-cat-subs" data-ci="' + ci + '">' +
           cat.subs.map(function(sub, si){
@@ -18346,7 +18412,10 @@ function manageEncCategories() {
 
     html +=
       '<div style="margin-top:16px;padding-top:16px;border-top:1px solid #2f2112">' +
-        '<div style="font-size:11px;color:var(--dim);font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:8px">НОВАЯ КАТЕГОРИЯ</div>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">' +
+          '<div style="font-size:11px;color:var(--dim);font-family:\'Cinzel\',serif;letter-spacing:1px">НОВАЯ ГЛАВНАЯ КАТЕГОРИЯ</div>' +
+          '<button class="btn btn-dim btn-sm" onclick="encCatQuickAdd()">＋ Главная категория</button>' +
+        '</div>' +
         '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
           '<span id="enc-new-cat-icon-wrap" style="display:flex;gap:3px;flex-wrap:wrap;max-width:260px">' +
             ICONS.map(function(ic,ix){ return '<button class="enc-cat-ic-btn' + (ix===0?' active':'') + '" id="enc-newic_' + ix + '" data-ic="' + ic + '" onclick="encNewCatPickIcon(this)">' + ic + '</button>'; }).join('') +
@@ -18364,6 +18433,16 @@ function manageEncCategories() {
 /* ══ HIERARCHY TREE ══ */
 var HTREE_STORAGE = 'grimoire_htree_v1';
 var htreeData = {};
+var htreeViewportState = {
+  entryId: null,
+  dragActive: false,
+  dragMoved: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  startScrollLeft: 0,
+  startScrollTop: 0
+};
 function loadHtreeData() {
   try { var r = localStorage.getItem(HTREE_STORAGE); if (r) htreeData = JSON.parse(r) || {}; } catch(e) { htreeData = {}; }
 }
@@ -18371,7 +18450,8 @@ function saveHtreeData() {
   try { localStorage.setItem(HTREE_STORAGE, JSON.stringify(htreeData)); } catch(e) {}
 }
 function getHtree(entryId) {
-  if (!htreeData[entryId]) htreeData[entryId] = { nodes: [], editMode: false };
+  if (!htreeData[entryId]) htreeData[entryId] = { nodes: [], editMode: false, zoom: 1 };
+  if (!htreeData[entryId].zoom || !isFinite(htreeData[entryId].zoom)) htreeData[entryId].zoom = 1;
   return htreeData[entryId];
 }
 function openHierarchyTree(entryId) {
@@ -18392,11 +18472,16 @@ function openHierarchyTree(entryId) {
     '</div>' +
     '<div class="htree-viewport" id="htree-viewport"></div>';
   document.body.appendChild(overlay);
+  initHtreeViewport(entryId);
   renderHierarchyTree(entryId);
 }
 function closeHierarchyTree() {
   var ov = document.getElementById('htree-overlay');
   if (ov) ov.remove();
+  htreeViewportState.entryId = null;
+  htreeViewportState.dragActive = false;
+  htreeViewportState.dragMoved = false;
+  htreeViewportState.pointerId = null;
 }
 function toggleHtreeEdit() {
   var ov = document.getElementById('htree-overlay');
@@ -18421,23 +18506,32 @@ function renderHierarchyTree(entryId) {
   var restoreScroll = vp.dataset.layoutReady === '1';
   var prevScrollLeft = vp.scrollLeft;
   var prevScrollTop = vp.scrollTop;
+  var zoom = Math.max(0.45, Math.min(2.4, parseFloat(tree.zoom) || 1));
+  tree.zoom = zoom;
   if (!nodes.length) {
     delete vp.dataset.layoutReady;
     vp.innerHTML =
-      '<div style="text-align:center;padding:60px 20px">' +
+      '<div class="htree-empty-state">' +
         '<div style="font-size:40px;margin-bottom:12px">🌳</div>' +
         '<div style="font-family:\'Cinzel\',serif;font-size:15px;color:var(--muted);margin-bottom:8px">Дерево пока пустое</div>' +
         '<div style="font-size:12px;color:var(--dim);margin-bottom:20px">Включи режим редактирования чтобы добавить корень</div>' +
         (editing ? '<button class="btn btn-gold btn-sm" onclick="addHtreeNode(\'' + entryId + '\',null)">＋ Добавить корень</button>' : '') +
       '</div>';
+    updateHtreeZoomLabel();
     return;
   }
   var roots = nodes.filter(function(n) { return !n.parentId; });
-  var html = '<div class="htree-content" id="htree-content">';
+  var html =
+    '<div class="htree-hud">' +
+      '<span class="htree-hud-zoom" id="htree-zoom-label">' + Math.round(zoom * 100) + '%</span>' +
+      '<span class="htree-hud-hint">drag: фон • zoom: колесо</span>' +
+    '</div>' +
+    '<div class="htree-content" id="htree-content">';
   roots.forEach(function(root) { html += renderHtreeNodeRecursive(entryId, root, nodes, editing, 0); });
   if (editing) html += '<div style="text-align:center;margin-top:20px"><button class="btn btn-dim btn-sm" onclick="addHtreeNode(\'' + entryId + '\',null)">＋ Ещё корень</button></div>';
   html += '</div>';
   vp.innerHTML = html;
+  applyHtreeZoom(entryId);
   requestAnimationFrame(function() {
     if (restoreScroll) {
       vp.scrollLeft = prevScrollLeft;
@@ -18450,29 +18544,130 @@ function renderHierarchyTree(entryId) {
     drawHtreeLines();
   });
 }
+function initHtreeViewport(entryId) {
+  var vp = document.getElementById('htree-viewport');
+  if (!vp || vp.dataset.controlsBound === '1') return;
+  vp.dataset.controlsBound = '1';
+  htreeViewportState.entryId = entryId;
+  vp.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    if (e.target.closest('.htree-card, .htree-add-child, button, input, textarea, select, a, label')) return;
+    htreeViewportState.dragActive = true;
+    htreeViewportState.dragMoved = false;
+    htreeViewportState.pointerId = e.button;
+    htreeViewportState.startX = e.clientX;
+    htreeViewportState.startY = e.clientY;
+    htreeViewportState.startScrollLeft = vp.scrollLeft;
+    htreeViewportState.startScrollTop = vp.scrollTop;
+    vp.classList.add('is-dragging');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', function(e) {
+    if (!htreeViewportState.dragActive) return;
+    var dx = e.clientX - htreeViewportState.startX;
+    var dy = e.clientY - htreeViewportState.startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) htreeViewportState.dragMoved = true;
+    vp.scrollLeft = htreeViewportState.startScrollLeft - dx;
+    vp.scrollTop = htreeViewportState.startScrollTop - dy;
+  });
+  window.addEventListener('mouseup', function() {
+    if (!htreeViewportState.dragActive) return;
+    htreeViewportState.dragActive = false;
+    vp.classList.remove('is-dragging');
+    setTimeout(function() { htreeViewportState.dragMoved = false; }, 0);
+  });
+  vp.addEventListener('wheel', function(e) {
+    var content = document.getElementById('htree-content');
+    var ov = document.getElementById('htree-overlay');
+    if (!content || !ov) return;
+    var eid = ov.dataset.entryId;
+    if (!eid) return;
+    e.preventDefault();
+    var tree = getHtree(eid);
+    var oldZoom = Math.max(0.45, Math.min(2.4, parseFloat(tree.zoom) || 1));
+    var factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    var newZoom = Math.max(0.45, Math.min(2.4, oldZoom * factor));
+    if (Math.abs(newZoom - oldZoom) < 0.001) return;
+    var rect = vp.getBoundingClientRect();
+    var offsetX = e.clientX - rect.left + vp.scrollLeft;
+    var offsetY = e.clientY - rect.top + vp.scrollTop;
+    var worldX = offsetX / oldZoom;
+    var worldY = offsetY / oldZoom;
+    tree.zoom = newZoom;
+    applyHtreeZoom(eid);
+    vp.scrollLeft = Math.max(0, worldX * newZoom - (e.clientX - rect.left));
+    vp.scrollTop = Math.max(0, worldY * newZoom - (e.clientY - rect.top));
+    saveHtreeData();
+    drawHtreeLines();
+  }, { passive: false });
+}
+function applyHtreeZoom(entryId) {
+  var vp = document.getElementById('htree-viewport');
+  if (!vp) return;
+  var content = document.getElementById('htree-content');
+  if (!content) {
+    updateHtreeZoomLabel();
+    return;
+  }
+  var tree = getHtree(entryId);
+  var zoom = Math.max(0.45, Math.min(2.4, parseFloat(tree.zoom) || 1));
+  tree.zoom = zoom;
+  content.style.transform = 'scale(' + zoom + ')';
+  content.style.marginRight = Math.max(0, Math.round((zoom - 1) * content.offsetWidth)) + 'px';
+  content.style.marginBottom = Math.max(0, Math.round((zoom - 1) * content.offsetHeight)) + 'px';
+  updateHtreeZoomLabel();
+}
+function updateHtreeZoomLabel() {
+  var label = document.getElementById('htree-zoom-label');
+  var ov = document.getElementById('htree-overlay');
+  if (!label || !ov) return;
+  var tree = getHtree(ov.dataset.entryId);
+  var zoom = Math.max(0.45, Math.min(2.4, parseFloat(tree.zoom) || 1));
+  label.textContent = Math.round(zoom * 100) + '%';
+}
 function drawHtreeLines() {
   var content = document.getElementById('htree-content');
   if (!content) return;
+  var ov = document.getElementById('htree-overlay');
+  var zoom = 1;
+  if (ov && ov.dataset.entryId) {
+    var tree = getHtree(ov.dataset.entryId);
+    zoom = Math.max(0.45, Math.min(2.4, parseFloat(tree.zoom) || 1));
+  }
   var oldSvg = content.querySelector('.htree-svg-lines');
   if (oldSvg) oldSvg.remove();
   var rect = content.getBoundingClientRect();
+  var logicalWidth = Math.max(content.scrollWidth, content.offsetWidth);
+  var logicalHeight = Math.max(content.scrollHeight, content.offsetHeight);
+  function logicalRect(el) {
+    var r = el.getBoundingClientRect();
+    return {
+      left: (r.left - rect.left) / zoom,
+      top: (r.top - rect.top) / zoom,
+      width: r.width / zoom,
+      bottom: (r.bottom - rect.top) / zoom
+    };
+  }
   var svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('class','htree-svg-lines');
-  svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible';
-  svg.setAttribute('width', rect.width);
-  svg.setAttribute('height', rect.height);
+  svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;overflow:visible';
+  svg.style.width = logicalWidth + 'px';
+  svg.style.height = logicalHeight + 'px';
+  svg.setAttribute('width', logicalWidth);
+  svg.setAttribute('height', logicalHeight);
+  svg.setAttribute('viewBox', '0 0 ' + logicalWidth + ' ' + logicalHeight);
   var cards = content.querySelectorAll('.htree-card[data-node-id]');
   cards.forEach(function(card) {
     var parentId = card.dataset.nodeId;
     var children = content.querySelectorAll('.htree-card[data-parent-id="' + parentId + '"]');
     if (!children.length) return;
-    var pRect = card.getBoundingClientRect();
-    var px = pRect.left + pRect.width/2 - rect.left;
-    var py = pRect.bottom - rect.top;
+    var pRect = logicalRect(card);
+    var px = pRect.left + pRect.width/2;
+    var py = pRect.bottom;
     var childCenters = [];
     children.forEach(function(ch) {
-      var cRect = ch.getBoundingClientRect();
-      childCenters.push({ x: cRect.left + cRect.width/2 - rect.left, y: cRect.top - rect.top });
+      var cRect = logicalRect(ch);
+      childCenters.push({ x: cRect.left + cRect.width/2, y: cRect.top });
     });
     var midY = py + (childCenters[0].y - py) / 2;
     var line = document.createElementNS('http://www.w3.org/2000/svg','line');
@@ -22479,12 +22674,12 @@ function buildEquipList(c) {
       if (!item) return null;
       var col = CCOLORS[item.category] || '#888';
       var stats = [];
-      if (item.damageFormula) stats.push(item.damageFormula + (item.damageType ? ' ' + item.damageType : ''));
-      if (item.acBonus) stats.push('AC +' + item.acBonus);
-      if (item.range && item.range !== '1 клетка') stats.push('📍 ' + item.range);
+      if (item.category === 'weapon' && item.damageFormula) stats.push(item.damageFormula + (item.damageType ? ' ' + item.damageType : ''));
+      if ((item.category === 'armor' || item.category === 'shield') && item.acBonus) stats.push('AC +' + item.acBonus);
+      if (item.category === 'weapon' && item.range && item.range !== '1 клетка') stats.push('📍 ' + item.range);
       if (item.effects) stats.push(item.effects);
       if (item.charges) stats.push('🔋 ' + item.charges);
-      return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:7px 10px;border:1px solid ' + col + '33;border-radius:6px;background:' + col + '0d">' +
+      return '<div onclick="armoryOpenItemPreview(\'' + escHTML(item.id) + '\')" style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:7px 10px;border:1px solid ' + col + '33;border-radius:6px;background:' + col + '0d;cursor:pointer">' +
         '<div style="font-size:20px;flex-shrink:0">' + iicon(item) + '</div>' +
         '<div style="flex:1;min-width:0">' +
           '<div style="font-size:12px;color:' + col + ';font-weight:600;line-height:1.2">' + escHTML(item.name) + '</div>' +
@@ -23741,7 +23936,7 @@ function calcArenaEquipBonus(c) {
     });
   }
   try {
-    var allItems = JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
+    var allItems = typeof loadArmoryItems === 'function' ? loadArmoryItems() : JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
     Object.keys(slots).forEach(function(slotKey) {
       var item = allItems.find(function(x){ return x.id === slots[slotKey]; });
       if (!item) return;
@@ -23870,11 +24065,12 @@ function _renderCharEquipModal() {
       + ' ondragover="event.preventDefault();this.style.borderColor=\'#d4a84b\';this.style.borderStyle=\'solid\'"'
       + ' ondragleave="this.style.borderColor=\'' + border + '\';this.style.borderStyle=\'' + (item?'solid':'dashed') + '\'"'
       + ' ondrop="charDropToSlot(event,\'' + key + '\')"'
+      + (item ? ' onclick="armoryOpenItemPreview(\'' + item.id + '\')"' : '')
       + ' style="width:' + sz + ';height:' + sz + ';border:' + (item?'2px solid '+color:'1px dashed #2a2a2a') + ';border-radius:12px;background:' + bg
-      + ';display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:crosshair;position:relative;box-sizing:border-box;transition:all .15s;' + (extraStyle||'') + '">'
+      + ';display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:' + (item ? 'pointer' : 'crosshair') + ';position:relative;box-sizing:border-box;transition:all .15s;' + (extraStyle||'') + '">'
       + '<div style="font-size:' + fz + ';line-height:1;opacity:' + (item?1:0.25) + '">' + iconShow + '</div>'
       + '<div style="font-size:7px;color:' + (item?color:'#333') + ';margin-top:2px;text-align:center;max-width:' + (parseInt(sz)-8) + 'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px">' + (item?escHTML(item.name):label) + '</div>'
-      + (item ? '<button onclick="charUnequipSlot(\'' + key + '\')" style="position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;border:1px solid #6d3737;background:#1a0808;color:#c05050;font-size:10px;cursor:pointer;line-height:1;padding:0;z-index:2">✕</button>' : '')
+      + (item ? '<button onclick="event.stopPropagation();charUnequipSlot(\'' + key + '\')" style="position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;border:1px solid #6d3737;background:#1a0808;color:#c05050;font-size:10px;cursor:pointer;line-height:1;padding:0;z-index:2">✕</button>' : '')
       + (item ? '<div style="position:absolute;bottom:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:'+color+';border:1px solid #0a0704"></div>' : '')
       + '</div>';
   }
@@ -23984,8 +24180,8 @@ function _renderCharEquipModal() {
           + ' title="'+(isOn?'Уже надет — кликни ✕ в слоте':'Нажми или перетащи в слот')+'">'
           + '<div style="font-size:24px;line-height:1;margin-bottom:4px">'+itemIcon(item)+'</div>'
           + '<div style="font-size:10px;color:'+(isOn?col:'#d4c9a8')+';font-weight:600;line-height:1.2;word-break:break-word">' + escHTML(item.name) + '</div>'
-          + (item.damageFormula ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">'+escHTML(item.damageFormula)+'</div>' : '')
-          + (item.acBonus ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">AC +'+item.acBonus+'</div>' : '')
+          + (item.category === 'weapon' && item.damageFormula ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">'+escHTML(item.damageFormula)+'</div>' : '')
+          + ((item.category === 'armor' || item.category === 'shield') && item.acBonus ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">AC +'+item.acBonus+'</div>' : '')
           + (item.effects ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:76px">'+escHTML(item.effects)+'</div>' : '')
           + (isOn ? '<div style="font-size:9px;color:'+col+';margin-top:2px">✓ надет</div>' : '')
           + '</div>';
@@ -24191,8 +24387,17 @@ function charUpdateInlineItemForm() {
   var cat = (document.getElementById('ni-cat') || {}).value || 'weapon';
   var wf = document.getElementById('ni-weapon-fields');
   var af = document.getElementById('ni-armor-fields');
+  var slot = document.getElementById('ni-slot');
   if (wf) wf.style.display = cat === 'weapon' ? 'grid' : 'none';
   if (af) af.style.display = (cat === 'armor' || cat === 'shield') ? 'block' : 'none';
+  if (slot) {
+    slot.value = cat === 'armor' ? 'body'
+      : cat === 'shield' ? 'shield'
+      : cat === 'accessory' ? 'ring'
+      : cat === 'artifact' ? 'artifact'
+      : cat === 'consumable' ? 'consumable'
+      : 'main_hand';
+  }
 }
 
 function charSaveInlineItem() {
@@ -24200,23 +24405,27 @@ function charSaveInlineItem() {
   var name = gv('ni-name').trim();
   if (!name) { alert('Введи название предмета'); return; }
   var cat = gv('ni-cat') || 'weapon';
+  var isWeapon = cat === 'weapon';
   // acBonus только для armor/shield. Для weapon/accessory/artifact — всегда 0.
   var acBonusVal = (cat === 'armor' || cat === 'shield') ? (parseInt(gv('ni-ac') || '0') || 0) : 0;
   var item = {
     id: 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2,5),
     name: name, category: cat, slot: gv('ni-slot') || 'main_hand',
     icon: gv('ni-icon') || '', actionType: 'long',
-    damageFormula: gv('ni-dmg') || '1d6', damageType: gv('ni-dtype') || 'Рубящий',
-    range: gv('ni-range') || '1 клетка',
+    damageFormula: isWeapon ? (gv('ni-dmg') || '1d6') : '',
+    damageType: isWeapon ? (gv('ni-dtype') || 'Рубящий') : '',
+    range: isWeapon ? (gv('ni-range') || '1 клетка') : '',
     acBonus: acBonusVal,
     effects: gv('ni-effects') || '', charges: '', description: ''
   };
-  // Save to armory storage
-  try {
-    var items = JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
-    items.push(item);
-    localStorage.setItem('zargota_armory_v1', JSON.stringify(items));
-  } catch(e) {}
+  if (typeof window.upsertArmoryItem === 'function') item = window.upsertArmoryItem(item);
+  else {
+    try {
+      var items = JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
+      items.push(item);
+      localStorage.setItem('zargota_armory_v1', JSON.stringify(items));
+    } catch(e) {}
+  }
   // Auto-equip in current slot
   var c = characters.find(function(x){ return x.id === _charEquipModalId; });
   if (c) {
@@ -27762,8 +27971,8 @@ function beastOpenLootPicker() {
         return '<div onclick="beastAddLootItem(\''+item.id+'\')" style="padding:8px;border:1px solid '+(alreadyAdded?col:'#252525')+';border-radius:8px;background:'+(alreadyAdded?col+'18':'#0a0704')+';cursor:pointer;text-align:center;transition:all .15s" onmouseover="if(!'+alreadyAdded+')this.style.borderColor=\''+col+'\'" onmouseout="if(!'+alreadyAdded+')this.style.borderColor=\'#252525\'">' +
           '<div style="font-size:22px;margin-bottom:3px">'+iicon(item)+'</div>' +
           '<div style="font-size:11px;color:'+(alreadyAdded?col:'#d4c9a8')+';font-weight:600;line-height:1.2;word-break:break-word">'+escHTML(item.name)+'</div>' +
-          (item.damageFormula ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">'+escHTML(item.damageFormula)+'</div>' : '') +
-          (item.acBonus ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">AC +'+item.acBonus+'</div>' : '') +
+          (item.category === 'weapon' && item.damageFormula ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">'+escHTML(item.damageFormula)+'</div>' : '') +
+          ((item.category === 'armor' || item.category === 'shield') && item.acBonus ? '<div style="font-size:9px;color:'+col+';opacity:.7;margin-top:2px">AC +'+item.acBonus+'</div>' : '') +
           (alreadyAdded ? '<div style="font-size:9px;color:'+col+';margin-top:2px">✓ добавлен</div>' : '') +
         '</div>';
       }).join('') +
@@ -28057,8 +28266,17 @@ function beastOpenCreateItem() {
 function beastUpdateItemForm() {
   var cat = (document.getElementById('bni-cat')||{}).value||'weapon';
   var w = document.getElementById('bni-wep'); var a = document.getElementById('bni-arm');
+  var slot = document.getElementById('bni-slot');
   if(w) w.style.display = cat==='weapon'?'grid':'none';
   if(a) a.style.display = (cat==='armor'||cat==='shield')?'block':'none';
+  if(slot) {
+    slot.value = cat === 'armor' ? 'body'
+      : cat === 'shield' ? 'shield'
+      : cat === 'accessory' ? 'ring'
+      : cat === 'artifact' ? 'artifact'
+      : cat === 'consumable' ? 'consumable'
+      : 'main_hand';
+  }
 }
 
 function beastSaveInlineItem() {
@@ -28066,21 +28284,26 @@ function beastSaveInlineItem() {
   var name = gv('bni-name').trim();
   if(!name){ alert('Введи название'); return; }
   var cat = gv('bni-cat')||'weapon';
+  var isWeapon = cat === 'weapon';
   var acBonusVal = (cat === 'armor' || cat === 'shield') ? (parseInt(gv('bni-ac')||'0')||0) : 0;
   var item = {
     id:'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
     name:name, category:cat, slot:gv('bni-slot')||'main_hand',
     icon:gv('bni-icon')||'', actionType:'long',
-    damageFormula:gv('bni-dmg')||'1d6', damageType:gv('bni-dtype')||'Рубящий',
-    range:gv('bni-range')||'1 клетка',
+    damageFormula:isWeapon ? (gv('bni-dmg')||'1d6') : '',
+    damageType:isWeapon ? (gv('bni-dtype')||'Рубящий') : '',
+    range:isWeapon ? (gv('bni-range')||'1 клетка') : '',
     acBonus: acBonusVal,
     effects:gv('bni-effects')||'', charges:'', description:''
   };
-  try {
-    var items = JSON.parse(localStorage.getItem('zargota_armory_v1')||'[]');
-    items.push(item);
-    localStorage.setItem('zargota_armory_v1', JSON.stringify(items));
-  } catch(e){}
+  if (typeof window.upsertArmoryItem === 'function') item = window.upsertArmoryItem(item);
+  else {
+    try {
+      var items = JSON.parse(localStorage.getItem('zargota_armory_v1')||'[]');
+      items.push(item);
+      localStorage.setItem('zargota_armory_v1', JSON.stringify(items));
+    } catch(e){}
+  }
   // Auto-equip
   var b = beastEditorState;
   if(!b.arenaEquipSlots) b.arenaEquipSlots={};
@@ -29366,14 +29589,14 @@ function importBeasts(e) {
     var hasDirectSlots = Object.keys(directSlots).length > 0;
 
     try {
-      var allItems = JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
+      var allItems = typeof loadArmoryItems === 'function' ? loadArmoryItems() : JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
       if (hasDirectSlots) {
         Object.keys(directSlots).forEach(function(slotKey) {
           var item = allItems.find(function(x){ return x.id === directSlots[slotKey]; });
           if (item) { equipSlots[slotKey] = item; }
         });
       } else if (arenaSetId) {
-        var allSets = JSON.parse(localStorage.getItem('zargota_sets_v1') || '[]');
+        var allSets = typeof loadArmorySets === 'function' ? loadArmorySets() : JSON.parse(localStorage.getItem('zargota_sets_v1') || '[]');
         var set = allSets.find(function(s){ return s.id === arenaSetId; });
         if (set) {
           var ids = (set.itemIds && set.itemIds.length) ? set.itemIds
@@ -29454,14 +29677,14 @@ function importBeasts(e) {
     var directSlots = beast.arenaEquipSlots || {};
     var hasDirectSlots = Object.keys(directSlots).length > 0;
     try {
-      var _items = JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
+      var _items = typeof loadArmoryItems === 'function' ? loadArmoryItems() : JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
       if (hasDirectSlots) {
         Object.keys(directSlots).forEach(function(slotKey) {
           var item = _items.find(function(x){ return x.id === directSlots[slotKey]; });
           if (item) { equipSlots[slotKey] = item; }
         });
       } else if (arenaSetId) {
-        var _sets  = JSON.parse(localStorage.getItem('zargota_sets_v1') || '[]');
+        var _sets  = typeof loadArmorySets === 'function' ? loadArmorySets() : JSON.parse(localStorage.getItem('zargota_sets_v1') || '[]');
         var _set = _sets.find(function(s){ return s.id === arenaSetId; });
         if (_set) {
           var _ids = (_set.itemIds && _set.itemIds.length) ? _set.itemIds
@@ -31898,7 +32121,11 @@ function importBeasts(e) {
         if (!combatant) throw new Error('Combatant not found');
         // Read from armory storage (zargota_armory_v1) where UI saves items
         var allItems = [];
-        try { allItems = JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]'); } catch(e) {}
+        try {
+          allItems = typeof global.loadArmoryItems === 'function'
+            ? global.loadArmoryItems()
+            : JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
+        } catch(e) {}
         if (!allItems.length) {
           // Fallback: engine state items
           allItems = loadState().items || [];
@@ -32355,6 +32582,14 @@ function importBeasts(e) {
       body: 'Тело',
       shield: 'Щит',
       head: 'Голова',
+      gloves: 'Перчатки',
+      boots: 'Обувь',
+      belt: 'Пояс',
+      amulet: 'Амулет',
+      ring: 'Кольцо',
+      cloak: 'Плащ',
+      consumable: 'Расходник',
+      artifact: 'Артефакт',
       accessory: 'Аксессуар'
     };
     return map[key] || key || 'Слот';
@@ -33800,10 +34035,10 @@ function importBeasts(e) {
           '<div style="font-size:16px;flex-shrink:0">' + iconShow + '</div>' +
           '<div style="min-width:0">' +
             '<div style="font-size:10px;color:' + color + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(nameShow) + '</div>' +
-            (item && (item.damageFormula || item.acBonus || item.effects) ?
+            (item && ((item.category === 'weapon' && item.damageFormula) || ((item.category === 'armor' || item.category === 'shield') && item.acBonus) || item.effects) ?
               '<div style="font-size:9px;color:#666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-                (item.damageFormula ? item.damageFormula + ' ' + (item.damageType||'') : '') +
-                (item.acBonus ? 'AC +' + item.acBonus : '') +
+                (item.category === 'weapon' && item.damageFormula ? item.damageFormula + ' ' + (item.damageType||'') : '') +
+                ((item.category === 'armor' || item.category === 'shield') && item.acBonus ? 'AC +' + item.acBonus : '') +
                 (item.effects ? ' ' + item.effects : '') +
               '</div>' : '') +
           '</div>' +
@@ -36651,12 +36886,15 @@ global.getStatusCombatMods = function(combatant) {
     if (_itemsCache) return _itemsCache.slice();
     var arr = [];
     try { arr = JSON.parse(localStorage.getItem(ITEM_KEY) || '[]') || []; } catch(e) { arr = []; }
-    _itemsCache = Array.isArray(arr) ? arr : [];
+    _itemsCache = sanitizeArmoryCollection(arr);
+    if (JSON.stringify(_itemsCache) !== JSON.stringify(Array.isArray(arr) ? arr : [])) {
+      try { localStorage.setItem(ITEM_KEY, JSON.stringify(_itemsCache)); } catch(e) {}
+    }
     // Async подтягиваем IDB — если там больше/нашёлся свежий merge
     _idbGet(ITEM_KEY, function(raw) {
       if (!raw) return;
       try {
-        var idbArr = JSON.parse(raw) || [];
+        var idbArr = sanitizeArmoryCollection(JSON.parse(raw) || []);
         if (!Array.isArray(idbArr) || idbArr.length === 0) return;
         var needReplace = idbArr.length > _itemsCache.length;
         if (!needReplace) {
@@ -36677,7 +36915,7 @@ global.getStatusCombatMods = function(combatant) {
     return _itemsCache.slice();
   }
   function saveItems(arr) {
-    _itemsCache = Array.isArray(arr) ? arr.slice() : [];
+    _itemsCache = sanitizeArmoryCollection(arr);
     var json = JSON.stringify(_itemsCache);
     // 1) IDB — основной сторедж (нет лимита 5МБ как в LS на iOS)
     _idbPut(ITEM_KEY, json);
@@ -36715,6 +36953,55 @@ global.getStatusCombatMods = function(combatant) {
   }
   function catMeta(k) {
     return CATS[k] || { label:k, icon:'📦', color:'#888', border:'#444', bg:'#ffffff08' };
+  }
+  function defaultSlotForCategory(cat) {
+    var map = {
+      item: 'none',
+      weapon: 'main_hand',
+      armor: 'body',
+      shield: 'shield',
+      accessory: 'ring',
+      artifact: 'artifact',
+      consumable: 'consumable'
+    };
+    return map[cat] || 'none';
+  }
+  function sanitizeArmoryItem(raw) {
+    var item = Object.assign({}, raw || {});
+    var category = normalizeArmoryCategory(item.category) || 'weapon';
+    var slot = normalizeArmorySlot(item.slot) || defaultSlotForCategory(category);
+    var isWeapon = category === 'weapon';
+    var isArmor = category === 'armor' || category === 'shield';
+    item.id = item.id || uid();
+    item.name = String(item.name || '');
+    item.category = category;
+    item.slot = slot;
+    item.icon = String(item.icon || '');
+    item.actionType = String(item.actionType || (isWeapon || category === 'consumable' ? 'long' : 'passive'));
+    item.effects = String(item.effects || '');
+    item.charges = String(item.charges || '');
+    item.description = String(item.description || '');
+    item.priceCu = parseInt(item.priceCu || '0', 10) || 0;
+    item.priceAg = parseInt(item.priceAg || '0', 10) || 0;
+    item.priceGo = parseInt(item.priceGo || '0', 10) || 0;
+    item.pricePl = parseInt(item.pricePl || '0', 10) || 0;
+    if (isWeapon) {
+      item.damageFormula = String(item.damageFormula || '1d6');
+      item.damageType = String(item.damageType || 'Рубящий');
+      item.range = String(item.range || '1 клетка');
+      item.acBonus = 0;
+    } else {
+      item.damageFormula = '';
+      item.damageType = '';
+      item.range = '';
+      item.acBonus = isArmor ? (parseInt(item.acBonus || '0', 10) || 0) : 0;
+    }
+    return item;
+  }
+  function sanitizeArmoryCollection(arr) {
+    return (Array.isArray(arr) ? arr : []).map(function(item) {
+      return sanitizeArmoryItem(item);
+    });
   }
 
   function autoItemIcon(item) {
@@ -36787,6 +37074,71 @@ global.getStatusCombatMods = function(combatant) {
   }
 
   function gv(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+
+  function armoryBuildPreviewText(item) {
+    var lines = [];
+    var cat = catMeta(item.category);
+    var slot = slotMeta(item.slot);
+    var actionMap = { long:'Долгое', short:'Короткое', passive:'Пассивное', reaction:'Реакция' };
+    lines.push('Тип: ' + cat.label + (slot.label && slot.label !== '—' ? ' · ' + slot.label : ''));
+    if (item.category === 'weapon') {
+      lines.push('Урон: ' + (item.damageFormula || '—') + (item.damageType ? ' ' + item.damageType : ''));
+      if (item.range) lines.push('Дальность: ' + item.range);
+    }
+    if (item.category === 'armor' || item.category === 'shield') {
+      lines.push('Защита: AC +' + String(item.acBonus || 0));
+    }
+    if (item.actionType && actionMap[item.actionType]) lines.push('Действие: ' + actionMap[item.actionType]);
+    if (item.charges) lines.push('Заряды: ' + item.charges);
+    if (item.effects) lines.push('Свойства: ' + item.effects);
+    if (item.description) lines.push('Особенности: ' + item.description);
+    if (item.priceCu || item.priceAg || item.priceGo || item.pricePl) {
+      var prices = [];
+      if (item.priceCu) prices.push(item.priceCu + ' мед');
+      if (item.priceAg) prices.push(item.priceAg + ' сер');
+      if (item.priceGo) prices.push(item.priceGo + ' зол');
+      if (item.pricePl) prices.push(item.pricePl + ' пл');
+      lines.push('Цена: ' + prices.join(', '));
+    }
+    return lines.join('\n');
+  }
+
+  function armoryCloseItemPreview() {
+    var old = document.getElementById('armory-item-preview-overlay');
+    if (old) old.remove();
+  }
+
+  function armoryOpenItemPreview(itemOrId) {
+    var item = typeof itemOrId === 'string'
+      ? loadItems().find(function(x) { return x.id === itemOrId; })
+      : itemOrId;
+    if (!item) return;
+    item = sanitizeArmoryItem(item);
+    armoryCloseItemPreview();
+    var cat = catMeta(item.category);
+    var slot = slotMeta(item.slot);
+    var icon = item.icon || autoItemIcon(item) || slot.icon || cat.icon || '📦';
+    var desc = armoryBuildPreviewText(item);
+    var overlay = document.createElement('div');
+    overlay.id = 'armory-item-preview-overlay';
+    overlay.onclick = function(e) { if (e.target === overlay) armoryCloseItemPreview(); };
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:16000;background:rgba(2,1,0,.78);display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML =
+      '<div onclick="event.stopPropagation()" style="width:min(820px,96vw);max-height:88vh;overflow:auto;border:1px solid ' + cat.border + ';border-radius:22px;background:linear-gradient(180deg,#21170d,#110b06);box-shadow:0 36px 90px #000000cc;padding:26px 28px 24px;position:relative">' +
+        '<button onclick="armoryCloseItemPreview()" style="position:absolute;top:16px;right:16px;width:38px;height:38px;border:1px solid #3a2a18;border-radius:12px;background:#0c0804;color:#a9a092;font-size:22px;cursor:pointer">×</button>' +
+        '<div style="font-family:Cinzel Decorative,serif;font-size:16px;color:' + cat.color + ';margin-bottom:22px">⚔ Снаряжение</div>' +
+        '<div style="display:grid;grid-template-columns:130px 1fr;gap:18px;align-items:start;margin-bottom:18px">' +
+          '<div style="width:130px;height:130px;border:1px solid ' + cat.border + ';border-radius:22px;background:linear-gradient(180deg,#181008,#0c0804);display:flex;align-items:center;justify-content:center;font-size:70px;box-shadow:inset 0 1px 0 #ffffff08">' + icon + '</div>' +
+          '<div>' +
+            '<div style="font-size:12px;color:#7f6c52;font-family:Cinzel,serif;letter-spacing:3px;margin-bottom:8px">НАЗВАНИЕ</div>' +
+            '<div style="padding:16px 20px;border:1px solid #3a2918;border-radius:12px;background:#0b0704;color:#f0dfbe;font-family:Cinzel,serif;font-size:24px;line-height:1.25;box-shadow:inset 0 1px 0 #ffffff05">' + esc(item.name || 'Без названия') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#7f6c52;font-family:Cinzel,serif;letter-spacing:3px;margin-bottom:8px">ОПИСАНИЕ</div>' +
+        '<div style="padding:22px;border:1px solid #3a2918;border-radius:14px;background:#0b0704;color:#e8d7b7;font-family:Lora,serif;font-size:18px;line-height:1.6;white-space:pre-wrap;box-shadow:inset 0 1px 0 #ffffff05">' + esc(desc || 'Описание пока не заполнено.') + '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+  }
 
   // ── ITEM CARD ──
   function itemCard(item) {
@@ -36861,10 +37213,10 @@ global.getStatusCombatMods = function(combatant) {
     }
     detailChips.unshift({ icon:'', text: esc(cm.label), tone:'category' });
 
-    var html = '<div style="position:relative;border:1px solid ' + cardBorder + ';border-radius:14px;background:' + cardBg + ';padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:' + cardGlow + ';height:100%;min-height:330px">';
+    var html = '<div onclick="armoryOpenItemPreview(\'' + esc(item.id) + '\')" style="position:relative;border:1px solid ' + cardBorder + ';border-radius:14px;background:' + cardBg + ';padding:16px 16px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:' + cardGlow + ';height:100%;min-height:330px;cursor:pointer">';
     html += '<div style="position:absolute;top:10px;right:10px;display:flex;gap:4px;opacity:.72">';
-    html += '<button onclick="armoryEditItem(\'' + esc(item.id) + '\')" title="Редактировать" style="width:26px;height:26px;border:1px solid #342b24;border-radius:7px;background:#100c08;color:#887a69;cursor:pointer;font-size:11px">✏️</button>';
-    html += '<button onclick="armoryDeleteItem(\'' + esc(item.id) + '\')" title="Удалить" style="width:26px;height:26px;border:1px solid #4f3030;border-radius:7px;background:#130909;color:#a86565;cursor:pointer;font-size:11px">✕</button>';
+    html += '<button onclick="event.stopPropagation();armoryEditItem(\'' + esc(item.id) + '\')" title="Редактировать" style="width:26px;height:26px;border:1px solid #342b24;border-radius:7px;background:#100c08;color:#887a69;cursor:pointer;font-size:11px">✏️</button>';
+    html += '<button onclick="event.stopPropagation();armoryDeleteItem(\'' + esc(item.id) + '\')" title="Удалить" style="width:26px;height:26px;border:1px solid #4f3030;border-radius:7px;background:#130909;color:#a86565;cursor:pointer;font-size:11px">✕</button>';
     html += '</div>';
     html += '<div style="display:flex;justify-content:space-between;align-items:flex-start">';
     html += '<div style="display:flex;align-items:center;gap:10px;padding-right:64px">';
@@ -37240,7 +37592,7 @@ global.getStatusCombatMods = function(combatant) {
   // ── ITEM EDITOR ──
   function renderItemEditor(item) {
     var cat = normalizeArmoryCategory(item.category) || 'weapon';
-    var slot = normalizeArmorySlot(item.slot) || 'main_hand';
+    var slot = normalizeArmorySlot(item.slot) || defaultSlotForCategory(cat);
     item.category = cat;
     item.slot = slot;
     var cm = catMeta(cat);
@@ -37382,6 +37734,8 @@ global.getStatusCombatMods = function(combatant) {
     item.priceAg = parseInt(gv('ei-price-ag') || '0', 10) || 0;
     item.priceGo = parseInt(gv('ei-price-go') || '0', 10) || 0;
     item.pricePl = parseInt(gv('ei-price-pl') || '0', 10) || 0;
+    item = sanitizeArmoryItem(item);
+    S.editItem = item;
     delete item._new;
     var items = loadItems();
     var idx = items.findIndex(function(x) { return x.id === item.id; });
@@ -37534,6 +37888,8 @@ global.getStatusCombatMods = function(combatant) {
       'амулет': 'amulet',
       ring: 'ring',
       'кольцо': 'ring',
+      accessory: 'ring',
+      'аксессуар': 'ring',
       cloak: 'cloak',
       'плащ': 'cloak',
       artifact: 'artifact',
@@ -37654,6 +38010,7 @@ global.getStatusCombatMods = function(combatant) {
   global.armoryCommitItem    = armoryCommitItem;
   global.armoryEditorRefresh = armoryEditorRefresh;
   global.armoryToggleIconPicker = armoryToggleIconPicker;
+  global.armorySetEditorIcon = armorySetEditorIcon;
   global.armoryCopyAiTemplate = armoryCopyAiTemplate;
   global.armoryOpenAiPaste    = armoryOpenAiPaste;
   global.armoryApplyAiText    = armoryApplyAiText;
@@ -37664,8 +38021,20 @@ global.getStatusCombatMods = function(combatant) {
   global.armoryDragStart     = armoryDragStart;
   global.armoryDropToSlot    = armoryDropToSlot;
   global.armoryUnequipSlot   = armoryUnequipSlot;
+  global.armoryOpenItemPreview = armoryOpenItemPreview;
+  global.armoryCloseItemPreview = armoryCloseItemPreview;
   global.loadArmoryItems     = loadItems;
   global.loadArmorySets      = loadSets;
+  global.saveArmoryItems     = saveItems;
+  global.upsertArmoryItem    = function(item) {
+    var normalized = sanitizeArmoryItem(item);
+    var items = loadItems();
+    var idx = items.findIndex(function(x) { return x.id === normalized.id; });
+    if (idx >= 0) items[idx] = normalized;
+    else items.push(normalized);
+    saveItems(items);
+    return normalized;
+  };
 
 })(window);
 
