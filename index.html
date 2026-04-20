@@ -3551,6 +3551,26 @@
     overflow-y: auto;
     height: 100%;
   }
+  .enc-main-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #2f2112;
+  }
+  .enc-main-head-copy {
+    flex: 1;
+    min-width: 0;
+  }
+  .enc-main-head-actions {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
   .enc-search {
     width: 100%;
     padding: 10px 12px;
@@ -4134,6 +4154,121 @@
   @media (max-width: 800px) {
     .world-enc-shell { grid-template-columns: 1fr; }
     .world-enc-sidebar { border-right: none; border-bottom: 1px solid #24190f; max-height: 300px; }
+  }
+  @media (max-width: 700px) {
+    #page-world.world-enc-mode > .page-inner {
+      height: auto;
+      max-height: none;
+      min-height: calc(100dvh - 72px);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #page-world.world-enc-mode .world-shell {
+      display: block;
+      height: auto;
+      min-height: 0;
+      padding: 10px 8px 16px;
+    }
+    .world-enc-screen {
+      overflow: visible;
+      height: auto;
+      min-height: 0;
+    }
+    .world-enc-shell {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      min-height: 0;
+      padding-top: 0;
+    }
+    .world-enc-sidebar,
+    .world-enc-main {
+      height: auto;
+      max-height: none;
+      overflow: visible;
+    }
+    .world-enc-sidebar {
+      padding: 10px 10px 12px;
+      border-right: none;
+      border-bottom: 1px solid #24190f;
+    }
+    .world-enc-main {
+      padding: 14px 12px 28px;
+    }
+    .enc-search {
+      margin-bottom: 10px;
+      padding: 9px 10px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+    .enc-root,
+    .enc-sub-head,
+    .enc-leaf {
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+    .enc-root-label {
+      font-size: 12px;
+    }
+    .enc-children {
+      padding-left: 12px;
+      margin-left: 10px;
+    }
+    .enc-sub-children {
+      padding-left: 8px;
+    }
+    .enc-leaf-name {
+      font-size: 12px;
+      line-height: 1.3;
+    }
+    .enc-article-title {
+      font-size: 19px;
+      line-height: 1.08;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+    .enc-article-meta {
+      font-size: 10px;
+      line-height: 1.5;
+      letter-spacing: .8px;
+      margin-bottom: 0;
+    }
+    .enc-main-head {
+      display: block;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+    }
+    .enc-main-head-actions {
+      width: 100%;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .enc-main-head-actions .btn {
+      min-height: 34px;
+      padding-left: 10px;
+      padding-right: 10px;
+      font-size: 11px;
+    }
+    .enc-article-body,
+    .enc-body-prose {
+      font-size: 13px;
+      line-height: 1.72;
+    }
+    .enc-article-section {
+      margin-top: 18px;
+      padding-top: 14px;
+    }
+    .enc-connections-list {
+      gap: 6px;
+    }
+    .enc-conn-chip {
+      padding: 5px 10px;
+      font-size: 11px;
+    }
+    .enc-gm-section {
+      padding: 12px 12px;
+      margin-top: 16px;
+    }
   }
   /* ── HIERARCHY TREE POPUP ── */
   .htree-overlay {
@@ -11674,6 +11809,92 @@ function getWorldFocusLabel() {
   return target ? target.name : 'Карта';
 }
 
+function isWorldMobileMapUI() {
+  return worldTab === 'map' && window.innerWidth < 601;
+}
+
+function isWorldMobileEncUI() {
+  return worldTab === 'enc' && window.innerWidth < 701;
+}
+
+function getWorldMobilePrimaryCopy(obj) {
+  if (!obj) return 'Коснись места на карте, чтобы быстро увидеть краткий контекст и открыть полную статью.';
+  var raw = String(
+    obj.meta.description ||
+    obj.behavior.tooltipBody ||
+    obj.meta.population ||
+    obj.meta.factionsText ||
+    obj.meta.potentialThreats ||
+    ''
+  ).replace(/\s+/g, ' ').trim();
+  if (!raw) return 'Для этого места краткое описание пока не заполнено.';
+  return raw.length > 180 ? raw.slice(0, 177) + '...' : raw;
+}
+
+function renderWorldMobileSheet() {
+  var el = document.getElementById('world-mobile-bottom-sheet');
+  if (!el) return;
+  if (!isWorldMobileMapUI()) {
+    el.innerHTML = '';
+    el.style.display = 'none';
+    return;
+  }
+  var selected = getWorldSelectedObject();
+  var pin = worldAtlasRuntime.mobileTapPin;
+  var filters = worldAtlasRuntime.filters || {};
+  var cardHtml = '';
+  if (selected) {
+    var safeId = String(selected.id || '').replace(/'/g, "\\'");
+    cardHtml =
+      '<div class="world-mobile-place-card">' +
+        '<div class="world-mobile-place-kicker">' + escHTML(selected.meta.locationType || worldTypeLabel(selected.type)) + '</div>' +
+        '<div class="world-mobile-place-title">' + escHTML(selected.name || 'Место') + '</div>' +
+        '<div class="world-mobile-place-copy">' + escHTML(getWorldMobilePrimaryCopy(selected)) + '</div>' +
+        '<div class="world-mobile-place-actions">' +
+          '<button class="btn btn-gold btn-sm" onclick="openWorldObjectMobileDetails(\'' + safeId + '\')">Подробнее</button>' +
+          '<button class="btn btn-dim btn-sm" onclick="focusWorldObject(\'' + safeId + '\')">К центру</button>' +
+        '</div>' +
+      '</div>';
+  } else if (pin) {
+    cardHtml =
+      '<div class="world-mobile-place-card">' +
+        '<div class="world-mobile-place-kicker">Точка на карте</div>' +
+        '<div class="world-mobile-place-title">Временная метка</div>' +
+        '<div class="world-mobile-place-copy">Координаты ' + escHTML(Math.round(pin.x) + ' × ' + Math.round(pin.y)) + '. Следующий тап просто перенесёт эту метку. Если коснуться зоны, маршрута или маркера, здесь появится короткая карточка места.</div>' +
+      '</div>';
+  }
+  el.innerHTML =
+    cardHtml +
+    '<div class="world-mobile-filters">' +
+      '<button class="world-mobile-filter-chip' + (filters.zones ? ' active' : '') + '" onclick="toggleWorldFilter(\'zones\')"><span class="world-mobile-filter-dot" style="background:#d5b26d"></span>Зоны</button>' +
+      '<button class="world-mobile-filter-chip' + (filters.routes ? ' active' : '') + '" onclick="toggleWorldFilter(\'routes\')"><span class="world-mobile-filter-dot" style="background:#d8c178"></span>Маршруты</button>' +
+      '<button class="world-mobile-filter-chip' + (filters.markers ? ' active' : '') + '" onclick="toggleWorldFilter(\'markers\')"><span class="world-mobile-filter-dot" style="background:#e6bf72"></span>Маркеры</button>' +
+      '<button class="world-mobile-filter-chip' + (filters.hidden ? ' active' : '') + '" onclick="toggleWorldFilter(\'hidden\')"><span class="world-mobile-filter-dot" style="background:#8d74d4"></span>Скрытые</button>' +
+    '</div>';
+  el.style.display = 'block';
+}
+
+function openWorldObjectMobileDetails(id) {
+  if (!id) return;
+  openWorldLoreObject(id);
+  setWorldTab('lore');
+}
+
+function handleWorldMapTap(point, hitObj, e) {
+  worldAtlasRuntime.mobileTapPin = point ? { x: point.x, y: point.y, objectId: hitObj ? hitObj.id : null } : null;
+  if (hitObj) {
+    handleWorldObjectClick(hitObj, e);
+    return;
+  }
+  worldAtlasRuntime.selectedId = null;
+  worldAtlasRuntime.hoveredId = null;
+  worldAtlasRuntime.panelMode = isWorldEditorActive() ? 'editor' : 'info';
+  clearWorldHover();
+  renderWorldRightPanel();
+  renderWorldMeta();
+  queueWorldRender();
+}
+
 function setWorldTab(key) {
   worldTab = key;
   try { localStorage.setItem(WORLD_TAB_STORAGE_KEY, key); } catch(e) {}
@@ -11699,6 +11920,10 @@ function renderWorldTabs() {
 function renderWorldLegend() {
   var el = document.getElementById('world-map-legend');
   if (!el) return;
+  if (isWorldMobileMapUI()) {
+    el.innerHTML = '';
+    return;
+  }
   if (worldTab === 'lore') {
     el.innerHTML = '<span class="world-legend-chip">Лор-режим</span>';
     return;
@@ -11749,6 +11974,7 @@ function renderWorldMeta() {
   if (!el) return;
   if (worldTab === 'lore') {
     el.innerHTML = '';
+    renderWorldMobileSheet();
     return;
   }
   var selected = getWorldSelectedObject();
@@ -11766,6 +11992,7 @@ function renderWorldMeta() {
       '<span class="world-map-badge">Инструмент: ' + escHTML(worldModeLabel(worldAtlasRuntime.mode)) + '</span>' +
       '<span class="world-map-badge">Фокус: ' + escHTML((selected || hovered) ? (selected || hovered).name : 'Карта') + '</span>';
   }
+  renderWorldMobileSheet();
 }
 
 function renderWorldMap() {
@@ -11778,6 +12005,8 @@ function renderWorldMap() {
   if (page) {
     page.classList.toggle('world-lore-mode', false);
     page.classList.toggle('world-enc-mode', worldTab === 'enc');
+    page.classList.toggle('world-mobile-map-ui', isWorldMobileMapUI());
+    page.classList.toggle('world-mobile-enc-ui', isWorldMobileEncUI());
   }
   if (mapWrap) mapWrap.dataset.tab = worldTab;
   if (mapWrap) {
@@ -11792,6 +12021,7 @@ function renderWorldMap() {
   }
   if (worldTab === 'enc') renderEncyclopedia();
   renderWorldLoreBrowser();
+  renderWorldMobileSheet();
   queueWorldRender();
 }
 
@@ -14190,6 +14420,31 @@ function drawWorldObject(ctx, obj) {
   if (obj.type === 'marker') drawWorldMarkerObject(ctx, obj, selected, hovered);
 }
 
+function drawWorldMobileTapPin(ctx, point) {
+  if (!point) return;
+  var p = worldToScreenPoint(point);
+  ctx.save();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = '#f0d28a';
+  ctx.fillStyle = '#f0d28a';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = 'rgba(240,210,138,.35)';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(p.x - 12, p.y);
+  ctx.lineTo(p.x + 12, p.y);
+  ctx.moveTo(p.x, p.y - 12);
+  ctx.lineTo(p.x, p.y + 12);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function renderWorldCanvas() {
   var state = getWorldCanvasState();
   var size = getWorldMapSize();
@@ -14218,6 +14473,9 @@ function renderWorldCanvas() {
     if (!worldObjectPassesFilters(obj)) return;
     drawWorldObject(ctx, obj);
   });
+  if (isWorldMobileMapUI() && worldAtlasRuntime.mobileTapPin) {
+    drawWorldMobileTapPin(ctx, worldAtlasRuntime.mobileTapPin);
+  }
   var draft = worldAtlasRuntime.draft;
   if (draft && draft.type === 'route' && draft.points.length) {
     drawWorldRouteObject(ctx, { geometry:{ points:draft.points }, style:{ stroke:'#f0d28a', strokeWidth:16, opacity:0.82, routePattern:worldAtlasRuntime.defaults.routePattern, routeCurvature:worldAtlasRuntime.defaults.routeCurvature }, behavior:{} }, false, false);
@@ -14460,13 +14718,13 @@ function openWorldMobileFullscreen() {
   var closeBtn = document.createElement('button');
   closeBtn.id = 'world-fs-close';
   closeBtn.textContent = '✕';
-  closeBtn.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 16px);left:16px;width:44px;height:44px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604ee;color:#c4a84b;font-size:20px;cursor:pointer;z-index:100002;box-shadow:0 4px 16px #000a;display:flex;align-items:center;justify-content:center';
+  closeBtn.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 10px);left:10px;width:34px;height:34px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604e8;color:#c4a84b;font-size:16px;cursor:pointer;z-index:100002;box-shadow:0 4px 14px #0008;display:flex;align-items:center;justify-content:center';
   closeBtn.onclick = closeWorldMobileFullscreen;
   document.body.appendChild(closeBtn);
 
   var hint = document.createElement('div');
   hint.id = 'world-fs-hint';
-  hint.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 18px);left:50%;transform:translateX(-50%);padding:6px 12px;background:#0a0604cc;border:1px solid #3a2918;border-radius:6px;color:#c4a84b;font-size:10px;font-family:\'Cinzel\',serif;letter-spacing:.5px;z-index:100001;white-space:nowrap;pointer-events:none';
+  hint.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 12px);left:50%;transform:translateX(-50%);padding:5px 10px;background:#0a0604c2;border:1px solid #3a2918;border-radius:999px;color:#c4a84b;font-size:9px;font-family:\'Cinzel\',serif;letter-spacing:.4px;z-index:100001;white-space:nowrap;pointer-events:none';
   hint.textContent = 'Зум: кнопки или два пальца';
   document.body.appendChild(hint);
   setTimeout(function(){ if (hint) hint.style.opacity = '0'; hint.style.transition = 'opacity 1s'; }, 3500);
@@ -14614,6 +14872,11 @@ function showWorldMapSplash() {
 function handleWorldObjectClick(obj, e) {
   worldAtlasRuntime.selectedId = obj.id;
   worldAtlasRuntime.panelMode = isWorldEditorActive() ? 'editor' : 'info';
+  if (isWorldMobileMapUI()) {
+    var point = e ? getWorldCoordsFromEvent(e) : null;
+    var center = getWorldObjectCenter(obj);
+    worldAtlasRuntime.mobileTapPin = point ? { x: point.x, y: point.y, objectId: obj.id } : { x: center.x, y: center.y, objectId: obj.id };
+  }
   if ((obj.behavior.clickActions || []).indexOf('focus') >= 0) focusWorldObject(obj.id);
   if ((obj.behavior.clickActions || []).indexOf('event') >= 0) showToast('Кастомное событие: ' + obj.name);
   renderWorldRightPanel();
@@ -14655,7 +14918,7 @@ function initWorldInteractions() {
     if (worldTab === 'lore') return;
     if (e.button === 1) {
       beginWorldFastRender();
-      worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY };
+      worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, moved:false, mobile:isWorldMobileMapUI(), point:getWorldCoordsFromEvent(e) };
       wrap.classList.add('dragging');
       return;
     }
@@ -14663,7 +14926,7 @@ function initWorldInteractions() {
     var point = getWorldCoordsFromEvent(e);
     if (!point) {
       beginWorldFastRender();
-      worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY };
+      worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, moved:false, mobile:isWorldMobileMapUI(), point:null };
       wrap.classList.add('dragging');
       return;
     }
@@ -14674,7 +14937,7 @@ function initWorldInteractions() {
         return;
       }
       beginWorldFastRender();
-      worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY };
+      worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, moved:false, mobile:isWorldMobileMapUI(), point:point };
       wrap.classList.add('dragging');
       return;
     }
@@ -14714,7 +14977,7 @@ function initWorldInteractions() {
     // В режиме pan — drag начинается всегда (на объекте или нет)
     // Клик на объект определяется в pointerup если drag был меньше 5px
     beginWorldFastRender();
-    worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, hitObj: hit || null };
+    worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, hitObj: hit || null, moved:false, mobile:isWorldMobileMapUI(), point:point };
     wrap.classList.add('dragging');
   });
 
@@ -14800,9 +15063,22 @@ function initWorldInteractions() {
     }
     if (worldDrag) {
       beginWorldFastRender();
+      var dragDx = e.clientX - worldDrag.x;
+      var dragDy = e.clientY - worldDrag.y;
+      var dragThreshold = worldDrag.mobile ? 12 : 6;
+      if (Math.abs(dragDx) > dragThreshold || Math.abs(dragDy) > dragThreshold) worldDrag.moved = true;
       worldOffsetX = worldDrag.ox + (e.clientX - worldDrag.x);
       worldOffsetY = worldDrag.oy + (e.clientY - worldDrag.y);
       applyWorldTransform();
+      return;
+    }
+    if (isWorldMobileMapUI()) {
+      if (worldAtlasRuntime.hoveredId) {
+        worldAtlasRuntime.hoveredId = null;
+        clearWorldHover();
+        renderWorldMeta();
+        queueWorldRender();
+      }
       return;
     }
     var hovered = hitTestWorldObject(e.clientX, e.clientY);
@@ -14851,9 +15127,13 @@ function initWorldInteractions() {
     if (worldDrag && worldAtlasRuntime.mode === 'pan') {
       var dx = Math.abs(e.clientX - worldDrag.x);
       var dy = Math.abs(e.clientY - worldDrag.y);
-      if (dx < 5 && dy < 5) {
-        var hitObj = worldDrag.hitObj;
-        if (hitObj) {
+      var tapThreshold = worldDrag.mobile ? 12 : 6;
+      if (!worldDrag.moved && dx < tapThreshold && dy < tapThreshold) {
+        var hitObj = hitTestWorldObject(e.clientX, e.clientY) || worldDrag.hitObj;
+        var tapPoint = getWorldCoordsFromClient(e.clientX, e.clientY) || worldDrag.point;
+        if (worldDrag.mobile) {
+          handleWorldMapTap(tapPoint, hitObj, e);
+        } else if (hitObj) {
           handleWorldObjectClick(hitObj, e);
         } else {
           worldAtlasRuntime.selectedId = null;
@@ -14869,6 +15149,9 @@ function initWorldInteractions() {
   });
   window.addEventListener('resize', function(){
     worldRefreshBounds(true);
+    renderWorldMap();
+    renderWorldLegend();
+    renderWorldMeta();
   });
 }
 
@@ -18320,13 +18603,13 @@ function renderEncMain() {
     '</div>' : '';
 
   var header =
-    '<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #2f2112">' +
-      '<div style="flex:1">' +
+    '<div class="enc-main-head">' +
+      '<div class="enc-main-head-copy">' +
         '<div class="enc-article-title">' + escHTML(e.name) + '</div>' +
         '<div class="enc-article-meta">' + (catObj ? catObj.icon + ' ' + escHTML(catObj.label) : '') + (e.sub ? ' • ' + escHTML(e.sub) : '') + (e.sub2 ? ' • ' + escHTML(e.sub2) : '') + (e.tag ? ' • ' + escHTML(e.tag) : '') + '</div>' +
       '</div>' +
       htreeBadge +
-      '<div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;align-items:flex-start">' +
+      '<div class="enc-main-head-actions">' +
         '<button class="btn btn-dim btn-sm" onclick="wbCreateLinkedCard(\'location\',\'' + String(eid).replace(/'/g, "\\'") + '\',encodeWbTitle(\'' + String(e.name || '').replace(/\\/g,'\\\\').replace(/'/g, "\\'") + '\'),encodeWbTitle(\'' + String(e.body || '').replace(/\\/g,'\\\\').replace(/'/g, "\\'") + '\'))">📌 На доску</button>' +
         (mapObj ? '<button class="btn btn-dim btn-sm" onclick="setWorldTab(\'map\');focusWorldObject(\'' + String(mapObj.id).replace(/'/g,"\\'") + '\')">🗺 На карте</button>' : '') +
         '<button class="btn btn-dim btn-sm" onclick="cycleEncStatus(\'' + eid + '\')" title="Статус статьи" style="min-width:32px">' + (e.status === 'done' ? '✅' : (e.body && e.body.trim() ? '🟡' : '🔴')) + '</button>' +
@@ -18592,6 +18875,17 @@ function selectEncEntry(id) {
   encState.selectedId = id;
   renderEncSidebar();
   renderEncMain();
+  if (isWorldMobileEncUI()) {
+    requestAnimationFrame(function(){
+      var main = document.getElementById('world-enc-main');
+      if (!main) return;
+      try {
+        main.scrollIntoView({ behavior:'smooth', block:'start' });
+      } catch (e) {
+        main.scrollIntoView(true);
+      }
+    });
+  }
 }
 function updateEncField(id, field, value) {
   var e = getEncEntry(id);
