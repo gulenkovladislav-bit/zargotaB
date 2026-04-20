@@ -4018,86 +4018,117 @@
     border-style: solid !important;
   }
   .enc-htree-cta {
-    width: 156px;
-    min-height: 84px;
-    padding: 10px 12px;
-    border: 1px solid #d4a04a66;
-    border-radius: 14px;
+    width: 228px;
+    min-height: 0;
+    padding: 11px 13px;
+    border: 1px solid #5a4222;
+    border-radius: 16px;
     background:
-      radial-gradient(circle at top, rgba(212,160,74,.18), transparent 54%),
-      linear-gradient(180deg,#211608 0%,#120c05 100%);
+      linear-gradient(135deg, rgba(212,160,74,.12) 0%, rgba(212,160,74,.03) 34%, rgba(18,12,5,.96) 100%),
+      linear-gradient(180deg,#181108 0%,#100b05 100%);
     cursor: pointer;
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0,1fr) auto;
     align-items: center;
-    gap: 12px;
-    box-shadow: 0 10px 28px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.05);
+    gap: 10px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.04);
     transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
     flex-shrink: 0;
     position: relative;
     overflow: hidden;
   }
+  .enc-htree-cta::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(244,227,180,.16), transparent);
+  }
   .enc-htree-cta::after {
     content: '';
     position: absolute;
-    inset: auto -20% -35% auto;
-    width: 90px;
-    height: 90px;
+    inset: auto -18% -58% auto;
+    width: 120px;
+    height: 120px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(212,160,74,.18), transparent 70%);
+    background: radial-gradient(circle, rgba(212,160,74,.14), transparent 72%);
     pointer-events: none;
   }
   .enc-htree-cta:hover {
     transform: translateY(-1px);
     border-color: #d4a04a;
-    box-shadow: 0 14px 34px rgba(0,0,0,.28), 0 0 0 1px rgba(212,160,74,.18), 0 8px 24px rgba(212,160,74,.14);
+    box-shadow: 0 14px 30px rgba(0,0,0,.24), 0 0 0 1px rgba(212,160,74,.16), 0 10px 24px rgba(212,160,74,.1);
     background:
-      radial-gradient(circle at top, rgba(212,160,74,.24), transparent 54%),
-      linear-gradient(180deg,#281a09 0%,#151006 100%);
+      linear-gradient(135deg, rgba(212,160,74,.16) 0%, rgba(212,160,74,.05) 38%, rgba(22,15,7,.98) 100%),
+      linear-gradient(180deg,#1d1408 0%,#120d06 100%);
   }
   .enc-htree-cta-icon {
-    width: 50px;
-    height: 50px;
-    border-radius: 14px;
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
-    background: linear-gradient(180deg,#2d1d09 0%,#181005 100%);
-    border: 1px solid #d4a04a66;
+    font-size: 22px;
+    background: linear-gradient(180deg,#2b1c0a 0%,#171005 100%);
+    border: 1px solid #7a5a24;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
   }
   .enc-htree-cta-copy {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 2px;
     position: relative;
     z-index: 1;
   }
   .enc-htree-cta-kicker {
     font-family: 'Cinzel', serif;
-    font-size: 9px;
+    font-size: 8px;
     color: #d4a04a;
-    letter-spacing: 1.5px;
+    letter-spacing: 1.8px;
     text-transform: uppercase;
-    opacity: .92;
+    opacity: .86;
   }
   .enc-htree-cta-title {
-    font-family: 'Cinzel Decorative', serif;
-    font-size: 16px;
-    line-height: 1.05;
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    line-height: 1.08;
     color: #f4e3b4;
+    font-weight: 700;
   }
   .enc-htree-cta-sub {
-    font-size: 11px;
-    line-height: 1.35;
-    color: #b79a68;
+    font-size: 10px;
+    line-height: 1.28;
+    color: #a98b5a;
+    max-width: 118px;
+  }
+  .enc-htree-cta-arrow {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #4a351a;
+    background: rgba(212,160,74,.08);
+    color: #d4a04a;
+    font-size: 13px;
+    position: relative;
+    z-index: 1;
   }
   @media (max-width: 760px) {
     .enc-htree-cta {
       width: 100%;
-      min-height: 74px;
+      grid-template-columns: auto minmax(0,1fr) auto;
+    }
+    .enc-htree-cta-sub {
+      max-width: none;
     }
   }
   @media (max-width: 800px) {
@@ -5219,6 +5250,95 @@
     line-height: 1.55;
     color: var(--muted);
   }
+  .world-mobile-bottom-sheet {
+    display: none;
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    z-index: 46;
+    pointer-events: none;
+  }
+  .world-mobile-bottom-sheet > * {
+    pointer-events: auto;
+  }
+  .world-mobile-place-card {
+    margin-bottom: 8px;
+    padding: 12px 14px 13px;
+    border: 1px solid #3a2818;
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(20,14,9,.96), rgba(11,8,6,.98));
+    box-shadow: 0 18px 40px rgba(0,0,0,.46), inset 0 1px 0 rgba(255,255,255,.06);
+    backdrop-filter: blur(10px);
+  }
+  .world-mobile-place-kicker {
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold2);
+    margin-bottom: 6px;
+  }
+  .world-mobile-place-title {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 22px;
+    line-height: 1.08;
+    color: #f2dfb4;
+    margin-bottom: 8px;
+  }
+  .world-mobile-place-copy {
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+  .world-mobile-place-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .world-mobile-place-actions .btn {
+    min-height: 32px;
+  }
+  .world-mobile-filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 2px 2px 0;
+    scrollbar-width: none;
+  }
+  .world-mobile-filters::-webkit-scrollbar {
+    display: none;
+  }
+  .world-mobile-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid #3a2818;
+    background: rgba(12,9,6,.92);
+    color: #ccb48d;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: .8px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all .18s ease;
+  }
+  .world-mobile-filter-chip.active {
+    border-color: var(--gold);
+    color: #f2dfb4;
+    background: rgba(42,28,13,.96);
+    box-shadow: inset 0 0 0 1px rgba(232,192,96,.14);
+  }
+  .world-mobile-filter-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
   .world-map-legend {
     position: absolute;
     left: 16px;
@@ -6266,12 +6386,30 @@
       overflow: hidden;
     }
     .wnb-left { gap: 4px; }
+    .wnb-center {
+      position: fixed;
+      top: 118px;
+      right: 10px;
+      left: auto;
+      transform: none;
+      z-index: 155;
+    }
     .wnb-sep { display: none; }
     /* Скрываем zoom и качество — оставляем только загрузку и редактор */
     #world-nav-bar .wnb-right > div:last-child { display: none !important; }
     #world-markup-sep { display: none !important; }
-    .world-map-selector-btn { padding: 4px 8px; font-size: 12px; }
-    .world-map-selector-name { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .world-map-selector-btn {
+      min-height: 26px;
+      padding: 3px 8px 3px 7px;
+      gap: 5px;
+      font-size: 10px;
+      letter-spacing: .75px;
+      border-radius: 14px;
+      box-shadow: 0 8px 18px rgba(0,0,0,.24);
+    }
+    .world-map-selector-icon { font-size: 11px; }
+    .world-map-selector-name { max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .world-map-selector-arrow { font-size: 9px; margin-left: 0; }
     .back-to-home { padding: 5px 8px !important; font-size: 10px !important; }
     .world-tabs { gap: 2px; }
     .world-tab { padding: 5px 8px !important; font-size: 10px !important; }
@@ -6318,6 +6456,18 @@
       min-height: 0;
       max-height: min(48dvh, 520px);
     }
+    #page-world.world-mobile-map-ui .world-shell > aside:first-child,
+    #page-world.world-mobile-map-ui .world-shell > aside:last-child {
+      display: none;
+    }
+    #page-world.world-mobile-map-ui .world-shell {
+      display: block;
+    }
+    #page-world.world-mobile-map-ui .world-map-wrap {
+      min-height: calc(100dvh - 158px);
+      height: calc(100dvh - 158px);
+      border-radius: 14px;
+    }
     .world-panel {
       height: auto;
     }
@@ -6337,20 +6487,16 @@
       max-width: none;
       justify-content: flex-start;
     }
+    .world-map-meta .world-map-badge:not(:first-child) {
+      display: none;
+    }
     .world-map-badge {
       font-size: 9px;
       padding: 5px 9px;
     }
-    .world-map-legend {
-      left: 10px;
-      right: 10px;
-      bottom: 10px;
-      max-width: none;
-      padding: 8px 10px;
-      gap: 5px;
-    }
+    .world-map-legend { display: none; }
     .world-hover-card {
-      width: calc(100% - 16px);
+      display: none;
     }
     .world-intro {
       padding: 16px;
@@ -6373,6 +6519,46 @@
     }
     .world-mobile-stack-toggle {
       display: inline-flex;
+    }
+    .world-mobile-controls {
+      top: 8px;
+      right: 8px;
+    }
+    .wmc-zoom {
+      gap: 4px;
+      padding: 4px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px #0000005a;
+    }
+    .wmc-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      font-size: 15px;
+    }
+    .world-mobile-bottom-sheet {
+      display: block;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+    }
+    .world-mobile-place-card {
+      border-radius: 14px;
+      padding: 11px 12px 12px;
+      margin-bottom: 7px;
+    }
+    .world-mobile-place-title {
+      font-size: 18px;
+    }
+    .world-mobile-place-copy {
+      font-size: 12.5px;
+      line-height: 1.48;
+    }
+    .world-mobile-filter-chip {
+      min-height: 32px;
+      padding: 0 11px;
+      font-size: 9px;
+      letter-spacing: .6px;
     }
   }
   .beast-grid {
@@ -8197,8 +8383,37 @@ window.zgExportDataJson = function(onProgress, onDone) {
       });
     }
 
+    function readIdbRaw(dbName, storeName, key, next) {
+      try {
+        var req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = function(e) {
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+        };
+        req.onsuccess = function(e) {
+          var db = e.target.result;
+          try {
+            var tx = db.transaction(storeName, 'readonly');
+            tx.objectStore(storeName).get(key).onsuccess = function(ev) {
+              var raw = ev && ev.target ? ev.target.result : null;
+              try { db.close(); } catch(_) {}
+              next(raw);
+            };
+            tx.onerror = function() {
+              try { db.close(); } catch(_) {}
+              next(null);
+            };
+          } catch(err) {
+            try { db.close(); } catch(_) {}
+            next(null);
+          }
+        };
+        req.onerror = function() { next(null); };
+      } catch(e) { next(null); }
+    }
+
     function readIdbJson(dbName, storeName, key, next) {
-      idbGet(dbName, storeName, key, function(raw) {
+      readIdbRaw(dbName, storeName, key, function(raw) {
         if (!raw) { next(null); return; }
         try { next(JSON.parse(raw)); } catch(e) { next(null); }
       });
@@ -8293,6 +8508,12 @@ window.zgExportDataJson = function(onProgress, onDone) {
     try {
       var worldOptionsRaw = localStorage.getItem('grimoire_world_custom_options_v1');
       if (worldOptionsRaw) output.worldCustomOptions = JSON.parse(worldOptionsRaw);
+    } catch(e) {}
+    try {
+      var mapSourceRaw = localStorage.getItem('grimoire_world_map_source_v1') || '';
+      if (mapSourceRaw && mapSourceRaw !== '__idb__' && mapSourceRaw.indexOf('data:') !== 0) {
+        output.map = mapSourceRaw;
+      }
     } catch(e) {}
 
     if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
@@ -10229,6 +10450,7 @@ window.zgImageStore = (function() {
             </div>
           </div>
           <div class="world-hover-card" id="world-hover-card" style="transform: translate(379.996px, 486.617px);"><div class="world-hover-eyebrow">Кладбище</div><div class="world-hover-title">Берег Мертвецов </div><div class="world-hover-copy">Гиблое место перенасыщенное кладбищами и могильникми.</div></div>
+          <div class="world-mobile-bottom-sheet" id="world-mobile-bottom-sheet"></div>
           <div class="world-map-empty" id="world-map-empty"></div>
           <input type="file" id="world-map-upload-input" accept="image/*" style="display:none" onchange="handleWorldMapUpload(event)">
           <div class="world-intro" id="world-intro">
@@ -10724,6 +10946,7 @@ let worldAtlasCustomOptions = { zone:[], route:[], marker:[] };
 let worldAtlasRuntime = {
   selectedId: null,
   hoveredId: null,
+  mobileTapPin: null,
   mode: 'pan',
   panelMode: 'info',
   lastCreateMode: 'zone',
@@ -18089,14 +18312,15 @@ function renderEncMain() {
     '<div class="enc-htree-cta" onclick="openHierarchyTree(\'' + eid + '\')" title="Открыть дерево иерархии">' +
       '<div class="enc-htree-cta-icon">🌳</div>' +
       '<div class="enc-htree-cta-copy">' +
-        '<div class="enc-htree-cta-kicker">Интерактивный режим</div>' +
-        '<div class="enc-htree-cta-title">Дерево власти</div>' +
-        '<div class="enc-htree-cta-sub">Открыть красивую иерархию персонажей и связей</div>' +
+        '<div class="enc-htree-cta-kicker">Интерактивная схема</div>' +
+        '<div class="enc-htree-cta-title">Открыть иерархию</div>' +
+        '<div class="enc-htree-cta-sub">Роды, власть и связи персонажей</div>' +
       '</div>' +
+      '<div class="enc-htree-cta-arrow">→</div>' +
     '</div>' : '';
 
   var header =
-    '<div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #2f2112">' +
+    '<div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #2f2112">' +
       '<div style="flex:1">' +
         '<div class="enc-article-title">' + escHTML(e.name) + '</div>' +
         '<div class="enc-article-meta">' + (catObj ? catObj.icon + ' ' + escHTML(catObj.label) : '') + (e.sub ? ' • ' + escHTML(e.sub) : '') + (e.sub2 ? ' • ' + escHTML(e.sub2) : '') + (e.tag ? ' • ' + escHTML(e.tag) : '') + '</div>' +
