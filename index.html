@@ -4590,6 +4590,21 @@
       font-size: 16px;
     }
     .wmc-pan { display: none; }
+    .world-mobile-object-modal {
+      align-items: flex-end;
+    }
+    .world-mobile-object-dialog {
+      width: 100%;
+      max-height: min(78dvh, 820px);
+      border-radius: 18px 18px 0 0;
+    }
+    .world-mobile-object-dialog .world-beast-dialog-head {
+      padding: 14px 14px 12px;
+    }
+    .world-mobile-object-dialog .world-beast-dialog-body {
+      padding: 14px 14px 18px;
+      gap: 12px;
+    }
   }
   body.world-map-fs-active {
     overflow: hidden;
@@ -5773,6 +5788,13 @@
   .world-beast-modal.show {
     display: flex;
   }
+  .world-mobile-object-modal {
+    z-index: 100003;
+    padding:
+      calc(env(safe-area-inset-top, 0px) + 12px)
+      12px
+      calc(env(safe-area-inset-bottom, 0px) + 12px);
+  }
   .world-beast-dialog {
     width: min(860px, 100%);
     max-height: min(82vh, 900px);
@@ -5798,6 +5820,19 @@
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+  .world-mobile-object-dialog {
+    width: min(760px, 100%);
+    max-height: min(84dvh, 920px);
+  }
+  .world-mobile-object-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .world-mobile-object-detail .world-atlas-description,
+  .world-mobile-object-detail .world-atlas-section-copy {
+    white-space: pre-line;
   }
   .world-beast-grid {
     display: grid;
@@ -11885,11 +11920,69 @@ function renderWorldMobileSheet() {
   el.style.display = cardHtml ? 'block' : 'none';
 }
 
+function renderWorldMobileObjectDetail(obj) {
+  if (!obj) return '<div class="world-empty">Информация по месту пока недоступна.</div>';
+  var enemies = (obj.meta.enemyIds || []).map(function(id){
+    var beast = beasts.find(function(item){ return String(item.id) === String(id); });
+    return beast || null;
+  }).filter(Boolean);
+  var enemyCards = renderWorldThreatCards(enemies, true);
+  var publicDescription = obj.meta.description || obj.behavior.tooltipBody || 'Для этого места пока не заполнено расширенное описание.';
+  var layerName = (getWorldLayer(obj.layerId) || {}).name || 'Без слоя';
+  var interests = (obj.meta.customFields || []).filter(function(field){
+    return String(field.key || '').trim() || String(field.value || '').trim();
+  });
+  var loreArticle = String(obj.meta.loreArticle || '').trim();
+  var safeId = String(obj.id || '').replace(/'/g, "\\'");
+  return '' +
+    '<div class="world-mobile-object-detail world-lore-reader">' +
+      '<div class="world-atlas-hero">' +
+        '<div class="world-atlas-eyebrow">' + escHTML(worldDisplayType(obj) + ' • ' + layerName) + '</div>' +
+        '<div class="world-atlas-title">' + escHTML(obj.name || 'Место') + '</div>' +
+        '<p class="world-atlas-description">' + escHTML(publicDescription) + '</p>' +
+        '<div class="world-atlas-grid">' +
+          (obj.meta.locationType ? '<div class="world-atlas-stat"><div class="world-atlas-stat-label">Тип места</div><div class="world-atlas-stat-value">' + escHTML(obj.meta.locationType) + '</div></div>' : '') +
+          (obj.meta.population && String(obj.meta.population).trim() !== '0' ? '<div class="world-atlas-stat"><div class="world-atlas-stat-label">Население</div><div class="world-atlas-stat-value">' + escHTML(obj.meta.population) + '</div></div>' : '') +
+        '</div>' +
+        '<div class="world-atlas-actions">' +
+          '<button class="world-lore-card-btn" onclick="focusWorldObject(\'' + safeId + '\')">◎ К центру</button>' +
+          '<button class="world-lore-card-btn" onclick="closeWorldObjectMobileDetails()">Закрыть</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="world-atlas-stack">' +
+        (loreArticle ? '<div class="world-atlas-section"><div class="world-atlas-section-title">Расширенное описание</div><div class="world-atlas-section-copy">' + escHTML(loreArticle) + '</div></div>' : '') +
+        (obj.meta.factionsText ? '<div class="world-atlas-section"><div class="world-atlas-section-title">Фракции</div><div class="world-atlas-section-copy" style="font-size:13px;line-height:1.7;color:var(--muted)">' + escHTML(obj.meta.factionsText) + '</div></div>' : '') +
+        (obj.meta.potentialThreats ? '<div class="world-atlas-section"><div class="world-atlas-section-title">Потенциальные угрозы</div><div class="world-atlas-section-copy" style="font-size:13px;line-height:1.7;color:var(--muted)">' + escHTML(obj.meta.potentialThreats) + '</div></div>' : '') +
+        (enemies.length ? '<div class="world-atlas-section"><div class="world-atlas-section-title">Известные угрозы</div>' + enemyCards + '</div>' : '') +
+        (interests.length ? '<div class="world-atlas-section"><div class="world-atlas-section-title">Интересные места</div>' + renderWorldInterestPlaces(obj) + '</div>' : '') +
+        (isWorldEditorActive() && obj.meta.hiddenNotes ? '<div class="world-atlas-section"><div class="world-atlas-section-title">Заметки мастера</div><div class="world-atlas-section-copy">' + escHTML(obj.meta.hiddenNotes) + '</div></div>' : '') +
+      '</div>' +
+    '</div>';
+}
+
 function openWorldObjectMobileDetails(id) {
-  if (!id) return;
-  worldAtlasRuntime.selectedId = id;
+  var obj = id ? getWorldObjectById(id) : getWorldSelectedObject();
+  if (!obj) return;
+  worldAtlasRuntime.selectedId = obj.id;
   worldAtlasRuntime.panelMode = 'info';
-  worldLinkToEncyclopedia();
+  var modal = ensureWorldSimpleModal('world-mobile-object-modal', 'world-beast-dialog world-mobile-object-dialog',
+    '<div class="world-beast-dialog world-mobile-object-dialog">' +
+      '<div class="world-beast-dialog-head">' +
+        '<div><div class="world-panel-title" style="margin-bottom:4px">Место на карте</div><div class="world-panel-subtitle" style="margin-bottom:0">Расширенная информация без выхода из карты</div></div>' +
+        '<button class="btn btn-dim btn-sm" onclick="closeWorldObjectMobileDetails()">Закрыть</button>' +
+      '</div>' +
+      '<div class="world-beast-dialog-body" id="world-mobile-object-body"></div>' +
+    '</div>');
+  modal.className = 'world-beast-modal world-mobile-object-modal';
+  var body = document.getElementById('world-mobile-object-body');
+  if (!body) return;
+  body.innerHTML = renderWorldMobileObjectDetail(obj);
+  modal.classList.add('show');
+}
+
+function closeWorldObjectMobileDetails() {
+  var modal = document.getElementById('world-mobile-object-modal');
+  if (modal) modal.classList.remove('show');
 }
 
 function handleWorldMapTap(point, hitObj, e) {
