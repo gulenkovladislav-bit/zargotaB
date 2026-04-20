@@ -4600,6 +4600,9 @@
     bottom: auto;
     z-index: 100001;
   }
+  body.world-map-fs-active .world-map-meta {
+    display: none !important;
+  }
   .world-map-wrap.world-map-fullscreen {
     position: fixed !important;
     top: 0 !important;
@@ -5434,45 +5437,6 @@
   }
   .world-mobile-place-actions .btn {
     min-height: 32px;
-  }
-  .world-mobile-filters {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding: 2px 2px 0;
-    scrollbar-width: none;
-  }
-  .world-mobile-filters::-webkit-scrollbar {
-    display: none;
-  }
-  .world-mobile-filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 34px;
-    padding: 0 12px;
-    border-radius: 999px;
-    border: 1px solid #3a2818;
-    background: rgba(12,9,6,.92);
-    color: #ccb48d;
-    font-family: 'Cinzel', serif;
-    font-size: 10px;
-    letter-spacing: .8px;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: all .18s ease;
-  }
-  .world-mobile-filter-chip.active {
-    border-color: var(--gold);
-    color: #f2dfb4;
-    background: rgba(42,28,13,.96);
-    box-shadow: inset 0 0 0 1px rgba(232,192,96,.14);
-  }
-  .world-mobile-filter-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
   }
   .world-map-legend {
     position: absolute;
@@ -6548,6 +6512,60 @@
     .back-to-home { padding: 5px 8px !important; font-size: 10px !important; }
     .world-tabs { gap: 2px; }
     .world-tab { padding: 5px 8px !important; font-size: 10px !important; }
+    #page-world.world-mobile-enc-ui #world-nav-bar {
+      height: auto;
+      min-height: 56px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+      flex-wrap: wrap;
+      row-gap: 6px;
+      overflow: visible;
+    }
+    #page-world.world-mobile-enc-ui #world-nav-bar .wnb-left {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    #page-world.world-mobile-enc-ui #world-nav-bar .wnb-right {
+      gap: 4px;
+      margin-left: 4px;
+    }
+    #page-world.world-mobile-enc-ui #world-nav-bar .wnb-center {
+      position: static;
+      left: auto;
+      right: auto;
+      top: auto;
+      transform: none;
+      width: 100%;
+      order: 3;
+      justify-content: flex-start;
+      margin-top: 2px;
+      z-index: auto;
+    }
+    #page-world.world-mobile-enc-ui .world-map-selector-btn {
+      min-height: 24px;
+      padding: 2px 8px 2px 7px;
+      border-radius: 999px;
+      font-size: 9px;
+      letter-spacing: .55px;
+      box-shadow: none;
+    }
+    #page-world.world-mobile-enc-ui .world-map-selector-name {
+      max-width: 82px;
+    }
+    #page-world.world-mobile-enc-ui #world-enc-edit-btn-wrap {
+      display: flex;
+      align-items: center;
+    }
+    #page-world.world-mobile-enc-ui #world-enc-edit-nav-btn {
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      min-height: 34px;
+      padding: 0;
+      border-radius: 999px;
+      font-size: 14px;
+      line-height: 1;
+    }
     #page-world > .page-inner {
       padding: 10px 10px 14px;
       gap: 10px;
@@ -6602,6 +6620,13 @@
       min-height: calc(100dvh - 158px);
       height: calc(100dvh - 158px);
       border-radius: 14px;
+    }
+    #page-world.world-enc-mode #world-enc-edit-nav-btn {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      line-height: 1;
     }
     .world-panel {
       height: auto;
@@ -6688,12 +6713,6 @@
     .world-mobile-place-copy {
       font-size: 12.5px;
       line-height: 1.48;
-    }
-    .world-mobile-filter-chip {
-      min-height: 32px;
-      padding: 0 11px;
-      font-size: 9px;
-      letter-spacing: .6px;
     }
   }
   .beast-grid {
@@ -11841,7 +11860,6 @@ function renderWorldMobileSheet() {
   }
   var selected = getWorldSelectedObject();
   var pin = worldAtlasRuntime.mobileTapPin;
-  var filters = worldAtlasRuntime.filters || {};
   var cardHtml = '';
   if (selected) {
     var safeId = String(selected.id || '').replace(/'/g, "\\'");
@@ -11851,8 +11869,8 @@ function renderWorldMobileSheet() {
         '<div class="world-mobile-place-title">' + escHTML(selected.name || 'Место') + '</div>' +
         '<div class="world-mobile-place-copy">' + escHTML(getWorldMobilePrimaryCopy(selected)) + '</div>' +
         '<div class="world-mobile-place-actions">' +
-          '<button class="btn btn-gold btn-sm" onclick="openWorldObjectMobileDetails(\'' + safeId + '\')">Подробнее</button>' +
-          '<button class="btn btn-dim btn-sm" onclick="focusWorldObject(\'' + safeId + '\')">К центру</button>' +
+          '<button class="btn btn-gold btn-sm" ontouchstart="event.stopPropagation()" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openWorldObjectMobileDetails(\'' + safeId + '\');return false;">Подробнее</button>' +
+          '<button class="btn btn-dim btn-sm" ontouchstart="event.stopPropagation()" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();focusWorldObject(\'' + safeId + '\');return false;">К центру</button>' +
         '</div>' +
       '</div>';
   } else if (pin) {
@@ -11863,21 +11881,15 @@ function renderWorldMobileSheet() {
         '<div class="world-mobile-place-copy">Координаты ' + escHTML(Math.round(pin.x) + ' × ' + Math.round(pin.y)) + '. Следующий тап просто перенесёт эту метку. Если коснуться зоны, маршрута или маркера, здесь появится короткая карточка места.</div>' +
       '</div>';
   }
-  el.innerHTML =
-    cardHtml +
-    '<div class="world-mobile-filters">' +
-      '<button class="world-mobile-filter-chip' + (filters.zones ? ' active' : '') + '" onclick="toggleWorldFilter(\'zones\')"><span class="world-mobile-filter-dot" style="background:#d5b26d"></span>Зоны</button>' +
-      '<button class="world-mobile-filter-chip' + (filters.routes ? ' active' : '') + '" onclick="toggleWorldFilter(\'routes\')"><span class="world-mobile-filter-dot" style="background:#d8c178"></span>Маршруты</button>' +
-      '<button class="world-mobile-filter-chip' + (filters.markers ? ' active' : '') + '" onclick="toggleWorldFilter(\'markers\')"><span class="world-mobile-filter-dot" style="background:#e6bf72"></span>Маркеры</button>' +
-      '<button class="world-mobile-filter-chip' + (filters.hidden ? ' active' : '') + '" onclick="toggleWorldFilter(\'hidden\')"><span class="world-mobile-filter-dot" style="background:#8d74d4"></span>Скрытые</button>' +
-    '</div>';
-  el.style.display = 'block';
+  el.innerHTML = cardHtml;
+  el.style.display = cardHtml ? 'block' : 'none';
 }
 
 function openWorldObjectMobileDetails(id) {
   if (!id) return;
-  openWorldLoreObject(id);
-  setWorldTab('lore');
+  worldAtlasRuntime.selectedId = id;
+  worldAtlasRuntime.panelMode = 'info';
+  worldLinkToEncyclopedia();
 }
 
 function handleWorldMapTap(point, hitObj, e) {
@@ -11956,7 +11968,11 @@ function renderWorldTools() {
   // Режим редактирования энциклопедии — только в лоре
   if (encEditWrap) encEditWrap.style.display = isLore ? 'flex' : 'none';
   if (encEditBtn) {
-    encEditBtn.textContent = encEditMode ? '✓ Просмотр' : '✏ Редактировать';
+    var compactEncBtn = isWorldMobileEncUI();
+    encEditBtn.textContent = compactEncBtn
+      ? (encEditMode ? '✓' : '✏')
+      : (encEditMode ? '✓ Просмотр' : '✏ Редактировать');
+    encEditBtn.title = encEditMode ? 'Режим просмотра' : 'Редактировать энциклопедию';
     encEditBtn.style.background = encEditMode ? '#d4a04a18' : '';
     encEditBtn.className = 'btn ' + (encEditMode ? 'btn-gold' : 'btn-dim') + ' btn-sm';
   }
@@ -14721,14 +14737,6 @@ function openWorldMobileFullscreen() {
   closeBtn.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 10px);left:10px;width:34px;height:34px;border:1px solid #c4a84b;border-radius:50%;background:#0a0604e8;color:#c4a84b;font-size:16px;cursor:pointer;z-index:100002;box-shadow:0 4px 14px #0008;display:flex;align-items:center;justify-content:center';
   closeBtn.onclick = closeWorldMobileFullscreen;
   document.body.appendChild(closeBtn);
-
-  var hint = document.createElement('div');
-  hint.id = 'world-fs-hint';
-  hint.style.cssText = 'position:fixed;top:calc(env(safe-area-inset-top, 0px) + 12px);left:50%;transform:translateX(-50%);padding:5px 10px;background:#0a0604c2;border:1px solid #3a2918;border-radius:999px;color:#c4a84b;font-size:9px;font-family:\'Cinzel\',serif;letter-spacing:.4px;z-index:100001;white-space:nowrap;pointer-events:none';
-  hint.textContent = 'Зум: кнопки или два пальца';
-  document.body.appendChild(hint);
-  setTimeout(function(){ if (hint) hint.style.opacity = '0'; hint.style.transition = 'opacity 1s'; }, 3500);
-  setTimeout(function(){ var h = document.getElementById('world-fs-hint'); if (h) h.remove(); }, 5000);
 }
 
 function closeWorldMobileFullscreen() {
@@ -14916,6 +14924,7 @@ function initWorldInteractions() {
   }, { passive:false });
   wrap.addEventListener('pointerdown', function(e){
     if (worldTab === 'lore') return;
+    if (e.target && e.target.closest && (e.target.closest('#world-mobile-bottom-sheet') || e.target.closest('#world-mobile-controls'))) return;
     if (e.button === 1) {
       beginWorldFastRender();
       worldDrag = { x:e.clientX, y:e.clientY, ox:worldOffsetX, oy:worldOffsetY, moved:false, mobile:isWorldMobileMapUI(), point:getWorldCoordsFromEvent(e) };
