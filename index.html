@@ -8703,10 +8703,23 @@ window.zgExportDataJson = function(onProgress, onDone) {
       map: 'images/map.jpg'
     };
 
-    function shouldPreferCollection(current, incoming) {
+    function countLinkedMedia(items, fields) {
+      items = Array.isArray(items) ? items : [];
+      fields = Array.isArray(fields) && fields.length ? fields : ['portrait', 'image', 'avatar'];
+      return items.reduce(function(total, item) {
+        if (!item || typeof item !== 'object') return total;
+        var hasMedia = fields.some(function(field) {
+          return !!(item[field] && typeof item[field] === 'string' && item[field].trim());
+        });
+        return total + (hasMedia ? 1 : 0);
+      }, 0);
+    }
+
+    function shouldPreferCollection(current, incoming, mediaFields) {
       if (!Array.isArray(incoming) || !incoming.length) return false;
       if (!Array.isArray(current) || !current.length) return true;
       if (incoming.length > current.length) return true;
+      if (countLinkedMedia(incoming, mediaFields) > countLinkedMedia(current, mediaFields)) return true;
       var currentIds = {};
       current.forEach(function(item) {
         if (!item) return;
@@ -8856,6 +8869,9 @@ window.zgExportDataJson = function(onProgress, onDone) {
     if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
       output.characters = JSON.parse(JSON.stringify(characters));
     }
+    if (typeof beasts !== 'undefined' && Array.isArray(beasts) && beasts.length) {
+      output.beasts = JSON.parse(JSON.stringify(beasts));
+    }
     if (typeof loadArmoryItems === 'function') {
       try { output.armoryItems = loadArmoryItems(); } catch(e) {}
     }
@@ -8880,10 +8896,10 @@ window.zgExportDataJson = function(onProgress, onDone) {
 
     // ── Читаем бестиарий из IDB ──
     readIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
-      if (parsed && parsed.beasts) output.beasts = parsed.beasts;
+      if (parsed && parsed.beasts && shouldPreferCollection(output.beasts, parsed.beasts, ['portrait', 'image'])) output.beasts = parsed.beasts;
       if (parsed && parsed.types) output.beastTypes = parsed.types;
       readIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
-        if (shouldPreferCollection(output.characters, charsParsed)) output.characters = charsParsed;
+        if (shouldPreferCollection(output.characters, charsParsed, ['portrait', 'image', 'avatar'])) output.characters = charsParsed;
         readIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
           if (shouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
           readIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
@@ -9088,10 +9104,23 @@ window.zgDownloadCurrentDataSnapshot = function(onDone) {
       map: 'images/map.jpg'
     };
 
-    function shouldPreferCollection(current, incoming) {
+    function countLinkedMedia(items, fields) {
+      items = Array.isArray(items) ? items : [];
+      fields = Array.isArray(fields) && fields.length ? fields : ['portrait', 'image', 'avatar'];
+      return items.reduce(function(total, item) {
+        if (!item || typeof item !== 'object') return total;
+        var hasMedia = fields.some(function(field) {
+          return !!(item[field] && typeof item[field] === 'string' && item[field].trim());
+        });
+        return total + (hasMedia ? 1 : 0);
+      }, 0);
+    }
+
+    function shouldPreferCollection(current, incoming, mediaFields) {
       if (!Array.isArray(incoming) || !incoming.length) return false;
       if (!Array.isArray(current) || !current.length) return true;
       if (incoming.length > current.length) return true;
+      if (countLinkedMedia(incoming, mediaFields) > countLinkedMedia(current, mediaFields)) return true;
       var currentIds = {};
       current.forEach(function(item) {
         if (!item) return;
@@ -9226,6 +9255,9 @@ window.zgDownloadCurrentDataSnapshot = function(onDone) {
     if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
       output.characters = JSON.parse(JSON.stringify(characters));
     }
+    if (typeof beasts !== 'undefined' && Array.isArray(beasts) && beasts.length) {
+      output.beasts = JSON.parse(JSON.stringify(beasts));
+    }
     if (typeof loadArmoryItems === 'function') {
       try { output.armoryItems = loadArmoryItems(); } catch(e) {}
     }
@@ -9237,10 +9269,10 @@ window.zgDownloadCurrentDataSnapshot = function(onDone) {
     }
 
     readIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
-      if (parsed && parsed.beasts) output.beasts = parsed.beasts;
+      if (parsed && parsed.beasts && shouldPreferCollection(output.beasts, parsed.beasts, ['portrait', 'image'])) output.beasts = parsed.beasts;
       if (parsed && parsed.types) output.beastTypes = parsed.types;
       readIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
-        if (shouldPreferCollection(output.characters, charsParsed)) output.characters = charsParsed;
+        if (shouldPreferCollection(output.characters, charsParsed, ['portrait', 'image', 'avatar'])) output.characters = charsParsed;
         readIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
           if (shouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
           readIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
@@ -9307,6 +9339,76 @@ function triggerDownload(blob, name) {
     URL.revokeObjectURL(url);
   }, 100);
 }
+
+window.zgResetSyncedWorldCache = function() {
+  try {
+    var message =
+      'Сбросить локальный кеш мира на этом устройстве?\n\n' +
+      'Это очистит сохранённые копии data/manifest, бестиарий, энциклопедию, атлас, оружейную и кеш картинок на ЭТОМ устройстве.\n' +
+      'Репозиторий GitHub затронут не будет.\n\n' +
+      'После перезагрузки страница заново скачает мир с GitHub Pages.';
+    if (!confirm(message)) return;
+
+    var lsKeys = [
+      'zg_data_version',
+      'zg_data_last_check',
+      'zg_published_asset_index_v1',
+      'grimoire_v3',
+      'grimoire_world_atlas_v5',
+      'grimoire_world_map_source_v1',
+      'grimoire_world_custom_options_v1',
+      'grimoire_enc_v1',
+      'grimoire_enc_cats_v1',
+      'grimoire_htree_v1',
+      'grimoire_beast_types',
+      'grimoire_beasts',
+      'grimoire_chars',
+      'zargota_arena_state_v1',
+      'zargota_armory_v1',
+      'zargota_sets_v1',
+      'grimoire_drama_v1',
+      'zargota_worldboard_v2',
+      'zargota_episodes_v1',
+      'zargota_npclines_v1',
+      'zargota_inbox_v1',
+      'zargota_music_v2',
+      'zargota_status_mechanics_v1'
+    ];
+    lsKeys.forEach(function(key) {
+      try { localStorage.removeItem(key); } catch(e) {}
+    });
+
+    var dbs = [
+      'zargota_beasts',
+      'zargota_chars',
+      'zargota_armory_db',
+      'zargota_imagestore',
+      'zargota_media'
+    ];
+
+    var pending = dbs.length;
+    function done() {
+      pending--;
+      if (pending <= 0) {
+        try { if (typeof showToast === 'function') showToast('♻ Кеш очищен, перезагружаю…'); } catch(e) {}
+        setTimeout(function() { location.reload(); }, 250);
+      }
+    }
+
+    dbs.forEach(function(name) {
+      try {
+        var req = indexedDB.deleteDatabase(name);
+        req.onsuccess = done;
+        req.onerror = done;
+        req.onblocked = done;
+      } catch(e) {
+        done();
+      }
+    });
+  } catch(err) {
+    if (typeof showToast === 'function') showToast('⚠ Не удалось очистить кеш: ' + (err.message || err));
+  }
+};
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -9518,6 +9620,15 @@ window.showPublishModal = function() {
       }
     });
     box.appendChild(rawBtn);
+
+    var resetBtn = document.createElement('button');
+    resetBtn.setAttribute('style', 'width:100%;padding:10px;background:#140a0a;border:1px solid #c8787855;border-radius:8px;color:#d8a0a0;font-size:12px;cursor:pointer;margin:0 0 14px;font-family:inherit;transition:all .2s');
+    resetBtn.textContent = '♻ Сбросить кеш мира на этом устройстве';
+    resetBtn.title = 'Очистить локальные копии мира и заново скачать всё с GitHub Pages';
+    resetBtn.addEventListener('click', function() {
+      window.zgResetSyncedWorldCache();
+    });
+    box.appendChild(resetBtn);
 
     // Other steps
     box.appendChild(makeStep(2, 'Открыть папку репо', 
