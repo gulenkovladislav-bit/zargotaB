@@ -8239,6 +8239,16 @@ window.zgData = (function() {
     });
   }
 
+  function storePublishedAssetIndex(data) {
+    try {
+      if (!window.zgBuildPublishedAssetIndex) return;
+      var index = window.zgBuildPublishedAssetIndex(data || {});
+      if (index && window.zgStorePublishedAssetIndex) window.zgStorePublishedAssetIndex(index);
+    } catch(e) {
+      log('asset index store fail: ' + e.message);
+    }
+  }
+
   // ── Normalize & merge data into localStorage/IDB ──
   function applyDataToStorage(data, cb) {
     try {
@@ -8348,6 +8358,7 @@ window.zgData = (function() {
           localStorage.setItem('grimoire_beasts', JSON.stringify(data.beasts));
         } catch(e) {}
       }
+      storePublishedAssetIndex(data);
       done();
     } catch(err) {
       log('applyDataToStorage error: ' + err.message);
@@ -8502,6 +8513,143 @@ window.zgData = (function() {
   } else {
     startLoader();
   }
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  PUBLISHED ASSET INDEX — сохраняет старые пути к картинкам
+// ═══════════════════════════════════════════════════════════════════
+
+(function() {
+  var LS_ASSET_INDEX_KEY = 'zg_published_asset_index_v1';
+
+  function cloneJsonSafe(value) {
+    try { return JSON.parse(JSON.stringify(value)); } catch(e) { return null; }
+  }
+
+  function rememberPath(bucket, key, path, extra) {
+    if (!bucket || !key || !path || typeof path !== 'string') return;
+    if (path.indexOf('data:') === 0) return;
+    if (!bucket[key]) bucket[key] = {};
+    bucket[key].path = path;
+    if (extra && extra.name && !bucket[key].name) bucket[key].name = extra.name;
+  }
+
+  function buildPublishedAssetIndex(data) {
+    var index = {
+      beastsById: {},
+      beastsByName: {},
+      charactersById: {},
+      charactersByName: {},
+      atlasFactionsById: {},
+      atlasFactionsByName: {},
+      htreeNodesById: {},
+      htreeNodesByName: {}
+    };
+
+    (Array.isArray(data && data.beasts) ? data.beasts : []).forEach(function(beast) {
+      if (!beast) return;
+      var idKey = beast.id !== undefined ? String(beast.id) : '';
+      var nameKey = beast.name ? String(beast.name).trim() : '';
+      var path = beast.portrait || beast.image || '';
+      rememberPath(index.beastsById, idKey, path, { name: nameKey });
+      rememberPath(index.beastsByName, nameKey, path, { name: nameKey });
+    });
+
+    (Array.isArray(data && data.characters) ? data.characters : []).forEach(function(ch) {
+      if (!ch) return;
+      var idKey = ch.id !== undefined ? String(ch.id) : '';
+      var nameKey = ch.name ? String(ch.name).trim() : '';
+      var path = ch.portrait || ch.image || ch.avatar || '';
+      rememberPath(index.charactersById, idKey, path, { name: nameKey });
+      rememberPath(index.charactersByName, nameKey, path, { name: nameKey });
+    });
+
+    var factions = data && data.atlas && Array.isArray(data.atlas.factions) ? data.atlas.factions : [];
+    factions.forEach(function(faction) {
+      if (!faction) return;
+      var idKey = faction.id !== undefined ? String(faction.id) : '';
+      var nameKey = faction.name ? String(faction.name).trim() : '';
+      var path = faction.image || faction.portrait || '';
+      rememberPath(index.atlasFactionsById, idKey, path, { name: nameKey });
+      rememberPath(index.atlasFactionsByName, nameKey, path, { name: nameKey });
+    });
+
+    var htree = data && data.htree ? data.htree : {};
+    Object.keys(htree).forEach(function(entryId) {
+      var entry = htree[entryId];
+      if (!entry || !Array.isArray(entry.nodes)) return;
+      entry.nodes.forEach(function(node) {
+        if (!node) return;
+        var idKey = node.id !== undefined ? String(node.id) : '';
+        var nameKey = node.name ? String(node.name).trim() : '';
+        var path = node.portrait || node.image || '';
+        rememberPath(index.htreeNodesById, idKey, path, { name: nameKey });
+        rememberPath(index.htreeNodesByName, nameKey, path, { name: nameKey });
+      });
+    });
+
+    return index;
+  }
+
+  function readPublishedAssetIndex() {
+    try {
+      var raw = localStorage.getItem(LS_ASSET_INDEX_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch(e) {
+      return null;
+    }
+  }
+
+  function storePublishedAssetIndex(index) {
+    try {
+      localStorage.setItem(LS_ASSET_INDEX_KEY, JSON.stringify(index || {}));
+    } catch(e) {}
+  }
+
+  function fillMissingPath(item, indexById, indexByName, fields) {
+    if (!item || !Array.isArray(fields) || !fields.length) return;
+    var existingField = fields.find(function(field) {
+      return item[field] && typeof item[field] === 'string' && item[field].trim();
+    });
+    if (existingField) return;
+    var byId = item.id !== undefined && indexById ? indexById[String(item.id)] : null;
+    var byName = item.name && indexByName ? indexByName[String(item.name).trim()] : null;
+    var match = byId || byName;
+    if (!match || !match.path) return;
+    item[fields[0]] = match.path;
+  }
+
+  function mergeMissingImagePaths(output, index) {
+    if (!output || !index) return output;
+    (Array.isArray(output.beasts) ? output.beasts : []).forEach(function(beast) {
+      fillMissingPath(beast, index.beastsById, index.beastsByName, ['portrait', 'image']);
+    });
+    (Array.isArray(output.characters) ? output.characters : []).forEach(function(ch) {
+      fillMissingPath(ch, index.charactersById, index.charactersByName, ['portrait', 'image', 'avatar']);
+    });
+    var factions = output.atlas && Array.isArray(output.atlas.factions) ? output.atlas.factions : [];
+    factions.forEach(function(faction) {
+      fillMissingPath(faction, index.atlasFactionsById, index.atlasFactionsByName, ['image', 'portrait']);
+    });
+    var htree = output.htree || {};
+    Object.keys(htree).forEach(function(entryId) {
+      var entry = htree[entryId];
+      if (!entry || !Array.isArray(entry.nodes)) return;
+      entry.nodes.forEach(function(node) {
+        fillMissingPath(node, index.htreeNodesById, index.htreeNodesByName, ['portrait', 'image']);
+      });
+    });
+    return output;
+  }
+
+  window.zgBuildPublishedAssetIndex = buildPublishedAssetIndex;
+  window.zgReadPublishedAssetIndex = readPublishedAssetIndex;
+  window.zgStorePublishedAssetIndex = storePublishedAssetIndex;
+  window.zgMergeMissingImagePaths = function(output) {
+    var cloned = cloneJsonSafe(output) || output;
+    return mergeMissingImagePaths(cloned, readPublishedAssetIndex());
+  };
 })();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -8774,6 +8922,12 @@ window.zgExportDataJson = function(onProgress, onDone) {
         });
       }
 
+      try {
+        if (window.zgMergeMissingImagePaths) {
+          output = window.zgMergeMissingImagePaths(output);
+        }
+      } catch(e) {}
+
       report(35, 'Собираю новые картинки из локального кеша...');
 
       // ── Собираем unpublished картинки из zgImageStore ──
@@ -8896,6 +9050,248 @@ window.zgExportDataJson = function(onProgress, onDone) {
   } catch(err) {
     if (typeof showToast === 'function') showToast('⚠ Ошибка экспорта: ' + (err.message || err));
     if (typeof onDone === 'function') onDone(-1);
+  }
+};
+
+window.zgDownloadCurrentDataSnapshot = function(onDone) {
+  try {
+    try { if (typeof flushMasterBackupSources === 'function') flushMasterBackupSources(); } catch(e) {}
+    try { if (typeof loadChars === 'function') loadChars(); } catch(e) {}
+    try { if (typeof loadBeasts === 'function') loadBeasts(); } catch(e) {}
+    try { if (typeof loadWorldAtlas === 'function') loadWorldAtlas(); } catch(e) {}
+    try { if (typeof loadHtreeData === 'function') loadHtreeData(); } catch(e) {}
+    try { if (typeof loadEncState === 'function') loadEncState(); } catch(e) {}
+    try { if (typeof loadEncCategories === 'function') loadEncCategories(); } catch(e) {}
+
+    var output = {
+      version: new Date().toISOString().slice(0, 10) + '-snapshot-' + Date.now().toString(36),
+      exportedAt: new Date().toISOString(),
+      catalog: null,
+      beasts: null,
+      beastTypes: null,
+      atlas: null,
+      encyclopedia: null,
+      encyclopediaCategories: null,
+      htree: null,
+      characters: null,
+      arena: null,
+      armoryItems: null,
+      armorySets: null,
+      drama: null,
+      worldboard: null,
+      episodes: null,
+      npcLines: null,
+      inbox: null,
+      music: null,
+      statusMechanics: null,
+      worldCustomOptions: null,
+      map: 'images/map.jpg'
+    };
+
+    function shouldPreferCollection(current, incoming) {
+      if (!Array.isArray(incoming) || !incoming.length) return false;
+      if (!Array.isArray(current) || !current.length) return true;
+      if (incoming.length > current.length) return true;
+      var currentIds = {};
+      current.forEach(function(item) {
+        if (!item) return;
+        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
+        if (key) currentIds[key] = true;
+      });
+      return incoming.some(function(item) {
+        if (!item) return false;
+        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
+        return key && !currentIds[key];
+      });
+    }
+
+    function readIdbRaw(dbName, storeName, key, next) {
+      try {
+        var req = indexedDB.open(dbName, 1);
+        req.onupgradeneeded = function(e) {
+          var db = e.target.result;
+          if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+        };
+        req.onsuccess = function(e) {
+          var db = e.target.result;
+          try {
+            var tx = db.transaction(storeName, 'readonly');
+            tx.objectStore(storeName).get(key).onsuccess = function(ev) {
+              var raw = ev && ev.target ? ev.target.result : null;
+              try { db.close(); } catch(_) {}
+              next(raw);
+            };
+            tx.onerror = function() {
+              try { db.close(); } catch(_) {}
+              next(null);
+            };
+          } catch(err) {
+            try { db.close(); } catch(_) {}
+            next(null);
+          }
+        };
+        req.onerror = function() { next(null); };
+      } catch(e) { next(null); }
+    }
+
+    function readIdbJson(dbName, storeName, key, next) {
+      readIdbRaw(dbName, storeName, key, function(raw) {
+        if (!raw) { next(null); return; }
+        try { next(JSON.parse(raw)); } catch(e) { next(null); }
+      });
+    }
+
+    function stripLegacyBase64(obj, key) {
+      if (!obj || !obj[key] || typeof obj[key] !== 'string') return;
+      if (obj[key].indexOf('data:') === 0) obj[key] = '';
+    }
+
+    try {
+      var catalogRaw = localStorage.getItem('grimoire_v3');
+      if (catalogRaw) output.catalog = JSON.parse(catalogRaw);
+    } catch(e) {}
+    try {
+      var atlasRaw = localStorage.getItem('grimoire_world_atlas_v5');
+      if (atlasRaw) output.atlas = JSON.parse(atlasRaw);
+    } catch(e) {}
+    try {
+      var encRaw = localStorage.getItem('grimoire_enc_v1');
+      if (encRaw) output.encyclopedia = JSON.parse(encRaw);
+    } catch(e) {}
+    try {
+      var encCatsRaw = localStorage.getItem('grimoire_enc_cats_v1');
+      if (encCatsRaw) output.encyclopediaCategories = JSON.parse(encCatsRaw);
+    } catch(e) {}
+    try {
+      var htreeRaw = localStorage.getItem('grimoire_htree_v1');
+      if (htreeRaw) output.htree = JSON.parse(htreeRaw);
+    } catch(e) {}
+    try {
+      var typesRaw = localStorage.getItem('grimoire_beast_types');
+      if (typesRaw) output.beastTypes = JSON.parse(typesRaw);
+    } catch(e) {}
+    try {
+      var charsRaw = localStorage.getItem('grimoire_chars');
+      if (charsRaw) output.characters = JSON.parse(charsRaw);
+    } catch(e) {}
+    try {
+      var arenaRaw = localStorage.getItem('zargota_arena_state_v1');
+      if (arenaRaw) output.arena = JSON.parse(arenaRaw);
+    } catch(e) {}
+    try {
+      var armoryItemsRaw = localStorage.getItem('zargota_armory_v1');
+      if (armoryItemsRaw) output.armoryItems = JSON.parse(armoryItemsRaw);
+    } catch(e) {}
+    try {
+      var armorySetsRaw = localStorage.getItem('zargota_sets_v1');
+      if (armorySetsRaw) output.armorySets = JSON.parse(armorySetsRaw);
+    } catch(e) {}
+    try {
+      var dramaRaw = localStorage.getItem('grimoire_drama_v1');
+      if (dramaRaw) output.drama = JSON.parse(dramaRaw);
+    } catch(e) {}
+    try {
+      var boardRaw = localStorage.getItem('zargota_worldboard_v2');
+      if (boardRaw) output.worldboard = JSON.parse(boardRaw);
+    } catch(e) {}
+    try {
+      var episodesRaw = localStorage.getItem('zargota_episodes_v1');
+      if (episodesRaw) output.episodes = JSON.parse(episodesRaw);
+    } catch(e) {}
+    try {
+      var npcLinesRaw = localStorage.getItem('zargota_npclines_v1');
+      if (npcLinesRaw) output.npcLines = JSON.parse(npcLinesRaw);
+    } catch(e) {}
+    try {
+      var inboxRaw = localStorage.getItem('zargota_inbox_v1');
+      if (inboxRaw) output.inbox = JSON.parse(inboxRaw);
+    } catch(e) {}
+    try {
+      var musicRaw = localStorage.getItem('zargota_music_v2');
+      if (musicRaw) output.music = JSON.parse(musicRaw);
+    } catch(e) {}
+    try {
+      var statusRaw = localStorage.getItem('zargota_status_mechanics_v1');
+      if (statusRaw) output.statusMechanics = JSON.parse(statusRaw);
+    } catch(e) {}
+    try {
+      var worldOptionsRaw = localStorage.getItem('grimoire_world_custom_options_v1');
+      if (worldOptionsRaw) output.worldCustomOptions = JSON.parse(worldOptionsRaw);
+    } catch(e) {}
+    try {
+      var mapSourceRaw = localStorage.getItem('grimoire_world_map_source_v1') || '';
+      if (mapSourceRaw && mapSourceRaw !== '__idb__' && mapSourceRaw.indexOf('data:') !== 0) output.map = mapSourceRaw;
+    } catch(e) {}
+
+    if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
+      output.characters = JSON.parse(JSON.stringify(characters));
+    }
+    if (typeof loadArmoryItems === 'function') {
+      try { output.armoryItems = loadArmoryItems(); } catch(e) {}
+    }
+    if (typeof loadArmorySets === 'function') {
+      try { output.armorySets = loadArmorySets(); } catch(e) {}
+    }
+    if (typeof dramaState !== 'undefined' && dramaState && Array.isArray(dramaState.characters)) {
+      output.drama = JSON.parse(JSON.stringify(dramaState));
+    }
+
+    readIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
+      if (parsed && parsed.beasts) output.beasts = parsed.beasts;
+      if (parsed && parsed.types) output.beastTypes = parsed.types;
+      readIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
+        if (shouldPreferCollection(output.characters, charsParsed)) output.characters = charsParsed;
+        readIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
+          if (shouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
+          readIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
+            if (shouldPreferCollection(output.armorySets, setsParsed)) output.armorySets = setsParsed;
+
+            if (!output.beasts) {
+              try {
+                var bRaw = localStorage.getItem('grimoire_beasts');
+                if (bRaw) output.beasts = JSON.parse(bRaw);
+              } catch(e) {}
+            }
+
+            if (Array.isArray(output.beasts)) {
+              output.beasts.forEach(function(b) {
+                stripLegacyBase64(b, 'portrait');
+                stripLegacyBase64(b, 'image');
+              });
+            }
+            if (output.atlas && Array.isArray(output.atlas.factions)) {
+              output.atlas.factions.forEach(function(f) {
+                stripLegacyBase64(f, 'image');
+                stripLegacyBase64(f, 'portrait');
+              });
+            }
+            if (output.htree) {
+              Object.keys(output.htree).forEach(function(entryId) {
+                var entry = output.htree[entryId];
+                if (entry && Array.isArray(entry.nodes)) {
+                  entry.nodes.forEach(function(node) {
+                    stripLegacyBase64(node, 'portrait');
+                    stripLegacyBase64(node, 'image');
+                  });
+                }
+              });
+            }
+
+            try {
+              if (window.zgMergeMissingImagePaths) output = window.zgMergeMissingImagePaths(output);
+            } catch(e) {}
+
+            var json = JSON.stringify(output, null, 2);
+            triggerDownload(new Blob([json], { type: 'application/json' }), 'zargota_current_data_' + output.version + '.json');
+            if (typeof showToast === 'function') showToast('⬇ Снимок data.json скачан');
+            if (typeof onDone === 'function') onDone(output);
+          });
+        });
+      });
+    });
+  } catch(err) {
+    if (typeof showToast === 'function') showToast('⚠ Ошибка снимка: ' + (err.message || err));
+    if (typeof onDone === 'function') onDone(null, err);
   }
 };
 
@@ -9091,6 +9487,37 @@ window.showPublishModal = function() {
     });
     box.appendChild(dlBtn);
     box.appendChild(progWrap);
+
+    var rawBtn = document.createElement('button');
+    rawBtn.setAttribute('style', 'width:100%;padding:10px;background:#120d09;border:1px solid #c4a84b55;border-radius:8px;color:#e8c060;font-size:12px;cursor:pointer;margin:10px 0 14px;font-family:inherit;transition:all .2s');
+    rawBtn.textContent = '🧾 Скачать текущий data.json';
+    rawBtn.title = 'Снимок текущего загруженного мира без ZIP и без отметки новых картинок';
+    rawBtn.addEventListener('click', function() {
+      rawBtn.disabled = true;
+      rawBtn.style.opacity = '0.7';
+      rawBtn.textContent = '⏳ Готовлю снимок...';
+      try {
+        window.zgDownloadCurrentDataSnapshot(function(result, err) {
+          if (!result) {
+            rawBtn.disabled = false;
+            rawBtn.style.opacity = '1';
+            rawBtn.textContent = '⚠ Не удалось скачать снимок';
+            return;
+          }
+          rawBtn.textContent = '✓ data.json скачан';
+          setTimeout(function() {
+            rawBtn.disabled = false;
+            rawBtn.style.opacity = '1';
+            rawBtn.textContent = '🧾 Скачать текущий data.json';
+          }, 1800);
+        });
+      } catch(e) {
+        rawBtn.disabled = false;
+        rawBtn.style.opacity = '1';
+        rawBtn.textContent = '⚠ Ошибка снимка';
+      }
+    });
+    box.appendChild(rawBtn);
 
     // Other steps
     box.appendChild(makeStep(2, 'Открыть папку репо', 
