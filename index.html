@@ -8656,30 +8656,117 @@ window.zgData = (function() {
 //  EXPORT data.json — для заливки в Git
 // ═══════════════════════════════════════════════════════════════════
 
-window.zgExportDataJson = function(onProgress, onDone) {
-  // Экспортирует ZIP с:
-  //   - data.json (мир, с путями к картинкам)
-  //   - manifest.json
-  //   - images/ — ТОЛЬКО новые картинки из IDB (published: false)
-  //
-  // После успешной упаковки помечает эти картинки как published,
-  // чтобы при следующем экспорте они не попадали в ZIP повторно.
+function zgCloneJson(value) {
+  try { return JSON.parse(JSON.stringify(value)); } catch(e) { return null; }
+}
 
-  var report = function(pct, msg) { if (typeof onProgress === 'function') onProgress(pct, msg); };
+function zgCountLinkedMedia(items, fields) {
+  items = Array.isArray(items) ? items : [];
+  fields = Array.isArray(fields) && fields.length ? fields : ['portrait', 'image', 'avatar'];
+  return items.reduce(function(total, item) {
+    if (!item || typeof item !== 'object') return total;
+    var hasMedia = fields.some(function(field) {
+      return !!(item[field] && typeof item[field] === 'string' && item[field].trim());
+    });
+    return total + (hasMedia ? 1 : 0);
+  }, 0);
+}
 
+function zgShouldPreferCollection(current, incoming, mediaFields) {
+  if (!Array.isArray(incoming) || !incoming.length) return false;
+  if (!Array.isArray(current) || !current.length) return true;
+  if (incoming.length > current.length) return true;
+  if (zgCountLinkedMedia(incoming, mediaFields) > zgCountLinkedMedia(current, mediaFields)) return true;
+  var currentIds = {};
+  current.forEach(function(item) {
+    if (!item) return;
+    var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
+    if (key) currentIds[key] = true;
+  });
+  return incoming.some(function(item) {
+    if (!item) return false;
+    var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
+    return key && !currentIds[key];
+  });
+}
+
+function zgReadIdbRaw(dbName, storeName, key, next) {
+  try {
+    var req = indexedDB.open(dbName, 1);
+    req.onupgradeneeded = function(e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+    };
+    req.onsuccess = function(e) {
+      var db = e.target.result;
+      try {
+        var tx = db.transaction(storeName, 'readonly');
+        tx.objectStore(storeName).get(key).onsuccess = function(ev) {
+          var raw = ev && ev.target ? ev.target.result : null;
+          try { db.close(); } catch(_) {}
+          next(raw);
+        };
+        tx.onerror = function() {
+          try { db.close(); } catch(_) {}
+          next(null);
+        };
+      } catch(err) {
+        try { db.close(); } catch(_) {}
+        next(null);
+      }
+    };
+    req.onerror = function() { next(null); };
+  } catch(e) { next(null); }
+}
+
+function zgReadIdbJson(dbName, storeName, key, next) {
+  zgReadIdbRaw(dbName, storeName, key, function(raw) {
+    if (!raw) { next(null); return; }
+    try { next(JSON.parse(raw)); } catch(e) { next(null); }
+  });
+}
+
+function zgReadLsJson(key, fallback) {
+  try {
+    var raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw);
+  } catch(e) {
+    return fallback;
+  }
+}
+
+function zgStripLegacyBase64(obj, key) {
+  if (!obj || !obj[key] || typeof obj[key] !== 'string') return;
+  if (obj[key].indexOf('data:') === 0) obj[key] = '';
+}
+
+function zgNormalizeArenaSnapshot(arena, armoryItems, armorySets) {
+  if (!arena || typeof arena !== 'object') return arena;
+  var normalized = zgCloneJson(arena) || arena;
+  if (Array.isArray(armoryItems)) normalized.items = zgCloneJson(armoryItems) || [];
+  if (Array.isArray(armorySets)) normalized.sets = zgCloneJson(armorySets) || [];
+  return normalized;
+}
+
+window.zgBuildWorldSnapshot = function(options, onDone) {
+  options = options || {};
   try {
     try { if (typeof flushMasterBackupSources === 'function') flushMasterBackupSources(); } catch(e) {}
     try { if (typeof loadChars === 'function') loadChars(); } catch(e) {}
     try { if (typeof loadBeasts === 'function') loadBeasts(); } catch(e) {}
     try { if (typeof loadWorldAtlas === 'function') loadWorldAtlas(); } catch(e) {}
+    try { if (typeof loadWorldCustomOptions === 'function') loadWorldCustomOptions(); } catch(e) {}
     try { if (typeof loadHtreeData === 'function') loadHtreeData(); } catch(e) {}
     try { if (typeof loadEncState === 'function') loadEncState(); } catch(e) {}
     try { if (typeof loadEncCategories === 'function') loadEncCategories(); } catch(e) {}
 
-    report(5, 'Собираю данные...');
+    var versionStem = new Date().toISOString().slice(0, 10) + '-';
+    versionStem += options.versionLabel ? (String(options.versionLabel).replace(/^-+|-+$/g, '') + '-') : '';
+    versionStem += Date.now().toString(36);
 
     var output = {
-      version: new Date().toISOString().slice(0, 10) + '-' + Date.now().toString(36),
+      version: versionStem,
       exportedAt: new Date().toISOString(),
       catalog: null,
       beasts: null,
@@ -8703,252 +8790,176 @@ window.zgExportDataJson = function(onProgress, onDone) {
       map: 'images/map.jpg'
     };
 
-    function countLinkedMedia(items, fields) {
-      items = Array.isArray(items) ? items : [];
-      fields = Array.isArray(fields) && fields.length ? fields : ['portrait', 'image', 'avatar'];
-      return items.reduce(function(total, item) {
-        if (!item || typeof item !== 'object') return total;
-        var hasMedia = fields.some(function(field) {
-          return !!(item[field] && typeof item[field] === 'string' && item[field].trim());
-        });
-        return total + (hasMedia ? 1 : 0);
-      }, 0);
-    }
-
-    function shouldPreferCollection(current, incoming, mediaFields) {
-      if (!Array.isArray(incoming) || !incoming.length) return false;
-      if (!Array.isArray(current) || !current.length) return true;
-      if (incoming.length > current.length) return true;
-      if (countLinkedMedia(incoming, mediaFields) > countLinkedMedia(current, mediaFields)) return true;
-      var currentIds = {};
-      current.forEach(function(item) {
-        if (!item) return;
-        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
-        if (key) currentIds[key] = true;
-      });
-      return incoming.some(function(item) {
-        if (!item) return false;
-        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
-        return key && !currentIds[key];
-      });
-    }
-
-    function readIdbRaw(dbName, storeName, key, next) {
-      try {
-        var req = indexedDB.open(dbName, 1);
-        req.onupgradeneeded = function(e) {
-          var db = e.target.result;
-          if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
-        };
-        req.onsuccess = function(e) {
-          var db = e.target.result;
-          try {
-            var tx = db.transaction(storeName, 'readonly');
-            tx.objectStore(storeName).get(key).onsuccess = function(ev) {
-              var raw = ev && ev.target ? ev.target.result : null;
-              try { db.close(); } catch(_) {}
-              next(raw);
-            };
-            tx.onerror = function() {
-              try { db.close(); } catch(_) {}
-              next(null);
-            };
-          } catch(err) {
-            try { db.close(); } catch(_) {}
-            next(null);
-          }
-        };
-        req.onerror = function() { next(null); };
-      } catch(e) { next(null); }
-    }
-
-    function readIdbJson(dbName, storeName, key, next) {
-      readIdbRaw(dbName, storeName, key, function(raw) {
-        if (!raw) { next(null); return; }
-        try { next(JSON.parse(raw)); } catch(e) { next(null); }
-      });
-    }
-
-    // ── Загружаем все локальные ключи ──
-    try {
-      var catalogRaw = localStorage.getItem('grimoire_v3');
-      if (catalogRaw) output.catalog = JSON.parse(catalogRaw);
-    } catch(e) {}
+    output.catalog = zgReadLsJson('grimoire_v3', null);
+    output.atlas = zgReadLsJson('grimoire_world_atlas_v5', null);
+    output.encyclopedia = zgReadLsJson('grimoire_enc_v1', null);
+    output.encyclopediaCategories = zgReadLsJson('grimoire_enc_cats_v1', null);
+    output.htree = zgReadLsJson('grimoire_htree_v1', null);
+    output.beastTypes = zgReadLsJson('grimoire_beast_types', null);
+    output.characters = zgReadLsJson('grimoire_chars', null);
+    output.arena = zgReadLsJson('zargota_arena_state_v1', null);
+    output.armoryItems = zgReadLsJson('zargota_armory_v1', null);
+    output.armorySets = zgReadLsJson('zargota_sets_v1', null);
+    output.drama = zgReadLsJson('grimoire_drama_v1', null);
+    output.worldboard = zgReadLsJson('zargota_worldboard_v2', null);
+    output.episodes = zgReadLsJson('zargota_episodes_v1', null);
+    output.npcLines = zgReadLsJson('zargota_npclines_v1', null);
+    output.inbox = zgReadLsJson('zargota_inbox_v1', null);
+    output.music = zgReadLsJson('zargota_music_v2', null);
+    output.statusMechanics = zgReadLsJson('zargota_status_mechanics_v1', null);
+    output.worldCustomOptions = zgReadLsJson('grimoire_world_custom_options_v1', null);
 
     try {
-      var atlasRaw = localStorage.getItem('grimoire_world_atlas_v5');
-      if (atlasRaw) output.atlas = JSON.parse(atlasRaw);
-    } catch(e) {}
-
-    try {
-      var encRaw = localStorage.getItem('grimoire_enc_v1');
-      if (encRaw) output.encyclopedia = JSON.parse(encRaw);
-    } catch(e) {}
-
-    try {
-      var encCatsRaw = localStorage.getItem('grimoire_enc_cats_v1');
-      if (encCatsRaw) output.encyclopediaCategories = JSON.parse(encCatsRaw);
-    } catch(e) {}
-
-    try {
-      var htreeRaw = localStorage.getItem('grimoire_htree_v1');
-      if (htreeRaw) output.htree = JSON.parse(htreeRaw);
-    } catch(e) {}
-
-    try {
-      var typesRaw = localStorage.getItem('grimoire_beast_types');
-      if (typesRaw) output.beastTypes = JSON.parse(typesRaw);
-    } catch(e) {}
-
-    try {
-      var charsRaw = localStorage.getItem('grimoire_chars');
-      if (charsRaw) output.characters = JSON.parse(charsRaw);
-    } catch(e) {}
-
-    try {
-      var arenaRaw = localStorage.getItem('zargota_arena_state_v1');
-      if (arenaRaw) output.arena = JSON.parse(arenaRaw);
-    } catch(e) {}
-
-    try {
-      var armoryItemsRaw = localStorage.getItem('zargota_armory_v1');
-      if (armoryItemsRaw) output.armoryItems = JSON.parse(armoryItemsRaw);
-    } catch(e) {}
-
-    try {
-      var armorySetsRaw = localStorage.getItem('zargota_sets_v1');
-      if (armorySetsRaw) output.armorySets = JSON.parse(armorySetsRaw);
-    } catch(e) {}
-
-    try {
-      var dramaRaw = localStorage.getItem('grimoire_drama_v1');
-      if (dramaRaw) output.drama = JSON.parse(dramaRaw);
-    } catch(e) {}
-
-    try {
-      var boardRaw = localStorage.getItem('zargota_worldboard_v2');
-      if (boardRaw) output.worldboard = JSON.parse(boardRaw);
-    } catch(e) {}
-
-    try {
-      var episodesRaw = localStorage.getItem('zargota_episodes_v1');
-      if (episodesRaw) output.episodes = JSON.parse(episodesRaw);
-    } catch(e) {}
-
-    try {
-      var npcLinesRaw = localStorage.getItem('zargota_npclines_v1');
-      if (npcLinesRaw) output.npcLines = JSON.parse(npcLinesRaw);
-    } catch(e) {}
-
-    try {
-      var inboxRaw = localStorage.getItem('zargota_inbox_v1');
-      if (inboxRaw) output.inbox = JSON.parse(inboxRaw);
-    } catch(e) {}
-
-    try {
-      var musicRaw = localStorage.getItem('zargota_music_v2');
-      if (musicRaw) output.music = JSON.parse(musicRaw);
-    } catch(e) {}
-
-    try {
-      var statusRaw = localStorage.getItem('zargota_status_mechanics_v1');
-      if (statusRaw) output.statusMechanics = JSON.parse(statusRaw);
-    } catch(e) {}
-
-    try {
-      var worldOptionsRaw = localStorage.getItem('grimoire_world_custom_options_v1');
-      if (worldOptionsRaw) output.worldCustomOptions = JSON.parse(worldOptionsRaw);
-    } catch(e) {}
-    try {
-      var mapSourceRaw = localStorage.getItem('grimoire_world_map_source_v1') || '';
+      var mapSourceRaw = (typeof getStoredWorldMapSource === 'function'
+        ? getStoredWorldMapSource()
+        : (localStorage.getItem('grimoire_world_map_source_v1') || '')) || '';
       if (mapSourceRaw && mapSourceRaw !== '__idb__' && mapSourceRaw.indexOf('data:') !== 0) {
         output.map = mapSourceRaw;
       }
     } catch(e) {}
 
+    if (typeof entries !== 'undefined' && Array.isArray(entries)) {
+      output.catalog = {
+        entries: zgCloneJson(entries) || [],
+        customSchools: zgCloneJson(typeof customSchools !== 'undefined' ? customSchools : { kodex:[], folio:[], obrad:[] }) || { kodex:[], folio:[], obrad:[] }
+      };
+    }
+    if (typeof worldAtlasState !== 'undefined' && worldAtlasState && Array.isArray(worldAtlasState.objects)) {
+      output.atlas = zgCloneJson(worldAtlasState);
+    }
+    if (typeof worldAtlasCustomOptions !== 'undefined' && worldAtlasCustomOptions) {
+      output.worldCustomOptions = zgCloneJson(worldAtlasCustomOptions);
+    }
+    if (typeof encState !== 'undefined' && encState && Array.isArray(encState.entries)) {
+      output.encyclopedia = zgCloneJson(encState);
+    }
+    if (typeof ENC_CATEGORIES !== 'undefined' && Array.isArray(ENC_CATEGORIES) && ENC_CATEGORIES.length) {
+      output.encyclopediaCategories = zgCloneJson(ENC_CATEGORIES);
+    }
+    if (typeof htreeData !== 'undefined' && htreeData) {
+      output.htree = zgCloneJson(htreeData);
+    }
     if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
-      output.characters = JSON.parse(JSON.stringify(characters));
+      output.characters = zgCloneJson(characters);
     }
     if (typeof beasts !== 'undefined' && Array.isArray(beasts) && beasts.length) {
-      output.beasts = JSON.parse(JSON.stringify(beasts));
+      output.beasts = zgCloneJson(beasts);
+    }
+    if (typeof customBeastTypes !== 'undefined' && Array.isArray(customBeastTypes)) {
+      output.beastTypes = zgCloneJson(customBeastTypes);
     }
     if (typeof loadArmoryItems === 'function') {
-      try { output.armoryItems = loadArmoryItems(); } catch(e) {}
+      try { output.armoryItems = zgCloneJson(loadArmoryItems()); } catch(e) {}
     }
     if (typeof loadArmorySets === 'function') {
-      try { output.armorySets = loadArmorySets(); } catch(e) {}
+      try { output.armorySets = zgCloneJson(loadArmorySets()); } catch(e) {}
     }
     if (typeof dramaState !== 'undefined' && dramaState && Array.isArray(dramaState.characters)) {
-      output.drama = JSON.parse(JSON.stringify(dramaState));
+      output.drama = zgCloneJson(dramaState);
+    }
+    if (typeof wbState !== 'undefined' && wbState && Array.isArray(wbState.boards)) {
+      output.worldboard = {
+        boards: zgCloneJson(wbState.boards) || [],
+        navStack: zgCloneJson(wbState.navStack || []) || [],
+        selectedBoardId: wbState.selectedBoardId || ''
+      };
+    }
+    if (typeof epState !== 'undefined' && epState && Array.isArray(epState.episodes)) {
+      output.episodes = { episodes: zgCloneJson(epState.episodes) || [] };
+    }
+    if (typeof nlState !== 'undefined' && nlState && Array.isArray(nlState.npcs)) {
+      output.npcLines = zgCloneJson(nlState.npcs);
+    }
+    if (typeof inboxState !== 'undefined' && inboxState && Array.isArray(inboxState.ideas)) {
+      output.inbox = zgCloneJson(inboxState);
+    }
+    if (typeof musicState !== 'undefined' && musicState && Array.isArray(musicState.tracks)) {
+      output.music = { tracks: zgCloneJson(musicState.tracks) || [] };
+    }
+    if (typeof loadStatusMechanics === 'function') {
+      try {
+        var runtimeMechanics = loadStatusMechanics();
+        if (runtimeMechanics) output.statusMechanics = runtimeMechanics;
+      } catch(e) {}
     }
 
-    // ── Legacy base64 stripping (на случай если где-то остались base64) ──
-    function stripLegacyBase64(obj, key) {
-      if (!obj || !obj[key] || typeof obj[key] !== 'string') return;
-      if (obj[key].indexOf('data:') === 0) {
-        // У нас нет пути — выкидываем старый base64, чтобы не раздувать data.json
-        // (если это было что-то важное, оно уже должно быть в IDB с путём)
-        obj[key] = '';
-      }
-    }
+    zgReadIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
+      if (parsed && parsed.beasts && zgShouldPreferCollection(output.beasts, parsed.beasts, ['portrait', 'image'])) output.beasts = parsed.beasts;
+      if (parsed && parsed.types && (!Array.isArray(output.beastTypes) || parsed.types.length >= output.beastTypes.length)) output.beastTypes = parsed.types;
+      zgReadIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
+        if (zgShouldPreferCollection(output.characters, charsParsed, ['portrait', 'image', 'avatar'])) output.characters = charsParsed;
+        zgReadIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
+          if (zgShouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
+          zgReadIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
+            if (zgShouldPreferCollection(output.armorySets, setsParsed)) output.armorySets = setsParsed;
 
-    report(15, 'Читаю бестиарий из IDB...');
+            if (!output.beasts) output.beasts = zgReadLsJson('grimoire_beasts', null);
 
-    // ── Читаем бестиарий из IDB ──
-    readIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
-      if (parsed && parsed.beasts && shouldPreferCollection(output.beasts, parsed.beasts, ['portrait', 'image'])) output.beasts = parsed.beasts;
-      if (parsed && parsed.types) output.beastTypes = parsed.types;
-      readIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
-        if (shouldPreferCollection(output.characters, charsParsed, ['portrait', 'image', 'avatar'])) output.characters = charsParsed;
-        readIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
-          if (shouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
-          readIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
-            if (shouldPreferCollection(output.armorySets, setsParsed)) output.armorySets = setsParsed;
-            continueExport();
+            if (Array.isArray(output.beasts)) {
+              output.beasts.forEach(function(b) {
+                zgStripLegacyBase64(b, 'portrait');
+                zgStripLegacyBase64(b, 'image');
+              });
+            }
+            if (output.atlas && Array.isArray(output.atlas.factions)) {
+              output.atlas.factions.forEach(function(f) {
+                zgStripLegacyBase64(f, 'image');
+                zgStripLegacyBase64(f, 'portrait');
+              });
+            }
+            if (output.htree) {
+              Object.keys(output.htree).forEach(function(entryId) {
+                var entry = output.htree[entryId];
+                if (entry && Array.isArray(entry.nodes)) {
+                  entry.nodes.forEach(function(node) {
+                    zgStripLegacyBase64(node, 'portrait');
+                    zgStripLegacyBase64(node, 'image');
+                  });
+                }
+              });
+            }
+
+            output.arena = zgNormalizeArenaSnapshot(output.arena, output.armoryItems, output.armorySets);
+
+            try {
+              if (window.zgMergeMissingImagePaths) output = window.zgMergeMissingImagePaths(output);
+            } catch(e) {}
+
+            if (typeof onDone === 'function') onDone(output);
           });
         });
       });
     });
+  } catch(err) {
+    if (typeof onDone === 'function') onDone(null, err);
+  }
+};
 
-    function continueExport() {
-      // Fallback для бестиария из LS
-      if (!output.beasts) {
-        try {
-          var bRaw = localStorage.getItem('grimoire_beasts');
-          if (bRaw) output.beasts = JSON.parse(bRaw);
-        } catch(e) {}
-      }
+window.zgExportDataJson = function(onProgress, onDone) {
+  // Экспортирует ZIP с:
+  //   - data.json (мир, с путями к картинкам)
+  //   - manifest.json
+  //   - images/ — ТОЛЬКО новые картинки из IDB (published: false)
+  //
+  // После успешной упаковки помечает эти картинки как published,
+  // чтобы при следующем экспорте они не попадали в ZIP повторно.
 
-      // Стрипаем legacy base64 (они больше не нужны)
-      if (Array.isArray(output.beasts)) {
-        output.beasts.forEach(function(b) {
-          stripLegacyBase64(b, 'portrait');
-          stripLegacyBase64(b, 'image');
-        });
-      }
-      if (output.atlas && Array.isArray(output.atlas.factions)) {
-        output.atlas.factions.forEach(function(f) { stripLegacyBase64(f, 'image'); });
-      }
-      if (output.htree) {
-        Object.keys(output.htree).forEach(function(entryId) {
-          var entry = output.htree[entryId];
-          if (entry && Array.isArray(entry.nodes)) {
-            entry.nodes.forEach(function(node) { stripLegacyBase64(node, 'portrait'); });
-          }
-        });
-      }
+  var report = function(pct, msg) { if (typeof onProgress === 'function') onProgress(pct, msg); };
 
-      try {
-        if (window.zgMergeMissingImagePaths) {
-          output = window.zgMergeMissingImagePaths(output);
-        }
-      } catch(e) {}
+  try {
+    report(5, 'Собираю данные...');
+    report(15, 'Собираю единый снимок мира...');
+    window.zgBuildWorldSnapshot({}, function(output, snapshotErr) {
+      if (snapshotErr || !output) {
+        if (typeof showToast === 'function') showToast('⚠ Ошибка снимка мира: ' + ((snapshotErr && snapshotErr.message) || snapshotErr || 'неизвестно'));
+        if (typeof onDone === 'function') onDone(-1);
+        return;
+      }
 
       report(35, 'Собираю новые картинки из локального кеша...');
 
-      // ── Собираем unpublished картинки из zgImageStore ──
       if (!window.zgImageStore) {
-        finishZipping([]);
+        finishZipping(output, []);
         return;
       }
 
@@ -8956,29 +8967,24 @@ window.zgExportDataJson = function(onProgress, onDone) {
         var pending = items.filter(function(it) { return !it.published; });
 
         if (!pending.length) {
-          finishZipping([]);
+          finishZipping(output, []);
           return;
         }
 
-        // Конвертируем каждый blob в base64 для JSZip
         var prepared = [];
         var done = 0;
         pending.forEach(function(item) {
           window.zgImageStore.blobToBase64(item.blob, function(b64) {
-            if (b64) {
-              prepared.push({ path: item.path, base64: b64 });
-            }
+            if (b64) prepared.push({ path: item.path, base64: b64 });
             done++;
             report(35 + Math.round(done / pending.length * 20), 'Подготовка: ' + done + ' / ' + pending.length);
-            if (done === pending.length) {
-              finishZipping(prepared);
-            }
+            if (done === pending.length) finishZipping(output, prepared);
           });
         });
       });
-    }
+    });
 
-    function finishZipping(preparedImages) {
+    function finishZipping(output, preparedImages) {
       var manifest = {
         version: output.version,
         generatedAt: output.exportedAt,
@@ -9071,255 +9077,16 @@ window.zgExportDataJson = function(onProgress, onDone) {
 
 window.zgDownloadCurrentDataSnapshot = function(onDone) {
   try {
-    try { if (typeof flushMasterBackupSources === 'function') flushMasterBackupSources(); } catch(e) {}
-    try { if (typeof loadChars === 'function') loadChars(); } catch(e) {}
-    try { if (typeof loadBeasts === 'function') loadBeasts(); } catch(e) {}
-    try { if (typeof loadWorldAtlas === 'function') loadWorldAtlas(); } catch(e) {}
-    try { if (typeof loadHtreeData === 'function') loadHtreeData(); } catch(e) {}
-    try { if (typeof loadEncState === 'function') loadEncState(); } catch(e) {}
-    try { if (typeof loadEncCategories === 'function') loadEncCategories(); } catch(e) {}
-
-    var output = {
-      version: new Date().toISOString().slice(0, 10) + '-snapshot-' + Date.now().toString(36),
-      exportedAt: new Date().toISOString(),
-      catalog: null,
-      beasts: null,
-      beastTypes: null,
-      atlas: null,
-      encyclopedia: null,
-      encyclopediaCategories: null,
-      htree: null,
-      characters: null,
-      arena: null,
-      armoryItems: null,
-      armorySets: null,
-      drama: null,
-      worldboard: null,
-      episodes: null,
-      npcLines: null,
-      inbox: null,
-      music: null,
-      statusMechanics: null,
-      worldCustomOptions: null,
-      map: 'images/map.jpg'
-    };
-
-    function countLinkedMedia(items, fields) {
-      items = Array.isArray(items) ? items : [];
-      fields = Array.isArray(fields) && fields.length ? fields : ['portrait', 'image', 'avatar'];
-      return items.reduce(function(total, item) {
-        if (!item || typeof item !== 'object') return total;
-        var hasMedia = fields.some(function(field) {
-          return !!(item[field] && typeof item[field] === 'string' && item[field].trim());
-        });
-        return total + (hasMedia ? 1 : 0);
-      }, 0);
-    }
-
-    function shouldPreferCollection(current, incoming, mediaFields) {
-      if (!Array.isArray(incoming) || !incoming.length) return false;
-      if (!Array.isArray(current) || !current.length) return true;
-      if (incoming.length > current.length) return true;
-      if (countLinkedMedia(incoming, mediaFields) > countLinkedMedia(current, mediaFields)) return true;
-      var currentIds = {};
-      current.forEach(function(item) {
-        if (!item) return;
-        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
-        if (key) currentIds[key] = true;
-      });
-      return incoming.some(function(item) {
-        if (!item) return false;
-        var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
-        return key && !currentIds[key];
-      });
-    }
-
-    function readIdbRaw(dbName, storeName, key, next) {
-      try {
-        var req = indexedDB.open(dbName, 1);
-        req.onupgradeneeded = function(e) {
-          var db = e.target.result;
-          if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
-        };
-        req.onsuccess = function(e) {
-          var db = e.target.result;
-          try {
-            var tx = db.transaction(storeName, 'readonly');
-            tx.objectStore(storeName).get(key).onsuccess = function(ev) {
-              var raw = ev && ev.target ? ev.target.result : null;
-              try { db.close(); } catch(_) {}
-              next(raw);
-            };
-            tx.onerror = function() {
-              try { db.close(); } catch(_) {}
-              next(null);
-            };
-          } catch(err) {
-            try { db.close(); } catch(_) {}
-            next(null);
-          }
-        };
-        req.onerror = function() { next(null); };
-      } catch(e) { next(null); }
-    }
-
-    function readIdbJson(dbName, storeName, key, next) {
-      readIdbRaw(dbName, storeName, key, function(raw) {
-        if (!raw) { next(null); return; }
-        try { next(JSON.parse(raw)); } catch(e) { next(null); }
-      });
-    }
-
-    function stripLegacyBase64(obj, key) {
-      if (!obj || !obj[key] || typeof obj[key] !== 'string') return;
-      if (obj[key].indexOf('data:') === 0) obj[key] = '';
-    }
-
-    try {
-      var catalogRaw = localStorage.getItem('grimoire_v3');
-      if (catalogRaw) output.catalog = JSON.parse(catalogRaw);
-    } catch(e) {}
-    try {
-      var atlasRaw = localStorage.getItem('grimoire_world_atlas_v5');
-      if (atlasRaw) output.atlas = JSON.parse(atlasRaw);
-    } catch(e) {}
-    try {
-      var encRaw = localStorage.getItem('grimoire_enc_v1');
-      if (encRaw) output.encyclopedia = JSON.parse(encRaw);
-    } catch(e) {}
-    try {
-      var encCatsRaw = localStorage.getItem('grimoire_enc_cats_v1');
-      if (encCatsRaw) output.encyclopediaCategories = JSON.parse(encCatsRaw);
-    } catch(e) {}
-    try {
-      var htreeRaw = localStorage.getItem('grimoire_htree_v1');
-      if (htreeRaw) output.htree = JSON.parse(htreeRaw);
-    } catch(e) {}
-    try {
-      var typesRaw = localStorage.getItem('grimoire_beast_types');
-      if (typesRaw) output.beastTypes = JSON.parse(typesRaw);
-    } catch(e) {}
-    try {
-      var charsRaw = localStorage.getItem('grimoire_chars');
-      if (charsRaw) output.characters = JSON.parse(charsRaw);
-    } catch(e) {}
-    try {
-      var arenaRaw = localStorage.getItem('zargota_arena_state_v1');
-      if (arenaRaw) output.arena = JSON.parse(arenaRaw);
-    } catch(e) {}
-    try {
-      var armoryItemsRaw = localStorage.getItem('zargota_armory_v1');
-      if (armoryItemsRaw) output.armoryItems = JSON.parse(armoryItemsRaw);
-    } catch(e) {}
-    try {
-      var armorySetsRaw = localStorage.getItem('zargota_sets_v1');
-      if (armorySetsRaw) output.armorySets = JSON.parse(armorySetsRaw);
-    } catch(e) {}
-    try {
-      var dramaRaw = localStorage.getItem('grimoire_drama_v1');
-      if (dramaRaw) output.drama = JSON.parse(dramaRaw);
-    } catch(e) {}
-    try {
-      var boardRaw = localStorage.getItem('zargota_worldboard_v2');
-      if (boardRaw) output.worldboard = JSON.parse(boardRaw);
-    } catch(e) {}
-    try {
-      var episodesRaw = localStorage.getItem('zargota_episodes_v1');
-      if (episodesRaw) output.episodes = JSON.parse(episodesRaw);
-    } catch(e) {}
-    try {
-      var npcLinesRaw = localStorage.getItem('zargota_npclines_v1');
-      if (npcLinesRaw) output.npcLines = JSON.parse(npcLinesRaw);
-    } catch(e) {}
-    try {
-      var inboxRaw = localStorage.getItem('zargota_inbox_v1');
-      if (inboxRaw) output.inbox = JSON.parse(inboxRaw);
-    } catch(e) {}
-    try {
-      var musicRaw = localStorage.getItem('zargota_music_v2');
-      if (musicRaw) output.music = JSON.parse(musicRaw);
-    } catch(e) {}
-    try {
-      var statusRaw = localStorage.getItem('zargota_status_mechanics_v1');
-      if (statusRaw) output.statusMechanics = JSON.parse(statusRaw);
-    } catch(e) {}
-    try {
-      var worldOptionsRaw = localStorage.getItem('grimoire_world_custom_options_v1');
-      if (worldOptionsRaw) output.worldCustomOptions = JSON.parse(worldOptionsRaw);
-    } catch(e) {}
-    try {
-      var mapSourceRaw = localStorage.getItem('grimoire_world_map_source_v1') || '';
-      if (mapSourceRaw && mapSourceRaw !== '__idb__' && mapSourceRaw.indexOf('data:') !== 0) output.map = mapSourceRaw;
-    } catch(e) {}
-
-    if (typeof characters !== 'undefined' && Array.isArray(characters) && characters.length) {
-      output.characters = JSON.parse(JSON.stringify(characters));
-    }
-    if (typeof beasts !== 'undefined' && Array.isArray(beasts) && beasts.length) {
-      output.beasts = JSON.parse(JSON.stringify(beasts));
-    }
-    if (typeof loadArmoryItems === 'function') {
-      try { output.armoryItems = loadArmoryItems(); } catch(e) {}
-    }
-    if (typeof loadArmorySets === 'function') {
-      try { output.armorySets = loadArmorySets(); } catch(e) {}
-    }
-    if (typeof dramaState !== 'undefined' && dramaState && Array.isArray(dramaState.characters)) {
-      output.drama = JSON.parse(JSON.stringify(dramaState));
-    }
-
-    readIdbJson('zargota_beasts', 'data', 'beasts_data', function(parsed) {
-      if (parsed && parsed.beasts && shouldPreferCollection(output.beasts, parsed.beasts, ['portrait', 'image'])) output.beasts = parsed.beasts;
-      if (parsed && parsed.types) output.beastTypes = parsed.types;
-      readIdbJson('zargota_chars', 'data', 'grimoire_chars', function(charsParsed) {
-        if (shouldPreferCollection(output.characters, charsParsed, ['portrait', 'image', 'avatar'])) output.characters = charsParsed;
-        readIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1', function(itemsParsed) {
-          if (shouldPreferCollection(output.armoryItems, itemsParsed)) output.armoryItems = itemsParsed;
-          readIdbJson('zargota_armory_db', 'kv', 'zargota_sets_v1', function(setsParsed) {
-            if (shouldPreferCollection(output.armorySets, setsParsed)) output.armorySets = setsParsed;
-
-            if (!output.beasts) {
-              try {
-                var bRaw = localStorage.getItem('grimoire_beasts');
-                if (bRaw) output.beasts = JSON.parse(bRaw);
-              } catch(e) {}
-            }
-
-            if (Array.isArray(output.beasts)) {
-              output.beasts.forEach(function(b) {
-                stripLegacyBase64(b, 'portrait');
-                stripLegacyBase64(b, 'image');
-              });
-            }
-            if (output.atlas && Array.isArray(output.atlas.factions)) {
-              output.atlas.factions.forEach(function(f) {
-                stripLegacyBase64(f, 'image');
-                stripLegacyBase64(f, 'portrait');
-              });
-            }
-            if (output.htree) {
-              Object.keys(output.htree).forEach(function(entryId) {
-                var entry = output.htree[entryId];
-                if (entry && Array.isArray(entry.nodes)) {
-                  entry.nodes.forEach(function(node) {
-                    stripLegacyBase64(node, 'portrait');
-                    stripLegacyBase64(node, 'image');
-                  });
-                }
-              });
-            }
-
-            try {
-              if (window.zgMergeMissingImagePaths) output = window.zgMergeMissingImagePaths(output);
-            } catch(e) {}
-
-            var json = JSON.stringify(output, null, 2);
-            triggerDownload(new Blob([json], { type: 'application/json' }), 'zargota_current_data_' + output.version + '.json');
-            if (typeof showToast === 'function') showToast('⬇ Снимок data.json скачан');
-            if (typeof onDone === 'function') onDone(output);
-          });
-        });
-      });
+    window.zgBuildWorldSnapshot({ versionLabel: 'snapshot' }, function(output, snapshotErr) {
+      if (snapshotErr || !output) {
+        if (typeof showToast === 'function') showToast('⚠ Ошибка снимка: ' + ((snapshotErr && snapshotErr.message) || snapshotErr || 'неизвестно'));
+        if (typeof onDone === 'function') onDone(null, snapshotErr || new Error('snapshot failed'));
+        return;
+      }
+      var json = JSON.stringify(output, null, 2);
+      triggerDownload(new Blob([json], { type: 'application/json' }), 'zargota_current_data_' + output.version + '.json');
+      if (typeof showToast === 'function') showToast('⬇ Снимок data.json скачан');
+      if (typeof onDone === 'function') onDone(output);
     });
   } catch(err) {
     if (typeof showToast === 'function') showToast('⚠ Ошибка снимка: ' + (err.message || err));
