@@ -8442,6 +8442,7 @@ window.zgData = (function() {
         } catch(e) {}
       }
       storePublishedAssetIndex(data);
+      storePublishedWorldSnapshot(data);
       done();
     } catch(err) {
       log('applyDataToStorage error: ' + err.message);
@@ -8604,6 +8605,7 @@ window.zgData = (function() {
 
 (function() {
   var LS_ASSET_INDEX_KEY = 'zg_published_asset_index_v1';
+  var LS_WORLD_SNAPSHOT_KEY = 'zg_last_published_world_snapshot_v1';
 
   function cloneJsonSafe(value) {
     try { return JSON.parse(JSON.stringify(value)); } catch(e) { return null; }
@@ -8726,9 +8728,72 @@ window.zgData = (function() {
     return output;
   }
 
+  function readPublishedWorldSnapshot() {
+    try {
+      var raw = localStorage.getItem(LS_WORLD_SNAPSHOT_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch(e) {
+      return null;
+    }
+  }
+
+  function storePublishedWorldSnapshot(data) {
+    try {
+      if (!data) return;
+      localStorage.setItem(LS_WORLD_SNAPSHOT_KEY, JSON.stringify(data));
+    } catch(e) {}
+  }
+
+  function mergeMissingWorldSections(output, fallback) {
+    if (!output || !fallback) return output;
+
+    function hasEntries(block) {
+      return !!(block && Array.isArray(block.entries) && block.entries.length);
+    }
+    function hasObjects(block) {
+      return !!(block && Array.isArray(block.objects) && block.objects.length);
+    }
+    function hasArray(value) {
+      return Array.isArray(value) && value.length > 0;
+    }
+    function hasKeys(value) {
+      return !!(value && typeof value === 'object' && Object.keys(value).length);
+    }
+
+    if ((!output.catalog || !hasEntries(output.catalog)) && hasEntries(fallback.catalog)) output.catalog = cloneJsonSafe(fallback.catalog) || fallback.catalog;
+    if (zgShouldPreferCollection(output.beasts, fallback.beasts, ['portrait', 'image'])) output.beasts = cloneJsonSafe(fallback.beasts) || fallback.beasts;
+    if ((!output.beastTypes || !output.beastTypes.length) && hasArray(fallback.beastTypes)) output.beastTypes = cloneJsonSafe(fallback.beastTypes) || fallback.beastTypes;
+    if ((!output.characters || !output.characters.length) && hasArray(fallback.characters)) output.characters = cloneJsonSafe(fallback.characters) || fallback.characters;
+    if ((!output.encyclopedia || !hasEntries(output.encyclopedia)) && hasEntries(fallback.encyclopedia)) output.encyclopedia = cloneJsonSafe(fallback.encyclopedia) || fallback.encyclopedia;
+    if ((!output.encyclopediaCategories || !output.encyclopediaCategories.length) && hasArray(fallback.encyclopediaCategories)) output.encyclopediaCategories = cloneJsonSafe(fallback.encyclopediaCategories) || fallback.encyclopediaCategories;
+    if ((!output.atlas || !hasObjects(output.atlas)) && hasObjects(fallback.atlas)) output.atlas = cloneJsonSafe(fallback.atlas) || fallback.atlas;
+    if ((!output.htree || !hasKeys(output.htree)) && hasKeys(fallback.htree)) output.htree = cloneJsonSafe(fallback.htree) || fallback.htree;
+    if ((!output.armoryItems || !output.armoryItems.length) && hasArray(fallback.armoryItems)) output.armoryItems = cloneJsonSafe(fallback.armoryItems) || fallback.armoryItems;
+    if ((!output.armorySets || !output.armorySets.length) && hasArray(fallback.armorySets)) output.armorySets = cloneJsonSafe(fallback.armorySets) || fallback.armorySets;
+    if ((!output.arena || (Array.isArray(output.arena.battles) && !output.arena.battles.length && Array.isArray(fallback.arena && fallback.arena.battles) && fallback.arena.battles.length)) && fallback.arena) output.arena = cloneJsonSafe(fallback.arena) || fallback.arena;
+    if ((!output.drama || !hasArray(output.drama.characters)) && fallback.drama && hasArray(fallback.drama.characters)) output.drama = cloneJsonSafe(fallback.drama) || fallback.drama;
+    if ((!output.worldboard || !hasArray(output.worldboard.boards)) && fallback.worldboard && hasArray(fallback.worldboard.boards)) output.worldboard = cloneJsonSafe(fallback.worldboard) || fallback.worldboard;
+    if ((!output.episodes || !hasArray(output.episodes.episodes)) && fallback.episodes && hasArray(fallback.episodes.episodes)) output.episodes = cloneJsonSafe(fallback.episodes) || fallback.episodes;
+    if ((!output.npcLines || !output.npcLines.length) && hasArray(fallback.npcLines)) output.npcLines = cloneJsonSafe(fallback.npcLines) || fallback.npcLines;
+    if ((!output.inbox || !output.inbox.ideas || !output.inbox.ideas.length) && fallback.inbox && fallback.inbox.ideas && fallback.inbox.ideas.length) output.inbox = cloneJsonSafe(fallback.inbox) || fallback.inbox;
+    if ((!output.music || !output.music.tracks || !output.music.tracks.length) && fallback.music && fallback.music.tracks && fallback.music.tracks.length) output.music = cloneJsonSafe(fallback.music) || fallback.music;
+    if ((!output.statusMechanics || !output.statusMechanics.length) && hasArray(fallback.statusMechanics)) output.statusMechanics = cloneJsonSafe(fallback.statusMechanics) || fallback.statusMechanics;
+    if ((!output.worldCustomOptions || !hasKeys(output.worldCustomOptions)) && hasKeys(fallback.worldCustomOptions)) output.worldCustomOptions = cloneJsonSafe(fallback.worldCustomOptions) || fallback.worldCustomOptions;
+    if ((!output.map || output.map === 'images/map.jpg') && fallback.map) output.map = fallback.map;
+
+    return output;
+  }
+
   window.zgBuildPublishedAssetIndex = buildPublishedAssetIndex;
   window.zgReadPublishedAssetIndex = readPublishedAssetIndex;
   window.zgStorePublishedAssetIndex = storePublishedAssetIndex;
+  window.zgReadPublishedWorldSnapshot = readPublishedWorldSnapshot;
+  window.zgStorePublishedWorldSnapshot = storePublishedWorldSnapshot;
+  window.zgMergeMissingWorldSections = function(output) {
+    var cloned = cloneJsonSafe(output) || output;
+    return mergeMissingWorldSections(cloned, readPublishedWorldSnapshot());
+  };
   window.zgMergeMissingImagePaths = function(output) {
     var cloned = cloneJsonSafe(output) || output;
     return mergeMissingImagePaths(cloned, readPublishedAssetIndex());
@@ -9003,6 +9068,10 @@ window.zgBuildWorldSnapshot = function(options, onDone) {
             }
 
             output.arena = zgNormalizeArenaSnapshot(output.arena, output.armoryItems, output.armorySets);
+
+            try {
+              if (window.zgMergeMissingWorldSections) output = window.zgMergeMissingWorldSections(output);
+            } catch(e) {}
 
             try {
               if (window.zgMergeMissingImagePaths) output = window.zgMergeMissingImagePaths(output);
