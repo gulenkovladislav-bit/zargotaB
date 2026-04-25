@@ -4295,6 +4295,7 @@
     position: relative;
     cursor: grab;
     user-select: none;
+    touch-action: pan-x pan-y;
   }
   .htree-viewport.is-dragging { cursor: grabbing; }
   .htree-content {
@@ -4342,6 +4343,88 @@
     position: relative;
   }
   .htree-node { display: flex; flex-direction: column; align-items: center; }
+  .ui-help-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    vertical-align: middle;
+  }
+  .ui-help-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #5b4322;
+    background: #130d08;
+    color: #d4a04a;
+    font: 700 11px/1 'Cinzel', serif;
+    cursor: help;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+    transition: border-color .15s ease, color .15s ease, background .15s ease, transform .15s ease;
+  }
+  .ui-help-wrap:hover .ui-help-dot,
+  .ui-help-wrap:focus-within .ui-help-dot {
+    border-color: #d4a04a;
+    color: #f2dfb4;
+    background: #1a1208;
+    transform: translateY(-1px);
+  }
+  .ui-help-bubble {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%) translateY(6px);
+    min-width: 180px;
+    max-width: 260px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid #5b4322;
+    background: rgba(12,8,4,.98);
+    color: #ceb38a;
+    font-size: 10px;
+    line-height: 1.45;
+    box-shadow: 0 12px 28px rgba(0,0,0,.36);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .15s ease, transform .15s ease;
+    z-index: 40;
+    text-align: left;
+  }
+  .ui-help-bubble::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #5b4322;
+  }
+  .ui-help-wrap:hover .ui-help-bubble,
+  .ui-help-wrap:focus-within .ui-help-bubble {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  @media (max-width: 760px) {
+    .ui-help-bubble {
+      left: auto;
+      right: 0;
+      bottom: calc(100% + 8px);
+      transform: translateY(6px);
+      max-width: min(240px, calc(100vw - 48px));
+    }
+    .ui-help-bubble::after {
+      left: auto;
+      right: 12px;
+      transform: none;
+    }
+    .ui-help-wrap:hover .ui-help-bubble,
+    .ui-help-wrap:focus-within .ui-help-bubble {
+      transform: translateY(0);
+    }
+  }
   .htree-card {
     width: 140px; min-height: 120px;
     border: 1px solid #2f2112;
@@ -9288,6 +9371,35 @@ window.showPublishModal = function() {
       return d;
     }
 
+    function makeHelpIcon(text) {
+      var wrap = document.createElement('span');
+      wrap.className = 'ui-help-wrap';
+      wrap.setAttribute('tabindex', '0');
+      wrap.setAttribute('aria-label', text);
+      wrap.setAttribute('style', 'flex-shrink:0');
+      var dot = document.createElement('span');
+      dot.className = 'ui-help-dot';
+      dot.textContent = '?';
+      var bubble = document.createElement('span');
+      bubble.className = 'ui-help-bubble';
+      bubble.textContent = text;
+      wrap.appendChild(dot);
+      wrap.appendChild(bubble);
+      return wrap;
+    }
+
+    function wrapControlWithHelp(control, text) {
+      var row = document.createElement('div');
+      row.setAttribute('style', 'display:flex;align-items:stretch;gap:8px;margin-bottom:12px');
+      control.style.flex = '1';
+      control.style.marginBottom = '0';
+      var help = makeHelpIcon(text);
+      help.setAttribute('style', 'flex-shrink:0;display:flex;align-items:center');
+      row.appendChild(control);
+      row.appendChild(help);
+      return row;
+    }
+
     // Steps
     box.appendChild(makeStep(1, 'Скачать ZIP с данными', 'Нажми кнопку ниже — в Downloads появится архив.'));
 
@@ -9296,6 +9408,7 @@ window.showPublishModal = function() {
     dlBtn.id = 'zg-publish-dl-btn';
     dlBtn.setAttribute('style', 'width:100%;padding:12px;background:linear-gradient(135deg,#2a1e0e,#1a1208);border:1px solid #6fcb83;border-radius:8px;color:#6fcb83;font-size:13px;cursor:pointer;margin-bottom:4px;font-family:inherit;transition:all .2s');
     dlBtn.textContent = '⬇ Скачать zargota_export.zip';
+    dlBtn.title = 'Главная кнопка публикации: готовит data.json, manifest.json и новые images для GitHub Pages';
 
     // Progress bar (hidden by default)
     var progWrap = document.createElement('div');
@@ -9354,13 +9467,13 @@ window.showPublishModal = function() {
         dlBtn.style.opacity = '1';
       }
     });
-    box.appendChild(dlBtn);
+    box.appendChild(wrapControlWithHelp(dlBtn, 'Главная публикация. Собирает ZIP для GitHub Pages: data.json, manifest.json и новые картинки из images. Используй её, когда хочешь обновить все устройства.'));
     box.appendChild(progWrap);
 
     var rawBtn = document.createElement('button');
     rawBtn.setAttribute('style', 'width:100%;padding:10px;background:#120d09;border:1px solid #c4a84b55;border-radius:8px;color:#e8c060;font-size:12px;cursor:pointer;margin:10px 0 14px;font-family:inherit;transition:all .2s');
     rawBtn.textContent = '🧾 Скачать текущий data.json';
-    rawBtn.title = 'Снимок текущего загруженного мира без ZIP и без отметки новых картинок';
+    rawBtn.title = 'Диагностический снимок текущего мира. Ничего не публикует и не меняет статус картинок';
     rawBtn.addEventListener('click', function() {
       rawBtn.disabled = true;
       rawBtn.style.opacity = '0.7';
@@ -9386,16 +9499,16 @@ window.showPublishModal = function() {
         rawBtn.textContent = '⚠ Ошибка снимка';
       }
     });
-    box.appendChild(rawBtn);
+    box.appendChild(wrapControlWithHelp(rawBtn, 'Диагностический снимок текущего мира. Нужен, чтобы проверить состав данных прямо сейчас. Сам по себе ничего не публикует.'));
 
     var resetBtn = document.createElement('button');
     resetBtn.setAttribute('style', 'width:100%;padding:10px;background:#140a0a;border:1px solid #c8787855;border-radius:8px;color:#d8a0a0;font-size:12px;cursor:pointer;margin:0 0 14px;font-family:inherit;transition:all .2s');
     resetBtn.textContent = '♻ Сбросить кеш мира на этом устройстве';
-    resetBtn.title = 'Очистить локальные копии мира и заново скачать всё с GitHub Pages';
+    resetBtn.title = 'Используй только если это устройство показывает старую версию мира или потеряло часть данных';
     resetBtn.addEventListener('click', function() {
       window.zgResetSyncedWorldCache();
     });
-    box.appendChild(resetBtn);
+    box.appendChild(wrapControlWithHelp(resetBtn, 'Локальный ремонт только для этого устройства. Сбрасывает кеш мира и заставляет заново скачать данные с GitHub Pages.'));
 
     // Other steps
     box.appendChild(makeStep(2, 'Открыть папку репо', 
@@ -9491,6 +9604,11 @@ function showBackupModal() {
     hdr.appendChild(closeBtn);
     box.appendChild(hdr);
 
+    var backupIntro = document.createElement('div');
+    backupIntro.setAttribute('style', 'font-size:11px;color:#8f7655;line-height:1.6;margin-bottom:12px');
+    backupIntro.textContent = 'Публикация в GitHub нужна для синхронизации между устройствами. Бэкап — это личная страховка и восстановление, если что-то сломалось локально.';
+    box.appendChild(backupIntro);
+
     // Data table
     var tbl = document.createElement('div');
     tbl.setAttribute('style', 'background:#080604;border-radius:8px;padding:10px 12px;margin-bottom:14px;max-height:260px;overflow-y:auto');
@@ -9531,6 +9649,35 @@ function showBackupModal() {
       return d;
     }
 
+    function makeHelpIcon(text) {
+      var wrap = document.createElement('span');
+      wrap.className = 'ui-help-wrap';
+      wrap.setAttribute('tabindex', '0');
+      wrap.setAttribute('aria-label', text);
+      wrap.setAttribute('style', 'flex-shrink:0');
+      var dot = document.createElement('span');
+      dot.className = 'ui-help-dot';
+      dot.textContent = '?';
+      var bubble = document.createElement('span');
+      bubble.className = 'ui-help-bubble';
+      bubble.textContent = text;
+      wrap.appendChild(dot);
+      wrap.appendChild(bubble);
+      return wrap;
+    }
+
+    function wrapControlWithHelp(control, text) {
+      var row = document.createElement('div');
+      row.setAttribute('style', 'display:flex;align-items:stretch;gap:8px;margin-bottom:6px');
+      control.style.flex = '1';
+      control.style.marginBottom = '0';
+      var help = makeHelpIcon(text);
+      help.setAttribute('style', 'flex-shrink:0;display:flex;align-items:center');
+      row.appendChild(control);
+      row.appendChild(help);
+      return row;
+    }
+
     // Button helper
     function makeBtn(text, size, borderColor, clickFn) {
       var btn = document.createElement('button');
@@ -9567,7 +9714,7 @@ function showBackupModal() {
     }
 
     // EXPORT
-    box.appendChild(sectionLabel('ЭКСПОРТ ДЛЯ GITHUB'));
+    box.appendChild(sectionLabel('ДЛЯ ВСЕХ УСТРОЙСТВ (GITHUB PAGES)'));
     var exportGit = document.createElement('div');
     exportGit.setAttribute('style', 'margin-bottom:14px');
     var dataVersionLabel = '';
@@ -9575,31 +9722,38 @@ function showBackupModal() {
       var v = localStorage.getItem('zg_data_version');
       dataVersionLabel = v ? ('v: ' + v.slice(0, 10)) : 'новый';
     } catch(e) { dataVersionLabel = '-'; }
-    exportGit.appendChild(makeBtn('data.json + manifest.json (ZIP)', dataVersionLabel, '#e8c06088', function() {
+    var gitBtn = makeBtn('data.json + manifest.json (ZIP)', dataVersionLabel, '#e8c06088', function() {
       try { zgExportDataJson(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    }));
+    });
+    gitBtn.title = 'Тот же экспорт, что и в окне «Опубликовать». Используй его для обновления GitHub Pages.';
+    exportGit.appendChild(wrapControlWithHelp(gitBtn, 'Синхронизация между ПК и телефоном через GitHub Pages. Этот архив и нужен для переноса мира в репозиторий.'));
     var hint = document.createElement('div');
     hint.setAttribute('style', 'font-size:10px;color:#6a5030;margin-top:-4px;margin-bottom:6px;padding:0 4px;line-height:1.5');
     hint.textContent = 'Скачает архив с мировыми данными для заливки в Git-репо. Картинки уже лежат в /images/ — они не экспортируются.';
     exportGit.appendChild(hint);
     box.appendChild(exportGit);
 
-    box.appendChild(sectionLabel('ЛОКАЛЬНЫЙ БЭКАП'));
+    box.appendChild(sectionLabel('ЛОКАЛЬНАЯ СТРАХОВКА'));
     var exportDiv = document.createElement('div');
     exportDiv.setAttribute('style', 'margin-bottom:14px');
 
     var fullBtn = makeBtn('Полный бекап (текст + медиа)', '~350 MB', '#6fcb8366', function() {
       try { exportMasterBackup(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
     });
+    fullBtn.title = 'Большой архив на случай поломки: текст, карта, бестиарий и медиа вместе';
     fullBtn.id = 'zgbk-full';
-    exportDiv.appendChild(fullBtn);
+    exportDiv.appendChild(wrapControlWithHelp(fullBtn, 'Большой аварийный архив: текст и медиа вместе. Нужен, если хочешь сохранить весь мир локально одной тяжёлой копией.'));
 
-    exportDiv.appendChild(makeBtn('Только текст (без медиа)', '~'+fmtKb(textKb), '#8fa2c966', function() {
+    var textBtn = makeBtn('Только текст (без медиа)', '~'+fmtKb(textKb), '#8fa2c966', function() {
       try { exportMasterBackupTextOnly(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    }));
-    exportDiv.appendChild(makeBtn('Медиапак (картинки)', 'varies', '#c4a84b66', function() {
+    });
+    textBtn.title = 'Быстрый архив со всеми текстами и структурой мира, без тяжёлых картинок';
+    exportDiv.appendChild(wrapControlWithHelp(textBtn, 'Лёгкая страховка без картинок. Удобно, если важны тексты, структуры и записи, а не медиа.'));
+    var mediaBtn = makeBtn('Медиапак (картинки)', 'legacy', '#c4a84b66', function() {
       try { exportMediaPack(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    }));
+    });
+    mediaBtn.title = 'Служебный режим для переноса только картинок. В обычной схеме GitHub Pages чаще всего не нужен';
+    exportDiv.appendChild(wrapControlWithHelp(mediaBtn, 'Старый служебный режим только для картинок. В основной схеме GitHub Pages обычно не нужен.'));
     box.appendChild(exportDiv);
 
     // IMPORT
@@ -9607,17 +9761,21 @@ function showBackupModal() {
     var importDiv = document.createElement('div');
     importDiv.id = 'zgbk-import-section';
 
-    importDiv.appendChild(makeFileLbl('Открыть бекап (.json)', 'Стриминг', '#6fcb8366', function(file) {
+    var importBackupLbl = makeFileLbl('Открыть бекап (.json)', 'Стриминг', '#6fcb8366', function(file) {
       if (!file) return;
       try { zgImportFile(file); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    }));
-    importDiv.appendChild(makeFileLbl('Открыть медиапак', 'Медиа', '#c4a84b44', function(file) {
+    });
+    importBackupLbl.title = 'Восстанавливает текстовые и системные данные локально на этом устройстве';
+    importDiv.appendChild(wrapControlWithHelp(importBackupLbl, 'Восстанавливает локальные данные на этом устройстве из .json-бэкапа. GitHub и другие устройства не меняет.'));
+    var importMediaLbl = makeFileLbl('Открыть медиапак', 'Медиа', '#c4a84b44', function(file) {
       if (!file) return;
       try {
         var ev = { target: { files: [file], value: '' } };
         importMediaPack(ev);
       } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    }));
+    });
+    importMediaLbl.title = 'Догружает только картинки в локальный мир';
+    importDiv.appendChild(wrapControlWithHelp(importMediaLbl, 'Догружает только картинки локально. Полезно для ручного ремонта медиа, а не для обычной публикации.'));
     box.appendChild(importDiv);
 
     // Progress area
@@ -9641,27 +9799,6 @@ function showBackupModal() {
     showToast('Ошибка окна: '+(err && err.message ? err.message : String(err)));
   }
 }
-
-function zgBackupFull() {
-  document.getElementById('zgbk-full').textContent = '⏳ Собираю...';
-  setTimeout(function() {
-    try { exportMasterBackup(); } catch(e) { showToast('⚠ ' + e.message); }
-    setTimeout(function() {
-      var b = document.getElementById('zgbk-full');
-      if (b) b.innerHTML = '<span>💾 Полный бэкап (текст + медиа)</span><span style="font-size:10px;color:#888">~350 МБ</span>';
-    }, 2000);
-  }, 100);
-}
-
-function zgBackupText() {
-  try { exportMasterBackupTextOnly(); } catch(e) { showToast('⚠ ' + e.message); }
-}
-
-function zgBackupMedia() {
-  try { exportMediaPack(); } catch(e) { showToast('⚠ ' + e.message); }
-}
-
-// ── Smart import with progress UI ──
 
 function zgStreamParseFile(file, opts) {
   var onSection  = opts.onSection  || function(){};
@@ -19870,7 +20007,10 @@ var htreeViewportState = {
   startX: 0,
   startY: 0,
   startScrollLeft: 0,
-  startScrollTop: 0
+  startScrollTop: 0,
+  pinchActive: false,
+  pinchStartDistance: 0,
+  pinchStartZoom: 1
 };
 function loadHtreeData() {
   try { var r = localStorage.getItem(HTREE_STORAGE); if (r) htreeData = JSON.parse(r) || {}; } catch(e) { htreeData = {}; }
@@ -19911,6 +20051,8 @@ function closeHierarchyTree() {
   htreeViewportState.dragActive = false;
   htreeViewportState.dragMoved = false;
   htreeViewportState.pointerId = null;
+  htreeViewportState.pinchActive = false;
+  htreeViewportState.pinchStartDistance = 0;
 }
 function toggleHtreeEdit() {
   var ov = document.getElementById('htree-overlay');
@@ -19926,6 +20068,12 @@ function toggleHtreeEdit() {
   }
   renderHierarchyTree(eid);
 }
+function getHtreeTouchDistance(t1, t2) {
+  var dx = (t2.clientX || 0) - (t1.clientX || 0);
+  var dy = (t2.clientY || 0) - (t1.clientY || 0);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
 function renderHierarchyTree(entryId) {
   var vp = document.getElementById('htree-viewport');
   if (!vp) return;
@@ -19953,7 +20101,7 @@ function renderHierarchyTree(entryId) {
   var html =
     '<div class="htree-hud">' +
       '<span class="htree-hud-zoom" id="htree-zoom-label">' + Math.round(zoom * 100) + '%</span>' +
-      '<span class="htree-hud-hint">drag: фон • zoom: колесо</span>' +
+      '<span class="htree-hud-hint">drag: фон • zoom: колесо / pinch</span>' +
     '</div>' +
     '<div class="htree-content" id="htree-content">';
   roots.forEach(function(root) { html += renderHtreeNodeRecursive(entryId, root, nodes, editing, 0); });
@@ -20029,6 +20177,48 @@ function initHtreeViewport(entryId) {
     saveHtreeData();
     drawHtreeLines();
   }, { passive: false });
+  vp.addEventListener('touchstart', function(e) {
+    if (!e.touches || e.touches.length !== 2) return;
+    var ov = document.getElementById('htree-overlay');
+    if (!ov || !ov.dataset.entryId) return;
+    htreeViewportState.pinchActive = true;
+    htreeViewportState.pinchStartDistance = getHtreeTouchDistance(e.touches[0], e.touches[1]);
+    htreeViewportState.pinchStartZoom = Math.max(0.45, Math.min(2.4, parseFloat(getHtree(ov.dataset.entryId).zoom) || 1));
+    htreeViewportState.dragActive = false;
+  }, { passive: true });
+  vp.addEventListener('touchmove', function(e) {
+    if (!htreeViewportState.pinchActive || !e.touches || e.touches.length !== 2) return;
+    var ov = document.getElementById('htree-overlay');
+    var content = document.getElementById('htree-content');
+    if (!ov || !ov.dataset.entryId || !content) return;
+    var eid = ov.dataset.entryId;
+    var tree = getHtree(eid);
+    var distance = getHtreeTouchDistance(e.touches[0], e.touches[1]);
+    if (!distance || !htreeViewportState.pinchStartDistance) return;
+    e.preventDefault();
+    var rect = vp.getBoundingClientRect();
+    var centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    var centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    var oldZoom = Math.max(0.45, Math.min(2.4, parseFloat(tree.zoom) || 1));
+    var newZoom = Math.max(0.45, Math.min(2.4, htreeViewportState.pinchStartZoom * (distance / htreeViewportState.pinchStartDistance)));
+    if (Math.abs(newZoom - oldZoom) < 0.001) return;
+    var offsetX = centerX - rect.left + vp.scrollLeft;
+    var offsetY = centerY - rect.top + vp.scrollTop;
+    var worldX = offsetX / oldZoom;
+    var worldY = offsetY / oldZoom;
+    tree.zoom = newZoom;
+    applyHtreeZoom(eid);
+    vp.scrollLeft = Math.max(0, worldX * newZoom - (centerX - rect.left));
+    vp.scrollTop = Math.max(0, worldY * newZoom - (centerY - rect.top));
+    saveHtreeData();
+    drawHtreeLines();
+  }, { passive: false });
+  vp.addEventListener('touchend', function(e) {
+    if (!e.touches || e.touches.length < 2) htreeViewportState.pinchActive = false;
+  }, { passive: true });
+  vp.addEventListener('touchcancel', function() {
+    htreeViewportState.pinchActive = false;
+  }, { passive: true });
 }
 function applyHtreeZoom(entryId) {
   var vp = document.getElementById('htree-viewport');
