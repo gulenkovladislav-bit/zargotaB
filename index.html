@@ -4343,6 +4343,47 @@
     position: relative;
   }
   .htree-node { display: flex; flex-direction: column; align-items: center; }
+  .ui-collapse-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: #a88a5b;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ui-collapse-link:hover { color: #d4a04a; }
+  .ui-warning-card {
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid #6a4a22;
+    background: linear-gradient(180deg, rgba(60,34,10,.45), rgba(24,14,8,.85));
+    color: #d8bc8d;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  .ui-warning-card.is-danger {
+    border-color: #8f4b4b;
+    background: linear-gradient(180deg, rgba(70,22,22,.42), rgba(24,10,10,.88));
+    color: #e0b0b0;
+  }
+  .ui-checkline {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 11px;
+    color: #e0ccaa;
+    line-height: 1.45;
+  }
+  .ui-checkline input {
+    margin-top: 2px;
+    accent-color: #d4a04a;
+  }
   .ui-help-wrap {
     position: relative;
     display: inline-flex;
@@ -9410,6 +9451,48 @@ window.showPublishModal = function() {
       '<div id="zg-publish-imgcount" style="display:flex;justify-content:space-between;font-size:12px;color:#e0ccaa;padding:2px 0;border-top:1px solid #2a1e10;margin-top:6px;padding-top:6px"><span>Новых картинок для публикации</span><span style="color:#888">считаю...</span></div>';
     box.appendChild(info);
 
+    var currentSnapshotStats = {
+      catalog: stats.catalog,
+      beasts: stats.beasts,
+      beastPortraits: (Array.isArray(window.beasts) ? window.beasts : []).filter(function(b){ return b && (b.portrait || b.image); }).length,
+      characters: stats.characters,
+      encyclopedia: stats.encyclopedia,
+      armory: stats.armory,
+      atlas: stats.atlas
+    };
+    var exportRisk = buildExportRiskReport(currentSnapshotStats);
+
+    function statCompareRow(label, current, previous) {
+      var bad = previous > 0 && current < previous;
+      var tone = bad ? '#d8a0a0' : '#6fcb83';
+      return '<div style="display:flex;justify-content:space-between;gap:12px;font-size:11px;padding:2px 0;color:#e0ccaa"><span>' + label + '</span><span style="color:' + tone + ';text-align:right">' + current + ' / ' + previous + '</span></div>';
+    }
+
+    if (exportRisk && exportRisk.prev) {
+      var compare = document.createElement('div');
+      compare.setAttribute('style', 'background:#080604;border:1px solid #2a1e10;border-radius:8px;padding:12px 14px;margin:-4px 0 14px');
+      compare.innerHTML =
+        '<div style="font-size:10px;color:#6a5030;letter-spacing:1px;margin-bottom:8px">СРАВНЕНИЕ С ПОСЛЕДНЕЙ ЖИВОЙ ПУБЛИКАЦИЕЙ</div>' +
+        statCompareRow('Портреты бестиария', currentSnapshotStats.beastPortraits, exportRisk.prev.beastPortraits) +
+        statCompareRow('Персонажи', currentSnapshotStats.characters, exportRisk.prev.characters) +
+        statCompareRow('Статьи энциклопедии', currentSnapshotStats.encyclopedia, exportRisk.prev.encyclopedia) +
+        statCompareRow('Оружейная', currentSnapshotStats.armory, exportRisk.prev.armory) +
+        statCompareRow('Каталог', currentSnapshotStats.catalog, exportRisk.prev.catalog);
+      box.appendChild(compare);
+    }
+
+    if (exportRisk && exportRisk.issues.length) {
+      var warn = document.createElement('div');
+      warn.className = 'ui-warning-card' + (exportRisk.danger ? ' is-danger' : '');
+      warn.innerHTML = '<div style="font-family:Cinzel,serif;color:' + (exportRisk.danger ? '#e0b0b0' : '#d8bc8d') + ';margin-bottom:6px">Проверка перед экспортом</div>' +
+        '<div>Текущий мир выглядит беднее последней живой опубликованной версии. Это может быть нормальная чистка, а может быть случайная потеря данных.</div>' +
+        '<div style="margin-top:6px">• ' + exportRisk.issues.map(function(line){ return line.split('|')[1]; }).join('<br>• ') + '</div>';
+      if (exportRisk.danger) {
+        warn.innerHTML += '<label class="ui-checkline"><input type="checkbox" id="zg-export-risk-confirm"><span>Я понимаю риск и всё равно хочу собрать новый ZIP из текущего состояния.</span></label>';
+      }
+      box.appendChild(warn);
+    }
+
     // Load image count asynchronously
     if (window.zgImageStore) {
       window.zgImageStore.listAll(function(items) {
@@ -9469,6 +9552,46 @@ window.showPublishModal = function() {
       return row;
     }
 
+    function buildSnapshotStats(snapshot) {
+      snapshot = snapshot || {};
+      return {
+        catalog: ((snapshot.catalog || {}).entries || []).length,
+        beasts: (snapshot.beasts || []).length,
+        beastPortraits: (snapshot.beasts || []).filter(function(b){ return b && (b.portrait || b.image); }).length,
+        characters: (snapshot.characters || []).length,
+        encyclopedia: ((snapshot.encyclopedia || {}).entries || []).length,
+        armory: (snapshot.armoryItems || snapshot.armory || []).length,
+        atlas: ((snapshot.atlas || {}).objects || []).length
+      };
+    }
+
+    function buildExportRiskReport(currentStats) {
+      var snapshot = null;
+      try { if (window.zgReadPublishedWorldSnapshot) snapshot = window.zgReadPublishedWorldSnapshot(); } catch(e) {}
+      if (!snapshot) return null;
+      var prev = buildSnapshotStats(snapshot);
+      var issues = [];
+      function checkDrop(label, current, previous, hard) {
+        if (!(previous > 0)) return;
+        if (current <= 0) { issues.push((hard ? 'critical' : 'warn') + '|' + label + ': было ' + previous + ', сейчас 0'); return; }
+        if (current < previous) {
+          var ratio = current / previous;
+          if (ratio <= 0.5 || (hard && ratio < 0.8)) issues.push((hard ? 'critical' : 'warn') + '|' + label + ': было ' + previous + ', сейчас ' + current);
+        }
+      }
+      checkDrop('Портреты бестиария', currentStats.beastPortraits, prev.beastPortraits, true);
+      checkDrop('Статьи энциклопедии', currentStats.encyclopedia, prev.encyclopedia, true);
+      checkDrop('Персонажи', currentStats.characters, prev.characters, true);
+      checkDrop('Оружейная', currentStats.armory, prev.armory, false);
+      checkDrop('Каталог', currentStats.catalog, prev.catalog, false);
+      if (!issues.length) return { prev: prev, issues: [], danger: false };
+      return {
+        prev: prev,
+        issues: issues,
+        danger: issues.some(function(line){ return line.indexOf('critical|') === 0; })
+      };
+    }
+
     // Steps
     box.appendChild(makeStep(1, 'Скачать ZIP с данными', 'Нажми кнопку ниже — в Downloads появится архив.'));
 
@@ -9495,6 +9618,17 @@ window.showPublishModal = function() {
 
     dlBtn.addEventListener('click', function() {
       if (dlBtn.disabled) return;
+      if (exportRisk && exportRisk.danger) {
+        var riskCheck = document.getElementById('zg-export-risk-confirm');
+        if (!riskCheck || !riskCheck.checked) {
+          if (typeof showToast === 'function') showToast('⚠ Подтверди риск в блоке проверки перед экспортом');
+          else alert('Подтверди риск перед экспортом');
+          return;
+        }
+      } else if (exportRisk && exportRisk.issues && exportRisk.issues.length) {
+        var message = 'Экспорт выглядит подозрительно.\n\n' + exportRisk.issues.map(function(line){ return '• ' + line.split('|')[1]; }).join('\n') + '\n\nПродолжить всё равно?';
+        if (!confirm(message)) return;
+      }
       dlBtn.disabled = true;
       dlBtn.style.cursor = 'wait';
       dlBtn.style.opacity = '0.7';
@@ -9568,8 +9702,6 @@ window.showPublishModal = function() {
         rawBtn.textContent = '⚠ Ошибка снимка';
       }
     });
-    box.appendChild(wrapControlWithHelp(rawBtn, 'Диагностический снимок текущего мира. Нужен, чтобы проверить состав данных прямо сейчас. Сам по себе ничего не публикует.'));
-
     var resetBtn = document.createElement('button');
     resetBtn.setAttribute('style', 'width:100%;padding:10px;background:#140a0a;border:1px solid #c8787855;border-radius:8px;color:#d8a0a0;font-size:12px;cursor:pointer;margin:0 0 14px;font-family:inherit;transition:all .2s');
     resetBtn.textContent = '♻ Сбросить кеш мира на этом устройстве';
@@ -9577,27 +9709,33 @@ window.showPublishModal = function() {
     resetBtn.addEventListener('click', function() {
       window.zgResetSyncedWorldCache();
     });
-    box.appendChild(wrapControlWithHelp(resetBtn, 'Локальный ремонт только для этого устройства. Сбрасывает кеш мира и заставляет заново скачать данные с GitHub Pages.'));
-
     // Other steps
-    box.appendChild(makeStep(2, 'Открыть папку репо', 
-      'В GitHub Desktop → <b style="color:#c4a84b">Repository → Show in Finder</b> (или Ctrl+Shift+F). Откроется локальная папка zargota.'));
+    box.appendChild(makeStep(2, 'Положить файлы в папку репо', 
+      'Открой папку репозитория в GitHub Desktop и замени там <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">data.json</code>, <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">manifest.json</code> и при необходимости <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">images/</code>.'));
 
-    box.appendChild(makeStep(3, 'Распаковать ZIP', 
-      'Распакуй архив и перетащи <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">data.json</code>, <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">manifest.json</code> и папку <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">images/</code> в папку репо. Согласись на замену если спросит.'));
+    box.appendChild(makeStep(3, 'Commit + Push', 
+      'Закоммить изменённые файлы и нажми Push origin. Обычно через 30–90 секунд мир обновится на других устройствах.'));
 
-    box.appendChild(makeStep(4, 'Картинки уже внутри', 
-      'Новые портреты существ и персонажей автоматически попадают в ZIP в папку <code style="background:#1a1208;padding:1px 5px;border-radius:3px;color:#e8c060;font-family:monospace">images/</code>. Ничего вручную добавлять не нужно.'));
-
-    box.appendChild(makeStep(5, 'Commit + Push', 
-      'В GitHub Desktop слева увидишь изменённые файлы → Summary: <i style="color:#c0a078">"Update world data"</i> → <b style="color:#6fcb83">Commit to main</b> → <b style="color:#6fcb83">Push origin</b>. Через 30 сек обновление прилетит на все устройства.'));
-
-    // Open GitHub Desktop button
-    var openBtn = document.createElement('a');
-    openBtn.href = 'x-github-client://openRepo/https://github.com/gulenkovladislav-bit/zargota';
-    openBtn.setAttribute('style', 'display:block;width:100%;padding:10px;background:linear-gradient(135deg,#1a1208,#120c08);border:1px solid #c4a84b66;border-radius:8px;color:#c4a84b;font-size:12px;cursor:pointer;margin-top:8px;text-decoration:none;text-align:center;box-sizing:border-box');
-    openBtn.textContent = '🚀 Открыть GitHub Desktop';
-    box.appendChild(openBtn);
+    var diagToggle = document.createElement('button');
+    diagToggle.className = 'ui-collapse-link';
+    diagToggle.type = 'button';
+    diagToggle.innerHTML = '▸ Диагностика и ремонт';
+    var diagTitle = document.createElement('div');
+    diagTitle.setAttribute('style','font-size:10px;color:#8f7655;margin:8px 0 8px');
+    diagTitle.textContent = 'Редко нужно. Только если проверяешь состав мира или чинишь зависшее устройство.';
+    var diagPanel = document.createElement('div');
+    diagPanel.style.display = 'none';
+    diagPanel.style.margin = '6px 0 10px';
+    diagToggle.addEventListener('click', function() {
+      var open = diagPanel.style.display !== 'none';
+      diagPanel.style.display = open ? 'none' : 'block';
+      diagToggle.innerHTML = (open ? '▸' : '▾') + ' Диагностика и ремонт';
+    });
+    box.appendChild(diagToggle);
+    box.appendChild(diagTitle);
+    diagPanel.appendChild(wrapControlWithHelp(rawBtn, 'Диагностический снимок текущего мира. Нужен, чтобы проверить состав данных прямо сейчас. Сам по себе ничего не публикует.'));
+    diagPanel.appendChild(wrapControlWithHelp(resetBtn, 'Локальный ремонт только для этого устройства. Сбрасывает кеш мира и заставляет заново скачать данные с GitHub Pages.'));
+    box.appendChild(diagPanel);
 
     ov.appendChild(box);
     document.body.appendChild(ov);
@@ -9675,8 +9813,19 @@ function showBackupModal() {
 
     var backupIntro = document.createElement('div');
     backupIntro.setAttribute('style', 'font-size:11px;color:#8f7655;line-height:1.6;margin-bottom:12px');
-    backupIntro.textContent = 'Публикация в GitHub нужна для синхронизации между устройствами. Бэкап — это личная страховка и восстановление, если что-то сломалось локально.';
+    backupIntro.textContent = 'Это окно только для локальной страховки и восстановления. Для синхронизации между устройствами используй отдельное окно «Опубликовать в GitHub». ';
     box.appendChild(backupIntro);
+
+    var publishJump = document.createElement('button');
+    publishJump.className = 'ui-collapse-link';
+    publishJump.type = 'button';
+    publishJump.style.margin = '0 0 14px';
+    publishJump.innerHTML = '↗ Открыть публикацию для GitHub';
+    publishJump.addEventListener('click', function() {
+      ov.remove();
+      try { if (window.showPublishModal) window.showPublishModal(); } catch(e) {}
+    });
+    box.appendChild(publishJump);
 
     // Data table
     var tbl = document.createElement('div');
@@ -9783,26 +9932,7 @@ function showBackupModal() {
     }
 
     // EXPORT
-    box.appendChild(sectionLabel('ДЛЯ ВСЕХ УСТРОЙСТВ (GITHUB PAGES)'));
-    var exportGit = document.createElement('div');
-    exportGit.setAttribute('style', 'margin-bottom:14px');
-    var dataVersionLabel = '';
-    try {
-      var v = localStorage.getItem('zg_data_version');
-      dataVersionLabel = v ? ('v: ' + v.slice(0, 10)) : 'новый';
-    } catch(e) { dataVersionLabel = '-'; }
-    var gitBtn = makeBtn('data.json + manifest.json (ZIP)', dataVersionLabel, '#e8c06088', function() {
-      try { zgExportDataJson(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    });
-    gitBtn.title = 'Тот же экспорт, что и в окне «Опубликовать». Используй его для обновления GitHub Pages.';
-    exportGit.appendChild(wrapControlWithHelp(gitBtn, 'Синхронизация между ПК и телефоном через GitHub Pages. Этот архив и нужен для переноса мира в репозиторий.'));
-    var hint = document.createElement('div');
-    hint.setAttribute('style', 'font-size:10px;color:#6a5030;margin-top:-4px;margin-bottom:6px;padding:0 4px;line-height:1.5');
-    hint.textContent = 'Скачает архив с мировыми данными для заливки в Git-репо. Картинки уже лежат в /images/ — они не экспортируются.';
-    exportGit.appendChild(hint);
-    box.appendChild(exportGit);
-
-    box.appendChild(sectionLabel('ЛОКАЛЬНАЯ СТРАХОВКА'));
+    box.appendChild(sectionLabel('3 ОСНОВНЫХ ДЕЙСТВИЯ'));
     var exportDiv = document.createElement('div');
     exportDiv.setAttribute('style', 'margin-bottom:14px');
 
@@ -9811,31 +9941,47 @@ function showBackupModal() {
     });
     fullBtn.title = 'Большой архив на случай поломки: текст, карта, бестиарий и медиа вместе';
     fullBtn.id = 'zgbk-full';
-    exportDiv.appendChild(wrapControlWithHelp(fullBtn, 'Большой аварийный архив: текст и медиа вместе. Нужен, если хочешь сохранить весь мир локально одной тяжёлой копией.'));
+    exportDiv.appendChild(wrapControlWithHelp(fullBtn, 'Главная тяжёлая страховка. Сохраняет почти всё локально одной копией. Хорошо подходит перед крупными правками.'));
 
-    var textBtn = makeBtn('Только текст (без медиа)', '~'+fmtKb(textKb), '#8fa2c966', function() {
+    var textBtn = makeBtn('Текстовый бекап (без медиа)', '~'+fmtKb(textKb), '#8fa2c966', function() {
       try { exportMasterBackupTextOnly(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
     });
     textBtn.title = 'Быстрый архив со всеми текстами и структурой мира, без тяжёлых картинок';
-    exportDiv.appendChild(wrapControlWithHelp(textBtn, 'Лёгкая страховка без картинок. Удобно, если важны тексты, структуры и записи, а не медиа.'));
-    var mediaBtn = makeBtn('Медиапак (картинки)', 'legacy', '#c4a84b66', function() {
-      try { exportMediaPack(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
-    });
-    mediaBtn.title = 'Служебный режим для переноса только картинок. В обычной схеме GitHub Pages чаще всего не нужен';
-    exportDiv.appendChild(wrapControlWithHelp(mediaBtn, 'Старый служебный режим только для картинок. В основной схеме GitHub Pages обычно не нужен.'));
-    box.appendChild(exportDiv);
+    exportDiv.appendChild(wrapControlWithHelp(textBtn, 'Лёгкая страховка без картинок. Подходит, когда важно сохранить лор, персонажей, заметки и системы, но не медиа.'));
 
-    // IMPORT
-    box.appendChild(sectionLabel('ВОССТАНОВИТЬ'));
     var importDiv = document.createElement('div');
     importDiv.id = 'zgbk-import-section';
-
-    var importBackupLbl = makeFileLbl('Открыть бекап (.json)', 'Стриминг', '#6fcb8366', function(file) {
+    var importBackupLbl = makeFileLbl('Восстановить из бекапа (.json)', 'Стриминг', '#6fcb8366', function(file) {
       if (!file) return;
       try { zgImportFile(file); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
     });
     importBackupLbl.title = 'Восстанавливает текстовые и системные данные локально на этом устройстве';
-    importDiv.appendChild(wrapControlWithHelp(importBackupLbl, 'Восстанавливает локальные данные на этом устройстве из .json-бэкапа. GitHub и другие устройства не меняет.'));
+    importDiv.appendChild(wrapControlWithHelp(importBackupLbl, 'Возвращает данные на это устройство из сохранённого бекапа. Не публикует их на GitHub и не меняет другие устройства.'));
+
+    box.appendChild(exportDiv);
+    box.appendChild(importDiv);
+
+    var legacyToggle = document.createElement('button');
+    var legacyIntro = document.createElement('div');
+    legacyIntro.setAttribute('style', 'font-size:10px;color:#6a5030;line-height:1.5;margin:2px 0 8px');
+    legacyIntro.textContent = 'Остальные инструменты нужны редко: в основном для ручного ремонта старых медиасценариев.';
+    box.appendChild(legacyIntro);
+
+    legacyToggle.className = 'ui-collapse-link';
+    legacyToggle.type = 'button';
+    legacyToggle.innerHTML = '▸ Служебные / legacy инструменты';
+    var legacyPanel = document.createElement('div');
+    legacyPanel.style.display = 'none';
+    legacyPanel.style.margin = '8px 0 10px';
+    legacyToggle.addEventListener('click', function() {
+      var open = legacyPanel.style.display !== 'none';
+      legacyPanel.style.display = open ? 'none' : 'block';
+      legacyToggle.innerHTML = (open ? '▸' : '▾') + ' Служебные / legacy инструменты';
+    });
+    var mediaBtn = makeBtn('Медиапак (картинки)', 'legacy', '#c4a84b66', function() {
+      try { exportMediaPack(); } catch(e) { showToast('Ошибка: '+(e.message||e)); }
+    });
+    mediaBtn.title = 'Служебный режим для переноса только картинок. В обычной схеме GitHub Pages чаще всего не нужен';
     var importMediaLbl = makeFileLbl('Открыть медиапак', 'Медиа', '#c4a84b44', function(file) {
       if (!file) return;
       try {
@@ -9844,8 +9990,10 @@ function showBackupModal() {
       } catch(e) { showToast('Ошибка: '+(e.message||e)); }
     });
     importMediaLbl.title = 'Догружает только картинки в локальный мир';
-    importDiv.appendChild(wrapControlWithHelp(importMediaLbl, 'Догружает только картинки локально. Полезно для ручного ремонта медиа, а не для обычной публикации.'));
-    box.appendChild(importDiv);
+    legacyPanel.appendChild(wrapControlWithHelp(mediaBtn, 'Старый служебный режим только для картинок. В основной схеме GitHub Pages обычно не нужен.'));
+    legacyPanel.appendChild(wrapControlWithHelp(importMediaLbl, 'Догружает только картинки локально. Полезно для ручного ремонта медиа, а не для обычной публикации.'));
+    box.appendChild(legacyToggle);
+    box.appendChild(legacyPanel);
 
     // Progress area
     var progDiv = document.createElement('div');
@@ -10453,19 +10601,8 @@ window.zgImageStore = (function() {
   <div id="nav">
     <button class="btn btn-nav" id="board-return-btn" onclick="wbReturnToBoard()" style="display:none"><span class="btn-label">↩ К доске</span></button>
     <button class="btn btn-nav" id="publish-btn" onclick="(window.showPublishModal||function(){alert('Модуль публикации не загружен')})()" title="Экспорт мира для GitHub" style="padding:0 12px;gap:4px;border-color:#c4a84b44"><span class="btn-label">📤 Опубликовать</span></button>
-    <div style="position:relative;display:inline-block">
-      <button class="btn btn-nav" onclick="(window.showBackupModal||toggleBackupMenu)()" id="backup-menu-btn" title="Бэкап и медиа" style="padding:0 12px;gap:4px"><span class="btn-label">💾 Бэкап ▾</span></button>
-      <div id="backup-menu" style="display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:9999;background:#120c08;border:1px solid #3a2918;border-radius:8px;padding:4px 0;min-width:240px;box-shadow:0 8px 32px #000a">
-        <button onclick="(window.showBackupModal||window.showBackupPreview)();toggleBackupMenu()" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--text);font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background='#ffffff08'" onmouseout="this.style.background='transparent'">💾 Бэкап / Восстановление</button>
-        <div style="height:1px;background:#2a1e10;margin:3px 0"></div>
-        <button onclick="document.getElementById('media-pack-import').click();toggleBackupMenu()" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background='#ffffff08'" onmouseout="this.style.background='transparent'">🖼 Импорт медиапак</button>
-        <div style="height:1px;background:#2a1e10;margin:3px 0"></div>
-        <button onclick="document.getElementById('atlas-only-import').click();toggleBackupMenu()" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 14px;background:transparent;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.background='#ffffff08'" onmouseout="this.style.background='transparent'" title="Подтягивает обозначения на карте (зоны, маркеры, маршруты) из любого master-бэкапа, не трогая остальные данные">🗺 Импорт только атласа</button>
-      </div>
-    </div>
-    <input type="file" id="master-backup-import" accept=".json" style="display:none" onchange="importMasterBackup(event)">
-    <input type="file" id="media-pack-import" accept=".json" style="display:none" onchange="importMediaPack(event)">
-    <input type="file" id="atlas-only-import" accept=".json" style="display:none" onchange="importAtlasOnly(event)">
+    <button class="btn btn-nav" onclick="(window.showBackupModal||function(){alert('Модуль бэкапа не загружен')})()" id="backup-menu-btn" title="Локальный бэкап и восстановление" style="padding:0 12px;gap:4px"><span class="btn-label">💾 Бэкап</span></button>
+
     <!-- Контекстный nav — показывается в зависимости от страницы -->
     <div id="nav-ctx-catalog" style="display:none;gap:7px;align-items:center" class="nav-ctx">
       <button class="btn btn-nav" id="nav-form" onclick="openNewForm()"><span class="btn-label">＋ Создать</span></button>
@@ -22388,8 +22525,8 @@ function _showBackupPreviewModal(idbSizes) {
   restoreBtn.style.cssText = 'width:100%;padding:9px 14px;background:transparent;border:1px solid #2a1e10;border-radius:8px;color:#666;font-size:11px;cursor:pointer;margin-top:4px';
   restoreBtn.textContent = '📂 Восстановить из бэкапа';
   restoreBtn.onclick = function() {
-    document.getElementById('master-backup-import').click();
     document.getElementById('bp-ov').remove();
+    try { if (window.showBackupModal) window.showBackupModal(); } catch(e) {}
   };
 
   box.appendChild(head);
@@ -22400,23 +22537,6 @@ function _showBackupPreviewModal(idbSizes) {
   document.body.appendChild(ov);
 }
 
-
-function toggleBackupMenu() {
-  var m = document.getElementById('backup-menu');
-  if (!m) return;
-  var open = m.style.display !== 'none';
-  m.style.display = open ? 'none' : 'block';
-  if (!open) {
-    var close = function(e) {
-      var btn = document.getElementById('backup-menu-btn');
-      if (!m.contains(e.target) && e.target !== btn) {
-        m.style.display = 'none';
-        document.removeEventListener('mousedown', close);
-      }
-    };
-    setTimeout(function() { document.addEventListener('mousedown', close); }, 10);
-  }
-}
 
 
 // ─────────────────────────────────────────────────────────────
