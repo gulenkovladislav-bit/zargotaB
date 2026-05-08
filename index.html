@@ -8346,14 +8346,15 @@
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-04-30.4';
+var ZG_APP_VERSION = '2026-05-08.1';
 var ZG_APP_CHANGELOG = [
-  { v: '2026-04-30.4', notes: 'Версия в шапке · упрощено меню Бэкап · версия данных в Бэкапе' },
-  { v: '2026-04-30.3', notes: 'Тесты: 93 проверки. Фикс Infinity → 11 в clamp уровня' },
-  { v: '2026-04-30.2', notes: 'Диагностика хранилища (read-only). Дамп для отправки разработчику' },
-  { v: '2026-04-30.1', notes: 'Анимация бросков ж/с · искры от точки клика для славы · pulse-glow листа' },
-  { v: '2026-04-29',   notes: 'Лвл-менеджер попап · кнопки ↑/↓ · спендер очков по характеристикам' },
-  { v: '2026-04-28',   notes: 'Прокачка по мануалу: 7 рас, авто-HP, расовые бонусы 3/6/9, потолок 11 (Абсолют)' }
+  { v: '2026-05-08.1', notes: 'КРИТИЧНЫЙ ФИКС: урон/статусы заклинаний идут через engine().applyDamage и engine().applyStatus — теперь действительно меняют HP и сохраняются в localStorage. Убран кривой saveState с одиночным battle.' },
+  { v: '2026-05-07.3', notes: 'Карточки заклинаний используют тот же cardHTML что и в каталоге' },
+  { v: '2026-05-07.2', notes: 'Арена: подробные логи · карточки заклинаний · отдельный сейв на статус после атаки' },
+  { v: '2026-05-07.1', notes: 'Подключение Арены: фильтр _notForArena, чипы cooldown/concentration/AoE/healFormula' },
+  { v: '2026-05-06.1', notes: 'Боевая готовность каталога: сводка в импорте патча + детальный список' },
+  { v: '2026-05-05.4', notes: 'Импортер патчей: нормализация имён игнорирует эмодзи и пунктуацию' },
+  { v: '2026-05-05.3', notes: 'Импорт патчей: матчинг по имени (если ID не совпал)' }
 ];
 
 function zgShowVersionInfo() {
@@ -10635,6 +10636,28 @@ function showBackupModal() {
       if (typeof window.openZgTestPanel === 'function') window.openZgTestPanel();
     });
     box.appendChild(testBtn);
+
+    // Аудит парсера заклинаний — показывает сколько распознано и сколько требует ручной настройки
+    var auditBtn = document.createElement('button');
+    auditBtn.type = 'button';
+    auditBtn.setAttribute('style', 'display:block;width:100%;margin-top:8px;padding:11px 14px;background:#180a18;border:1px solid #4a2a4a;color:#c4a0c4;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:left');
+    auditBtn.innerHTML = '📚 Аудит парсера заклинаний <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">— сколько готовы к Арене, сколько требуют ручной настройки</span>';
+    auditBtn.addEventListener('click', function(){
+      ov.remove();
+      if (typeof window.openSpellAuditPanel === 'function') window.openSpellAuditPanel();
+    });
+    box.appendChild(auditBtn);
+
+    // Импорт патча мета-данных — для готового JSON от разработчика
+    var patchBtn = document.createElement('button');
+    patchBtn.type = 'button';
+    patchBtn.setAttribute('style', 'display:block;width:100%;margin-top:8px;padding:11px 14px;background:#180e08;border:1px solid #4a3a2a;color:#c4a884;border-radius:8px;font-size:12px;cursor:pointer;font-family:inherit;text-align:left');
+    patchBtn.innerHTML = '📥 Импорт патча мета-данных <span style="color:var(--dim);font-size:10px;font-weight:400;margin-left:4px">— готовые боевые параметры заклинаний от разработчика</span>';
+    patchBtn.addEventListener('click', function(){
+      ov.remove();
+      if (typeof window.zgOpenImportPatchDialog === 'function') window.zgOpenImportPatchDialog();
+    });
+    box.appendChild(patchBtn);
 
     // Progress area
     var progDiv = document.createElement('div');
@@ -25684,6 +25707,662 @@ function openStorageDiagnostics() {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+//   АУДИТ ПАРСЕРА ЗАКЛИНАНИЙ
+//   Прогоняет parseSpellMeta по всем заклинаниям из entries и оценивает
+//   качество распознавания. Помогает понять сколько заклинаний
+//   реально готовы к боевой Арене, а сколько требуют ручной настройки.
+// ═══════════════════════════════════════════════════════════════════
+function zgRunSpellAudit() {
+  if (typeof entries === 'undefined' || !Array.isArray(entries)) {
+    return { error: 'entries недоступен', items: [], summary: {} };
+  }
+  if (typeof window._arenaParseSpellMetaV2 !== 'function') {
+    return { error: 'Парсер _arenaParseSpellMetaV2 не загружен', items: [], summary: {} };
+  }
+  var items = [];
+  entries.forEach(function(spell){
+    var meta;
+    try {
+      meta = window._arenaParseSpellMetaV2(spell) || {};
+    } catch(e) {
+      meta = { _error: String(e.message || e) };
+    }
+    // Оценка качества: сколько ключевых полей определилось
+    var found = {
+      effectKind:   meta.effectKind && meta.effectKind !== 'utility',
+      damage:       !!meta.damageFormula,
+      heal:         !!meta.healFormula,
+      range:        meta.rangeCells > 0,
+      target:       meta.targetMode && meta.targetMode !== '',
+      save:         !!meta.saveStat,
+      statuses:     Array.isArray(meta.statuses) && meta.statuses.length > 0,
+      cooldown:     !!meta.cooldown,
+      duration:     !!meta.durationRounds
+    };
+    var foundCount = Object.values(found).filter(Boolean).length;
+    var requiresParse = !!(spell.categories && spell.categories.length && (
+      spell.categories.indexOf('damage') >= 0 ||
+      spell.categories.indexOf('heal') >= 0 ||
+      spell.categories.indexOf('debuff') >= 0 ||
+      spell.categories.indexOf('control') >= 0 ||
+      spell.categories.indexOf('buff') >= 0 ||
+      spell.categories.indexOf('aoe') >= 0 ||
+      spell.categories.indexOf('defense') >= 0
+    ));
+    // Насколько критично иметь parsed для этого заклинания (для боя в Арене)
+    var hasMandatory =
+      ((spell.categories||[]).indexOf('damage') >= 0 && found.damage) ||
+      ((spell.categories||[]).indexOf('heal') >= 0 && found.heal) ||
+      ((spell.categories||[]).indexOf('aoe') >= 0 && (found.range || meta.aoeRadius)) ||
+      ((spell.categories||[]).indexOf('defense') >= 0);
+    var grade;
+    if (meta._error) grade = 'error';
+    else if (!requiresParse) grade = 'gm';        // ритуал/инфо/призыв — нужен ГМ
+    else if (foundCount >= 4 && hasMandatory) grade = 'good';
+    else if (foundCount >= 2) grade = 'partial';
+    else grade = 'poor';
+
+    items.push({
+      id: spell.id, name: spell.name, level: spell.level,
+      spellType: spell.spellType, categories: spell.categories || [],
+      meta: meta, found: found, foundCount: foundCount, grade: grade,
+      requiresParse: requiresParse
+    });
+  });
+  var summary = { total: items.length, good: 0, partial: 0, poor: 0, gm: 0, error: 0 };
+  items.forEach(function(it){ summary[it.grade]++; });
+  return { items: items, summary: summary };
+}
+
+function openSpellAuditPanel() {
+  var old = document.getElementById('spell-audit-overlay'); if (old) old.remove();
+  var bd = document.createElement('div');
+  bd.id = 'spell-audit-overlay';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;overflow-y:auto';
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  var pn = document.createElement('div');
+  pn.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c4a84b;border-radius:12px;width:100%;max-width:920px;max-height:92vh;overflow-y:auto;padding:18px;box-shadow:0 24px 80px #000c;box-sizing:border-box;font-family:\'Lora\',serif;color:#e8d8a0';
+  pn.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:15px;color:#c4a84b;letter-spacing:1px">📚 Аудит парсера заклинаний</div>' +
+      '<button id="sa-x" style="background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;padding:0 6px">×</button>' +
+    '</div>' +
+    '<div id="sa-summary" style="padding:14px;border:1px solid #333;border-radius:6px;margin-bottom:12px;text-align:center;color:#888">⏳ Прогоняю парсер...</div>' +
+    '<div id="sa-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:11px"></div>' +
+    '<div id="sa-list" style="font-size:12px;line-height:1.5;max-height:60vh;overflow-y:auto"></div>' +
+    '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button id="sa-export" style="padding:8px 14px;border:1px solid #c4a84b;background:#c4a84b18;color:#c4a84b;border-radius:4px;cursor:pointer;font-size:11px">💾 Скачать отчёт JSON</button>' +
+      '<button id="sa-close" style="padding:8px 14px;border:1px solid #555;background:transparent;color:#888;border-radius:4px;cursor:pointer;font-size:11px;margin-left:auto">Закрыть</button>' +
+    '</div>';
+  bd.appendChild(pn);
+  document.body.appendChild(bd);
+  document.getElementById('sa-x').onclick = function(){ bd.remove(); };
+  document.getElementById('sa-close').onclick = function(){ bd.remove(); };
+
+  // Запускаем аудит асинхронно чтобы UI успел показать "загрузка..."
+  setTimeout(function(){
+    var result = zgRunSpellAudit();
+    var sum = document.getElementById('sa-summary');
+    var list = document.getElementById('sa-list');
+    var ctrl = document.getElementById('sa-controls');
+    if (result.error) {
+      sum.innerHTML = '<div style="color:#c04848">⚠ ' + result.error + '</div>';
+      return;
+    }
+    var s = result.summary;
+    sum.innerHTML =
+      '<div style="font-size:14px;color:#c4a84b;margin-bottom:8px">Всего заклинаний: <b>' + s.total + '</b></div>' +
+      '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px">' +
+        '<span style="color:#60c060">🟢 Готовы: <b>' + s.good + '</b></span>' +
+        '<span style="color:#e0a040">🟡 Частично: <b>' + s.partial + '</b></span>' +
+        '<span style="color:#c04848">🔴 Слабо: <b>' + s.poor + '</b></span>' +
+        '<span style="color:#888">⚙ Только для ГМ: <b>' + s.gm + '</b></span>' +
+        (s.error ? '<span style="color:#ff4040">⚠ Ошибки: <b>' + s.error + '</b></span>' : '') +
+      '</div>';
+
+    // Фильтры
+    var filter = 'all';
+    function makeBtn(key, label, color) {
+      return '<button data-f="' + key + '" class="sa-fb" style="padding:5px 10px;border:1px solid ' + color + ';background:' + (filter===key?color+'33':'transparent') + ';color:' + color + ';border-radius:4px;cursor:pointer;font-size:10px">' + label + '</button>';
+    }
+    function renderControls() {
+      ctrl.innerHTML =
+        makeBtn('all',     'Все ' + s.total, '#c4a84b') +
+        makeBtn('good',    '🟢 ' + s.good,    '#60c060') +
+        makeBtn('partial', '🟡 ' + s.partial, '#e0a040') +
+        makeBtn('poor',    '🔴 ' + s.poor,    '#c04848') +
+        makeBtn('gm',      '⚙ ' + s.gm,       '#888888');
+      ctrl.querySelectorAll('.sa-fb').forEach(function(b){
+        b.onclick = function(){ filter = b.getAttribute('data-f'); renderControls(); renderList(); };
+      });
+    }
+    function renderList() {
+      var typeIcons = { kodex:'🥋', folio:'📖', obrad:'🩸' };
+      var html = '';
+      var filtered = result.items.filter(function(it){ return filter === 'all' || it.grade === filter; });
+      filtered.forEach(function(it){
+        var gradeColor = { good:'#60c060', partial:'#e0a040', poor:'#c04848', gm:'#888', error:'#ff4040' }[it.grade];
+        var gradeIcon = { good:'🟢', partial:'🟡', poor:'🔴', gm:'⚙', error:'⚠' }[it.grade];
+        var fields = [];
+        if (it.meta.damageFormula) fields.push('🗡 ' + it.meta.damageFormula + (it.meta.damageType ? '/' + it.meta.damageType : ''));
+        if (it.meta.healFormula)   fields.push('💚 +' + it.meta.healFormula);
+        if (it.meta.rangeCells > 0) fields.push('📏 ' + it.meta.rangeCells + ' кл');
+        if (it.meta.aoeRadius)     fields.push('💥 R' + it.meta.aoeRadius);
+        if (it.meta.saveStat)      fields.push('🎲 ' + it.meta.saveStat + (it.meta.saveDC ? ' DC ' + it.meta.saveDC : ''));
+        if (it.meta.targetMode)    fields.push('🎯 ' + it.meta.targetMode);
+        if (it.meta.cooldown)      fields.push('🔁 ' + it.meta.cooldown);
+        if (Array.isArray(it.meta.statuses) && it.meta.statuses.length) fields.push('💫 ' + it.meta.statuses.length + ' статус');
+        var typeIc = typeIcons[it.spellType] || '📜';
+        html += '<div style="padding:8px 10px;margin-bottom:4px;background:#080604;border-left:3px solid ' + gradeColor + ';border-radius:3px">' +
+          '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center">' +
+            '<div style="flex:1;min-width:0">' +
+              '<span style="color:' + gradeColor + ';font-weight:700">' + gradeIcon + '</span> ' +
+              typeIc + ' ' +
+              '<span style="font-family:\'Cinzel\',serif;font-size:12px;color:#e8d8a0">' + (it.name||'—') + '</span> ' +
+              '<span style="color:#666;font-size:9px">ур.' + (it.level||'?') + '</span> ' +
+              (it.categories.length ? '<span style="color:#888;font-size:9px;margin-left:4px">[' + it.categories.join(', ') + ']</span>' : '') +
+            '</div>' +
+          '</div>' +
+          (fields.length ? '<div style="margin-top:4px;color:#a8c8a8;font-size:10px;font-family:monospace">' + fields.join(' · ') + '</div>' : '') +
+          (it.meta._error ? '<div style="margin-top:4px;color:#ff4040;font-size:10px">⚠ ' + it.meta._error + '</div>' : '') +
+        '</div>';
+      });
+      list.innerHTML = html || '<div style="text-align:center;padding:30px;color:#666">Нет заклинаний по фильтру</div>';
+    }
+    renderControls();
+    renderList();
+
+    document.getElementById('sa-export').onclick = function(){
+      var report = {
+        kind: 'zargota-spell-audit',
+        appVersion: typeof ZG_APP_VERSION !== 'undefined' ? ZG_APP_VERSION : 'unknown',
+        exportedAt: new Date().toISOString(),
+        summary: result.summary,
+        items: result.items.map(function(it){
+          // Включаем оригинальные effect/description/cd чтобы разработчик мог
+          // писать осмысленный патч мета-данных без отдельной выгрузки каталога.
+          var spell = entries.find(function(e){ return e.id === it.id; });
+          return {
+            id: it.id, name: it.name, level: it.level, spellType: it.spellType,
+            categories: it.categories, grade: it.grade, foundCount: it.foundCount,
+            meta: it.meta,
+            effect: spell ? spell.effect || '' : '',
+            description: spell ? spell.description || '' : '',
+            manifestation: spell ? spell.manifestation || '' : '',
+            battle: spell ? spell.battle || '' : '',
+            cd: spell ? spell.cd || '' : '',
+            damageTypes: spell ? spell.damageTypes || [] : [],
+            klasse: spell ? spell.klasse || '' : '',
+            school: spell ? spell.school || '' : '',
+            existingBattleMeta: spell ? spell._battleMeta || null : null
+          };
+        })
+      };
+      var blob = new Blob([JSON.stringify(report, null, 2)], { type:'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      var d = new Date();
+      function pad(n){ return n<10?'0'+n:n; }
+      a.download = 'spell_audit_full_' + d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+      if (typeof showToast === 'function') showToast('💾 Полный отчёт скачан');
+    };
+  }, 50);
+}
+
+// Глобально доступная команда (URL ?audit=spells открывает панель)
+if (typeof window !== 'undefined') {
+  window.openSpellAuditPanel = openSpellAuditPanel;
+  window.zgRunSpellAudit = zgRunSpellAudit;
+  try {
+    if (location.search && location.search.indexOf('audit=spells') !== -1) {
+      setTimeout(function(){ try { openSpellAuditPanel(); } catch(e) {} }, 800);
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   РЕДАКТОР _battleMeta + ИМПОРТ ПАТЧА МЕТА-ДАННЫХ
+//   Позволяет вручную проставить боевые параметры заклинаний
+//   ИЛИ импортировать готовый JSON-патч от разработчика одним кликом.
+// ═══════════════════════════════════════════════════════════════════
+
+// Сохранение _battleMeta в конкретное заклинание
+function zgSaveSpellMeta(spellId, meta) {
+  if (typeof entries === 'undefined' || !Array.isArray(entries)) return false;
+  var spell = entries.find(function(e){ return e.id === spellId || String(e.id) === String(spellId); });
+  if (!spell) return false;
+  spell._battleMeta = meta;
+  spell._battleMetaUpdatedAt = Date.now();
+  if (typeof save === 'function') save();
+  return true;
+}
+
+// Импорт пакета патчей. Формат:
+// {
+//   "kind": "zargota-spell-meta-patch",
+//   "version": "1",
+//   "appliedAt": "2026-05-05",
+//   "patches": {
+//     "1773672381766": { "effectKind":"damage", "damageFormula":"1d6", ... },
+//     "1773666666": { "_notForArena": true }
+//   }
+// }
+function zgImportSpellMetaPatch(jsonText) {
+  var data;
+  try { data = JSON.parse(jsonText); } catch(e) { return { ok:false, error:'JSON некорректен: ' + (e.message || e) }; }
+  if (!data || data.kind !== 'zargota-spell-meta-patch') {
+    return { ok:false, error:'Это не патч мета-данных (kind должен быть "zargota-spell-meta-patch")' };
+  }
+  if (!data.patches || typeof data.patches !== 'object') {
+    return { ok:false, error:'В патче нет поля "patches"' };
+  }
+  if (typeof entries === 'undefined' || !Array.isArray(entries)) {
+    return { ok:false, error:'entries недоступен' };
+  }
+  // Нормализация имени для устойчивого матчинга:
+  // - в lowercase
+  // - ё → е
+  // - убираем эмодзи (символы вне базовой кириллицы/латиницы/цифр/пробелов)
+  // - схлопываем пробелы
+  // - обрезаем края
+  function normName(s) {
+    return String(s||'')
+      .toLowerCase()
+      .replace(/ё/g,'е')
+      // убираем всё что не кириллица/латиница/цифра/пробел/дефис
+      .replace(/[^а-яa-z0-9\s\-]/g,'')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  // Индекс заклинаний по нормализованному имени
+  var byName = {};
+  entries.forEach(function(e){
+    var n = normName(e.name);
+    if (n) byName[n] = e;
+  });
+
+  var applied = 0, skippedById = 0, foundByName = 0, missing = [];
+  Object.keys(data.patches).forEach(function(idKey){
+    var patch = data.patches[idKey];
+    // Сначала пытаемся по ID
+    var spell = entries.find(function(e){ return String(e.id) === String(idKey); });
+    var matchSource = 'id';
+    // Если не нашли — пробуем по имени из ключа или из самого патча (поле "_name")
+    if (!spell) {
+      var patchName = patch._name || patch.name || null;
+      if (patchName) {
+        spell = byName[normName(patchName)];
+        if (spell) { foundByName++; matchSource = 'name'; }
+      }
+    }
+    if (!spell) { missing.push(idKey + (patch._name ? ' (' + patch._name + ')' : '')); skippedById++; return; }
+    // _notForArena — отдельное поле, остальное идёт в _battleMeta
+    if (patch._notForArena !== undefined) spell._notForArena = !!patch._notForArena;
+    var meta = Object.assign({}, spell._battleMeta || {}, patch);
+    delete meta._notForArena;  // уже применили выше
+    delete meta._name;          // служебное, не должно лежать в meta
+    spell._battleMeta = meta;
+    spell._battleMetaUpdatedAt = Date.now();
+    spell._battleMetaMatchSource = matchSource;
+    applied++;
+  });
+  if (typeof save === 'function') save();
+  return { ok:true, applied: applied, foundByName: foundByName, skipped: skippedById, missing: missing };
+}
+
+// Подсчёт боевой готовности каталога
+function zgCountBattleReadiness() {
+  if (typeof entries === 'undefined' || !Array.isArray(entries)) {
+    return { total: 0, manual: 0, gm: 0, empty: 0, items: [] };
+  }
+  var manual = 0, gm = 0, empty = 0;
+  var items = entries.map(function(s){
+    var hasMeta = !!(s._battleMeta && typeof s._battleMeta === 'object' && Object.keys(s._battleMeta).length > 0);
+    var notForArena = !!s._notForArena;
+    var status;
+    if (notForArena) { status = 'gm'; gm++; }
+    else if (hasMeta) { status = 'manual'; manual++; }
+    else { status = 'empty'; empty++; }
+    return {
+      id: s.id, name: s.name || '—', status: status,
+      updatedAt: s._battleMetaUpdatedAt || 0,
+      categories: s.categories || []
+    };
+  });
+  return { total: entries.length, manual: manual, gm: gm, empty: empty, items: items };
+}
+
+// Полная панель списка состояния каталога
+function zgOpenReadinessListPanel(filterStatus) {
+  filterStatus = filterStatus || 'all';
+  var old = document.getElementById('zg-readiness-list'); if (old) old.remove();
+  var st = zgCountBattleReadiness();
+
+  var bd = document.createElement('div');
+  bd.id = 'zg-readiness-list';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box';
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  var pn = document.createElement('div');
+  pn.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c4a84b;border-radius:12px;width:100%;max-width:760px;max-height:92vh;overflow-y:auto;padding:18px;box-sizing:border-box;color:#e8d8a0;font-family:\'Lora\',serif';
+
+  function makeFilterBtn(key, label, color, count) {
+    return '<button data-f="' + key + '" class="rl-fb" style="padding:5px 10px;border:1px solid ' + color + ';background:' + (filterStatus===key?color+'33':'transparent') + ';color:' + color + ';border-radius:4px;cursor:pointer;font-size:10px;font-family:inherit">' + label + ' ' + count + '</button>';
+  }
+
+  // Сортировка: empty в начале (нужно работать), потом manual, потом gm
+  var sortOrder = { empty: 0, manual: 1, gm: 2 };
+  var filtered = st.items.filter(function(it){ return filterStatus === 'all' || it.status === filterStatus; });
+  filtered.sort(function(a,b){
+    var d = sortOrder[a.status] - sortOrder[b.status];
+    if (d !== 0) return d;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  var listHtml = filtered.map(function(it){
+    var icon, color, label;
+    if (it.status === 'manual') { icon = '🟢'; color = '#60c060'; label = 'настроено'; }
+    else if (it.status === 'gm')  { icon = '⚙'; color = '#888888'; label = 'не для Арены (ГМ)'; }
+    else                            { icon = '⚪'; color = '#a08060'; label = 'не настроено'; }
+    var date = it.updatedAt ? new Date(it.updatedAt).toLocaleDateString() : '';
+    return '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid #1e1508;font-size:11px">' +
+      '<span style="color:' + color + ';font-size:13px">' + icon + '</span>' +
+      '<span style="flex:1;color:#e8d8a0">' + (it.name || '—') + '</span>' +
+      (it.categories.length ? '<span style="color:#666;font-size:9px">[' + it.categories.slice(0,2).join(',') + ']</span>' : '') +
+      '<span style="color:#666;font-size:10px;min-width:90px;text-align:right">' + label + '</span>' +
+      (date ? '<span style="color:#555;font-size:9px;min-width:55px">' + date + '</span>' : '') +
+    '</div>';
+  }).join('');
+
+  pn.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:#c4a84b">⚔ Боевая готовность каталога</div>' +
+      '<button id="rl-x" style="background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;padding:0 4px">×</button>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">' +
+      makeFilterBtn('all',    'Все',                  '#c4a84b', st.total) +
+      makeFilterBtn('empty',  '⚪ Не настроено',       '#a08060', st.empty) +
+      makeFilterBtn('manual', '🟢 Настроено',          '#60c060', st.manual) +
+      makeFilterBtn('gm',     '⚙ Только для ГМ',      '#888888', st.gm) +
+    '</div>' +
+    '<div id="rl-list" style="max-height:60vh;overflow-y:auto;border:1px solid #1e1508;border-radius:6px;background:#080604">' + listHtml + '</div>' +
+    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+      '<button id="rl-copy" style="padding:7px 14px;border:1px solid #c4a84b;background:#c4a84b18;color:#c4a84b;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">📋 Копировать список «не настроено»</button>' +
+      '<button id="rl-close" style="padding:7px 14px;border:1px solid #555;background:transparent;color:#888;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px;margin-left:auto">Закрыть</button>' +
+    '</div>';
+
+  bd.appendChild(pn);
+  document.body.appendChild(bd);
+  document.getElementById('rl-x').onclick = function(){ bd.remove(); };
+  document.getElementById('rl-close').onclick = function(){ bd.remove(); };
+  pn.querySelectorAll('.rl-fb').forEach(function(b){
+    b.onclick = function(){ bd.remove(); zgOpenReadinessListPanel(b.getAttribute('data-f')); };
+  });
+  document.getElementById('rl-copy').onclick = function(){
+    var txt = 'Не настроены (' + st.empty + '):\n' + st.items.filter(function(it){ return it.status === 'empty'; }).map(function(it){ return '· ' + it.name; }).join('\n');
+    try {
+      navigator.clipboard.writeText(txt).then(function(){
+        if (typeof showToast === 'function') showToast('📋 Список скопирован');
+      });
+    } catch(e) { prompt('Скопируй вручную:', txt); }
+  };
+}
+
+function zgOpenImportPatchDialog() {
+  var old = document.getElementById('zg-import-patch'); if (old) old.remove();
+  var bd = document.createElement('div');
+  bd.id = 'zg-import-patch';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box';
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  // Считаем текущее состояние
+  var st = zgCountBattleReadiness();
+  var pct = st.total > 0 ? Math.round(((st.manual + st.gm) / st.total) * 100) : 0;
+
+  var pn = document.createElement('div');
+  pn.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c4a84b;border-radius:12px;width:100%;max-width:560px;padding:20px;box-sizing:border-box;color:#e8d8a0;font-family:\'Lora\',serif';
+  pn.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:#c4a84b">📥 Импорт патча мета-данных</div>' +
+      '<button id="ip-x" style="background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;padding:0 4px">×</button>' +
+    '</div>' +
+
+    // Сводка состояния каталога — крупно сверху
+    '<div style="background:#080604;border:1px solid #2a3a4a;border-radius:6px;padding:12px 14px;margin-bottom:12px">' +
+      '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#7a96b4;letter-spacing:1.5px;margin-bottom:8px">⚔ ТЕКУЩАЯ ГОТОВНОСТЬ КАТАЛОГА</div>' +
+      '<div style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap">' +
+        '<div><span style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#c4a84b;font-weight:700">' + (st.manual + st.gm) + '</span><span style="color:#666;font-size:11px"> / ' + st.total + '</span> <span style="font-size:11px;color:var(--muted)">обработано (' + pct + '%)</span></div>' +
+      '</div>' +
+      '<div style="display:flex;gap:14px;margin-top:6px;font-size:11px;flex-wrap:wrap">' +
+        '<span style="color:#60c060">🟢 Настроено: <b>' + st.manual + '</b></span>' +
+        '<span style="color:#888">⚙ Для ГМ: <b>' + st.gm + '</b></span>' +
+        '<span style="color:#a08060">⚪ Осталось: <b>' + st.empty + '</b></span>' +
+      '</div>' +
+      '<button id="ip-list" style="margin-top:8px;padding:6px 10px;border:1px solid #2a3a4a;background:transparent;color:#a0c4d4;font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:4px">📋 Подробный список</button>' +
+    '</div>' +
+
+    '<div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px">Загрузи JSON-патч (присланный разработчиком). Существующие данные перезаписываются.</div>' +
+    '<input type="file" id="ip-file" accept=".json" style="display:none">' +
+    '<button id="ip-pick" style="display:block;width:100%;padding:12px;border:2px dashed #c4a84b;background:#c4a84b14;color:#c4a84b;font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:6px;margin-bottom:12px">📂 Выбрать .json файл</button>' +
+    '<div id="ip-result" style="font-size:11px;color:var(--dim);min-height:20px"></div>' +
+    '<div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">' +
+      '<button id="ip-close" style="padding:9px 18px;border:1px solid #555;background:transparent;color:#888;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">Закрыть</button>' +
+    '</div>';
+  bd.appendChild(pn);
+  document.body.appendChild(bd);
+  document.getElementById('ip-x').onclick = function(){ bd.remove(); };
+  document.getElementById('ip-close').onclick = function(){ bd.remove(); };
+  document.getElementById('ip-list').onclick = function(){ zgOpenReadinessListPanel('all'); };
+  var fileInp = document.getElementById('ip-file');
+  document.getElementById('ip-pick').onclick = function(){ fileInp.click(); };
+  fileInp.onchange = function(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      var result = zgImportSpellMetaPatch(ev.target.result);
+      var out = document.getElementById('ip-result');
+      if (result.ok) {
+        var byNameInfo = (result.foundByName > 0)
+          ? '<div style="color:#a0c4d4;margin-top:4px;font-size:10px">  · из них ' + result.foundByName + ' найдено по имени (ID не совпали — это нормально)</div>'
+          : '';
+        var missingInfo = '';
+        if (result.skipped > 0) {
+          missingInfo = '<div style="color:#e0a040;margin-top:6px">⚠ Пропущено: ' + result.skipped + ' (нет в каталоге)</div>';
+          if (Array.isArray(result.missing) && result.missing.length) {
+            missingInfo += '<div style="color:#888;margin-top:4px;font-size:10px;max-height:80px;overflow-y:auto">' +
+              result.missing.slice(0, 20).map(function(m){ return '· ' + m; }).join('<br>') +
+              (result.missing.length > 20 ? '<br>... и ещё ' + (result.missing.length - 20) : '') +
+            '</div>';
+          }
+        }
+        out.innerHTML = '<div style="color:#60c060">✓ Применено: ' + result.applied + ' заклинаний</div>' +
+          byNameInfo +
+          missingInfo +
+          '<div style="color:var(--dim);margin-top:6px;font-size:10px">Закрой и снова открой это окно — увидишь обновлённую сводку.</div>';
+        if (typeof showToast === 'function') showToast('✓ Импортировано: ' + result.applied + ' мета');
+      } else {
+        out.innerHTML = '<div style="color:#c04848">⚠ ' + result.error + '</div>';
+      }
+    };
+    reader.readAsText(file);
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.zgImportSpellMetaPatch = zgImportSpellMetaPatch;
+  window.zgOpenImportPatchDialog = zgOpenImportPatchDialog;
+  window.zgSaveSpellMeta = zgSaveSpellMeta;
+  window.zgCountBattleReadiness = zgCountBattleReadiness;
+  window.zgOpenReadinessListPanel = zgOpenReadinessListPanel;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//   ПАНЕЛЬ БОЕВОЙ ГОТОВНОСТИ КАТАЛОГА
+//   Показывает сколько заклинаний имеют _battleMeta (готовы к Арене),
+//   сколько помечены _notForArena, какие ещё не настроены.
+//   Открывается из Бэкап → Техническое.
+// ═══════════════════════════════════════════════════════════════════
+function zgGetBattleReadiness() {
+  if (typeof entries === 'undefined' || !Array.isArray(entries)) return null;
+  var items = entries.map(function(s){
+    var hasMeta = !!(s._battleMeta && typeof s._battleMeta === 'object' && Object.keys(s._battleMeta).length > 0);
+    var notForArena = !!s._notForArena;
+    var status;
+    if (notForArena) status = 'gm';
+    else if (hasMeta) status = 'manual';
+    else status = 'auto';
+    return {
+      id: s.id, name: s.name || '—',
+      level: s.level, spellType: s.spellType,
+      categories: s.categories || [],
+      status: status,
+      updatedAt: s._battleMetaUpdatedAt || 0,
+      matchSource: s._battleMetaMatchSource || null,
+      effectKind: hasMeta ? (s._battleMeta.effectKind || '') : '',
+      damageFormula: hasMeta ? (s._battleMeta.damageFormula || '') : '',
+      healFormula: hasMeta ? (s._battleMeta.healFormula || '') : '',
+      cooldown: hasMeta && s._battleMeta.cooldown ? (s._battleMeta.cooldown.label || s._battleMeta.cooldown.kind) : ''
+    };
+  });
+  var summary = { total: items.length, manual: 0, auto: 0, gm: 0 };
+  items.forEach(function(it){ summary[it.status]++; });
+  return { items: items, summary: summary };
+}
+
+function zgOpenBattleReadinessPanel() {
+  var data = zgGetBattleReadiness();
+  if (!data) {
+    if (typeof showToast === 'function') showToast('⚠ Каталог недоступен');
+    return;
+  }
+  var old = document.getElementById('zg-readiness-panel'); if (old) old.remove();
+  var bd = document.createElement('div');
+  bd.id = 'zg-readiness-panel';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;overflow-y:auto';
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  var pn = document.createElement('div');
+  pn.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c4a84b;border-radius:12px;width:100%;max-width:780px;max-height:92vh;overflow-y:auto;padding:18px;box-sizing:border-box;color:#e8d8a0;font-family:\'Lora\',serif';
+
+  var s = data.summary;
+  var pct = s.total > 0 ? Math.round((s.manual + s.gm) / s.total * 100) : 0;
+  var pctColor = pct >= 90 ? '#60c060' : (pct >= 50 ? '#e0a040' : '#c04848');
+
+  pn.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:15px;color:#c4a84b;letter-spacing:1px">⚔ Боевая готовность каталога</div>' +
+      '<button id="brp-x" style="background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;padding:0 6px">×</button>' +
+    '</div>' +
+    '<div style="background:#080604;border:1px solid #2a2218;border-radius:8px;padding:14px;margin-bottom:14px;text-align:center">' +
+      '<div style="font-size:11px;color:var(--dim);letter-spacing:1.5px;margin-bottom:8px">ОБЩАЯ ГОТОВНОСТЬ</div>' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:32px;color:' + pctColor + ';font-weight:700">' + pct + '%</div>' +
+      '<div style="font-size:11px;color:#888;margin-top:4px">' + (s.manual + s.gm) + ' из ' + s.total + ' заклинаний настроены</div>' +
+      '<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;margin-top:12px">' +
+        '<span style="color:#60c060">🟢 Настроены вручную: <b>' + s.manual + '</b></span>' +
+        '<span style="color:#888">⚙ Только для ГМ: <b>' + s.gm + '</b></span>' +
+        '<span style="color:#e0a040">⚪ Авто-парсинг: <b>' + s.auto + '</b></span>' +
+      '</div>' +
+    '</div>' +
+    '<div id="brp-controls" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;font-size:11px"></div>' +
+    '<div id="brp-list" style="font-size:12px;line-height:1.5;max-height:55vh;overflow-y:auto"></div>' +
+    '<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button id="brp-export" style="padding:8px 14px;border:1px solid #c4a84b;background:#c4a84b18;color:#c4a84b;border-radius:4px;cursor:pointer;font-size:11px">💾 Скачать список (для разработчика)</button>' +
+      '<button id="brp-close" style="padding:8px 14px;border:1px solid #555;background:transparent;color:#888;border-radius:4px;cursor:pointer;font-size:11px;margin-left:auto">Закрыть</button>' +
+    '</div>';
+  bd.appendChild(pn);
+  document.body.appendChild(bd);
+  document.getElementById('brp-x').onclick = function(){ bd.remove(); };
+  document.getElementById('brp-close').onclick = function(){ bd.remove(); };
+
+  // Фильтры
+  var filter = 'all';
+  var ctrl = document.getElementById('brp-controls');
+  var listEl = document.getElementById('brp-list');
+  function makeBtn(key, label, color) {
+    return '<button data-f="' + key + '" class="brp-fb" style="padding:5px 10px;border:1px solid ' + color + ';background:' + (filter===key?color+'33':'transparent') + ';color:' + color + ';border-radius:4px;cursor:pointer;font-size:10px">' + label + '</button>';
+  }
+  function renderControls() {
+    ctrl.innerHTML =
+      makeBtn('all',    'Все ' + s.total,        '#c4a84b') +
+      makeBtn('manual', '🟢 Настроено ' + s.manual, '#60c060') +
+      makeBtn('gm',     '⚙ Для ГМ ' + s.gm,       '#888888') +
+      makeBtn('auto',   '⚪ Не настроено ' + s.auto, '#e0a040');
+    ctrl.querySelectorAll('.brp-fb').forEach(function(b){
+      b.onclick = function(){ filter = b.getAttribute('data-f'); renderControls(); renderList(); };
+    });
+  }
+  function renderList() {
+    var typeIcons = { kodex:'🥋', folio:'📖', obrad:'🩸' };
+    var statusInfo = {
+      manual: { icon:'🟢', color:'#60c060', label:'настроено' },
+      gm:     { icon:'⚙',  color:'#888',    label:'для ГМ' },
+      auto:   { icon:'⚪', color:'#e0a040', label:'не настроено' }
+    };
+    var html = '';
+    var filtered = data.items.filter(function(it){ return filter === 'all' || it.status === filter; });
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;padding:30px;color:#666">Нет заклинаний по фильтру</div>';
+      return;
+    }
+    filtered.forEach(function(it){
+      var si = statusInfo[it.status];
+      var typeIc = typeIcons[it.spellType] || '📜';
+      var details = [];
+      if (it.effectKind) details.push(it.effectKind);
+      if (it.damageFormula) details.push('🗡 ' + it.damageFormula);
+      if (it.healFormula) details.push('💚 ' + it.healFormula);
+      if (it.cooldown) details.push('🔁 ' + it.cooldown);
+      html += '<div style="padding:7px 10px;margin-bottom:3px;background:#080604;border-left:3px solid ' + si.color + ';border-radius:3px">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
+          '<div style="flex:1;min-width:0">' +
+            '<span style="color:' + si.color + ';font-weight:700">' + si.icon + '</span> ' +
+            typeIc + ' <span style="font-family:\'Cinzel\',serif;font-size:12px;color:#e8d8a0">' + (it.name||'—') + '</span>' +
+            '<span style="color:#666;font-size:9px;margin-left:6px">ур.' + (it.level||'?') + '</span>' +
+          '</div>' +
+          '<span style="color:#666;font-size:10px;flex-shrink:0">' + (it.matchSource ? '· ' + it.matchSource : '') + '</span>' +
+        '</div>' +
+        (details.length ? '<div style="margin-top:3px;color:#a8c8a8;font-size:10px;font-family:monospace">' + details.join(' · ') + '</div>' : '') +
+      '</div>';
+    });
+    listEl.innerHTML = html;
+  }
+  renderControls();
+  renderList();
+
+  document.getElementById('brp-export').onclick = function(){
+    var report = {
+      kind: 'zargota-battle-readiness',
+      appVersion: typeof ZG_APP_VERSION !== 'undefined' ? ZG_APP_VERSION : 'unknown',
+      exportedAt: new Date().toISOString(),
+      summary: data.summary,
+      items: data.items
+    };
+    var blob = new Blob([JSON.stringify(report, null, 2)], { type:'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var d = new Date();
+    function pad(n){ return n<10?'0'+n:n; }
+    a.download = 'battle_readiness_' + d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+    if (typeof showToast === 'function') showToast('💾 Список скачан');
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.zgOpenBattleReadinessPanel = zgOpenBattleReadinessPanel;
+  window.zgGetBattleReadiness = zgGetBattleReadiness;
+}
+
 // ── Tab switch ──
 function switchCharTab(tab) {
   if (tab === 'npc') {
@@ -33465,7 +34144,7 @@ function importBeasts(e) {
     var usesAttackRoll = /атак[а-я]+\s*(?:заклинан[а-я]+|магическ)|атакую магией|броск?а?\s*заклинан/i.test(hay);
     var usesSave = !!saveStat;
 
-    return {
+    var autoMeta = {
       // Базовые свойства
       name: spell && spell.name || '',
       effectKind: effectKind,
@@ -33504,6 +34183,23 @@ function importBeasts(e) {
       actionCost: actionCost,
       cooldown: cooldown
     };
+
+    // Если у заклинания есть _battleMeta (ручные правки или импорт патча) —
+    // ОНО переопределяет авто-парсинг. Это позволяет нам присылать готовые JSON-патчи
+    // от разработчика которые гарантированно дают правильные данные.
+    if (spell && spell._battleMeta && typeof spell._battleMeta === 'object') {
+      // Только не-undefined ключи — чтобы патч мог дополнить авто-парсинг
+      var override = spell._battleMeta;
+      Object.keys(override).forEach(function(k){
+        if (override[k] !== undefined && override[k] !== null) {
+          autoMeta[k] = override[k];
+        }
+      });
+      autoMeta._source = 'manual';
+    } else {
+      autoMeta._source = 'auto';
+    }
+    return autoMeta;
   }
   // Экспорт для UI (превью в каталоге, редактор)
   if (typeof window !== 'undefined') { window._arenaParseSpellMetaV2 = parseSpellMeta; }
@@ -40255,26 +40951,58 @@ global.arenaCastSpell = function(spellId) {
 
   var meta = _arenaParseSpellMeta(spell);
 
-  // Build action object from spell
-  var statKey = /хар|char|cha/i.test(String(spell.effect || '') + ' ' + String(spell.description || '')) ? 'cha' : 'int';
+  // Build action object from spell.
+  // Если у заклинания есть _battleMeta (наши ручные правки) — используем его поля напрямую.
+  // Иначе fallback на старую эвристику (поиск слова "спасбросок" в тексте).
+  var bm = (spell._battleMeta && typeof spell._battleMeta === 'object') ? spell._battleMeta : null;
+
+  // Стат для атаки заклинанием — сначала из меты, потом эвристика
+  var statKey;
+  if (bm && bm.attackStat) statKey = bm.attackStat;
+  else if (bm && bm.saveStat && /чар|cha/i.test(String(spell.effect || ''))) statKey = 'cha';
+  else statKey = /хар|char|cha/i.test(String(spell.effect || '') + ' ' + String(spell.description || '')) ? 'cha' : 'int';
+
+  // resolutionMode: явные флаги имеют приоритет, иначе эвристика на тексте
+  var resolutionMode;
+  if (bm && bm.usesSave === true) resolutionMode = 'saving_throw';
+  else if (bm && bm.usesAttackRoll === true) resolutionMode = 'spell_attack';
+  else if (bm && bm.saveStat) resolutionMode = 'saving_throw';        // косвенный признак
+  else if (bm && bm.effectKind === 'heal') resolutionMode = 'spell_attack';  // лечение через "spell_attack" путь без атаки
+  else resolutionMode = /спасброс|save|dc|сл\s*\d+/i.test(String(spell.battle || '') + ' ' + String(spell.effect || '')) ? 'saving_throw' : 'spell_attack';
+
+  // actionType: long / short / reaction. Из меты actionCost. Reaction пока маппим в long
+  // (полная поддержка реакций — следующая итерация).
+  var actionType = 'long';
+  if (bm && bm.actionCost === 'short') actionType = 'short';
+  // 'reaction' и 'none' пока трактуем как long чтобы не сломать пайплайн
+
   var action = {
     id: 'cast_' + spell.id,
     kind: 'spell',
     name: spell.name,
     sourceId: spell.id,
-    actionType: 'long',
-    resolutionMode: /спасброс|save|dc/i.test(String(spell.battle || '') + ' ' + String(spell.effect || '')) ? 'saving_throw' : 'spell_attack',
+    actionType: actionType,
+    resolutionMode: resolutionMode,
     attackStat: statKey,
     rangeCells: meta.rangeCells,
     damageFormula: meta.damageFormula || '',
     damageTypes: meta.damageType ? [meta.damageType] : [],
     saveStat: meta.saveStat,
+    saveDC: (bm && bm.saveDC) || meta.saveDC || null,
     halfOnSave: meta.halfOnSave,
     effectKind: meta.effectKind,
     statuses: meta.statuses,
     targetMode: meta.targetMode,
     targetRequired: meta.targetRequired,
-    selfOnly: meta.selfOnly
+    selfOnly: meta.selfOnly,
+    // Дополнительные поля из _battleMeta для расширений в будущем:
+    cooldown: meta.cooldown || null,
+    concentration: meta.concentration || false,
+    durationRounds: meta.durationRounds || 0,
+    aoeRadius: meta.aoeRadius || 0,
+    aoeShape: meta.aoeShape || null,
+    healFormula: meta.healFormula || '',
+    notes: bm && bm.notes ? bm.notes : null
   };
 
   // Needs target?
@@ -40300,11 +41028,13 @@ global.arenaCastSpell = function(spellId) {
     var freshTarget = targetId ? (updatedBattle.combatants || []).find(function(x){ return x.id === targetId; }) : null;
     if (!freshActor) return;
     try {
-      // Consume long action
-      if (freshActor.actionState) freshActor.actionState.longAvailable = Math.max(0, (freshActor.actionState.longAvailable || 1) - 1);
-      // Direct resolution
+      // Consume long action — через engine API чтобы это сохранилось
+      if (engine().consumeAction) {
+        try { engine().consumeAction(battle.id, actor.id, 'long'); } catch(e) {}
+      }
+      // Direct resolution — все мутации внутри идут через engine() API (applyDamage, applyStatus и т.д.)
+      // и сохраняются в localStorage автоматически.
       var result = resolveSpellActionDirect(updatedBattle, freshActor, freshTarget, action);
-      engine().saveState && engine().saveState(updatedBattle);
       var desc = result && result.desc ? result.desc : ('\u0417\u0430\u043a\u043b\u0438\u043d\u0430\u043d\u0438\u0435 \u00ab' + spell.name + '\u00bb \u043f\u0440\u0438\u043c\u0435\u043d\u0435\u043d\u043e');
       setNotice('\u2728 ' + spell.name, desc, 'info');
     } catch(e2) {
@@ -40318,68 +41048,132 @@ global.arenaCastSpell = function(spellId) {
 
 // Direct spell resolution (called when performManualAction can't find the action)
 function resolveSpellActionDirect(battle, actor, target, action) {
+  // Все мутации идут через engine() API чтобы изменения сохранились в localStorage
+  // и UI получил обновлённый битл при следующем render.
+  // Прямые мутации battle.log и combatant.resources НЕ сохраняются — это и был корневой баг.
+  var eng = engine();
+  if (!eng) return { desc: 'Engine недоступен' };
+  var battleId = battle.id;
   var chosenTarget = action.selfOnly ? actor : (target || actor);
+  if (!chosenTarget) return { desc: 'Нет цели' };
+  var chosenTargetId = chosenTarget.id;
   var actorStat = _arenaNum(actor.stats && actor.stats[action.attackStat || 'int'], 0);
   var effectKind = action.effectKind || 'utility';
   var damageFormula = action.damageFormula || '1d6';
   var statuses = _arenaSafeArray(action.statuses);
   var sourceKey = 'spell_' + (action.sourceId || action.id);
+  var damageType = (action.damageTypes || [])[0] || '';
   var desc = '';
-  var damage, healAmount, dc, saveResult;
 
+  // Хелпер: вытащить актуальное состояние цели из engine после мутации
+  function freshTarget() {
+    var b = eng.getBattle(battleId);
+    if (!b) return null;
+    return (b.combatants || []).find(function(c){ return c.id === chosenTargetId; });
+  }
+
+  // Лечение
+  if (effectKind === 'heal') {
+    var healAmount = action.healFormula ? _arenaRollFormula(action.healFormula).total :
+                     (damageFormula ? _arenaRollFormula(damageFormula).total : _arenaRollDice(1,6));
+    if (eng.healCombatant) eng.healCombatant(battleId, chosenTargetId, healAmount, { source: action.id, sourceCombatantId: actor.id });
+    var ft1 = freshTarget();
+    desc = actor.name + ' лечит ' + chosenTarget.name + ' на ' + healAmount + ' HP' + (ft1 ? ' (HP: ' + ft1.resources.hpCurrent + '/' + ft1.resources.hpMax + ')' : '') + '.';
+    if (window.ZargotaSound) { try { window.ZargotaSound.heal && window.ZargotaSound.heal(); } catch(e) {} }
+    return { desc: desc };
+  }
+
+  // Спас (для AoE и заклинаний с резолюшеном через сейв)
   if (action.resolutionMode === 'saving_throw') {
-    dc = 8 + actorStat; // base DC
-    saveResult = _arenaRollSave(chosenTarget, action.saveStat || 'dex');
-    if (effectKind === 'heal') {
-      healAmount = damageFormula ? _arenaRollFormula(damageFormula).total : _arenaRollDice(1,6);
-      chosenTarget.resources.hpCurrent = Math.min(chosenTarget.resources.hpMax, chosenTarget.resources.hpCurrent + healAmount);
-      desc = actor.name + ' \u043b\u0435\u0447\u0438\u0442 ' + chosenTarget.name + ' \u043d\u0430 ' + healAmount + ' HP.';
-      if (window.ZargotaSound) { try { window.ZargotaSound.heal(); } catch(e) {} }
+    var dc = (action.saveDC !== null && action.saveDC !== undefined && !isNaN(action.saveDC)) ? action.saveDC : (8 + actorStat);
+    var saveResult = _arenaRollSave(chosenTarget, action.saveStat || 'dex');
+    var damageRoll = damageFormula ? _arenaRollFormula(damageFormula).total : 0;
+    if (saveResult.total < dc) {
+      // Провал — полный урон + статус
+      if (damageRoll > 0) {
+        eng.applyDamage(battleId, chosenTargetId, damageRoll, { sourceCombatantId: actor.id, via: 'spell_save_fail', spellName: action.name, damageType: damageType, dc: dc, saveTotal: saveResult.total });
+        if (window.ZargotaSound) { try { window.ZargotaSound.hit && window.ZargotaSound.hit(); } catch(e) {} }
+      }
+      statuses.forEach(function(s){
+        if (eng.applyStatus) eng.applyStatus(battleId, chosenTargetId, { statusKey: s.statusKey || s.value, label: s.label, icon: s.icon, duration: s.duration, durationUnit: s.durationUnit, sourceKey: sourceKey });
+      });
+      var ftA = freshTarget();
+      desc = actor.name + ' \u2192 ' + chosenTarget.name + ' проваливает сейв (' + saveResult.total + ' < DC ' + dc + ')' + (damageRoll ? ': получает ' + damageRoll + ' урона' + (ftA ? ' (HP: ' + ftA.resources.hpCurrent + '/' + ftA.resources.hpMax + ')' : '') + '.' : '.');
     } else {
-      damage = damageFormula ? _arenaRollFormula(damageFormula).total : 0;
-      if (saveResult.total < dc) {
-        if (window.ZargotaSound) { try { setTimeout(function(){ window.ZargotaSound.hit(); }, 420); } catch(e) {} }
-        if (damage > 0) {
-          _arenaInflictDamage(chosenTarget, damage);
-          battle.log.push(_arenaCreateLogEntry('damage_applied', { combatantId: chosenTarget.id, amount: damage, hpCurrent: chosenTarget.resources.hpCurrent, tempHpCurrent: chosenTarget.resources.tempHp, meta: { sourceCombatantId: actor.id, via: 'spell_save' }}));
-          if (chosenTarget.resources.hpCurrent <= 0) battle.log.push(_arenaCreateLogEntry('combatant_downed', { combatantId: chosenTarget.id, hpCurrent: 0 }));
-        }
-        if (statuses.length) _arenaApplyStatuses(chosenTarget, statuses, sourceKey);
-        desc = actor.name + ' \u2192 ' + chosenTarget.name + ' \u043f\u0440\u043e\u0432\u0430\u043b\u0438\u0432\u0430\u0435\u0442 \u0441\u0435\u0439\u0432 (' + saveResult.total + ' < DC ' + dc + ')' + (damage ? ': \u043f\u043e\u043b\u0443\u0447\u0430\u0435\u0442 ' + damage + ' \u0443\u0440\u043e\u043d\u0430.' : '.');
+      // Успех
+      if (damageRoll > 0 && action.halfOnSave) {
+        var halfDmg = Math.max(1, Math.floor(damageRoll/2));
+        eng.applyDamage(battleId, chosenTargetId, halfDmg, { sourceCombatantId: actor.id, via: 'spell_save_half', spellName: action.name, damageType: damageType });
+        var ftB = freshTarget();
+        desc = actor.name + ' \u2192 ' + chosenTarget.name + ' проходит сейв (' + saveResult.total + ' >= DC ' + dc + '), но получает ' + halfDmg + ' урона' + (ftB ? ' (HP: ' + ftB.resources.hpCurrent + '/' + ftB.resources.hpMax + ')' : '') + '.';
       } else {
-        if (damage > 0 && action.halfOnSave) {
-          var half = Math.max(1, Math.floor(damage/2));
-          _arenaInflictDamage(chosenTarget, half);
-          battle.log.push(_arenaCreateLogEntry('damage_applied', { combatantId: chosenTarget.id, amount: half, hpCurrent: chosenTarget.resources.hpCurrent, tempHpCurrent: chosenTarget.resources.tempHp, meta: { sourceCombatantId: actor.id, via: 'spell_save_half' }}));
-          desc = actor.name + ' \u2192 ' + chosenTarget.name + ' \u043f\u0440\u043e\u0445\u043e\u0434\u0438\u0442 \u0441\u0435\u0439\u0432 (' + saveResult.total + ' >= DC ' + dc + '), \u043d\u043e \u043f\u043e\u043b\u0443\u0447\u0430\u0435\u0442 ' + half + ' \u0443\u0440\u043e\u043d\u0430.';
-        } else {
-          desc = actor.name + ' \u2192 ' + chosenTarget.name + ' \u0443\u0441\u043f\u0435\u0448\u043d\u043e \u043f\u0440\u043e\u0445\u043e\u0434\u0438\u0442 \u0441\u0435\u0439\u0432 ' + saveResult.total + ' \u043f\u0440\u043e\u0442\u0438\u0432 DC ' + dc + '.';
-          if (window.ZargotaSound) { try { setTimeout(function(){ window.ZargotaSound.miss(); }, 420); } catch(e) {} }
-        }
+        desc = actor.name + ' \u2192 ' + chosenTarget.name + ' успешно проходит сейв ' + saveResult.total + ' против DC ' + dc + '.';
+        if (window.ZargotaSound) { try { window.ZargotaSound.miss && window.ZargotaSound.miss(); } catch(e) {} }
       }
     }
-  } else {
-    // spell_attack
-    if (effectKind === 'heal') {
-      healAmount = damageFormula ? _arenaRollFormula(damageFormula).total : _arenaRollDice(1,6);
-      chosenTarget.resources.hpCurrent = Math.min(chosenTarget.resources.hpMax, chosenTarget.resources.hpCurrent + healAmount);
-      desc = actor.name + ' \u043b\u0435\u0447\u0438\u0442 ' + chosenTarget.name + ' \u043d\u0430 ' + healAmount + ' HP.';
-      if (window.ZargotaSound) { try { window.ZargotaSound.heal(); } catch(e) {} }
-      battle.log.push(_arenaCreateLogEntry('spell_resolved', { actorId: actor.id, targetId: chosenTarget.id, actionId: action.id, actionName: action.name, desc: desc, effectKind: effectKind }));
-    } else if (effectKind === 'damage' && damageFormula) {
-      // _arenaResolveAttackRoll already plays dice + hit/miss sounds
-      _arenaResolveAttackRoll(battle, actor, chosenTarget, {
-        name: action.name, attackBonus: actorStat, damageFormula: damageFormula,
-        actionType: 'long', sourceActionId: action.id, rangeCells: _arenaNum(action.rangeCells, 6)
-      }, { attackBonus: actorStat, damageFormula: damageFormula }, { via: 'spell_attack', logType: 'spell_attack_resolved' });
-      if (statuses.length) _arenaApplyStatuses(chosenTarget, statuses, sourceKey);
-      desc = action.name + ' \u2014 \u0430\u0442\u0430\u043a\u0430 \u0437\u0430\u043a\u043b\u0438\u043d\u0430\u043d\u0438\u0435\u043c.';
+    return { desc: desc };
+  }
+
+  // Атака заклинанием: d20+стат vs AC, на попадание — урон + отдельный сейв на статус
+  if (effectKind === 'damage' && damageFormula) {
+    var d20 = Math.floor(Math.random()*20) + 1;
+    var attackTotal = d20 + actorStat;
+    var targetAC = _arenaNum(chosenTarget.resources && chosenTarget.resources.ac, 10);
+    var isCrit = (d20 === 20);
+    var isFumble = (d20 === 1);
+    var hit = !isFumble && (isCrit || attackTotal >= targetAC);
+
+    if (hit) {
+      var dmgFormulaActual = damageFormula;
+      if (damageFormula === 'weapon' || damageFormula === 'weapon/2') {
+        var weaponDmg = '1d6';
+        try {
+          if (actor.weaponDamage) weaponDmg = actor.weaponDamage;
+          else if (actor.attacks && actor.attacks[0] && actor.attacks[0].damage) weaponDmg = actor.attacks[0].damage;
+        } catch(e) {}
+        dmgFormulaActual = weaponDmg;
+      }
+      var dmgRoll = _arenaRollFormula(dmgFormulaActual);
+      var dmg = dmgRoll.total;
+      if (damageFormula === 'weapon/2') dmg = Math.max(1, Math.floor(dmg/2));
+      if (isCrit) dmg *= 2;
+
+      // КРИТИЧНО: applyDamage из engine API сохраняет в localStorage и обновляет UI
+      eng.applyDamage(battleId, chosenTargetId, dmg, { sourceCombatantId: actor.id, via: 'spell_attack', spellName: action.name, damageType: damageType, attackRoll: d20, attackTotal: attackTotal, targetAc: targetAC, crit: isCrit });
+      if (window.ZargotaSound) { try { window.ZargotaSound.hit && window.ZargotaSound.hit(); } catch(e) {} }
+
+      // Отдельный сейв на статус
+      if (statuses.length && action.saveStat) {
+        var statusDc = (action.saveDC !== null && action.saveDC !== undefined && !isNaN(action.saveDC)) ? action.saveDC : (8 + actorStat);
+        var statusSave = _arenaRollSave(chosenTarget, action.saveStat);
+        if (statusSave.total < statusDc) {
+          statuses.forEach(function(s){
+            if (eng.applyStatus) eng.applyStatus(battleId, chosenTargetId, { statusKey: s.statusKey || s.value, label: s.label, icon: s.icon, duration: s.duration, durationUnit: s.durationUnit, sourceKey: sourceKey });
+          });
+        }
+      } else if (statuses.length) {
+        statuses.forEach(function(s){
+          if (eng.applyStatus) eng.applyStatus(battleId, chosenTargetId, { statusKey: s.statusKey || s.value, label: s.label, icon: s.icon, duration: s.duration, durationUnit: s.durationUnit, sourceKey: sourceKey });
+        });
+      }
+      var ftC = freshTarget();
+      desc = actor.name + ' попадает по ' + chosenTarget.name + ' (d20=' + d20 + (actorStat ? '+' + actorStat : '') + '=' + attackTotal + ' vs AC ' + targetAC + (isCrit ? ' КРИТ!' : '') + '): ' + dmg + ' урона' + (ftC ? ' (HP: ' + ftC.resources.hpCurrent + '/' + ftC.resources.hpMax + ')' : '') + '.';
     } else {
-      if (statuses.length) _arenaApplyStatuses(chosenTarget, statuses, sourceKey);
-      desc = actor.name + ' \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u0435\u0442 ' + action.name + ' \u043d\u0430 ' + chosenTarget.name + '.';
-      if (window.ZargotaSound) { try { window.ZargotaSound.status(); } catch(e) {} }
-      battle.log.push(_arenaCreateLogEntry('spell_resolved', { actorId: actor.id, targetId: chosenTarget.id, actionId: action.id, actionName: action.name, desc: desc, effectKind: effectKind }));
+      desc = actor.name + ' промахивается по ' + chosenTarget.name + ' (d20=' + d20 + (actorStat ? '+' + actorStat : '') + '=' + attackTotal + ' vs AC ' + targetAC + ').';
+      if (window.ZargotaSound) { try { window.ZargotaSound.miss && window.ZargotaSound.miss(); } catch(e) {} }
     }
+    return { desc: desc };
+  }
+
+  // Все остальные effectKind (buff, debuff, control, defense, utility, support) — статусы
+  if (statuses.length) {
+    statuses.forEach(function(s){
+      if (eng.applyStatus) eng.applyStatus(battleId, chosenTargetId, { statusKey: s.statusKey || s.value, label: s.label, icon: s.icon, duration: s.duration, durationUnit: s.durationUnit, sourceKey: sourceKey });
+    });
+    desc = actor.name + ' применяет ' + action.name + ' на ' + chosenTarget.name + '.';
+    if (window.ZargotaSound) { try { window.ZargotaSound.status && window.ZargotaSound.status(); } catch(e) {} }
+  } else {
+    desc = actor.name + ' применяет ' + action.name + '.';
   }
   return { desc: desc };
 }
@@ -40405,6 +41199,9 @@ function renderSpellCastModal(actorId) {
   var target = state.targetId ? (battle && (battle.combatants || []).find(function(x){ return x.id === state.targetId; })) : null;
 
   var filtered = entries.filter(function(e) {
+    // Заклинания помеченные как «только для ГМ» в Арене не показываются.
+    // Они остаются в каталоге для нарративного использования, но не предлагаются как боевые действия.
+    if (e._notForArena === true || (e._battleMeta && e._battleMeta._notForArena === true)) return false;
     if (ftType && e.spellType !== ftType) return false;
     if (searchQ) {
       var hay = (e.name || '') + ' ' + (e.school || '') + ' ' + (e.description || '') + ' ' + (e.effect || '');
@@ -40437,10 +41234,18 @@ function renderSpellCastModal(actorId) {
       + '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">'
       + '<span style="padding:3px 9px;border:1px solid ' + effectColor + '44;border-radius:6px;background:' + effectColor + '12;font-size:11px;color:' + effectColor + '">' + effectLabel + '</span>'
       + (meta.damageFormula ? '<span style="padding:3px 9px;border:1px solid #c4a84b44;border-radius:6px;background:#c4a84b10;font-size:11px;color:#e8c060">\u2694 ' + esc(meta.damageFormula) + (meta.damageType ? ' ' + esc(meta.damageType) : '') + '</span>' : '')
+      + (meta.healFormula ? '<span style="padding:3px 9px;border:1px solid #6fcb8344;border-radius:6px;background:#6fcb8310;font-size:11px;color:#6fcb83">\u2764 +' + esc(meta.healFormula) + '</span>' : '')
       + (meta.rangeCells ? '<span style="padding:3px 9px;border:1px solid #8fa2c944;border-radius:6px;background:#8fa2c910;font-size:11px;color:#8fa2c9">\uD83C\uDFAF ' + meta.rangeCells + ' \u043a\u043b.</span>' : '')
+      + (meta.aoeRadius ? '<span style="padding:3px 9px;border:1px solid #e0703044;border-radius:6px;background:#e0703010;font-size:11px;color:#e07030">\uD83D\uDCA5 R' + meta.aoeRadius + (meta.aoeShape ? ' ' + esc(meta.aoeShape) : '') + '</span>' : '')
       + (meta.targetMode === 'self' ? '<span style="padding:3px 9px;border:1px solid #a07fd444;border-radius:6px;font-size:11px;color:#a07fd4">\uD83D\uDD2E \u041d\u0430 \u0441\u0435\u0431\u044f</span>' : '')
       + (meta.targetMode === 'area' ? '<span style="padding:3px 9px;border:1px solid #e07030aa;border-radius:6px;font-size:11px;color:#e07030">\uD83D\uDCA5 \u041e\u0431\u043b\u0430\u0441\u0442\u044c</span>' : '')
+      + (meta.targetMode === 'ally' ? '<span style="padding:3px 9px;border:1px solid #6fcb8344;border-radius:6px;font-size:11px;color:#6fcb83">\uD83E\uDEC2 \u0421\u043e\u044e\u0437\u043d\u0438\u043a</span>' : '')
       + (meta.halfOnSave ? '<span style="padding:3px 9px;border:1px solid #c0a02044;border-radius:6px;font-size:11px;color:#c0a020">\u00bd \u043f\u0440\u0438 \u0443\u0441\u043f\u0435\u0445\u0435</span>' : '')
+      + (meta.actionCost === 'reaction' ? '<span style="padding:3px 9px;border:1px solid #ff909044;border-radius:6px;background:#ff909010;font-size:11px;color:#ff9090">\u26a1 \u0420\u0435\u0430\u043a\u0446\u0438\u044f</span>' : '')
+      + (meta.actionCost === 'short' ? '<span style="padding:3px 9px;border:1px solid #6fcb8344;border-radius:6px;font-size:11px;color:#6fcb83">\u26a1 \u041a\u043e\u0440\u043e\u0442\u043a\u043e\u0435</span>' : '')
+      + (meta.cooldown && meta.cooldown.label ? '<span style="padding:3px 9px;border:1px solid #c0a02044;border-radius:6px;background:#c0a02010;font-size:11px;color:#e8c060">\uD83D\uDD01 ' + esc(meta.cooldown.label) + '</span>' : '')
+      + (meta.concentration ? '<span style="padding:3px 9px;border:1px solid #a07fd444;border-radius:6px;font-size:11px;color:#a07fd4">\uD83C\uDF00 \u041a\u043e\u043d\u0446\u0435\u043d\u0442\u0440\u0430\u0446\u0438\u044f</span>' : '')
+      + (meta.durationRounds && meta.durationRounds > 1 && meta.durationRounds < 99 ? '<span style="padding:3px 9px;border:1px solid #88888844;border-radius:6px;font-size:11px;color:#aaaaaa">\u23f1 ' + meta.durationRounds + ' \u0440\u0430\u0443\u043d\u0434' + (meta.durationRounds === 1 ? '' : '\u043e\u0432') + '</span>' : '')
       + (meta.statuses && meta.statuses.length ? meta.statuses.map(function(s){ return '<span style="padding:3px 9px;border:1px solid ' + (s.color||'#888') + '44;border-radius:6px;font-size:11px;color:' + (s.color||'#888') + '">' + (s.icon||'\uD83D\uDCA5') + ' ' + esc(s.label) + '</span>'; }).join('') : '')
       + '</div>'
       // Spell text
@@ -40459,30 +41264,51 @@ function renderSpellCastModal(actorId) {
       + '</div>';
   }
 
-  // Spell list
-  var listHtml = '<div style="display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto">';
+  // Spell list — карточки в стиле основного каталога
+  // Используем cardHTML() (та же функция что в каталоге заклинаний) — гарантия одинакового стиля.
+  var listHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;max-height:480px;overflow-y:auto;padding:4px">';
   if (!filtered.length) {
-    listHtml += '<div style="padding:30px;text-align:center;color:#444;font-size:13px">\u0417\u0430\u043a\u043b\u0438\u043d\u0430\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e</div>';
+    listHtml += '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#444;font-size:13px">\u0417\u0430\u043a\u043b\u0438\u043d\u0430\u043d\u0438\u0439 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e</div>';
   } else {
-    filtered.slice(0, 40).forEach(function(spell) {
+    filtered.slice(0, 60).forEach(function(spell) {
       var meta2 = _arenaParseSpellMeta(spell);
-      var col = SPELL_COLORS[spell.spellType] || '#d4a84b';
       var isSelected = String(spell.id) === String(_spellCastState.selectedSpellId);
-      var effectIco = { heal:'\u2665', damage:'\u2694', buff:'\u2191', temp_hp:'\uD83D\uDEE1', utility:'\u2728' }[meta2.effectKind] || '\u2728';
-      listHtml += '<div onclick="arenaSelectSpellForCast(\'' + esc(String(spell.id)) + '\')" style="cursor:pointer;display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid ' + (isSelected ? col : '#1a1208') + ';border-radius:8px;background:' + (isSelected ? col + '14' : '#0a0704') + ';transition:all .12s" onmouseover="this.style.background=\'' + col + '10\'" onmouseout="this.style.background=\'' + (isSelected ? col + '14' : '#0a0704') + '\'">'
-        + '<span style="font-size:16px;flex-shrink:0">' + (spell.tip || '\u2728') + '</span>'
-        + '<div style="flex:1;min-width:0">'
-        +   '<div style="font-size:12px;color:' + col + ';overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(spell.name) + '</div>'
-        +   '<div style="font-size:10px;color:#555">' + esc(spell.school || SPELL_LABELS[spell.spellType] || '') + (spell.level ? ' \u00b7 \u0443\u0440. ' + esc(spell.level) : '') + '</div>'
-        + '</div>'
-        + '<div style="display:flex;gap:4px;flex-shrink:0">'
-        + '<span style="font-size:11px;color:#888">' + effectIco + '</span>'
-        + (meta2.damageFormula ? '<span style="font-size:10px;color:#c4a84b">' + esc(meta2.damageFormula) + '</span>' : '')
-        + '</div>'
-        + '</div>';
+      var hasManualMeta = !!(spell._battleMeta && Object.keys(spell._battleMeta).length > 0);
+
+      // Базовая карточка из основного каталога
+      var baseCard = '';
+      try {
+        baseCard = (typeof cardHTML === 'function') ? cardHTML(spell) : '';
+      } catch(e) { baseCard = ''; }
+
+      // Если cardHTML вернула HTML — оборачиваем в кликабельный контейнер
+      if (baseCard) {
+        var glow = isSelected ? 'box-shadow:0 0 0 2px #c4a84b,0 0 16px #c4a84b66;' : '';
+        listHtml += '<div onclick="arenaSelectSpellForCast(\'' + esc(String(spell.id)) + '\')" style="cursor:pointer;position:relative;' + glow + 'transition:all .15s">'
+          + baseCard
+          // Боевые чипы поверх — внизу карточки
+          + '<div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 10px 10px;font-size:9px;border-top:1px solid #1e1508">'
+          +   (meta2.damageFormula ? '<span style="padding:2px 6px;border:1px solid #c4a84b66;border-radius:4px;background:#c4a84b18;color:#e8c060;font-family:monospace">\u2694 ' + esc(meta2.damageFormula) + (meta2.damageType ? ' ' + esc(meta2.damageType.substring(0,4)) : '') + '</span>' : '')
+          +   (meta2.healFormula ? '<span style="padding:2px 6px;border:1px solid #6fcb8366;border-radius:4px;background:#6fcb8318;color:#6fcb83;font-family:monospace">\u2764 +' + esc(meta2.healFormula) + '</span>' : '')
+          +   (meta2.rangeCells > 0 ? '<span style="padding:2px 6px;border:1px solid #8fa2c966;border-radius:4px;color:#8fa2c9">\uD83C\uDFAF ' + meta2.rangeCells + '\u043a\u043b</span>' : '')
+          +   (meta2.selfOnly ? '<span style="padding:2px 6px;border:1px solid #a07fd466;border-radius:4px;color:#a07fd4">\uD83D\uDD2E \u043d\u0430 \u0441\u0435\u0431\u044f</span>' : '')
+          +   (meta2.aoeRadius ? '<span style="padding:2px 6px;border:1px solid #e0703066;border-radius:4px;color:#e07030">\uD83D\uDCA5 R' + meta2.aoeRadius + '</span>' : '')
+          +   (meta2.actionCost === 'reaction' ? '<span style="padding:2px 6px;border:1px solid #ff909066;border-radius:4px;color:#ff9090">\u26a1 \u0420\u0435\u0430\u043a.</span>' : '')
+          +   (meta2.actionCost === 'short' ? '<span style="padding:2px 6px;border:1px solid #6fcb8366;border-radius:4px;color:#6fcb83">\u26a1 \u041a\u043e\u0440\u043e\u0442\u043a.</span>' : '')
+          + '</div>'
+          + (hasManualMeta ? '<span title="\u041d\u0430\u0441\u0442\u0440\u043e\u0435\u043d\u043e \u0432\u0440\u0443\u0447\u043d\u0443\u044e" style="position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:#60c060;box-shadow:0 0 6px #60c06088;z-index:10"></span>' : '')
+          + '</div>';
+      } else {
+        // Fallback если cardHTML недоступна
+        var col = SPELL_COLORS[spell.spellType] || '#d4a84b';
+        listHtml += '<div onclick="arenaSelectSpellForCast(\'' + esc(String(spell.id)) + '\')" style="cursor:pointer;padding:12px;border:1px solid ' + (isSelected ? col : '#1a1208') + ';border-radius:8px;background:' + (isSelected ? col + '14' : '#0a0704') + ';transition:all .12s">'
+          +   '<div style="font-family:Cinzel,serif;font-size:13px;color:' + col + ';margin-bottom:4px">' + esc(spell.name || '') + '</div>'
+          +   '<div style="font-size:10px;color:#888">' + esc(spell.description || '').substring(0, 80) + '</div>'
+          + '</div>';
+      }
     });
-    if (filtered.length > 40) {
-      listHtml += '<div style="padding:8px;text-align:center;font-size:11px;color:#555">\u0435\u0449\u0451 ' + (filtered.length - 40) + ' \u2014 \u0443\u0442\u043e\u0447\u043d\u0438 \u043f\u043e\u0438\u0441\u043a</div>';
+    if (filtered.length > 60) {
+      listHtml += '<div style="grid-column:1/-1;padding:8px;text-align:center;font-size:11px;color:#555">\u0435\u0449\u0451 ' + (filtered.length - 60) + ' \u2014 \u0443\u0442\u043e\u0447\u043d\u0438 \u043f\u043e\u0438\u0441\u043a</div>';
     }
   }
   listHtml += '</div>';
