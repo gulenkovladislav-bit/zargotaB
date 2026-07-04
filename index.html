@@ -11385,11 +11385,11 @@ window.zgImageStore = (function() {
         <div class="home-card-desc">Карта Зарготы, зоны, маршруты и энциклопедия мира. Всё в одном месте.</div>
       </button>
 
-      <!-- Мастерская ГМ — доступен -->
-      <button type="button" class="home-card available" data-target-page="workshop" style="--card-accent:#d4a04a; cursor:pointer">
-        <span class="home-card-icon">🛠️</span>
-        <div class="home-card-title">Мастерская ГМ</div>
-        <div class="home-card-desc">NPC, сюжет, эпизоды и арки. Рабочее пространство мастера между сессиями.</div>
+      <!-- Мануал — Правила Зарготы для игроков -->
+      <button type="button" class="home-card available" data-target-page="manual" style="--card-accent:#d4a04a; cursor:pointer">
+        <span class="home-card-icon">📖</span>
+        <div class="home-card-title">Мануал</div>
+        <div class="home-card-desc">Правила Зарготы для игроков. Бой, магия, состояния, прокачка — всё в одном месте.</div>
       </button>
 
     </div>
@@ -12014,6 +12014,15 @@ window.zgImageStore = (function() {
         </aside>
       </div>
     </div>
+  </div>
+
+  <!-- ══ MANUAL PAGE (Правила Зарготы для игроков) ══ -->
+  <div class="page" id="page-manual">
+    <div class="page-back-bar" style="display:flex;align-items:center;gap:0;padding:0;border-bottom:1px solid var(--border)">
+      <button class="back-to-home" onclick="showPage('home')" style="border-radius:0;border-right:1px solid var(--border);padding:0 16px;height:42px;flex-shrink:0;margin:0">← Главная</button>
+      <div style="flex:1;display:flex;align-items:center;padding:0 18px;height:42px;color:var(--gold);font-family:'Cinzel',serif;font-size:11px;letter-spacing:1.5px">📖 МАНУАЛ ЗАРГОТЫ</div>
+    </div>
+    <div id="manual-page-inner" style="padding:24px 20px 60px;max-width:880px;margin:0 auto"></div>
   </div>
 
   <!-- ══ WORKSHOP PAGE (Мастерская ГМ) ══ -->
@@ -16699,7 +16708,7 @@ function showPage(name) {
   // logo sub
   const sub = document.getElementById('hub-logo-sub');
   if (sub) {
-    const labels = { home:'ПАНЕЛЬ МАСТЕРА', arena:'АРЕНА', catalog:'КАТАЛОГ', form:'КОНСТРУКТОР', detail:'ЗАПИСЬ', characters:'ПЕРСОНАЖИ', bestiary:'БЕСТИАРИЙ', world:'МИР И ЛОР', workshop:'МАСТЕРСКАЯ' };
+    const labels = { home:'ПАНЕЛЬ МАСТЕРА', arena:'АРЕНА', catalog:'КАТАЛОГ', form:'КОНСТРУКТОР', detail:'ЗАПИСЬ', characters:'ПЕРСОНАЖИ', bestiary:'БЕСТИАРИЙ', world:'МИР И ЛОР', workshop:'МАСТЕРСКАЯ', manual:'МАНУАЛ' };
     sub.textContent = labels[name] || 'ПАНЕЛЬ МАСТЕРА';
   }
   // detail back title
@@ -16728,6 +16737,7 @@ function showPage(name) {
   if (name === 'world' && typeof updateWorldIntroOpenBtn === 'function') { setTimeout(updateWorldIntroOpenBtn, 200); }
   if (name === 'world') { initWorldPage(); }
   if (name === 'workshop') { initDrama(); showWorkshopTool(workshopHubState.activeTool || 'hub'); }
+  if (name === 'manual' && typeof renderManualPage === 'function') { renderManualPage(); }
   updateBoardReturnButton();
 }
 
@@ -22695,6 +22705,7 @@ function openDetail(id) {
 
   showPage('detail');
   applyDetailZoom();
+  zgMakeCollapsible('detail-body');
   // bind detail action buttons properly (mobile safe)
   const eb = document.getElementById('detail-edit-btn');
   const db = document.getElementById('detail-del-btn');
@@ -22710,6 +22721,83 @@ function detailBlock(icon, label, text, borderColor) {
       ${escHTML(text)}
     </div>
   </div>`;
+}
+
+// Делает каждый блок карточки заклинания сворачиваемым (универсально: работает
+// для .detail-block, .opt-block и #detail-effect-box). По умолчанию свёрнуто.
+// Все заголовки выравниваются по одной кромке (стрелка справа всегда на одном
+// уровне) — внешний слой блока «обнуляется», а рамка/фон, если были (например
+// у #detail-effect-box), переезжают на обёртку тела и показываются при раскрытии.
+function zgMakeCollapsible(container) {
+  try {
+    if (typeof container === 'string') container = document.getElementById(container);
+    if (!container) return;
+    var blocks = container.querySelectorAll('.detail-block, .opt-block, #detail-effect-box');
+    Array.prototype.forEach.call(blocks, function(block) {
+      if (block.getAttribute('data-zgcollapse')) return;
+      var label = block.firstElementChild;
+      if (!label) return;
+      // Собрать тело — всё после заголовка
+      var bodyNodes = [];
+      var n = label.nextElementSibling;
+      while (n) { bodyNodes.push(n); n = n.nextElementSibling; }
+      if (!bodyNodes.length) return;
+      block.setAttribute('data-zgcollapse', '1');
+
+      // Сохраняем оригинальный inline-стиль (рамку #detail-effect-box и т.п.)
+      var origInline = block.getAttribute('style') || '';
+      // Обнуляем внешний слой блока — заголовок ляжет вровень с контейнером
+      block.setAttribute('style', 'border:none !important;background:transparent !important;padding:0 !important;margin:0 !important;border-radius:0 !important;box-shadow:none !important');
+
+      // Извлекаем подпись и прячем оригинальный заголовок
+      var labelText = (label.textContent || '').trim();
+      label.style.display = 'none';
+
+      // Унифицированный заголовок — одинаковый для всех типов блоков
+      var head = document.createElement('div');
+      head.className = 'zg-acc-head';
+      head.style.cssText = 'display:flex;align-items:center;justify-content:space-between;' +
+        'padding:11px 2px 11px 2px;cursor:pointer;user-select:none;' +
+        'border-top:1px solid #1a1308;transition:background .15s;box-sizing:border-box';
+      head.innerHTML =
+        '<span style="font-family:\'Cinzel\',serif;font-size:11px;letter-spacing:1.6px;' +
+          'color:var(--muted);text-transform:uppercase">' + escHTML(labelText) + '</span>' +
+        '<span class="zg-chev" style="font-size:11px;opacity:.55;color:var(--dim);' +
+          'transition:transform .18s ease,opacity .15s;flex-shrink:0;margin-left:10px;' +
+          'display:inline-block;line-height:1">\u25B8</span>';
+      head.addEventListener('mouseenter', function(){
+        head.style.background = '#ffffff06';
+        var c = head.querySelector('.zg-chev'); if (c) c.style.opacity = '.85';
+      });
+      head.addEventListener('mouseleave', function(){
+        head.style.background = 'transparent';
+        var c = head.querySelector('.zg-chev'); if (c) c.style.opacity = '.55';
+      });
+
+      // Обёртка тела — наследует оригинальный inline-стиль (рамку эффекта и т.п.),
+      // показывается только при раскрытии.
+      var wrap = document.createElement('div');
+      wrap.className = 'zg-acc-body';
+      if (origInline) {
+        var s = origInline;
+        if (s.slice(-1) !== ';') s += ';';
+        wrap.setAttribute('style', s + 'padding:12px 14px;margin:4px 0 8px;display:none;border-radius:4px');
+      } else {
+        wrap.style.cssText = 'padding:8px 2px 14px 2px;display:none';
+      }
+      bodyNodes.forEach(function(node){ wrap.appendChild(node); });
+
+      block.appendChild(head);
+      block.appendChild(wrap);
+
+      head.addEventListener('click', function() {
+        var hidden = wrap.style.display === 'none';
+        wrap.style.display = hidden ? '' : 'none';
+        var chev = head.querySelector('.zg-chev');
+        if (chev) chev.style.transform = hidden ? 'rotate(90deg)' : '';
+      });
+    });
+  } catch(e) {}
 }
 
 function deleteEntry(id) {
@@ -25114,7 +25202,7 @@ var STATUSES = [
   { key:'freeze',  label:'Заморожен',  color:'#4090d0', bg:'#4090d018' },
   { key:'fear',    label:'Страх',      color:'#9060c0', bg:'#9060c018' },
   { key:'blind',   label:'Ослеплён',   color:'#808080', bg:'#80808018' },
-  { key:'prone',   label:'Повержен',   color:'#a06030', bg:'#a0603018' },
+  { key:'prone',   label:'Опрокинут',   color:'#a06030', bg:'#a0603018' },
   { key:'bleed',   label:'Кровотечение',color:'#c02020',bg:'#c0202018' },
 ];
 
@@ -26526,26 +26614,29 @@ function openCharSheet(id) {
 var statusPanel = false; // is status panel open
 
 var ALL_STATUSES = [
-  { key:'stun',      icon:'💫', label:'Оглушён',        color:'#c0a020', bg:'#c0a02020' },
-  { key:'burn',      icon:'🔥', label:'Горит',           color:'#e05020', bg:'#e0502020' },
-  { key:'poison',    icon:'☠',  label:'Отравлен',        color:'#50c040', bg:'#50c04020' },
-  { key:'freeze',    icon:'❄',  label:'Заморожен',       color:'#4090d0', bg:'#4090d020' },
-  { key:'fear',      icon:'👻', label:'Страх',           color:'#9060c0', bg:'#9060c020' },
-  { key:'blind',     icon:'🙈', label:'Ослеплён',        color:'#808080', bg:'#80808020' },
-  { key:'prone',     icon:'💢', label:'Повержен',        color:'#a06030', bg:'#a0603020' },
-  { key:'bleed',     icon:'🩸', label:'Кровотечение',    color:'#c02020', bg:'#c0202020' },
-  { key:'silence',   icon:'🔇', label:'Немота',          color:'#607080', bg:'#60708020' },
-  { key:'charm',     icon:'💖', label:'Очарован',        color:'#e060a0', bg:'#e060a020' },
-  { key:'paralyze',  icon:'⚡', label:'Паралич',         color:'#a0c020', bg:'#a0c02020' },
-  { key:'slow',      icon:'🐌', label:'Замедлен',        color:'#708060', bg:'#70806020' },
-  { key:'curse',     icon:'🌑', label:'Проклят',         color:'#7040a0', bg:'#7040a020' },
-  { key:'exhausted', icon:'😓', label:'Истощён',         color:'#806040', bg:'#80604020' },
-  { key:'invisible', icon:'👁', label:'Невидим',         color:'#60c0c0', bg:'#60c0c020' },
-  { key:'regen',     icon:'💚', label:'Регенерация',     color:'#40b040', bg:'#40b04020' },
-  { key:'shield',    icon:'🛡', label:'Защитный щит',   color:'#4070c0', bg:'#4070c020' },
-  { key:'rage',      icon:'😡', label:'Ярость',          color:'#c03030', bg:'#c0303020' },
-  { key:'fly',       icon:'🕊', label:'Полёт',           color:'#80a0e0', bg:'#80a0e020' },
-  { key:'confusion', icon:'🌀', label:'Замешательство',  color:'#b060b0', bg:'#b060b020' },
+  { key:'stun',      icon:'💫', label:'Оглушён',          color:'#c0a020', bg:'#c0a02020' },
+  { key:'burn',      icon:'🔥', label:'Горит',             color:'#e05020', bg:'#e0502020' },
+  { key:'poison',    icon:'☠',  label:'Отравлен',          color:'#50c040', bg:'#50c04020' },
+  { key:'freeze',    icon:'❄',  label:'Заморожен',         color:'#4090d0', bg:'#4090d020' },
+  { key:'fear',      icon:'👻', label:'Страх',             color:'#9060c0', bg:'#9060c020' },
+  { key:'blind',     icon:'🙈', label:'Ослеплён',          color:'#808080', bg:'#80808020' },
+  { key:'prone',     icon:'💢', label:'Опрокинут',         color:'#a06030', bg:'#a0603020' },
+  { key:'bleed',     icon:'🩸', label:'Кровотечение',      color:'#c02020', bg:'#c0202020' },
+  { key:'silence',   icon:'🔇', label:'Магическая немота', color:'#607080', bg:'#60708020' },
+  { key:'anchor',    icon:'⚓', label:'Магический якорь',  color:'#506080', bg:'#50608020' },
+  { key:'charm',     icon:'💖', label:'Очарован',          color:'#e060a0', bg:'#e060a020' },
+  { key:'dominate',  icon:'🎭', label:'Подчинён',          color:'#7040a0', bg:'#7040a020' },
+  { key:'paralyze',  icon:'⚡', label:'Паралич',           color:'#a0c020', bg:'#a0c02020' },
+  { key:'restrain',  icon:'🪢', label:'Обездвижен',        color:'#a07050', bg:'#a0705020' },
+  { key:'slow',      icon:'🐌', label:'Замедлен',          color:'#708060', bg:'#70806020' },
+  { key:'curse',     icon:'🌑', label:'Проклят',           color:'#7040a0', bg:'#7040a020' },
+  { key:'exhausted', icon:'😓', label:'Истощён',           color:'#806040', bg:'#80604020' },
+  { key:'invisible', icon:'👁', label:'Невидим',           color:'#60c0c0', bg:'#60c0c020' },
+  { key:'regen',     icon:'💚', label:'Регенерация',       color:'#40b040', bg:'#40b04020' },
+  { key:'shield',    icon:'🛡', label:'Защитный щит',     color:'#4070c0', bg:'#4070c020' },
+  { key:'rage',      icon:'😡', label:'Ярость',            color:'#c03030', bg:'#c0303020' },
+  { key:'fly',       icon:'🕊', label:'Полёт',             color:'#80a0e0', bg:'#80a0e020' },
+  { key:'confusion', icon:'🌀', label:'Замешательство',    color:'#b060b0', bg:'#b060b020' },
 ];
 
 
@@ -29668,10 +29759,12 @@ function showStatusInfoPopup(charId, statusKey) {
   // Забираем описание из механик Арены (главный конструктор)
   var mechDesc = '';
   var mechRules = [];
+  var mInfo = null;
   try {
     var mechs = (typeof getStatusMechanics === 'function') ? getStatusMechanics() : [];
     var m = mechs.find(function(x){ return x.key === statusKey; });
     if (m) {
+      mInfo = m;
       mechDesc = m.description || '';
       if (m.cantAct) mechRules.push({txt:'⛔ Блокирует действия', col:'#c87878'});
       if (m.cantMove) mechRules.push({txt:'⛔ Блокирует движение', col:'#c87878'});
@@ -29711,6 +29804,16 @@ function showStatusInfoPopup(charId, statusKey) {
   var card = document.createElement('div');
   card.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + color + ';border-radius:10px;padding:20px 22px;min-width:300px;max-width:460px;width:100%;box-shadow:0 20px 60px #000000cc;max-height:85vh;overflow-y:auto;box-sizing:border-box';
 
+  // Баннер «реально или фикция»: применяет ли движок этот статус автоматически в бою
+  var realityBanner;
+  if (!mInfo) {
+    realityBanner = '<div style="background:#2a1810;border:1px solid #8a5a30;border-radius:6px;padding:9px 12px;margin-bottom:12px;color:#e0a060;font-family:\'Lora\',serif;font-size:12px;line-height:1.5">⚠ <b>Не в каноне §9</b> — это просто метка. Бой <b>не применяет</b> её автоматически (ещё не введён в правила). Отыгрывай эффект вручную.</div>';
+  } else if (mInfo.enabled && mechRules.length) {
+    realityBanner = '<div style="background:#0e2414;border:1px solid #3e754d;border-radius:6px;padding:9px 12px;margin-bottom:12px;color:#7fd69a;font-family:\'Lora\',serif;font-size:12px;line-height:1.5">✅ <b>Работает в бою</b> — движок применяет это автоматически (см. правила ниже).</div>';
+  } else {
+    realityBanner = '<div style="background:#2a1810;border:1px solid #8a5a30;border-radius:6px;padding:9px 12px;margin-bottom:12px;color:#e0a060;font-family:\'Lora\',serif;font-size:12px;line-height:1.5">⚠ <b>Только метка (флавор)</b> — активной боевой механики у статуса нет' + (mInfo.enabled ? '' : ' (выключен в «Состояниях»)') + '. Отыгрывается вручную.</div>';
+  }
+
   var rulesHtml = mechRules.length
     ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 14px">' +
       mechRules.map(function(b){ return '<span style="padding:3px 8px;border:1px solid ' + b.col + '44;border-radius:5px;font-size:10px;color:' + b.col + ';background:' + b.col + '0a">' + b.txt + '</span>'; }).join('') +
@@ -29724,6 +29827,7 @@ function showStatusInfoPopup(charId, statusKey) {
       (durationTxt ? '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:var(--muted);margin-top:4px">⏳ ' + durationTxt + '</div>' : '') +
       (tickTxt ? '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:' + color + ';margin-top:3px;opacity:.85">⚙ ' + escHTML(tickTxt) + '</div>' : '') +
     '</div>' +
+    realityBanner +
     rulesHtml +
     (description
       ? '<div style="background:#080604;border:1px solid #1e1508;border-radius:6px;padding:12px 14px;margin-bottom:14px;color:var(--muted);line-height:1.65;font-family:\'Lora\',serif;font-size:13px;white-space:pre-wrap">' + escHTML(description) + '</div>'
@@ -30508,7 +30612,7 @@ function showSpellDetail(charId, spellId) {
 
   var popup = document.createElement('div');
   popup.id = 'spell-detail-popup';
-  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0e0a06;border:2px solid ' + ta.stripe + ';border-radius:8px;min-width:380px;max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px #000000cc,0 0 0 9999px #00000066';
+  popup.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:#0e0a06;border:2px solid ' + ta.stripe + ';border-radius:8px;width:min(720px, 92vw);max-width:92vw;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px #000000cc,0 0 0 9999px #00000066';
 
   // Badges
   var badgesHTML = '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:' + ta.stripe + ';padding:3px 8px;border:1px solid ' + ta.stripe + '44;border-radius:2px">' + ta.label + '</span>' +
@@ -30617,6 +30721,7 @@ function showSpellDetail(charId, spellId) {
 
   document.body.appendChild(popup);
   applySpellPopupZoom();
+  zgMakeCollapsible('spell-detail-content');
 }
 
 function rerenderSpellDetailPreservingScroll(charId, spellId) {
@@ -34081,13 +34186,13 @@ function importBeasts(e) {
       { test: /замедл/i,         key: 'slow',      label: 'Замедлен',     icon: '🐌', color: '#708060', bg: '#70806020' },
       { test: /ослеп/i,          key: 'blind',     label: 'Ослеплён',     icon: '🙈', color: '#808080', bg: '#80808020' },
       { test: /страх|испуг|ужас/i, key: 'fear',    label: 'Страх',        icon: '👻', color: '#9060c0', bg: '#9060c020' },
-      { test: /опрокин|сбит с ног|пова[а-я]*/i, key: 'prone', label: 'Повержен', icon: '💢', color: '#a06030', bg: '#a0603020' },
+      { test: /опрокин|сбит с ног|пова[а-я]*/i, key: 'prone', label: 'Опрокинут', icon: '💢', color: '#a06030', bg: '#a0603020' },
       { test: /отрав/i,          key: 'poison',    label: 'Отравлен',     icon: '☠', color: '#50c040', bg: '#50c04020' },
       { test: /кровот/i,         key: 'bleed',     label: 'Кровотечение', icon: '🩸', color: '#c02020', bg: '#c0202020' },
       { test: /горит|поджиг|пыл[а-я]*/i, key: 'burn', label: 'Горит',    icon: '🔥', color: '#e05020', bg: '#e0502020' },
       { test: /заморож|скова[а-я]+\s*льд/i, key: 'freeze', label: 'Заморожен', icon: '❄', color: '#4090d0', bg: '#4090d020' },
       { test: /очарован/i,       key: 'charm',     label: 'Очарован',     icon: '💖', color: '#e060a0', bg: '#e060a020' },
-      { test: /немот/i,          key: 'silence',   label: 'Немота',       icon: '🔇', color: '#607080', bg: '#60708020' },
+      { test: /немот/i,          key: 'silence',   label: 'Магическая немота', icon: '🔇', color: '#607080', bg: '#60708020' },
       { test: /проклят/i,        key: 'curse',     label: 'Проклят',      icon: '🌑', color: '#7040a0', bg: '#7040a020' },
       { test: /невидим/i,        key: 'invisible', label: 'Невидим',      icon: '👁', color: '#60c0c0', bg: '#60c0c020' },
       { test: /регенер/i,        key: 'regen',     label: 'Регенерация',  icon: '💚', color: '#40b040', bg: '#40b04020' },
@@ -39211,7 +39316,8 @@ function importBeasts(e) {
       ? '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">' +
           effects.slice(0,6).map(function(e){
             if (!e) return '';
-            return '<span title="'+esc(e.label||e.statusKey||'')+'" style="padding:1px 5px;border:1px solid '+(e.color||'#888')+'44;border-radius:4px;background:'+(e.color||'#888')+'12;font-size:10px;color:'+(e.color||'#888')+'">'+esc(e.icon||'⚡')+' '+esc(e.label||e.statusKey||'')+(e.duration!=null?' ×'+e.duration:'')+'</span>';
+            var _sk = String(e.statusKey||'').replace(/[\\'"]/g,'');
+            return '<span onclick="zgStatusInfoLite(\''+combatant.id+'\',\''+_sk+'\')" title="Нажми — что делает статус (реально/метка)" style="padding:1px 5px;border:1px solid '+(e.color||'#888')+'44;border-radius:4px;background:'+(e.color||'#888')+'12;font-size:10px;color:'+(e.color||'#888')+';cursor:pointer">'+esc(e.icon||'⚡')+' '+esc(e.label||e.statusKey||'')+(e.duration!=null?' ×'+e.duration:'')+'</span>';
           }).join('') +
         '</div>'
       : '';
@@ -40996,6 +41102,8 @@ function importBeasts(e) {
 var _spellCastState = {
   search: '',
   filterType: '',
+  filterEffect: '',  // '' | damage | heal | aoe | status
+  filterLevel: '',   // '' | '1' | '2' ...
   selectedSpellId: null,
   previewMeta: null,
   showAll: false  // false = гримуар героя, true = весь каталог
@@ -41096,11 +41204,16 @@ global.arenaShowSpellFlash = function(data) {
     ? data.actorName + ' \u2192 себя'
     : data.actorName + ' \u2192 ' + data.targetName;
 
+  var _flashPinned = !!global._zgFlashPinned;
   bd2.innerHTML =
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;border-bottom:1px solid #3a2918;padding-bottom:8px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;border-bottom:1px solid #3a2918;padding-bottom:8px">' +
       '<div>' +
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:16px;color:#e8c060;letter-spacing:1px">' + effectIcon + ' ' + esc(data.spellName) + '</div>' +
         '<div style="font-size:11px;color:#a08050;margin-top:2px">' + esc(headLine) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:4px;flex-shrink:0;pointer-events:auto;margin-left:8px">' +
+        '<button id="zg-flash-pin" onclick="zgFlashTogglePin()" title="' + (_flashPinned ? '\u0417\u0430\u043a\u0440\u0435\u043f\u043b\u0435\u043d\u043e: \u043e\u043a\u043d\u043e \u043d\u0435 \u0438\u0441\u0447\u0435\u0437\u0430\u0435\u0442 \u0441\u0430\u043c\u043e (\u043a\u043b\u0438\u043a \u2014 \u043e\u0442\u043a\u0440\u0435\u043f\u0438\u0442\u044c)' : '\u0417\u0430\u043a\u0440\u0435\u043f\u0438\u0442\u044c: \u043e\u043a\u043d\u043e \u043f\u0435\u0440\u0435\u0441\u0442\u0430\u043d\u0435\u0442 \u0438\u0441\u0447\u0435\u0437\u0430\u0442\u044c \u0441\u0430\u043c\u043e') + '" style="width:26px;height:26px;border:1px solid #4a3a1a;border-radius:6px;background:#00000055;color:' + (_flashPinned ? '#e8c060' : '#7a6a48') + ';font-size:13px;cursor:pointer;line-height:1;padding:0">\uD83D\uDCCC</button>' +
+        '<button onclick="zgFlashClose()" title="\u0417\u0430\u043a\u0440\u044b\u0442\u044c" style="width:26px;height:26px;border:1px solid #4a3a1a;border-radius:6px;background:#00000055;color:#b09060;font-size:15px;cursor:pointer;line-height:1;padding:0">\u2715</button>' +
       '</div>' +
     '</div>' +
     '<div style="display:flex;flex-direction:column;gap:5px">' +
@@ -41117,14 +41230,102 @@ global.arenaShowSpellFlash = function(data) {
 
   document.body.appendChild(bd2);
 
-  // Автоисчезновение через 2.8 сек (или 4 сек если много событий)
-  var displayMs = data.events.length > 3 ? 4000 : 2800;
-  setTimeout(function(){
-    if (bd2 && bd2.parentNode) {
-      bd2.style.animation = 'flashOut .25s ease forwards';
-      setTimeout(function(){ if (bd2.parentNode) bd2.remove(); }, 280);
+  // Автоисчезновение через 2.8 сек (или 4 сек если много событий).
+  // Если окно «закреплено» (📌) — не исчезает само, игрок закрывает вручную (✕).
+  if (!global._zgFlashPinned) {
+    var displayMs = data.events.length > 3 ? 4000 : 2800;
+    setTimeout(function(){
+      if (bd2 && bd2.parentNode && !global._zgFlashPinned) {
+        bd2.style.animation = 'flashOut .25s ease forwards';
+        setTimeout(function(){ if (bd2.parentNode) bd2.remove(); }, 280);
+      }
+    }, displayMs);
+  }
+};
+
+// Управление окном результата боя (📌 закрепить / ✕ закрыть)
+try { global._zgFlashPinned = (localStorage.getItem('zg_flash_pinned') === '1'); } catch(e) { global._zgFlashPinned = false; }
+global.zgFlashClose = function() {
+  var el = document.getElementById('zg-spell-flash');
+  if (el) { el.style.animation = 'flashOut .25s ease forwards'; setTimeout(function(){ if (el.parentNode) el.remove(); }, 260); }
+};
+global.zgFlashTogglePin = function() {
+  global._zgFlashPinned = !global._zgFlashPinned;
+  try { localStorage.setItem('zg_flash_pinned', global._zgFlashPinned ? '1' : '0'); } catch(e) {}
+  var btn = document.getElementById('zg-flash-pin');
+  if (btn) {
+    btn.style.color = global._zgFlashPinned ? '#e8c060' : '#7a6a48';
+    btn.title = global._zgFlashPinned
+      ? 'Закреплено: окно не исчезает само (клик — открепить)'
+      : 'Закрепить: окно перестанет исчезать само';
+  }
+};
+
+// Сводка по статусу в бою (тап по бейджу статуса на карточке бойца).
+// Показывает: что это, что делает, и РЕАЛЬНО ли движок применяет его — или это просто метка.
+global.zgStatusInfoLite = function(combatantId, statusKey) {
+  var battle = (typeof selectedBattle === 'function') ? selectedBattle() : null;
+  var eff = null, cmb = null;
+  if (battle && battle.combatants) {
+    cmb = battle.combatants.find(function(x){ return x && String(x.id) === String(combatantId); });
+    if (cmb && cmb.conditions && cmb.conditions.effects) {
+      eff = cmb.conditions.effects.find(function(e){ return e && String(e.statusKey) === String(statusKey); });
     }
-  }, displayMs);
+  }
+  var icon  = (eff && eff.icon) || '\uD83D\uDCAB';
+  var label = (eff && (eff.label || eff.statusKey)) || statusKey || 'Статус';
+  var color = (eff && eff.color) || '#a0a0a0';
+  var durTxt = (eff && eff.duration != null) ? (eff.duration + ' р.') : '';
+
+  var mInfo = null, rules = [];
+  try {
+    var mechs = (window.getStatusMechanics ? window.getStatusMechanics() : []);
+    mInfo = mechs.find(function(x){ return x.key === statusKey; }) || null;
+    if (mInfo) {
+      if (mInfo.cantAct) rules.push({t:'⛔ Блок действий',c:'#c87878'});
+      if (mInfo.cantMove) rules.push({t:'⛔ Блок движения',c:'#c87878'});
+      if (mInfo.cantReact) rules.push({t:'⛔ Без реакций',c:'#c87878'});
+      if (mInfo.hasDisadvantage) rules.push({t:'📉 Помеха атак',c:'#d4a84b'});
+      if (mInfo.grantAdvantageToAttackers) rules.push({t:'📈 Преим. атак по нему',c:'#d4a84b'});
+      if (mInfo.startOfTurnEffect === 'damage') rules.push({t:'🔥 DoT '+(mInfo.startOfTurnDice||'1d4'),c:'#e05020'});
+      if (mInfo.startOfTurnEffect === 'heal') rules.push({t:'💚 HoT '+(mInfo.startOfTurnDice||'1d4'),c:'#6fcb83'});
+      if (mInfo.acMod) rules.push({t:(mInfo.acMod>0?'+':'')+mInfo.acMod+' AC',c:mInfo.acMod>0?'#6fcb83':'#c87878'});
+      if (mInfo.attackMod && Math.abs(mInfo.attackMod)<50) rules.push({t:(mInfo.attackMod>0?'+':'')+mInfo.attackMod+' атака',c:mInfo.attackMod>0?'#6fcb83':'#c87878'});
+      if (mInfo.damageMod) rules.push({t:(mInfo.damageMod>0?'+':'')+mInfo.damageMod+' урон',c:mInfo.damageMod>0?'#6fcb83':'#c87878'});
+      if (mInfo.speedMod) rules.push({t:(mInfo.speedMod>0?'+':'')+mInfo.speedMod+' скор.',c:mInfo.speedMod>0?'#6fcb83':'#c87878'});
+    }
+  } catch(e) {}
+
+  var desc = (eff && eff.description) || (mInfo && mInfo.description) || '';
+  var banner;
+  if (!mInfo) {
+    banner = '<div style="background:#2a1810;border:1px solid #8a5a30;border-radius:6px;padding:9px 12px;margin-bottom:12px;color:#e0a060;font-size:12px;line-height:1.5">⚠ <b>Не в каноне §9</b> — это просто метка. Бой <b>не применяет</b> её сам (ещё не введён в правила). Отыгрывай вручную.</div>';
+  } else if (mInfo.enabled && rules.length) {
+    banner = '<div style="background:#0e2414;border:1px solid #3e754d;border-radius:6px;padding:9px 12px;margin-bottom:12px;color:#7fd69a;font-size:12px;line-height:1.5">✅ <b>Работает в бою</b> — движок применяет это автоматически.</div>';
+  } else {
+    banner = '<div style="background:#2a1810;border:1px solid #8a5a30;border-radius:6px;padding:9px 12px;margin-bottom:12px;color:#e0a060;font-size:12px;line-height:1.5">⚠ <b>Только метка (флавор)</b> — активной боевой механики нет'+(mInfo.enabled?'':' (выключен в «Состояниях»)')+'. Отыгрывается вручную.</div>';
+  }
+
+  var esc2 = (typeof esc === 'function') ? esc : function(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];}); };
+  var old = document.getElementById('status-info-popup'); if (old) old.remove();
+  var pop = document.createElement('div');
+  pop.id = 'status-info-popup';
+  pop.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+  pop.onclick = function(ev){ if (ev.target === pop) pop.remove(); };
+  var card = document.createElement('div');
+  card.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid '+color+';border-radius:10px;padding:20px 22px;min-width:280px;max-width:440px;width:100%;box-shadow:0 20px 60px #000000cc;max-height:85vh;overflow-y:auto;box-sizing:border-box';
+  var rulesHtml = rules.length ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin:10px 0 14px">'+rules.map(function(b){return '<span style="padding:3px 8px;border:1px solid '+b.c+'44;border-radius:5px;font-size:10px;color:'+b.c+';background:'+b.c+'0a">'+b.t+'</span>';}).join('')+'</div>' : '';
+  card.innerHTML =
+    '<div style="text-align:center;margin-bottom:14px">'+
+      '<div style="font-size:38px;line-height:1">'+icon+'</div>'+
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:16px;color:'+color+';margin-top:8px;letter-spacing:.5px">'+esc2(label)+'</div>'+
+      (durTxt ? '<div style="font-family:\'Cinzel\',serif;font-size:11px;color:#9a8a6a;margin-top:4px">⏳ осталось '+esc2(durTxt)+'</div>' : '')+
+    '</div>'+
+    banner + rulesHtml +
+    (desc ? '<div style="background:#080604;border:1px solid #1e1508;border-radius:6px;padding:12px 14px;margin-bottom:14px;color:#b0a890;line-height:1.65;font-family:\'Lora\',serif;font-size:13px;white-space:pre-wrap">'+esc2(desc)+'</div>' : '')+
+    '<div style="text-align:right"><button onclick="document.getElementById(\'status-info-popup\').remove()" style="padding:8px 20px;border:1px solid '+color+';background:'+color+'18;color:'+color+';font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">Закрыть</button></div>';
+  pop.appendChild(card);
+  document.body.appendChild(pop);
 };
 
 global.arenaCastSpell = function(spellId) {
@@ -41520,6 +41721,17 @@ global.arenaSpellCastFilterType = function(val) {
   renderArenaPage();
 };
 
+global.arenaSpellCastFilterEffect = function(val) {
+  // тоггл: повторный клик по активному чипу — сброс
+  _spellCastState.filterEffect = (_spellCastState.filterEffect === val) ? '' : (val || '');
+  renderArenaPage();
+};
+
+global.arenaSpellCastFilterLevel = function(val) {
+  _spellCastState.filterLevel = (_spellCastState.filterLevel === String(val)) ? '' : String(val || '');
+  renderArenaPage();
+};
+
 global.arenaSpellCastToggleAll = function() {
   _spellCastState.showAll = !_spellCastState.showAll;
   _spellCastState.selectedSpellId = null;  // сброс выбора т.к. фильтр меняется
@@ -41533,15 +41745,26 @@ function renderSpellCastModal(actorId) {
   var entries = _arenaGetEntries();
   var searchQ = (_spellCastState.search || '').toLowerCase().trim();
   var ftType = _spellCastState.filterType || '';
+  var ftLevel = _spellCastState.filterLevel || '';
+  var ftEffect = _spellCastState.filterEffect || '';
   var target = state.targetId ? (battle && (battle.combatants || []).find(function(x){ return x.id === state.targetId; })) : null;
 
   var filtered = entries.filter(function(e) {
     // Заклинания помеченные как «только для ГМ» в Арене не показываются.
     if (e._notForArena === true || (e._battleMeta && e._battleMeta._notForArena === true)) return false;
     if (ftType && e.spellType !== ftType) return false;
+    if (ftLevel && String(e.level == null ? '' : e.level) !== ftLevel) return false;
     if (searchQ) {
       var hay = (e.name || '') + ' ' + (e.school || '') + ' ' + (e.description || '') + ' ' + (e.effect || '');
-      return hay.toLowerCase().indexOf(searchQ) >= 0;
+      if (hay.toLowerCase().indexOf(searchQ) < 0) return false;
+    }
+    if (ftEffect) {
+      var fm;
+      try { fm = _arenaParseSpellMeta(e); } catch(_) { fm = {}; }
+      if (ftEffect === 'damage' && !fm.damageFormula) return false;
+      if (ftEffect === 'heal'   && !fm.healFormula) return false;
+      if (ftEffect === 'aoe'    && !fm.aoeRadius) return false;
+      if (ftEffect === 'status' && !(fm.statuses && fm.statuses.length)) return false;
     }
     return true;
   });
@@ -41705,6 +41928,19 @@ function renderSpellCastModal(actorId) {
   listHtml += '</div>';
 
   var TYPES = [['', '\u0412\u0441\u0435'], ['kodex', '\u041a\u043e\u0434\u0435\u043a\u0441'], ['folio', '\u0424\u043e\u043b\u0438\u0430\u043d\u0442'], ['obrad', '\u041e\u0431\u0440\u044f\u0434\u043d\u0438\u043a']];
+  var EFFECTS = [['damage', '\u2694 \u0423\u0440\u043e\u043d'], ['heal', '\u2764 \u041b\u0435\u0447\u0435\u043d\u0438\u0435'], ['aoe', '\uD83D\uDCA5 AOE'], ['status', '\u2728 \u0421\u0442\u0430\u0442\u0443\u0441']];
+  // Доступные уровни — из тех заклинаний, что реально видны в этом пикере (тип + гримуар)
+  var _lvlPool = {};
+  entries.forEach(function(e){
+    if (e._notForArena === true || (e._battleMeta && e._battleMeta._notForArena === true)) return;
+    if (ftType && e.spellType !== ftType) return;
+    if (grimoireMode) {
+      var _rs = {}; sourceChar.spellRefs.forEach(function(sid){ _rs[String(sid)] = true; });
+      if (!_rs[String(e.id)]) return;
+    }
+    if (e.level != null && e.level !== '') _lvlPool[String(e.level)] = true;
+  });
+  var LEVELS = Object.keys(_lvlPool).sort(function(a,b){ return (parseInt(a,10)||0) - (parseInt(b,10)||0); });
 
   return '<div style="max-width:560px">'
     + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
@@ -41719,6 +41955,16 @@ function renderSpellCastModal(actorId) {
     + '<div style="display:flex;gap:6px;margin-bottom:10px">'
     +   '<input value="' + esc(_spellCastState.search || '') + '" oninput="arenaSpellCastSearch(this.value)" placeholder="\uD83D\uDD0D \u041f\u043e\u0438\u0441\u043a \u043f\u043e \u043d\u0430\u0437\u0432\u0430\u043d\u0438\u044e..." style="flex:1;padding:8px 12px;border:1px solid #2a1e10;border-radius:8px;background:#080604;color:#d4c9a8;font-size:12px;outline:none">'
     +   TYPES.map(function(t){ var on = (t[0] === _spellCastState.filterType); return '<button onclick="arenaSpellCastFilterType(\'' + t[0] + '\')" style="padding:6px 10px;border:1px solid ' + (on ? '#d4a84b' : '#2a1e10') + ';border-radius:6px;background:' + (on ? '#d4a84b14' : 'transparent') + ';color:' + (on ? '#e8c060' : '#666') + ';font-size:10px;cursor:pointer;white-space:nowrap">' + t[1] + '</button>'; }).join('')
+    + '</div>'
+    + '<div style="display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;align-items:center">'
+    +   '<span style="font-size:9px;color:#5a4a32;letter-spacing:.5px">\u042d\u0424\u0424\u0415\u041a\u0422:</span>'
+    +   EFFECTS.map(function(ef){ var on = (ef[0] === _spellCastState.filterEffect); return '<button onclick="arenaSpellCastFilterEffect(\'' + ef[0] + '\')" style="padding:5px 9px;border:1px solid ' + (on ? '#c4a84b' : '#2a1e10') + ';border-radius:6px;background:' + (on ? '#c4a84b18' : 'transparent') + ';color:' + (on ? '#e8c060' : '#777') + ';font-size:10px;cursor:pointer;white-space:nowrap">' + ef[1] + '</button>'; }).join('')
+    +   (LEVELS.length > 1
+        ? '<span style="width:1px;height:16px;background:#2a1e10;margin:0 3px"></span>'
+          + '<span style="font-size:9px;color:#5a4a32;letter-spacing:.5px">\u0423\u0420:</span>'
+          + '<button onclick="arenaSpellCastFilterLevel(\'\')" title="\u041b\u044e\u0431\u043e\u0439 \u0443\u0440\u043e\u0432\u0435\u043d\u044c" style="padding:5px 9px;border:1px solid ' + (_spellCastState.filterLevel === '' ? '#c4a84b' : '#2a1e10') + ';border-radius:6px;background:' + (_spellCastState.filterLevel === '' ? '#c4a84b18' : 'transparent') + ';color:' + (_spellCastState.filterLevel === '' ? '#e8c060' : '#777') + ';font-size:10px;cursor:pointer">\u2756</button>'
+          + LEVELS.map(function(lv){ var on = (_spellCastState.filterLevel === lv); return '<button onclick="arenaSpellCastFilterLevel(\'' + lv + '\')" style="padding:5px 9px;border:1px solid ' + (on ? '#c4a84b' : '#2a1e10') + ';border-radius:6px;background:' + (on ? '#c4a84b18' : 'transparent') + ';color:' + (on ? '#e8c060' : '#777') + ';font-size:10px;cursor:pointer">' + lv + '</button>'; }).join('')
+        : '')
     + '</div>'
     + listHtml
     + '<div style="margin-top:12px">'
@@ -41751,26 +41997,29 @@ function getDefaultStatusMechanics() {
   var _sts2 = (typeof ALL_STATUSES !== 'undefined' ? ALL_STATUSES : (window.ALL_STATUSES||[]));
   // Канонические дефолты по COMBAT_RULESET_CANON §9
   var CANON = {
-    stun:      { cantAct:true, cantReact:true, grantAdvantageToAttackers:true, autoRemove:'save_dc', saveDC:14, saveStat:'con', defaultDuration:1, description:'Пропускает ход. Атаки по нему с преимуществом. В начале хода — Сл 14 Выносливости для снятия.' },
-    burn:      { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Огонь', defaultDuration:2, description:'Получает 1d4 огня в начале хода. Сбивается действием "Упасть и катиться" или водой.' },
-    poison:    { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Яд', attackMod:-2, defaultDuration:3, description:'Получает 1d4 яда в начале хода. Помеха на атаки. Снимается лекарством или Сл 14 Выносливости.' },
-    freeze:    { cantMove:true, speedMod:-3, grantAdvantageToAttackers:true, defaultDuration:1, description:'Скован льдом. Не может двигаться, скорость восстанавливается после снятия. Атакующие имеют преимущество.' },
-    fear:      { hasDisadvantage:true, defaultDuration:2, description:'Не может приближаться к источнику страха. Помеха на атаки и проверки, пока боится.' },
-    blind:     { hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Помеха на все атаки. Атакующие имеют преимущество. Не видит целей дальше 1 клетки.' },
-    prone:     { grantAdvantageToAttackers:true, speedMod:-3, defaultDuration:1, description:'Опрокинут. Ближние атаки по нему с преимуществом, дальние — с помехой. Встать = половина движения.' },
-    bleed:     { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Физ.', defaultDuration:3, description:'Теряет 1d4 HP в начале хода. Тяжёлое кровотечение стакается. Снимается перевязкой (Сл 10 Ловкости).' },
-    silence:   { defaultDuration:2, description:'Не может кастовать заклинания с вербальной компонентой. Обычные навыки и атаки работают.' },
-    charm:     { hasDisadvantage:true, defaultDuration:3, description:'Смотрит на источник чар как на друга. Не атакует его. Помеха на броски против него.' },
-    paralyze:  { cantAct:true, cantMove:true, cantReact:true, grantAdvantageToAttackers:true, attackMod:-99, autoRemove:'save_dc', saveDC:15, saveStat:'con', defaultDuration:1, description:'Полный паралич. Ничего не может делать. Атаки в ближнем бою — автокрит. Сл 15 Выносливости для снятия.' },
-    slow:      { speedMod:-3, attackMod:-1, defaultDuration:3, description:'Скорость -3 клетки, помеха при попытках уклонения. Только одно действие за ход по решению мастера.' },
-    curse:     { attackMod:-2, damageMod:-1, defaultDuration:5, description:'Пассивное проклятье: -2 к атакам, -1 к урону. Снимается только ритуалом/святой магией.' },
-    exhausted: { hasDisadvantage:true, speedMod:-2, attackMod:-1, description:'Истощение. Помеха на всё. Скорость -2. Снимается долгим отдыхом.' },
-    invisible: { acMod:2, defaultDuration:3, description:'Атакующие имеют помеху пока не увидят. Сам атакует с преимуществом до первого удара.' },
-    regen:     { startOfTurnEffect:'heal', startOfTurnDice:'1d4', defaultDuration:3, description:'Восстанавливает 1d4 HP в начале хода. Снимается некротическим или огненным уроном.' },
-    shield:    { acMod:2, defaultDuration:3, description:'Магический щит: +2 AC. Один удар может снять (по решению каста).' },
-    rage:      { damageMod:2, acMod:-2, defaultDuration:3, description:'Ярость: +2 к урону, но -2 к AC. Не снимается добровольно до конца боя.' },
-    fly:       { speedMod:2, description:'Летает над полем. Игнорирует трудную местность. Может выйти из ближнего боя без реакции.' },
-    confusion: { hasDisadvantage:true, defaultDuration:2, description:'В свой ход: 50% шанс атаковать случайную цель в радиусе 1 клетки (включая союзников).' }
+    stun:      { cantAct:true, cantReact:true, grantAdvantageToAttackers:true, hasDisadvantage:true, autoRemove:'save_dc', saveDC:14, saveStat:'con', defaultDuration:1, description:'Теряет долгое действие и реакцию. Помеха на атаки и большинство проверок. В начале хода — Сл 14 Выносливости для снятия.' },
+    burn:      { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Огонь', defaultDuration:2, description:'Получает 1d4 Огня в начале хода. Сбивается водой, действием "Упасть и катиться" или в зависимости от объёма пламени.' },
+    poison:    { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Яд', attackMod:-2, defaultDuration:3, description:'Получает 1d4 Яда в начале хода. Помеха на броски атак и проверки характеристик. Снимается лекарством или Сл 14 Выносливости.' },
+    freeze:    { cantMove:true, cantAct:true, speedMod:-3, hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:1, description:'Скован льдом: обездвижен, ослеплён, мыслительные процессы заторможены. Уязвим к Дробящему и Звуковому урону. По нему — атаки с преимуществом.' },
+    fear:      { hasDisadvantage:true, defaultDuration:2, description:'Не может добровольно приближаться к источнику страха. Помеха на броски рядом с ним.' },
+    blind:     { hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Помеха на атаки. Все атаки по нему — с преимуществом.' },
+    prone:     { grantAdvantageToAttackers:true, speedMod:-3, defaultDuration:1, description:'Опрокинут. Встать = половина скорости хода. Ближние атаки по нему с преимуществом, дальние — с помехой.' },
+    bleed:     { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Физ.', defaultDuration:3, description:'Периодический урон 1d4 в начале хода. Тяжёлое кровотечение — стакается. Снимается перевязкой (Сл 10 Ловкости).' },
+    silence:   { defaultDuration:2, description:'Магическая немота. Не может использовать заклинания и магические способности. Обычные навыки и атаки работают.' },
+    anchor:    { defaultDuration:3, description:'Магический якорь. Не может телепортироваться или перемещаться магическими средствами (телепорт, Полёт, портал, прыжок-сквозь-тень и т.п.).' },
+    charm:     { hasDisadvantage:true, defaultDuration:3, description:'Очарован. Не может атаковать источник чар. Помеха на проверки против него.' },
+    dominate:  { cantAct:true, cantReact:true, defaultDuration:2, description:'Подчинён. Действует полностью по воле источника статуса (контролёра); собственных действий не совершает.' },
+    paralyze:  { cantAct:true, cantMove:true, cantReact:true, grantAdvantageToAttackers:true, attackMod:-99, autoRemove:'save_dc', saveDC:15, saveStat:'con', defaultDuration:1, description:'Полный паралич. Обездвижен и не может действовать, но мысли в порядке. По нему — атаки с преимуществом. Сл 15 Выносливости для снятия.' },
+    restrain:  { cantMove:true, hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Обездвижен. Скорость 0. Помеха на атаки и спасброски Ловкости. По нему — атаки с преимуществом. Действовать (атаковать, кастовать) — можно.' },
+    slow:      { speedMod:-3, attackMod:-1, defaultDuration:3, description:'Замедлен. Передвижение в 2 раза меньше. Только одно действие за ход.' },
+    curse:     { attackMod:-2, damageMod:-1, defaultDuration:5, description:'Проклят. Конкретные эффекты — кастомные, зависят от источника проклятия. Дефолт: -2 к атакам, -1 к урону. Снимается ритуалом или святой магией.' },
+    exhausted: { hasDisadvantage:true, description:'Истощён (5 уровней). Ур.1 Усталость — помеха на проверки характеристик. Ур.2 Изнеможение — скорость ÷ 2, реакций нет. Ур.3 Истощение — помеха на атаки и спасброски. Ур.4 Срыв — макс HP ÷ 2, нельзя кастовать. Ур.5 Коллапс — без сознания (борьба за жизнь). Снимается: -1 уровень за короткий отдых, всё за долгий. Эффекты статуса по умолчанию = Ур.1; для более высоких уровней ГМ вручную поднимает модификаторы (помеха атак, -2 скор., итд) на странице Состояний.' },
+    invisible: { acMod:2, defaultDuration:3, description:'Действительно невидим. Можно лишь услышать по звуку, заметить по дыму/жидкостям или предметам, особым заклинаниям или ГМ-проверкам Восприятия.' },
+    regen:     { startOfTurnEffect:'heal', startOfTurnDice:'1d4', defaultDuration:3, description:'Восстанавливает 1d4 HP в начале хода. Эффекты кастомные, зависят от источника регенерации.' },
+    shield:    { acMod:2, defaultDuration:3, description:'Защитный щит (кастом). Дефолт: +2 AC. Один удар может снять — по решению источника.' },
+    rage:      { damageMod:2, acMod:-2, defaultDuration:3, description:'Ярость. Усиление атак и урона, снижение защиты и контроля. Детали зависят от источника ярости. Не снимается добровольно до конца боя.' },
+    fly:       { speedMod:2, description:'Полёт. Обычно скорость нормальная, но детали кастомные. Игнорирует трудную местность. Может выйти из ближнего боя без реакции.' },
+    confusion: { hasDisadvantage:true, defaultDuration:2, description:'Замешательство. В свой ход: 50% шанс атаковать случайную цель в радиусе 1 клетки (включая союзников).' }
   };
 
   return _sts2.map(function(st) {
@@ -41824,6 +42073,459 @@ function getStatusMechanics() {
 // Экспорт для движка (он живёт в отдельном IIFE)
 if (typeof window !== 'undefined') { window.getStatusMechanics = getStatusMechanics; }
 
+// ═══════════════════════════════════════════════════════════════
+//  MANUAL PAGE — Правила Зарготы для игроков (Канон v1)
+// ═══════════════════════════════════════════════════════════════
+function renderManualPage() {
+  var host = document.getElementById('manual-page-inner');
+  if (!host) return;
+
+  // Стилевые помощники (повторяются часто, выносим)
+  var H3 = 'font-family:\'Cinzel\',serif;font-size:13px;letter-spacing:1.2px;color:#e8c060;text-transform:uppercase;margin:18px 0 10px';
+  var P  = 'font-family:\'Lora\',serif;font-size:14px;line-height:1.7;color:#c8b89c;margin:8px 0';
+  var UL = 'font-family:\'Lora\',serif;font-size:14px;line-height:1.7;color:#c8b89c;margin:6px 0 10px;padding-left:22px';
+  var KV = 'font-family:\'Lora\',serif;font-size:13px;line-height:1.65;color:#c8b89c';
+  var TAG = function(txt, col){ return '<span style="display:inline-block;padding:2px 8px;border:1px solid '+col+'66;background:'+col+'15;border-radius:4px;color:'+col+';font-size:11px;font-family:\'Cinzel\',serif;letter-spacing:.5px;margin-right:4px">'+txt+'</span>'; };
+  var BX = function(txt, col){ return '<div style="border:1px solid '+col+'55;background:'+col+'0a;border-left:3px solid '+col+';padding:10px 14px;border-radius:4px;margin:10px 0;font-family:\'Lora\',serif;font-size:13px;line-height:1.65;color:#c8b89c">'+txt+'</div>'; };
+
+  // ── Контент по разделам ──
+  var SECTIONS = [];
+
+  // 1. О Зарготе (вводный блок, не сворачивается)
+  SECTIONS.push({
+    id:'intro', icon:'📖', title:'О Зарготе', color:'#d4a04a', openByDefault:true,
+    body:
+      '<p style="'+P+'">Заргота — настольная ролевая система на основе D&D с собственным каноном правил. Этот мануал — справочник для игроков: как кидать броски, как ходить в бою, что такое статусы и что бывает на 0 HP.</p>'+
+      '<p style="'+P+'">Все разделы можно сворачивать. Открывай то, что нужно прямо сейчас. ГМ может уточнить или поменять отдельные правила под конкретную сцену — мануал даёт базу.</p>'
+  });
+
+  // 2. Бой — основа
+  SECTIONS.push({
+    id:'combat', icon:'⚔️', title:'Бой — основа', color:'#c87878',
+    body:
+      '<h3 style="'+H3+'">Экономика хода</h3>'+
+      '<p style="'+P+'">За один свой ход у каждого боевого юнита есть:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>1 долгое действие</b> — главное тяжёлое (атака, заклинание, сложный навык).</li>'+
+        '<li><b>1 короткое действие</b> — быстрое (толчок, достать предмет, короткий навык).</li>'+
+        '<li><b>1 реакция за раунд</b> — срабатывает на триггер (см. раздел «Реакции»).</li>'+
+        '<li><b>Передвижение</b> — можно дробить до, между и после действий.</li>'+
+        '<li><b>Бесплатные действия</b> — короткая фраза, жест, уронить предмет.</li>'+
+      '</ul>'+
+      BX('💡 <b>Долгое нельзя разменять на два коротких.</b> Короткое можно использовать, даже если долгое осталось.', '#d4a04a')+
+      '<h3 style="'+H3+'">Передвижение</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>1 клетка = 1 метр.</li>'+
+        '<li>Базовая скорость — обычно 7 клеток (может меняться от расы/снаряжения).</li>'+
+        '<li>Диагональ = 1 клетка (не 1.5).</li>'+
+        '<li>Трудная местность — стоимость движения × 2 (округление вверх).</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Атака оружием</h3>'+
+      '<p style="'+P+'"><b>Бросок попадания:</b> 1d20 + модификатор характеристики + мастерство (если знакомо). Если ≥ AC цели — попал.</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Характеристика:</b> чаще Сила (милии) или Ловкость (дальний бой). Иногда оружие/спелл разрешают другую — это будет в его описании.</li>'+
+        '<li><b>Мастерство:</b> +1 за знакомое оружие по умолчанию, может расти до +3 от практики, уровня или черты (ГМ уточнит).</li>'+
+        '<li><b>Урон:</b> кубик оружия + модификатор характеристики. Иногда добавляется Интеллект (если это магия) или другая хар-ка по описанию.</li>'+
+      '</ul>'+
+      BX('🎲 <b>Нат 20</b> = критическое попадание (кубы урона ×2). <b>Нат 1</b> = автопровал.', '#c87878')+
+      '<h3 style="'+H3+'">Импровизированный предмет</h3>'+
+      '<p style="'+P+'">Камень, бутылка, стул — обычно 1d4 без мастерства. Точное число зависит от предмета, ГМ решит.</p>'
+  });
+
+  // 3. Защита и AC
+  SECTIONS.push({
+    id:'defense', icon:'🛡️', title:'Защита и AC', color:'#7a9ae0',
+    body:
+      '<h3 style="'+H3+'">Формула AC</h3>'+
+      '<p style="'+P+'"><b>AC = база + бонусы снаряжения + бонус Ловкости.</b></p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>База:</b> обычно 10, но у некоторых рас отличается (ГМ уточнит).</li>'+
+        '<li><b>Бонус Ловкости:</b> +1 AC за каждые <b>3</b> Ловкости (округление вниз).</li>'+
+        '<li><b>Снаряжение:</b> броня, шлем, артефакты — по описанию предмета.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Щит</h3>'+
+      '<p style="'+P+'">Отдельный источник AC, обычно <b>+1 / +2 / +3</b> в зависимости от типа и редкости (малый/средний/большой; обычный/редкий/эпический).</p>'+
+      '<h3 style="'+H3+'">Укрытия</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Лёгкое</b> — частичное прикрытие: +1 AC.</li>'+
+        '<li><b>Полное</b> — нельзя атаковать напрямую (или жёсткая помеха).</li>'+
+        '<li><b>Объект рядом</b> (стена, угол, колонна) — +1 AC от дальних атак; преграда за спиной запрещает оттеснение.</li>'+
+      '</ul>'
+  });
+
+  // 4. Магия
+  SECTIONS.push({
+    id:'magic', icon:'✨', title:'Магия — каст', color:'#a07fd4',
+    body:
+      '<h3 style="'+H3+'">Три формы магии</h3>'+
+      '<p style="'+P+'">Все три считаются магией, но различаются по тому, как изучаются и кастуются:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li>'+TAG('📜 Кодекс', '#c87878')+' — боевая магия, тренируется как навык.</li>'+
+        '<li>'+TAG('📘 Фолиант', '#7a9ae0')+' — книжная магия, изучается чтением и ритуалом.</li>'+
+        '<li>'+TAG('🔥 Ритуал', '#a07fd4')+' — обрядовая магия, требует подготовки и условий.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Как кастуется</h3>'+
+      '<p style="'+P+'"><b>Способ применения, характеристика, Save DC и попадание заклинанием — всегда прописаны в тексте самого заклинания.</b> Если непонятно — ГМ разруливает.</p>'+
+      '<p style="'+P+'">Типы разрешения:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Spell attack</b> — 1d20 + хар. + мастерство против AC цели.</li>'+
+        '<li><b>Спасбросок</b> — цель кидает сейв против Сл, указанной в заклинании.</li>'+
+        '<li><b>Реакционное</b> — срабатывает на триггер, тратит реакцию.</li>'+
+        '<li><b>Поддерживаемое</b> — длится, пока заклинатель его держит (см. след. раздел).</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Лимит изученных заклинаний</h3>'+
+      '<p style="'+P+'">По умолчанию — <b>3 заклинания всего</b> (любого типа, не каждого). Личные навыки и черты не считаются. Расы, предметы и особые состояния могут увеличить лимит.</p>'+
+      BX('🎒 Спецспособности от расы или классовые навыки не занимают слоты заклинаний.', '#a07fd4')
+  });
+
+  // 5. Концентрация и поддерживаемые эффекты
+  SECTIONS.push({
+    id:'concentr', icon:'🌀', title:'Концентрация и поддержка', color:'#a07fd4',
+    body:
+      '<p style="'+P+'">Некоторые заклинания нужно <b>поддерживать</b> — пока заклинатель держит концентрацию, эффект работает.</p>'+
+      '<h3 style="'+H3+'">Лимит</h3>'+
+      '<p style="'+P+'">Обычно — <b>1 поддерживаемый эффект за раз</b>. Точные условия (длительность, что считается за поддержку) прописаны в каждом заклинании.</p>'+
+      '<h3 style="'+H3+'">Что ломает поддержку</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>Любой полученный урон (часто — с проверкой концентрации, описанной в заклинании).</li>'+
+        '<li>Статус '+TAG('💫 Оглушён', '#c0a020')+' — каст невозможен.</li>'+
+        '<li>Статус '+TAG('⚡ Паралич', '#a0c020')+' — каст невозможен.</li>'+
+        '<li>Сон или потеря сознания.</li>'+
+        '<li>Каст другого поддерживаемого эффекта — старый сбрасывается.</li>'+
+      '</ul>'+
+      BX('Конкретные пороги, формула проверки и исключения — указаны в тексте самого заклинания. Если не указано — ГМ решает по ситуации.', '#a07fd4')
+  });
+
+  // 6. Спецдействия
+  SECTIONS.push({
+    id:'special', icon:'🥊', title:'Спецдействия (толчок, захват, обезоруж)', color:'#c87878',
+    body:
+      '<p style="'+P+'">Толчок, пинок, сбивание объекта, захват, обезоруживание — отдельные тактические опции.</p>'+
+      '<h3 style="'+H3+'">Тип действия</h3>'+
+      '<p style="'+P+'">Почти всегда <b>короткое действие</b>.</p>'+
+      '<h3 style="'+H3+'">Контест-проверка</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Вне инициативы / катсцены:</b> атакующий бросает Силу/Ловкость, цель бросает ту же характеристику — кто больше, тот выиграл.</li>'+
+        '<li><b>В бою с инициативой:</b> атакующий бросает против пассивной Сл цели (10 + хар. цели).</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Анти-спам</h3>'+
+      '<p style="'+P+'">Повторное использование одного спецдействия в одном бою:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li>2-я попытка — с помехой.</li>'+
+        '<li>3-я попытка — с двумя помехами.</li>'+
+        '<li>4-я — автопровал.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Эффекты при успехе</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Толчок / пинок</b> — обычно сдвиг на 1 клетку (точнее зависит от ситуации).</li>'+
+        '<li><b>Захват</b> — цель '+TAG('🪢 Обездвижена', '#a07050')+' пока не вырвется; в каждый свой ход может бросить контест-проверку.</li>'+
+        '<li><b>Обезоруживание</b> — оружие падает на землю на 1 клетку.</li>'+
+      '</ul>'
+  });
+
+  // 7. Реакции
+  SECTIONS.push({
+    id:'reactions', icon:'⚡', title:'Реакции', color:'#c87878',
+    body:
+      '<h3 style="'+H3+'">Базовое правило</h3>'+
+      '<p style="'+P+'"><b>1 реакция за раунд.</b> Срабатывает на конкретный триггер. Часть навыков и заклинаний даёт дополнительные реакции.</p>'+
+      '<h3 style="'+H3+'">Триггеры</h3>'+
+      '<p style="'+P+'">Не закрытый список — зависит от навыков и заклинаний персонажа. Базовые:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li>Враг выходит из ближнего боя — <b>атака возможности</b>.</li>'+
+        '<li>Персонаж получает урон — есть навыки/эффекты с таким триггером.</li>'+
+        '<li>Враг начинает действие рядом.</li>'+
+        '<li>Цель входит в зону контроля.</li>'+
+        '<li>Срабатывает свой навык или эффект.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Подготовленная реакция</h3>'+
+      '<p style="'+P+'">Отдельное <b>долгое действие</b> в свой ход: задаёшь условие «когда X — я делаю Y». На следующем триггере срабатывает вместо обычной реакции.</p>'+
+      BX('Подготовленная реакция тратит твоё долгое действие сейчас и реакцию позже.', '#d4a04a')
+  });
+
+  // 8. Состояния — статусы
+  SECTIONS.push({
+    id:'statuses', icon:'🌀', title:'Состояния (23 канонических)', color:'#a07fd4',
+    body:
+      '<p style="'+P+'">Состояние — статус, навешиваемый на бойца. Применяется автоматически в бою. Кликни <b>«Состояния»</b> в разделе «Арена» для полной таблицы с настройками. Здесь — краткая сводка по группам.</p>'+
+      '<h3 style="'+H3+'">⛔ Контроль (выключают из боя)</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>'+TAG('💫 Оглушён', '#c0a020')+' Теряет долгое действие и реакцию. Помеха на броски.</li>'+
+        '<li>'+TAG('❄ Заморожен', '#4090d0')+' Обездвижен, ослеплён, заторможен. Уязвим к Дробящему и Звуковому. Атаки по нему — с преимуществом.</li>'+
+        '<li>'+TAG('⚡ Паралич', '#a0c020')+' Полный паралич. Мысли в порядке, но действовать нельзя. Атаки по нему — с преимуществом.</li>'+
+        '<li>'+TAG('🪢 Обездвижен', '#a07050')+' Скорость 0. Помеха на атаки и сейвы Лов. Действовать — можно.</li>'+
+        '<li>'+TAG('💢 Опрокинут', '#a06030')+' Встать = половина скорости. Ближние атаки по нему — с преимуществом, дальние — с помехой.</li>'+
+        '<li>'+TAG('👻 Страх', '#9060c0')+' Не может приближаться к источнику. Помеха на броски рядом.</li>'+
+        '<li>'+TAG('🙈 Ослеплён', '#808080')+' Помеха на атаки. Атаки по нему — с преимуществом.</li>'+
+        '<li>'+TAG('💖 Очарован', '#e060a0')+' Не атакует источник. Помеха на проверки против него.</li>'+
+        '<li>'+TAG('🎭 Подчинён', '#7040a0')+' Действует по воле контролёра. Собственных действий нет.</li>'+
+        '<li>'+TAG('🌀 Замешательство', '#b060b0')+' 50% шанс атаковать случайную цель в радиусе 1 клетки (включая союзников).</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">🔥 DoT (урон со временем)</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>'+TAG('🔥 Горит', '#e05020')+' 1d4 Огня в начале хода. Сбивается водой или «упасть и катиться».</li>'+
+        '<li>'+TAG('☠ Отравлен', '#50c040')+' 1d4 Яда в начале хода. Помеха на атаки и проверки.</li>'+
+        '<li>'+TAG('🩸 Кровотечение', '#c02020')+' 1d4 в начале хода. Тяжёлое — стакается. Снимается перевязкой (Сл 10 Лов).</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">📉 Дебаффы (мешают, но не отключают)</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>'+TAG('🐌 Замедлен', '#708060')+' Скорость ÷ 2. Только одно действие за ход.</li>'+
+        '<li>'+TAG('🌑 Проклят', '#7040a0')+' Эффекты кастомные. Дефолт: -2 атаки, -1 урон.</li>'+
+        '<li>'+TAG('😓 Истощён', '#806040')+' 5 уровней (подробнее в разделе «Отдых»).</li>'+
+        '<li>'+TAG('🔇 Магическая немота', '#607080')+' Нельзя кастовать. Обычные навыки работают.</li>'+
+        '<li>'+TAG('⚓ Магический якорь', '#506080')+' Нельзя телепортироваться или перемещаться магически.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">💚 Баффы (плюсы)</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>'+TAG('👁 Невидим', '#60c0c0')+' Действительно невидим. Можно услышать, заметить по дыму/жидкости или особым спеллам.</li>'+
+        '<li>'+TAG('💚 Регенерация', '#40b040')+' 1d4 HP в начале хода (кастом).</li>'+
+        '<li>'+TAG('🛡 Защитный щит', '#4070c0')+' +2 AC (кастом).</li>'+
+        '<li>'+TAG('😡 Ярость', '#c03030')+' Усиление атак/урона, снижение защиты. Не снимается добровольно до конца боя.</li>'+
+        '<li>'+TAG('🕊 Полёт', '#80a0e0')+' Игнорирует трудную местность. Может выйти из ближнего боя без реакции.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Общие правила</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>Одинаковые статусы <b>не стакаются</b> — обновляется длительность. Исключение: тяжёлое кровотечение.</li>'+
+        '<li><b>DoT тикает</b> в начале хода цели. <b>Длительность сгорает</b> в конце хода цели.</li>'+
+        '<li>Подробные механики каждого статуса — на странице «Состояния» (Арена → Состояния).</li>'+
+      '</ul>'
+  });
+
+  // 9. 0 HP и борьба за жизнь
+  SECTIONS.push({
+    id:'death', icon:'💀', title:'0 HP, борьба за жизнь, ранения', color:'#c02020',
+    body:
+      '<h3 style="'+H3+'">При достижении 0 HP</h3>'+
+      '<p style="'+P+'">ГМ выбирает один из исходов по ситуации:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Тяжёлое ранение</b> — таблица ниже.</li>'+
+        '<li><b>Потеря сознания</b> — начинается борьба за жизнь.</li>'+
+        '<li><b>Мгновенная смерть</b> — при критически разрушительном уроне, добивании, уничтожении тела или 4-м ранении.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Борьба за жизнь</h3>'+
+      '<p style="'+P+'">В начале хода без сознания — бросок d20:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>0–9</b> — провал.</li>'+
+        '<li><b>10–20</b> — успех.</li>'+
+        '<li><b>Нат 1</b> — два провала.</li>'+
+        '<li><b>Нат 20</b> — два успеха.</li>'+
+        '<li><b>4 успеха</b> — стабилизация.</li>'+
+        '<li><b>4 провала</b> — смерть.</li>'+
+      '</ul>'+
+      BX('💀 Удар по уже бессознательному персонажу = автоматический провал в борьбе за жизнь.', '#c02020')+
+      '<p style="'+P+'"><b>Стабилизация действием:</b> проверка Сл 10. Почти всегда нужен бинт или физическое зажатие раны. Предметы могут давать бонус.</p>'+
+      '<p style="'+P+'"><b>Лечение с 0 HP:</b> приходит в сознание, продолжает бой с восстановленным HP. Если по сюжету было «без сознания N времени» — обычно 1d4–1d8 часов.</p>'+
+      '<h3 style="'+H3+'">Тяжёлые ранения</h3>'+
+      '<p style="'+P+'">Если ГМ выбирает «ранение» — кидаем d20 по таблице. Активные ранения снижают <b>максимум HP</b>:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li>1 ранение → -10% максимума</li>'+
+        '<li>2 ранения → -20%</li>'+
+        '<li>3 ранения → -30%</li>'+
+        '<li><b>4-е ранение</b> → потеря сознания, без помощи до конца сцены — смерть.</li>'+
+      '</ul>'+
+      '<p style="'+P+'">Округление вниз. Пример: 10 HP → 9 → 8 → 7 при трёх ранениях.</p>'+
+      '<h3 style="'+H3+'">d20: Таблица ранений</h3>'+
+      '<div style="font-family:\'Lora\',serif;font-size:12px;line-height:1.7;color:#c8b89c;background:#0a0604;border:1px solid #2a1e10;border-radius:4px;padding:12px 16px;margin:8px 0">'+
+        '<div><b>1</b> Сломанная рука — −1 к атакам, нельзя двуручное.</div>'+
+        '<div><b>2</b> Трещина в черепе — −1 Интеллект, галлюцинации при стрессе.</div>'+
+        '<div><b>3</b> Сбитое плечо — нельзя метать или стрелять из лука.</div>'+
+        '<div><b>4</b> Пробито бедро — −2 Ловкость, шанс упасть при беге (Сл 10).</div>'+
+        '<div><b>5</b> Повреждён глаз — −1 Восприятие, шанс промаха по укрытым.</div>'+
+        '<div><b>6</b> Разрыв мышц — −1 Сила, помеха на физ. действия с натугой.</div>'+
+        '<div><b>7</b> Травма уха — −2 на Слух, можно застать врасплох.</div>'+
+        '<div><b>8</b> Сломан нос — −1 Харизма до лечения.</div>'+
+        '<div><b>9</b> Повреждён позвоночник — не больше 3 клеток в ход.</div>'+
+        '<div><b>10</b> Отбитые почки — -1 HP при каждом боевом столкновении.</div>'+
+        '<div><b>11</b> Вывих шеи — спасбросок Вын Сл 12 на резкий поворот или -1 действие.</div>'+
+        '<div><b>12</b> Психологическая трещина — d6 в начале боя, на 1 пропуск хода.</div>'+
+        '<div><b>13</b> Хроническая одышка — Вын Сл 10 после 3 ходов спринта.</div>'+
+        '<div><b>14</b> Открытая рана — при каждом ударе +1 доп. урон.</div>'+
+        '<div><b>15</b> Магическое отторжение — иммунитет к положительной магии.</div>'+
+        '<div><b>16</b> Частичный паралич руки — −2 двуручному/щиту/удержанию.</div>'+
+        '<div><b>17</b> Дрожащие пальцы — −2 к спеллам, требующим точности.</div>'+
+        '<div><b>18</b> Ожог мозга — −1 к случайной характеристике (d6).</div>'+
+        '<div><b>19</b> Хронический страх — выбираешь страх, при контакте сейв или паника.</div>'+
+        '<div><b>20</b> Магическая деформация — изменение тела, −2 Харизма.</div>'+
+      '</div>'+
+      '<h3 style="'+H3+'">Воскрешение</h3>'+
+      '<p style="'+P+'">Существуют заклинания, ритуалы и специалисты — но это не легко. Конкретные методы и стоимость — на усмотрение ГМ.</p>'
+  });
+
+  // 10. Отдых
+  SECTIONS.push({
+    id:'rest', icon:'🏕️', title:'Отдых и восстановление', color:'#6fcb83',
+    body:
+      '<h3 style="'+H3+'">Короткий отдых (1–2 часа)</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>HP:</b> ГМ кидает 1d4 (или больше — зависит от уровня комфорта); обычно восстанавливается 1–3 HP.</li>'+
+        '<li>Восстанавливаются навыки «раз за бой» / «раз за короткий отдых».</li>'+
+        '<li>Восстанавливаются заклинания с тегом «раз за короткий отдых».</li>'+
+        '<li>Снимает <b>1 уровень истощения</b>.</li>'+
+        '<li>Не убирает крупные статусы: '+TAG('🩸 Кровотечение', '#c02020')+TAG('🌑 Проклят', '#7040a0')+'.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Долгий отдых (8+ часов)</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>HP:</b> по кубам восстановления от уровня условий:'+
+          '<ul style="'+UL+';margin-top:4px">'+
+            '<li>Плохие условия — 1d4 до 4d4.</li>'+
+            '<li>Нормальные — 1d6 до 5d6.</li>'+
+            '<li>Отличные (постель, безопасно, тёплая еда) — <b>полностью</b>.</li>'+
+          '</ul>'+
+        '</li>'+
+        '<li>Все навыки и заклинания «раз за долгий отдых» восстанавливаются.</li>'+
+        '<li>Истощение снимается <b>полностью</b>.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Истощение — 5 уровней</h3>'+
+      '<p style="'+P+'">Накапливается от долгих переходов, плохого сна, голода, экстремального магического перенапряжения. Снимается отдыхом (см. выше).</p>'+
+      '<div style="font-family:\'Lora\',serif;font-size:13px;line-height:1.7;color:#c8b89c;margin:8px 0">'+
+        '<div style="padding:6px 0;border-bottom:1px solid #1e1508"><b style="color:#e8c060">Ур. 1 — Усталость.</b> Помеха на проверки характеристик. Бой пока не страдает.</div>'+
+        '<div style="padding:6px 0;border-bottom:1px solid #1e1508"><b style="color:#d49060">Ур. 2 — Изнеможение.</b> Скорость ÷ 2, реакций нет.</div>'+
+        '<div style="padding:6px 0;border-bottom:1px solid #1e1508"><b style="color:#c87060">Ур. 3 — Истощение.</b> Помеха на атаки и спасброски. Теперь и бой проседает.</div>'+
+        '<div style="padding:6px 0;border-bottom:1px solid #1e1508"><b style="color:#c05050">Ур. 4 — Срыв.</b> Макс HP ÷ 2, нельзя кастовать заклинания.</div>'+
+        '<div style="padding:6px 0"><b style="color:#a04040">Ур. 5 — Коллапс.</b> Без сознания. Попадаешь в сценарий 0 HP — борьба за жизнь.</div>'+
+      '</div>'
+  });
+
+  // 11. Прокачка
+  SECTIONS.push({
+    id:'levelup', icon:'📈', title:'Прокачка и уровни', color:'#e8c060',
+    body:
+      '<h3 style="'+H3+'">Когда повышается уровень</h3>'+
+      '<p style="'+P+'"><b>ГМ решает</b> — обычно по сюжетным вехам, иногда после крупного боя или испытания.</p>'+
+      '<h3 style="'+H3+'">Что даёт уровень</h3>'+
+      '<p style="'+P+'">Зависит от расы и пути персонажа. Может включать:</p>'+
+      '<ul style="'+UL+'">'+
+        '<li>+HP по расе.</li>'+
+        '<li>+2 очка характеристик (на любую) — каждый уровень.</li>'+
+        '<li>+1 универсальное очко каждые 3 уровня (особенность Человека).</li>'+
+        '<li>Развитие существующих навыков или эволюция черты.</li>'+
+        '<li>Разрешение изучить новое заклинание (если есть лимит).</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">Потолок уровня</h3>'+
+      '<p style="'+P+'"><b>10 уровень</b> — стандартный потолок развития. Дальше — <b>11 уровень: Абсолют.</b> Особый высший тир, открывается только сюжетно.</p>'+
+      BX('🌟 Абсолют — это не «11-й обычный уровень», а отдельная категория. Достижение его — крупный сюжетный момент кампании.', '#e8c060')
+  });
+
+  // 12. Экипировка
+  SECTIONS.push({
+    id:'gear', icon:'🎒', title:'Экипировка и расходники', color:'#b88442',
+    body:
+      '<h3 style="'+H3+'">Слоты</h3>'+
+      '<p style="'+P+'">Стандартный набор: оружие основное, оружие запасное, броня, щит, шлем, перчатки, обувь, пояс, амулет, кольцо, плащ, артефакты, расходники.</p>'+
+      '<p style="'+P+'"><b>Жёсткого лимита на количество предметов нет</b> — носишь столько, сколько твой персонаж реально может унести.</p>'+
+      BX('⚠️ Магия в избытке может быть вредной — слишком много артефактов на одном теле может конфликтовать. ГМ может вводить ограничения по обстоятельствам.', '#b88442')+
+      '<h3 style="'+H3+'">Качество предметов</h3>'+
+      '<p style="'+P+'">Без жёсткой градации — всё описывается текстом предмета. Эффекты, бонусы, заряды, особые модификаторы — в карточке.</p>'+
+      '<h3 style="'+H3+'">Расходники</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Простые</b> (зелье, бинт) — короткое действие.</li>'+
+        '<li><b>Сложные</b> (свиток ритуала) — долгое действие.</li>'+
+      '</ul>'+
+      '<p style="'+P+'">Конкретный эффект зелий/снадобий/мед.расходников — описан в самом предмете.</p>'
+  });
+
+  // 13. Урон и резисты
+  SECTIONS.push({
+    id:'damage', icon:'💥', title:'Типы урона и резисты', color:'#e05020',
+    body:
+      '<h3 style="'+H3+'">Канонические типы</h3>'+
+      '<p style="'+P+'">'+
+        TAG('🔥 Огонь', '#e05020')+
+        TAG('❄ Холод', '#4090d0')+
+        TAG('⚡ Электрический', '#a0c020')+
+        TAG('💀 Некротический', '#7040a0')+
+        TAG('✨ Святой', '#e8c060')+
+        TAG('🧠 Психический', '#b060b0')+
+        TAG('☠ Яд', '#50c040')+
+        TAG('🗡 Колющий', '#a09080')+
+        TAG('⚔ Рубящий', '#c87878')+
+        TAG('🔨 Дробящий', '#a06030')+
+        TAG('🧪 Кислота', '#90c040')+
+        TAG('🔊 Звук', '#7a9ae0')+
+        TAG('🌟 Лучевой', '#f0d060')+
+        TAG('🌀 Хаос', '#9060c0')+
+      '</p>'+
+      '<h3 style="'+H3+'">Сопротивление, уязвимость, иммунитет</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Сопротивление:</b> урон ÷ 2 (округление вниз).</li>'+
+        '<li><b>Уязвимость:</b> урон × 2.</li>'+
+        '<li><b>Иммунитет:</b> урон = 0.</li>'+
+        '<li>Если есть и сопротивление, и уязвимость одновременно — нейтрализуются.</li>'+
+      '</ul>'+
+      '<p style="'+P+'"><b>Лимита на количество резистов нет</b> — накапливаются от снаряжения, навыков, состояний. ГМ может ввести ограничения по сюжету.</p>'
+  });
+
+  // 14. Мелочи
+  SECTIONS.push({
+    id:'misc', icon:'📏', title:'Мелочи (клетки, диагональ, временные HP, крит на сейве)', color:'#8090a0',
+    body:
+      '<ul style="'+UL+'">'+
+        '<li><b>Крит на спасброске:</b> Нат 20 = автоуспех. Нат 1 = автопровал.</li>'+
+        '<li><b>Временные HP:</b> поглощают урон раньше обычного. Лимит — не больше 50% максимума. Из разных источников — складываются. Из одного — не стакаются.</li>'+
+        '<li><b>Длительность статуса:</b> уменьшается в конце хода цели.</li>'+
+        '<li><b>DoT / HoT:</b> тикают в начале хода цели.</li>'+
+        '<li><b>1 клетка = 1 метр.</b></li>'+
+        '<li><b>Диагональ</b> = 1 клетка движения (не 1.5).</li>'+
+        '<li><b>Труднопроходимая местность:</b> стоимость × 2.</li>'+
+      '</ul>'
+  });
+
+  // ── Сборка HTML ──
+  var html =
+    '<div style="text-align:center;margin-bottom:30px">'+
+      '<div style="font-size:38px;margin-bottom:6px">📖</div>'+
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:24px;color:#e8c060;letter-spacing:1.5px">Правила Зарготы</div>'+
+      '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px">МАНУАЛ ДЛЯ ИГРОКОВ · КАНОН v1</div>'+
+      '<div style="width:80px;height:1px;background:#3a2a10;margin:18px auto"></div>'+
+      '<div style="font-family:\'Lora\',serif;font-size:13px;color:#7a6a48;line-height:1.6;max-width:560px;margin:0 auto;font-style:italic">Кликни по любому разделу — откроется. Кликни ещё раз — свернётся.</div>'+
+    '</div>';
+
+  SECTIONS.forEach(function(s) {
+    var isOpen = !!s.openByDefault;
+    var chevColor = s.color;
+    html +=
+      '<div class="manual-section" data-manual-id="'+s.id+'" style="border:1px solid '+s.color+'33;border-left:3px solid '+s.color+';border-radius:6px;margin-bottom:10px;background:#0a0604;overflow:hidden">'+
+        '<div class="manual-section-head" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;transition:background .15s">'+
+          '<div style="display:flex;align-items:center;gap:12px;min-width:0">'+
+            '<span style="font-size:22px;line-height:1;flex-shrink:0">'+s.icon+'</span>'+
+            '<span style="font-family:\'Cinzel\',serif;font-size:15px;color:'+s.color+';letter-spacing:1.2px;line-height:1.3">'+s.title+'</span>'+
+          '</div>'+
+          '<span class="manual-chev" style="font-size:13px;color:'+chevColor+';opacity:.6;flex-shrink:0;margin-left:12px;transition:transform .2s ease'+(isOpen?';transform:rotate(90deg)':'')+'">\u25B8</span>'+
+        '</div>'+
+        '<div class="manual-section-body" style="padding:'+(isOpen?'4px 22px 20px 22px':'0 22px')+';display:'+(isOpen?'block':'none')+';border-top:'+(isOpen?'1px solid '+s.color+'22':'none')+'">'+
+          s.body+
+        '</div>'+
+      '</div>';
+  });
+
+  host.innerHTML = html;
+
+  // Биндинг expand/collapse
+  host.querySelectorAll('.manual-section').forEach(function(sec) {
+    var head = sec.querySelector('.manual-section-head');
+    var body = sec.querySelector('.manual-section-body');
+    var chev = sec.querySelector('.manual-chev');
+    var sColor = sec.style.borderLeftColor || '#c87878';
+    head.addEventListener('mouseenter', function(){ head.style.background = '#ffffff05'; });
+    head.addEventListener('mouseleave', function(){ head.style.background = 'transparent'; });
+    head.addEventListener('click', function() {
+      var open = body.style.display !== 'none';
+      if (open) {
+        body.style.display = 'none';
+        body.style.padding = '0 22px';
+        body.style.borderTop = 'none';
+        if (chev) chev.style.transform = '';
+      } else {
+        body.style.display = 'block';
+        body.style.padding = '4px 22px 20px 22px';
+        body.style.borderTop = '1px solid ' + sColor + '22';
+        if (chev) chev.style.transform = 'rotate(90deg)';
+      }
+    });
+  });
+}
+if (typeof window !== 'undefined') { window.renderManualPage = renderManualPage; }
+
 var _statusEditKey = null;
 var _statusFilter = 'all'; // all | debuff | buff | dot | control
 
@@ -41839,7 +42541,7 @@ function renderStatusesPage() {
     +   '<div style="font-size:26px">💫</div>'
     +   '<div>'
     +     '<div style="font-size:17px;color:#d4a84b;font-family:\'Cinzel Decorative\',serif">Механики Состояний</div>'
-    +     '<div style="font-size:10px;color:#666;margin-top:2px;letter-spacing:.3px">Канон Зарготы §9 · 20 статусов · авто-применение в бою</div>'
+    +     '<div style="font-size:10px;color:#666;margin-top:2px;letter-spacing:.3px">Канон Зарготы §9 · 23 статуса · авто-применение в бою</div>'
     +   '</div>'
     + '</div>'
     + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
@@ -41871,7 +42573,7 @@ function renderStatusesPage() {
   function statusCategory(m) {
     if (['regen','shield','rage','invisible','fly'].indexOf(m.key) >= 0) return 'buff';
     if (['burn','poison','bleed'].indexOf(m.key) >= 0) return 'dot';
-    if (['stun','paralyze','freeze','fear','charm','confusion','prone'].indexOf(m.key) >= 0) return 'control';
+    if (['stun','paralyze','freeze','fear','charm','confusion','prone','restrain','dominate'].indexOf(m.key) >= 0) return 'control';
     return 'debuff';
   }
 
