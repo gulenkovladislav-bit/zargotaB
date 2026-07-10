@@ -2192,10 +2192,38 @@
     background: linear-gradient(160deg,#161208,#100d07);
     border: 1px solid var(--border); border-radius: 4px;
     padding: 0; cursor: pointer; overflow: hidden;
-    transition: all .22s; touch-action: manipulation;
+    transition: transform .28s cubic-bezier(.2,.8,.3,1.1), box-shadow .28s ease, border-color .28s ease;
+    touch-action: manipulation;
     position: relative;
   }
-  .char-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px #000000aa; border-color: #3a2a14; }
+  /* Тонкая золотая рамка-свечение, оживающая на hover */
+  .char-card::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    pointer-events: none;
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+  .char-card:hover {
+    transform: translateY(-4px) scale(1.012);
+    box-shadow: 0 12px 32px #000000cc, 0 0 24px #d4a04a22;
+    border-color: #d4a04a55;
+  }
+  .char-card:hover::after {
+    border-color: #d4a04a66;
+    box-shadow: inset 0 0 18px #d4a04a14;
+    animation: charCardPulse 2.2s ease-in-out infinite;
+  }
+  @keyframes charCardPulse {
+    0%, 100% { box-shadow: inset 0 0 14px #d4a04a10; border-color: #d4a04a55; }
+    50%      { box-shadow: inset 0 0 24px #d4a04a20; border-color: #d4a04a88; }
+  }
+  .char-card .char-card-portrait,
+  .char-card .char-card-portrait-placeholder { transition: transform .45s ease, filter .3s ease; }
+  .char-card:hover .char-card-portrait { transform: scale(1.045); filter: brightness(1.08) saturate(1.06); }
+  .char-card:hover .char-card-name { color: #ffe9b8; text-shadow: 0 0 14px #d4a04a44; }
+  .char-card .char-card-name { transition: color .25s, text-shadow .25s; }
   .char-card-portrait {
     width: 100%; height: 130px; object-fit: cover;
     display: block; background: #0e0a06;
@@ -4764,8 +4792,219 @@
     position: relative;
     overflow: hidden;
   }
-  .htree-card:hover { border-color: #d4a04a66; box-shadow: 0 4px 20px #d4a04a10; }
+  .htree-card:hover { border-color: #d4a04a66; box-shadow: 0 4px 20px #d4a04a10; transform: translateY(-2px); }
   .htree-card.root-card { border-color: #d4a04a44; }
+  /* Внутренняя панель под текст — чтобы имя/титул/описание не сливались с фоном карточки */
+  .htree-card-text {
+    background: #241a0e;
+    border: 1px solid #3a2a1466;
+    border-radius: 7px;
+    padding: 6px 6px 7px;
+    margin-top: 2px;
+    transition: background .15s, border-color .15s;
+  }
+  .htree-card:hover .htree-card-text { background: #2c2012; border-color: #d4a04a33; }
+  /* ── Семейное древо в листе персонажа ── */
+  .fam-tree { display: flex; flex-direction: column; align-items: center; padding: 12px 4px 8px; }
+  .fam-row { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; align-items: stretch; }
+  /* Раскладка с SVG-линиями (как в Иерархии) */
+  .fam-tree-content { position: relative; padding: 14px 8px 10px; overflow-x: auto; display: flex; flex-direction: column; align-items: center; }
+  .fam-node-row { display: flex; justify-content: center; gap: 22px; position: relative; z-index: 1; }
+  .fam-children-row { flex-wrap: nowrap; }
+  .fam-child-col { display: flex; flex-direction: column; align-items: center; }
+  .fam-gap { height: 46px; }
+  .fam-node {
+    min-width: 118px; max-width: 160px;
+    border: 1px solid #2f2112; border-radius: 10px;
+    background: linear-gradient(180deg, #1a1208, #0e0a06);
+    padding: 9px 9px 0; text-align: center; cursor: pointer;
+    transition: transform .2s ease, border-color .2s, box-shadow .2s;
+    position: relative; display: flex; flex-direction: column;
+  }
+  .fam-node:hover { transform: translateY(-2px); box-shadow: 0 4px 16px #0008; filter: brightness(1.08); }
+  .fam-node.fam-self { background: linear-gradient(180deg, #221809, #120d06); cursor: default; }
+  .fam-node.fam-self:hover { transform: none; box-shadow: none; filter: none; }
+  .fam-node.fam-dead { opacity: .55; }
+  .fam-node.fam-dead .fam-node-name { text-decoration: line-through; }
+  .fam-node-inner {
+    background: #241a0e; border: 1px solid #3a2a1466; border-radius: 6px;
+    padding: 6px 6px; transition: background .15s; margin-bottom: 8px;
+  }
+  .fam-node:hover .fam-node-inner { background: #2c2012; }
+  .fam-node-name { font-family: 'Cinzel', serif; font-size: 12px; font-weight: 600; color: #f6e6c0; }
+  .fam-node-note { font-size: 9px; color: #8a7a5e; line-height: 1.4; margin-top: 3px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* Тип связи — внизу карточки */
+  .fam-node-rel-bottom {
+    font-family: 'Cinzel', serif; font-size: 9px; letter-spacing: .8px;
+    text-transform: uppercase; padding: 5px 4px; margin: 0 -9px;
+    border-top: 1px solid; border-radius: 0 0 9px 9px;
+    background: #0000001a;
+  }
+  /* Иконка-эмодзи узла */
+  .fam-node-icon {
+    width: 42px; height: 42px; margin: 0 auto 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; border-radius: 50%;
+    background: #241a0e; border: 1px solid #3a2a14; overflow: hidden;
+  }
+  .fam-node.fam-self .fam-node-icon { width: 50px; height: 50px; font-size: 28px; }
+  /* Режим редактирования */
+  .fam-tree-editing .fam-node { border-style: dashed; }
+  .fam-node.fam-editing:hover { box-shadow: 0 4px 18px #6fcb8322; }
+  .fam-node-edit-badge {
+    position: absolute; top: -6px; right: -6px; z-index: 2;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #6fcb83; color: #0a0704; font-size: 11px;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px #000a;
+  }
+  .fam-dir-btn:hover { filter: brightness(1.2); }
+  /* ── Корни-коннекторы (как в Иерархии) ── */
+  .fam-trunk { width: 2px; height: 26px; background: #6a5028; margin: 0 auto; }
+  .fam-children { display: flex; justify-content: center; align-items: flex-start; gap: 18px; max-width: 100%; overflow-x: auto; padding-bottom: 6px; }
+  .fam-tree { max-width: 100%; }
+  .fam-child { position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 24px; }
+  /* горизонтальная линия сверху каждого ребёнка (половинки) */
+  .fam-child::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: #6a5028;
+  }
+  .fam-children:not(.fam-single) .fam-child:first-child::before { left: 50%; }
+  .fam-children:not(.fam-single) .fam-child:last-child::before { right: 50%; }
+  .fam-children.fam-single .fam-child::before { left: 50%; right: 50%; }
+  /* вертикальный отросток от горизонтали к карточке */
+  .fam-child-line { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 24px; background: #6a5028; }
+  .fam-node-wrap { display: flex; flex-direction: column; align-items: center; }
+  /* ── Магазин: карточки товаров ── */
+  .shop-card {
+    border: 1px solid #2f2112; border-top: 3px solid var(--shop-accent, #8a7a5e);
+    border-radius: 12px; background: linear-gradient(180deg, #17110a, #0c0805);
+    padding: 16px 14px 14px; cursor: pointer;
+    transition: transform .22s cubic-bezier(.2,.8,.3,1.1), box-shadow .22s, border-color .22s;
+    display: flex; flex-direction: column; align-items: stretch;
+  }
+  .shop-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--shop-accent, #d4a04a);
+    box-shadow: 0 10px 30px #000000cc, 0 0 22px color-mix(in srgb, var(--shop-accent, #d4a04a) 16%, transparent);
+  }
+  /* Большая картинка-эмодзи по центру */
+  .shop-card-hero {
+    align-self: center;
+    width: 82px; height: 82px; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 14px;
+    background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--shop-accent,#8a7a5e) 16%, #1a130a), #100b06);
+    border: 1px solid color-mix(in srgb, var(--shop-accent,#8a7a5e) 30%, #2a1e10);
+    box-shadow: inset 0 0 24px #00000066;
+    transition: transform .3s ease;
+  }
+  .shop-card:hover .shop-card-hero { transform: scale(1.06); }
+  .shop-card-hero-emoji { font-size: 44px; line-height: 1; filter: drop-shadow(0 3px 6px #000a); }
+  .shop-card-hero-img { width: 100%; height: 100%; object-fit: cover; border-radius: 13px; display: block; }
+  .shop-card-hero { overflow: hidden; }
+  .shop-card-hero-wide { width: 100%; max-width: 160px; height: 82px; border-radius: 12px; overflow: hidden; }
+  /* ── Бестиарий: памятка типов (мастер-деталь) ── */
+  .btype-litem { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; user-select: none;
+    border: 1px solid #2f2112; border-left: 3px solid var(--btype, #c9a06a); border-radius: 8px; background: #0c0805; transition: background .15s, border-color .15s; }
+  .btype-litem:hover { background: #14100a; }
+  .btype-litem.active { background: color-mix(in srgb, var(--btype, #c9a06a) 14%, #0c0805); border-color: var(--btype, #c9a06a); }
+  .btype-litem-name { font-family: 'Cinzel', serif; font-size: 13px; color: var(--btype, #e8c060); }
+  .btype-mobile-detail { padding: 12px 14px 4px; }
+  .btype-item-chev { font-size: 12px; color: var(--btype, #c9a06a); opacity: .6; flex-shrink: 0; }
+  .btype-row { font-family: 'Lora', serif; font-size: 15px; color: #d8c8a8; line-height: 1.75; margin-bottom: 13px; }
+  .btype-row b { color: #f2e4c4; font-weight: 600; }
+  /* Экономика: подсветка ряда */
+  .eco-row { transition: background .12s; border-radius: 4px; }
+  .eco-row:hover { background: #d4a04a18; box-shadow: inset 0 0 0 1px #d4a04a33; }
+  .eco-row:hover .eco-add { opacity: 1 !important; }
+  .eco-ico { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 16px;
+    background: #1a1309; border: 1px solid #2a1e10; border-radius: 6px; flex-shrink: 0; }
+  /* Кнопка корзины в тулбаре (стиль мешка) */
+  .shop-cart-btn {
+    position: relative; display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 16px; cursor: pointer;
+    background: linear-gradient(160deg, #2a1e0c, #1a1206);
+    border: 1px solid #4a3820; border-radius: 8px;
+    color: #e8c060; font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .5px;
+    transition: border-color .15s, box-shadow .15s, transform .12s;
+  }
+  .shop-cart-btn:hover { border-color: #e8c060; box-shadow: 0 4px 16px #e8c0601a; transform: translateY(-1px); }
+  .shop-cart-badge {
+    background: #c04848; color: #fff; font-family: sans-serif; font-size: 11px;
+    min-width: 20px; height: 20px; border-radius: 10px; padding: 0 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* Кнопка-памятка «Против существ» */
+  .beast-guide-btn {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    min-width: 200px; padding: 10px 20px; cursor: pointer;
+    background: linear-gradient(160deg, #1a1509, #100b06);
+    border: 1px solid #4a3820; border-radius: 8px;
+    font-family: 'Cinzel', serif; transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .beast-guide-btn:hover { transform: translateY(-2px); border-color: #d4a04a; box-shadow: 0 6px 20px #d4a04a1a; }
+  .beast-guide-btn .bg-main { font-size: 14px; color: #e8c060; letter-spacing: .5px; }
+  .beast-guide-btn .bg-sub { font-size: 9px; color: #8a7a5e; letter-spacing: .3px; }
+  @media (max-width: 640px) { .beast-guide-btn { min-width: 0; width: 100%; } }
+  /* ── Арена: хаб с двумя квадратами ── */
+  .arena-hub-card {
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 32px 24px; cursor: pointer;
+    background: linear-gradient(165deg, #17110a, #0c0805);
+    border: 1px solid #2f2112; border-top: 3px solid var(--hub, #b88442);
+    border-radius: 14px;
+    transition: transform .22s cubic-bezier(.2,.8,.3,1.1), box-shadow .22s, border-color .22s;
+    font-family: inherit;
+  }
+  .arena-hub-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--hub, #d4a04a);
+    box-shadow: 0 12px 34px #000000cc, 0 0 24px color-mix(in srgb, var(--hub, #d4a04a) 18%, transparent);
+  }
+  .arena-hub-icon {
+    width: 84px; height: 84px; margin-bottom: 16px;
+    display: flex; align-items: center; justify-content: center; font-size: 46px;
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--hub,#b88442) 18%, #1a130a), #100b06);
+    border: 1px solid color-mix(in srgb, var(--hub,#b88442) 32%, #2a1e10);
+    transition: transform .3s ease;
+  }
+  .arena-hub-card:hover .arena-hub-icon { transform: scale(1.08); }
+  .arena-hub-title { font-family: 'Cinzel', serif; font-size: 20px; color: #f6e6c0; margin-bottom: 8px; letter-spacing: .5px; }
+  .arena-hub-desc { font-family: 'Lora', serif; font-size: 13px; color: #a8987c; line-height: 1.5; margin-bottom: 16px; }
+  .arena-hub-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .arena-hub-tags span {
+    font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .3px; color: #b09a72;
+    background: #241a0e; border: 1px solid #3a2a1466; border-radius: 5px; padding: 4px 9px;
+  }
+  .shop-card-name {
+    font-family: 'Cinzel', serif; font-size: 14px; font-weight: 600; color: #f6e6c0;
+    text-align: center; margin-bottom: 2px; line-height: 1.25;
+  }
+  .shop-stat-row { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-bottom: 8px; }
+  .shop-stat {
+    font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .3px;
+    background: #241a0e; border: 1px solid #3a2a1466; border-radius: 5px;
+    padding: 3px 7px; white-space: nowrap;
+  }
+  .shop-card-desc {
+    font-family: 'Lora', serif; font-size: 11px; color: #a8987c; line-height: 1.5;
+    text-align: center; margin-bottom: 10px;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .shop-card-price {
+    margin-top: auto; text-align: center;
+    font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: .4px;
+    background: #1a1309aa; border: 1px solid #2a1e1066; border-radius: 7px; padding: 7px 8px;
+  }
+  .shop-card-cart {
+    margin-top: 8px; width: 100%; padding: 8px; cursor: pointer;
+    border: 1px solid #4a3820; background: #241a0e; color: #e8c060;
+    font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: .3px;
+    border-radius: 7px; transition: background .15s, border-color .15s;
+  }
+  .shop-card-cart:hover { background: #e8c06018; border-color: #e8c060; }
   .htree-portrait {
     width: 56px; height: 56px;
     border-radius: 50%;
@@ -4781,13 +5020,13 @@
   .htree-card-name {
     font-family: 'Cinzel', serif;
     font-size: 11px; font-weight: 600;
-    color: #f2dfb4; margin-bottom: 2px;
+    color: #f6e6c0; margin-bottom: 2px;
   }
   .htree-card-title {
-    font-size: 10px; color: var(--muted); margin-bottom: 3px;
+    font-size: 10px; color: #b09a72; margin-bottom: 3px;
   }
   .htree-card-info {
-    font-size: 9px; color: var(--dim); line-height: 1.4;
+    font-size: 9px; color: #8a7a5e; line-height: 1.4;
     max-height: 28px; overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
@@ -9046,6 +9285,11 @@ window.zgData = (function() {
         queueIdbWrite('zargota_armory_db', 'kv', 'zargota_sets_v1', JSON.stringify(data.armorySets), 'armory sets to IDB');
       }
 
+      if (data.shop) {
+        writeJsonLs('zargota_shop_v1', data.shop);
+        queueIdbWrite('zargota_armory_db', 'kv', 'zargota_shop_v1', JSON.stringify(data.shop), 'shop to IDB');
+      }
+
       // beasts — в IDB как строку
       if (data.beasts) {
         var beastsBundle = {
@@ -9567,6 +9811,7 @@ window.zgBuildWorldSnapshot = function(options, onDone) {
     output.arena = zgReadLsJson('zargota_arena_state_v1', null);
     output.armoryItems = zgReadLsJson('zargota_armory_v1', null);
     output.armorySets = zgReadLsJson('zargota_sets_v1', null);
+    output.shop = zgReadLsJson('zargota_shop_v1', null);
     output.drama = zgReadLsJson('grimoire_drama_v1', null);
     output.worldboard = zgReadLsJson('zargota_worldboard_v2', null);
     output.episodes = zgReadLsJson('zargota_episodes_v1', null);
@@ -11374,8 +11619,8 @@ window.zgImageStore = (function() {
       <!-- Арена и Снаряжение -->
       <button type="button" class="home-card available" data-target-page="arena" style="--card-accent:#b88442; cursor:pointer">
         <span class="home-card-icon">⚔️</span>
-        <div class="home-card-title">Арена</div>
-        <div class="home-card-desc">Пошаговый бой, инициатива и проверка сил. Расставь юнитов — и в бой.</div>
+        <div class="home-card-title">Арена и Товары</div>
+        <div class="home-card-desc">Пошаговый бой и состояния, а рядом — витрина товаров и экономика мира.</div>
       </button>
 
       <!-- Карта — доступен -->
@@ -11402,13 +11647,17 @@ window.zgImageStore = (function() {
   <div class="page" id="page-arena">
     <div class="page-back-bar" style="display:flex;align-items:center;gap:0;padding:0;border-bottom:1px solid var(--border)">
       <button class="back-to-home" onclick="showPage(&#39;home&#39;)" style="border-radius:0;border-right:1px solid var(--border);padding:0 16px;height:42px;flex-shrink:0;margin:0">← Главная</button>
-      <button id="arena-tab-battle" onclick="arenaShowTab(&#39;battle&#39;)" style="background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid var(--gold);padding:0 18px;height:42px;color:var(--gold);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">АРЕНА</button>
-      <button id="arena-tab-armory" onclick="arenaShowTab(&#39;armory&#39;)" style="background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">⚔️ ОРУЖЕЙНАЯ</button>
-      <button id="arena-tab-statuses" onclick="arenaShowTab(&#39;statuses&#39;)" style="background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">💫 СОСТОЯНИЯ</button>
+      <button id="arena-tab-battle" onclick="renderArenaHub()" style="background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">☰ ХАБ</button>
+      <button id="arena-tab-field" onclick="arenaShowTab(&#39;battle&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid var(--gold);padding:0 18px;height:42px;color:var(--gold);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">⚔️ АРЕНА</button>
+      <button id="arena-tab-armory" onclick="arenaShowTab(&#39;armory&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">⚔️ ОРУЖЕЙНАЯ</button>
+      <button id="arena-tab-statuses" onclick="arenaShowTab(&#39;statuses&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">💫 СОСТОЯНИЯ</button>
+      <button id="arena-tab-shop" onclick="arenaShowTab(&#39;shop&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">💰 ТОВАРЫ</button>
     </div>
+    <div id="arena-hub-inner" style="padding:40px 20px 60px;max-width:820px;margin:0 auto"></div>
     <div id="arena-page-inner"></div>
     <div id="armory-page-inner" style="display:none;padding:16px 20px;max-width:1300px;margin:0 auto"></div>
     <div id="statuses-page-inner" style="display:none;padding:16px 20px;max-width:1300px;margin:0 auto"></div>
+    <div id="shop-page-inner" style="display:none;padding:24px 20px 60px;max-width:1100px;margin:0 auto"></div>
   </div>
 
   <!-- ══ CATALOG PAGE ══ -->
@@ -16733,7 +16982,7 @@ function showPage(name) {
   if (name === 'home') restartHomeParticles();
   if (name === 'characters') { showCharView(charView || 'list'); loadZoom(); }
   if (name === 'bestiary') { showBeastView(beastView || 'list'); }
-  if (name === 'arena' && typeof renderArenaPage === 'function') { renderArenaPage(); }
+  if (name === 'arena' && typeof renderArenaHub === 'function') { renderArenaHub(); }
   if (name === 'world' && typeof updateWorldIntroOpenBtn === 'function') { setTimeout(updateWorldIntroOpenBtn, 200); }
   if (name === 'world') { initWorldPage(); }
   if (name === 'workshop') { initDrama(); showWorkshopTool(workshopHubState.activeTool || 'hub'); }
@@ -21856,11 +22105,13 @@ function renderHtreeNodeRecursive(entryId, node, allNodes, editing, depth) {
   }
   html += '<div class="htree-portrait" style="position:relative;' + (isRoot ? 'border-color:#d4a04a;width:64px;height:64px' : '') + '"' +
     (editing ? ' onclick="event.stopPropagation();uploadHtreePortrait(\'' + entryId + '\',\'' + node.id + '\')" title="Загрузить фото"' : '') + '>' + portraitInner + '</div>';
+  html += '<div class="htree-card-text">';
   html += '<div class="htree-card-name" style="' + (killed ? 'text-decoration:line-through;color:#888' : '') + '">' + escHTML(node.name || 'Без имени') + '</div>';
   if (node.title) html += '<div class="htree-card-title">' + escHTML(node.title) + '</div>';
   if (node.info) html += '<div class="htree-card-info">' + escHTML(node.info) + '</div>';
   if (killed) html += '<div style="margin-top:4px;font-size:9px;color:#c04040;letter-spacing:1px;font-family:\'Cinzel\',serif;font-weight:600">☠ УБИТ</div>';
   if (node.linkedCharId) html += '<div style="margin-top:4px;font-size:8px;color:#d4a04a;letter-spacing:.5px">🎭 ПЕРСОНАЖ</div>';
+  html += '</div>';
   html += '</div>';
   if (children.length > 0 || editing) {
     html += '<div style="height:30px"></div>';
@@ -22112,9 +22363,9 @@ function viewHtreeNode(entryId, nodeId) {
   openDramaPopup({
     title: '',
     message: '<div style="text-align:center;margin-bottom:14px">' + portraitHTML + '</div>' +
-      '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#f2dfb4;margin-bottom:6px;word-wrap:break-word;overflow-wrap:break-word">' + escHTML(node.name) + '</div>' +
-      (node.title ? '<div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:10px">' + escHTML(node.title) + '</div>' : '') +
-      (node.info ? '<div style="font-size:13px;color:var(--dim);line-height:1.7;word-wrap:break-word;overflow-wrap:break-word;white-space:pre-wrap">' + escHTML(node.info) + '</div>' : '') +
+      '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#f6e6c0;margin-bottom:6px;word-wrap:break-word;overflow-wrap:break-word">' + escHTML(node.name) + '</div>' +
+      (node.title ? '<div style="text-align:center;font-size:13px;color:#c9a94a;margin-bottom:12px;font-family:\'Cinzel\',serif;letter-spacing:.5px">' + escHTML(node.title) + '</div>' : '') +
+      (node.info ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:14px 16px;font-family:\'Lora\',serif;font-size:14px;color:#d8c8a8;line-height:1.7;word-wrap:break-word;overflow-wrap:break-word;white-space:pre-wrap">' + escHTML(node.info) + '</div>' : '') +
       charLink,
     confirmLabel: 'Закрыть', hideCancel: true,
     onSubmit: function() {}
@@ -26599,6 +26850,22 @@ function renderCharList() {
   '</div>';
 
   grid.innerHTML = html;
+
+  // Приятный мягкий звук при наведении на карточку героя (не чаще раза в 90мс,
+  // и не для той же карточки подряд — чтобы не трещало при скольжении мыши)
+  if (!grid._zgHoverSoundBound) {
+    grid._zgHoverSoundBound = true;
+    var _lastHoverCard = null, _lastHoverTs = 0;
+    grid.addEventListener('mouseover', function(ev) {
+      var card = ev.target && ev.target.closest ? ev.target.closest('.char-card') : null;
+      if (!card || card === _lastHoverCard) return;
+      var now = Date.now();
+      if (now - _lastHoverTs < 90) { _lastHoverCard = card; return; }
+      _lastHoverCard = card; _lastHoverTs = now;
+      try { if (window.ZargotaSound && window.ZargotaSound.buttonSoft && !window.ZargotaSound.isMuted()) window.ZargotaSound.buttonSoft(); } catch(e) {}
+    });
+    grid.addEventListener('mouseleave', function(){ _lastHoverCard = null; });
+  }
 }
 
 // ── Open sheet ──
@@ -29420,11 +29687,317 @@ function buildJournalSection(c) {
       '</div>' +
       '</div>' +
       '<div class="journal-card" style="grid-column:1 / -1">' +
+        '<div class="journal-title" style="display:flex;justify-content:space-between;align-items:center">🌳 Семья и связи' +
+          '<div style="display:flex;gap:6px;align-items:center">' +
+            '<button id="fam-gear-btn" class="btn btn-dim btn-sm" onclick="zgFamilyToggleEdit(' + c.id + ')" title="Режим редактирования" style="font-size:13px;padding:4px 9px">⚙</button>' +
+            '<button class="btn btn-dim btn-sm" onclick="zgFamilyAdd(' + c.id + ')" style="font-size:10px;padding:4px 10px">＋ Добавить</button>' +
+          '</div>' +
+        '</div>' +
+        buildFamilyTree(c) +
+      '</div>' +
+      '<div class="journal-card" style="grid-column:1 / -1">' +
         '<div class="journal-title">Биография</div>' +
         '<textarea class="journal-area" rows="14" placeholder="История, связи, важные события, мировоззрение, привычки..." oninput="autoResize(this);updateSimpleField(' + c.id + ',\'biography\',this.value)">' + escHTML(c.biography || '') + '</textarea>' +
       '</div>' +
     '</div>' +
   '</div>';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  СЕМЕЙНОЕ ДРЕВО ПЕРСОНАЖА (локальное, в разделе Лор)
+//  Данные: c.family = [{id, relation, name, note, dead, icon, dir}]
+//  dir: 'up'(предки) | 'side'(ровня) | 'down'(потомки/ученики) | 'other'
+//  Корень (персонаж) сверху, ветки растут ВНИЗ по направлениям.
+// ═══════════════════════════════════════════════════════════════
+var _famEditMode = {}; // charId -> bool
+var FAMILY_TIERS = {
+  up:   ['дед','бабушка','бабка','прадед','прабабушка','отец','мать','родитель','отчим','мачеха','дядя','тётя','тетя'],
+  side: ['брат','сестра','супруг','супруга','жена','муж','партнёр','партнер','невеста','жених','побратим','кузен','кузина','близнец'],
+  down: ['сын','дочь','ребёнок','ребенок','внук','внучка','воспитанник','воспитанница','ученик','ученица','наследник']
+};
+var FAMILY_DIRS = [
+  { key:'up',    icon:'⬆', label:'Предки / старшие', color:'#c9a06a' },
+  { key:'side',  icon:'↔', label:'Ровня / супруги',  color:'#7a9ae0' },
+  { key:'down',  icon:'⬇', label:'Потомки / младшие', color:'#6fcb83' },
+  { key:'other', icon:'✦', label:'Прочие связи',      color:'#a07fd4' }
+];
+function zgFamilyTier(m) {
+  if (m && m.dir) return m.dir; // явное направление приоритетно
+  var r = String((m && m.relation) || '').toLowerCase();
+  for (var t in FAMILY_TIERS) {
+    if (FAMILY_TIERS[t].some(function(k){ return r.indexOf(k) >= 0; })) return t;
+  }
+  return 'other';
+}
+function zgFamNodeHtml(c, m) {
+  var dead = !!m.dead;
+  var edit = !!_famEditMode[c.id];
+  var dir = zgFamilyTier(m);
+  var dirInfo = FAMILY_DIRS.find(function(d){ return d.key === dir; }) || FAMILY_DIRS[3];
+  var action = edit ? ('zgFamilyEdit(' + c.id + ',\'' + m.id + '\')') : ('zgFamilyView(' + c.id + ',\'' + m.id + '\')');
+  return '<div class="fam-node' + (dead ? ' fam-dead' : '') + (edit ? ' fam-editing' : '') + '" style="border-color:' + dirInfo.color + '55" onclick="' + action + '" title="' + (edit ? 'Редактировать' : 'Открыть') + '">' +
+    (edit ? '<div class="fam-node-edit-badge">✎</div>' : '') +
+    '<div class="fam-node-icon" style="border-color:' + dirInfo.color + '66">' + escHTML(m.icon || '👤') + '</div>' +
+    '<div class="fam-node-inner">' +
+      '<div class="fam-node-name">' + (dead ? '☠ ' : '') + escHTML(m.name || 'Без имени') + '</div>' +
+      (m.note ? '<div class="fam-node-note">' + escHTML(m.note) + '</div>' : '') +
+    '</div>' +
+    // Тип связи — внизу карточки, цветом направления
+    '<div class="fam-node-rel-bottom" style="color:' + dirInfo.color + ';border-color:' + dirInfo.color + '44">' + dirInfo.icon + ' ' + escHTML(m.relation || 'связь') + '</div>' +
+  '</div>';
+}
+// Просмотр связи (read-only попап, как в иерархии)
+function zgFamilyView(charId, famId) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c || !Array.isArray(c.family)) return;
+  var m = c.family.find(function(x){ return x.id === famId; });
+  if (!m) return;
+  var dead = !!m.dead;
+  var old = document.getElementById('fam-view-popup'); if (old) old.remove();
+  var isMobile = window.innerWidth < 600;
+  var bd = document.createElement('div');
+  bd.id = 'fam-view-popup';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 24px) 12px 24px' : 'align-items:center;padding:20px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+  var panel = document.createElement('div');
+  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #6fcb83;border-radius:12px;width:100%;max-width:400px;padding:24px 22px;box-shadow:0 24px 80px #000d;box-sizing:border-box;text-align:center';
+  panel.innerHTML =
+    '<div style="width:72px;height:72px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:40px;border-radius:50%;background:#241a0e;border:1px solid #3a2a14">' + escHTML(m.icon || '👤') + '</div>' +
+    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#f6e6c0;margin-bottom:4px">' + (dead ? '☠ ' : '') + escHTML(m.name || 'Без имени') + '</div>' +
+    '<div style="font-size:12px;color:#c9a94a;font-family:\'Cinzel\',serif;letter-spacing:.5px;margin-bottom:14px">' + escHTML(m.relation || 'связь') + (dead ? ' · мёртв' : '') + '</div>' +
+    (m.note ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:12px 14px;font-family:\'Lora\',serif;font-size:13px;color:#d8c8a8;line-height:1.6;text-align:left;white-space:pre-wrap;margin-bottom:16px">' + escHTML(m.note) + '</div>' : '') +
+    '<div style="display:flex;gap:8px;justify-content:center">' +
+      '<button onclick="document.getElementById(\'fam-view-popup\').remove()" style="padding:9px 20px;border:1px solid #2a1e10;background:transparent;color:#a8987c;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:6px">Закрыть</button>' +
+      '<button onclick="document.getElementById(\'fam-view-popup\').remove();zgFamilyEdit(' + charId + ',\'' + famId + '\')" style="padding:9px 20px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:6px">⚙ Изменить</button>' +
+    '</div>';
+  bd.appendChild(panel);
+  document.body.appendChild(bd);
+}
+function buildFamilyTree(c) {
+  var fam = Array.isArray(c.family) ? c.family : [];
+  var edit = !!_famEditMode[c.id];
+
+  // Корень — сам персонаж
+  var rootIcon = (c.portrait ? '<img src="' + c.portrait + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%">' : '👤');
+  var root = '<div class="fam-node fam-self" data-fam-id="root">' +
+    '<div class="fam-node-icon" style="border-color:#d4a04a77">' + rootIcon + '</div>' +
+    '<div class="fam-node-inner"><div class="fam-node-name" style="color:#ffe9b8">' + escHTML(c.name || '—') + '</div></div>' +
+    '<div class="fam-node-rel-bottom" style="color:#d4a04a;border-color:#d4a04a55">✦ персонаж</div>' +
+  '</div>';
+
+  if (!fam.length) {
+    return '<div class="fam-tree-content" id="fam-tree-content"><div class="fam-node-row">' + root + '</div>' +
+      '<div style="text-align:center;padding:18px 24px 6px;color:var(--dim);font-family:\'Lora\',serif;font-size:12px;font-style:italic">Связи растут вниз от персонажа. Нажми «＋ Добавить» и выбери направление — предок, ровня, потомок или прочее.</div></div>';
+  }
+
+  // Группируем по направлению, порядок: предки, ровня, потомки, прочие
+  var groups = { up:[], side:[], down:[], other:[] };
+  fam.forEach(function(m){ groups[zgFamilyTier(m)].push(m); });
+  var allMembers = [];
+  FAMILY_DIRS.forEach(function(dir){ groups[dir.key].forEach(function(m){ allMembers.push(m); }); });
+
+  // Раскладка: корень сверху, дети — рядом снизу; линии рисуются SVG-скриптом
+  var html = '<div class="fam-tree-content" id="fam-tree-content">';
+  html += '<div class="fam-node-row fam-root-row">' + root + '</div>';
+  html += '<div class="fam-gap"></div>';
+  html += '<div class="fam-node-row fam-children-row">';
+  allMembers.forEach(function(m){
+    html += '<div class="fam-child-col">' + zgFamNodeHtml(c, m) + '</div>';
+  });
+  html += '</div>';
+  html += '</div>';
+  // отложенная отрисовка линий (двойная — на случай поздней раскладки/шрифтов)
+  setTimeout(function(){ try { zgDrawFamilyLines(); } catch(e){} }, 30);
+  setTimeout(function(){ try { zgDrawFamilyLines(); } catch(e){} }, 250);
+  return html;
+}
+// Рисуем соединительные линии SVG (как в Иерархии Зарготы)
+function zgDrawFamilyLines() {
+  var content = document.getElementById('fam-tree-content');
+  if (!content) return;
+  var old = content.querySelector('.fam-svg-lines'); if (old) old.remove();
+  var rect = content.getBoundingClientRect();
+  var W = Math.max(content.scrollWidth, content.offsetWidth);
+  var H = Math.max(content.scrollHeight, content.offsetHeight);
+  function lr(el){ var r = el.getBoundingClientRect(); return { left:r.left-rect.left, top:r.top-rect.top, width:r.width, bottom:r.bottom-rect.top }; }
+  var rootEl = content.querySelector('[data-fam-id="root"]');
+  var kids = content.querySelectorAll('.fam-child-col > .fam-node');
+  if (!rootEl || !kids.length) return;
+  var svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('class','fam-svg-lines');
+  svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:0';
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  function line(x1,y1,x2,y2){
+    var l = document.createElementNS('http://www.w3.org/2000/svg','line');
+    l.setAttribute('x1',x1); l.setAttribute('y1',y1); l.setAttribute('x2',x2); l.setAttribute('y2',y2);
+    l.setAttribute('stroke','#6a5028'); l.setAttribute('stroke-width','2'); l.setAttribute('stroke-linecap','round');
+    svg.appendChild(l);
+  }
+  var pr = lr(rootEl);
+  var px = pr.left + pr.width/2, py = pr.bottom;
+  var centers = [];
+  Array.prototype.forEach.call(kids, function(k){ var kr = lr(k); centers.push({ x: kr.left + kr.width/2, y: kr.top }); });
+  var minTop = Math.min.apply(null, centers.map(function(c){ return c.y; }));
+  var midY = py + (minTop - py) / 2;
+  // ствол от корня вниз
+  line(px, py, px, midY);
+  // горизонтальная перекладина
+  if (centers.length > 1) {
+    var xs = centers.map(function(c){ return c.x; });
+    line(Math.min.apply(null,xs), midY, Math.max.apply(null,xs), midY);
+  }
+  // отростки к каждому ребёнку
+  centers.forEach(function(cc){ line(cc.x, midY, cc.x, cc.y); });
+  content.insertBefore(svg, content.firstChild);
+}
+function zgFamilyToggleEdit(charId) {
+  _famEditMode[charId] = !_famEditMode[charId];
+  if (typeof renderCharSheet === 'function') { try { renderCharSheet(); } catch(e) {} }
+  var btn = document.getElementById('fam-gear-btn');
+  if (btn && _famEditMode[charId]) { btn.style.background = '#6fcb8322'; btn.style.borderColor = '#6fcb83'; btn.style.color = '#6fcb83'; }
+}
+function zgFamilySavePopup(charId, famId) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  if (!Array.isArray(c.family)) c.family = [];
+  var m = famId ? c.family.find(function(x){ return x.id === famId; }) : null;
+
+  var old = document.getElementById('fam-edit-popup'); if (old) old.remove();
+  var isMobile = window.innerWidth < 600;
+  var bd = document.createElement('div');
+  bd.id = 'fam-edit-popup';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 14px) 10px 24px' : 'align-items:center;padding:20px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  var RELS = ['Отец','Мать','Брат','Сестра','Супруга','Супруг','Сын','Дочь','Дед','Бабушка','Дядя','Тётя','Наставник','Ученик','Побратим','Друг семьи','Кровный враг'];
+  var curDir = m ? zgFamilyTier(m) : 'up';
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #6fcb83;border-radius:10px;width:100%;max-width:420px;padding:18px;box-shadow:0 24px 80px #000c;box-sizing:border-box' + (isMobile ? '' : ';max-height:90vh;overflow-y:auto');
+  panel.innerHTML =
+    '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#6fcb83;letter-spacing:1px;margin-bottom:14px;text-align:center">🌳 ' + (m ? 'Редактировать связь' : 'Новая связь') + '</div>' +
+    // Эмодзи + имя в ряд
+    '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">' +
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">' +
+        '<button id="fam-icon-btn" type="button" title="Выбрать эмодзи" style="width:56px;height:56px;font-size:28px;background:radial-gradient(circle at 50% 40%,#241a0e,#100b06);border:1px solid #3a2a14;border-radius:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">' + (m && m.icon ? escHTML(m.icon) : '👤') + '</button>' +
+        '<div style="font-size:8px;color:#6a5a40">эмодзи</div>' +
+        '<input id="fam-icon" type="hidden" value="' + escHTML(m ? m.icon || '' : '') + '">' +
+      '</div>' +
+      '<div style="flex:1">' +
+        '<div style="font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px">ИМЯ</div>' +
+        '<input id="fam-name" type="text" placeholder="Имя" value="' + escHTML(m ? m.name || '' : '') + '" style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:6px;color:#e8d8b8;padding:8px;font-family:\'Lora\',serif;font-size:13px;margin-bottom:8px">' +
+        '<div style="font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px">КТО ЭТО (СВЯЗЬ)</div>' +
+        '<select id="fam-rel-sel" style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:6px;color:#c8b89c;padding:8px;font-family:\'Lora\',serif;font-size:13px">' +
+          RELS.map(function(r){ return '<option value="' + r + '"' + (m && m.relation === r ? ' selected' : '') + '>' + r + '</option>'; }).join('') +
+          '<option value="__custom"' + (m && RELS.indexOf(m.relation) < 0 ? ' selected' : '') + '>Своё…</option>' +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+    '<input id="fam-rel-custom" type="text" placeholder="Своя связь (например: молочный брат)" value="' + (m && RELS.indexOf(m.relation) < 0 ? escHTML(m.relation || '') : '') + '" style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:6px;color:#c8b89c;padding:8px;font-family:\'Lora\',serif;font-size:13px;margin-bottom:10px;display:' + (m && RELS.indexOf(m.relation) < 0 ? 'block' : 'none') + '">' +
+    // Направление ветки
+    '<div style="font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px">НАПРАВЛЕНИЕ ВЕТКИ (куда от персонажа)</div>' +
+    '<div id="fam-dir-row" style="display:flex;gap:6px;margin-bottom:12px">' +
+      FAMILY_DIRS.map(function(d){
+        var on = d.key === curDir;
+        return '<button type="button" class="fam-dir-btn" data-dir="' + d.key + '" style="flex:1;padding:8px 4px;border:1px solid ' + (on ? d.color : '#2a1e10') + ';background:' + (on ? d.color + '20' : 'transparent') + ';color:' + (on ? d.color : '#7a6a48') + ';border-radius:7px;cursor:pointer;font-size:10px;font-family:\'Cinzel\',serif;text-align:center;line-height:1.3">' + d.icon + '<br>' + d.label.split(' / ')[0] + '</button>';
+      }).join('') +
+    '</div>' +
+    '<input id="fam-dir" type="hidden" value="' + curDir + '">' +
+    '<div style="font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px">ЗАМЕТКА (кто, где, что с ним)</div>' +
+    '<textarea id="fam-note" rows="3" placeholder="Кузнец в Пеплогорье. Не разговаривают 5 лет..." style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:6px;color:#c8b89c;padding:8px;font-family:\'Lora\',serif;font-size:13px;margin-bottom:10px;resize:vertical">' + escHTML(m ? m.note || '' : '') + '</textarea>' +
+    '<label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;cursor:pointer;font-family:\'Lora\',serif;font-size:12px;color:#c8b89c"><input id="fam-dead" type="checkbox"' + (m && m.dead ? ' checked' : '') + '> ☠ Мёртв</label>' +
+    '<div style="display:flex;gap:8px;justify-content:' + (m ? 'space-between' : 'flex-end') + '">' +
+      (m ? '<button onclick="zgFamilyRemove(' + charId + ',\'' + famId + '\')" style="padding:8px 14px;border:1px solid #c0404066;background:#c0404014;color:#c08080;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">🗑 Удалить</button>' : '') +
+      '<div style="display:flex;gap:8px">' +
+        '<button onclick="document.getElementById(\'fam-edit-popup\').remove()" style="padding:8px 14px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">Отмена</button>' +
+        '<button id="fam-save-btn" style="padding:8px 18px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">💾 Сохранить</button>' +
+      '</div>' +
+    '</div>';
+  bd.appendChild(panel);
+  document.body.appendChild(bd);
+
+  var relSel = panel.querySelector('#fam-rel-sel');
+  var relCustom = panel.querySelector('#fam-rel-custom');
+  relSel.addEventListener('change', function(){
+    relCustom.style.display = relSel.value === '__custom' ? 'block' : 'none';
+    if (relSel.value === '__custom') relCustom.focus();
+    // авто-подсказка направления по связи
+    if (relSel.value !== '__custom') {
+      var guess = zgFamilyTier({ relation: relSel.value });
+      panel.querySelector('#fam-dir').value = guess;
+      Array.prototype.forEach.call(panel.querySelectorAll('.fam-dir-btn'), function(b){
+        var d = FAMILY_DIRS.find(function(x){ return x.key === b.getAttribute('data-dir'); });
+        var on = b.getAttribute('data-dir') === guess;
+        b.style.borderColor = on ? d.color : '#2a1e10';
+        b.style.background = on ? d.color + '20' : 'transparent';
+        b.style.color = on ? d.color : '#7a6a48';
+      });
+    }
+  });
+  // Кнопки направления
+  Array.prototype.forEach.call(panel.querySelectorAll('.fam-dir-btn'), function(btn){
+    btn.addEventListener('click', function(){
+      var dir = btn.getAttribute('data-dir');
+      panel.querySelector('#fam-dir').value = dir;
+      Array.prototype.forEach.call(panel.querySelectorAll('.fam-dir-btn'), function(b){
+        var d = FAMILY_DIRS.find(function(x){ return x.key === b.getAttribute('data-dir'); });
+        var on = b === btn;
+        b.style.borderColor = on ? d.color : '#2a1e10';
+        b.style.background = on ? d.color + '20' : 'transparent';
+        b.style.color = on ? d.color : '#7a6a48';
+      });
+    });
+  });
+  // Эмодзи-пикер (переиспользуем магазинный)
+  panel.querySelector('#fam-icon-btn').addEventListener('click', function(){
+    if (typeof zgShopOpenEmojiPicker === 'function') {
+      zgShopOpenEmojiPicker(function(emoji){
+        panel.querySelector('#fam-icon').value = emoji;
+        panel.querySelector('#fam-icon-btn').textContent = emoji;
+      });
+    }
+  });
+  panel.querySelector('#fam-save-btn').addEventListener('click', function(){
+    var relation = relSel.value === '__custom' ? (relCustom.value || '').trim() : relSel.value;
+    var name = (panel.querySelector('#fam-name').value || '').trim();
+    if (!relation || !name) { if (typeof showToast === 'function') showToast('Нужны связь и имя'); return; }
+    var rec = m || { id: 'fam_' + Date.now() + '_' + Math.floor(Math.random()*1000) };
+    rec.relation = relation;
+    rec.name = name;
+    rec.icon = (panel.querySelector('#fam-icon').value || '').trim();
+    rec.dir = panel.querySelector('#fam-dir').value || 'other';
+    rec.note = (panel.querySelector('#fam-note').value || '').trim();
+    rec.dead = panel.querySelector('#fam-dead').checked;
+    if (!m) c.family.push(rec);
+    saveChars();
+    bd.remove();
+    if (typeof renderCharSheet === 'function') { try { renderCharSheet(); } catch(e) {} }
+    if (typeof showToast === 'function') showToast('🌳 Сохранено');
+  });
+  setTimeout(function(){ try { panel.querySelector('#fam-name').focus(); } catch(e){} }, 60);
+}
+function zgFamilyAdd(charId) { zgFamilySavePopup(charId, null); }
+function zgFamilyEdit(charId, famId) { zgFamilySavePopup(charId, famId); }
+function zgFamilyRemove(charId, famId) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c || !Array.isArray(c.family)) return;
+  if (!confirm('Удалить эту связь?')) return;
+  c.family = c.family.filter(function(x){ return x.id !== famId; });
+  saveChars();
+  var p = document.getElementById('fam-edit-popup'); if (p) p.remove();
+  if (typeof renderCharSheet === 'function') { try { renderCharSheet(); } catch(e) {} }
+}
+if (typeof window !== 'undefined') {
+  window.zgFamilyAdd = zgFamilyAdd;
+  window.zgFamilyEdit = zgFamilyEdit;
+  window.zgFamilyView = zgFamilyView;
+  window.zgFamilyRemove = zgFamilyRemove;
+  window.zgFamilyToggleEdit = zgFamilyToggleEdit;
+  window.buildFamilyTree = buildFamilyTree;
+  window.zgDrawFamilyLines = zgDrawFamilyLines;
+  window.addEventListener('resize', function(){ if (document.getElementById('fam-tree-content')) { try { zgDrawFamilyLines(); } catch(e){} } });
 }
 
 function openRulesModal() {
@@ -32186,7 +32759,8 @@ function renderBeastStats() {
   }
 
   // ── Компактная шапка ──
-  var header = '<div style="display:flex;align-items:center;gap:14px;padding:10px 16px;background:#0d0905;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;flex-wrap:wrap">' +
+  var header = '<div style="display:flex;gap:12px;align-items:stretch;margin-bottom:10px">' +
+    '<div style="flex:1;display:flex;align-items:center;gap:14px;padding:10px 16px;background:#0d0905;border:1px solid var(--border);border-radius:8px;flex-wrap:wrap">' +
     '<div style="display:flex;align-items:baseline;gap:6px">' +
       '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);letter-spacing:1px">БЕСТИАРИЙ</span>' +
       '<span style="font-size:20px;color:var(--gold);font-weight:700">' + total + '</span>' +
@@ -32201,6 +32775,9 @@ function renderBeastStats() {
       '<div style="text-align:center"><div style="font-size:14px;color:#a0c880;font-weight:600">' + lvRange + '</div><div style="font-size:9px;color:var(--dim);font-family:\'Cinzel\',serif">уровни</div></div>' +
     '</div>' +
     '<button onclick="beastStatsOpen=!beastStatsOpen;renderBeastStats()" style="margin-left:auto;background:transparent;border:1px solid #2a2a2a;border-radius:4px;padding:3px 10px;color:var(--dim);font-size:10px;cursor:pointer;font-family:\'Cinzel\',serif;white-space:nowrap">' + (beastStatsOpen ? '▴ свернуть' : '▾ подробнее') + '</button>' +
+    '</div>' +
+    // Кнопка-памятка «Против существ» в свободной зоне справа
+    '<button onclick="zgBeastTypesGuide()" class="beast-guide-btn">📖 <span class="bg-main">Против существ</span><span class="bg-sub">слабости и тактика по типам</span></button>' +
   '</div>';
 
   if (!beastStatsOpen) { bar.innerHTML = header; return; }
@@ -40971,16 +41548,72 @@ function importBeasts(e) {
     document.body.appendChild(ov);
   };
 
+  function zgSetArenaTabGroup(group) {
+    // group: 'none' (hub) | 'arena' | 'shop'
+    var map = {
+      'arena-tab-field':    ['arena'],
+      'arena-tab-armory':   ['arena'],
+      'arena-tab-statuses': ['arena'],
+      'arena-tab-shop':     ['shop']
+    };
+    Object.keys(map).forEach(function(id){
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = (group !== 'none' && map[id].indexOf(group) >= 0) ? '' : 'none';
+    });
+  }
+  global.renderArenaHub = function() {
+    var hub = document.getElementById('arena-hub-inner');
+    var battleInner = document.getElementById('arena-page-inner');
+    var armoryInner = document.getElementById('armory-page-inner');
+    var statusInner = document.getElementById('statuses-page-inner');
+    var shopInner   = document.getElementById('shop-page-inner');
+    [battleInner, armoryInner, statusInner, shopInner].forEach(function(el){ if (el) el.style.display = 'none'; });
+    // В хабе — прячем все под-вкладки, оставляем только ХАБ
+    zgSetArenaTabGroup('none');
+    ['arena-tab-field','arena-tab-armory','arena-tab-statuses','arena-tab-shop'].forEach(function(id){
+      var t = document.getElementById(id); if (t) { t.style.borderBottom = '2px solid transparent'; t.style.color = 'var(--muted)'; }
+    });
+    if (!hub) return;
+    hub.style.display = 'block';
+    hub.innerHTML =
+      '<div style="text-align:center;margin-bottom:32px">'+
+        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:26px;color:#e8c060;letter-spacing:1.5px">Арена и Товары</div>'+
+        '<div style="font-size:12px;color:#7a6a48;margin-top:8px;font-family:\'Lora\',serif;font-style:italic">Выбери, куда войти</div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">'+
+        // Квадрат Арена
+        '<button onclick="arenaShowTab(\'battle\')" class="arena-hub-card" style="--hub:#c87878">'+
+          '<div class="arena-hub-icon">⚔️</div>'+
+          '<div class="arena-hub-title">Арена</div>'+
+          '<div class="arena-hub-desc">Пошаговый бой, инициатива, состояния бойцов.</div>'+
+          '<div class="arena-hub-tags"><span>⚔️ Бой</span><span>🛡️ Оружейная</span><span>💫 Состояния</span></div>'+
+        '</button>'+
+        // Квадрат Товары
+        '<button onclick="arenaShowTab(\'shop\')" class="arena-hub-card" style="--hub:#6fcb83">'+
+          '<div class="arena-hub-icon">💰</div>'+
+          '<div class="arena-hub-title">Товары Зарготы</div>'+
+          '<div class="arena-hub-desc">Витрина предметов мира и памятка по экономике.</div>'+
+          '<div class="arena-hub-tags"><span>🛒 Витрина</span><span>📊 Экономика</span></div>'+
+        '</button>'+
+      '</div>';
+  };
   global.arenaShowTab = function(tab) {
+    var hub = document.getElementById('arena-hub-inner');
+    if (hub) hub.style.display = 'none';
+    // Показываем нужную группу вкладок
+    zgSetArenaTabGroup(tab === 'shop' ? 'shop' : 'arena');
     var battleInner  = document.getElementById('arena-page-inner');
     var armoryInner  = document.getElementById('armory-page-inner');
     var statusInner  = document.getElementById('statuses-page-inner');
-    var tabBattle    = document.getElementById('arena-tab-battle');
+    var shopInner    = document.getElementById('shop-page-inner');
+    var tabBattle    = document.getElementById('arena-tab-field');
     var tabArmory    = document.getElementById('arena-tab-armory');
     var tabStatuses  = document.getElementById('arena-tab-statuses');
+    var tabShop      = document.getElementById('arena-tab-shop');
     if (!battleInner) return;
-    var all = [battleInner, armoryInner, statusInner].filter(Boolean);
-    var allTabs = [tabBattle, tabArmory, tabStatuses].filter(Boolean);
+    var all = [battleInner, armoryInner, statusInner, shopInner].filter(Boolean);
+    var allTabs = [tabBattle, tabArmory, tabStatuses, tabShop].filter(Boolean);
     all.forEach(function(el){ el.style.display = 'none'; });
     allTabs.forEach(function(t){ t.style.borderBottom = '2px solid transparent'; t.style.color = 'var(--muted)'; });
     if (tab === 'armory') {
@@ -40991,6 +41624,10 @@ function importBeasts(e) {
       if (statusInner) statusInner.style.display = 'block';
       if (tabStatuses) { tabStatuses.style.borderBottom = '2px solid var(--gold)'; tabStatuses.style.color = 'var(--gold)'; }
       if (typeof renderStatusesPage === 'function') renderStatusesPage();
+    } else if (tab === 'shop') {
+      if (shopInner) shopInner.style.display = 'block';
+      if (tabShop) { tabShop.style.borderBottom = '2px solid var(--gold)'; tabShop.style.color = 'var(--gold)'; }
+      if (typeof renderShopPage === 'function') renderShopPage();
     } else {
       if (battleInner) battleInner.style.display = '';
       if (tabBattle) { tabBattle.style.borderBottom = '2px solid var(--gold)'; tabBattle.style.color = 'var(--gold)'; }
@@ -42080,18 +42717,14 @@ function renderManualPage() {
   var host = document.getElementById('manual-page-inner');
   if (!host) return;
 
-  // Стилевые помощники (повторяются часто, выносим)
   var H3 = 'font-family:\'Cinzel\',serif;font-size:13px;letter-spacing:1.2px;color:#e8c060;text-transform:uppercase;margin:18px 0 10px';
   var P  = 'font-family:\'Lora\',serif;font-size:14px;line-height:1.7;color:#c8b89c;margin:8px 0';
   var UL = 'font-family:\'Lora\',serif;font-size:14px;line-height:1.7;color:#c8b89c;margin:6px 0 10px;padding-left:22px';
-  var KV = 'font-family:\'Lora\',serif;font-size:13px;line-height:1.65;color:#c8b89c';
   var TAG = function(txt, col){ return '<span style="display:inline-block;padding:2px 8px;border:1px solid '+col+'66;background:'+col+'15;border-radius:4px;color:'+col+';font-size:11px;font-family:\'Cinzel\',serif;letter-spacing:.5px;margin-right:4px">'+txt+'</span>'; };
   var BX = function(txt, col){ return '<div style="border:1px solid '+col+'55;background:'+col+'0a;border-left:3px solid '+col+';padding:10px 14px;border-radius:4px;margin:10px 0;font-family:\'Lora\',serif;font-size:13px;line-height:1.65;color:#c8b89c">'+txt+'</div>'; };
 
-  // ── Контент по разделам ──
   var SECTIONS = [];
 
-  // 1. О Зарготе (вводный блок, не сворачивается)
   SECTIONS.push({
     id:'intro', icon:'📖', title:'О Зарготе', color:'#d4a04a', openByDefault:true,
     body:
@@ -42099,7 +42732,6 @@ function renderManualPage() {
       '<p style="'+P+'">Все разделы можно сворачивать. Открывай то, что нужно прямо сейчас. ГМ может уточнить или поменять отдельные правила под конкретную сцену — мануал даёт базу.</p>'
   });
 
-  // 2. Бой — основа
   SECTIONS.push({
     id:'combat', icon:'⚔️', title:'Бой — основа', color:'#c87878',
     body:
@@ -42132,7 +42764,6 @@ function renderManualPage() {
       '<p style="'+P+'">Камень, бутылка, стул — обычно 1d4 без мастерства. Точное число зависит от предмета, ГМ решит.</p>'
   });
 
-  // 3. Защита и AC
   SECTIONS.push({
     id:'defense', icon:'🛡️', title:'Защита и AC', color:'#7a9ae0',
     body:
@@ -42153,7 +42784,6 @@ function renderManualPage() {
       '</ul>'
   });
 
-  // 4. Магия
   SECTIONS.push({
     id:'magic', icon:'✨', title:'Магия — каст', color:'#a07fd4',
     body:
@@ -42178,7 +42808,6 @@ function renderManualPage() {
       BX('🎒 Спецспособности от расы или классовые навыки не занимают слоты заклинаний.', '#a07fd4')
   });
 
-  // 5. Концентрация и поддерживаемые эффекты
   SECTIONS.push({
     id:'concentr', icon:'🌀', title:'Концентрация и поддержка', color:'#a07fd4',
     body:
@@ -42196,7 +42825,6 @@ function renderManualPage() {
       BX('Конкретные пороги, формула проверки и исключения — указаны в тексте самого заклинания. Если не указано — ГМ решает по ситуации.', '#a07fd4')
   });
 
-  // 6. Спецдействия
   SECTIONS.push({
     id:'special', icon:'🥊', title:'Спецдействия (толчок, захват, обезоруж)', color:'#c87878',
     body:
@@ -42223,7 +42851,6 @@ function renderManualPage() {
       '</ul>'
   });
 
-  // 7. Реакции
   SECTIONS.push({
     id:'reactions', icon:'⚡', title:'Реакции', color:'#c87878',
     body:
@@ -42243,7 +42870,6 @@ function renderManualPage() {
       BX('Подготовленная реакция тратит твоё долгое действие сейчас и реакцию позже.', '#d4a04a')
   });
 
-  // 8. Состояния — статусы
   SECTIONS.push({
     id:'statuses', icon:'🌀', title:'Состояния (23 канонических)', color:'#a07fd4',
     body:
@@ -42291,7 +42917,6 @@ function renderManualPage() {
       '</ul>'
   });
 
-  // 9. 0 HP и борьба за жизнь
   SECTIONS.push({
     id:'death', icon:'💀', title:'0 HP, борьба за жизнь, ранения', color:'#c02020',
     body:
@@ -42351,7 +42976,6 @@ function renderManualPage() {
       '<p style="'+P+'">Существуют заклинания, ритуалы и специалисты — но это не легко. Конкретные методы и стоимость — на усмотрение ГМ.</p>'
   });
 
-  // 10. Отдых
   SECTIONS.push({
     id:'rest', icon:'🏕️', title:'Отдых и восстановление', color:'#6fcb83',
     body:
@@ -42386,7 +43010,6 @@ function renderManualPage() {
       '</div>'
   });
 
-  // 11. Прокачка
   SECTIONS.push({
     id:'levelup', icon:'📈', title:'Прокачка и уровни', color:'#e8c060',
     body:
@@ -42406,7 +43029,6 @@ function renderManualPage() {
       BX('🌟 Абсолют — это не «11-й обычный уровень», а отдельная категория. Достижение его — крупный сюжетный момент кампании.', '#e8c060')
   });
 
-  // 12. Экипировка
   SECTIONS.push({
     id:'gear', icon:'🎒', title:'Экипировка и расходники', color:'#b88442',
     body:
@@ -42424,7 +43046,6 @@ function renderManualPage() {
       '<p style="'+P+'">Конкретный эффект зелий/снадобий/мед.расходников — описан в самом предмете.</p>'
   });
 
-  // 13. Урон и резисты
   SECTIONS.push({
     id:'damage', icon:'💥', title:'Типы урона и резисты', color:'#e05020',
     body:
@@ -42455,7 +43076,6 @@ function renderManualPage() {
       '<p style="'+P+'"><b>Лимита на количество резистов нет</b> — накапливаются от снаряжения, навыков, состояний. ГМ может ввести ограничения по сюжету.</p>'
   });
 
-  // 14. Мелочи
   SECTIONS.push({
     id:'misc', icon:'📏', title:'Мелочи (клетки, диагональ, временные HP, крит на сейве)', color:'#8090a0',
     body:
@@ -42470,7 +43090,6 @@ function renderManualPage() {
       '</ul>'
   });
 
-  // ── Сборка HTML ──
   var html =
     '<div style="text-align:center;margin-bottom:30px">'+
       '<div style="font-size:38px;margin-bottom:6px">📖</div>'+
@@ -42482,7 +43101,6 @@ function renderManualPage() {
 
   SECTIONS.forEach(function(s) {
     var isOpen = !!s.openByDefault;
-    var chevColor = s.color;
     html +=
       '<div class="manual-section" data-manual-id="'+s.id+'" style="border:1px solid '+s.color+'33;border-left:3px solid '+s.color+';border-radius:6px;margin-bottom:10px;background:#0a0604;overflow:hidden">'+
         '<div class="manual-section-head" style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;user-select:none;transition:background .15s">'+
@@ -42490,7 +43108,7 @@ function renderManualPage() {
             '<span style="font-size:22px;line-height:1;flex-shrink:0">'+s.icon+'</span>'+
             '<span style="font-family:\'Cinzel\',serif;font-size:15px;color:'+s.color+';letter-spacing:1.2px;line-height:1.3">'+s.title+'</span>'+
           '</div>'+
-          '<span class="manual-chev" style="font-size:13px;color:'+chevColor+';opacity:.6;flex-shrink:0;margin-left:12px;transition:transform .2s ease'+(isOpen?';transform:rotate(90deg)':'')+'">\u25B8</span>'+
+          '<span class="manual-chev" style="font-size:13px;color:'+s.color+';opacity:.6;flex-shrink:0;margin-left:12px;transition:transform .2s ease'+(isOpen?';transform:rotate(90deg)':'')+'">\u25B8</span>'+
         '</div>'+
         '<div class="manual-section-body" style="padding:'+(isOpen?'4px 22px 20px 22px':'0 22px')+';display:'+(isOpen?'block':'none')+';border-top:'+(isOpen?'1px solid '+s.color+'22':'none')+'">'+
           s.body+
@@ -42500,7 +43118,6 @@ function renderManualPage() {
 
   host.innerHTML = html;
 
-  // Биндинг expand/collapse
   host.querySelectorAll('.manual-section').forEach(function(sec) {
     var head = sec.querySelector('.manual-section-head');
     var body = sec.querySelector('.manual-section-body');
@@ -42525,6 +43142,1191 @@ function renderManualPage() {
   });
 }
 if (typeof window !== 'undefined') { window.renderManualPage = renderManualPage; }
+
+// ═══════════════════════════════════════════════════════════════
+//  SHOP PAGE — Магазин: витрина мира (что бывает и почём в среднем)
+//  Данные: localStorage 'zargota_shop_v1' = [{id,name,icon,cat,price:{pl,zl,sr,md},desc,rarity}]
+// ═══════════════════════════════════════════════════════════════
+var SHOP_CATS = [
+  { key:'weapon',   icon:'⚔️', label:'Оружие',      color:'#c87878' },
+  { key:'armor',    icon:'🛡️', label:'Броня',       color:'#7a9ae0' },
+  { key:'potion',   icon:'🧪', label:'Зелья',       color:'#6fcb83' },
+  { key:'food',     icon:'🍖', label:'Еда и быт',   color:'#d49060' },
+  { key:'magic',    icon:'✨', label:'Магическое',  color:'#a07fd4' },
+  { key:'tool',     icon:'🛠️', label:'Инструменты', color:'#b8a060' },
+  { key:'mount',    icon:'🐴', label:'Транспорт',   color:'#8fa2c9' },
+  { key:'property', icon:'🏠', label:'Жильё',        color:'#c9a06a' },
+  { key:'service',  icon:'🤝', label:'Услуги',      color:'#c9a94a' },
+  { key:'material', icon:'⛏️', label:'Материалы',   color:'#a88860' },
+  { key:'contraband', icon:'🩸', label:'Подпольное', color:'#a04848' },
+  { key:'other',    icon:'📦', label:'Разное',      color:'#8a7a5e' }
+];
+var SHOP_RARITY = [
+  { key:'common',   label:'Обычное',    color:'#8a7a5e' },
+  { key:'uncommon', label:'Добротное',  color:'#6fcb83' },
+  { key:'rare',     label:'Редкое',     color:'#7a9ae0' },
+  { key:'epic',     label:'Эпическое',  color:'#a07fd4' },
+  { key:'legend',   label:'Легендарное',color:'#e8c060' }
+];
+// Пул эмодзи для пикера — сгруппирован по темам
+var SHOP_EMOJI_POOL = [
+  { group:'Оружие', list:['⚔️','🗡️','🔪','🏹','🪓','🔨','🛡️','🥊','🔱','🪃','🏏','⛏️','🪝','💣'] },
+  { group:'Броня и одежда', list:['🛡️','🥋','👕','👖','🧥','👞','🥾','🧤','🎩','👑','💍','📿','🧣','👒'] },
+  { group:'Магия', list:['✨','🔮','📜','📖','🕯️','⚗️','🧪','💎','🔯','☯️','🌟','⭐','💫','🌀','♦️','🃏'] },
+  { group:'Зелья и еда', list:['🧪','🍶','🍷','🍺','🧉','🍯','🍖','🍞','🧀','🍎','🥩','🐟','🧄','🌿','🍄'] },
+  { group:'Существа/маунты', list:['🐴','🐎','🦄','🐫','🐂','🐐','🦅','🐺','🐗','🦌','🐉','🕊️','🦂','🐍'] },
+  { group:'Здания/жильё', list:['🏠','🏡','🏰','🏯','⛺','🛖','🏚️','🏛️','🕍','⛪','🏭','🚪','🛏️','🪑'] },
+  { group:'Материалы/инструмент', list:['⛏️','🪓','🔧','🪛','🧰','⚙️','🔩','🧵','🪵','🪨','🧱','⚗️','🔗','🪤'] },
+  { group:'Деньги/торговля', list:['💰','🪙','💵','💴','📦','🎁','🧾','⚖️','🗝️','🔑','📇','🏷️'] },
+  { group:'Люди/услуги', list:['🤝','🧙','⚗️','🩺','⚖️','🎭','🎨','🎵','📚','🛠️','🧭','🗺️','✉️','🔍'] },
+  { group:'Тёмное/подполье', list:['🩸','☠️','💀','🗝️','🕷️','🐀','🦇','⛓️','🃏','🎲','🕳️','🧿','⚰️'] }
+];
+var _shopState = { filter:'', search:'', tab:'showcase' };
+var _shopEmojiTarget = null; // куда вставлять выбранный эмодзи
+var _shopCart = {}; // itemId -> qty (реальные товары витрины)
+var _ecoCart = {}; // name -> {price:{}, qty} (позиции из экономики)
+// Разбор строки цены "2 пл · 3 зл", "18 зл", "0.5 зл" в монеты
+function zgParsePrice(str) {
+  var p = { pl:0, zl:0, sr:0, md:0 };
+  if (!str) return null;
+  var s = String(str).toLowerCase();
+  var re = /(\d+(?:[.,]\d+)?)\s*(пл|зл|ср|мд)/g, m, found = false;
+  while ((m = re.exec(s)) !== null) {
+    found = true;
+    var val = parseFloat(m[1].replace(',', '.')), unit = m[2];
+    if (unit === 'пл') { p.pl += Math.floor(val); p.zl += Math.round((val - Math.floor(val))*10); }
+    else if (unit === 'зл') { var whole = Math.floor(val), frac = val - whole; p.zl += whole; p.md += Math.round(frac*100); }
+    else if (unit === 'ср') { var w2 = Math.floor(val), f2 = val - w2; p.sr += w2; p.md += Math.round(f2*10); }
+    else if (unit === 'мд') p.md += Math.round(val);
+  }
+  return found ? p : null;
+}
+function zgCartAddEco(name, priceStr) {
+  var price = zgParsePrice(priceStr);
+  if (!price) { if (typeof showToast==='function') showToast('⚠ Цена договорная — не добавить'); return; }
+  if (_ecoCart[name]) _ecoCart[name].qty++;
+  else _ecoCart[name] = { price: price, qty: 1, raw: priceStr, icon: zgEcoIcon(name, '📊') };
+  if (typeof showToast==='function') showToast('🛒 «' + name + '» в корзине');
+  zgUpdateCartBtn();
+}
+function zgCartTotal() {
+  var items = loadShopItems();
+  var tot = { pl:0, zl:0, sr:0, md:0 }, count = 0;
+  Object.keys(_shopCart).forEach(function(id){
+    var it = items.find(function(x){ return x.id === id; }); if (!it) return;
+    var q = _shopCart[id]; count += q;
+    var p = it.price || {};
+    tot.pl += (p.pl||0)*q; tot.zl += (p.zl||0)*q; tot.sr += (p.sr||0)*q; tot.md += (p.md||0)*q;
+  });
+  Object.keys(_ecoCart).forEach(function(nm){
+    var e = _ecoCart[nm]; count += e.qty;
+    tot.pl += (e.price.pl||0)*e.qty; tot.zl += (e.price.zl||0)*e.qty;
+    tot.sr += (e.price.sr||0)*e.qty; tot.md += (e.price.md||0)*e.qty;
+  });
+  // Нормализация монет (10 мд=1 ср, 10 ср=1 зл, 10 зл=1 пл)
+  tot.sr += Math.floor(tot.md/10); tot.md = tot.md%10;
+  tot.zl += Math.floor(tot.sr/10); tot.sr = tot.sr%10;
+  tot.pl += Math.floor(tot.zl/10); tot.zl = tot.zl%10;
+  return { total: tot, count: count };
+}
+// Формат итоговой суммы: в активной валюте экономики, иначе смешанно
+function zgCartTotalStr(coins) {
+  coins = coins || { pl:0, zl:0, sr:0, md:0 };
+  var cur = (typeof _ecoCurrency !== 'undefined') ? _ecoCurrency : 'mixed';
+  if (cur === 'mixed') return shopPriceHtml(coins);
+  var totalMd = (coins.pl||0)*1000 + (coins.zl||0)*100 + (coins.sr||0)*10 + (coins.md||0);
+  var unit = { md:'мд', sr:'ср', zl:'зл', pl:'пл' }[cur];
+  var div  = { md:1, sr:10, zl:100, pl:1000 }[cur];
+  var val = totalMd / div;
+  var out = Math.round(val*100)/100;
+  var str = (out % 1 === 0) ? String(out) : String(out).replace(/0+$/,'').replace(/\.$/,'');
+  return str + ' ' + unit;
+}
+function zgCartAdd(id) {
+  _shopCart[id] = (_shopCart[id]||0) + 1;
+  if (typeof showToast==='function') showToast('🛒 В корзине: ' + _shopCart[id]);
+  zgUpdateCartBtn();
+}
+function zgCartRemove(id) { if (_shopCart[id]) { _shopCart[id]--; if (_shopCart[id]<=0) delete _shopCart[id]; } zgRenderCart(); zgUpdateCartBtn(); }
+function zgCartAddQty(id) { _shopCart[id] = (_shopCart[id]||0)+1; zgRenderCart(); zgUpdateCartBtn(); }
+function zgCartClear() { _shopCart = {}; _ecoCart = {}; zgRenderCart(); zgUpdateCartBtn(); }
+function zgUpdateCartBtn() {
+  // Перерисовываем текущую вкладку магазина, чтобы обновить бейдж на кнопке корзины
+  var host = document.getElementById('shop-page-inner');
+  if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') {
+    try { renderShopPage(); } catch(e) {}
+  }
+}
+function zgRenderCart() {
+  var old = document.getElementById('shop-cart-popup'); if (old) old.remove();
+  var items = loadShopItems();
+  var ids = Object.keys(_shopCart);
+  var isMobile = window.innerWidth < 600;
+  var bd = document.createElement('div');
+  bd.id = 'shop-cart-popup';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10002;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 20px) 10px 24px' : 'align-items:center;padding:20px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #e8c060;border-radius:14px;width:100%;max-width:460px;padding:20px;box-shadow:0 24px 90px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:86vh;overflow-y:auto');
+
+  var rows = ids.map(function(id){
+    var it = items.find(function(x){ return x.id === id; }); if (!it) return '';
+    var q = _shopCart[id];
+    var cat = SHOP_CATS.find(function(x){ return x.key === it.cat; }) || SHOP_CATS[SHOP_CATS.length-1];
+    var thumb = it.image ? '<img src="' + escHTML(it.image) + '" style="width:40px;height:40px;object-fit:cover;border-radius:8px">' : '<span style="font-size:24px">' + escHTML(it.icon || cat.icon) + '</span>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1a1309">' +
+      '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#241a0e;border:1px solid #3a2a14;border-radius:8px;flex-shrink:0">' + thumb + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:#f6e6c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(it.name || '') + '</div>' +
+        '<div style="font-size:11px;color:#a8987c">💰 ' + shopPriceHtml(it.price) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+        '<button onclick="zgCartRemove(\'' + id + '\')" style="width:26px;height:26px;border:1px solid #2a1e10;background:#241a0e;color:#c08080;border-radius:6px;cursor:pointer;font-size:14px">−</button>' +
+        '<span style="font-family:\'Cinzel\',serif;font-size:14px;color:#e8c060;min-width:18px;text-align:center">' + q + '</span>' +
+        '<button onclick="zgCartAddQty(\'' + id + '\')" style="width:26px;height:26px;border:1px solid #2a1e10;background:#241a0e;color:#6fcb83;border-radius:6px;cursor:pointer;font-size:14px">+</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  // Позиции из экономики
+  var ecoNames = Object.keys(_ecoCart);
+  var ecoRows = ecoNames.map(function(nm){
+    var e = _ecoCart[nm];
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1a1309">' +
+      '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#241a0e;border:1px solid #3a2a14;border-radius:8px;flex-shrink:0;font-size:22px">' + (e.icon || '📊') + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:#f6e6c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(nm) + '</div>' +
+        '<div style="font-size:11px;color:#a8987c">💰 ' + escHTML(e.raw || shopPriceHtml(e.price)) + '</div>' +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
+        '<button onclick="zgCartEcoRemove(\'' + nm.replace(/'/g,'\u2019') + '\')" style="width:26px;height:26px;border:1px solid #2a1e10;background:#241a0e;color:#c08080;border-radius:6px;cursor:pointer;font-size:14px">−</button>' +
+        '<span style="font-family:\'Cinzel\',serif;font-size:14px;color:#e8c060;min-width:18px;text-align:center">' + e.qty + '</span>' +
+        '<button onclick="zgCartEcoAdd(\'' + nm.replace(/'/g,'\u2019') + '\')" style="width:26px;height:26px;border:1px solid #2a1e10;background:#241a0e;color:#6fcb83;border-radius:6px;cursor:pointer;font-size:14px">+</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  var hasAny = ids.length || ecoNames.length;
+  var info = zgCartTotal();
+  var totalStr = zgCartTotalStr(info.total);
+
+  panel.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:19px;color:#e8c060;letter-spacing:1px">🛒 Корзина</div>' +
+      '<button onclick="document.getElementById(\'shop-cart-popup\').remove()" style="width:30px;height:30px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:7px;cursor:pointer;font-size:14px">✕</button>' +
+    '</div>' +
+    (hasAny ? rows + ecoRows +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:14px;border-top:2px solid #2a1e10">' +
+        '<span style="font-family:\'Cinzel\',serif;font-size:13px;color:#a8987c;letter-spacing:1px">ИТОГО</span>' +
+        '<span style="font-family:\'Cinzel\',serif;font-size:16px;color:#e8c060">' + totalStr + '</span>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:16px">' +
+        '<button onclick="zgCartClear()" style="flex:1;padding:10px;border:1px solid #c0404066;background:#c0404014;color:#c08080;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:7px">🗑 Очистить</button>' +
+        '<button onclick="if(typeof showToast===\'function\')showToast(\'✅ Покупка оформлена (' + info.count + ' предм.)\');zgCartClear();document.getElementById(\'shop-cart-popup\').remove()" style="flex:2;padding:10px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:7px">💰 Купить всё</button>' +
+      '</div>'
+      : '<div style="text-align:center;padding:40px 20px;color:#7a6a48;font-family:\'Lora\',serif;font-style:italic;font-size:13px">Корзина пуста. Добавляй товары с витрины кнопкой «🛒 в корзину» или строки из экономики.</div>');
+  bd.appendChild(panel);
+  document.body.appendChild(bd);
+}
+function zgCartEcoAdd(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty++; zgRenderCart(); zgUpdateCartBtn(); } }
+function zgCartEcoRemove(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty--; if (_ecoCart[nm].qty<=0) delete _ecoCart[nm]; zgRenderCart(); zgUpdateCartBtn(); } }
+// Обёртки для inline-onclick (код магазина живёт внутри IIFE арены,
+// поэтому обработчики должны идти через window, иначе _shopState не виден)
+function zgShopSetFilter(f) { _shopState.filter = f || ''; renderShopPage(); }
+function zgShopSetSearch(v) { _shopState.search = v || ''; renderShopPageDebounced(); }
+function zgShopSetTab(t) { _shopState.tab = t || 'showcase'; renderShopPage(); }
+
+function loadShopItems() {
+  try {
+    var raw = localStorage.getItem('zargota_shop_v1');
+    if (raw) { var arr = JSON.parse(raw); if (Array.isArray(arr)) return arr; }
+  } catch(e) {}
+  return [];
+}
+function saveShopItems(items) {
+  try { localStorage.setItem('zargota_shop_v1', JSON.stringify(items)); } catch(e) {}
+  try { if (typeof queueIdbWrite === 'function') queueIdbWrite('zargota_armory_db', 'kv', 'zargota_shop_v1', JSON.stringify(items), 'shop to IDB'); } catch(e) {}
+}
+function shopPriceHtml(p) {
+  p = p || {};
+  var parts = [];
+  if (p.pl) parts.push('<span style="color:#e8e8f0">' + p.pl + ' пл</span>');
+  if (p.zl) parts.push('<span style="color:#e8c060">' + p.zl + ' зл</span>');
+  if (p.sr) parts.push('<span style="color:#b8bcc8">' + p.sr + ' ср</span>');
+  if (p.md) parts.push('<span style="color:#c98850">' + p.md + ' мд</span>');
+  return parts.length ? parts.join(' · ') : '<span style="color:#7a6a48">цена по ситуации</span>';
+}
+// Короткая сводка мех.параметров под картинкой (тип урона, защита, кубик и т.д.)
+function shopStatChips(it) {
+  var chips = [];
+  if (it.damage) chips.push('<span class="shop-stat" style="color:#c87878">💥 ' + escHTML(it.damage) + (it.damageType ? ' ' + escHTML(it.damageType) : '') + '</span>');
+  if (it.defense) chips.push('<span class="shop-stat" style="color:#7a9ae0">🛡 AC +' + escHTML(String(it.defense)) + '</span>');
+  if (it.range) chips.push('<span class="shop-stat" style="color:#a8987c">🎯 ' + escHTML(it.range) + '</span>');
+  if (it.effect) chips.push('<span class="shop-stat" style="color:#6fcb83">✨ ' + escHTML(it.effect) + '</span>');
+  return chips.length ? '<div class="shop-stat-row">' + chips.join('') + '</div>' : '';
+}
+
+// Экономика Зарготы — данные памятки (сгруппировано по разделам)
+var ZG_ECONOMY = [
+  { cat:'💰 Валюта', color:'#e8c060', rows:[
+    ['Медь (мд)','0.01 зл','100 мд = 1 зл'],
+    ['Серебро (ср)','0.1 зл','10 ср = 1 зл'],
+    ['Золото (зл)','1 зл','базовая единица'],
+    ['Платина (пл)','10 зл','1 пл = 10 зл'],
+    ['Батрак, день','~0.2 зл','2 ср'],
+    ['Ремесленник, день','~1 зл',''],
+    ['Наёмник, день','2–5 зл','']
+  ]},
+  { cat:'🍖 Еда и быт', color:'#d49060', rows:[
+    ['Хлеб, буханка','0.02 зл',''],['Похлёбка, миска','0.03 зл','в таверне'],
+    ['Мясо/рыба, кусок','0.1 зл',''],['Сыр, головка','0.2 зл',''],
+    ['Кружка эля','0.04 зл',''],['Вино дешёвое, кувшин','0.2 зл',''],
+    ['Вино хорошее, бутыль','2–10 зл','импорт'],['Мешок зерна','0.5 зл',''],
+    ['Соль, фунт','0.5 зл',''],['Пряности, щепоть','1–3 зл','роскошь'],
+    ['Обед сытный','0.3 зл',''],['Пир на компанию','3–8 зл',''],
+    ['Ночлег в зале','0.05 зл','солома'],['Ночлег в комнате','0.5 зл','постель'],
+    ['Свеча','0.01 зл',''],['Верёвка 15 м','0.1 зл',''],
+    ['Мыло, кусок','0.02 зл',''],['Посуда, набор','0.5–2 зл',''],
+    ['Бочка воды','0.1 зл',''],['Корм для лошади, день','0.05 зл','']
+  ]},
+  { cat:'🎒 Поход и быт', color:'#b8a060', rows:[
+    ['Спальник/одеяло','0.5 зл',''],['Палатка (2 чел)','3 зл',''],
+    ['Рюкзак','1 зл',''],['Флиговка/бурдюк','0.2 зл',''],
+    ['Котелок','0.4 зл',''],['Огниво','0.1 зл',''],
+    ['Факел','0.01 зл',''],['Фонарь масляный','2 зл',''],
+    ['Масло для лампы, фляга','0.1 зл',''],['Верёвка 30 м','0.2 зл',''],
+    ['Крюк-кошка','1 зл',''],['Молоток и колья (10)','0.5 зл',''],
+    ['Лопата','0.5 зл',''],['Кирка','1 зл',''],['Пила','1 зл',''],
+    ['Компас','5 зл','редкость'],['Подзорная труба','40 зл',''],
+    ['Карта местности','2–20 зл',''],['Сухпаёк, день','0.1 зл',''],
+    ['Аптечка (бинты, нити)','1 зл',''],['Тёплый плащ дорожный','2 зл',''],
+    ['Зимний комплект','8 зл','мех, сапоги']
+  ]},
+  { cat:'🏹 Охота на монстров', color:'#a06848', rows:[
+    ['Серебряный клинок','120 зл','рубит проклятых/нежить'],
+    ['Серебряные наконечники (10)','25 зл',''],
+    ['Освящённый елей, флакон','40 зл','+святой урон, 3 удара'],
+    ['Святая вода, флакон','25 зл','2d6 по нежити/демонам'],
+    ['Зажигательная колба','15 зл','2d6 огня по площади'],
+    ['Соль освящённая, мешок','10 зл','круг защиты'],
+    ['Амулет ясного разума','200 зл','+2 против ментального'],
+    ['Оберег от сглаза','30 зл','мелкая защита'],
+    ['Сеть-ловушка','8 зл','обездвиживание'],
+    ['Капкан стальной','12 зл',''],['Капкан на крупную тварь','40 зл',''],
+    ['Колокол-сигналка','3 зл',''],['Приманка (кровь/мясо)','1–5 зл',''],
+    ['Противоядие универсальное','30 зл',''],
+    ['Факел вечногорящий','60 зл','алхимический'],
+    ['Гарпун серебряный','50 зл','против водных тварей'],
+    ['Ладанка со святыми мощами','150 зл','отпугивает нежить']
+  ]},
+  { cat:'⚔️ Оружие', color:'#c87878', rows:[
+    ['Кинжал','2 зл','1d4 колющий'],['Стилет','3 зл','1d4, скрытность'],
+    ['Дубина','0.1 зл','1d4 дробящий'],['Палица','1 зл','1d6 дробящий'],
+    ['Кастет','0.5 зл','1d3'],['Серп','1 зл','1d4 рубящий'],
+    ['Ручной топор','5 зл','1d6 рубящий'],['Копьё','1 зл','1d6 колющий'],
+    ['Короткий меч','10 зл','1d6 рубящий'],['Длинный меч','15 зл','1d8 рубящий'],
+    ['Полуторник','25 зл','1d10 рубящий'],['Двуручный меч','50 зл','2d6 рубящий'],
+    ['Рапира','20 зл','1d8 колющий'],['Сабля','18 зл','1d8 рубящий'],
+    ['Боевой топор','10 зл','1d8 рубящий'],['Секира двуручная','30 зл','1d12 рубящий'],
+    ['Булава','8 зл','1d6 дробящий'],['Двуручный молот','20 зл','1d10 дробящий'],
+    ['Моргенштерн','15 зл','1d8 дробящий'],['Цеп','12 зл','1d8 дробящий'],
+    ['Копьё длинное (пика)','5 зл','1d10, строй'],['Алебарда','20 зл','1d10 рубящий'],
+    ['Глефа','22 зл','1d10 рубящий'],['Трезубец','10 зл','1d8 колющий'],
+    ['Короткий лук','25 зл','1d6'],['Длинный лук','50 зл','1d8'],
+    ['Композитный лук','80 зл','1d8, дальность'],['Арбалет лёгкий','25 зл','1d8'],
+    ['Арбалет тяжёлый','50 зл','1d10'],['Праща','0.1 зл','1d4'],
+    ['Стрелы, колчан','1 зл','20 шт'],['Болты, колчан','1 зл','20 шт'],
+    ['Метательные ножи (3)','2 зл',''],['Метательные топорики (3)','4 зл',''],
+    ['Дротики (5)','1 зл',''],['Мастерское оружие','×5–×10','+1 атака/урон'],
+    ['Порох','—','⚠ не продаётся']
+  ]},
+  { cat:'🛡️ Доспехи', color:'#7a9ae0', rows:[
+    ['Тканевая роба','1 зл','+0'],['Стёганка','3 зл','+1 AC'],
+    ['Кожаный доспех','10 зл','+1 AC'],['Проклёпанная кожа','25 зл','+2 AC'],
+    ['Кольчужная рубаха','35 зл','+2 AC'],['Кольчуга полная','50 зл','+2 AC'],
+    ['Чешуя','50 зл','+2 AC'],['Бригантина','80 зл','+2 AC'],
+    ['Полулаты','120 зл','+3 AC'],['Латный нагрудник','200 зл','+3 AC'],
+    ['Полный латный доспех','750 зл','+3 AC (тяжёлый)'],
+    ['Малый щит','5 зл','+1 AC'],['Средний щит','10 зл','+2 AC'],
+    ['Большой щит (павеза)','30 зл','+3 AC'],['Шлем открытый','5 зл',''],
+    ['Шлем закрытый','20 зл',''],['Наручи/поножи','8 зл',''],
+    ['Мастерская броня','×5–×10','+1 защита']
+  ]},
+  { cat:'🐴 Транспорт', color:'#8fa2c9', rows:[
+    ['Мул/ослик','8 зл','вьючный'],['Пони','30 зл',''],
+    ['Верховая лошадь','75 зл',''],['Боевой конь','400 зл','обучен'],
+    ['Тягловая лошадь','50 зл',''],['Ездовой ящер','200 зл','редкость'],
+    ['Седло+упряжь','10 зл',''],['Подковы, комплект','1 зл',''],
+    ['Телега','15 зл',''],['Фургон крытый','60 зл',''],
+    ['Крытая повозка','100 зл',''],['Дилижанс (место)','2 зл','между городами'],
+    ['Дилижанс (весь)','30 зл',''],['Карета лёгкая','150 зл',''],
+    ['Карета знати','250 зл',''],['Карета парадная','600 зл','с гербом'],
+    ['Извозчик по городу','0.3 зл','поездка'],['Место на корабле','5–20 зл','']
+  ]},
+  { cat:'⛵ Корабли', color:'#5fb6d6', rows:[
+    ['Рыбацкая лодка','50 зл',''],['Баркас','300 зл',''],
+    ['Речная барка','1 000 зл',''],['Шхуна','6 000 зл',''],
+    ['Когг торговый','10 000 зл',''],['Каравелла','25 000 зл',''],
+    ['Галеон','60 000 зл',''],['Боевой корабль','40 000+ зл','редкость'],
+    ['Аренда судна, день','20–200 зл','по размеру'],['Команда, месяц','300+ зл','']
+  ]},
+  { cat:'🏠 Жильё и стройка', color:'#c9a06a', rows:[
+    ['Аренда койки/мес','1 зл',''],['Аренда комнаты/мес','4 зл',''],
+    ['Аренда дома/мес','20 зл',''],['Крестьянская хижина','100 зл',''],
+    ['Городской дом','1 000 зл',''],['Лавка с жильём','2 500 зл',''],
+    ['Усадьба','8 000 зл',''],['Малый замок/башня','50 000 зл',''],
+    ['Большой замок','150 000+ зл',''],['Каменный мост','5 000 зл',''],
+    ['Сторожевая башня','8 000 зл',''],['Малый форт','30 000 зл',''],
+    ['Храм','25 000 зл',''],['Порт/причал','40 000 зл','']
+  ]},
+  { cat:'🤝 Услуги и специалисты', color:'#c9a94a', rows:[
+    ['Носильщик/слуга, день','0.02 зл',''],['Проводник, день','0.5 зл',''],
+    ['Гонец по острову','1 зл',''],['Писарь','0.5 зл','письмо'],
+    ['Переводчик, день','1 зл',''],['Картограф (карта)','5–30 зл',''],
+    ['Юрист (консультация)','5 зл',''],['Юрист (дело в суде)','25–100 зл',''],
+    ['Нотариус','2 зл','заверение'],['Оценщик','1 зл',''],
+    ['Врач (визит)','2 зл',''],['Врач (сложное)','10–50 зл',''],
+    ['Хирург (операция)','20–80 зл',''],['Лекарь-травник','1 зл',''],
+    ['Повитуха','2 зл',''],['Аптекарь (рецепт)','1–10 зл',''],
+    ['Алхимик (консультация)','5 зл',''],['Кузнец (ремонт)','0.5–5 зл',''],
+    ['Оружейник (подгонка)','1 зл',''],['Портной (пошив)','2–20 зл',''],
+    ['Ювелир','5–50 зл',''],['Художник (портрет)','10–50 зл',''],
+    ['Архитектор (проект)','20–200 зл',''],['Инженер (расчёт)','10–100 зл',''],
+    ['Астролог/предсказатель','2–20 зл',''],['Учёный (изыскание)','10–50 зл',''],
+    ['Обучение навыку/мес','10–40 зл',''],['Обучение грамоте/мес','5 зл',''],
+    ['Информатор (слух)','1–10 зл',''],['Телохранитель, день','5 зл',''],
+    ['Взятка стражнику','1–5 зл',''],['Взятка чиновнику','5–50 зл','']
+  ]},
+  { cat:'✨ Магия и проклятия', color:'#a07fd4', rows:[
+    ['Зелье малого лечения','8 зл','1d4 HP'],['Зелье лечения','18 зл','1d8 HP'],
+    ['Зелье большого лечения','45 зл','2d8+ HP'],['Эликсир полного лечения','120 зл',''],
+    ['Зелье бодрости','5 зл','снимает 1 истощение'],['Зелье силы','30 зл','+урон, врем.'],
+    ['Зелье ловкости','30 зл','+уклонение'],['Зелье невидимости','80 зл',''],
+    ['Зелье дыхания под водой','25 зл',''],['Зелье огнестойкости','35 зл','сопр. огню'],
+    ['Зелье антидот','20 зл','снимает яд'],['Зелье ночного зрения','15 зл',''],
+    ['Зелье прыти','20 зл','+скорость'],['Противоядие','20 зл',''],
+    ['Свиток мелкий','30 зл',''],['Свиток сильный','150+ зл',''],
+    ['Оружие +1','500 зл',''],['Броня +1','500 зл',''],
+    ['Малый артефакт','1 000+ зл',''],['Крупный артефакт','5 000+ зл',''],
+    ['Идентификация предмета','20 зл',''],['Зачарование (услуга)','200+ зл',''],
+    ['Снятие простого проклятия','100 зл',''],['Снятие сильного проклятия','300–800 зл',''],
+    ['Снятие ликантропии','500 зл','серебро+ритуал'],['Изгнание одержимости','400 зл',''],
+    ['Очищение от порчи','150 зл',''],['Воскрешение','1 000+ зл','⚠ сложно'],
+    ['Благословение оружия','50 зл','временное святое']
+  ]},
+  { cat:'⛏️ Материалы', color:'#a88860', rows:[
+    ['Дерево, воз','1 зл',''],['Камень, воз','2 зл',''],
+    ['Железо, слиток','1 зл',''],['Сталь, слиток','5 зл',''],
+    ['Серебро, слиток','25 зл','против нежити'],['Золото, слиток','250 зл',''],
+    ['Кожа/шкура','0.5–2 зл',''],['Ткань, рулон','2 зл',''],
+    ['Шёлк, рулон','20 зл','импорт'],['Стекло','3 зл',''],
+    ['Апостофит, кусок','100+ зл','проводит магию'],
+    ['Силверит, слиток','300+ зл','серебро+апостофит, против проклятых'],
+    ['Мифриловая пыль','200 зл','редкость'],['Драконья кость','500+ зл',''],
+    ['Травы болотные, пучок','0.5 зл',''],['Реагенты алхимии, набор','5–40 зл',''],
+    ['Янтарь','5–50 зл',''],['Самоцветы','10–500 зл','']
+  ]},
+  { cat:'🏰 Осада и война', color:'#a04848', rows:[
+    ['Таран','200 зл',''],['Осадная башня','1 500 зл',''],
+    ['Катапульта','500 зл',''],['Требушет','1 200 зл',''],
+    ['Баллиста','400 зл',''],['Скорпион (лёгкая баллиста)','150 зл',''],
+    ['Осадные лестницы (5)','30 зл',''],['Мангонель','700 зл',''],
+    ['Инженер осадный, месяц','80 зл','обслуживает орудия'],
+    ['Расчёт орудия (3 чел), месяц','60 зл',''],
+    ['Сапёр/подкопщик, месяц','50 зл',''],
+    ['Боеприпас (камни/ядра), воз','10 зл',''],
+    ['Смола зажигательная, бочка','15 зл',''],
+    ['Полевые укрепления (частокол)','100 зл','участок'],
+    ['Рекрут, день','1 зл',''],['Опытный наёмник, день','3 зл',''],
+    ['Ветеран, день','5 зл',''],['Наёмный маг, день','20–50 зл',''],
+    ['Наёмный убийца (заказ)','100–1000 зл',''],['Отряд (10), месяц','300 зл',''],
+    ['Рота (100), месяц','3 000 зл',''],['Армия (500), месяц','15 000 зл','']
+  ]},
+  { cat:'🎭 Развлечения', color:'#b060b0', rows:[
+    ['Вход на ярмарку','0.01 зл',''],['Турнир (зритель)','0.1 зл',''],
+    ['Ложа на турнире','2 зл',''],['Ставка (азарт)','от 0.1 зл',''],
+    ['Кости/карты в таверне','от 0.05 зл',''],['Петушиные бои','0.1 зл',''],
+    ['Гладиаторская арена (вход)','0.3 зл',''],['Баня простая','0.05 зл',''],
+    ['Баня с прислугой','0.5 зл',''],['Театр (галёрка)','0.1 зл',''],
+    ['Театр (места)','0.4 зл',''],['Театр (ложа)','2 зл',''],
+    ['Спектакль на заказ','20–100 зл','труппа'],['Бард на вечер','2 зл',''],
+    ['Оркестр на праздник','10–40 зл',''],['Фестиваль (взнос гильдии)','5 зл',''],
+    ['Танцовщица/танцор','1–5 зл','вечер'],
+    ['Куртизанка низкого разряда','0.5–2 зл',''],
+    ['Куртизанка среднего разряда','3–8 зл',''],
+    ['Куртизанка высокого разряда','15–40 зл','светская'],
+    ['Элитная фаворитка','50–200 зл','знать, редкость'],
+    ['Ночь в приличном доме','2–10 зл','по разряду'],
+    ['Отдельный кабинет с компанией','5–25 зл',''],
+    ['Опиумная/травяная курильня','1–10 зл',''],
+    ['Вино рекой на компанию','5–30 зл','']
+  ]},
+  { cat:'🩸 Подпольное и запретное', color:'#a04848', rows:[
+    ['Оружие без лицензии','×2','ношение запрещено'],
+    ['Боевая магия без лицензии','×3',''],['Яд слабый, доза','20 зл',''],
+    ['Яд сильный, доза','60–100 зл',''],['Яд без вкуса/следа','150 зл','редкость'],
+    ['Наркотравы','5–30 зл',''],['Сильный дурман','30–80 зл',''],
+    ['Поддельные документы','20–100 зл',''],['Поддельная печать','50 зл',''],
+    ['Отмычки, набор','10 зл',''],['Взрывчатая смесь','⚠','порох не продаётся'],
+    ['Контрабандный артефакт','×3','без лицензии'],
+    ['Краденый товар','−50%','риск'],['Заказ на убийство','100–1000 зл',''],
+    ['Заказ на похищение','80–500 зл',''],['Информация о власти','10–200 зл',''],
+    ['Шантажный компромат','50–1000 зл',''],['Подпольный лекарь','×2','без вопросов'],
+    ['Незаконное рабство','50–200 зл','⚠ рынок Левошлака'],
+    ['Взлом-специалист (заказ)','30–300 зл',''],
+    ['Убежище/схрон, месяц','10–50 зл','']
+  ]}
+];
+var _ecoFilter = '';
+var _ecoCurrency = 'mixed'; // mixed | md | sr | zl | pl
+function zgEcoSetCurrency(cur){ _ecoCurrency = cur || 'mixed'; renderShopPage(); }
+// Пересчёт строки цены в выбранную валюту. Возвращает null, если строку нельзя точно пересчитать (диапазон, ×множитель и т.п.)
+function zgEcoConvertPrice(str) {
+  if (_ecoCurrency === 'mixed') return null;
+  var s = String(str || '');
+  // диапазоны и множители не пересчитываем
+  if (/[–—-].*(пл|зл|ср|мд)/.test(s) || /×|x/i.test(s) || /\+/.test(s)) return null;
+  var p = zgParsePrice(s);
+  if (!p) return null;
+  // всё в медь (базовая мелкая): 1 зл=100 мд, 1 ср=10 мд, 1 пл=1000 мд
+  var totalMd = (p.pl||0)*1000 + (p.zl||0)*100 + (p.sr||0)*10 + (p.md||0);
+  var unit = { md:'мд', sr:'ср', zl:'зл', pl:'пл' }[_ecoCurrency];
+  var div  = { md:1, sr:10, zl:100, pl:1000 }[_ecoCurrency];
+  var val = totalMd / div;
+  // округление: целое — без дробей, иначе до 2 знаков без хвостовых нулей
+  var out = (Math.round(val*100)/100);
+  var str2 = (out % 1 === 0) ? String(out) : String(out).replace(/0+$/,'').replace(/\.$/,'');
+  return str2 + ' ' + unit;
+}
+function zgEcoSetFilter(f){ _ecoFilter = f || ''; renderShopPage(); }
+// Иконка для позиции экономики по ключевым словам названия
+function zgEcoIcon(name, catIcon) {
+  var n = (name || '').toLowerCase();
+  var map = [
+    // валюта
+    ['медь','🟤'],['серебро, слиток','🥈'],['серебро','🥈'],['золото','🟡'],['платина','⚪'],
+    ['батрак','👨‍🌾'],['ремесленник','🔨'],['наёмник','⚔️'],
+    // еда/напитки
+    ['хлеб','🍞'],['похлёбк','🍲'],['мясо','🍖'],['рыба','🐟'],['сыр','🧀'],['эль','🍺'],
+    ['вино','🍷'],['зерн','🌾'],['соль','🧂'],['пряност','🌶️'],['обед','🍽️'],['пир','🍗'],
+    ['ночлег','🛏️'],['свеч','🕯️'],['мыло','🧼'],['посуд','🍽️'],['вода','💧'],['корм','🌿'],
+    // поход
+    ['спальник','🛌'],['одеяло','🛌'],['палатк','⛺'],['рюкзак','🎒'],['бурдюк','🫗'],['котел','🍳'],
+    ['огниво','🔥'],['факел','🔦'],['фонарь','🏮'],['масло','🛢️'],['верёвк','🧵'],['крюк','🪝'],
+    ['лопат','🪏'],['кирк','⛏️'],['пил','🪚'],['компас','🧭'],['труб','🔭'],['карт','🗺️'],
+    ['паёк','🥖'],['аптечк','🩹'],['плащ','🧥'],['зимн','🧤'],['молот','🔨'],['колья','🪵'],
+    // охота
+    ['серебряный клинок','🗡️'],['серебряные наконеч','🏹'],['елей','🫗'],['святой вод','💧'],
+    ['зажигательн','🧨'],['освящён','✨'],['амулет','📿'],['оберег','🧿'],['сеть','🕸️'],
+    ['капкан','🪤'],['колокол','🔔'],['приманк','🩸'],['противояд','🧪'],['гарпун','🔱'],['ладанк','📿'],
+    // оружие
+    ['кинжал','🗡️'],['стилет','🗡️'],['дубин','🏏'],['палиц','🏏'],['кастет','👊'],['серп','🌾'],
+    ['топор','🪓'],['копьё','🔱'],['копьё длин','🔱'],['пик','🔱'],['меч','⚔️'],['рапир','🤺'],
+    ['сабл','⚔️'],['секир','🪓'],['булав','🔨'],['моргенштерн','🔨'],['цеп','⛓️'],['алебард','🔱'],
+    ['глеф','🔱'],['трезуб','🔱'],['лук','🏹'],['арбалет','🏹'],['праща','🪃'],['стрел','🏹'],
+    ['болт','🏹'],['нож','🔪'],['топорик','🪓'],['дротик','🎯'],['порох','💥'],
+    // броня
+    ['роба','🥼'],['стёганк','🧥'],['кожан','🦺'],['кольчуг','🔗'],['чешу','🐉'],['бригантин','🛡️'],
+    ['лат','🛡️'],['нагрудник','🛡️'],['щит','🛡️'],['шлем','⛑️'],['наруч','🧤'],['помож','🦵'],['доспех','🛡️'],
+    // транспорт
+    ['мул','🫏'],['ослик','🫏'],['пони','🐴'],['лошад','🐴'],['конь','🐎'],['ящер','🦎'],
+    ['седл','🎠'],['подков','🧲'],['телег','🛒'],['фургон','🚛'],['повозк','🚙'],['дилижанс','🚌'],
+    ['карет','🚗'],['извозчик','🚕'],
+    // корабли
+    ['лодк','🛶'],['баркас','⛵'],['барк','⛵'],['шхун','⛵'],['когг','🚢'],['каравелл','⛵'],
+    ['галеон','🚢'],['боевой кораб','🚢'],['судн','⛵'],['команд','🧑‍✈️'],
+    // жильё
+    ['койк','🛏️'],['комнат','🚪'],['дом','🏠'],['хижин','🛖'],['лавк','🏪'],['усадьб','🏡'],
+    ['замок','🏰'],['мост','🌉'],['башн','🗼'],['форт','🏯'],['храм','⛪'],['порт','⚓'],['причал','⚓'],
+    // услуги
+    ['носильщик','🧳'],['слуг','🧎'],['проводник','🧭'],['гонец','✉️'],['писар','✍️'],['переводчик','🗣️'],
+    ['картограф','🗺️'],['юрист','⚖️'],['нотариус','📜'],['оценщик','⚖️'],['врач','🩺'],['хирург','🔪'],
+    ['лекар','🌿'],['повитух','👶'],['аптекар','⚗️'],['алхимик','⚗️'],['кузнец','🔨'],['оружейник','⚔️'],
+    ['портн','🧵'],['ювелир','💍'],['художник','🎨'],['архитектор','📐'],['инженер','⚙️'],['астролог','🔮'],
+    ['учён','📚'],['обучени','📖'],['информатор','🗣️'],['телохранит','🛡️'],['взятк','🤝'],
+    // наёмники/война
+    ['рекрут','🪖'],['ветеран','🎖️'],['убийц','🗡️'],['отряд','⚔️'],['рот','⚔️'],['арми','🪖'],
+    ['таран','🪵'],['осадн','🏯'],['катапульт','🏹'],['требюше','🏹'],['баллист','🏹'],['скорпион','🦂'],
+    ['лестниц','🪜'],['мангонел','🏹'],['расчёт','🧑‍🔧'],['сапёр','⛏️'],['подкоп','⛏️'],['боеприпас','💣'],
+    ['смол','🛢️'],['частокол','🧱'],['укреплен','🧱'],
+    // магия
+    ['зелье мал','🧪'],['зелье леч','🧪'],['зелье больш','⚗️'],['эликсир','⚗️'],['зелье бодр','🧪'],
+    ['зелье сил','💪'],['зелье ловк','🤸'],['зелье невид','👻'],['зелье дых','🫧'],['зелье огнест','🔥'],
+    ['зелье антид','🧪'],['зелье ноч','👁️'],['зелье прыт','💨'],['зелье','🧪'],['противояд','🧪'],
+    ['свиток','📜'],['оружие +','⚔️'],['броня +','🛡️'],['артефакт','🏺'],['идентифик','🔍'],
+    ['зачарован','✨'],['проклят','🩸'],['ликантроп','🐺'],['одержим','😈'],['порч','🌀'],
+    ['воскрешен','🕊️'],['благослов','✨'],
+    // материалы
+    ['дерев','🪵'],['камень','🪨'],['железо','⛓️'],['сталь','🔩'],['кож','🦬'],['шкур','🦬'],
+    ['ткан','🧵'],['шёлк','🧶'],['стекл','🔷'],['апостофит','💎'],['силверит','🥈'],['мифрил','✨'],
+    ['драконья кост','🦴'],['трав','🌿'],['реагент','⚗️'],['янтар','🟠'],['самоцвет','💎'],
+    // развлечения
+    ['ярмарк','🎪'],['турнир','🏇'],['ставк','🎲'],['кости','🎲'],['петуш','🐓'],['гладиатор','🗡️'],
+    ['бан','🛁'],['театр','🎭'],['спектакл','🎭'],['бард','🎵'],['оркестр','🎻'],['фестивал','🎉'],
+    ['танцов','💃'],['куртизан','💋'],['фаворитк','💋'],['дом','🏠'],['кабинет','🍷'],['курильн','🌫️'],
+    // подполье
+    ['яд','☠️'],['наркотрав','🍄'],['дурман','🍄'],['документ','📄'],['печат','🔖'],['отмычк','🗝️'],
+    ['взрывчат','💣'],['контрабанд','📦'],['краден','🎭'],['похищени','🕳️'],['компромат','📸'],
+    ['раб','⛓️'],['взлом','🗝️'],['убежищ','🕳️'],['схрон','🕳️']
+  ];
+  for (var i=0;i<map.length;i++){ if (n.indexOf(map[i][0]) >= 0) return map[i][1]; }
+  return catIcon || '📦';
+}
+function zgEconomyMemoHtml() {
+  // Переключатель валюты пересчёта
+  var curOpts = [['mixed','Смешанно','💰'],['md','Медь','🟤'],['sr','Серебро','🥈'],['zl','Золото','🟡'],['pl','Платина','⚪']];
+  var curBar = '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px">' +
+    curOpts.map(function(o){
+      var on = _ecoCurrency === o[0];
+      return '<button onclick="zgEcoSetCurrency(\'' + o[0] + '\')" style="padding:6px 14px;border:1px solid ' + (on?'#e8c060':'#2a1e10') + ';border-radius:16px;background:' + (on?'#e8c06018':'transparent') + ';color:' + (on?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.3px">' + o[2] + ' ' + o[1] + '</button>';
+    }).join('') + '</div>' +
+    '<div style="text-align:center;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic;margin-bottom:16px">' +
+      (_ecoCurrency === 'mixed' ? 'Цены в исходных монетах' : 'Все точные цены пересчитаны в выбранную валюту. Диапазоны и «×» показаны как есть (≈).') +
+    '</div>';
+
+  var chips = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;justify-content:center">' +
+    '<button onclick="zgEcoSetFilter(\'\')" style="padding:6px 12px;border:1px solid ' + (!_ecoFilter?'#d4a04a':'#2a1e10') + ';border-radius:16px;background:' + (!_ecoFilter?'#d4a04a14':'transparent') + ';color:' + (!_ecoFilter?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">Всё</button>' +
+    ZG_ECONOMY.map(function(sec){
+      var on = _ecoFilter === sec.cat;
+      return '<button onclick="zgEcoSetFilter(\'' + sec.cat.replace(/'/g,'') + '\')" style="padding:6px 12px;border:1px solid ' + (on?sec.color:'#2a1e10') + ';border-radius:16px;background:' + (on?sec.color+'18':'transparent') + ';color:' + (on?sec.color:'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + sec.cat + '</button>';
+    }).join('') + '</div>';
+  chips = curBar + chips;
+
+  var sections = ZG_ECONOMY.filter(function(sec){ return !_ecoFilter || sec.cat.replace(/'/g,'') === _ecoFilter; }).map(function(sec){
+    var catIcon = (sec.cat.match(/^(\S+)/) || ['','📦'])[1];
+    var rows = sec.rows.map(function(r){
+      var nm = (r[0] || '').replace(/'/g, '\u2019');
+      var pr = (r[1] || '').replace(/'/g, '\u2019');
+      var ico = zgEcoIcon(r[0], catIcon);
+      var conv = zgEcoConvertPrice(r[1]);
+      var priceDisplay = conv
+        ? '<span style="color:#e8c060">' + escHTML(conv) + '</span>'
+        : escHTML(r[1]) + (_ecoCurrency !== 'mixed' ? ' <span style="color:#5a4a32;font-size:10px">≈</span>' : '');
+      return '<div class="eco-row" onclick="zgCartAddEco(\'' + nm + '\',\'' + pr + '\')" title="Добавить в корзину" style="display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;padding:7px 12px;border-bottom:1px solid #1a1309;align-items:center;cursor:pointer">' +
+        '<div class="eco-ico">' + ico + '</div>' +
+        '<div style="font-family:\'Lora\',serif;font-size:13px;color:#d8c8a8">' + escHTML(r[0]) + (r[2] ? ' <span style="color:#6a5a40;font-size:11px">· ' + escHTML(r[2]) + '</span>' : '') + '</div>' +
+        '<div style="font-family:\'Cinzel\',serif;font-size:12px;color:#e8c060;white-space:nowrap">' + priceDisplay + '</div>' +
+        '<div class="eco-add" style="font-size:13px;color:#6fcb83;opacity:0;transition:opacity .12s">🛒</div>' +
+      '</div>';
+    }).join('');
+    return '<div style="margin-bottom:16px;border:1px solid ' + sec.color + '33;border-left:3px solid ' + sec.color + ';border-radius:8px;background:#0c0805;overflow:hidden">' +
+      '<div style="padding:12px 14px;font-family:\'Cinzel\',serif;font-size:14px;color:' + sec.color + ';letter-spacing:.5px;border-bottom:1px solid ' + sec.color + '22">' + sec.cat + '</div>' +
+      '<div>' + rows + '</div>' +
+    '</div>';
+  }).join('');
+
+  return chips + sections +
+    '<div style="text-align:center;margin-top:20px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic;line-height:1.6">Средние цены. ×2–3 в глуши, дешевле в столице. Торг по Харизме даёт 10–25% скидки.<br>Вдохновлено D&D 5e и средневековьем, адаптировано под Зарготу.</div>';
+}
+
+function renderShopPage() {
+  var host = document.getElementById('shop-page-inner');
+  if (!host) return;
+  if (!_shopState.tab) _shopState.tab = 'showcase';
+
+  // Под-табы: Витрина / Экономика
+  var subtabs =
+    '<div style="display:flex;gap:0;justify-content:center;margin-bottom:22px;border-bottom:1px solid #2a1e10">'+
+      '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer">🛒 ВИТРИНА</button>'+
+      '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer">📊 ЭКОНОМИКА</button>'+
+    '</div>';
+
+  if (_shopState.tab === 'economy') {
+    var ecoCartInfo = zgCartTotal();
+    host.innerHTML =
+      '<div style="text-align:center;margin-bottom:18px">'+
+        '<div style="font-size:36px;margin-bottom:6px">📊</div>'+
+        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Экономика Зарготы</div>'+
+        '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Средние цены по острову. Всё сведено к золоту для сравнения. Нажми на строку — добавить в корзину.</div>'+
+      '</div>' + subtabs +
+      '<div style="display:flex;justify-content:flex-end;margin-bottom:14px">'+
+        '<button class="shop-cart-btn" onclick="zgRenderCart()"><span style="font-size:16px">💰</span> Корзина' + (ecoCartInfo.count ? '<span class="shop-cart-badge">' + ecoCartInfo.count + '</span>' : '') + '</button>'+
+      '</div>' + zgEconomyMemoHtml();
+    return;
+  }
+
+  var items = loadShopItems();
+  var q = (_shopState.search || '').toLowerCase();
+  var filtered = items.filter(function(it) {
+    if (_shopState.filter && it.cat !== _shopState.filter) return false;
+    if (q && ((it.name||'') + ' ' + (it.desc||'')).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+
+  var head =
+    '<div style="text-align:center;margin-bottom:14px">'+
+      '<div style="font-size:40px;margin-bottom:6px">💰</div>'+
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Товары Зарготы</div>'+
+      '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Что бывает в мире и сколько это стоит в среднем. Точная цена — у конкретного торговца.</div>'+
+    '</div>' + subtabs;
+
+  var cartInfo = zgCartTotal();
+  var toolbar =
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'+
+      '<input type="text" value="' + escHTML(_shopState.search||'') + '" placeholder="🔍 Поиск товара..." oninput="zgShopSetSearch(this.value)" style="flex:1;min-width:200px;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#c8b89c;padding:10px 14px;font-family:\'Lora\',serif;font-size:13px">'+
+      '<button class="btn btn-gold btn-sm" onclick="zgShopEdit(null)" style="padding:9px 16px">＋ Товар</button>'+
+      '<button class="shop-cart-btn" onclick="zgRenderCart()"><span style="font-size:16px">💰</span> Корзина' + (cartInfo.count ? '<span class="shop-cart-badge">' + cartInfo.count + '</span>' : '') + '</button>'+
+    '</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px">'+
+      '<button onclick="zgShopSetFilter(\'\')" style="padding:6px 12px;border:1px solid ' + (!_shopState.filter ? '#d4a04a' : '#2a1e10') + ';border-radius:16px;background:' + (!_shopState.filter ? '#d4a04a14' : 'transparent') + ';color:' + (!_shopState.filter ? '#e8c060' : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.5px">Все</button>'+
+      SHOP_CATS.map(function(cat) {
+        var on = _shopState.filter === cat.key;
+        return '<button onclick="zgShopSetFilter(\'' + cat.key + '\')" style="padding:6px 12px;border:1px solid ' + (on ? cat.color : '#2a1e10') + ';border-radius:16px;background:' + (on ? cat.color + '18' : 'transparent') + ';color:' + (on ? cat.color : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.5px">' + cat.icon + ' ' + cat.label + '</button>';
+      }).join('')+
+    '</div>';
+
+  var grid;
+  if (!filtered.length) {
+    grid = '<div style="text-align:center;padding:60px 20px;color:#7a6a48;font-family:\'Lora\',serif;font-size:13px;font-style:italic">' +
+      (items.length ? 'Ничего не найдено — попробуй другой фильтр или запрос.' : 'Витрина пуста. Нажми «＋ Товар» и добавь первый предмет — что он такое, к какой категории относится и сколько стоит в среднем.') +
+      '</div>';
+  } else {
+    grid = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:16px">' +
+      filtered.map(function(it) {
+        var cat = SHOP_CATS.find(function(x){ return x.key === it.cat; }) || SHOP_CATS[SHOP_CATS.length-1];
+        var rar = SHOP_RARITY.find(function(x){ return x.key === it.rarity; }) || SHOP_RARITY[0];
+        return '<div class="shop-card" onclick="zgShopView(\'' + it.id + '\')" style="--shop-accent:' + cat.color + '">'+
+          // Большая картинка (фото или эмодзи) по центру
+          '<div class="shop-card-hero' + (it.imgSize==='wide' ? ' shop-card-hero-wide' : '') + '">' + (it.image ? '<img src="' + escHTML(it.image) + '" class="shop-card-hero-img" alt="">' : '<span class="shop-card-hero-emoji">' + escHTML(it.icon || cat.icon) + '</span>') + '</div>'+
+          // Название + редкость
+          '<div class="shop-card-name">' + escHTML(it.name || 'Без имени') + '</div>'+
+          '<div style="font-size:9px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;text-align:center;margin-bottom:8px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>'+
+          // Мех.чипы (урон/защита/дальность/эффект)
+          shopStatChips(it)+
+          // Описание
+          (it.desc ? '<div class="shop-card-desc">' + escHTML(it.desc) + '</div>' : '')+
+          // Цена
+          '<div class="shop-card-price">💰 ' + shopPriceHtml(it.price) + '</div>'+
+          // Кнопка в корзину
+          '<button onclick="event.stopPropagation();zgCartAdd(\'' + it.id + '\')" class="shop-card-cart">🛒 в корзину</button>'+
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+
+  host.innerHTML = head + toolbar + grid +
+    '<div style="text-align:center;margin-top:26px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic">' + items.length + ' товаров на витрине · клик по карточке — просмотр</div>';
+}
+var _shopSearchTimer = null;
+function renderShopPageDebounced() {
+  clearTimeout(_shopSearchTimer);
+  _shopSearchTimer = setTimeout(function(){
+    var inp = document.querySelector('#shop-page-inner input');
+    var pos = inp ? inp.selectionStart : 0;
+    renderShopPage();
+    var inp2 = document.querySelector('#shop-page-inner input');
+    if (inp2) { inp2.focus(); try { inp2.setSelectionRange(pos, pos); } catch(e){} }
+  }, 220);
+}
+
+// Просмотр товара — расширенная карточка, редактирование через ⚙ в углу
+function zgShopView(itemId) {
+  var items = loadShopItems();
+  var it = items.find(function(x){ return x.id === itemId; });
+  if (!it) return;
+  var cat = SHOP_CATS.find(function(x){ return x.key === it.cat; }) || SHOP_CATS[SHOP_CATS.length-1];
+  var rar = SHOP_RARITY.find(function(x){ return x.key === it.rarity; }) || SHOP_RARITY[0];
+
+  var old = document.getElementById('shop-view-popup'); if (old) old.remove();
+  var isMobile = window.innerWidth < 600;
+  var bd = document.createElement('div');
+  bd.id = 'shop-view-popup';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 20px) 12px 24px' : 'align-items:center;padding:20px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  var imgOrEmoji = it.image
+    ? '<img src="' + it.image + '" style="width:96px;height:96px;object-fit:cover;border-radius:16px;border:1px solid ' + cat.color + '55">'
+    : '<div style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:52px;border-radius:16px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,' + cat.color + ' 16%,#1a130a),#100b06);border:1px solid ' + cat.color + '44;filter:drop-shadow(0 3px 6px #000a)">' + escHTML(it.icon || cat.icon) + '</div>';
+
+  var chips = shopStatChips(it);
+  var panel = document.createElement('div');
+  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + cat.color + ';border-radius:14px;width:100%;max-width:440px;padding:22px;box-shadow:0 24px 80px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:88vh;overflow-y:auto');
+  panel.innerHTML =
+    // ⚙ + ✕ в углу
+    '<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px">' +
+      '<button onclick="document.getElementById(\'shop-view-popup\').remove();zgShopEdit(\'' + it.id + '\')" title="Редактировать" style="width:32px;height:32px;border:1px solid #3a2a14;background:#241a0e;color:#d4a04a;border-radius:8px;cursor:pointer;font-size:15px">⚙</button>' +
+      '<button onclick="document.getElementById(\'shop-view-popup\').remove()" title="Закрыть" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
+    '</div>' +
+    '<div style="text-align:center;margin-bottom:6px">' + imgOrEmoji + '</div>' +
+    '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#f6e6c0;margin-bottom:4px">' + escHTML(it.name || 'Без имени') + '</div>' +
+    '<div style="text-align:center;font-size:10px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;margin-bottom:14px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>' +
+    (chips ? '<div style="margin-bottom:14px">' + chips + '</div>' : '') +
+    (it.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:12px 14px;font-family:\'Lora\',serif;font-size:13px;color:#d8c8a8;line-height:1.65;margin-bottom:14px;white-space:pre-wrap">' + escHTML(it.desc) + '</div>' : '') +
+    '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:15px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:12px;margin-bottom:12px">💰 ' + shopPriceHtml(it.price) + '</div>' +
+    '<button onclick="zgCartAdd(\'' + it.id + '\')" style="width:100%;padding:11px;border:1px solid #e8c060;background:#e8c06018;color:#e8c060;font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:.5px;cursor:pointer;border-radius:8px">🛒 Добавить в корзину</button>';
+  bd.appendChild(panel);
+  document.body.appendChild(bd);
+}
+
+function zgShopEdit(itemId) {
+  var items = loadShopItems();
+  var it = itemId ? items.find(function(x){ return x.id === itemId; }) : null;
+
+  var old = document.getElementById('shop-edit-popup'); if (old) old.remove();
+  var isMobile = window.innerWidth < 600;
+  var bd = document.createElement('div');
+  bd.id = 'shop-edit-popup';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 14px) 10px 24px' : 'align-items:center;padding:20px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+
+  var p = (it && it.price) || {};
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #6fcb83;border-radius:10px;width:100%;max-width:520px;padding:18px;box-shadow:0 24px 80px #000c;box-sizing:border-box' + (isMobile ? '' : ';max-height:90vh;overflow-y:auto');
+  var fieldLbl = 'font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px';
+  var inp = 'width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#c8b89c;padding:8px 10px;font-family:\'Lora\',serif;font-size:13px';
+  panel.innerHTML =
+    '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#6fcb83;letter-spacing:1px;margin-bottom:14px;text-align:center">💰 ' + (it ? 'Редактировать товар' : 'Новый товар') + '</div>'+
+    // Иконка/фото (большая, с кнопкой пикера и загрузки) + название
+    '<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch">'+
+      '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+
+        '<button id="shp-icon-btn" type="button" title="Выбрать эмодзи или фото" style="width:72px;height:72px;font-size:38px;background:radial-gradient(circle at 50% 40%,#241a0e,#100b06);border:1px solid #3a2a14;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden">' + (it && it.image ? '<img src="' + escHTML(it.image) + '" style="width:100%;height:100%;object-fit:cover">' : (it && it.icon ? escHTML(it.icon) : '🗡')) + '</button>'+
+        '<div style="display:flex;gap:4px">'+
+          '<button id="shp-emoji-pick" type="button" title="Эмодзи" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">😀</button>'+
+          '<button id="shp-img-pick" type="button" title="Загрузить фото" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">🖼</button>'+
+        '</div>'+
+        '<div style="display:flex;gap:4px">'+
+          '<button id="shp-size-sq" type="button" title="Квадрат" style="font-size:9px;padding:3px 8px;border:1px solid ' + ((!it || it.imgSize!=='wide') ? '#6fcb83' : '#2a1e10') + ';background:#241a0e;color:' + ((!it || it.imgSize!=='wide') ? '#6fcb83' : '#a8987c') + ';border-radius:5px;cursor:pointer">◻</button>'+
+          '<button id="shp-size-wide" type="button" title="Продолговатый" style="font-size:9px;padding:3px 8px;border:1px solid ' + ((it && it.imgSize==='wide') ? '#6fcb83' : '#2a1e10') + ';background:#241a0e;color:' + ((it && it.imgSize==='wide') ? '#6fcb83' : '#a8987c') + ';border-radius:5px;cursor:pointer">▭</button>'+
+        '</div>'+
+        '<button id="shp-prompt-copy" type="button" title="Скопировать промпт для генерации иконки" style="font-size:9px;padding:4px 6px;border:1px solid #3a5a30;background:#1a2a14;color:#8fcb83;border-radius:5px;cursor:pointer;white-space:nowrap">🎨 Промпт иконки</button>'+
+        '<input id="shp-icon" type="hidden" value="' + escHTML(it ? it.icon || '' : '') + '">'+
+        '<input id="shp-image" type="hidden" value="' + escHTML(it ? it.image || '' : '') + '">'+
+        '<input id="shp-imgsize" type="hidden" value="' + escHTML(it ? it.imgSize || 'square' : 'square') + '">'+
+        '<input id="shp-image-file" type="file" accept="image/*" style="display:none">'+
+      '</div>'+
+      '<div style="flex:1;display:flex;flex-direction:column;gap:8px">'+
+        '<div><div style="' + fieldLbl + '">НАЗВАНИЕ</div><input id="shp-name" type="text" placeholder="Название товара" value="' + escHTML(it ? it.name || '' : '') + '" style="' + inp + '"></div>'+
+        '<div style="display:flex;gap:8px">'+
+          '<div style="flex:1"><div style="' + fieldLbl + '">КАТЕГОРИЯ</div><select id="shp-cat" style="' + inp + '">' + SHOP_CATS.map(function(c){ return '<option value="' + c.key + '"' + (it && it.cat === c.key ? ' selected' : '') + '>' + c.icon + ' ' + c.label + '</option>'; }).join('') + '</select></div>'+
+          '<div style="flex:1"><div style="' + fieldLbl + '">РЕДКОСТЬ</div><select id="shp-rar" style="' + inp + '">' + SHOP_RARITY.map(function(r){ return '<option value="' + r.key + '"' + (it && it.rarity === r.key ? ' selected' : '') + '>' + r.label + '</option>'; }).join('') + '</select></div>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    // Мех.параметры (опциональны — что применимо)
+    '<div style="font-size:9px;color:#7a6a48;letter-spacing:1px;margin:6px 0 6px;border-top:1px solid #1e1508;padding-top:10px">МЕХАНИКА (заполняй что применимо)</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
+      '<div style="flex:1;min-width:90px"><div style="' + fieldLbl + '">УРОН</div><input id="shp-dmg" type="text" placeholder="1d6" value="' + escHTML(it ? it.damage || '' : '') + '" style="' + inp + '"></div>'+
+      '<div style="flex:1;min-width:90px"><div style="' + fieldLbl + '">ТИП УРОНА</div><input id="shp-dmgtype" type="text" placeholder="Рубящий" value="' + escHTML(it ? it.damageType || '' : '') + '" style="' + inp + '"></div>'+
+      '<div style="flex:1;min-width:70px"><div style="' + fieldLbl + '">AC +</div><input id="shp-def" type="number" min="0" placeholder="0" value="' + (it && it.defense ? it.defense : '') + '" style="' + inp + '"></div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">'+
+      '<div style="flex:1;min-width:120px"><div style="' + fieldLbl + '">ДАЛЬНОСТЬ</div><input id="shp-range" type="text" placeholder="Ближняя / 6 клеток" value="' + escHTML(it ? it.range || '' : '') + '" style="' + inp + '"></div>'+
+      '<div style="flex:1;min-width:120px"><div style="' + fieldLbl + '">ЭФФЕКТ / ПАССИВКА</div><input id="shp-effect" type="text" placeholder="+1 к атаке" value="' + escHTML(it ? it.effect || '' : '') + '" style="' + inp + '"></div>'+
+    '</div>'+
+    // Цена
+    '<div style="' + fieldLbl + ';margin-top:6px">СРЕДНЯЯ ЦЕНА</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:10px">'+
+      '<div style="flex:1"><input id="shp-pl" type="number" min="0" placeholder="0" value="' + (p.pl || '') + '" style="' + inp + ';text-align:center;color:#e8e8f0"><div style="text-align:center;font-size:9px;color:#e8e8f0;margin-top:2px">платина</div></div>'+
+      '<div style="flex:1"><input id="shp-zl" type="number" min="0" placeholder="0" value="' + (p.zl || '') + '" style="' + inp + ';text-align:center;color:#e8c060"><div style="text-align:center;font-size:9px;color:#e8c060;margin-top:2px">золото</div></div>'+
+      '<div style="flex:1"><input id="shp-sr" type="number" min="0" placeholder="0" value="' + (p.sr || '') + '" style="' + inp + ';text-align:center;color:#b8bcc8"><div style="text-align:center;font-size:9px;color:#b8bcc8;margin-top:2px">серебро</div></div>'+
+      '<div style="flex:1"><input id="shp-md" type="number" min="0" placeholder="0" value="' + (p.md || '') + '" style="' + inp + ';text-align:center;color:#c98850"><div style="text-align:center;font-size:9px;color:#c98850;margin-top:2px">медь</div></div>'+
+    '</div>'+
+    '<div style="' + fieldLbl + '">ОПИСАНИЕ</div>'+
+    '<textarea id="shp-desc" rows="3" placeholder="Что это, чем полезно, где встречается..." style="' + inp + ';margin-bottom:14px;resize:vertical">' + escHTML(it ? it.desc || '' : '') + '</textarea>'+
+    // AI-шаблон
+    '<div style="border:1px solid #2a3a24;background:#0e140a;border-radius:8px;padding:10px 12px;margin-bottom:14px">'+
+      '<div style="font-family:\'Cinzel\',serif;font-size:10px;color:#6fcb83;letter-spacing:1px;margin-bottom:8px">🤖 ЗАПОЛНЕНИЕ ЧЕРЕЗ ИИ</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button id="shp-ai-tpl" type="button" style="padding:7px 12px;border:1px solid #3a5a30;background:#1a2a14;color:#8fcb83;font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:5px">📋 Шаблон для ИИ</button>'+
+        '<button id="shp-ai-paste" type="button" style="padding:7px 12px;border:1px solid #3a5a30;background:#1a2a14;color:#8fcb83;font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:5px">📥 Вставить ответ ИИ</button>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:8px;justify-content:' + (it ? 'space-between' : 'flex-end') + '">'+
+      (it ? '<button onclick="zgShopRemove(\'' + itemId + '\')" style="padding:8px 14px;border:1px solid #c0404066;background:#c0404014;color:#c08080;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">🗑 Удалить</button>' : '')+
+      '<div style="display:flex;gap:8px">'+
+        '<button onclick="document.getElementById(\'shop-edit-popup\').remove()" style="padding:8px 14px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">Отмена</button>'+
+        '<button id="shp-save" style="padding:8px 18px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">💾 Сохранить</button>'+
+      '</div>'+
+    '</div>';
+  bd.appendChild(panel);
+  document.body.appendChild(bd);
+
+  // Эмодзи-пикер (кнопка 😀 и клик по большой иконке)
+  function pickEmoji(){
+    zgShopOpenEmojiPicker(function(emoji){
+      panel.querySelector('#shp-icon').value = emoji;
+      panel.querySelector('#shp-image').value = ''; // эмодзи заменяет фото
+      panel.querySelector('#shp-icon-btn').innerHTML = emoji;
+    });
+  }
+  panel.querySelector('#shp-icon-btn').addEventListener('click', pickEmoji);
+  panel.querySelector('#shp-emoji-pick').addEventListener('click', function(e){ e.stopPropagation(); pickEmoji(); });
+  // Переключатель размера картинки
+  function setSize(sz){
+    panel.querySelector('#shp-imgsize').value = sz;
+    var sq = panel.querySelector('#shp-size-sq'), wd = panel.querySelector('#shp-size-wide');
+    sq.style.borderColor = sz==='square'?'#6fcb83':'#2a1e10'; sq.style.color = sz==='square'?'#6fcb83':'#a8987c';
+    wd.style.borderColor = sz==='wide'?'#6fcb83':'#2a1e10'; wd.style.color = sz==='wide'?'#6fcb83':'#a8987c';
+    var btn = panel.querySelector('#shp-icon-btn');
+    if (sz==='wide') { btn.style.width='104px'; btn.style.height='72px'; }
+    else { btn.style.width='72px'; btn.style.height='72px'; }
+  }
+  panel.querySelector('#shp-size-sq').addEventListener('click', function(e){ e.stopPropagation(); setSize('square'); });
+  panel.querySelector('#shp-size-wide').addEventListener('click', function(e){ e.stopPropagation(); setSize('wide'); });
+  setSize((it && it.imgSize) || 'square');
+  // Промпт для генерации иконки
+  panel.querySelector('#shp-prompt-copy').addEventListener('click', function(e){
+    e.stopPropagation();
+    var nm = panel.querySelector('#shp-name').value || '(название предмета)';
+    var catLabel = (SHOP_CATS.find(function(c){return c.key===panel.querySelector('#shp-cat').value;})||{}).label || '';
+    var sz = panel.querySelector('#shp-imgsize').value === 'wide' ? 'горизонтальную (соотношение ~4:3)' : 'квадратную (1:1)';
+    var prompt = zgShopIconPrompt(nm, catLabel, sz);
+    try { navigator.clipboard.writeText(prompt); if (typeof showToast==='function') showToast('🎨 Промпт скопирован'); }
+    catch(err){ window.prompt('Скопируй промпт вручную:', prompt); }
+  });
+  // Загрузка фото — через оптимизированный zgImageStore (папка проекта + GitHub Pages)
+  panel.querySelector('#shp-img-pick').addEventListener('click', function(e){
+    e.stopPropagation();
+    panel.querySelector('#shp-image-file').click();
+  });
+  panel.querySelector('#shp-image-file').addEventListener('change', function(ev){
+    var file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    // Уникальный ключ на каждую загрузку — чтобы замена фото не упиралась в кэш старого blob
+    var itemKey = ((it && it.id) ? it.id : ('new_' + Date.now().toString(36))) + '_' + Date.now().toString(36);
+    var setImg = function(src){
+      panel.querySelector('#shp-image').value = src;
+      panel.querySelector('#shp-icon-btn').innerHTML = '<img src="' + src + '" style="width:100%;height:100%;object-fit:cover">';
+    };
+    if (window.zgImageStore && window.zgImageStore.put) {
+      window.zgImageStore.put(file, 'shop', 'shop_' + itemKey, function(path){
+        if (path) {
+          window.zgImageStore.getBlobUrl(path, function(blobUrl){ setImg(blobUrl || path); panel.querySelector('#shp-image').value = path; });
+        } else {
+          var r = new FileReader(); r.onload = function(x){ setImg(String(x.target.result||'')); }; r.readAsDataURL(file);
+        }
+      });
+    } else {
+      var r = new FileReader(); r.onload = function(x){ setImg(String(x.target.result||'')); }; r.readAsDataURL(file);
+    }
+    ev.target.value = '';
+  });
+
+  // AI: шаблон в буфер
+  panel.querySelector('#shp-ai-tpl').addEventListener('click', function(){
+    var catLabel = (SHOP_CATS.find(function(c){return c.key===panel.querySelector('#shp-cat').value;})||{}).label || '';
+    var tpl = zgShopAiTemplate(panel.querySelector('#shp-name').value || '(название)', catLabel);
+    try { navigator.clipboard.writeText(tpl); if (typeof showToast==='function') showToast('📋 Шаблон скопирован — вставь в ИИ'); }
+    catch(e){ prompt('Скопируй шаблон вручную:', tpl); }
+  });
+  // AI: вставить ответ (JSON)
+  panel.querySelector('#shp-ai-paste').addEventListener('click', function(){
+    var raw = prompt('Вставь JSON-ответ от ИИ:');
+    if (!raw) return;
+    try {
+      var clean = raw.replace(/```json|```/g,'').trim();
+      var d = JSON.parse(clean);
+      if (d.name) panel.querySelector('#shp-name').value = d.name;
+      if (d.icon) { panel.querySelector('#shp-icon').value = d.icon; panel.querySelector('#shp-icon-btn').textContent = d.icon; }
+      if (d.damage) panel.querySelector('#shp-dmg').value = d.damage;
+      if (d.damageType) panel.querySelector('#shp-dmgtype').value = d.damageType;
+      if (d.defense) panel.querySelector('#shp-def').value = d.defense;
+      if (d.range) panel.querySelector('#shp-range').value = d.range;
+      if (d.effect) panel.querySelector('#shp-effect').value = d.effect;
+      if (d.desc) panel.querySelector('#shp-desc').value = d.desc;
+      if (d.price) {
+        if (d.price.pl) panel.querySelector('#shp-pl').value = d.price.pl;
+        if (d.price.zl) panel.querySelector('#shp-zl').value = d.price.zl;
+        if (d.price.sr) panel.querySelector('#shp-sr').value = d.price.sr;
+        if (d.price.md) panel.querySelector('#shp-md').value = d.price.md;
+      }
+      if (typeof showToast==='function') showToast('✅ Данные вставлены');
+    } catch(e){ if (typeof showToast==='function') showToast('⚠ Не похоже на JSON'); else alert('Ошибка разбора JSON'); }
+  });
+
+  panel.querySelector('#shp-save').addEventListener('click', function(){
+    var name = (panel.querySelector('#shp-name').value || '').trim();
+    if (!name) { if (typeof showToast === 'function') showToast('Нужно название'); return; }
+    var rec = it || { id: 'shp_' + Date.now() + '_' + Math.floor(Math.random()*1000) };
+    rec.name = name;
+    rec.icon = (panel.querySelector('#shp-icon').value || '').trim();
+    rec.image = (panel.querySelector('#shp-image').value || '').trim();
+    rec.imgSize = panel.querySelector('#shp-imgsize').value || 'square';
+    rec.cat = panel.querySelector('#shp-cat').value;
+    rec.rarity = panel.querySelector('#shp-rar').value;
+    rec.damage = (panel.querySelector('#shp-dmg').value || '').trim();
+    rec.damageType = (panel.querySelector('#shp-dmgtype').value || '').trim();
+    rec.defense = parseInt(panel.querySelector('#shp-def').value, 10) || 0;
+    rec.range = (panel.querySelector('#shp-range').value || '').trim();
+    rec.effect = (panel.querySelector('#shp-effect').value || '').trim();
+    rec.desc = (panel.querySelector('#shp-desc').value || '').trim();
+    rec.price = {
+      pl: parseInt(panel.querySelector('#shp-pl').value, 10) || 0,
+      zl: parseInt(panel.querySelector('#shp-zl').value, 10) || 0,
+      sr: parseInt(panel.querySelector('#shp-sr').value, 10) || 0,
+      md: parseInt(panel.querySelector('#shp-md').value, 10) || 0
+    };
+    var arr = loadShopItems();
+    if (it) { var idx = arr.findIndex(function(x){ return x.id === rec.id; }); if (idx >= 0) arr[idx] = rec; else arr.push(rec); }
+    else arr.push(rec);
+    saveShopItems(arr);
+    bd.remove();
+    renderShopPage();
+    if (typeof showToast === 'function') showToast('💰 Сохранено');
+  });
+  setTimeout(function(){ try { panel.querySelector('#shp-name').focus(); } catch(e){} }, 60);
+}
+
+// Эмодзи-пикер: сетка по группам + поле «своё»
+function zgShopOpenEmojiPicker(onPick) {
+  var old = document.getElementById('shop-emoji-picker'); if (old) old.remove();
+  var isMobile = window.innerWidth < 600;
+  var bd = document.createElement('div');
+  bd.id = 'shop-emoji-picker';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:10001;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;padding:calc(env(safe-area-inset-top,0px) + 20px) 10px 24px' : 'align-items:center;padding:20px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #d4a04a;border-radius:12px;width:100%;max-width:480px;padding:18px;box-shadow:0 24px 80px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:82vh;overflow-y:auto');
+  var groupsHtml = SHOP_EMOJI_POOL.map(function(g){
+    return '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#7a6a48;letter-spacing:1.2px;margin:12px 0 6px">' + g.group.toUpperCase() + '</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
+        g.list.map(function(e){ return '<button type="button" class="emoji-pick-btn" data-emoji="' + e + '" style="width:40px;height:40px;font-size:22px;background:#241a0e;border:1px solid #2a1e10;border-radius:8px;cursor:pointer;transition:transform .12s,border-color .12s;display:flex;align-items:center;justify-content:center;padding:0">' + e + '</button>'; }).join('')+
+      '</div>';
+  }).join('');
+  panel.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
+      '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#e8c060;letter-spacing:1px">Выбор эмодзи</div>'+
+      '<button onclick="document.getElementById(\'shop-emoji-picker\').remove()" style="width:30px;height:30px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:6px;cursor:pointer;font-size:14px">✕</button>'+
+    '</div>'+
+    '<div style="' + 'font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px' + '">СВОЙ ЭМОДЗИ (вставь любой)</div>'+
+    '<input id="emoji-custom" type="text" maxlength="4" placeholder="Вставь свой эмодзи и нажми Enter" style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#e8d8b8;padding:8px 12px;font-size:18px;text-align:center;margin-bottom:6px">'+
+    groupsHtml;
+  bd.appendChild(panel); document.body.appendChild(bd);
+  Array.prototype.forEach.call(panel.querySelectorAll('.emoji-pick-btn'), function(btn){
+    btn.addEventListener('mouseenter', function(){ btn.style.transform='scale(1.15)'; btn.style.borderColor='#d4a04a'; });
+    btn.addEventListener('mouseleave', function(){ btn.style.transform=''; btn.style.borderColor='#2a1e10'; });
+    btn.addEventListener('click', function(){ onPick(btn.getAttribute('data-emoji')); bd.remove(); });
+  });
+  var custom = panel.querySelector('#emoji-custom');
+  custom.addEventListener('keydown', function(e){ if (e.key === 'Enter' && custom.value.trim()) { onPick(custom.value.trim()); bd.remove(); } });
+  setTimeout(function(){ try { custom.focus(); } catch(e){} }, 60);
+}
+
+// Шаблон-промпт для ИИ (генерация товара)
+// Промпт для генерации иконки предмета (единый стиль под рамку магазина)
+function zgShopIconPrompt(name, catLabel, sizeDesc) {
+  return 'Сгенерируй ' + sizeDesc + ' иконку предмета для тёмного фэнтези-сеттинга «Заргота».\n' +
+    'Предмет: "' + name + '"' + (catLabel ? ' (категория: ' + catLabel + ')' : '') + '.\n\n' +
+    'Стиль (обязательно единый для всех иконок магазина):\n' +
+    '- Тёмное дарк-фэнтези, приглушённая палитра: чёрный/тёмно-коричневый фон (#0d0905), тёплые золотисто-медные и бордовые акценты.\n' +
+    '- Предмет крупно по центру, лёгкое свечение/виньетка по краям, будто вещь лежит на витрине.\n' +
+    '- Рисованный, слегка гримдарк, без мультяшности. Матовые текстуры (сталь, кожа, дерево, кость).\n' +
+    '- Без текста, без рамки, без фоновых сцен — только предмет на тёмном фоне.\n' +
+    '- Композиция вписана в ' + sizeDesc + ' формат, предмет занимает ~70% кадра по центру.\n\n' +
+    'Итог: атмосферная иконка предмета, которая будет смотреться в одном ряду с другими такими же.';
+}
+function zgShopAiTemplate(name, catLabel) {
+  return 'Ты помогаешь заполнить карточку товара для тёмного фэнтези-сеттинга «Заргота» (D&D-подобная система).\n' +
+    'Товар: "' + name + '"' + (catLabel ? ' (категория: ' + catLabel + ')' : '') + '.\n\n' +
+    'Правила мира кратко:\n' +
+    '- Типы урона: Огонь, Холод, Электрический, Некротический, Святой, Психический, Яд, Колющий, Рубящий, Дробящий, Кислота, Звук, Лучевой, Хаос.\n' +
+    '- Кубики урона обычно 1d4–1d10. Оружие даёт кубик + модификатор характеристики.\n' +
+    '- Защита (AC) от брони/щита обычно +1..+3.\n' +
+    '- Валюта: медь (мд), серебро (ср), золото (зл), платина (пл). 1 ср=10 мд, 1 зл=10 ср, 1 пл=10 зл. Простое оружие ~1-5 зл, хорошая броня ~десятки зл, магия — сотни.\n' +
+    '- Пороха в мире НЕТ.\n\n' +
+    'Верни СТРОГО JSON без markdown и пояснений, по схеме:\n' +
+    '{\n' +
+    '  "name": "название",\n' +
+    '  "icon": "1 эмодзи",\n' +
+    '  "damage": "напр. 1d6 или пусто",\n' +
+    '  "damageType": "напр. Рубящий или пусто",\n' +
+    '  "defense": число_AC_или_0,\n' +
+    '  "range": "напр. Ближняя / 6 клеток или пусто",\n' +
+    '  "effect": "краткая пассивка или пусто",\n' +
+    '  "desc": "1-2 атмосферных предложения",\n' +
+    '  "price": { "pl":0, "zl":0, "sr":0, "md":0 }\n' +
+    '}';
+}
+function zgShopRemove(itemId) {
+  if (!confirm('Убрать товар с витрины?')) return;
+  var arr = loadShopItems().filter(function(x){ return x.id !== itemId; });
+  saveShopItems(arr);
+  var p = document.getElementById('shop-edit-popup'); if (p) p.remove();
+  renderShopPage();
+}
+if (typeof window !== 'undefined') {
+  window.renderShopPage = renderShopPage;
+  window.zgShopView = zgShopView;
+  window.zgShopEdit = zgShopEdit;
+  window.zgShopRemove = zgShopRemove;
+  window.renderShopPageDebounced = renderShopPageDebounced;
+  window.zgShopOpenEmojiPicker = zgShopOpenEmojiPicker;
+  window.zgShopAiTemplate = zgShopAiTemplate;
+  window.zgShopSetFilter = zgShopSetFilter;
+  window.zgShopSetSearch = zgShopSetSearch;
+  window.zgEcoSetFilter = zgEcoSetFilter;
+  window.zgEcoSetCurrency = zgEcoSetCurrency;
+  window.zgShopSetTab = zgShopSetTab;
+  window.zgCartAdd = zgCartAdd;
+  window.zgCartRemove = zgCartRemove;
+  window.zgCartAddQty = zgCartAddQty;
+  window.zgCartClear = zgCartClear;
+  window.zgRenderCart = zgRenderCart;
+  window.zgUpdateCartBtn = zgUpdateCartBtn;
+  window.zgCartAddEco = zgCartAddEco;
+  window.zgCartEcoAdd = zgCartEcoAdd;
+  window.zgCartEcoRemove = zgCartEcoRemove;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  БЕСТИАРИЙ: Памятка по типам существ (мини-раздел)
+// ═══════════════════════════════════════════════════════════════
+var ZG_BEAST_TYPE_GUIDE = [
+  { key:'beast', icon:'🐺', label:'Зверь', color:'#c9a06a',
+    trait:'Природные животные и хищники. Действуют инстинктами, часто стайные.',
+    strong:'Скорость, чутьё, засады. Крупные — сильный физический урон.',
+    resist:'Обычно нет. Толстая шкура — частичное сопротивление физическому.',
+    weak:'Огонь (паникуют), Яд.',
+    fight:'Любое оружие работает. Отпугни огнём/шумом, разбей стаю.' },
+  { key:'plant', icon:'🌿', label:'Растение', color:'#6fcb83',
+    trait:'Разумные растения, грибы, лозы, споровые твари. Медлительны, но живучи.',
+    strong:'Опутывание (🪢 Обездвижен), споры (☠ Отравлен), регенерация.',
+    resist:'Колющий, Дробящий (частично). Часто иммун к 💖 Очарованию и Психическому.',
+    weak:'🔥 Огонь ×2. Рубящий, Кислота.',
+    fight:'Жги. Держи дистанцию от опутывающих и поджигай.' },
+  { key:'undead', icon:'💀', label:'Нежить', color:'#a07fd4',
+    trait:'Скелеты, зомби, призраки, личи. Не живые — не устают, не боятся.',
+    strong:'Иммун к Яду, 🩸Кровотечению, 😓Истощению, 💖Очарованию, 👻Страху.',
+    resist:'Некротический (иммун), Колющий/Рубящий (частично), Холод. Призраки — вся физика.',
+    weak:'✨ Святой / Лучевой ×2. Серебро. Дробящий против скелетов.',
+    fight:'Святая магия, лучевой урон, серебро. Скелетам — молот. Убей некроманта.' },
+  { key:'construct', icon:'⚙️', label:'Конструкт', color:'#b8a060',
+    trait:'Големы, ожившие доспехи, автоматы. Не чувствуют боли, не отступают.',
+    strong:'Иммун к Яду, 🩸Кровотечению, всем ментальным. Высокая прочность.',
+    resist:'Колющий, Рубящий (частично — металл/камень). Часто Некротический, Яд.',
+    weak:'По материалу: камень — Дробящий/Кислота; металл — Электрический/Кислота/Звук; лёд — Огонь.',
+    fight:'Узнай материал → бей по слабости. Ищи «командное ядро»/руну.' },
+  { key:'humanoid', icon:'🧑', label:'Гуманоид', color:'#7a9ae0',
+    trait:'Люди, гоблины, орки, кенку, культисты. Оружие, тактика, магия, переговоры.',
+    strong:'Интеллект, снаряжение, координация, любая магия. Непредсказуемы.',
+    resist:'Обычно нет — зависят от брони, а не от типа.',
+    weak:'Психология: 👻 Страх, 💖 Очарование, мораль.',
+    fight:'Учитывай броню (AC). Запугай/подкупи/убеди. Убей лидера.' },
+  { key:'demon', icon:'😈', label:'Демон', color:'#a04848',
+    trait:'Порождения хаоса и иных планов, одержимые. Плоть не от мира сего.',
+    strong:'Сопротивление обычному оружию, тёмная магия, 👻 Страх, огонь/некротик.',
+    resist:'Огонь (часто иммун), Некротический, Яд, физика от НЕзачарованного оружия.',
+    weak:'✨ Святой ×2. Освящённое/зачарованное/серебряное оружие.',
+    fight:'Святая магия, освящённое оружие. Обычным мечом бесполезно. Изгнание > убийство.' },
+  { key:'elemental', icon:'🌀', label:'Элементаль', color:'#5fb6d6',
+    trait:'Воплощения стихий. Иммун к «своему», уязвим к противоположному.',
+    strong:'Иммун к урону своей стихии, часто к Яду и 🩸Кровотечению.',
+    resist:'Огненный→Огонь; ледяной→Холод; земляной→физика; воздушный→физика.',
+    weak:'Противоположная стихия: огонь↔холод, воздух↔электричество, земля↔кислота/звук.',
+    fight:'Бей противоположной стихией. Физика часто слаба.' },
+  { key:'dragon', icon:'🐉', label:'Дракон', color:'#c87878',
+    trait:'Великие крылатые ящеры, разумные. Вершина угрозы. Аура страха.',
+    strong:'Иммун к своей стихии, чешуя (сопр. физике), 👻 аура, полёт, дыхание по площади.',
+    resist:'Физика (чешуя), стихия своего типа.',
+    weak:'Противоположная стихия дыхания. Уязвимое брюхо. Крылья.',
+    fight:'Событие, не рядовой бой. Сбей на землю, целься в брюхо, бей контр-стихией.' },
+  { key:'aberration', icon:'👁️', label:'Аберрация', color:'#8d74d4',
+    trait:'Твари из-за грани — щупальца, глаза, чужая геометрия. Сводят с ума.',
+    strong:'Психический урон, 🌀Замешательство, 🎭Подчинение, видят невидимое.',
+    resist:'Психический (иммун/сопр.), часто Некротический, странные иммунитеты.',
+    weak:'Святой, Лучевой (свет режет искажение), иногда Звук. Защита разума обнуляет.',
+    fight:'Защити разум (амулет/зелье). Бей светом. Не смотри в глаза. Быстрый бой.' },
+  { key:'cursed', icon:'🩸', label:'Проклятый', color:'#a04848',
+    trait:'Оборотни, ведьмины твари, носители порчи, порождения тёмных ритуалов. Проклятие их питает и делает опаснее обычных.',
+    strong:'Регенерация (восстанавливают HP каждый ход), сопротивление обычному оружию, заражение порчей/ликантропией, усиление ночью и в проклятых местах, смена облика.',
+    resist:'Физика от обычного (незачарованного) оружия — частично. Некротический. Иногда Яд. Обычным клинком их почти не убить — раны затягиваются.',
+    weak:'🥈 Серебро — обязательно, отключает регенерацию и ранит по-настоящему. Ещё лучше — силверит (серебро+апостофит), пробивает даже сильную порчу. Святой урон ×2. Огонь выжигает порчу.',
+    fight:'⚠ БУДЬ ОСТОРОЖЕН: без серебра бой почти безнадёжен — тварь регенерирует быстрее, чем ты бьёшь, и может заразить тебя. Приоритет: серебряное или силверитовое оружие, святая магия, огонь. Узнай природу проклятия — у многих есть особое условие снятия/убийства. Против древних и сильных проклятых не геройствуй в одиночку — зови сильнейших бойцов, жреца или охотника-специалиста, готовь освящённые припасы заранее.' },
+  { key:'other', icon:'❓', label:'Другое', color:'#8a7a5e',
+    trait:'Уникальные сущности, аномалии, авторские твари.',
+    strong:'Индивидуально.',
+    resist:'Задаёт ГМ в карточке существа.',
+    weak:'Индивидуально.',
+    fight:'Читай карточку, пробуй разное, наблюдай реакцию.' }
+];
+function zgBeastTypesGuide() {
+  var old = document.getElementById('beast-types-guide'); if (old) old.remove();
+  var isMobile = window.innerWidth < 700;
+  var bd = document.createElement('div');
+  bd.id = 'beast-types-guide';
+  bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.84);z-index:10000;display:flex;justify-content:center;box-sizing:border-box;' +
+    (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 14px) 10px 24px' : 'align-items:center;padding:24px');
+  bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
+  var panel = document.createElement('div');
+  panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #c9a06a;border-radius:14px;width:100%;max-width:820px;padding:20px;box-shadow:0 24px 90px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:88vh;display:flex;flex-direction:column');
+
+  panel.innerHTML =
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-shrink:0">' +
+      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#e8c060;letter-spacing:1px">📖 Против существ</div>' +
+      '<button onclick="document.getElementById(\'beast-types-guide\').remove()" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
+    '</div>' +
+    '<div style="font-family:\'Lora\',serif;font-size:12px;color:#7a6a48;font-style:italic;margin-bottom:12px;flex-shrink:0">Слабости, сопротивления и тактика по типам. Выбери тип слева.</div>' +
+    '<input id="btype-filter" type="text" placeholder="🔍 Фильтр (огонь, серебро, нежить...)" style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#c8b89c;padding:9px 12px;font-family:\'Lora\',serif;font-size:13px;margin-bottom:12px;flex-shrink:0">' +
+    '<div id="btype-split" style="display:flex;gap:14px;min-height:0;flex:1;overflow:hidden">' +
+      '<div id="btype-list" style="' + (isMobile ? 'width:100%' : 'width:210px;flex-shrink:0') + ';overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>' +
+      (isMobile ? '' : '<div id="btype-detail" style="flex:1;overflow-y:auto;background:#0a0604;border:1px solid #2a1e10;border-radius:10px;padding:16px 18px"></div>') +
+    '</div>';
+  bd.appendChild(panel);
+  document.body.appendChild(bd);
+
+  var selectedKey = ZG_BEAST_TYPE_GUIDE[0].key;
+
+  function detailHtml(t) {
+    return '<div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid ' + t.color + '44">' +
+        '<span style="font-size:40px">' + t.icon + '</span>' +
+        '<div><div style="font-family:\'Cinzel Decorative\',serif;font-size:23px;color:' + t.color + '">' + t.label + '</div>' +
+        '<div style="font-size:17px;letter-spacing:3px;margin-top:4px">' + zgDmgIcons(t.weak) + '</div></div>' +
+      '</div>' +
+      '<div class="btype-row"><b>Особенность:</b> ' + escHTML(t.trait) + '</div>' +
+      '<div class="btype-row"><b style="color:#e8c060">Сильные стороны:</b> ' + escHTML(t.strong) + '</div>' +
+      '<div class="btype-row"><b style="color:#7a9ae0">Сопротивления:</b> ' + escHTML(t.resist) + '</div>' +
+      '<div class="btype-row"><b style="color:#c87878">⚠ Уязвимость:</b> ' + escHTML(t.weak) + '</div>' +
+      '<div class="btype-row" style="margin-top:12px;padding-top:12px;border-top:1px solid #1e1508"><b style="color:#6fcb83">Как бороться:</b> ' + escHTML(t.fight) + '</div>';
+  }
+
+  function renderList(q) {
+    q = (q || '').toLowerCase();
+    var listHost = panel.querySelector('#btype-list');
+    var detailHost = panel.querySelector('#btype-detail');
+    var filtered = ZG_BEAST_TYPE_GUIDE.filter(function(t){
+      if (!q) return true;
+      return (t.label + ' ' + t.trait + ' ' + t.strong + ' ' + t.resist + ' ' + t.weak + ' ' + t.fight).toLowerCase().indexOf(q) >= 0;
+    });
+    if (!filtered.length) { listHost.innerHTML = '<div style="padding:20px;color:#7a6a48;font-family:\'Lora\',serif;font-style:italic;font-size:12px">Ничего не найдено</div>'; if (detailHost) detailHost.innerHTML=''; return; }
+    if (!filtered.find(function(t){ return t.key === selectedKey; })) selectedKey = filtered[0].key;
+
+    listHost.innerHTML = filtered.map(function(t){
+      var on = t.key === selectedKey;
+      return '<div class="btype-litem' + (on ? ' active' : '') + '" data-key="' + t.key + '" style="--btype:' + t.color + '">' +
+        '<span style="font-size:18px">' + t.icon + '</span>' +
+        '<span class="btype-litem-name">' + t.label + '</span>' +
+        '<span style="margin-left:auto;font-size:11px;letter-spacing:1px">' + zgDmgIcons(t.weak) + '</span>' +
+        (isMobile ? '<span class="btype-item-chev" style="margin-left:6px">▸</span>' : '') +
+      '</div>' + (isMobile && on ? '<div class="btype-mobile-detail">' + detailHtml(t) + '</div>' : '');
+    }).join('');
+    if (detailHost) { var sel = filtered.find(function(t){ return t.key === selectedKey; }); detailHost.innerHTML = detailHtml(sel); }
+
+    Array.prototype.forEach.call(listHost.querySelectorAll('.btype-litem'), function(item){
+      item.addEventListener('click', function(){ selectedKey = item.getAttribute('data-key'); renderList(panel.querySelector('#btype-filter').value); });
+    });
+  }
+  renderList('');
+  var filterInp = panel.querySelector('#btype-filter');
+  filterInp.addEventListener('input', function(){ renderList(filterInp.value); });
+}
+// Иконки типов урона из мануала — по ключевым словам в тексте уязвимости
+function zgDmgIcons(text) {
+  var t = (text || '').toLowerCase();
+  var map = [
+    ['огон', '🔥'], ['холод', '❄'], ['электр', '⚡'], ['некрот', '💀'],
+    ['свят', '✨'], ['психич', '🧠'], ['яд', '☠'], ['колющ', '🗡'],
+    ['рубящ', '⚔'], ['дробящ', '🔨'], ['кислот', '🧪'], ['звук', '🔊'],
+    ['лучев', '🌟'], ['хаос', '🌀'], ['серебр', '🥈']
+  ];
+  var found = [];
+  map.forEach(function(pair){ if (t.indexOf(pair[0]) >= 0 && found.indexOf(pair[1]) < 0) found.push(pair[1]); });
+  return found.join(' ');
+}
+if (typeof window !== 'undefined') { window.zgBeastTypesGuide = zgBeastTypesGuide; }
 
 var _statusEditKey = null;
 var _statusFilter = 'all'; // all | debuff | buff | dot | control
