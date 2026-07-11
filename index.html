@@ -4859,6 +4859,28 @@
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 2px 6px #000a;
   }
+  /* Кнопки действий на узле (в режиме редактирования) */
+  .fam-node-actions {
+    position: absolute; top: -12px; right: 6px; z-index: 3;
+    display: flex; gap: 3px;
+  }
+  .fam-act-btn {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1px solid #3a2a14; background: #1a1309; color: #d4a04a;
+    font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 6px #000a; padding: 0; transition: transform .12s, background .12s;
+  }
+  .fam-act-btn:hover { transform: scale(1.15); background: #241a0e; }
+  /* Плитка добавления связи */
+  .fam-add-tile {
+    min-width: 96px; min-height: 118px;
+    border: 2px dashed #4a3820; border-radius: 10px;
+    background: transparent; color: #8a7a5e; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: 28px; font-family: 'Cinzel', serif; transition: border-color .15s, color .15s, background .15s;
+  }
+  .fam-add-tile span { font-size: 10px; letter-spacing: 1px; }
+  .fam-add-tile:hover { border-color: #6fcb83; color: #6fcb83; background: #6fcb830a; }
   .fam-dir-btn:hover { filter: brightness(1.2); }
   /* ── Корни-коннекторы (как в Иерархии) ── */
   .fam-trunk { width: 2px; height: 26px; background: #6a5028; margin: 0 auto; }
@@ -29735,8 +29757,14 @@ function zgFamNodeHtml(c, m) {
   var dir = zgFamilyTier(m);
   var dirInfo = FAMILY_DIRS.find(function(d){ return d.key === dir; }) || FAMILY_DIRS[3];
   var action = edit ? ('zgFamilyEdit(' + c.id + ',\'' + m.id + '\')') : ('zgFamilyView(' + c.id + ',\'' + m.id + '\')');
-  return '<div class="fam-node' + (dead ? ' fam-dead' : '') + (edit ? ' fam-editing' : '') + '" style="border-color:' + dirInfo.color + '55" onclick="' + action + '" title="' + (edit ? 'Редактировать' : 'Открыть') + '">' +
-    (edit ? '<div class="fam-node-edit-badge">✎</div>' : '') +
+  var actions = edit ?
+    '<div class="fam-node-actions">' +
+      '<button class="fam-act-btn" onclick="event.stopPropagation();zgFamilyEdit(' + c.id + ',\'' + m.id + '\')" title="Редактировать">✏</button>' +
+      '<button class="fam-act-btn" onclick="event.stopPropagation();zgFamilyToggleDead(' + c.id + ',\'' + m.id + '\')" title="' + (dead ? 'Вернуть (живой)' : 'Отметить мёртвым') + '" style="color:' + (dead ? '#a0a0a0' : '#c04040') + '">💀</button>' +
+      '<button class="fam-act-btn" onclick="event.stopPropagation();zgFamilyRemove(' + c.id + ',\'' + m.id + '\')" title="Удалить" style="color:#c04040">✕</button>' +
+    '</div>' : '';
+  return '<div class="fam-node' + (dead ? ' fam-dead' : '') + (edit ? ' fam-editing' : '') + '" style="border-color:' + dirInfo.color + '55" onclick="' + action + '" title="' + (edit ? 'Открыть/редактировать' : 'Открыть') + '">' +
+    actions +
     '<div class="fam-node-icon" style="border-color:' + dirInfo.color + '66">' + escHTML(m.icon || '👤') + '</div>' +
     '<div class="fam-node-inner">' +
       '<div class="fam-node-name">' + (dead ? '☠ ' : '') + escHTML(m.name || 'Без имени') + '</div>' +
@@ -29787,8 +29815,10 @@ function buildFamilyTree(c) {
   '</div>';
 
   if (!fam.length) {
-    return '<div class="fam-tree-content" id="fam-tree-content"><div class="fam-node-row">' + root + '</div>' +
-      '<div style="text-align:center;padding:18px 24px 6px;color:var(--dim);font-family:\'Lora\',serif;font-size:12px;font-style:italic">Связи растут вниз от персонажа. Нажми «＋ Добавить» и выбери направление — предок, ровня, потомок или прочее.</div></div>';
+    var emptyAdd = edit
+      ? '<div class="fam-gap"></div><div class="fam-node-row"><button class="fam-add-tile" onclick="zgFamilyAdd(' + c.id + ')">＋<span>связь</span></button></div>'
+      : '<div style="text-align:center;padding:18px 24px 6px;color:var(--dim);font-family:\'Lora\',serif;font-size:12px;font-style:italic">Связи растут вниз от персонажа. Включи ✎ и жми «＋» — или кнопку «＋ Добавить».</div>';
+    return '<div class="fam-tree-content" id="fam-tree-content"><div class="fam-node-row">' + root + '</div>' + emptyAdd + '</div>';
   }
 
   // Группируем по направлению, порядок: предки, ровня, потомки, прочие
@@ -29805,6 +29835,10 @@ function buildFamilyTree(c) {
   allMembers.forEach(function(m){
     html += '<div class="fam-child-col">' + zgFamNodeHtml(c, m) + '</div>';
   });
+  // Плитка добавления в режиме редактирования
+  if (edit) {
+    html += '<div class="fam-child-col fam-add-col"><button class="fam-add-tile" onclick="zgFamilyAdd(' + c.id + ')">＋<span>связь</span></button></div>';
+  }
   html += '</div>';
   html += '</div>';
   // отложенная отрисовка линий (двойная — на случай поздней раскладки/шрифтов)
@@ -29822,7 +29856,7 @@ function zgDrawFamilyLines() {
   var H = Math.max(content.scrollHeight, content.offsetHeight);
   function lr(el){ var r = el.getBoundingClientRect(); return { left:r.left-rect.left, top:r.top-rect.top, width:r.width, bottom:r.bottom-rect.top }; }
   var rootEl = content.querySelector('[data-fam-id="root"]');
-  var kids = content.querySelectorAll('.fam-child-col > .fam-node');
+  var kids = content.querySelectorAll('.fam-child-col > .fam-node, .fam-child-col > .fam-add-tile');
   if (!rootEl || !kids.length) return;
   var svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('class','fam-svg-lines');
@@ -29989,11 +30023,21 @@ function zgFamilyRemove(charId, famId) {
   var p = document.getElementById('fam-edit-popup'); if (p) p.remove();
   if (typeof renderCharSheet === 'function') { try { renderCharSheet(); } catch(e) {} }
 }
+function zgFamilyToggleDead(charId, famId) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c || !Array.isArray(c.family)) return;
+  var m = c.family.find(function(x){ return x.id === famId; });
+  if (!m) return;
+  m.dead = !m.dead;
+  saveChars();
+  if (typeof renderCharSheet === 'function') { try { renderCharSheet(); } catch(e) {} }
+}
 if (typeof window !== 'undefined') {
   window.zgFamilyAdd = zgFamilyAdd;
   window.zgFamilyEdit = zgFamilyEdit;
   window.zgFamilyView = zgFamilyView;
   window.zgFamilyRemove = zgFamilyRemove;
+  window.zgFamilyToggleDead = zgFamilyToggleDead;
   window.zgFamilyToggleEdit = zgFamilyToggleEdit;
   window.buildFamilyTree = buildFamilyTree;
   window.zgDrawFamilyLines = zgDrawFamilyLines;
