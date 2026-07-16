@@ -8290,6 +8290,167 @@
     button, .btn, .home-card { animation: none !important; transition: none !important; }
     .page.active { animation: none !important; }
   }
+
+  /* NPC cheat sheet: numbers on the left, roleplay notes on the right */
+  .npc-sheet-panel {
+    position: relative;
+    width: 100%;
+    max-width: 860px;
+    max-height: 92vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    padding: 20px;
+    border: 2px solid var(--npc-accent, #d4a04a);
+    border-radius: 12px;
+    background: linear-gradient(160deg, #1a1408, #0e0a06);
+    box-shadow: 0 24px 80px #000d;
+    animation: zgPopIn .22s cubic-bezier(.2,.8,.4,1.1) both;
+  }
+  .npc-sheet-header {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    padding-right: 76px;
+    margin-bottom: 16px;
+  }
+  .npc-sheet-avatar {
+    width: 76px;
+    height: 76px;
+    box-sizing: border-box;
+    border-radius: 50%;
+  }
+  .npc-sheet-body {
+    display: grid;
+    grid-template-columns: 226px minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .npc-sheet-side {
+    min-width: 0;
+    padding-right: 18px;
+    border-right: 1px solid #3a2a14;
+  }
+  .npc-sheet-kicker {
+    margin-bottom: 4px;
+    color: #806a46;
+    font-family: 'Cinzel', serif;
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .npc-sheet-archetype {
+    margin-bottom: 12px;
+    color: #f0d58e;
+    font-family: 'Cinzel', serif;
+    font-size: 17px;
+    line-height: 1.2;
+  }
+  .npc-sheet-vitals {
+    display: grid;
+    gap: 2px;
+    margin-bottom: 12px;
+    padding: 8px 0;
+    border-top: 1px solid #30220f;
+    border-bottom: 1px solid #30220f;
+  }
+  .npc-sheet-vital {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: baseline;
+    min-height: 30px;
+    padding: 5px 2px;
+  }
+  .npc-sheet-vital-label {
+    color: #806f52;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+  }
+  .npc-sheet-vital-value {
+    color: #e8d8b8;
+    font-family: 'Cinzel', serif;
+    font-size: 15px;
+    text-align: right;
+  }
+  .npc-sheet-stats {
+    display: grid;
+    gap: 6px;
+  }
+  .npc-sheet-stat {
+    width: 100%;
+    min-height: 40px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 9px;
+    border: 1px solid #332511;
+    border-radius: 7px;
+    background: #171108;
+    color: #d8c8a8;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    text-align: left;
+  }
+  .npc-sheet-stat:hover {
+    border-color: #d4a04a77;
+    background: #21170b;
+  }
+  .npc-sheet-stat-value {
+    color: #7fd68a;
+    font-size: 17px;
+  }
+  .npc-sheet-copy {
+    display: grid;
+    gap: 0;
+    min-width: 0;
+  }
+  .npc-sheet-copy-block {
+    min-width: 0;
+    padding: 3px 0 13px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #332511;
+  }
+  .npc-sheet-copy-block:last-child {
+    margin-bottom: 0;
+  }
+  .npc-sheet-copy-title {
+    margin-bottom: 5px;
+    color: #a88c58;
+    font-family: 'Cinzel', serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .npc-sheet-copy-text {
+    color: #d8c8a8;
+    font-family: 'Lora', serif;
+    font-size: 14px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  .npc-sheet-secret {
+    padding: 11px 12px;
+    border: 1px solid #e8a04055;
+    border-radius: 8px;
+    background: #2b1c08;
+  }
+  @media screen and (max-width: 700px) {
+    .npc-sheet-panel { padding: 16px; }
+    .npc-sheet-header {
+      grid-template-columns: 66px minmax(0, 1fr);
+      padding-right: 68px;
+    }
+    .npc-sheet-avatar { width: 60px; height: 60px; font-size: 30px !important; }
+    .npc-sheet-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .npc-sheet-side {
+      padding-right: 0;
+      padding-bottom: 14px;
+      border-right: 0;
+      border-bottom: 1px solid #3a2a14;
+    }
+    .npc-sheet-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
+    .npc-sheet-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 </style>
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -16531,7 +16692,7 @@ function showPage(name) {
 
 // ═══════════════════════════════════════════════════════════
 // РЕЕСТР НПС (zargota_npc_v1) — единая база NPC мира
-// Запись: {id,name,icon,image,role,place,faction,status,tags[],desc,appearance,behavior,secret,npcStats,links:[{id,label}],srcHtreeId}
+// Запись: {id,name,age,icon,image,role,place,faction,status,tags[],desc,appearance,behavior,secret,npcStats:{race,level,archetype,hp,armor,init,threat,stats},links:[{id,label}],srcHtreeId}
 // Секреты ГМа (secret) вырезаются при публикации, остаются в бэкапе.
 // ═══════════════════════════════════════════════════════════
 var NPC_STATUSES = [
@@ -16572,7 +16733,8 @@ function zgHydrateNpcFromIdb(cb) {
 }
 
 function zgNpcInit() {
-  zgHydrateNpcFromIdb(function(){ zgNpcSeedMiroV1(); zgNpcMigrateNpcLines(); zgNpcRender(); });
+  zgNpcCleanupRegistry();
+  zgHydrateNpcFromIdb(function(){ zgNpcCleanupRegistry(); zgNpcSeedMiroV1(); zgNpcMigrateNpcLines(); zgNpcCleanupRegistry(); zgNpcRender(); });
   zgNpcRender();
 }
 
@@ -16582,6 +16744,52 @@ function zgNpcNorm(s) {
 }
 function zgNpcCleanLabel(s) {
   return String(s || '').replace(/[\s\u00a0\u202f]+/g, ' ').trim();
+}
+var ZG_NPC_NON_PERSON_NAMES = {
+  'болотная гильдия':1,
+  'карающий песок':1,
+  'сумрачный орден':1,
+  'щепотка ночи':1,
+  'отсутствующий король зарготы':1,
+  'светоч тьмы':1,
+  'безликий':1,
+  'лезвие':1,
+  'тень':1,
+  'шепот':1
+};
+function zgNpcIsPlaceholderName(name) {
+  var clean = zgNpcCleanLabel(name);
+  return !clean || clean.length < 2 || /^\d+$/.test(clean.replace(/\s+/g, '')) || /^(без имени|неизвестный|новый узел|тест)$/i.test(clean);
+}
+function zgNpcIsHierarchyPerson(node) {
+  if (!node || zgNpcIsPlaceholderName(node.name)) return false;
+  var name = zgNpcNorm(node.name);
+  if (ZG_NPC_NON_PERSON_NAMES[name]) return false;
+  var title = zgNpcNorm(node.title || node.role || '');
+  var info = zgNpcNorm(node.info || node.desc || '');
+  if (/не единый человек|не человек, а сеть|теневая .*сеть|разведывательная структура|криминальная гильдия|спец-отряд|подразделение из|каста оперативников/.test(title + ' ' + info)) return false;
+  return true;
+}
+function zgNpcCleanupRegistry() {
+  var list = zgNpcLoad();
+  if (!list.length) return 0;
+  var removedIds = {};
+  var clean = list.filter(function(n){
+    var badName = zgNpcIsPlaceholderName(n && n.name);
+    var badEntity = !zgNpcIsHierarchyPerson(n || {});
+    var remove = badName || (badEntity && (!!n.srcHtreeId || !!ZG_NPC_NON_PERSON_NAMES[zgNpcNorm(n.name)]));
+    if (remove && n && n.id) removedIds[n.id] = true;
+    return !remove;
+  });
+  if (clean.length === list.length) return 0;
+  clean.forEach(function(n){
+    if (Array.isArray(n.links)) n.links = n.links.filter(function(l){ return l && !removedIds[l.id]; });
+  });
+  zgNpcSave(clean);
+  if (typeof showToast === 'function') {
+    setTimeout(function(){ showToast('Реестр очищен: убрано ' + (list.length - clean.length) + ' служебных узлов и фракций'); }, 250);
+  }
+  return list.length - clean.length;
 }
 // Ключ локации: «Деревня Ебатьэтогденск» и «Ебатьэтогденск» — одно место.
 // Убираем кавычки и ведущий типовой префикс (деревня/город/крепость и т.п.)
@@ -16645,17 +16853,94 @@ function zgNpcCollectVals(list, field) {
 }
 
 var ZG_NPC_STAT_KEYS = [
-  { key:'str', label:'СИЛ', icon:'✊' },
-  { key:'dex', label:'ЛОВ', icon:'🗡' },
-  { key:'int', label:'ИНТ', icon:'📖' },
-  { key:'cha', label:'ХАР', icon:'🎭' },
-  { key:'per', label:'ВСП', icon:'👁' },
-  { key:'con', label:'ВЫН', icon:'🛡' }
+  { key:'str', label:'СИЛ', title:'Сила', icon:'✊' },
+  { key:'dex', label:'ЛОВ', title:'Ловкость', icon:'🗡' },
+  { key:'int', label:'ИНТ', title:'Интеллект', icon:'📖' },
+  { key:'cha', label:'ХАР', title:'Харизма', icon:'🎭' },
+  { key:'per', label:'ВСП', title:'Восприятие', icon:'👁' },
+  { key:'con', label:'ВЫН', title:'Выносливость', icon:'🛡' }
 ];
+var ZG_NPC_RACE_FALLBACK = {
+  'Человек':    { hpStart: 10, hpPerLevel: 4 },
+  'Эльф':       { hpStart: 9,  hpPerLevel: 4 },
+  'Дворф':      { hpStart: 12, hpPerLevel: 5 },
+  'Гоблин':     { hpStart: 8,  hpPerLevel: 3 },
+  'Полурослик': { hpStart: 6,  hpPerLevel: 3 },
+  'Орк':        { hpStart: 14, hpPerLevel: 6 },
+  'Уродец':     { hpStart: 10, hpPerLevel: 4 }
+};
+var ZG_NPC_LEVEL_SCALE = {
+  1:  { label:'Новички',                compat:'1-2+ характеристика',     budget:4,  statCap:2, mainMin:1 },
+  2:  { label:'Обученные',              compat:'2-3+ характеристика',     budget:7,  statCap:3, mainMin:2 },
+  3:  { label:'Специалисты',            compat:'3-4+ или опыт',           budget:10, statCap:4, mainMin:3 },
+  4:  { label:'Профессионалы',          compat:'4+ основная',             budget:13, statCap:4, mainMin:4 },
+  5:  { label:'Элитные специалисты',    compat:'5+ или 4+/4+',            budget:16, statCap:5, mainMin:5 },
+  6:  { label:'Элита острова',          compat:'5+ и особые условия',     budget:19, statCap:5, mainMin:5 },
+  7:  { label:'Фактор региона',         compat:'6+ и сюжет/ритуалы',      budget:22, statCap:6, mainMin:6 },
+  8:  { label:'Почти легенды',          compat:'6+ и тяжёлые последствия',budget:25, statCap:6, mainMin:6 },
+  9:  { label:'Аномальные личности',    compat:'уникальные условия',      budget:28, statCap:7, mainMin:6 },
+  10: { label:'Живые катастрофы',       compat:'сюжетный путь',           budget:32, statCap:8, mainMin:7 },
+  11: { label:'Абсолют',                compat:'высшая категория',        budget:38, statCap:10, mainMin:8 }
+};
+// Точечная калибровка известных фигур. Остальные НПС считаются по тем же
+// правилам через профессию, возраст, описание и типаж.
+var ZG_NPC_CANONICAL_PROFILES = {
+  'морган дребень': { level:4, archetype:'Крепкий ветеран', hp:34, hpBias:5, armor:15, init:2, threat:'опасная', stats:{str:3,dex:2,int:1,cha:1,per:3,con:4} },
+  'плувий беркяш': { level:2, archetype:'Крепкий хозяин', hp:19, hpBias:4, stats:{str:2,dex:0,int:0,cha:2,per:2,con:3} },
+  'лукавый': { level:2, archetype:'Расчётливый торговец', threat:'социальная', stats:{str:0,dex:1,int:3,cha:3,per:2,con:0} },
+  'тракельд': { level:1, archetype:'Обычный хозяин', stats:{str:1,dex:0,int:0,cha:1,per:1,con:1} },
+  'савелий': { age:'27', level:2, archetype:'Жилистый беглец', hp:16, armor:11, init:2, threat:'средняя', stats:{str:1,dex:3,int:1,cha:1,per:2,con:1} },
+  'гонец почтовой службы': { level:2, archetype:'Жилистый гонец', hp:16, init:2, stats:{str:1,dex:3,int:0,cha:0,per:2,con:2} },
+  'флок': { level:2, archetype:'Обученный стражник' },
+  'весько': { level:2, archetype:'Обученный стражник' },
+  'гаврила': { level:2, archetype:'Обученный стражник' },
+  'стражник-наблюдатель в таверне': { level:2, archetype:'Наблюдательный стражник', stats:{str:1,dex:1,int:0,cha:0,per:3,con:2} },
+  'рахим глухарь': { level:3, archetype:'Жилистый отступник', stats:{str:2,dex:2,int:0,cha:1,per:3,con:3} },
+  'тарвен': { level:3, archetype:'Крепкий хранитель', stats:{str:3,dex:1,int:1,cha:0,per:3,con:3} },
+  'эллина': { level:2, archetype:'Мудрая травница', stats:{str:0,dex:1,int:2,cha:2,per:3,con:1} },
+  'иара': { level:1, archetype:'Бойкая бунтарка', stats:{str:1,dex:2,int:0,cha:1,per:1,con:1} },
+  'барон глупища': { level:4, archetype:'Влиятельный правитель', threat:'социальная', stats:{str:0,dex:0,int:3,cha:4,per:3,con:1} },
+  'берегозор': { level:4, archetype:'Крепкий моряк', hpBias:4, stats:{str:3,dex:2,int:1,cha:2,per:4,con:4} },
+  'ворожея': { level:3, archetype:'Умная ворожея', stats:{str:0,dex:1,int:4,cha:1,per:3,con:1} },
+  'гном за стойкой': { level:2, archetype:'Крепкий трактирщик', hpBias:3, stats:{str:2,dex:0,int:0,cha:1,per:2,con:3} },
+
+  'остав ол великий': { level:4, archetype:'Властный лорд', threat:'социальная', stats:{str:1,dex:0,int:3,cha:4,per:3,con:2} },
+  'кор-валтар из аркт-заргов': { level:7, archetype:'Властный стратег', threat:'региональная', stats:{str:2,dex:1,int:6,cha:6,per:5,con:2} },
+  'гелмир леванний': { level:4, archetype:'Убедительный идеалист', threat:'социальная', stats:{str:0,dex:0,int:3,cha:4,per:3,con:1} },
+  'гнилислав старец': { level:8, archetype:'Древний ум', threat:'региональная', stats:{str:0,dex:1,int:6,cha:4,per:6,con:3} },
+  'барон архонт': { level:5, archetype:'Холодный интеллектуал', threat:'опасная', stats:{str:0,dex:1,int:5,cha:4,per:4,con:2} },
+  'корбен стерн тайд': { level:4, archetype:'Крепкий хозяин верфей', stats:{str:4,dex:1,int:2,cha:2,per:2,con:4} },
+  'горрин камнедер': { level:4, archetype:'Крепкий рудознатец', stats:{str:4,dex:0,int:2,cha:1,per:2,con:4} },
+  'капитан рейнгард тосс': { level:5, archetype:'Закалённый командир', hpBias:4, armor:15, stats:{str:4,dex:3,int:2,cha:3,per:4,con:5} },
+  'леди сильвера найт': { level:4, archetype:'Наблюдательная аристократка', threat:'социальная', stats:{str:0,dex:1,int:3,cha:4,per:4,con:1} },
+  'марелла вейн': { level:5, archetype:'Расчётливая переговорщица', threat:'социальная', stats:{str:0,dex:1,int:5,cha:5,per:4,con:1} },
+  'орвель гран-сыт': { level:4, archetype:'Расчётливый хозяин', threat:'социальная', stats:{str:0,dex:0,int:4,cha:4,per:3,con:2} },
+  'беатрис виньяр': { level:4, archetype:'Убедительная посредница', threat:'социальная', stats:{str:0,dex:1,int:3,cha:4,per:4,con:1} },
+  'аббат ревиан тир': { level:6, archetype:'Несгибаемый фанатик', threat:'высокая', stats:{str:2,dex:1,int:4,cha:5,per:5,con:4} },
+  'сарвен аркт-загр': { level:3, archetype:'Жилистый наследник', threat:'социальная', stats:{str:1,dex:2,int:2,cha:3,per:2,con:1} },
+  'берегозор гарда': { level:4, archetype:'Крепкий морской ветеран', hpBias:5, armor:14, stats:{str:4,dex:2,int:1,cha:2,per:4,con:4} },
+  'вальдрен стург': { level:4, archetype:'Дисциплинированный капитан', hpBias:3, armor:15, stats:{str:3,dex:2,int:2,cha:2,per:4,con:3} },
+  'далвен крючник': { level:3, archetype:'Расчётливый староста', threat:'социальная', stats:{str:1,dex:1,int:3,cha:3,per:3,con:1} },
+  'шракс': { level:7, archetype:'Древнее существо', threat:'региональная', hpBias:8, stats:{str:5,dex:3,int:4,cha:2,per:6,con:6} },
+  'мирта двойной счет': { level:4, archetype:'Быстрая на расчёт', threat:'социальная', stats:{str:0,dex:2,int:4,cha:4,per:3,con:1} },
+  'харитон твердомысл корнекорень': { level:4, archetype:'Мудрый старейшина', threat:'социальная', stats:{str:1,dex:0,int:4,cha:3,per:4,con:2} },
+  'рагнус полпилы': { level:3, archetype:'Крепкий артельщик', hpBias:3, stats:{str:4,dex:1,int:1,cha:2,per:2,con:4} },
+  'бартоломьюс нилозлоб': { level:8, archetype:'Древний маг', threat:'региональная', stats:{str:0,dex:2,int:6,cha:3,per:6,con:3} },
+  'крум крюк дарвес': { level:5, archetype:'Жилистый смотрящий', threat:'высокая', hpBias:3, stats:{str:3,dex:5,int:3,cha:4,per:4,con:3} },
+  'шериф зарготы': { level:4, archetype:'Закалённый законник', hpBias:2, armor:14, stats:{str:3,dex:2,int:2,cha:3,per:4,con:3} },
+  'лоран безмолвный': { level:5, archetype:'Несгибаемый тюремщик', hpBias:4, armor:15, stats:{str:4,dex:2,int:2,cha:2,per:4,con:5} },
+  'варг хребтолом': { level:4, archetype:'Крепкий надсмотрщик', hpBias:4, armor:14, stats:{str:4,dex:1,int:2,cha:2,per:3,con:4} }
+};
 function zgNpcParseNullableInt(value) {
   if (value === null || value === undefined || String(value).trim() === '') return null;
   var n = parseInt(value, 10);
   return isNaN(n) ? null : n;
+}
+function zgNpcClampInt(value, min, max, fallback) {
+  var n = zgNpcParseNullableInt(value);
+  if (n === null) n = fallback;
+  n = Math.floor(Number(n) || fallback || min);
+  return Math.max(min, Math.min(max, n));
 }
 function zgNpcCompactText(value, fallback, maxLen) {
   var text = zgNpcCleanLabel(value || fallback || '');
@@ -16669,79 +16954,298 @@ function zgNpcCompactText(value, fallback, maxLen) {
   return cut.slice(0, sp > 42 ? sp : maxLen).trim() + '...';
 }
 function zgNpcHas(hay, re) { return re.test(hay || ''); }
+function zgNpcAgeNumber(n) {
+  var raw = n && n.age;
+  if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+  var m = String(raw).match(/\d{1,4}/);
+  if (!m) return null;
+  var age = parseInt(m[0], 10);
+  return isNaN(age) ? null : age;
+}
+function zgNpcCanonicalProfile(n) {
+  var key = zgNpcNorm(n && n.name || '').replace(/[«»"'’]/g, '');
+  return ZG_NPC_CANONICAL_PROFILES[key] || null;
+}
+function zgNpcApplyProfile(target, source) {
+  if (!source) return target;
+  ['age','level','archetype','hp','armor','init','threat','hpBias','appearance','behavior','about'].forEach(function(key){
+    if (source[key] !== undefined && source[key] !== null && source[key] !== '') target[key] = source[key];
+  });
+  if (source.stats) {
+    target.stats = target.stats || {};
+    Object.keys(source.stats).forEach(function(key){ target.stats[key] = source.stats[key]; });
+  }
+  return target;
+}
+function zgNpcRaceMap() {
+  return (typeof ZARGOTA_RACES === 'object' && ZARGOTA_RACES) ? ZARGOTA_RACES : ZG_NPC_RACE_FALLBACK;
+}
+function zgNpcRaceKey(raw) {
+  raw = String(raw || '').trim();
+  if (!raw) return 'Человек';
+  if (typeof getRaceKey === 'function') {
+    try { return getRaceKey({ race: raw }); } catch(e) {}
+  }
+  var low = raw.toLowerCase();
+  var map = zgNpcRaceMap();
+  if (map[raw]) return raw;
+  if (/орк/.test(low)) return 'Орк';
+  if (/дворф|гном|дварф/.test(low)) return 'Дворф';
+  if (/гоблин/.test(low)) return 'Гоблин';
+  if (/полурос|хоббит/.test(low)) return 'Полурослик';
+  if (/эльф|ельф/.test(low)) return 'Эльф';
+  return 'Уродец';
+}
+function zgNpcInferRace(n, hay) {
+  var raw = n && (n.race || (n.npcStats && n.npcStats.race) || (n.stats && n.stats.race));
+  if (raw) return zgNpcRaceKey(raw);
+  hay = hay || '';
+  if (zgNpcHas(hay, /орк/)) return 'Орк';
+  if (zgNpcHas(hay, /дворф|гном|дварф/)) return 'Дворф';
+  if (zgNpcHas(hay, /гоблин/)) return 'Гоблин';
+  if (zgNpcHas(hay, /полурос|хоббит/)) return 'Полурослик';
+  if (zgNpcHas(hay, /эльф|ельф/)) return 'Эльф';
+  if (zgNpcHas(hay, /кенку|фирболг|полуэльф|полуельф|табакси|драконорожд|уродец/)) return 'Уродец';
+  return 'Человек';
+}
+function zgNpcRaceData(raceKey) {
+  var map = zgNpcRaceMap();
+  return map[raceKey] || map['Уродец'] || ZG_NPC_RACE_FALLBACK['Уродец'];
+}
+function zgNpcLevelScale(level) {
+  return ZG_NPC_LEVEL_SCALE[zgNpcClampInt(level, 1, 11, 1)] || ZG_NPC_LEVEL_SCALE[1];
+}
+function zgNpcStatBudget(level, status) {
+  var scale = zgNpcLevelScale(level);
+  var budget = scale.budget || 4;
+  if (status === 'boss') budget += 2;
+  return Math.min(42, Math.max(4, budget));
+}
+function zgNpcDistributeStats(seed, level, status) {
+  seed = seed || {};
+  var budget = zgNpcStatBudget(level, status);
+  var scale = zgNpcLevelScale(level);
+  var parts = [];
+  var totalWeight = 0;
+  ZG_NPC_STAT_KEYS.forEach(function(st){
+    var v = zgNpcParseNullableInt(seed[st.key]);
+    if (v === null) v = 0;
+    var weight = v < 0 ? 0.12 : (v === 0 ? 0.3 : 1 + v);
+    if (st.key === 'con' && status === 'boss') weight += 1;
+    totalWeight += weight;
+    parts.push({ key: st.key, weight: weight, value: 0, rest: 0 });
+  });
+  if (!totalWeight) totalWeight = 1;
+  var used = 0;
+  var cap = scale.statCap || 2;
+  parts.forEach(function(p){
+    var raw = budget * p.weight / totalWeight;
+    p.value = Math.min(cap, Math.floor(raw));
+    p.rest = raw - p.value;
+    used += p.value;
+  });
+  parts.sort(function(a,b){ return b.rest - a.rest; });
+  var safety = 0;
+  while (used < budget && safety < 200) {
+    var changed = false;
+    parts.forEach(function(p){
+      if (used >= budget) return;
+      if (p.value < cap) {
+        p.value++;
+        used++;
+        changed = true;
+      }
+    });
+    if (!changed) break;
+    safety++;
+  }
+  var primary = parts.slice().sort(function(a,b){ return b.weight - a.weight; })[0];
+  var targetMain = Math.min(cap, scale.mainMin || 1);
+  safety = 0;
+  while (primary && primary.value < targetMain && safety < 60) {
+    var donor = parts.filter(function(p){ return p !== primary && p.value > 0; })
+      .sort(function(a,b){ return a.weight - b.weight || b.value - a.value; })[0];
+    if (!donor) break;
+    donor.value--;
+    primary.value++;
+    safety++;
+  }
+  var out = {};
+  parts.forEach(function(p){ out[p.key] = p.value; });
+  return out;
+}
+function zgNpcInferLevel(n, hay, profile) {
+  var raw = n && (n.npcStats || n.stats || {});
+  var explicit = zgNpcParseNullableInt(raw.level);
+  if (explicit !== null) return zgNpcClampInt(explicit, 1, 11, 1);
+  var roleHay = zgNpcNorm([n && n.name, n && n.role, Array.isArray(n && n.tags) ? n.tags.join(' ') : ''].join(' '));
+  var loreHay = zgNpcNorm([n && n.desc, n && n.secret].join(' '));
+  var age = zgNpcAgeNumber(n);
+  var lvl = profile && profile.level ? profile.level : 1;
+
+  // Возраст ограничивает только автоматический расчёт. Ручной уровень всегда важнее.
+  if ((age !== null && age < 16) || zgNpcHas(roleHay, /ребенок|мальчик|девочка|подросток|сирота/)) lvl = 1;
+  else {
+    if (zgNpcHas(roleHay, /трактирщик|бармен|лавочник|торговец|купец|травниц|ремеслен|артельщик|лесоруб|шахтер|шахтёр/)) lvl = Math.max(lvl, 2);
+    if (zgNpcHas(roleHay, /стражник|караульн|дружинник|матрос|солдат/)) lvl = Math.max(lvl, 2);
+    if (zgNpcHas(roleHay, /воин|наемник|наёмник|хранитель рощ|староста|смотритель|следопыт|ворожея|жрец|серп/)) lvl = Math.max(lvl, 3);
+    if (zgNpcHas(roleHay, /глава страж|капитан|командир|шериф|ветеран|бывший .*вояк|боцман|надсмотрщик|барон|герцог|леди|лорд|глава .*совет|правитель/)) lvl = Math.max(lvl, 4);
+    if (zgNpcHas(roleHay, /элитн|мастер|инквизитор|командор|резидент|смотрящий|хранитель тюрьм/)) lvl = Math.max(lvl, 5);
+    if (zgNpcHas(roleHay, /маг|колдун|чарод|вороже|ведьм|ритуалист/)) lvl = Math.max(lvl, 3);
+    if (zgNpcHas(roleHay, /архимаг|древний маг|мифический маг/)) lvl = Math.max(lvl, 8);
+    if (zgNpcHas(roleHay + ' ' + loreHay, /элита острова/)) lvl = Math.max(lvl, 6);
+    if (zgNpcHas(roleHay + ' ' + loreHay, /фактор региона|меняет исход событий/)) lvl = Math.max(lvl, 7);
+    if (zgNpcHas(roleHay + ' ' + loreHay, /аномальная личность/)) lvl = Math.max(lvl, 9);
+    if (zgNpcHas(roleHay + ' ' + loreHay, /живая катастрофа/)) lvl = Math.max(lvl, 10);
+  }
+  if (n && n.status === 'boss') lvl = Math.max(lvl, 5);
+  if (zgNpcHas(roleHay + ' ' + loreHay, /абсолют/)) lvl = 11;
+  return zgNpcClampInt(lvl, 1, 11, 1);
+}
+function zgNpcCalcHp(level, raceKey, stats, profile) {
+  var r = zgNpcRaceData(raceKey);
+  var base = (r.hpStart || 10) + (Math.max(1, level) - 1) * (r.hpPerLevel || 4);
+  var con = Math.max(0, zgNpcParseNullableInt(stats && stats.con) || 0);
+  var body = Math.floor(con * (level >= 4 ? 1 : 0.7));
+  var role = (profile && profile.hpBias) || 0;
+  var minHp = profile && profile.hp ? profile.hp : 1;
+  return Math.max(1, Math.max(minHp, base + body + role));
+}
+function zgNpcAutoArmor(level, stats, profile) {
+  var dex = Math.max(0, zgNpcParseNullableInt(stats && stats.dex) || 0);
+  var armor = (profile && profile.armor) || 10;
+  if (level >= 6 && armor >= 13) armor += 1;
+  if (level >= 9 && armor >= 14) armor += 1;
+  if (armor <= 11 && dex >= 5) armor += 1;
+  return Math.max(8, Math.min(20, armor));
+}
+function zgNpcArchetypeFromStats(stats, preferred) {
+  if (preferred) return preferred;
+  stats = stats || {};
+  var ranked = [
+    { key:'con', label:'Крепкий' },
+    { key:'dex', label:'Жилистый' },
+    { key:'int', label:'Умный' },
+    { key:'per', label:'Наблюдательный' },
+    { key:'cha', label:'Убедительный' },
+    { key:'str', label:'Сильный' }
+  ].sort(function(a,b){ return (stats[b.key] || 0) - (stats[a.key] || 0); });
+  var top = ranked[0] ? (stats[ranked[0].key] || 0) : 0;
+  var tied = ranked.filter(function(x){ return (stats[x.key] || 0) === top; }).length;
+  return top > 1 && tied <= 2 ? ranked[0].label : 'Обычный человек';
+}
 function zgNpcBaseProfile(n) {
   n = n || {};
   var tags = Array.isArray(n.tags) ? n.tags.join(' ') : '';
-  var hay = zgNpcNorm([n.name, n.role, n.place, n.faction, tags, n.desc, n.secret].join(' '));
+  var roleHay = zgNpcNorm([n.name, n.role, tags].join(' '));
+  var professionHay = zgNpcNorm([n.name, n.role].join(' '));
+  var loreHay = zgNpcNorm([n.desc, n.secret].join(' '));
+  var hay = roleHay + ' ' + loreHay;
+  var nameHay = zgNpcNorm(n.name || '');
+  var age = zgNpcAgeNumber(n);
   var p = {
-    hp: 12, armor: 10, init: 0, threat: 'низкая',
+    age: '', level: 1, archetype: '', hp: 10, armor: 10, init: 0, threat: 'низкая', hpBias: 0,
     stats: { str:0, dex:0, int:0, cha:0, per:0, con:0 },
-    appearance: 'обычный житель Зарготы: заметные детали лучше дописать после сцены',
-    behavior: 'держится по ситуации, отвечает коротко, лишнего не раскрывает',
-    about: 'локальная фигура, полезная как контакт, свидетель или зацепка'
+    appearance: 'обычный житель Зарготы, одет по ремеслу и достатку',
+    behavior: 'держится по ситуации, отвечает коротко и не раскрывает лишнего',
+    about: 'местный житель, контакт, свидетель или зацепка для сцены'
   };
 
-  if (zgNpcHas(hay, /ребен|мальчик|девоч|подрост|сирот/)) {
-    p.hp = 6; p.armor = 10; p.init = 1; p.threat = 'мирная';
+  if ((age !== null && age < 16) || zgNpcHas(roleHay, /ребенок|мальчик|девочка|подросток|сирота/)) {
+    p.level = 1; p.archetype = 'Юный и проворный'; p.hp = 6; p.armor = 10; p.init = 1; p.threat = 'мирная';
     p.stats = { str:-2, dex:1, int:0, cha:1, per:1, con:-1 };
     p.appearance = 'маленький, настороженный, одежда бедная или дорожная';
     p.behavior = 'держится осторожно, быстро пугается, но цепко всё замечает';
     p.about = 'может знать важную мелочь, которую взрослые пропустили';
   }
-  if (zgNpcHas(hay, /страж|капитан|глава страж|караул|надсмотр|шериф|щит|командир/)) {
-    p.hp = 22; p.armor = 14; p.init = 1; p.threat = 'средняя';
+
+  if (zgNpcHas(roleHay, /артельщик|лесоруб|шахт|кузнец|рудник|камен|верф|док|грузчик|крестьянин|фермер/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Крепкий работяга'; p.hp = 18; p.armor = 10; p.init = 0; p.threat = 'низкая'; p.hpBias = 3;
+    p.stats = { str:3, dex:0, int:0, cha:0, per:1, con:3 };
+    p.appearance = 'рабочая одежда, тяжёлые руки, заметная привычка к физическому труду';
+    p.behavior = 'говорит прямо, ценит дело и быстро замечает тех, кто не умеет работать';
+    p.about = 'выносливый местный специалист; опасен, если загнать его в угол';
+  }
+
+  if (zgNpcHas(roleHay, /трактирщик|бармен|хозяин таверн|корчмар|пивовар/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Крепкий хозяин'; p.hp = 16; p.armor = 10; p.init = 0; p.threat = 'низкая'; p.hpBias = 2;
+    p.stats = { str:2, dex:0, int:0, cha:2, per:2, con:3 };
+    p.appearance = 'крепкий бытовой вид, рабочие руки, запах еды, дыма или пива';
+    p.behavior = 'ворчит, держит зал в поле зрения и хорошо помнит посетителей';
+    p.about = 'знает местные слухи, лица, долги и то, кто с кем сидел и куда ушёл';
+  }
+
+  if (zgNpcHas(roleHay, /торгов|лавк|купец|поставщик|торговый совет|хозяйк.*ряд|виноградник/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Расчётливый торговец'; p.hp = 12; p.armor = 10; p.init = 0; p.threat = 'социальная';
+    p.stats = { str:0, dex:0, int:2, cha:3, per:2, con:0 };
+    p.appearance = 'опрятнее окружения, быстрые глаза, руки привыкли считать монеты';
+    p.behavior = 'торгуется, улыбается не до конца и замечает выгоду раньше опасности';
+    p.about = 'держит слухи, долги, товары и может стать источником поручений';
+  }
+
+  if (zgNpcHas(roleHay, /барон|герцог|лорд|леди|знать|наследник|правитель|наместник|старейшина|глава .*совет/)) {
+    p.level = Math.max(p.level, 4); p.archetype = 'Влиятельный переговорщик'; p.hp = 18; p.armor = 11; p.init = 0; p.threat = 'социальная';
+    p.stats = { str:0, dex:0, int:3, cha:4, per:3, con:1 };
+    p.appearance = 'дорогие или знаковые детали, выученная осанка, взгляд человека при власти';
+    p.behavior = 'говорит взвешенно, проверяет пользу собеседника и не любит прямого давления';
+    p.about = 'опасен связями, приказами, репутацией и доступом к ресурсам';
+  }
+
+  if (zgNpcHas(roleHay, /стражник|караул|дружинник|городская стража|хранитель тюрьм|надсмотрщик|шериф|капитан страж|глава страж|командир страж/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Обученный стражник'; p.hp = 18; p.armor = 14; p.init = 1; p.threat = 'средняя'; p.hpBias = 2;
     p.stats = { str:2, dex:1, int:0, cha:0, per:1, con:2 };
     p.appearance = 'форма, оружие на виду, привычка держать спину прямо';
     p.behavior = 'говорит приказами, проверяет документы, не любит хаос';
     p.about = 'держит порядок и первым реагирует на шум, драки и подозрительных чужаков';
   }
-  if (zgNpcHas(hay, /глава страж|капитан|командир|шериф|надсмотрщик/)) {
-    p.hp = 32; p.armor = 15; p.init = 2; p.threat = 'средняя';
+
+  if (zgNpcHas(roleHay, /глава страж|капитан|командир|шериф|надсмотрщик|хранитель тюрьм/)) {
+    p.level = Math.max(p.level, 4); p.archetype = 'Закалённый командир'; p.hp = 30; p.armor = 15; p.init = 2; p.threat = 'опасная'; p.hpBias = 4;
     p.stats = { str:3, dex:1, int:0, cha:1, per:2, con:3 };
   }
-  if (zgNpcHas(hay, /торгов|лавк|купец|гильд|совет|поставк|сделк/)) {
-    p.hp = 10; p.armor = 10; p.init = 0; p.threat = 'мирная';
-    p.stats = { str:0, dex:0, int:2, cha:3, per:1, con:0 };
-    p.appearance = 'опрятнее окружения, быстрые глаза, руки привыкли считать монеты';
-    p.behavior = 'торгуется, улыбается не до конца, выгоду видит раньше опасности';
-    p.about = 'держит слухи, долги, товары и может стать источником поручений';
+
+  if (zgNpcHas(nameHay, /морган|дребень/) || zgNpcHas(hay, /ветеран|бывший .*вояк|бывший .*солдат|боцман|морской бой|служил .*флот/)) {
+    p.level = Math.max(p.level, 4); p.archetype = 'Крепкий ветеран'; p.hp = Math.max(p.hp, 32); p.armor = Math.max(p.armor, 14); p.init = Math.max(p.init, 2); p.threat = 'опасная'; p.hpBias = Math.max(p.hpBias, 5);
+    p.stats = { str:3, dex:2, int:1, cha:1, per:3, con:4 };
+    p.appearance = 'морская выправка, крепкая стойка, старые привычки вояки и взгляд человека, который видел настоящую драку';
+    p.behavior = 'говорит спокойно, но как приказ; сперва оценивает угрозу, потом уже слушает оправдания';
+    p.about = 'не просто местный служака: опытный вояка, привыкший держать людей в строю и не теряться под давлением';
   }
-  if (zgNpcHas(hay, /трактир|бармен|таверн|хозяин дома|постоялец|еда|суп|пиво/)) {
-    p.hp = 12; p.armor = 10; p.init = 0; p.threat = 'мирная';
-    p.stats = { str:1, dex:0, int:0, cha:1, per:1, con:1 };
-    p.appearance = 'усталый бытовой вид, рабочие руки, запах еды, дыма или пива';
-    p.behavior = 'ворчит, но наблюдает за всеми; разговор начинает с простых вопросов';
-    p.about = 'знает местные слухи и помнит, кто приходил, с кем сидел и куда ушёл';
-  }
-  if (zgNpcHas(hay, /барон|герцог|лорд|леди|знать|род|наследник|правитель/)) {
-    p.hp = 14; p.armor = 11; p.init = 0; p.threat = 'социальная';
-    p.stats = { str:0, dex:0, int:2, cha:3, per:2, con:0 };
-    p.appearance = 'дорогие детали, выученная осанка, взгляд человека при власти';
-    p.behavior = 'говорит взвешенно, проверяет пользу собеседника, не любит прямого давления';
-    p.about = 'важен не силой, а связями, письмами, репутацией и доступом к ресурсам';
-  }
-  if (zgNpcHas(hay, /аббат|монастыр|аграр|жрец|вера|культ|серп|религ/)) {
-    p.hp = 16; p.armor = 12; p.init = 0; p.threat = 'социальная';
+
+  if (zgNpcHas(roleHay, /аббат|настоятель|жрец|священ|серп|монастыр|хранитель храма/)) {
+    p.level = Math.max(p.level, 3); p.archetype = 'Волевой служитель'; p.hp = 16; p.armor = 12; p.init = 0; p.threat = 'социальная';
     p.stats = { str:0, dex:0, int:1, cha:2, per:2, con:1 };
     p.appearance = 'следы обряда или дисциплины, простая одежда, тяжёлый взгляд';
     p.behavior = 'говорит как проповедник или кающийся, выбирает слова осторожно';
     p.about = 'связан с верой, виной, приказами и следами монастырской власти';
   }
-  if (zgNpcHas(hay, /маг|вороже|фолиант|артефакт|заклин|древн/)) {
-    p.hp = 18; p.armor = 12; p.init = 1; p.threat = 'опасная';
+
+  // Магом делает профессия или титул, а не упоминание артефакта в описании товара.
+  if (zgNpcHas(professionHay, /маг|вороже|колдун|чарод|ведьм|ритуалист/)) {
+    p.level = Math.max(p.level, 3); p.archetype = 'Умный практик'; p.hp = 18; p.armor = 12; p.init = 1; p.threat = 'опасная';
     p.stats = { str:-1, dex:1, int:4, cha:1, per:2, con:0 };
     p.appearance = 'странные мелочи в одежде, внимательный взгляд, запах трав или пыли';
     p.behavior = 'говорит загадками, проверяет терпение, раздражается на тупость';
     p.about = 'лучше не давить силой: ценность в знаниях, магии и старых тайнах';
   }
-  if (zgNpcHas(hay, /агент|шепот|тень|лезвие|орден|шпион|слежк|наблюд|скрыт|убийц/)) {
-    p.hp = 18; p.armor = 13; p.init = 3; p.threat = 'опасная';
+
+  if (zgNpcHas(roleHay, /агент|оперативник|информатор|шпион|слежк|наблюдател|разведчик|убийц|смотрящий/)) {
+    p.level = Math.max(p.level, 3); p.archetype = 'Жилистый наблюдатель'; p.hp = 18; p.armor = 13; p.init = 3; p.threat = 'опасная'; p.hpBias = 1;
     p.stats = { str:0, dex:3, int:2, cha:1, per:3, con:1 };
     p.appearance = 'ничем не выделяется, но слишком хорошо выбирает место в комнате';
     p.behavior = 'слушает больше, чем говорит; исчезает раньше, чем на него давят';
     p.about = 'важен как наблюдатель, информатор, исполнитель или нитка к тайной сети';
   }
-  if (zgNpcHas(hay, /старик|старейш|стар|устал|бывший/)) {
+
+  if (zgNpcHas(roleHay + ' ' + loreHay, /древнее существо|хранитель болот|не человек|существо/)) {
+    p.level = Math.max(p.level, 5); p.archetype = 'Древнее существо'; p.hp = Math.max(p.hp, 36); p.armor = Math.max(p.armor, 14); p.init = Math.max(p.init, 2); p.threat = 'высокая'; p.hpBias = Math.max(p.hpBias, 6);
+    p.stats = { str:4, dex:2, int:3, cha:1, per:4, con:5 };
+    p.appearance = 'облик выдаёт нечто старое и нечеловеческое, связанное с местом';
+    p.behavior = 'действует медленно и уверенно, словно время работает на него';
+    p.about = 'его нельзя мерить как обычного человека: сила связана с территорией и древними условиями';
+  }
+
+  if ((age !== null && age >= 60) || zgNpcHas(hay, /старик|старейш|пожил|престар/)) {
     p.hp = Math.max(8, p.hp - 4);
     p.stats.str = Math.min(p.stats.str, 0);
     p.stats.dex = Math.min(p.stats.dex, 0);
@@ -16749,11 +17253,17 @@ function zgNpcBaseProfile(n) {
     p.stats.per = Math.max(p.stats.per, 2);
     p.appearance = 'возраст заметен сразу: усталость, память в глазах, медленные движения';
   }
+
+  zgNpcApplyProfile(p, zgNpcCanonicalProfile(n));
+
   if (n.status === 'boss') {
+    p.level = Math.max(p.level, 5);
+    if (!p.archetype || p.archetype === 'Обычный человек') p.archetype = 'Опасный противник';
     p.hp = Math.max(p.hp, 45);
     p.armor = Math.max(p.armor, 15);
     p.init = Math.max(p.init, 2);
     p.threat = 'босс';
+    p.hpBias = Math.max(p.hpBias, 8);
   }
   return p;
 }
@@ -16761,9 +17271,21 @@ function zgNpcResolvedSheet(n) {
   var p = zgNpcBaseProfile(n);
   var raw = (n && (n.npcStats || n.stats)) || {};
   var rawStats = raw.stats || raw;
+  var tags = Array.isArray(n && n.tags) ? n.tags.join(' ') : '';
+  var hay = zgNpcNorm([n && n.name, n && n.role, n && n.place, n && n.faction, tags, n && n.desc, n && n.secret].join(' '));
+  var race = raw.race ? zgNpcRaceKey(raw.race) : zgNpcInferRace(n, hay);
+  var level = zgNpcInferLevel(n, hay, p);
+  var levelScale = zgNpcLevelScale(level);
+  var autoStats = zgNpcDistributeStats(p.stats, level, n && n.status);
   var out = {
-    hp: zgNpcParseNullableInt(raw.hp) !== null ? zgNpcParseNullableInt(raw.hp) : p.hp,
-    armor: zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) !== null ? zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) : p.armor,
+    level: level,
+    levelLabel: levelScale.label,
+    levelCompat: levelScale.compat,
+    race: race,
+    age: n && n.age ? zgNpcCleanLabel(n.age) : zgNpcCleanLabel(p.age || ''),
+    archetype: '',
+    hp: p.hp,
+    armor: p.armor,
     init: zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative) !== null ? zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative) : p.init,
     threat: raw.threat || p.threat,
     stats: {},
@@ -16774,13 +17296,28 @@ function zgNpcResolvedSheet(n) {
   };
   ZG_NPC_STAT_KEYS.forEach(function(st){
     var val = zgNpcParseNullableInt(rawStats[st.key]);
-    out.stats[st.key] = val !== null ? val : (p.stats[st.key] || 0);
+    out.stats[st.key] = val !== null ? val : (autoStats[st.key] || 0);
   });
+  out.archetype = zgNpcCleanLabel(raw.archetype || p.archetype || zgNpcArchetypeFromStats(out.stats, ''));
+  out.hp = zgNpcParseNullableInt(raw.hp) !== null ? zgNpcParseNullableInt(raw.hp) : zgNpcCalcHp(level, race, out.stats, p);
+  out.armor = zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) !== null ? zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) : zgNpcAutoArmor(level, out.stats, p);
   return out;
 }
 function zgNpcSigned(n) {
   n = parseInt(n, 10) || 0;
   return (n >= 0 ? '+' : '') + n;
+}
+function zgNpcRollCheck(id, statKey) {
+  var n = zgNpcLoad().find(function(x){ return x.id === id; });
+  if (!n) return;
+  var sheet = zgNpcResolvedSheet(n);
+  var meta = ZG_NPC_STAT_KEYS.find(function(st){ return st.key === statKey; }) || ZG_NPC_STAT_KEYS[0];
+  var mod = parseInt(sheet.stats[statKey], 10) || 0;
+  var roll = Math.floor(Math.random() * 20) + 1;
+  var total = roll + mod;
+  var msg = '🎲 ' + (n.name || 'НПС') + ' · ' + meta.label + ': ' + roll + ' ' + zgNpcSigned(mod) + ' = ' + total;
+  if (typeof showToast === 'function') showToast(msg);
+  else alert(msg);
 }
 
 function zgNpcRender() {
@@ -16863,6 +17400,7 @@ function zgNpcRender() {
     grid = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px">';
     list.forEach(function(n){
       var s = zgNpcStatus(n.status);
+      var sheet = zgNpcResolvedSheet(n);
       var av = n.image ? '<img src="' + n.image + '" style="width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid ' + s.color + '55">' :
         '<div style="width:54px;height:54px;border-radius:50%;border:2px solid ' + s.color + '55;background:#241a0e;display:flex;align-items:center;justify-content:center;font-size:26px">' + (n.icon||'👤') + '</div>';
       var dead = n.status === 'dead';
@@ -16872,6 +17410,8 @@ function zgNpcRender() {
           (n.role ? '<div style="font-size:11px;color:#a8987c;font-family:\'Lora\',serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHTML(n.role) + '</div>' : '') + '</div></div>' +
         '<div style="display:flex;gap:5px;flex-wrap:wrap;font-size:10px">' +
           '<span style="color:' + s.color + ';border:1px solid ' + s.color + '44;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">' + s.icon + ' ' + s.label + '</span>' +
+          '<span style="color:#e8c060;border:1px solid #e8c06044;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">Ур. ' + (sheet.level >= 11 ? '∞' : sheet.level) + '</span>' +
+          '<span style="color:#7fd68a;border:1px solid #6fcb8344;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">HP ' + sheet.hp + '</span>' +
           (n.place ? '<span style="color:#8fb8c8;border:1px solid #8fb8c844;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">📍 ' + escHTML(n.place) + '</span>' : '') +
           (n.faction ? '<span style="color:#c9a06a;border:1px solid #c9a06a44;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">⚜️ ' + escHTML(n.faction) + '</span>' : '') +
         '</div>' +
@@ -16925,43 +17465,85 @@ function zgNpcView(id) {
   var n = zgNpcLoad().find(function(x){ return x.id === id; });
   if (!n) return;
   var s = zgNpcStatus(n.status);
+  var sheet = zgNpcResolvedSheet(n);
   var old = document.getElementById('npc-view-popup'); if (old) old.remove();
   var wrap = document.createElement('div');
   wrap.id = 'npc-view-popup';
   wrap.style.cssText = 'position:fixed;inset:0;background:#000000b8;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
   wrap.onclick = function(e){ if (e.target === wrap) wrap.remove(); };
-  var av = n.image ? '<img src="' + n.image + '" style="width:88px;height:88px;object-fit:cover;border-radius:50%;border:3px solid ' + s.color + '66">' :
-    '<div style="width:88px;height:88px;border-radius:50%;border:3px solid ' + s.color + '66;background:#241a0e;display:inline-flex;align-items:center;justify-content:center;font-size:44px">' + (n.icon||'👤') + '</div>';
+  var av = n.image ? '<img class="npc-sheet-avatar" src="' + n.image + '" style="object-fit:cover;border:2px solid ' + s.color + '66">' :
+    '<div class="npc-sheet-avatar" style="border:2px solid ' + s.color + '66;background:#241a0e;display:inline-flex;align-items:center;justify-content:center;font-size:38px">' + (n.icon||'👤') + '</div>';
   var links = '';
   if (Array.isArray(n.links) && n.links.length) {
     var allNpc = zgNpcLoad();
-    links = '<div style="margin-bottom:14px"><div style="font-size:11px;letter-spacing:1px;color:#7a6a48;font-family:\'Cinzel\',serif;margin-bottom:6px">СВЯЗИ</div><div style="display:flex;gap:6px;flex-wrap:wrap">';
+    links = '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px"><span style="font-size:10px;letter-spacing:1px;color:#7a6a48;font-family:\'Cinzel\',serif">СВЯЗИ</span>';
     n.links.forEach(function(l){
       var t = allNpc.find(function(x){ return x.id === l.id; });
       if (!t) return;
-      links += '<button onclick="zgNpcView(\'' + t.id + '\')" style="padding:6px 12px;border:1px solid #3a2a14;background:#1a1309;color:#c8b89c;border-radius:10px;cursor:pointer;font-size:12px;font-family:\'Lora\',serif">' + (t.icon||'👤') + ' ' + escHTML(t.name) + (l.label ? ' <span style="color:#7a6a48">· ' + escHTML(l.label) + '</span>' : '') + '</button>';
+      links += '<button onclick="zgNpcView(\'' + t.id + '\')" style="padding:4px 8px;border:1px solid #3a2a14;background:#1a1309;color:#c8b89c;border-radius:8px;cursor:pointer;font-size:11px;font-family:\'Lora\',serif">' + (t.icon||'👤') + ' ' + escHTML(t.name) + (l.label ? ' <span style="color:#7a6a48">· ' + escHTML(l.label) + '</span>' : '') + '</button>';
     });
-    links += '</div></div>';
+    links += '</div>';
   }
-  var tags = (n.tags||[]).length ? '<div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-bottom:12px">' + n.tags.map(function(t){ return '<span style="font-size:10px;color:#8a7a5e;border:1px solid #2a1e10;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">#' + escHTML(t) + '</span>'; }).join('') + '</div>' : '';
+  var tags = (n.tags||[]).slice(0, 4).map(function(t){ return '<span style="font-size:10px;color:#8a7a5e;border:1px solid #2a1e10;border-radius:8px;padding:2px 7px;font-family:\'Lora\',serif">#' + escHTML(t) + '</span>'; }).join('');
+  var statTiles = ZG_NPC_STAT_KEYS.map(function(st){
+    return '<button class="npc-sheet-stat" onclick="event.stopPropagation();zgNpcRollCheck(\'' + n.id + '\', \'' + st.key + '\')" title="Кинуть d20: ' + escHTML(st.title) + '">' +
+      '<span style="font-size:11px;color:#a88c58">' + st.icon + ' ' + escHTML(st.title) + '</span>' +
+      '<span class="npc-sheet-stat-value">' + zgNpcSigned(sheet.stats[st.key]) + '</span>' +
+    '</button>';
+  }).join('');
+  function infoBlock(label, text, secret) {
+    if (!text) return '';
+    return '<div class="npc-sheet-copy-block' + (secret ? ' npc-sheet-secret' : '') + '">' +
+      '<div class="npc-sheet-copy-title">' + label + '</div>' +
+      '<div class="npc-sheet-copy-text">' + escHTML(text) + '</div>' +
+    '</div>';
+  }
   var panel = document.createElement('div');
-  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + s.color + ';border-radius:14px;width:100%;max-width:520px;padding:24px;box-shadow:0 24px 80px #000d;box-sizing:border-box;max-height:90vh;overflow-y:auto';
+  panel.className = 'npc-sheet-panel';
+  panel.style.setProperty('--npc-accent', s.color);
   panel.innerHTML =
     '<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px">' +
       '<button onclick="document.getElementById(\'npc-view-popup\').remove();zgNpcEdit(\'' + n.id + '\')" title="Редактировать" style="width:32px;height:32px;border:1px solid #3a2a14;background:#241a0e;color:#d4a04a;border-radius:8px;cursor:pointer;font-size:15px">⚙</button>' +
       '<button onclick="document.getElementById(\'npc-view-popup\').remove()" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
     '</div>' +
-    '<div style="text-align:center;margin-bottom:8px">' + av + '</div>' +
-    '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#f6e6c0;margin-bottom:4px;' + (n.status==='dead'?'text-decoration:line-through;':'') + '">' + escHTML(n.name||'—') + '</div>' +
-    (n.role ? '<div style="text-align:center;font-size:13px;color:#a8987c;font-family:\'Lora\',serif;margin-bottom:8px">' + escHTML(n.role) + '</div>' : '') +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px">' +
-      '<span style="color:' + s.color + ';border:1px solid ' + s.color + '55;border-radius:10px;padding:4px 10px;font-size:12px;font-family:\'Cinzel\',serif">' + s.icon + ' ' + s.label + '</span>' +
-      (n.place ? '<span style="color:#8fb8c8;border:1px solid #8fb8c855;border-radius:10px;padding:4px 10px;font-size:12px;font-family:\'Lora\',serif">📍 ' + escHTML(n.place) + '</span>' : '') +
-      (n.faction ? '<span style="color:#c9a06a;border:1px solid #c9a06a55;border-radius:10px;padding:4px 10px;font-size:12px;font-family:\'Lora\',serif">⚜️ ' + escHTML(n.faction) + '</span>' : '') +
-    '</div>' + tags +
-    (n.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:13px 15px;font-family:\'Lora\',serif;font-size:14px;color:#d8c8a8;line-height:1.65;margin-bottom:14px;white-space:pre-wrap">' + escHTML(n.desc) + '</div>' : '') +
-    ((n.secret||'').trim() ? '<div style="background:#2a1c08;border:1px solid #e8a04055;border-radius:8px;padding:13px 15px;margin-bottom:6px"><div style="font-size:11px;letter-spacing:1px;color:#e8a040;font-family:\'Cinzel\',serif;margin-bottom:6px">🔒 СЕКРЕТ ГМа (игроки не видят)</div><div style="font-family:\'Lora\',serif;font-size:14px;color:#e8cf9c;line-height:1.65;white-space:pre-wrap">' + escHTML(n.secret) + '</div></div>' : '') +
-    links;
+    '<div class="npc-sheet-header">' +
+      '<div>' + av + '</div>' +
+      '<div style="min-width:0">' +
+        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#f6e6c0;line-height:1.15;' + (n.status==='dead'?'text-decoration:line-through;':'') + '">' + escHTML(n.name||'—') + '</div>' +
+        (n.role ? '<div style="font-size:13px;color:#a8987c;font-family:\'Lora\',serif;margin-top:2px">' + escHTML(n.role) + '</div>' : '') +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' +
+          '<span style="color:' + s.color + ';border:1px solid ' + s.color + '55;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Cinzel\',serif">' + s.icon + ' ' + s.label + '</span>' +
+          '<span style="color:#e8c060;border:1px solid #e8c06055;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Cinzel\',serif">Ур. ' + (sheet.level >= 11 ? '∞' : sheet.level) + ' · ' + escHTML(sheet.levelLabel) + '</span>' +
+          '<span style="color:#c8b89c;border:1px solid #3a2a14;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">' + escHTML(sheet.race) + '</span>' +
+          (sheet.age ? '<span style="color:#c8b89c;border:1px solid #3a2a14;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">возраст: ' + escHTML(sheet.age) + '</span>' : '') +
+          (n.place ? '<span style="color:#8fb8c8;border:1px solid #8fb8c855;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">📍 ' + escHTML(n.place) + '</span>' : '') +
+          (n.faction ? '<span style="color:#c9a06a;border:1px solid #c9a06a55;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">⚜️ ' + escHTML(n.faction) + '</span>' : '') +
+          tags +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="npc-sheet-body">' +
+      '<aside class="npc-sheet-side">' +
+        '<div class="npc-sheet-kicker">ТИПАЖ</div>' +
+        '<div class="npc-sheet-archetype">' + escHTML(sheet.archetype) + '</div>' +
+        '<div class="npc-sheet-vitals">' +
+          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">УРОВЕНЬ</span><span class="npc-sheet-vital-value" style="color:#e8c060">' + (sheet.level >= 11 ? '∞' : sheet.level) + '</span></div>' +
+          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">HP</span><span class="npc-sheet-vital-value" style="color:#7fd68a">❤ ' + sheet.hp + '</span></div>' +
+          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">БРОНЯ</span><span class="npc-sheet-vital-value">🛡 ' + sheet.armor + '</span></div>' +
+          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">ИНИЦ.</span><span class="npc-sheet-vital-value">' + zgNpcSigned(sheet.init) + '</span></div>' +
+          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">УГРОЗА</span><span class="npc-sheet-vital-value" style="color:#e8c060;font-size:12px">' + escHTML(sheet.threat) + '</span></div>' +
+        '</div>' +
+        '<div class="npc-sheet-kicker">ХАРАКТЕРИСТИКИ</div>' +
+        '<div class="npc-sheet-stats">' + statTiles + '</div>' +
+      '</aside>' +
+      '<section class="npc-sheet-copy">' +
+        infoBlock('ВНЕШНОСТЬ', sheet.appearance) +
+        infoBlock('ПОВЕДЕНИЕ', sheet.behavior) +
+        infoBlock('ПРО НЕГО', sheet.about) +
+        (sheet.secret ? infoBlock('🔒 СЕКРЕТ ГМа', sheet.secret, true) : '') +
+        links +
+      '</section>' +
+    '</div>';
   wrap.appendChild(panel);
   document.body.appendChild(wrap);
 }
@@ -16978,20 +17560,42 @@ function zgNpcEdit(id) {
   var lbl = 'font-size:10px;letter-spacing:1px;color:#7a6a48;font-family:\'Cinzel\',serif;margin:8px 0 4px';
   var inp = 'width:100%;box-sizing:border-box;padding:9px 12px;background:#17110a;border:1px solid #2f2112;border-radius:8px;color:#e8d8b8;font-family:\'Lora\',serif;font-size:13px';
   var stOpts = NPC_STATUSES.map(function(s){ return '<option value="' + s.key + '"' + (n && n.status===s.key ? ' selected' : '') + '>' + s.icon + ' ' + s.label + '</option>'; }).join('');
+  var sheet = zgNpcResolvedSheet(n || {});
+  var rawSheet = (n && (n.npcStats || n.stats)) || {};
+  var rawStats = rawSheet.stats || rawSheet;
+  var rawNum = function(v){ var n = zgNpcParseNullableInt(v); return n === null ? '' : String(n); };
+  var rawLevel = rawNum(rawSheet.level);
+  var raceOpts = Object.keys(zgNpcRaceMap()).map(function(r){ return '<option value="' + escHTML(r) + '">'; }).join('');
+  var statInputs = ZG_NPC_STAT_KEYS.map(function(st){
+    return '<div><div style="' + lbl + ';margin-top:0" title="' + escHTML(st.title || st.label) + '">' + st.label + '</div><input id="npc-stat-' + st.key + '" type="number" value="' + rawNum(rawStats[st.key]) + '" placeholder="' + sheet.stats[st.key] + '" style="' + inp + ';padding:7px 9px"></div>';
+  }).join('');
   var panel = document.createElement('div');
-  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #d4a04a;border-radius:14px;width:100%;max-width:560px;padding:22px;box-shadow:0 24px 80px #000d;box-sizing:border-box;max-height:92vh;overflow-y:auto';
+  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #d4a04a;border-radius:14px;width:100%;max-width:620px;padding:22px;box-shadow:0 24px 80px #000d;box-sizing:border-box;max-height:92vh;overflow-y:auto';
   panel.innerHTML =
     '<div style="font-family:\'Cinzel Decorative\',serif;font-size:18px;color:#f6e6c0;margin-bottom:10px">' + (n ? '⚙ ' + escHTML(n.name||'НПС') : '＋ Новый НПС') + '</div>' +
     '<div style="display:flex;gap:10px"><div style="flex:2"><div style="' + lbl + '">ИМЯ *</div><input id="npc-name" type="text" value="' + escHTML(n?n.name||'':'') + '" style="' + inp + '"></div>' +
     '<div style="flex:1"><div style="' + lbl + '">ИКОНКА</div><input id="npc-icon" type="text" placeholder="👤" value="' + escHTML(n?n.icon||'':'') + '" style="' + inp + '"></div></div>' +
-    '<div style="' + lbl + '">РОЛЬ / ТИТУЛ</div><input id="npc-role" type="text" placeholder="Староста Ебатьэтогденска" value="' + escHTML(n?n.role||'':'') + '" style="' + inp + '">' +
+    '<div style="display:flex;gap:10px"><div style="flex:3"><div style="' + lbl + '">РОЛЬ / ТИТУЛ</div><input id="npc-role" type="text" placeholder="Староста Ебатьэтогденска" value="' + escHTML(n?n.role||'':'') + '" style="' + inp + '"></div>' +
+    '<div style="flex:1"><div style="' + lbl + '">ВОЗРАСТ</div><input id="npc-age" type="text" placeholder="42" value="' + escHTML(n?n.age||'':'') + '" style="' + inp + '"></div></div>' +
     '<div style="display:flex;gap:10px"><div style="flex:1"><div style="' + lbl + '">📍 МЕСТО</div><input id="npc-place" type="text" placeholder="Ебатьэтогденск" value="' + escHTML(n?n.place||'':'') + '" style="' + inp + '" list="npc-places"></div>' +
     '<div style="flex:1"><div style="' + lbl + '">⚜️ ФРАКЦИЯ</div><input id="npc-faction" type="text" placeholder="Стража" value="' + escHTML(n?n.faction||'':'') + '" style="' + inp + '" list="npc-factions"></div></div>' +
     '<datalist id="npc-places">' + zgNpcAllPlaces(null).map(function(v){ return '<option value="' + escHTML(v) + '">'; }).join('') + '</datalist>' +
     '<datalist id="npc-factions">' + zgNpcCollectVals(zgNpcLoad(),'faction').map(function(v){ return '<option value="' + escHTML(v) + '">'; }).join('') + '</datalist>' +
     '<div style="display:flex;gap:10px"><div style="flex:1"><div style="' + lbl + '">СТАТУС</div><select id="npc-status" style="' + inp + '">' + stOpts + '</select></div>' +
     '<div style="flex:2"><div style="' + lbl + '">ТЕГИ (через запятую)</div><input id="npc-tags" type="text" placeholder="торговец, юмор, квестодатель" value="' + escHTML(n?(n.tags||[]).join(', '):'') + '" style="' + inp + '"></div></div>' +
-    '<div style="' + lbl + '">ОПИСАНИЕ (видно игрокам)</div><textarea id="npc-desc" rows="4" style="' + inp + ';resize:vertical">' + escHTML(n?n.desc||'':'') + '</textarea>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"><div><div style="' + lbl + '">РАСА (пусто = авто)</div><input id="npc-race" type="text" list="npc-races" placeholder="' + escHTML(sheet.race) + '" value="' + escHTML(rawSheet.race || '') + '" style="' + inp + '"></div>' +
+    '<div><div style="' + lbl + '">УРОВЕНЬ (пусто = авто)</div><input id="npc-level" type="number" min="1" max="11" placeholder="' + (sheet.level >= 11 ? '11' : sheet.level) + '" value="' + rawLevel + '" style="' + inp + '"></div>' +
+    '<div><div style="' + lbl + '">ТИПАЖ (пусто = авто)</div><input id="npc-archetype" type="text" placeholder="' + escHTML(sheet.archetype) + '" value="' + escHTML(rawSheet.archetype || '') + '" style="' + inp + '"></div></div>' +
+    '<datalist id="npc-races">' + raceOpts + '</datalist>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px"><div><div style="' + lbl + '">ВНЕШНОСТЬ</div><textarea id="npc-appearance" rows="2" placeholder="' + escHTML(sheet.appearance) + '" style="' + inp + ';resize:vertical">' + escHTML(n?n.appearance||'':'') + '</textarea></div>' +
+    '<div><div style="' + lbl + '">ПОВЕДЕНИЕ</div><textarea id="npc-behavior" rows="2" placeholder="' + escHTML(sheet.behavior) + '" style="' + inp + ';resize:vertical">' + escHTML(n?n.behavior||'':'') + '</textarea></div></div>' +
+    '<div style="' + lbl + '">ПРО НЕГО (видно игрокам)</div><textarea id="npc-desc" rows="3" style="' + inp + ';resize:vertical">' + escHTML(n?n.desc||'':'') + '</textarea>' +
+    '<div style="' + lbl + '">ЦИФРЫ ДЛЯ ШПАРГАЛКИ <span style="color:#5a4a32;font-family:\'Lora\',serif;font-size:10px;letter-spacing:0;text-transform:none">(пусто = авто)</span></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px">' +
+      '<div><div style="' + lbl + ';margin-top:0">HP</div><input id="npc-hp" type="number" value="' + rawNum(rawSheet.hp) + '" placeholder="' + sheet.hp + '" style="' + inp + ';padding:7px 9px"></div>' +
+      '<div><div style="' + lbl + ';margin-top:0">БРОНЯ</div><input id="npc-armor" type="number" value="' + rawNum(rawSheet.armor !== undefined ? rawSheet.armor : rawSheet.ac) + '" placeholder="' + sheet.armor + '" style="' + inp + ';padding:7px 9px"></div>' +
+      '<div><div style="' + lbl + ';margin-top:0">ИНИЦ.</div><input id="npc-init" type="number" value="' + rawNum(rawSheet.init !== undefined ? rawSheet.init : rawSheet.initiative) + '" placeholder="' + sheet.init + '" style="' + inp + ';padding:7px 9px"></div>' +
+      '<div><div style="' + lbl + ';margin-top:0">УГРОЗА</div><input id="npc-threat" type="text" value="' + escHTML(rawSheet.threat || '') + '" placeholder="' + escHTML(sheet.threat) + '" style="' + inp + ';padding:7px 9px"></div>' +
+    '</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(66px,1fr));gap:7px;margin-top:7px">' + statInputs + '</div>' +
     '<div style="' + lbl + ';color:#e8a040">🔒 СЕКРЕТ ГМа (вырезается при публикации)</div><textarea id="npc-secret" rows="3" style="' + inp + ';border-color:#e8a04044;resize:vertical">' + escHTML(n?n.secret||'':'') + '</textarea>' +
     '<div style="' + lbl + '">СВЯЗИ С ДРУГИМИ НПС</div><div id="npc-links-box"></div>' +
     '<div style="display:flex;gap:6px;margin-top:6px"><select id="npc-link-target" style="' + inp + ';flex:2">' +
@@ -17035,14 +17639,30 @@ function zgNpcSaveFromEditor(id) {
   var n = id ? list.find(function(x){ return x.id === id; }) : null;
   if (!n) { n = { id: 'npc_' + Date.now() + '_' + Math.floor(Math.random()*1000) }; list.push(n); }
   n.name = name;
+  n.age = (g('npc-age') || '').trim();
   n.icon = (g('npc-icon')||'').trim();
   n.role = (g('npc-role')||'').trim();
   n.place = (g('npc-place')||'').trim();
   n.faction = (g('npc-faction')||'').trim();
   n.status = g('npc-status') || 'unknown';
   n.tags = (g('npc-tags')||'').split(',').map(function(t){ return t.trim(); }).filter(Boolean);
+  n.appearance = g('npc-appearance') || '';
+  n.behavior = g('npc-behavior') || '';
   n.desc = g('npc-desc') || '';
   n.secret = g('npc-secret') || '';
+  n.npcStats = {
+    race: (g('npc-race') || '').trim(),
+    level: zgNpcParseNullableInt(g('npc-level')),
+    archetype: (g('npc-archetype') || '').trim(),
+    hp: zgNpcParseNullableInt(g('npc-hp')),
+    armor: zgNpcParseNullableInt(g('npc-armor')),
+    init: zgNpcParseNullableInt(g('npc-init')),
+    threat: g('npc-threat') || '',
+    stats: {}
+  };
+  ZG_NPC_STAT_KEYS.forEach(function(st){
+    n.npcStats.stats[st.key] = zgNpcParseNullableInt(g('npc-stat-' + st.key));
+  });
   n.links = JSON.parse(JSON.stringify(_npcEditLinks));
   zgNpcSave(list);
   var p = document.getElementById('npc-edit-popup'); if (p) p.remove();
@@ -17060,20 +17680,25 @@ function zgNpcDelete(id) {
   zgNpcRender();
 }
 
-// Импорт узлов Иерархии (все деревья всех записей), дедуп по srcHtreeId
+// Импорт персон из Иерархий. Фракции, шаблоны рангов и тестовые узлы пропускаются.
 function zgNpcImportHtree() {
   var raw = null;
   try { raw = JSON.parse(localStorage.getItem('grimoire_htree_v1') || 'null'); } catch(e) {}
   if (!raw || typeof raw !== 'object') { if (typeof showToast === 'function') showToast('Деревья Иерархии не найдены'); return; }
   var list = zgNpcLoad();
   var have = {};
-  list.forEach(function(n){ if (n.srcHtreeId) have[n.srcHtreeId] = true; });
+  var haveNames = {};
+  list.forEach(function(n){
+    if (n.srcHtreeId) have[n.srcHtreeId] = true;
+    if (n.name) haveNames[zgNpcNorm(n.name)] = true;
+  });
   var added = 0;
   Object.keys(raw).forEach(function(entryId){
     var tree = raw[entryId];
     var nodes = tree && Array.isArray(tree.nodes) ? tree.nodes : [];
     nodes.forEach(function(nd){
-      if (!nd || !nd.name || have[nd.id]) return;
+      var nameKey = zgNpcNorm(nd && nd.name);
+      if (!zgNpcIsHierarchyPerson(nd) || have[nd.id] || haveNames[nameKey]) return;
       list.push({
         id: 'npc_' + Date.now() + '_' + Math.floor(Math.random()*100000),
         name: nd.name, icon: nd.icon || '👤', image: nd.portrait || null,
@@ -17082,6 +17707,7 @@ function zgNpcImportHtree() {
         links: [], srcHtreeId: nd.id
       });
       have[nd.id] = true;
+      haveNames[nameKey] = true;
       added++;
     });
   });
@@ -17100,8 +17726,8 @@ function zgNpcSeedMiroV1() {
     var E = 'Ебатьэтогденск', M = 'Морелесье', T = 'Роща «Тихий Улей»';
     var seed = [
       { key:'morgan', name:'Морган Дребень', icon:'🛡️', role:'Глава стражи', place:E, faction:'Стража', status:'alive',
-        tags:['власть','порядок'],
-        desc:'Командует стражей Ебатьэтогденска. Прибыл с отрядом на шум в доме Тракельда, обыскал группу и дал последнее предупреждение: ещё один инцидент — и герои покинут деревню.',
+        tags:['власть','порядок','ветеран','морской вояка'],
+        desc:'Командует стражей Ебатьэтогденска. Бывший морской вояка: деревенская должность не делает его слабаком. Прибыл с отрядом на шум в доме Тракельда, обыскал группу и дал последнее предупреждение: ещё один инцидент — и герои покинут деревню.',
         secret:'Видел шрамы на спине Евангелия — узнал следы монастырской дисциплины и насторожился. Поставил стражника в таверне наблюдать за группой.' },
       { key:'flok', name:'Флок', icon:'⚔️', role:'Стражник отряда Моргана', place:E, faction:'Стража', status:'alive', tags:[], desc:'Один из троих стражников, пришедших с Морганом Дребенем к дому Тракельда.', secret:'' },
       { key:'vesko', name:'Весько', icon:'⚔️', role:'Стражник отряда Моргана', place:E, faction:'Стража', status:'alive', tags:[], desc:'Один из троих стражников, пришедших с Морганом Дребенем к дому Тракельда.', secret:'' },
@@ -17242,7 +17868,7 @@ function zgNpcMigrateNpcLines() {
     var attMap = { friendly:'дружелюбен', neutral:'', hostile:'враждебен', ally:'союзник', enemy:'враг' };
     var added = 0, merged = 0;
     old.forEach(function(o){
-      if (!o || !o.name) return;
+      if (!o || zgNpcIsPlaceholderName(o.name)) return;
       var lines = [];
       (o.events||[]).forEach(function(ev){ if (ev && ev.text) lines.push('• ' + (ev.episode ? '[Эп.' + ev.episode + '] ' : '') + ev.text); });
       var goals = (o.goals||[]).map(function(g){ return typeof g === 'string' ? g : (g && g.text) || ''; }).filter(Boolean);
