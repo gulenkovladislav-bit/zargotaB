@@ -16531,7 +16531,7 @@ function showPage(name) {
 
 // ═══════════════════════════════════════════════════════════
 // РЕЕСТР НПС (zargota_npc_v1) — единая база NPC мира
-// Запись: {id,name,icon,image,role,place,faction,status,tags[],desc,secret,links:[{id,label}],srcHtreeId}
+// Запись: {id,name,icon,image,role,place,faction,status,tags[],desc,appearance,behavior,secret,npcStats,links:[{id,label}],srcHtreeId}
 // Секреты ГМа (secret) вырезаются при публикации, остаются в бэкапе.
 // ═══════════════════════════════════════════════════════════
 var NPC_STATUSES = [
@@ -16642,6 +16642,145 @@ function zgNpcCollectVals(list, field) {
     out.push(label);
   });
   return out.sort(function(x,y){ return x.localeCompare(y, 'ru'); });
+}
+
+var ZG_NPC_STAT_KEYS = [
+  { key:'str', label:'СИЛ', icon:'✊' },
+  { key:'dex', label:'ЛОВ', icon:'🗡' },
+  { key:'int', label:'ИНТ', icon:'📖' },
+  { key:'cha', label:'ХАР', icon:'🎭' },
+  { key:'per', label:'ВСП', icon:'👁' },
+  { key:'con', label:'ВЫН', icon:'🛡' }
+];
+function zgNpcParseNullableInt(value) {
+  if (value === null || value === undefined || String(value).trim() === '') return null;
+  var n = parseInt(value, 10);
+  return isNaN(n) ? null : n;
+}
+function zgNpcCompactText(value, fallback, maxLen) {
+  var text = zgNpcCleanLabel(value || fallback || '');
+  if (!text) return '';
+  maxLen = maxLen || 150;
+  if (text.length <= maxLen) return text;
+  var cut = text.slice(0, maxLen);
+  var dot = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
+  if (dot > 42) return cut.slice(0, dot + 1);
+  var sp = cut.lastIndexOf(' ');
+  return cut.slice(0, sp > 42 ? sp : maxLen).trim() + '...';
+}
+function zgNpcHas(hay, re) { return re.test(hay || ''); }
+function zgNpcBaseProfile(n) {
+  n = n || {};
+  var tags = Array.isArray(n.tags) ? n.tags.join(' ') : '';
+  var hay = zgNpcNorm([n.name, n.role, n.place, n.faction, tags, n.desc, n.secret].join(' '));
+  var p = {
+    hp: 12, armor: 10, init: 0, threat: 'низкая',
+    stats: { str:0, dex:0, int:0, cha:0, per:0, con:0 },
+    appearance: 'обычный житель Зарготы: заметные детали лучше дописать после сцены',
+    behavior: 'держится по ситуации, отвечает коротко, лишнего не раскрывает',
+    about: 'локальная фигура, полезная как контакт, свидетель или зацепка'
+  };
+
+  if (zgNpcHas(hay, /ребен|мальчик|девоч|подрост|сирот/)) {
+    p.hp = 6; p.armor = 10; p.init = 1; p.threat = 'мирная';
+    p.stats = { str:-2, dex:1, int:0, cha:1, per:1, con:-1 };
+    p.appearance = 'маленький, настороженный, одежда бедная или дорожная';
+    p.behavior = 'держится осторожно, быстро пугается, но цепко всё замечает';
+    p.about = 'может знать важную мелочь, которую взрослые пропустили';
+  }
+  if (zgNpcHas(hay, /страж|капитан|глава страж|караул|надсмотр|шериф|щит|командир/)) {
+    p.hp = 22; p.armor = 14; p.init = 1; p.threat = 'средняя';
+    p.stats = { str:2, dex:1, int:0, cha:0, per:1, con:2 };
+    p.appearance = 'форма, оружие на виду, привычка держать спину прямо';
+    p.behavior = 'говорит приказами, проверяет документы, не любит хаос';
+    p.about = 'держит порядок и первым реагирует на шум, драки и подозрительных чужаков';
+  }
+  if (zgNpcHas(hay, /глава страж|капитан|командир|шериф|надсмотрщик/)) {
+    p.hp = 32; p.armor = 15; p.init = 2; p.threat = 'средняя';
+    p.stats = { str:3, dex:1, int:0, cha:1, per:2, con:3 };
+  }
+  if (zgNpcHas(hay, /торгов|лавк|купец|гильд|совет|поставк|сделк/)) {
+    p.hp = 10; p.armor = 10; p.init = 0; p.threat = 'мирная';
+    p.stats = { str:0, dex:0, int:2, cha:3, per:1, con:0 };
+    p.appearance = 'опрятнее окружения, быстрые глаза, руки привыкли считать монеты';
+    p.behavior = 'торгуется, улыбается не до конца, выгоду видит раньше опасности';
+    p.about = 'держит слухи, долги, товары и может стать источником поручений';
+  }
+  if (zgNpcHas(hay, /трактир|бармен|таверн|хозяин дома|постоялец|еда|суп|пиво/)) {
+    p.hp = 12; p.armor = 10; p.init = 0; p.threat = 'мирная';
+    p.stats = { str:1, dex:0, int:0, cha:1, per:1, con:1 };
+    p.appearance = 'усталый бытовой вид, рабочие руки, запах еды, дыма или пива';
+    p.behavior = 'ворчит, но наблюдает за всеми; разговор начинает с простых вопросов';
+    p.about = 'знает местные слухи и помнит, кто приходил, с кем сидел и куда ушёл';
+  }
+  if (zgNpcHas(hay, /барон|герцог|лорд|леди|знать|род|наследник|правитель/)) {
+    p.hp = 14; p.armor = 11; p.init = 0; p.threat = 'социальная';
+    p.stats = { str:0, dex:0, int:2, cha:3, per:2, con:0 };
+    p.appearance = 'дорогие детали, выученная осанка, взгляд человека при власти';
+    p.behavior = 'говорит взвешенно, проверяет пользу собеседника, не любит прямого давления';
+    p.about = 'важен не силой, а связями, письмами, репутацией и доступом к ресурсам';
+  }
+  if (zgNpcHas(hay, /аббат|монастыр|аграр|жрец|вера|культ|серп|религ/)) {
+    p.hp = 16; p.armor = 12; p.init = 0; p.threat = 'социальная';
+    p.stats = { str:0, dex:0, int:1, cha:2, per:2, con:1 };
+    p.appearance = 'следы обряда или дисциплины, простая одежда, тяжёлый взгляд';
+    p.behavior = 'говорит как проповедник или кающийся, выбирает слова осторожно';
+    p.about = 'связан с верой, виной, приказами и следами монастырской власти';
+  }
+  if (zgNpcHas(hay, /маг|вороже|фолиант|артефакт|заклин|древн/)) {
+    p.hp = 18; p.armor = 12; p.init = 1; p.threat = 'опасная';
+    p.stats = { str:-1, dex:1, int:4, cha:1, per:2, con:0 };
+    p.appearance = 'странные мелочи в одежде, внимательный взгляд, запах трав или пыли';
+    p.behavior = 'говорит загадками, проверяет терпение, раздражается на тупость';
+    p.about = 'лучше не давить силой: ценность в знаниях, магии и старых тайнах';
+  }
+  if (zgNpcHas(hay, /агент|шепот|тень|лезвие|орден|шпион|слежк|наблюд|скрыт|убийц/)) {
+    p.hp = 18; p.armor = 13; p.init = 3; p.threat = 'опасная';
+    p.stats = { str:0, dex:3, int:2, cha:1, per:3, con:1 };
+    p.appearance = 'ничем не выделяется, но слишком хорошо выбирает место в комнате';
+    p.behavior = 'слушает больше, чем говорит; исчезает раньше, чем на него давят';
+    p.about = 'важен как наблюдатель, информатор, исполнитель или нитка к тайной сети';
+  }
+  if (zgNpcHas(hay, /старик|старейш|стар|устал|бывший/)) {
+    p.hp = Math.max(8, p.hp - 4);
+    p.stats.str = Math.min(p.stats.str, 0);
+    p.stats.dex = Math.min(p.stats.dex, 0);
+    p.stats.int = Math.max(p.stats.int, 1);
+    p.stats.per = Math.max(p.stats.per, 2);
+    p.appearance = 'возраст заметен сразу: усталость, память в глазах, медленные движения';
+  }
+  if (n.status === 'boss') {
+    p.hp = Math.max(p.hp, 45);
+    p.armor = Math.max(p.armor, 15);
+    p.init = Math.max(p.init, 2);
+    p.threat = 'босс';
+  }
+  return p;
+}
+function zgNpcResolvedSheet(n) {
+  var p = zgNpcBaseProfile(n);
+  var raw = (n && (n.npcStats || n.stats)) || {};
+  var rawStats = raw.stats || raw;
+  var out = {
+    hp: zgNpcParseNullableInt(raw.hp) !== null ? zgNpcParseNullableInt(raw.hp) : p.hp,
+    armor: zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) !== null ? zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) : p.armor,
+    init: zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative) !== null ? zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative) : p.init,
+    threat: raw.threat || p.threat,
+    stats: {},
+    appearance: zgNpcCompactText(n && n.appearance, p.appearance, 118),
+    behavior: zgNpcCompactText(n && n.behavior, p.behavior, 128),
+    about: zgNpcCompactText(n && (n.about || n.desc), p.about, 170),
+    secret: zgNpcCompactText(n && n.secret, '', 140)
+  };
+  ZG_NPC_STAT_KEYS.forEach(function(st){
+    var val = zgNpcParseNullableInt(rawStats[st.key]);
+    out.stats[st.key] = val !== null ? val : (p.stats[st.key] || 0);
+  });
+  return out;
+}
+function zgNpcSigned(n) {
+  n = parseInt(n, 10) || 0;
+  return (n >= 0 ? '+' : '') + n;
 }
 
 function zgNpcRender() {
