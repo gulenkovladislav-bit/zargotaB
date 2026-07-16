@@ -8292,164 +8292,384 @@
   }
 
   /* NPC cheat sheet: numbers on the left, roleplay notes on the right */
+  .npc-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    overflow-y: auto;
+    background: #000000c7;
+    backdrop-filter: blur(3px);
+  }
   .npc-sheet-panel {
     position: relative;
     width: 100%;
-    max-width: 860px;
-    max-height: 92vh;
+    max-width: 1400px;
+    max-height: calc(100vh - 32px);
     overflow-y: auto;
     box-sizing: border-box;
-    padding: 20px;
-    border: 2px solid var(--npc-accent, #d4a04a);
-    border-radius: 12px;
-    background: linear-gradient(160deg, #1a1408, #0e0a06);
-    box-shadow: 0 24px 80px #000d;
+    padding: 26px 28px 28px;
+    border: 2px solid #9a7738;
+    border-radius: 16px;
+    background:
+      linear-gradient(135deg, #18201540 0, transparent 26%),
+      linear-gradient(160deg, #14130d 0, #0c0b08 68%, #121008 100%);
+    box-shadow: 0 28px 90px #000e, inset 0 0 0 1px #d4a04a18;
     animation: zgPopIn .22s cubic-bezier(.2,.8,.4,1.1) both;
+  }
+  .npc-sheet-panel::before {
+    content: '';
+    position: absolute;
+    inset: 7px;
+    z-index: 0;
+    border: 1px solid #5b451f55;
+    border-radius: 11px;
+    pointer-events: none;
+  }
+  .npc-sheet-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+  .npc-sheet-actions {
+    position: absolute;
+    top: 20px;
+    right: 22px;
+    z-index: 3;
+    display: flex;
+    gap: 10px;
+  }
+  .npc-sheet-icon-btn {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #5a421c;
+    border-radius: 12px;
+    background: #17120b;
+    color: #d4a04a;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .npc-sheet-icon-btn:hover {
+    border-color: #a77c31;
+    background: #21180b;
+    box-shadow: 0 0 18px #d4a04a18;
   }
   .npc-sheet-header {
     display: grid;
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: 142px minmax(0, 1fr);
+    gap: 22px;
     align-items: center;
-    padding-right: 76px;
-    margin-bottom: 16px;
+    min-height: 142px;
+    padding: 0 124px 22px 4px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #4a3617;
   }
   .npc-sheet-avatar {
-    width: 76px;
-    height: 76px;
+    width: 124px;
+    height: 124px;
     box-sizing: border-box;
     border-radius: 50%;
+    box-shadow:
+      0 0 0 7px #15130c,
+      0 0 0 9px #6f5526,
+      0 0 26px #000b;
+  }
+  .npc-sheet-name {
+    color: #f5e6c3;
+    font-family: 'Cinzel Decorative', serif;
+    font-size: 34px;
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+  .npc-sheet-role {
+    margin-top: 6px;
+    color: #a99a7d;
+    font-family: 'Lora', serif;
+    font-size: 17px;
+  }
+  .npc-sheet-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin-top: 14px;
+  }
+  .npc-sheet-chip {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 6px 13px;
+    border: 1px solid #3d2e17;
+    border-radius: 10px;
+    background: #0f0e0a99;
+    color: #c8b89c;
+    font-family: 'Lora', serif;
+    font-size: 13px;
+    line-height: 1.15;
+    white-space: normal;
+  }
+  .npc-sheet-chip-status,
+  .npc-sheet-chip-level {
+    font-family: 'Cinzel', serif;
   }
   .npc-sheet-body {
     display: grid;
-    grid-template-columns: 226px minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
+    grid-template-columns: minmax(390px, 0.82fr) minmax(0, 1.42fr);
+    gap: 26px;
+    align-items: stretch;
+    padding-top: 22px;
   }
   .npc-sheet-side {
     min-width: 0;
-    padding-right: 18px;
-    border-right: 1px solid #3a2a14;
+    display: grid;
+    gap: 16px;
+    align-content: start;
+  }
+  .npc-sheet-frame {
+    min-width: 0;
+    box-sizing: border-box;
+    border: 1px solid #5b431c;
+    border-radius: 10px;
+    background: #0e0e0a9c;
+    box-shadow: inset 0 0 26px #0005;
+  }
+  .npc-sheet-frame-title {
+    padding: 17px 18px 12px;
+    color: #b49357;
+    font-family: 'Cinzel', serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+  }
+  .npc-sheet-frame-title-note {
+    color: #79694e;
+    font-family: 'Lora', serif;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
   }
   .npc-sheet-kicker {
-    margin-bottom: 4px;
-    color: #806a46;
-    font-family: 'Cinzel', serif;
-    font-size: 9px;
-    letter-spacing: 1px;
+    color: #806f52;
+    font-family: 'Lora', serif;
+    font-size: 11px;
   }
   .npc-sheet-archetype {
-    margin-bottom: 12px;
     color: #f0d58e;
-    font-family: 'Cinzel', serif;
-    font-size: 17px;
-    line-height: 1.2;
+    font-family: 'Lora', serif;
+    font-size: 12px;
   }
   .npc-sheet-vitals {
     display: grid;
-    gap: 2px;
-    margin-bottom: 12px;
-    padding: 8px 0;
-    border-top: 1px solid #30220f;
-    border-bottom: 1px solid #30220f;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 0 16px 17px;
   }
   .npc-sheet-vital {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
-    align-items: baseline;
-    min-height: 30px;
-    padding: 5px 2px;
+    min-width: 0;
+    min-height: 112px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 10px;
+    border-right: 1px dotted #3b2c16;
+    text-align: center;
+  }
+  .npc-sheet-vital:last-child {
+    border-right: 0;
+  }
+  .npc-sheet-vital-icon {
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #5a431f;
+    border-radius: 50%;
+    background: #171711;
+    box-shadow: inset 0 0 10px #0008;
+    font-size: 22px;
   }
   .npc-sheet-vital-label {
-    color: #806f52;
+    color: #96805a;
     font-family: 'Cinzel', serif;
     font-size: 10px;
+    letter-spacing: .5px;
   }
   .npc-sheet-vital-value {
     color: #e8d8b8;
     font-family: 'Cinzel', serif;
-    font-size: 15px;
-    text-align: right;
+    font-size: 22px;
+    line-height: 1;
+    overflow-wrap: anywhere;
   }
   .npc-sheet-stats {
     display: grid;
-    gap: 6px;
+    gap: 8px;
+    padding: 0 14px 15px;
   }
   .npc-sheet-stat {
     width: 100%;
-    min-height: 40px;
+    min-height: 66px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px;
+    grid-template-columns: 54px minmax(0, 1fr) 74px;
+    gap: 12px;
     align-items: center;
-    padding: 7px 9px;
-    border: 1px solid #332511;
-    border-radius: 7px;
-    background: #171108;
+    padding: 5px 8px 5px 5px;
+    border: 1px solid #59421d;
+    border-radius: 24px 8px 8px 24px;
+    background: #182016;
     color: #d8c8a8;
     cursor: pointer;
-    font-family: 'Cinzel', serif;
     text-align: left;
+    box-shadow: inset 0 0 20px #0005;
   }
   .npc-sheet-stat:hover {
-    border-color: #d4a04a77;
-    background: #21170b;
+    border-color: #b4873d;
+    background: #202b1c;
+    box-shadow: inset 0 0 20px #0005, 0 0 16px #d4a04a12;
+  }
+  .npc-sheet-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid #6a5127;
+    border-radius: 50%;
+    background: #20271c;
+    box-shadow: inset 0 0 12px #0009, 0 0 0 3px #11130e;
+    font-size: 25px;
+  }
+  .npc-sheet-stat-name {
+    min-width: 0;
+    color: #eadbb8;
+    font-family: 'Lora', serif;
+    font-size: 20px;
+    overflow-wrap: anywhere;
   }
   .npc-sheet-stat-value {
     color: #7fd68a;
-    font-size: 17px;
+    font-family: 'Cinzel', serif;
+    font-size: 25px;
+    text-align: center;
   }
   .npc-sheet-copy {
-    display: grid;
-    gap: 0;
     min-width: 0;
+    box-sizing: border-box;
+    padding: 7px 24px 22px;
+    border: 1px solid #4e3a1a;
+    border-radius: 10px;
+    background: #0d0d09a8;
+    box-shadow: inset 0 0 28px #0005;
   }
   .npc-sheet-copy-block {
     min-width: 0;
-    padding: 3px 0 13px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid #332511;
+    padding: 21px 0 22px;
+    border-bottom: 1px solid #3f2f16;
   }
   .npc-sheet-copy-block:last-child {
-    margin-bottom: 0;
+    border-bottom: 0;
   }
   .npc-sheet-copy-title {
-    margin-bottom: 5px;
-    color: #a88c58;
+    margin-bottom: 10px;
+    color: #b49357;
     font-family: 'Cinzel', serif;
-    font-size: 10px;
-    letter-spacing: 1px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
   }
   .npc-sheet-copy-text {
-    color: #d8c8a8;
+    color: #ded0b2;
     font-family: 'Lora', serif;
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: 16px;
+    line-height: 1.7;
     overflow-wrap: anywhere;
   }
   .npc-sheet-secret {
-    padding: 11px 12px;
-    border: 1px solid #e8a04055;
+    margin: 10px -8px 0;
+    padding: 17px 18px 18px;
+    border: 1px solid #9a6b285f;
     border-radius: 8px;
-    background: #2b1c08;
+    background: #2a1d0c9c;
   }
-  @media screen and (max-width: 700px) {
-    .npc-sheet-panel { padding: 16px; }
+  .npc-sheet-secret .npc-sheet-copy-title {
+    color: #b99a63;
+  }
+  .npc-sheet-links {
+    padding-top: 22px;
+  }
+  .npc-sheet-link-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .npc-sheet-link {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 12px;
+    border: 1px solid #4c3717;
+    border-radius: 9px;
+    background: #17120b;
+    color: #cfc0a3;
+    cursor: pointer;
+    font-family: 'Lora', serif;
+    font-size: 13px;
+  }
+  .npc-sheet-link:hover {
+    border-color: #9f7733;
+    background: #21180c;
+  }
+  @media screen and (max-width: 1100px) {
+    .npc-sheet-panel { max-width: 980px; }
+    .npc-sheet-header { grid-template-columns: 118px minmax(0, 1fr); min-height: 118px; }
+    .npc-sheet-avatar { width: 100px; height: 100px; }
+    .npc-sheet-name { font-size: 28px; }
+    .npc-sheet-body { grid-template-columns: minmax(330px, .88fr) minmax(0, 1.25fr); gap: 18px; }
+    .npc-sheet-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .npc-sheet-vital:nth-child(2) { border-right: 0; }
+    .npc-sheet-vital:nth-child(-n+2) { border-bottom: 1px dotted #3b2c16; }
+  }
+  @media screen and (max-width: 760px) {
+    .npc-sheet-overlay { align-items: flex-start; padding: 8px; }
+    .npc-sheet-panel {
+      max-height: none;
+      padding: 18px 14px 16px;
+      border-radius: 12px;
+    }
+    .npc-sheet-actions { top: 14px; right: 14px; gap: 6px; }
+    .npc-sheet-icon-btn { width: 38px; height: 38px; border-radius: 9px; font-size: 17px; }
     .npc-sheet-header {
-      grid-template-columns: 66px minmax(0, 1fr);
-      padding-right: 68px;
+      grid-template-columns: 76px minmax(0, 1fr);
+      gap: 14px;
+      min-height: 82px;
+      padding: 0 86px 16px 2px;
     }
-    .npc-sheet-avatar { width: 60px; height: 60px; font-size: 30px !important; }
-    .npc-sheet-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-    .npc-sheet-side {
-      padding-right: 0;
-      padding-bottom: 14px;
-      border-right: 0;
-      border-bottom: 1px solid #3a2a14;
-    }
-    .npc-sheet-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; }
-    .npc-sheet-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .npc-sheet-avatar { width: 68px; height: 68px; font-size: 30px !important; }
+    .npc-sheet-name { font-size: 22px; }
+    .npc-sheet-role { font-size: 14px; }
+    .npc-sheet-tags { gap: 6px; margin-top: 10px; }
+    .npc-sheet-chip { min-height: 30px; padding: 5px 9px; font-size: 11px; }
+    .npc-sheet-body { grid-template-columns: minmax(0, 1fr); gap: 14px; padding-top: 14px; }
+    .npc-sheet-frame-title { padding: 14px 14px 10px; font-size: 12px; letter-spacing: 2px; }
+    .npc-sheet-vitals { padding: 0 10px 12px; }
+    .npc-sheet-vital { min-height: 94px; }
+    .npc-sheet-stats { padding: 0 10px 12px; }
+    .npc-sheet-stat { grid-template-columns: 48px minmax(0, 1fr) 62px; min-height: 58px; }
+    .npc-sheet-stat-icon { width: 42px; height: 42px; font-size: 22px; }
+    .npc-sheet-stat-name { font-size: 17px; }
+    .npc-sheet-stat-value { font-size: 21px; }
+    .npc-sheet-copy { padding: 3px 16px 16px; }
+    .npc-sheet-copy-block { padding: 17px 0 18px; }
+    .npc-sheet-copy-text { font-size: 15px; line-height: 1.62; }
   }
 </style>
 <script>
@@ -8458,8 +8678,9 @@
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-05-09.10';
+var ZG_APP_VERSION = '2026-07-17.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-17.1', notes: 'Реестр НПС: новая широкая карточка-шпаргалка со статусом и вертикальными характеристиками слева, ролевой информацией и связями справа.' },
   { v: '2026-05-09.10', notes: 'Поп-ап «Что произошло» после каста заклинания: большая карточка по центру с разбором — атака d20, сейв, урон, лечение, статусы. HP до/после. Авто-закрытие через 2.8-4 сек.' },
   { v: '2026-05-09.9', notes: 'Карточки бестиария: flex-wrap вместо grid — без обрезания и пустоты' },
   { v: '2026-05-09.8', notes: 'Фикс модалки «Добавить участника»: убран дубликат margin' },
@@ -17469,25 +17690,26 @@ function zgNpcView(id) {
   var old = document.getElementById('npc-view-popup'); if (old) old.remove();
   var wrap = document.createElement('div');
   wrap.id = 'npc-view-popup';
-  wrap.style.cssText = 'position:fixed;inset:0;background:#000000b8;z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto';
+  wrap.className = 'npc-sheet-overlay';
   wrap.onclick = function(e){ if (e.target === wrap) wrap.remove(); };
-  var av = n.image ? '<img class="npc-sheet-avatar" src="' + n.image + '" style="object-fit:cover;border:2px solid ' + s.color + '66">' :
-    '<div class="npc-sheet-avatar" style="border:2px solid ' + s.color + '66;background:#241a0e;display:inline-flex;align-items:center;justify-content:center;font-size:38px">' + (n.icon||'👤') + '</div>';
+  var av = n.image ? '<img class="npc-sheet-avatar" src="' + n.image + '" style="object-fit:cover;border:2px solid ' + s.color + '88">' :
+    '<div class="npc-sheet-avatar" style="border:2px solid ' + s.color + '88;background:#241a0e;display:inline-flex;align-items:center;justify-content:center;font-size:54px">' + (n.icon||'👤') + '</div>';
   var links = '';
   if (Array.isArray(n.links) && n.links.length) {
     var allNpc = zgNpcLoad();
-    links = '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px"><span style="font-size:10px;letter-spacing:1px;color:#7a6a48;font-family:\'Cinzel\',serif">СВЯЗИ</span>';
+    links = '<div class="npc-sheet-links"><div class="npc-sheet-copy-title">СВЯЗИ</div><div class="npc-sheet-link-list">';
     n.links.forEach(function(l){
       var t = allNpc.find(function(x){ return x.id === l.id; });
       if (!t) return;
-      links += '<button onclick="zgNpcView(\'' + t.id + '\')" style="padding:4px 8px;border:1px solid #3a2a14;background:#1a1309;color:#c8b89c;border-radius:8px;cursor:pointer;font-size:11px;font-family:\'Lora\',serif">' + (t.icon||'👤') + ' ' + escHTML(t.name) + (l.label ? ' <span style="color:#7a6a48">· ' + escHTML(l.label) + '</span>' : '') + '</button>';
+      links += '<button class="npc-sheet-link" onclick="zgNpcView(\'' + t.id + '\')">' + (t.icon||'👤') + '&nbsp; ' + escHTML(t.name) + (l.label ? ' <span style="color:#847351">&nbsp;· ' + escHTML(l.label) + '</span>' : '') + '</button>';
     });
-    links += '</div>';
+    links += '</div></div>';
   }
-  var tags = (n.tags||[]).slice(0, 4).map(function(t){ return '<span style="font-size:10px;color:#8a7a5e;border:1px solid #2a1e10;border-radius:8px;padding:2px 7px;font-family:\'Lora\',serif">#' + escHTML(t) + '</span>'; }).join('');
+  var tags = (n.tags||[]).slice(0, 4).map(function(t){ return '<span class="npc-sheet-chip" style="color:#8a7a5e">#' + escHTML(t) + '</span>'; }).join('');
   var statTiles = ZG_NPC_STAT_KEYS.map(function(st){
     return '<button class="npc-sheet-stat" onclick="event.stopPropagation();zgNpcRollCheck(\'' + n.id + '\', \'' + st.key + '\')" title="Кинуть d20: ' + escHTML(st.title) + '">' +
-      '<span style="font-size:11px;color:#a88c58">' + st.icon + ' ' + escHTML(st.title) + '</span>' +
+      '<span class="npc-sheet-stat-icon">' + st.icon + '</span>' +
+      '<span class="npc-sheet-stat-name">' + escHTML(st.title) + '</span>' +
       '<span class="npc-sheet-stat-value">' + zgNpcSigned(sheet.stats[st.key]) + '</span>' +
     '</button>';
   }).join('');
@@ -17500,41 +17722,46 @@ function zgNpcView(id) {
   }
   var panel = document.createElement('div');
   panel.className = 'npc-sheet-panel';
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-label', 'Карточка НПС: ' + (n.name || 'без имени'));
   panel.style.setProperty('--npc-accent', s.color);
   panel.innerHTML =
-    '<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px">' +
-      '<button onclick="document.getElementById(\'npc-view-popup\').remove();zgNpcEdit(\'' + n.id + '\')" title="Редактировать" style="width:32px;height:32px;border:1px solid #3a2a14;background:#241a0e;color:#d4a04a;border-radius:8px;cursor:pointer;font-size:15px">⚙</button>' +
-      '<button onclick="document.getElementById(\'npc-view-popup\').remove()" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
+    '<div class="npc-sheet-actions">' +
+      '<button class="npc-sheet-icon-btn" onclick="document.getElementById(\'npc-view-popup\').remove();zgNpcEdit(\'' + n.id + '\')" title="Редактировать" aria-label="Редактировать">⚙</button>' +
+      '<button class="npc-sheet-icon-btn" onclick="document.getElementById(\'npc-view-popup\').remove()" title="Закрыть" aria-label="Закрыть">×</button>' +
     '</div>' +
     '<div class="npc-sheet-header">' +
       '<div>' + av + '</div>' +
       '<div style="min-width:0">' +
-        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#f6e6c0;line-height:1.15;' + (n.status==='dead'?'text-decoration:line-through;':'') + '">' + escHTML(n.name||'—') + '</div>' +
-        (n.role ? '<div style="font-size:13px;color:#a8987c;font-family:\'Lora\',serif;margin-top:2px">' + escHTML(n.role) + '</div>' : '') +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' +
-          '<span style="color:' + s.color + ';border:1px solid ' + s.color + '55;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Cinzel\',serif">' + s.icon + ' ' + s.label + '</span>' +
-          '<span style="color:#e8c060;border:1px solid #e8c06055;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Cinzel\',serif">Ур. ' + (sheet.level >= 11 ? '∞' : sheet.level) + ' · ' + escHTML(sheet.levelLabel) + '</span>' +
-          '<span style="color:#c8b89c;border:1px solid #3a2a14;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">' + escHTML(sheet.race) + '</span>' +
-          (sheet.age ? '<span style="color:#c8b89c;border:1px solid #3a2a14;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">возраст: ' + escHTML(sheet.age) + '</span>' : '') +
-          (n.place ? '<span style="color:#8fb8c8;border:1px solid #8fb8c855;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">📍 ' + escHTML(n.place) + '</span>' : '') +
-          (n.faction ? '<span style="color:#c9a06a;border:1px solid #c9a06a55;border-radius:9px;padding:3px 8px;font-size:11px;font-family:\'Lora\',serif">⚜️ ' + escHTML(n.faction) + '</span>' : '') +
+        '<div class="npc-sheet-name" style="' + (n.status==='dead'?'text-decoration:line-through;':'') + '">' + escHTML(n.name||'—') + '</div>' +
+        (n.role ? '<div class="npc-sheet-role">' + escHTML(n.role) + '</div>' : '') +
+        '<div class="npc-sheet-tags">' +
+          '<span class="npc-sheet-chip npc-sheet-chip-status" style="color:' + s.color + ';border-color:' + s.color + '66">' + s.icon + ' ' + s.label + '</span>' +
+          '<span class="npc-sheet-chip npc-sheet-chip-level" style="color:#e8c060;border-color:#e8c06066">Ур. ' + (sheet.level >= 11 ? '∞' : sheet.level) + ' · ' + escHTML(sheet.levelLabel) + '</span>' +
+          '<span class="npc-sheet-chip">' + escHTML(sheet.race) + '</span>' +
+          (sheet.age ? '<span class="npc-sheet-chip">Возраст: ' + escHTML(sheet.age) + '</span>' : '') +
+          (n.place ? '<span class="npc-sheet-chip" style="color:#8fb8c8;border-color:#8fb8c855">📍 ' + escHTML(n.place) + '</span>' : '') +
+          (n.faction ? '<span class="npc-sheet-chip" style="color:#c9a06a;border-color:#c9a06a55">⚜ ' + escHTML(n.faction) + '</span>' : '') +
           tags +
         '</div>' +
       '</div>' +
     '</div>' +
     '<div class="npc-sheet-body">' +
       '<aside class="npc-sheet-side">' +
-        '<div class="npc-sheet-kicker">ТИПАЖ</div>' +
-        '<div class="npc-sheet-archetype">' + escHTML(sheet.archetype) + '</div>' +
-        '<div class="npc-sheet-vitals">' +
-          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">УРОВЕНЬ</span><span class="npc-sheet-vital-value" style="color:#e8c060">' + (sheet.level >= 11 ? '∞' : sheet.level) + '</span></div>' +
-          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">HP</span><span class="npc-sheet-vital-value" style="color:#7fd68a">❤ ' + sheet.hp + '</span></div>' +
-          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">БРОНЯ</span><span class="npc-sheet-vital-value">🛡 ' + sheet.armor + '</span></div>' +
-          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">ИНИЦ.</span><span class="npc-sheet-vital-value">' + zgNpcSigned(sheet.init) + '</span></div>' +
-          '<div class="npc-sheet-vital"><span class="npc-sheet-vital-label">УГРОЗА</span><span class="npc-sheet-vital-value" style="color:#e8c060;font-size:12px">' + escHTML(sheet.threat) + '</span></div>' +
+        '<div class="npc-sheet-frame">' +
+          '<div class="npc-sheet-frame-title">СТАТУС <span class="npc-sheet-frame-title-note">· ' + escHTML(sheet.archetype) + '</span></div>' +
+          '<div class="npc-sheet-vitals">' +
+            '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">❤</span><span class="npc-sheet-vital-label">HP</span><span class="npc-sheet-vital-value" style="color:#7fd68a">' + sheet.hp + '</span></div>' +
+            '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">🛡</span><span class="npc-sheet-vital-label">БРОНЯ</span><span class="npc-sheet-vital-value">' + sheet.armor + '</span></div>' +
+            '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">🎲</span><span class="npc-sheet-vital-label">ИНИЦ.</span><span class="npc-sheet-vital-value">' + zgNpcSigned(sheet.init) + '</span></div>' +
+            '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">👁</span><span class="npc-sheet-vital-label">УГРОЗА</span><span class="npc-sheet-vital-value" style="color:#e8c060;font-size:13px;line-height:1.2">' + escHTML(sheet.threat) + '</span></div>' +
+          '</div>' +
         '</div>' +
-        '<div class="npc-sheet-kicker">ХАРАКТЕРИСТИКИ</div>' +
-        '<div class="npc-sheet-stats">' + statTiles + '</div>' +
+        '<div class="npc-sheet-frame">' +
+          '<div class="npc-sheet-frame-title">ХАРАКТЕРИСТИКИ</div>' +
+          '<div class="npc-sheet-stats">' + statTiles + '</div>' +
+        '</div>' +
       '</aside>' +
       '<section class="npc-sheet-copy">' +
         infoBlock('ВНЕШНОСТЬ', sheet.appearance) +
