@@ -2119,6 +2119,108 @@
   }
   .inv-notes:focus { outline: none; border-color: var(--gold2); }
 
+  /* Character inventory: compact launcher + expanded equipment/storage panel */
+  .char-inventory-launch {
+    width: 100%; min-height: 74px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid #3a2918; border-radius: 6px;
+    background: linear-gradient(135deg, #120d07, #0b0805);
+    color: var(--text); cursor: pointer; text-align: left;
+    transition: border-color .16s, background .16s;
+  }
+  .char-inventory-launch:hover { border-color: var(--gold2); background: #171008; }
+  .char-inventory-launch-icons { display: grid; grid-template-columns: repeat(4, 34px); gap: 5px; flex-shrink: 0; }
+  .char-inventory-launch-icon {
+    width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; border: 1px solid var(--border); border-radius: 5px;
+    background: #080604; font-size: 18px;
+  }
+  .char-inventory-launch-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .char-inventory-overlay {
+    position: fixed; inset: 0; z-index: 9000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 22px; box-sizing: border-box; background: rgba(0,0,0,.82);
+  }
+  .char-inventory-panel {
+    width: min(1180px, 100%); max-height: 90vh; overflow: hidden;
+    display: flex; flex-direction: column;
+    border: 2px solid #6f5428; border-radius: 8px;
+    background: linear-gradient(150deg, #151008, #090604 72%);
+    box-shadow: 0 28px 90px #000e;
+  }
+  .char-inventory-header {
+    min-height: 58px; padding: 10px 14px 10px 18px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid #2f2112; box-sizing: border-box;
+  }
+  .char-inventory-columns {
+    min-height: 0; display: grid; grid-template-columns: minmax(300px, 36%) 1fr;
+    overflow: hidden;
+  }
+  .char-inventory-equipment, .char-inventory-storage { min-width: 0; overflow-y: auto; padding: 16px; }
+  .char-inventory-equipment { border-right: 1px solid #2f2112; background: #0c0905aa; }
+  .char-inventory-section-title {
+    font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold2);
+    letter-spacing: 1.4px; text-transform: uppercase;
+  }
+  .char-inventory-detail {
+    min-height: 92px; margin-bottom: 12px; padding: 12px;
+    display: grid; grid-template-columns: 68px 1fr auto; gap: 12px; align-items: center;
+    border: 1px solid #3a2918; border-radius: 6px; background: #100c07;
+  }
+  .char-inventory-detail-art {
+    width: 68px; height: 68px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; border: 1px solid #4a351b; border-radius: 7px;
+    background: radial-gradient(circle at 50% 40%, #261a0d, #090604); font-size: 34px;
+  }
+  .char-inventory-detail-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .char-inventory-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 10px;
+  }
+  .char-inventory-slot {
+    position: relative; min-width: 0; height: 112px; padding: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid #332513; border-radius: 6px; box-sizing: border-box;
+    background: #0b0805; color: var(--text); cursor: pointer;
+    transition: border-color .15s, background .15s, transform .15s;
+  }
+  .char-inventory-slot:hover { border-color: #7a5c2d; background: #141008; transform: translateY(-1px); }
+  .char-inventory-slot.selected { border-color: var(--gold2); box-shadow: inset 0 0 0 1px #a0783044; }
+  .char-inventory-slot.empty { cursor: default; background: #080604; border-color: #21170c; transform: none; }
+  .char-inventory-slot-art {
+    width: 62px; height: 62px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; border-radius: 5px; font-size: 34px;
+    background: radial-gradient(circle at 50% 40%, #24190d, #090604);
+  }
+  .char-inventory-slot-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .char-inventory-slot-name {
+    width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-family: 'Lora', serif; font-size: 10px; color: #b9a98b; text-align: center;
+  }
+  .char-inventory-slot-qty {
+    position: absolute; right: 6px; bottom: 6px; min-width: 20px; height: 20px; padding: 0 5px;
+    display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+    border: 1px solid #5b4524; border-radius: 10px; background: #090604e8;
+    color: var(--gold); font-family: 'Cinzel', serif; font-size: 10px;
+  }
+  @media (max-width: 760px) {
+    .char-inventory-overlay { padding: 0; align-items: stretch; }
+    .char-inventory-panel { width: 100%; max-height: none; height: 100%; border-radius: 0; border-width: 0; }
+    .char-inventory-header { flex-wrap: wrap; padding: 10px 12px; }
+    .char-inventory-columns { grid-template-columns: 1fr; overflow-y: auto; }
+    .char-inventory-equipment, .char-inventory-storage { overflow: visible; padding: 12px; }
+    .char-inventory-equipment { border-right: 0; border-bottom: 1px solid #2f2112; }
+    .char-inventory-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+    .char-inventory-slot { height: 100px; padding: 6px; }
+    .char-inventory-slot-art { width: 56px; height: 56px; font-size: 30px; }
+    .char-inventory-detail { grid-template-columns: 58px 1fr; }
+    .char-inventory-detail-art { width: 58px; height: 58px; }
+    .char-inventory-detail-actions { grid-column: 1 / -1; justify-content: flex-end; }
+    .char-inventory-launch-icons { grid-template-columns: repeat(3, 32px); }
+    .char-inventory-launch-icon { width: 32px; height: 32px; }
+  }
+
   /* Right column */
   .sheet-right-col {
     border-left: 1px solid var(--border);
@@ -8678,8 +8780,9 @@
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-17.4';
+var ZG_APP_VERSION = '2026-07-17.5';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-17.5', notes: 'Инвентарь персонажа открывается отдельной большой панелью: монеты сверху, снаряжение слева, сетка на 20 ячеек и карточка выбранного предмета справа. Добавлены сортировка и быстрые действия с количеством.' },
   { v: '2026-07-17.4', notes: 'Витрина товаров собрана в компактный набор из 20 предметов Зарготы. Для каждого товара добавлена единообразная рисованная иконка, цена и короткая игровая механика.' },
   { v: '2026-07-17.3', notes: 'Добавлена единая серия рисованных портретов для НПС реестра и ключевых фигур Иерархии Зарготы. Ручной портрет по-прежнему имеет приоритет.' },
   { v: '2026-07-17.2', notes: 'Авторасчёт НПС следует Мануалу и учитывает расу, уровень, Выносливость, профессию, возраст, телосложение, пол и боевой опыт. Добавлены поля пола и телосложения.' },
@@ -25401,6 +25504,8 @@ function addEquipItem(id) {
   var newIdx = c.equipItems.length - 1;
   saveChars();
   renderCharSheet();
+  charRefreshInventoryPanel(id);
+  charRefreshInventoryLaunch(id);
   // Автоматически открываем конструктор на свежедобавленном — это ожидание пользователя
   setTimeout(function(){ openItemConstructor(id, 'equip', newIdx); }, 80);
 }
@@ -25412,6 +25517,8 @@ function removeEquipItem(id, idx) {
   saveChars();
   var div = document.getElementById('equip-list-' + id);
   if (div) div.innerHTML = buildEquipList(c);
+  charRefreshInventoryPanel(id);
+  charRefreshInventoryLaunch(id);
 }
 
 function toggleEquip(id, idx) {
@@ -25421,6 +25528,8 @@ function toggleEquip(id, idx) {
   saveChars();
   var div = document.getElementById('equip-list-' + id);
   if (div) div.innerHTML = buildEquipList(c);
+  charRefreshInventoryPanel(id);
+  charRefreshInventoryLaunch(id);
 }
 
 function updateEquipText(id, idx, val) {
@@ -25828,16 +25937,8 @@ function renderCharSheet() {
 
         // Row 3: Inventory
         '<div style="background:#0e0a0666;border:1px solid var(--border);border-radius:4px;padding:8px 10px">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">' +
-            '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1px">ИНВЕНТАРЬ</span>' +
-            '<div style="display:flex;gap:4px">' +
-              '<button onclick="addEquipItem('+c.id+')" style="padding:2px 8px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--dim);font-size:10px;cursor:pointer">+ снаряж.</button>' +
-              '<button onclick="addInventoryItem('+c.id+')" style="padding:2px 8px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--dim);font-size:10px;cursor:pointer">+ предмет</button>' +
-            '</div>' +
-          '</div>' +
-          '<button onclick="charOpenEquipModal('+c.id+')" style="width:100%;padding:4px 8px;border:1px solid '+(equipCount?'#3a2918':'#1a1a1a')+';border-radius:4px;background:'+(equipCount?'#d4a84b08':'transparent')+';color:'+(equipCount?'#d4a84b':'#444')+';font-size:10px;cursor:pointer;margin-bottom:6px">⚔️ '+(equipCount?'Снаряжение арены — изменить':'Оснастить для арены')+'</button>' +
-          '<div id="equip-list-'+c.id+'">'+buildEquipList(c)+'</div>' +
-          '<div id="inv-items-'+c.id+'">'+invItemsHTML+'</div>' +
+          '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:7px">ИНВЕНТАРЬ</div>' +
+          '<div id="inv-items-'+c.id+'">'+buildCharacterInventoryLauncher(c)+'</div>' +
         '</div>' +
 
       '</div>' + // end center column
@@ -26110,23 +26211,7 @@ function renderCharSheet() {
   var tabInventory =
     '<div style="padding:14px">' +
       '<div style="margin-bottom:10px">' + buildCoinsWidget(c) + '</div>' +
-      '<div style="background:#0e0a06;border:1px solid #2a1e0e;border-radius:12px;padding:12px;margin-bottom:10px">' +
-        '<div style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px">⚔️ СНАРЯЖЕНИЕ АРЕНЫ</div>' +
-        (function(){
-          var slots=c.arenaEquipSlots||{};
-          var count=Object.keys(slots).filter(function(k){return slots[k];}).length;
-          var bonus=calcArenaEquipBonus(c);
-          return '<button onclick="charOpenEquipModal('+c.id+')" style="width:100%;padding:9px;border:1px solid '+(count?'#3a2918':'#1e1e1e')+';border-radius:8px;background:transparent;color:'+(count?'#d4a84b':'#555')+';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">'+(count?'⚔️ '+count+' слотов — изменить':'+ Оснастить для арены')+'</button>' +
-          (bonus.acBonus||bonus.weapon?'<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">'+(bonus.acBonus?'<span style="padding:2px 7px;border:1px solid #7aadca44;border-radius:5px;font-size:10px;color:#7aadca">🛡+'+bonus.acBonus+'</span>':'')+(bonus.weapon?'<span style="padding:2px 7px;border:1px solid #c8787844;border-radius:5px;font-size:10px;color:#c87878">⚔️ '+escHTML(bonus.weapon.damageFormula||'—')+'</span>':'')+'</div>':'');
-        })() +
-        '<div id="equip-list-'+c.id+'" style="margin-top:8px">' + buildEquipList(c) + '</div>' +
-        '<button onclick="addEquipItem('+c.id+')" style="width:100%;padding:7px;border:1px dashed var(--border);background:transparent;color:var(--dim);font-size:10px;cursor:pointer;border-radius:7px;margin-top:6px;font-family:\'Cinzel\',serif">+ снаряжение</button>' +
-      '</div>' +
-      '<div style="background:#0e0a06;border:1px solid #2a1e0e;border-radius:12px;padding:12px">' +
-        '<div style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);letter-spacing:1px;margin-bottom:8px">🎒 ИНВЕНТАРЬ</div>' +
-        '<div id="inv-items-'+c.id+'">' + invItemsHTML + '</div>' +
-        '<button onclick="addInventoryItem('+c.id+')" style="width:100%;padding:7px;border:1px dashed var(--border);background:transparent;color:var(--dim);font-size:10px;cursor:pointer;border-radius:7px;margin-top:4px;font-family:\'Cinzel\',serif">+ предмет</button>' +
-      '</div>' +
+      '<div id="inv-items-'+c.id+'">' + buildCharacterInventoryLauncher(c) + '</div>' +
     '</div>';
 
   // ─── ВКЛАДКА: ЛОР + настройки ───
@@ -26193,6 +26278,205 @@ function renderCharSheet() {
   }, 60);
 }
 
+var _charInventorySelection = {};
+var _charInventorySort = {};
+
+function charInventoryImage(item) {
+  if (item && item.image) return String(item.image);
+  if (!item || !item.name || typeof loadShopItems !== 'function') return '';
+  var target = String(item.name).trim().toLowerCase();
+  var shopItem = loadShopItems().find(function(shop) {
+    return String(shop && shop.name || '').trim().toLowerCase() === target;
+  });
+  return shopItem && shopItem.image ? String(shopItem.image) : '';
+}
+
+function charInventoryArt(item) {
+  var image = charInventoryImage(item);
+  if (image) return '<img src="' + escHTML(image) + '" alt="' + escHTML(item && item.name || 'Предмет') + '">';
+  return escHTML(item && item.icon || '📦');
+}
+
+function buildCharacterInventoryLauncher(c) {
+  var items = Array.isArray(c.inventoryItems) ? c.inventoryItems : [];
+  var equippedManual = (c.equipItems || []).filter(function(item) { return item && item.equipped; }).length;
+  var equippedArena = Object.keys(c.arenaEquipSlots || {}).filter(function(key) { return c.arenaEquipSlots[key]; }).length;
+  var preview = items.slice(0, 6).map(function(item) {
+    if (typeof item === 'string') item = { name:item, icon:'📦', qty:1 };
+    return '<span class="char-inventory-launch-icon">' + charInventoryArt(item) + '</span>';
+  }).join('');
+  while ((preview.match(/char-inventory-launch-icon/g) || []).length < 6) {
+    preview += '<span class="char-inventory-launch-icon" style="opacity:.28">·</span>';
+  }
+  return '<button type="button" class="char-inventory-launch" onclick="charOpenInventoryPanel(' + c.id + ')" title="Открыть большой инвентарь">' +
+    '<span class="char-inventory-launch-icons">' + preview + '</span>' +
+    '<span style="flex:1;min-width:0">' +
+      '<span style="display:block;font-family:\'Cinzel\',serif;font-size:12px;color:var(--gold);letter-spacing:.7px;margin-bottom:5px">Открыть инвентарь</span>' +
+      '<span style="display:block;font-family:\'Lora\',serif;font-size:11px;color:var(--dim);line-height:1.5">' + items.length + ' из 20 ячеек · снаряжено ' + (equippedManual + equippedArena) + '</span>' +
+    '</span>' +
+    '<span style="font-size:22px;color:var(--gold2);flex-shrink:0">›</span>' +
+  '</button>';
+}
+
+function charOpenInventoryPanel(charId) {
+  var old = document.getElementById('char-inventory-overlay');
+  if (old) old.remove();
+  var c = characters.find(function(ch) { return ch.id === charId; });
+  if (!c) return;
+  if (!Array.isArray(c.inventoryItems)) c.inventoryItems = [];
+  if (_charInventorySelection[charId] === undefined && c.inventoryItems.length) _charInventorySelection[charId] = 0;
+  var overlay = document.createElement('div');
+  overlay.id = 'char-inventory-overlay';
+  overlay.className = 'char-inventory-overlay';
+  overlay.dataset.charId = String(charId);
+  overlay.onclick = function(event) { if (event.target === overlay) charCloseInventoryPanel(); };
+  var panel = document.createElement('div');
+  panel.id = 'char-inventory-panel';
+  panel.className = 'char-inventory-panel';
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+  charRenderInventoryPanel(charId);
+}
+
+function charCloseInventoryPanel() {
+  var overlay = document.getElementById('char-inventory-overlay');
+  if (overlay) overlay.remove();
+}
+
+function charInventorySelect(charId, itemIndex) {
+  _charInventorySelection[charId] = itemIndex;
+  charRenderInventoryPanel(charId);
+}
+
+function charInventorySetSort(charId, sortKey) {
+  _charInventorySort[charId] = sortKey || 'manual';
+  charRenderInventoryPanel(charId);
+}
+
+function charRefreshInventoryLaunch(charId) {
+  var c = characters.find(function(ch) { return ch.id === charId; });
+  var host = document.getElementById('inv-items-' + charId);
+  if (c && host) host.innerHTML = buildCharacterInventoryLauncher(c);
+}
+
+function charRefreshInventoryPanel(charId) {
+  var overlay = document.getElementById('char-inventory-overlay');
+  if (overlay && String(overlay.dataset.charId) === String(charId)) charRenderInventoryPanel(charId);
+}
+
+function charInventoryChangeQty(charId, itemIndex, delta) {
+  var c = characters.find(function(ch) { return ch.id === charId; });
+  if (!c || !c.inventoryItems || !c.inventoryItems[itemIndex]) return;
+  var item = c.inventoryItems[itemIndex];
+  if (typeof item === 'string') {
+    item = { name:item, icon:'📦', qty:1, description:'' };
+    c.inventoryItems[itemIndex] = item;
+  }
+  item.qty = Math.max(1, (parseInt(item.qty, 10) || 1) + delta);
+  saveChars();
+  charRenderInventoryPanel(charId);
+  charRefreshInventoryLaunch(charId);
+}
+
+function charInventoryRemove(charId, itemIndex) {
+  var c = characters.find(function(ch) { return ch.id === charId; });
+  if (!c || !c.inventoryItems || !c.inventoryItems[itemIndex]) return;
+  if (!confirm('Удалить предмет из инвентаря?')) return;
+  c.inventoryItems.splice(itemIndex, 1);
+  var next = Math.min(itemIndex, c.inventoryItems.length - 1);
+  _charInventorySelection[charId] = next >= 0 ? next : null;
+  saveChars();
+  charRenderInventoryPanel(charId);
+  charRefreshInventoryLaunch(charId);
+}
+
+function charRenderInventoryPanel(charId) {
+  var c = characters.find(function(ch) { return ch.id === charId; });
+  var panel = document.getElementById('char-inventory-panel');
+  if (!c || !panel) return;
+  if (!Array.isArray(c.inventoryItems)) c.inventoryItems = [];
+
+  c.inventoryItems.forEach(function(item, index) {
+    if (typeof item === 'string') c.inventoryItems[index] = { name:item, icon:'📦', qty:1, description:'' };
+  });
+  var rows = c.inventoryItems.map(function(item, index) { return { item:item, index:index }; });
+  var sortKey = _charInventorySort[charId] || 'manual';
+  if (sortKey === 'name') rows.sort(function(a, b) { return String(a.item.name || '').localeCompare(String(b.item.name || ''), 'ru'); });
+  if (sortKey === 'qty') rows.sort(function(a, b) { return (parseInt(b.item.qty,10)||1) - (parseInt(a.item.qty,10)||1); });
+
+  var selectedIndex = _charInventorySelection[charId];
+  if (selectedIndex === null || selectedIndex === undefined || !c.inventoryItems[selectedIndex]) {
+    selectedIndex = c.inventoryItems.length ? rows[0].index : null;
+    _charInventorySelection[charId] = selectedIndex;
+  }
+  var selected = selectedIndex === null ? null : c.inventoryItems[selectedIndex];
+  var capacity = Math.max(20, c.inventoryItems.length);
+
+  var grid = rows.map(function(row) {
+    var item = row.item;
+    var qty = Math.max(1, parseInt(item.qty,10) || 1);
+    return '<button type="button" class="char-inventory-slot' + (row.index === selectedIndex ? ' selected' : '') + '" onclick="charInventorySelect(' + charId + ',' + row.index + ')" title="' + escHTML(item.name || 'Предмет') + '">' +
+      '<span class="char-inventory-slot-art">' + charInventoryArt(item) + '</span>' +
+      '<span class="char-inventory-slot-name">' + escHTML(item.name || 'Без названия') + '</span>' +
+      (qty > 1 ? '<span class="char-inventory-slot-qty">' + qty + '</span>' : '') +
+    '</button>';
+  }).join('');
+  for (var empty = rows.length; empty < capacity; empty++) grid += '<div class="char-inventory-slot empty" aria-hidden="true"></div>';
+
+  var detail = selected
+    ? '<div class="char-inventory-detail">' +
+        '<div class="char-inventory-detail-art">' + charInventoryArt(selected) + '</div>' +
+        '<div style="min-width:0">' +
+          '<div style="font-family:\'Cinzel\',serif;font-size:15px;color:var(--text);margin-bottom:5px">' + escHTML(selected.name || 'Без названия') + '</div>' +
+          '<div style="font-family:\'Lora\',serif;font-size:11px;color:var(--dim);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + escHTML(selected.description || 'Описание не заполнено.') + '</div>' +
+        '</div>' +
+        '<div class="char-inventory-detail-actions" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+          '<button type="button" onclick="charInventoryChangeQty(' + charId + ',' + selectedIndex + ',-1)" title="Уменьшить количество" style="width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted);cursor:pointer">−</button>' +
+          '<span style="min-width:30px;text-align:center;font-family:\'Cinzel\',serif;color:var(--gold)">' + (parseInt(selected.qty,10)||1) + '</span>' +
+          '<button type="button" onclick="charInventoryChangeQty(' + charId + ',' + selectedIndex + ',1)" title="Увеличить количество" style="width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted);cursor:pointer">+</button>' +
+          '<button type="button" onclick="openItemConstructor(' + charId + ',\'inventory\',' + selectedIndex + ')" title="Изменить предмет" style="width:34px;height:30px;border:1px solid var(--gold2);border-radius:5px;background:#d4a04a12;color:var(--gold);cursor:pointer">✎</button>' +
+          '<button type="button" onclick="charInventoryRemove(' + charId + ',' + selectedIndex + ')" title="Удалить предмет" style="width:34px;height:30px;border:1px solid #6d3737;border-radius:5px;background:#5a181812;color:#c05050;cursor:pointer">✕</button>' +
+        '</div>' +
+      '</div>'
+    : '<div class="char-inventory-detail" style="display:flex;align-items:center;justify-content:center;color:var(--dim);font-family:\'Lora\',serif;font-size:12px;font-style:italic">Добавь предмет, и его описание появится здесь.</div>';
+
+  var equipCount = Object.keys(c.arenaEquipSlots || {}).filter(function(key) { return c.arenaEquipSlots[key]; }).length;
+  var equipList = buildEquipList(c);
+  panel.innerHTML =
+    '<div class="char-inventory-header">' +
+      '<div style="min-width:180px;flex:1">' +
+        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:18px;color:var(--gold)">Инвентарь</div>' +
+        '<div style="font-family:\'Lora\',serif;font-size:11px;color:var(--dim);margin-top:3px">' + escHTML(c.name || 'Персонаж') + '</div>' +
+      '</div>' +
+      '<div style="flex:2;min-width:280px">' + buildCoinsWidget(c) + '</div>' +
+      '<button type="button" onclick="charCloseInventoryPanel()" title="Закрыть" style="width:36px;height:36px;border:1px solid #3a2918;border-radius:6px;background:transparent;color:var(--muted);font-size:20px;cursor:pointer;flex-shrink:0">✕</button>' +
+    '</div>' +
+    '<div class="char-inventory-columns">' +
+      '<section class="char-inventory-equipment">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">' +
+          '<span class="char-inventory-section-title">Снаряжение</span>' +
+          '<button type="button" onclick="addEquipItem(' + charId + ')" title="Добавить снаряжение" style="width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--gold2);font-size:18px;cursor:pointer">＋</button>' +
+        '</div>' +
+        '<button type="button" onclick="charOpenEquipModal(' + charId + ')" style="width:100%;padding:9px 10px;margin-bottom:10px;border:1px solid ' + (equipCount ? '#6a5028' : '#2a1e10') + ';border-radius:6px;background:#120d07;color:' + (equipCount ? 'var(--gold)' : 'var(--dim)') + ';font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer">⚔ ' + (equipCount ? 'Снаряжение арены — изменить' : 'Оснастить для арены') + '</button>' +
+        '<div id="equip-list-' + charId + '">' + (equipList || '<div style="padding:24px 8px;text-align:center;color:var(--dim);font-family:\'Lora\',serif;font-size:11px;font-style:italic">Снаряжение пока не добавлено.</div>') + '</div>' +
+      '</section>' +
+      '<section class="char-inventory-storage">' +
+        '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">' +
+          '<span class="char-inventory-section-title" style="flex:1">Инвентарь</span>' +
+          '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim)">Вместимость ' + c.inventoryItems.length + ' / 20</span>' +
+          '<select onchange="charInventorySetSort(' + charId + ',this.value)" title="Сортировка" style="height:32px;padding:0 28px 0 10px;border:1px solid #3a2918;border-radius:5px;background:#0a0704;color:var(--muted);font-family:\'Cinzel\',serif;font-size:10px">' +
+            '<option value="manual"' + (sortKey === 'manual' ? ' selected' : '') + '>По добавлению</option>' +
+            '<option value="name"' + (sortKey === 'name' ? ' selected' : '') + '>По названию</option>' +
+            '<option value="qty"' + (sortKey === 'qty' ? ' selected' : '') + '>По количеству</option>' +
+          '</select>' +
+          '<button type="button" onclick="addInventoryItem(' + charId + ')" title="Добавить предмет" style="width:32px;height:32px;border:1px solid var(--gold2);border-radius:5px;background:#d4a04a12;color:var(--gold);font-size:18px;cursor:pointer">＋</button>' +
+        '</div>' +
+        detail +
+        '<div class="char-inventory-grid">' + grid + '</div>' +
+      '</section>' +
+    '</div>';
+}
+
 // ── New helpers ──
 function autoResize(el) {
   el.style.height = 'auto';
@@ -26256,8 +26540,11 @@ function addInventoryItem(id) {
   if (!c.inventoryItems) c.inventoryItems = [];
   c.inventoryItems.push({ name: '', qty: 1, icon: '📦', description: '' });
   var newIdx = c.inventoryItems.length - 1;
+  _charInventorySelection[id] = newIdx;
   saveChars();
   renderCharSheet();
+  charRefreshInventoryPanel(id);
+  charRefreshInventoryLaunch(id);
   // Клик по «+ предмет» → сразу попадаем в конструктор (главное UX-ожидание пользователя)
   setTimeout(function(){ openItemConstructor(id, 'inventory', newIdx); }, 80);
 }
@@ -26268,6 +26555,8 @@ function removeInventoryItem(id, idx) {
   c.inventoryItems.splice(idx, 1);
   saveChars();
   renderCharSheet();
+  charRefreshInventoryPanel(id);
+  charRefreshInventoryLaunch(id);
 }
 
 function updateInvField(id, idx, key, val) {
@@ -26293,6 +26582,8 @@ function changeInvQty(id, idx, delta) {
   c.inventoryItems[idx].qty = Math.max(1, (parseInt(c.inventoryItems[idx].qty, 10) || 1) + delta);
   saveChars();
   renderCharSheet();
+  charRefreshInventoryPanel(id);
+  charRefreshInventoryLaunch(id);
 }
 
 var INV_EMOJI_SET = [
@@ -26479,6 +26770,8 @@ function openItemConstructor(charId, type, idx) {
     saveChars();
     closeIt();
     renderCharSheet();
+    charRefreshInventoryPanel(charId);
+    charRefreshInventoryLaunch(charId);
   };
 
   document.getElementById('ic-save').onclick = function() {
@@ -26497,6 +26790,8 @@ function openItemConstructor(charId, type, idx) {
     saveChars();
     closeIt();
     renderCharSheet();
+    charRefreshInventoryPanel(charId);
+    charRefreshInventoryLaunch(charId);
   };
 }
 
@@ -27361,6 +27656,8 @@ function charEquipItem(itemId, slotKey) {
   var div = document.getElementById('equip-list-' + _charEquipModalId);
   if (div) div.innerHTML = buildEquipList(c);
   refreshActiveCharacterSheet(c.id);
+  charRefreshInventoryPanel(c.id);
+  charRefreshInventoryLaunch(c.id);
   _renderCharEquipModal();
 }
 
@@ -27373,6 +27670,8 @@ function charUnequipSlot(slotKey) {
   var div = document.getElementById('equip-list-' + _charEquipModalId);
   if (div) div.innerHTML = buildEquipList(c);
   refreshActiveCharacterSheet(c.id);
+  charRefreshInventoryPanel(c.id);
+  charRefreshInventoryLaunch(c.id);
   _renderCharEquipModal();
 }
 
@@ -27394,6 +27693,8 @@ function charApplyQuickSet() {
   });
   saveChars();
   refreshActiveCharacterSheet(c.id);
+  charRefreshInventoryPanel(c.id);
+  charRefreshInventoryLaunch(c.id);
   _renderCharEquipModal();
 }
 
@@ -27404,11 +27705,16 @@ function charSaveEquip() {
 }
 
 function charCloseEquipModal() {
+  var charId = _charEquipModalId;
   var el = document.getElementById('char-equip-modal-overlay');
   if (el) el.remove();
   _charEquipModalId = null;
   // Re-render so preview reflects latest state
   if (typeof renderCharsPage === 'function') renderCharsPage();
+  if (charId !== null) {
+    charRefreshInventoryPanel(charId);
+    charRefreshInventoryLaunch(charId);
+  }
 }
 
 function charOpenCreateItem() {
@@ -28552,6 +28858,7 @@ function addCoin(id, coinKey, delta) {
   c.coins[coinKey] = Math.max(0, (parseInt(c.coins[coinKey], 10) || 0) + delta);
   saveChars();
   renderCharSheet();
+  charRefreshInventoryPanel(id);
 }
 
 function addGold(id, delta) {
