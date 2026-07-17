@@ -8854,7 +8854,7 @@ window.addEventListener('load', function(){
     box-shadow: 0 0 60px rgba(0,0,0,0.7), 0 0 30px rgba(232,192,96,0.07), inset 0 0 40px rgba(232,192,96,0.03);
     transform: translateY(14px) scale(0.97); opacity: 0;
     transition: transform .38s cubic-bezier(.2,.8,.3,1), opacity .38s ease;
-    max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    max-height: calc(100vh - 96px); overflow: visible;
   }
   .zg-adv-overlay.open .zg-adv-dialog { transform: translateY(0) scale(1); opacity: 1; }
 
@@ -8873,6 +8873,18 @@ window.addEventListener('load', function(){
   }
   .zg-adv-ornament::before { right: 100%; margin-right: 8px; }
   .zg-adv-ornament::after  { left: 100%; margin-left: 8px; transform: scaleX(-1); }
+
+  /* На компактных экранах окно можно прокрутить, поэтому знак остаётся внутри его границы. */
+  @media (max-width: 700px), (max-height: 720px) {
+    .zg-adv-overlay { padding: 12px; }
+    .zg-adv-dialog {
+      max-height: calc(100vh - 24px);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding-top: 68px;
+    }
+    .zg-adv-ornament { top: 12px; }
+  }
 
   .zg-adv-close {
     position: absolute; top: 12px; right: 14px;
@@ -8967,8 +8979,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-17.6';
+var ZG_APP_VERSION = '2026-07-17.7';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-17.7', notes: 'Окно приключения больше не обрезает верхний знак: на малых экранах оно прокручивается без потери оформления.' },
   { v: '2026-07-17.6', notes: 'На главной появился путь «Отправиться в приключение»: создать или присоединиться к игре, затем выбрать героя на полноэкранном листе.' },
   { v: '2026-07-17.5', notes: 'Инвентарь раскрывается внутри листа персонажа: монеты сверху, снаряжение слева, сетка на 20 ячеек и карточка выбранного предмета справа. Добавлены сортировка и быстрые действия с количеством.' },
   { v: '2026-07-17.4', notes: 'Витрина товаров собрана в компактный набор из 20 предметов Зарготы. Для каждого товара добавлена единообразная рисованная иконка, цена и короткая игровая механика.' },
