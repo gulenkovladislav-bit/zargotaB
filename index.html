@@ -9719,18 +9719,32 @@ document.addEventListener('DOMContentLoaded', function(){
       w.zgImageStore.getBlobUrl(path, function(url){ show(url || path); });
     } else show(path);
   }
+  // ═══ ВШИТЫЕ НАСТРОЙКИ АРТОВ (защита от чистого браузера/устройства) ═══
+  // Файлы лежат в репо: images/heroart/hero_<id>.png
+  var HERO_ART_BAKED = {
+    '1776627463516': { fg: { path:'images/heroart/hero_1776627463516.png', scale:257, x:-29, y:38, fade:45 } }, // Еван (Евангелие Лукавый)
+    '1776626039651': { fg: { path:'images/heroart/hero_1776626039651.png', scale:229, x:-23, y:24, fade:52 } }, // Мелисса
+    '1776463717210': { fg: { path:'images/heroart/hero_1776463717210.png', scale:247, x:-31, y:34, fade:55 } }, // Эстерос
+    '1778221131899': { fg: { path:'images/heroart/hero_1778221131899.png', scale:235, x:19,  y:31, fade:52 } }, // Вротик
+    '1778221143711': { fg: { path:'images/heroart/hero_1778221143711.png', scale:275, x:19,  y:68, fade:20 } }  // Лин'Ин
+  };
+  function heroArtOf(c){
+    if (!c) return null;
+    if (c.heroArt) return c.heroArt;               // живые настройки из листа — приоритет
+    return HERO_ART_BAKED[String(c.id)] || null;   // иначе вшитый дефолт
+  }
   function tunApplyHeroArt(c){
     var bl = el('zg-cs-bglayer');
-    if (!c || !c.heroArt) { if (bl) bl.innerHTML = ''; return; }
-    var ha = (c.heroArt.fg || c.heroArt.bg) ? c.heroArt : { fg: c.heroArt }; // совместимость со старым форматом
+    var haSrc = heroArtOf(c);
+    if (!haSrc) { if (bl) bl.innerHTML = ''; return; }
+    var ha = (haSrc.fg || haSrc.bg) ? haSrc : { fg: haSrc }; // совместимость со старым форматом
     if (ha.fg && ha.fg.path) tunShowLayer(el('zg-cs-portrait'), ha.fg, false);
     tunShowLayer(bl, ha.bg, true);
   }
   var _tunOrigRender = render;
   render = function(){
     _tunOrigRender();
-    var hs = heroes(), c = hs[selIdx];
-    tunApplyHeroArt(c);
+    tunApplyHeroArt(heroes()[selIdx]);
   };
 
   // Перетаскивание + зум колесом по портрету
