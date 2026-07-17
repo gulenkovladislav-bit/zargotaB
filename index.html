@@ -4,8 +4,14 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<link rel="preconnect" href="https://fonts.googleapis.com/">
-<link href="./Заргота_files/css2" rel="stylesheet">
+<script>
+window.addEventListener('load', function(){
+  var l = document.createElement('link');
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Cinzel:wght@400;600;700&family=Cinzel+Decorative:wght@400;700;900&display=swap';
+  document.head.appendChild(l);
+});
+</script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   a, button, input, select, textarea, label, [onclick] {
@@ -993,7 +999,7 @@
     letter-spacing: 4px;
     text-align: center;
     text-transform: uppercase;
-    margin-bottom: 60px;
+    margin-bottom: 34px;
   }
 
   .home-divider {
@@ -8767,6 +8773,193 @@
     .npc-sheet-copy-block { padding: 17px 0 18px; }
     .npc-sheet-copy-text { font-size: 15px; line-height: 1.62; }
   }
+
+  /* ══ ОТПРАВИТЬСЯ В ПРИКЛЮЧЕНИЕ ══ */
+  .home-adventure-btn {
+    position: relative;
+    display: flex; align-items: center; gap: 16px;
+    width: fit-content;
+    margin: 0 auto 42px; padding: 14px 10px;
+    background: none; border: none;
+    color: #f0d896; font-family: 'Lora', Georgia, serif; font-size: 18px;
+    letter-spacing: .4px; cursor: pointer;
+    text-shadow: 0 0 22px rgba(232,192,96,.35);
+    transition: color .3s ease, text-shadow .3s ease, transform .2s ease;
+  }
+  .home-adventure-btn .sw {
+    color: var(--gold); font-size: 19px; line-height: 1;
+    text-shadow: 0 0 12px rgba(232,192,96,.6);
+  }
+  .home-adventure-btn .orn-line {
+    display: inline-block; width: 90px; height: 1px;
+    background: linear-gradient(90deg, transparent, #a07830);
+  }
+  .home-adventure-btn .orn-line:last-child { background: linear-gradient(90deg, #a07830, transparent); }
+  .home-adventure-btn .orn-star { color: var(--gold); font-size: 14px; line-height: 1; }
+  .home-adventure-btn::before {
+    content: '';
+    position: absolute; left: 50%; top: 50%;
+    width: 420px; height: 120px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(ellipse at center, rgba(232,192,96,.13) 0%, transparent 65%);
+    pointer-events: none;
+    animation: advPulse 3.2s ease-in-out infinite;
+  }
+  @keyframes advPulse {
+    0%, 100% { opacity: .45; transform: translate(-50%, -50%) scale(.92); }
+    50%      { opacity: 1;   transform: translate(-50%, -50%) scale(1.05); }
+  }
+  .home-adventure-btn:hover {
+    color: #ffe9b8;
+    text-shadow: 0 0 30px rgba(232,192,96,.55);
+    transform: translateY(-1px);
+  }
+  .home-adventure-btn:active { transform: translateY(0); }
+  @media (max-width: 700px) {
+    .home-adventure-btn { margin: 0 auto 32px; font-size: 15px; gap: 10px; }
+    .home-adventure-btn .orn-line { width: 40px; }
+    .home-adventure-btn::before { width: 280px; height: 90px; }
+  }
+
+  .zg-adv-overlay {
+    position: fixed; inset: 0; z-index: 9000;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background: rgba(5,4,2,0.62);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  .zg-adv-overlay.open { opacity: 1; pointer-events: auto; }
+  /* очень слабый туман */
+  .zg-adv-overlay::before {
+    content: ''; position: absolute; inset: -20%;
+    background:
+      radial-gradient(ellipse at 25% 30%, rgba(180,150,90,0.05) 0%, transparent 55%),
+      radial-gradient(ellipse at 75% 70%, rgba(120,110,90,0.045) 0%, transparent 55%),
+      radial-gradient(ellipse at 55% 15%, rgba(200,170,110,0.035) 0%, transparent 50%);
+    animation: zgAdvFog 26s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+  @keyframes zgAdvFog {
+    0%   { transform: translate3d(-2.5%, -1.5%, 0) scale(1); }
+    100% { transform: translate3d(2.5%, 1.8%, 0) scale(1.06); }
+  }
+
+  .zg-adv-dialog {
+    position: relative; width: 100%; max-width: 640px;
+    background: linear-gradient(180deg, #17120a, #100c07);
+    border: 1px solid var(--gold2); border-radius: 14px;
+    padding: 46px 34px 34px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.7), 0 0 30px rgba(232,192,96,0.07), inset 0 0 40px rgba(232,192,96,0.03);
+    transform: translateY(14px) scale(0.97); opacity: 0;
+    transition: transform .38s cubic-bezier(.2,.8,.3,1), opacity .38s ease;
+    max-height: 88vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .zg-adv-overlay.open .zg-adv-dialog { transform: translateY(0) scale(1); opacity: 1; }
+
+  .zg-adv-ornament {
+    position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
+    width: 52px; height: 52px; border-radius: 50%;
+    background: radial-gradient(circle, #1c150b 55%, #100c07 100%);
+    border: 1px solid var(--gold2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; color: var(--gold);
+    box-shadow: 0 0 20px rgba(232,192,96,0.18);
+  }
+  .zg-adv-ornament::before, .zg-adv-ornament::after {
+    content: ''; position: absolute; top: 50%; height: 1px; width: 70px;
+    background: linear-gradient(90deg, transparent, var(--gold2));
+  }
+  .zg-adv-ornament::before { right: 100%; margin-right: 8px; }
+  .zg-adv-ornament::after  { left: 100%; margin-left: 8px; transform: scaleX(-1); }
+
+  .zg-adv-close {
+    position: absolute; top: 12px; right: 14px;
+    background: transparent; border: none; color: var(--muted);
+    font-size: 20px; line-height: 1; padding: 6px; cursor: pointer;
+    transition: color .25s ease;
+  }
+  .zg-adv-close:hover { color: var(--gold); }
+  .zg-adv-back {
+    position: absolute; top: 14px; left: 16px;
+    background: transparent; border: none; color: var(--muted);
+    font-family: 'Cinzel', serif; font-size: 12px; letter-spacing: 1px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px; cursor: pointer; transition: color .25s ease;
+  }
+  .zg-adv-back:hover { color: var(--gold); }
+
+  .zg-adv-title {
+    text-align: center; color: var(--gold); font-family: 'Cinzel', serif;
+    font-size: 22px; letter-spacing: 1px; margin-bottom: 8px;
+    text-shadow: 0 0 18px rgba(232,192,96,0.25);
+  }
+  .zg-adv-sub { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 26px; }
+
+  .zg-adv-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 560px) { .zg-adv-cards { grid-template-columns: 1fr; } }
+  .zg-adv-card {
+    background: linear-gradient(180deg, rgba(232,192,96,0.045), rgba(232,192,96,0.012));
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 26px 18px 22px; text-align: center; cursor: pointer;
+    color: var(--text);
+    transition: border-color .3s ease, box-shadow .3s ease, transform .25s ease;
+  }
+  .zg-adv-card:hover {
+    border-color: var(--gold2);
+    box-shadow: 0 0 22px rgba(232,192,96,0.10), inset 0 0 18px rgba(232,192,96,0.04);
+    transform: translateY(-2px);
+  }
+  .zg-adv-card-art { height: 74px; margin: 0 auto 14px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .zg-adv-card-art--compass { position:relative; width:82px; }
+  .zg-adv-card-art--compass::before, .zg-adv-card-art--compass::after { content:''; position:absolute; width:74px; height:2px; background:linear-gradient(90deg,transparent,#9d7029 22%,#f0d080 50%,#9d7029 78%,transparent); }
+  .zg-adv-card-art--compass::after { transform:rotate(90deg); }
+  .zg-adv-compass-star { position:relative; z-index:1; color:#f0c85a; font-size:60px; line-height:1; text-shadow:0 0 16px rgba(232,192,96,.55), 0 0 2px #fff0ad; }
+  .zg-adv-card-art--join { width:92px; border:1px solid rgba(196,160,74,.34); border-radius:50%; background:#0c0906; box-shadow:0 0 18px rgba(232,192,96,.12); }
+  .zg-adv-card-art--join img { width:100%; height:100%; object-fit:cover; object-position:50% 20%; filter:saturate(.72) contrast(1.08) brightness(.82); }
+  .zg-adv-card-title { font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold); letter-spacing: 0.5px; margin-bottom: 10px; }
+  .zg-adv-card-desc { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+  .zg-adv-view { animation: zgAdvViewIn .34s ease both; }
+  @keyframes zgAdvViewIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .zg-adv-input-wrap {
+    display: flex; align-items: center; gap: 10px;
+    max-width: 440px; margin: 0 auto 22px;
+    background: rgba(0,0,0,0.35); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0 14px;
+    transition: border-color .3s ease, box-shadow .3s ease;
+  }
+  .zg-adv-input-wrap:focus-within {
+    border-color: var(--gold2);
+    box-shadow: 0 0 14px rgba(232,192,96,0.12);
+  }
+  .zg-adv-input-wrap .icon { color: var(--gold2); font-size: 16px; }
+  .zg-adv-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'Lora', Georgia, serif; font-size: 16px;
+    padding: 14px 0; letter-spacing: 1px;
+  }
+  .zg-adv-input::placeholder { color: var(--dim); letter-spacing: 0.5px; }
+
+  .zg-adv-submit {
+    display: block; margin: 0 auto; padding: 13px 40px;
+    background: linear-gradient(180deg, rgba(232,192,96,0.16), rgba(232,192,96,0.05));
+    border: 1px solid var(--gold2); border-radius: 10px;
+    color: var(--gold); font-family: 'Cinzel', serif; font-size: 14px;
+    letter-spacing: 1.5px; cursor: pointer;
+    transition: box-shadow .3s ease, border-color .3s ease, transform .2s ease;
+  }
+  .zg-adv-submit:hover {
+    border-color: var(--gold);
+    box-shadow: 0 0 22px rgba(232,192,96,0.20);
+    transform: translateY(-1px);
+  }
+  .zg-adv-hint { text-align: center; font-size: 12px; color: var(--dim); margin-top: 16px; min-height: 15px; }
 </style>
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -8774,8 +8967,9 @@
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-17.5';
+var ZG_APP_VERSION = '2026-07-17.6';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-17.6', notes: 'На главной появился путь «Отправиться в приключение»: создать или присоединиться к игре, затем выбрать героя на полноэкранном листе.' },
   { v: '2026-07-17.5', notes: 'Инвентарь раскрывается внутри листа персонажа: монеты сверху, снаряжение слева, сетка на 20 ячеек и карточка выбранного предмета справа. Добавлены сортировка и быстрые действия с количеством.' },
   { v: '2026-07-17.4', notes: 'Витрина товаров собрана в компактный набор из 20 предметов Зарготы. Для каждого товара добавлена единообразная рисованная иконка, цена и короткая игровая механика.' },
   { v: '2026-07-17.3', notes: 'Добавлена единая серия рисованных портретов для НПС реестра и ключевых фигур Иерархии Зарготы. Ручной портрет по-прежнему имеет приоритет.' },
@@ -9134,6 +9328,198 @@ document.addEventListener('DOMContentLoaded', function(){
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
+//  ОТПРАВИТЬСЯ В ПРИКЛЮЧЕНИЕ — модалка (создать / присоединиться)
+//  Позже здесь будет система онлайн-сессий с кодами (GitHub Pages).
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  function el(id){ return document.getElementById(id); }
+
+  w.zgAdvOpen = function() {
+    var ov = el('zg-adv-overlay');
+    if (!ov) return;
+    w.zgAdvShowMain();
+    ov.classList.add('open');
+    try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
+  };
+
+  w.zgAdvClose = function() {
+    var ov = el('zg-adv-overlay');
+    if (ov) ov.classList.remove('open');
+  };
+
+  w.zgAdvShowMain = function() {
+    var m = el('zg-adv-view-main'), j = el('zg-adv-view-join'), b = el('zg-adv-back');
+    if (j) j.style.display = 'none';
+    if (b) b.style.display = 'none';
+    if (m) { m.style.display = ''; m.classList.remove('zg-adv-view'); void m.offsetWidth; m.classList.add('zg-adv-view'); }
+    var h = el('zg-adv-hint'); if (h) h.textContent = '';
+  };
+
+  w.zgAdvShowJoin = function() {
+    var m = el('zg-adv-view-main'), j = el('zg-adv-view-join'), b = el('zg-adv-back');
+    if (m) m.style.display = 'none';
+    if (b) b.style.display = '';
+    if (j) {
+      j.style.display = '';
+      j.classList.remove('zg-adv-view'); void j.offsetWidth; j.classList.add('zg-adv-view');
+      var inp = el('zg-adv-code');
+      if (inp) setTimeout(function(){ try { inp.focus(); } catch(e) {} }, 120);
+    }
+  };
+
+  // ── ЗАГЛУШКИ: сюда позже встраивается онлайн-система ──
+  w.zgAdvCreateGame = function() {
+    // Создание сессии (коды — позже). Ведём к выбору персонажа.
+    w.zgAdvClose();
+    if (w.zgCharSelOpen) w.zgCharSelOpen();
+  };
+
+  w.zgAdvJoinSubmit = function() {
+    var inp = el('zg-adv-code'), h = el('zg-adv-hint');
+    var code = inp ? String(inp.value || '').trim().toUpperCase() : '';
+    if (!code) {
+      if (h) h.textContent = 'Введите код приключения.';
+      return;
+    }
+    if (!/^[A-Z0-9]{2,10}-?[A-Z0-9]{2,10}$/.test(code)) {
+      if (h) h.textContent = 'Похоже, код неверного формата. Пример: ZARG-4821';
+      return;
+    }
+    // Код принят — ведём к выбору персонажа (онлайн-подключение позже)
+    w.zgAdvClose();
+    if (w.zgCharSelOpen) w.zgCharSelOpen();
+  };
+
+  // Esc закрывает модалку
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') {
+      var ov = el('zg-adv-overlay');
+      if (ov && ov.classList.contains('open')) w.zgAdvClose();
+    }
+  });
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
+//  ВЫБОР ПЕРСОНАЖА — «Отправиться в путь»
+//  Полноэкранный выбор героя из списка characters (type: 'hero').
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  var selIdx = 0;
+  function el(id){ return document.getElementById(id); }
+  function heroes(){
+    var arr = (typeof w.characters !== 'undefined' && Array.isArray(w.characters)) ? w.characters : [];
+    return arr.filter(function(c){ return c && c.type === 'hero'; });
+  }
+  function esc(s){
+    s = (s === null || s === undefined) ? '' : String(s);
+    return (typeof w.escHTML === 'function') ? w.escHTML(s)
+      : s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function statHtml(ic, val, lab){
+    return '<div class="zg-cs-stat"><span class="ic">' + ic + '</span><div><div class="v">' + val + '</div><div class="l">' + lab + '</div></div></div>';
+  }
+  function render(){
+    var hs = heroes();
+    var list = el('zg-cs-list'), port = el('zg-cs-portrait'),
+        stats = el('zg-cs-stats'), det = el('zg-cs-detail'), btn = el('zg-cs-choose');
+    if (!list) return;
+    if (!hs.length) {
+      list.innerHTML = '<div class="zg-cs-empty">Пока нет героев.<br>Создайте первого в редакторе персонажей.</div>';
+      if (port) port.innerHTML = '<div class="zg-cs-port-ph"><div style="font-size:110px;opacity:.25">🧙</div></div>';
+      if (stats) stats.innerHTML = '';
+      if (det) det.innerHTML = '';
+      if (btn) btn.style.display = 'none';
+      return;
+    }
+    if (btn) btn.style.display = '';
+    if (selIdx >= hs.length) selIdx = 0;
+    list.innerHTML = hs.map(function(c, i){
+      var thumb = c.portrait
+        ? '<img class="zg-cs-thumb" src="' + c.portrait + '" alt="">'
+        : '<div class="zg-cs-thumb-ph">🧙</div>';
+      return '<button type="button" class="zg-cs-item' + (i === selIdx ? ' sel' : '') + '" onclick="zgCharSelPick(' + i + ')">' +
+        thumb +
+        '<div class="zg-cs-item-info">' +
+          '<div class="zg-cs-item-name">' + esc(c.name || 'Без имени') + '</div>' +
+          '<div class="zg-cs-item-meta">' + esc([c.race, c.klasse].filter(Boolean).join(' • ') || '—') + '</div>' +
+          '<div class="zg-cs-item-hp">♥ ' + (c.hpCur != null ? c.hpCur : '?') + ' / ' + (c.hpMax != null ? c.hpMax : '?') + '</div>' +
+        '</div>' +
+        (i === selIdx ? '<div class="zg-cs-item-star">✦</div>' : '') +
+      '</button>';
+    }).join('');
+    var c = hs[selIdx];
+    if (port) port.innerHTML = c.portrait
+      ? '<img src="' + c.portrait + '" alt="">'
+      : '<div class="zg-cs-port-ph"><div style="font-size:110px;opacity:.25">🧙</div><div class="hint">Портрет не загружен — добавьте его в редакторе персонажей</div></div>';
+    // лучший стат для четвёртой ячейки
+    var best = null;
+    try {
+      Object.keys(c.stats || {}).forEach(function(k){
+        var b = c.stats[k] || {};
+        var v = (b.cur != null && b.cur !== 0) ? b.cur : (b.base || 0);
+        if (!best || v > best.v) best = { k: k, v: v };
+      });
+    } catch(e) {}
+    var bestLabel = (best && w.STAT_LABEL_RU && w.STAT_LABEL_RU[best.k]) || '';
+    if (stats) stats.innerHTML =
+      statHtml('♥', (c.hpCur != null ? c.hpCur : '—') + ' / ' + (c.hpMax != null ? c.hpMax : '—'), 'Здоровье') +
+      statHtml('🛡', (c.ac != null && c.ac !== '' ? esc(c.ac) : '—'), 'Класс брони') +
+      statHtml('👢', (c.speed ? esc(c.speed) : '—'), 'Скорость') +
+      (best && bestLabel && best.v > 0 ? statHtml('✦', '+' + best.v, bestLabel) : '');
+    var rows = [
+      ['Раса', c.race], ['Класс', c.klasse], ['Возраст', c.age],
+      ['Происхождение', c.origin], ['Символ', c.symbol], ['Бог', c.god]
+    ].filter(function(r){ return r[1]; }).map(function(r){
+      return '<div class="zg-cs-row"><span class="zg-cs-row-l"><span class="g">✦</span>' + r[0] + '</span><span class="zg-cs-row-v">' + esc(r[1]) + '</span></div>';
+    }).join('');
+    var bio = String(c.bio || c.biography || '');
+    if (bio.length > 380) bio = bio.slice(0, 380) + '…';
+    if (det) det.innerHTML =
+      '<div class="zg-cs-name">' + esc(c.name || 'Без имени') + '</div>' +
+      (c.quote ? '<div class="zg-cs-quote">«' + esc(c.quote) + '»</div>' : '') +
+      (rows ? '<div class="zg-cs-rows">' + rows + '</div>' : '') +
+      (bio ? '<div class="zg-cs-bio">' + esc(bio) + '</div>' : '');
+  }
+  w.zgCharSelOpen = function(){
+    var ov = el('zg-cs-overlay');
+    if (!ov) return;
+    render();
+    ov.classList.add('open');
+    try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
+  };
+  w.zgCharSelClose = function(){
+    var ov = el('zg-cs-overlay');
+    if (ov) ov.classList.remove('open');
+  };
+  w.zgCharSelBack = function(){
+    w.zgCharSelClose();
+    if (w.zgAdvOpen) w.zgAdvOpen();
+  };
+  w.zgCharSelEditor = function(){
+    w.zgCharSelClose();
+    try { showPage('chars'); } catch(e) {}
+  };
+  w.zgCharSelPick = function(i){
+    selIdx = i;
+    render();
+    try { if (w.ZargotaSound && w.ZargotaSound.buttonSoft) w.ZargotaSound.buttonSoft(); } catch(e) {}
+  };
+  w.zgCharSelChoose = function(){
+    var hs = heroes(), c = hs[selIdx];
+    w.zgCharSelClose();
+    if (!c) return;
+    try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {}
+    try { if (w.showToast) w.showToast('⚔ ' + (c.name || 'Персонаж') + ' отправляется в путь!'); } catch(e) {}
+  };
+  document.addEventListener('keydown', function(ev){
+    if (ev.key === 'Escape') {
+      var ov = el('zg-cs-overlay');
+      if (ov && ov.classList.contains('open')) w.zgCharSelClose();
+    }
+  });
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
 //   FULLSCREEN-АНИМАЦИЯ ДЛЯ БРОСКОВ ЖИЗНИ/СМЕРТИ + СЛАВЫ
 //   Частицы на canvas, текст-вердикт по центру, авто-удаление через timeout.
 //   Работает поверх всего (z-index:99999), pointer-events:none — не мешает кликам.
@@ -9282,7 +9668,14 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+window.addEventListener('load', function(){
+  var s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+  s.async = true;
+  document.head.appendChild(s);
+});
+</script>
 <!-- /main -->
 
 <!-- WORLD NAV BAR — fixed, вне page системы, всегда поверх контента -->
@@ -11870,7 +12263,7 @@ window.zgImageStore = (function() {
     <div class="home-content">
     <div class="home-title">Мир Зарготы</div>
     <div class="home-subtitle">Панель Мастера · Инструменты кампании</div>
-    <div class="home-divider"></div>
+    <button type="button" class="home-adventure-btn" onclick="zgAdvOpen()"><span class="orn-line"></span><span class="orn-star">✦</span><span class="sw">⚔</span> Отправиться в приключение <span class="orn-star">✦</span><span class="orn-line"></span></button>
 
     <div class="home-grid">
 
@@ -11919,6 +12312,131 @@ window.zgImageStore = (function() {
     </div>
 
     <div class="home-footer">Заргота · Бета · Панель Мастера</div>
+    </div>
+  </div>
+
+
+  <!-- ══ МОДАЛКА: ОТПРАВИТЬСЯ В ПРИКЛЮЧЕНИЕ ══ -->
+  <div id="zg-adv-overlay" class="zg-adv-overlay" onclick="if(event.target===this)zgAdvClose()">
+    <div class="zg-adv-dialog" role="dialog" aria-modal="true">
+      <div class="zg-adv-ornament">🧭</div>
+      <button type="button" class="zg-adv-close" onclick="zgAdvClose()" aria-label="Закрыть">✕</button>
+      <button type="button" class="zg-adv-back" id="zg-adv-back" style="display:none" onclick="zgAdvShowMain()">← Назад</button>
+
+      <!-- Вид 1: выбор -->
+      <div id="zg-adv-view-main" class="zg-adv-view">
+        <div class="zg-adv-title">Отправиться в приключение</div>
+        <div class="zg-adv-sub">Выберите, что вы хотите сделать.</div>
+        <div class="zg-adv-cards">
+          <button type="button" class="zg-adv-card" onclick="zgAdvCreateGame()">
+            <div class="zg-adv-card-art zg-adv-card-art--compass" aria-hidden="true"><span class="zg-adv-compass-star">✦</span></div>
+            <div class="zg-adv-card-title">Создать игру</div>
+            <div class="zg-adv-card-desc">Создайте новое приключение и получите код для приглашения игроков.</div>
+          </button>
+          <button type="button" class="zg-adv-card" onclick="zgAdvShowJoin()">
+            <div class="zg-adv-card-art zg-adv-card-art--join" aria-hidden="true"><img src="images/portraits/char_1776463717210.png" alt=""></div>
+            <div class="zg-adv-card-title">Присоединиться</div>
+            <div class="zg-adv-card-desc">Введите код приключения, чтобы присоединиться к существующей игре.</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Вид 2: присоединиться -->
+      <div id="zg-adv-view-join" class="zg-adv-view" style="display:none">
+        <div class="zg-adv-title">Присоединиться к игре</div>
+        <div class="zg-adv-sub">Введите код приключения, чтобы присоединиться<br>к существующей игре.</div>
+        <div class="zg-adv-input-wrap">
+          <span class="icon">🔗</span>
+          <input id="zg-adv-code" class="zg-adv-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Введите код, например: ZARG-4821" onkeydown="if(event.key==='Enter')zgAdvJoinSubmit()">
+        </div>
+        <button type="button" class="zg-adv-submit" onclick="zgAdvJoinSubmit()">Присоединиться</button>
+        <div class="zg-adv-hint" id="zg-adv-hint"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ЭКРАН: ВЫБОР ПЕРСОНАЖА (Отправиться в путь) ══ -->
+  <style>
+  .zg-cs-overlay{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;background:#050302f2;background-image:radial-gradient(ellipse at 20% 10%,#1a120830 0%,transparent 55%),radial-gradient(ellipse at 80% 90%,#10141a30 0%,transparent 55%)}
+  .zg-cs-overlay.open{display:flex;animation:fadeIn .3s ease}
+  .zg-cs-panel{position:relative;width:min(1360px,calc(100vw - 40px));height:min(920px,calc(100vh - 40px));background:radial-gradient(ellipse at 50% 32%,#181007 0%,#0b0805 62%);border:1px solid #c4a04a55;border-radius:10px;outline:1px solid #c4a04a22;outline-offset:5px;box-shadow:0 30px 90px #000d,inset 0 0 140px #00000090;display:grid;grid-template-rows:auto 1fr auto;padding:26px 38px;animation:fadeUp .45s ease}
+  .zg-cs-back{position:absolute;top:24px;left:30px;background:none;border:none;color:var(--text);font-family:'Lora',serif;font-size:15px;display:flex;align-items:center;gap:8px;opacity:.85;z-index:2}
+  .zg-cs-back:hover{color:var(--gold);opacity:1}
+  .zg-cs-head{text-align:center}
+  .zg-cs-title{font-family:'Cinzel',serif;font-size:34px;font-weight:700;color:#f0d896;letter-spacing:1px;text-shadow:0 2px 18px #00000090}
+  .zg-cs-orn{display:flex;align-items:center;justify-content:center;gap:14px;margin:10px auto 12px;width:420px;max-width:80%}
+  .zg-cs-orn .line{flex:1;height:1px;background:linear-gradient(90deg,transparent,#c4a04a66)}
+  .zg-cs-orn .line:last-child{background:linear-gradient(90deg,#c4a04a66,transparent)}
+  .zg-cs-orn .star{color:var(--gold);font-size:14px;text-shadow:0 0 10px #e8c06066}
+  .zg-cs-sub{font-size:16px;color:var(--muted)}
+  .zg-cs-body{display:grid;grid-template-columns:330px minmax(0,1fr) 360px;gap:30px;min-height:0;padding-top:16px}
+  .zg-cs-listcol{display:flex;flex-direction:column;min-height:0}
+  .zg-cs-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px 6px 4px 2px;min-height:0}
+  .zg-cs-item{position:relative;display:flex;align-items:center;border:1px solid #2a1e0f;border-radius:8px;background:#0f0b06cc;cursor:pointer;text-align:left;padding:0;overflow:hidden;color:var(--text);font-family:'Lora',serif;flex-shrink:0}
+  .zg-cs-item:hover{border-color:#c4a04a66}
+  .zg-cs-item.sel{border-color:#e8c060;box-shadow:0 0 20px #e8c06026,inset 0 0 26px #e8c06010}
+  .zg-cs-thumb{width:72px;height:94px;object-fit:cover;object-position:top center;display:block;flex-shrink:0}
+  .zg-cs-thumb-ph{width:72px;height:94px;display:flex;align-items:center;justify-content:center;font-size:30px;background:#0a0703;opacity:.5;flex-shrink:0}
+  .zg-cs-item-info{padding:10px 14px;min-width:0}
+  .zg-cs-item-name{font-family:'Cinzel',serif;font-size:16px;font-weight:700;color:#f0e0b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-cs-item-meta{font-size:13px;color:var(--muted);margin-top:2px}
+  .zg-cs-item-hp{font-size:13px;color:#7dba7d;margin-top:4px}
+  .zg-cs-item-star{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gold);font-size:22px;text-shadow:0 0 14px #e8c06088}
+  .zg-cs-editor-link{margin-top:14px;padding:12px 6px 2px;border-top:1px solid #2a1e0f;color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0}
+  .zg-cs-editor-link:hover{color:var(--gold)}
+  .zg-cs-center{display:flex;flex-direction:column;min-height:0}
+  .zg-cs-portrait{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+  .zg-cs-portrait img{max-width:100%;max-height:100%;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 52%,transparent 98%);mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 52%,transparent 98%)}
+  .zg-cs-port-ph{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--dim);text-align:center}
+  .zg-cs-port-ph .hint{font-size:13px;max-width:260px;color:var(--dim)}
+  .zg-cs-stats{display:flex;justify-content:center;gap:44px;padding:16px 0 4px;flex-shrink:0;flex-wrap:wrap}
+  .zg-cs-stat{display:flex;align-items:center;gap:10px}
+  .zg-cs-stat .ic{font-size:20px;opacity:.9}
+  .zg-cs-stat .v{font-family:'Cinzel',serif;font-size:19px;font-weight:700;color:#f0e0b8;line-height:1.1}
+  .zg-cs-stat .l{font-size:12px;color:var(--muted);margin-top:2px}
+  .zg-cs-detail{overflow-y:auto;min-height:0;padding:6px 4px 6px 0}
+  .zg-cs-name{font-family:'Cinzel',serif;font-size:27px;font-weight:700;color:#f0d896;margin-bottom:8px}
+  .zg-cs-quote{font-size:15px;color:var(--text);font-style:italic;margin-bottom:18px}
+  .zg-cs-rows{display:flex;flex-direction:column;gap:9px;padding:14px 0;border-top:1px solid #2a1e0f;border-bottom:1px solid #2a1e0f}
+  .zg-cs-row{display:grid;grid-template-columns:150px 1fr;gap:10px;font-size:14.5px}
+  .zg-cs-row-l{color:var(--muted)}
+  .zg-cs-row-l .g{color:var(--gold2);margin-right:7px;font-size:12px}
+  .zg-cs-row-v{color:var(--text)}
+  .zg-cs-bio{font-size:14.5px;line-height:1.65;color:var(--muted);margin-top:16px}
+  .zg-cs-foot{display:flex;justify-content:center;padding-top:16px}
+  .zg-cs-choose{font-family:'Cinzel',serif;font-size:16px;letter-spacing:1px;color:#f0d896;background:linear-gradient(180deg,#1d1508,#0f0a05);border:1px solid #c4a04a88;border-radius:8px;padding:14px 52px;box-shadow:0 0 22px #e8c06022,inset 0 1px 0 #ffffff10;transition:box-shadow .25s,border-color .25s}
+  .zg-cs-choose:hover{border-color:var(--gold);box-shadow:0 0 34px #e8c06040}
+  .zg-cs-empty{color:var(--muted);font-size:14px;line-height:1.6;padding:14px;border:1px dashed #3a2c16;border-radius:8px}
+  @media (max-width:1000px){
+    .zg-cs-panel{height:calc(100svh - 24px);width:calc(100vw - 24px);padding:20px 16px;display:block;overflow-y:auto}
+    .zg-cs-body{grid-template-columns:1fr;gap:20px}
+    .zg-cs-list{max-height:300px}
+    .zg-cs-portrait{min-height:300px}
+    .zg-cs-title{font-size:24px;margin-top:34px}
+  }
+  </style>
+  <div id="zg-cs-overlay" class="zg-cs-overlay">
+    <div class="zg-cs-panel" role="dialog" aria-modal="true">
+      <button type="button" class="zg-cs-back" onclick="zgCharSelBack()">⟵&nbsp; Назад</button>
+      <div class="zg-cs-head">
+        <div class="zg-cs-title">Отправиться в путь</div>
+        <div class="zg-cs-orn"><span class="line"></span><span class="star">✦</span><span class="line"></span></div>
+        <div class="zg-cs-sub">Выберите персонажа</div>
+      </div>
+      <div class="zg-cs-body">
+        <div class="zg-cs-listcol">
+          <div id="zg-cs-list" class="zg-cs-list"></div>
+          <div class="zg-cs-editor-link" onclick="zgCharSelEditor()">🖋 Редактор персонажей</div>
+        </div>
+        <div class="zg-cs-center">
+          <div class="zg-cs-portrait" id="zg-cs-portrait"></div>
+          <div class="zg-cs-stats" id="zg-cs-stats"></div>
+        </div>
+        <div class="zg-cs-detail" id="zg-cs-detail"></div>
+      </div>
+      <div class="zg-cs-foot">
+        <button type="button" class="zg-cs-choose" id="zg-cs-choose" onclick="zgCharSelChoose()">Выбрать персонажа</button>
+      </div>
     </div>
   </div>
 
