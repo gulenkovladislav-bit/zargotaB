@@ -9514,9 +9514,180 @@ document.addEventListener('DOMContentLoaded', function(){
     w.zgCharSelClose();
     try { showPage('chars'); } catch(e) {}
   };
+  // ═══ АРТ-ТЮНЕР (временный): два слоя — фон-туман (bg) и персонаж (fg) ═══
+  function tunLayerDefaults(){ return { s:100, x:0, y:0, f:52, file:'' }; }
+  var tun = { layer:'fg', fg: tunLayerDefaults(), bg: tunLayerDefaults() };
+  var tunFiles = { fg:null, bg:null }; // File последних загрузок — для «Прикрепить»
+  function tunCur(){ return tun[tun.layer]; }
+  function tunImg(){
+    if (tun.layer === 'bg') { var b = el('zg-cs-bglayer'); return b ? b.querySelector('img') : null; }
+    var p = el('zg-cs-portrait'); return p ? p.querySelector('img') : null;
+  }
+  function tunStyleImg(img, a, isBg){
+    if (!img) return;
+    var base = isBg ? 'translate(-50%,-50%) ' : '';
+    img.style.transform = base + 'translate(' + (a.x||0) + 'px,' + (a.y||0) + 'px) scale(' + ((a.s!=null?a.s:a.scale||100)/100) + ')';
+    var f = (a.f!=null?a.f:(a.fade!=null?a.fade:52));
+    var m = 'radial-gradient(ellipse 62% 58% at 50% 46%, #000 ' + f + '%, transparent 98%)';
+    img.style.webkitMaskImage = m; img.style.maskImage = m;
+  }
+  function tunApplyToImg(){
+    tunStyleImg(tunImg(), tunCur(), tun.layer === 'bg');
+  }
+  function tunSyncSliders(){
+    var a = tunCur();
+    el('zg-cst-s').value = a.s; el('zg-cst-x').value = a.x; el('zg-cst-y').value = a.y; el('zg-cst-f').value = a.f;
+    el('zg-cst-s-v').textContent = a.s + '%';
+    el('zg-cst-x-v').textContent = a.x;
+    el('zg-cst-y-v').textContent = a.y;
+    el('zg-cst-f-v').textContent = a.f;
+    var lb = el('zg-cst-l-bg'), lf = el('zg-cst-l-fg');
+    if (lb) lb.classList.toggle('on', tun.layer === 'bg');
+    if (lf) lf.classList.toggle('on', tun.layer === 'fg');
+  }
+  w.zgCsTunerLayer = function(name){
+    tun.layer = (name === 'bg') ? 'bg' : 'fg';
+    tunSyncSliders();
+  };
+  w.zgCsTunerToggle = function(){
+    var t = el('zg-cs-tuner');
+    if (t) t.classList.toggle('open');
+  };
+  w.zgCsTunerApply = function(){
+    var a = tunCur();
+    a.s = parseInt(el('zg-cst-s').value, 10);
+    a.x = parseInt(el('zg-cst-x').value, 10);
+    a.y = parseInt(el('zg-cst-y').value, 10);
+    a.f = parseInt(el('zg-cst-f').value, 10);
+    tunSyncSliders();
+    tunApplyToImg();
+  };
+  w.zgCsTunerReset = function(){
+    tun[tun.layer] = tunLayerDefaults();
+    tunSyncSliders();
+    tunApplyToImg();
+  };
+  w.zgCsTunerLoad = function(ev){
+    var f = ev.target.files && ev.target.files[0];
+    if (!f) return;
+    var a = tunCur();
+    a.file = f.name;
+    tunFiles[tun.layer] = f;
+    var url = URL.createObjectURL(f);
+    var host = (tun.layer === 'bg') ? el('zg-cs-bglayer') : el('zg-cs-portrait');
+    if (!host) return;
+    host.innerHTML = '<img src="' + url + '" alt="">';
+    tunApplyToImg();
+    var h = el('zg-cst-hint');
+    if (h) h.textContent = 'Слой ' + (tun.layer === 'bg' ? '1 (туман)' : '2 (персонаж)') + ': ' + f.name;
+  };
+  w.zgCsTunerCopy = function(){
+    var hs = heroes(); var c = hs[selIdx] || {};
+    var json = JSON.stringify({
+      hero: c.name || '',
+      bg: { art: tun.bg.file, scale: tun.bg.s, x: tun.bg.x, y: tun.bg.y, fade: tun.bg.f },
+      fg: { art: tun.fg.file, scale: tun.fg.s, x: tun.fg.x, y: tun.fg.y, fade: tun.fg.f }
+    }, null, 2);
+    var h = el('zg-cst-hint');
+    function done(ok){ if (h) h.textContent = ok ? 'Скопировано! Кинь JSON в чат.' : 'Скопируй вручную: ' + json; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(json).then(function(){ done(true); }, function(){ done(false); });
+    } else done(false);
+  };
+  // ═══ Прикрепление артов (оба слоя) к персонажу: IDB + настройки в листе ═══
+  w.zgCsTunerAttach = function(){
+    var hs = heroes(), c = hs[selIdx];
+    var h = el('zg-cst-hint');
+    if (!c) { if (h) h.textContent = 'Нет выбранного персонажа.'; return; }
+    var prev = (c.heroArt && c.heroArt.fg) ? c.heroArt : { fg: c.heroArt || {}, bg: {} };
+    function packLayer(name, path){
+      var a = tun[name];
+      var oldPath = (prev[name] && prev[name].path) || (name === 'fg' ? (c.portrait || '') : '');
+      return { path: path || oldPath, scale: a.s, x: a.x, y: a.y, fade: a.f };
+    }
+    function finish(bgPath, fgPath){
+      c.heroArt = { bg: packLayer('bg', bgPath), fg: packLayer('fg', fgPath) };
+      if (!c.heroArt.bg.path) delete c.heroArt.bg; // фон не задан — не храним
+      if (typeof w.saveChars === 'function') w.saveChars();
+      if (h) h.textContent = 'Прикреплено к «' + (c.name || '') + '» (оба слоя). Сохранено.';
+      render();
+    }
+    function putIf(file, suffix, cb){
+      if (file && w.zgImageStore) w.zgImageStore.put(file, 'heroart', 'hero_' + (c.id || selIdx) + suffix, cb);
+      else cb(null);
+    }
+    putIf(tunFiles.bg, '_bg', function(bgPath){
+      putIf(tunFiles.fg, '', function(fgPath){ finish(bgPath, fgPath); });
+    });
+  };
+  w.zgCsTunerDetach = function(){
+    var hs = heroes(), c = hs[selIdx];
+    if (!c) return;
+    delete c.heroArt;
+    if (typeof w.saveChars === 'function') w.saveChars();
+    var bl = el('zg-cs-bglayer'); if (bl) bl.innerHTML = '';
+    var h = el('zg-cst-hint');
+    if (h) h.textContent = 'Откреплено (оба слоя).';
+    render();
+  };
+  // Применить сохранённые арты героя (вызывается после render)
+  function tunShowLayer(host, a, isBg){
+    if (!host) return;
+    function show(src){
+      host.innerHTML = '<img src="' + src + '" alt="">';
+      tunStyleImg(host.querySelector('img'), a, isBg);
+    }
+    var path = (a && a.path) || '';
+    if (!path) { if (isBg) host.innerHTML = ''; return; }
+    if (path.indexOf('images/') === 0 && w.zgImageStore) {
+      w.zgImageStore.getBlobUrl(path, function(url){ show(url || path); });
+    } else show(path);
+  }
+  function tunApplyHeroArt(c){
+    var bl = el('zg-cs-bglayer');
+    if (!c || !c.heroArt) { if (bl) bl.innerHTML = ''; return; }
+    var ha = (c.heroArt.fg || c.heroArt.bg) ? c.heroArt : { fg: c.heroArt }; // совместимость со старым форматом
+    if (ha.fg && ha.fg.path) tunShowLayer(el('zg-cs-portrait'), ha.fg, false);
+    tunShowLayer(bl, ha.bg, true);
+  }
+  var _tunOrigRender = render;
+  render = function(){
+    _tunOrigRender();
+    var hs = heroes(), c = hs[selIdx];
+    tunApplyHeroArt(c);
+  };
+
+  // Перетаскивание + зум колесом по портрету
+  (function(){
+    var drag = null;
+    document.addEventListener('pointerdown', function(ev){
+      var p = ev.target && ev.target.closest ? ev.target.closest('#zg-cs-portrait') : null;
+      if (!p || !tunImg()) return;
+      drag = { x: ev.clientX, y: ev.clientY, ax: tun.x, ay: tun.y };
+    });
+    document.addEventListener('pointermove', function(ev){
+      if (!drag) return;
+      el('zg-cst-x').value = Math.max(-400, Math.min(400, drag.ax + (ev.clientX - drag.x)));
+      el('zg-cst-y').value = Math.max(-400, Math.min(400, drag.ay + (ev.clientY - drag.y)));
+      w.zgCsTunerApply();
+    });
+    document.addEventListener('pointerup', function(){ drag = null; });
+    document.addEventListener('wheel', function(ev){
+      var p = ev.target && ev.target.closest ? ev.target.closest('#zg-cs-portrait') : null;
+      if (!p || !tunImg()) return;
+      ev.preventDefault();
+      var v = parseInt(el('zg-cst-s').value, 10) + (ev.deltaY < 0 ? 5 : -5);
+      el('zg-cst-s').value = Math.max(10, Math.min(300, v));
+      w.zgCsTunerApply();
+    }, { passive: false });
+  })();
+
   w.zgCharSelPick = function(i){
     selIdx = i;
     render();
+    // слайдеры переприменяем только если тюнер открыт и у героя нет сохранённого арта
+    var _t = el('zg-cs-tuner'), _c = heroes()[selIdx];
+    if (_t && _t.classList.contains('open') && !(_c && _c.heroArt)) tunApplyToImg();
     try { if (w.ZargotaSound && w.ZargotaSound.buttonSoft) w.ZargotaSound.buttonSoft(); } catch(e) {}
   };
   w.zgCharSelChoose = function(){
@@ -12387,7 +12558,7 @@ window.zgImageStore = (function() {
   .zg-cs-body{display:grid;grid-template-columns:330px minmax(0,1fr) 360px;gap:30px;min-height:0;padding-top:16px}
   .zg-cs-listcol{display:flex;flex-direction:column;min-height:0}
   .zg-cs-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:4px 6px 4px 2px;min-height:0}
-  .zg-cs-item{position:relative;display:flex;align-items:center;border:1px solid #2a1e0f;border-radius:8px;background:#0f0b06cc;cursor:pointer;text-align:left;padding:0;overflow:hidden;color:var(--text);font-family:'Lora',serif;flex-shrink:0}
+  .zg-cs-item{position:relative;display:flex;align-items:center;border:1px solid #2a1e0f80;border-radius:8px;background:#0f0b064d;cursor:pointer;text-align:left;padding:0;overflow:hidden;color:var(--text);font-family:'Lora',serif;flex-shrink:0}
   .zg-cs-item:hover{border-color:#c4a04a66}
   .zg-cs-item.sel{border-color:#e8c060;box-shadow:0 0 20px #e8c06026,inset 0 0 26px #e8c06010}
   .zg-cs-thumb{width:72px;height:94px;object-fit:cover;object-position:top center;display:block;flex-shrink:0}
@@ -12404,6 +12575,29 @@ window.zgImageStore = (function() {
   .zg-cs-portrait img{max-width:100%;max-height:100%;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 52%,transparent 98%);mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 52%,transparent 98%)}
   .zg-cs-port-ph{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--dim);text-align:center}
   .zg-cs-port-ph .hint{font-size:13px;max-width:260px;color:var(--dim)}
+  /* ─ АРТ-ТЮНЕР (временный инструмент примерки) ─ */
+  /* Слой 1 (туман) — на всю панель, под всем */
+  .zg-cs-bglayer{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:10px;pointer-events:none}
+  .zg-cs-bglayer img{position:absolute;left:50%;top:50%;max-width:none;transform:translate(-50%,-50%)}
+  .zg-cs-tuner .lrow{display:flex;gap:6px;margin-bottom:4px}
+  .zg-cs-tuner .lbtn{flex:1;padding:6px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer}
+  .zg-cs-tuner .lbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(232,192,96,.08)}
+  /* Арт — фоновый слой: панели всегда поверх разросшегося портрета */
+  .zg-cs-portrait{z-index:0}
+  .zg-cs-portrait img{pointer-events:none}
+  .zg-cs-head,.zg-cs-listcol,.zg-cs-detail,.zg-cs-stats,.zg-cs-foot{position:relative;z-index:2}
+  .zg-cs-tuner-btn{position:absolute;bottom:8px;right:8px;z-index:6;width:28px;height:28px;border-radius:7px;background:rgba(20,15,8,.7);border:1px solid var(--border);color:var(--dim);font-size:14px;line-height:1;cursor:pointer;transition:color .25s,border-color .25s}
+  .zg-cs-tuner-btn:hover{color:var(--gold);border-color:var(--gold2)}
+  .zg-cs-tuner{position:absolute;bottom:42px;right:8px;z-index:7;width:252px;padding:12px;border-radius:10px;background:rgba(14,11,6,.95);border:1px solid var(--gold2);display:none;font-size:11px;color:var(--muted)}
+  .zg-cs-tuner.open{display:block}
+  .zg-cs-tuner label{display:flex;align-items:center;gap:8px;margin:7px 0}
+  .zg-cs-tuner label span{width:58px;flex-shrink:0}
+  .zg-cs-tuner input[type=range]{flex:1;accent-color:var(--gold2);min-width:0}
+  .zg-cs-tuner .val{width:42px;text-align:right;color:var(--text);flex-shrink:0}
+  .zg-cs-tuner .trow{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .zg-cs-tuner .tbtn{flex:1;min-width:68px;padding:7px 6px;border-radius:7px;background:rgba(232,192,96,.08);border:1px solid var(--border);color:var(--text);font-size:11px;cursor:pointer}
+  .zg-cs-tuner .tbtn:hover{border-color:var(--gold2);color:var(--gold)}
+  .zg-cs-tuner .hint2{margin-top:8px;color:var(--dim);line-height:1.4}
   .zg-cs-stats{display:flex;justify-content:center;gap:44px;padding:16px 0 4px;flex-shrink:0;flex-wrap:wrap}
   .zg-cs-stat{display:flex;align-items:center;gap:10px}
   .zg-cs-stat .ic{font-size:20px;opacity:.9}
@@ -12432,6 +12626,7 @@ window.zgImageStore = (function() {
   </style>
   <div id="zg-cs-overlay" class="zg-cs-overlay">
     <div class="zg-cs-panel" role="dialog" aria-modal="true">
+      <div class="zg-cs-bglayer" id="zg-cs-bglayer"></div>
       <button type="button" class="zg-cs-back" onclick="zgCharSelBack()">⟵&nbsp; Назад</button>
       <div class="zg-cs-head">
         <div class="zg-cs-title">Отправиться в путь</div>
@@ -12443,9 +12638,31 @@ window.zgImageStore = (function() {
           <div id="zg-cs-list" class="zg-cs-list"></div>
           <div class="zg-cs-editor-link" onclick="zgCharSelEditor()">🖋 Редактор персонажей</div>
         </div>
-        <div class="zg-cs-center">
+        <div class="zg-cs-center" style="position:relative">
           <div class="zg-cs-portrait" id="zg-cs-portrait"></div>
           <div class="zg-cs-stats" id="zg-cs-stats"></div>
+          <button type="button" class="zg-cs-tuner-btn" onclick="zgCsTunerToggle()" title="Арт-тюнер (временный)">🖼</button>
+          <div class="zg-cs-tuner" id="zg-cs-tuner">
+            <div class="lrow">
+              <button type="button" class="lbtn" id="zg-cst-l-bg" onclick="zgCsTunerLayer('bg')">Слой 1 · Туман</button>
+              <button type="button" class="lbtn on" id="zg-cst-l-fg" onclick="zgCsTunerLayer('fg')">Слой 2 · Персонаж</button>
+            </div>
+            <label><span>Масштаб</span><input type="range" id="zg-cst-s" min="10" max="500" value="100" oninput="zgCsTunerApply()"><span class="val" id="zg-cst-s-v">100%</span></label>
+            <label><span>Сдвиг X</span><input type="range" id="zg-cst-x" min="-400" max="400" value="0" oninput="zgCsTunerApply()"><span class="val" id="zg-cst-x-v">0</span></label>
+            <label><span>Сдвиг Y</span><input type="range" id="zg-cst-y" min="-400" max="400" value="0" oninput="zgCsTunerApply()"><span class="val" id="zg-cst-y-v">0</span></label>
+            <label><span>Край, %</span><input type="range" id="zg-cst-f" min="20" max="100" value="52" oninput="zgCsTunerApply()"><span class="val" id="zg-cst-f-v">52</span></label>
+            <div class="trow">
+              <button type="button" class="tbtn" onclick="document.getElementById('zg-cst-file').click()">Загрузить</button>
+              <button type="button" class="tbtn" onclick="zgCsTunerReset()">Сброс</button>
+              <button type="button" class="tbtn" onclick="zgCsTunerCopy()">JSON ⧉</button>
+            </div>
+            <div class="trow">
+              <button type="button" class="tbtn" style="border-color:var(--gold2);color:var(--gold)" onclick="zgCsTunerAttach()">📌 Прикрепить к персонажу</button>
+              <button type="button" class="tbtn" onclick="zgCsTunerDetach()">Открепить</button>
+            </div>
+            <div class="hint2" id="zg-cst-hint">Тянуть арт — мышью/пальцем по портрету, зум — колесом. «JSON ⧉» копирует настройки — кинь их мне в чат.</div>
+            <input id="zg-cst-file" type="file" accept="image/*" style="display:none" onchange="zgCsTunerLoad(event)">
+          </div>
         </div>
         <div class="zg-cs-detail" id="zg-cs-detail"></div>
       </div>
