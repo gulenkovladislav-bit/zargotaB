@@ -8678,8 +8678,9 @@
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-17.1';
+var ZG_APP_VERSION = '2026-07-17.2';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-17.2', notes: 'Авторасчёт НПС следует Мануалу и учитывает расу, уровень, Выносливость, профессию, возраст, телосложение, пол и боевой опыт. Добавлены поля пола и телосложения.' },
   { v: '2026-07-17.1', notes: 'Реестр НПС: новая широкая карточка-шпаргалка со статусом и вертикальными характеристиками слева, ролевой информацией и связями справа.' },
   { v: '2026-05-09.10', notes: 'Поп-ап «Что произошло» после каста заклинания: большая карточка по центру с разбором — атака d20, сейв, урон, лечение, статусы. HP до/после. Авто-закрытие через 2.8-4 сек.' },
   { v: '2026-05-09.9', notes: 'Карточки бестиария: flex-wrap вместо grid — без обрезания и пустоты' },
@@ -16913,7 +16914,7 @@ function showPage(name) {
 
 // ═══════════════════════════════════════════════════════════
 // РЕЕСТР НПС (zargota_npc_v1) — единая база NPC мира
-// Запись: {id,name,age,icon,image,role,place,faction,status,tags[],desc,appearance,behavior,secret,npcStats:{race,level,archetype,hp,armor,init,threat,stats},links:[{id,label}],srcHtreeId}
+// Запись: {id,name,age,icon,image,role,place,faction,status,tags[],desc,appearance,behavior,secret,npcStats:{race,gender,build,level,archetype,hp,armor,init,threat,stats},links:[{id,label}],srcHtreeId}
 // Секреты ГМа (secret) вырезаются при публикации, остаются в бэкапе.
 // ═══════════════════════════════════════════════════════════
 var NPC_STATUSES = [
@@ -17183,6 +17184,149 @@ function zgNpcAgeNumber(n) {
   var age = parseInt(m[0], 10);
   return isNaN(age) ? null : age;
 }
+function zgNpcPhysicalAgeNumber(n) {
+  var raw = n && n.age;
+  if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+  var visible = String(raw).match(/на\s+вид\D{0,12}(\d{1,3})/i);
+  if (visible) return parseInt(visible[1], 10);
+  return zgNpcAgeNumber(n);
+}
+function zgNpcInferGender(n, hay) {
+  n = n || {};
+  var rawStats = n.npcStats || n.stats || {};
+  var raw = zgNpcNorm(rawStats.gender || n.gender || '');
+  if (/^(female|f|жен|женщина|девушка|девочка)$/.test(raw)) return 'female';
+  if (/^(male|m|муж|мужчина|парень|мальчик)$/.test(raw)) return 'male';
+  if (/^(other|neutral|иной|другое|неважно)$/.test(raw)) return 'other';
+  hay = zgNpcNorm(hay || '');
+  if (/(^| )(девочка|девушка|женщина|жительница|мать|мама|сестра|дочь|жена|бабушка|вдова|баронесса|правительница|наследница|смотрительница|леди|ведьма|ворожея|травница|торговка|продавщица|служанка|хозяйка|жрица|наемница|наёмница)( |$)/.test(hay)) return 'female';
+  if (/(^| )(мальчик|юноша|мужчина|житель|отец|папа|брат|сын|муж|дед|вдовец|барон|лорд|старик|хозяин|стражник|капитан|трактирщик|купец|гонец)( |$)/.test(hay)) return 'male';
+  return 'unknown';
+}
+function zgNpcInferBuild(n, hay) {
+  n = n || {};
+  var rawStats = n.npcStats || n.stats || {};
+  var raw = zgNpcNorm(rawStats.build || n.build || '');
+  var aliases = {
+    'fragile':'fragile', 'хрупкий':'fragile', 'хрупкая':'fragile', 'щуплый':'fragile', 'щуплая':'fragile',
+    'wiry':'wiry', 'жилистый':'wiry', 'жилистая':'wiry', 'поджарый':'wiry', 'поджарая':'wiry',
+    'average':'average', 'обычный':'average', 'обычная':'average', 'средний':'average', 'средняя':'average',
+    'sturdy':'sturdy', 'крепкий':'sturdy', 'крепкая':'sturdy', 'коренастый':'sturdy', 'коренастая':'sturdy',
+    'massive':'massive', 'массивный':'massive', 'массивная':'massive', 'огромный':'massive', 'огромная':'massive'
+  };
+  if (aliases[raw]) return aliases[raw];
+  hay = zgNpcNorm(hay || '');
+  if (/хрупк|щупл|болезнен|хил(ый|ая|ое)|слаб(ый|ая|ое)|истощ|тощ(ий|ая)|заморыш/.test(hay)) return 'fragile';
+  if (/жилист|сухощав|поджар|гибк(ий|ая)|проворн/.test(hay)) return 'wiry';
+  if (/массив|огромн|громадн|исполин|тяжеловес|грузн/.test(hay)) return 'massive';
+  if (/крепк|коренаст|широкоплеч|мускул|атлет|сильн(ый|ая)|мощн(ый|ая)/.test(hay)) return 'sturdy';
+  return 'average';
+}
+function zgNpcLifeContext(n, raceKey, profile) {
+  n = n || {};
+  profile = profile || {};
+  var tags = Array.isArray(n.tags) ? n.tags.join(' ') : '';
+  var roleHay = zgNpcNorm([n.name, n.role, tags].join(' '));
+  var loreHay = zgNpcNorm([n.appearance, n.desc, n.secret, profile.archetype].join(' '));
+  var hay = roleHay + ' ' + loreHay;
+  var age = zgNpcPhysicalAgeNumber(n);
+  var rawAge = String(n.age || '');
+  var isHumanScale = raceKey === 'Человек' || raceKey === 'Уродец' || /на\s+вид/i.test(rawAge);
+  var explicitChild = /ребенок|ребёнок|мальчик|девочка|малолет|малыш|малой/.test(roleHay);
+  var explicitTeen = /подрост|юнош|девушк|тинейдж/.test(roleHay);
+  var explicitOld = /старик|старуха|пожил|престар|дряхл/.test(hay);
+  var stage = 'adult';
+  if (explicitChild || (isHumanScale && age !== null && age < 12)) stage = 'child';
+  else if (explicitTeen || (isHumanScale && age !== null && age < 16)) stage = 'teen';
+  else if (isHumanScale && age !== null && age <= 20) stage = 'young';
+  else if (explicitOld || (isHumanScale && age !== null && age >= 70)) stage = 'elderly';
+  else if (isHumanScale && age !== null && age >= 55) stage = 'mature';
+
+  var combat = /страж|караул|дружин|воин|солдат|матрос|наемник|наёмник|капитан|командир|шериф|ветеран|боцман|следопыт|охотник|убийц|телохран/.test(roleHay) ||
+    /бывш(ий|ая).{0,18}(вояк|солдат|матрос)|служил.{0,18}(флот|арм|страж)|боев(ой|ая) опыт/.test(loreHay);
+  var physicalWork = /артельщик|лесоруб|шахт|кузнец|рудник|каменотес|каменотёс|верф|докер|грузчик|крестьянин|фермер|плотник|рыбак|землекоп|пивовар/.test(roleHay);
+  var sedentary = /писарь|учен|учён|книжник|архивист|библиотек|счетовод|счётовод|чиновник/.test(roleHay);
+  var supernatural = /древнее существо|бессмерт|не человек|аномальн|живой катастроф/.test(hay);
+  if (supernatural) stage = 'adult';
+
+  var ctx = {
+    age: age,
+    stage: stage,
+    gender: zgNpcInferGender(n, hay),
+    build: zgNpcInferBuild(n, hay),
+    combat: combat,
+    physicalWork: physicalWork,
+    sedentary: sedentary,
+    hpFactor: 1,
+    hpFlat: 0,
+    roleHpFlat: 0,
+    statMods: { str:0, dex:0, int:0, cha:0, per:0, con:0 }
+  };
+
+  if (stage === 'child') {
+    ctx.hpFactor = 0.58;
+    ctx.statMods.str -= 3; ctx.statMods.con -= 2; ctx.statMods.dex += 1; ctx.statMods.per += 1;
+  } else if (stage === 'teen') {
+    ctx.hpFactor = 0.78;
+    ctx.statMods.str -= 1; ctx.statMods.con -= 1; ctx.statMods.dex += 1;
+  } else if (stage === 'young') {
+    ctx.hpFactor = 0.95;
+  } else if (stage === 'mature') {
+    ctx.hpFactor = 0.92;
+    ctx.statMods.dex -= 1; ctx.statMods.int += 1; ctx.statMods.per += 1;
+    if (!combat && !physicalWork) ctx.statMods.str -= 1;
+  } else if (stage === 'elderly') {
+    ctx.hpFactor = 0.76;
+    ctx.statMods.str -= combat || physicalWork ? 1 : 2;
+    ctx.statMods.dex -= 2; ctx.statMods.con -= 1; ctx.statMods.int += 1; ctx.statMods.per += 2;
+  }
+
+  if (ctx.build === 'fragile') {
+    ctx.hpFlat -= 3;
+    ctx.statMods.str -= 2; ctx.statMods.con -= 2; ctx.statMods.dex += 1;
+  } else if (ctx.build === 'wiry') {
+    ctx.statMods.dex += 2; ctx.statMods.con += 1;
+  } else if (ctx.build === 'sturdy') {
+    ctx.hpFlat += 2;
+    ctx.statMods.str += 2; ctx.statMods.con += 2;
+  } else if (ctx.build === 'massive') {
+    ctx.hpFlat += 4;
+    ctx.statMods.str += 3; ctx.statMods.con += 3; ctx.statMods.dex -= 1;
+  }
+
+  if (combat) {
+    ctx.statMods.str += 1; ctx.statMods.dex += 1; ctx.statMods.per += 1; ctx.statMods.con += 1;
+    if (!profile.hpBias) ctx.roleHpFlat += 2;
+  } else if (physicalWork) {
+    ctx.statMods.str += 2; ctx.statMods.con += 2;
+    if (!profile.hpBias) ctx.roleHpFlat += 2;
+  } else if (sedentary) {
+    ctx.statMods.str -= 1; ctx.statMods.int += 1; ctx.statMods.per += 1;
+    if (!profile.hpBias) ctx.roleHpFlat -= 1;
+  }
+
+  // Пол влияет слабее профессии и телосложения. Для подготовленных бойцов и
+  // тяжёлых работников разница в распределении статов убирается, остаётся лишь 1 HP.
+  if (ctx.gender === 'female' && stage !== 'child') {
+    ctx.hpFlat -= 1;
+    if (!combat && !physicalWork && ctx.build === 'average') {
+      ctx.statMods.str -= 1;
+      ctx.statMods.dex += 1;
+    }
+  }
+  return ctx;
+}
+function zgNpcApplyLifeContextToSeed(seed, ctx) {
+  var out = {};
+  seed = seed || {};
+  ctx = ctx || { statMods:{} };
+  ZG_NPC_STAT_KEYS.forEach(function(st){
+    var value = zgNpcParseNullableInt(seed[st.key]);
+    if (value === null) value = 0;
+    out[st.key] = value + ((ctx.statMods && ctx.statMods[st.key]) || 0);
+  });
+  return out;
+}
 function zgNpcCanonicalProfile(n) {
   var key = zgNpcNorm(n && n.name || '').replace(/[«»"'’]/g, '');
   return ZG_NPC_CANONICAL_PROFILES[key] || null;
@@ -17307,9 +17451,9 @@ function zgNpcInferLevel(n, hay, profile) {
   // Возраст ограничивает только автоматический расчёт. Ручной уровень всегда важнее.
   if ((age !== null && age < 16) || zgNpcHas(roleHay, /ребенок|мальчик|девочка|подросток|сирота/)) lvl = 1;
   else {
-    if (zgNpcHas(roleHay, /трактирщик|бармен|лавочник|торговец|купец|травниц|ремеслен|артельщик|лесоруб|шахтер|шахтёр/)) lvl = Math.max(lvl, 2);
+    if (zgNpcHas(roleHay, /трактирщик|бармен|лавочник|торговец|купец|травниц|лекарь|целитель|ремеслен|гонец|курьер|посыльн|артельщик|лесоруб|шахтер|шахтёр|рыбак|моряк|кузнец|писарь|учен|учён/)) lvl = Math.max(lvl, 2);
     if (zgNpcHas(roleHay, /стражник|караульн|дружинник|матрос|солдат/)) lvl = Math.max(lvl, 2);
-    if (zgNpcHas(roleHay, /воин|наемник|наёмник|хранитель рощ|староста|смотритель|следопыт|ворожея|жрец|серп/)) lvl = Math.max(lvl, 3);
+    if (zgNpcHas(roleHay, /воин|наемник|наёмник|хранитель рощ|староста|смотритель|следопыт|охотник|ворожея|жрец|серп/)) lvl = Math.max(lvl, 3);
     if (zgNpcHas(roleHay, /глава страж|капитан|командир|шериф|ветеран|бывший .*вояк|боцман|надсмотрщик|барон|герцог|леди|лорд|глава .*совет|правитель/)) lvl = Math.max(lvl, 4);
     if (zgNpcHas(roleHay, /элитн|мастер|инквизитор|командор|резидент|смотрящий|хранитель тюрьм/)) lvl = Math.max(lvl, 5);
     if (zgNpcHas(roleHay, /маг|колдун|чарод|вороже|ведьм|ритуалист/)) lvl = Math.max(lvl, 3);
@@ -17323,37 +17467,55 @@ function zgNpcInferLevel(n, hay, profile) {
   if (zgNpcHas(roleHay + ' ' + loreHay, /абсолют/)) lvl = 11;
   return zgNpcClampInt(lvl, 1, 11, 1);
 }
-function zgNpcCalcHp(level, raceKey, stats, profile) {
+function zgNpcCalcHp(level, raceKey, stats, profile, life) {
   var r = zgNpcRaceData(raceKey);
   var base = (r.hpStart || 10) + (Math.max(1, level) - 1) * (r.hpPerLevel || 4);
   var con = Math.max(0, zgNpcParseNullableInt(stats && stats.con) || 0);
-  var body = Math.floor(con * (level >= 4 ? 1 : 0.7));
+  // Мануал: каждое очко Выносливости обычно даёт +2 HP.
+  var body = con * 2;
   var role = (profile && profile.hpBias) || 0;
   var minHp = profile && profile.hp ? profile.hp : 1;
-  return Math.max(1, Math.max(minHp, base + body + role));
+  life = life || { hpFactor:1, hpFlat:0, roleHpFlat:0, stage:'adult' };
+  var hp = Math.max(minHp, base + body + role + (life.roleHpFlat || 0));
+  hp = Math.round(hp * (life.hpFactor || 1)) + (life.hpFlat || 0);
+
+  // Обычный ребёнок 1 уровня не получает взрослый запас HP даже тогда,
+  // когда в его роли встречается ремесло. Ручное HP по-прежнему отменяет этот предел.
+  if (life.stage === 'child' && level <= 1) {
+    hp = Math.min(hp, Math.round((r.hpStart || 10) * 0.75) + con);
+  } else if (life.stage === 'teen' && level <= 1) {
+    hp = Math.min(hp, (r.hpStart || 10) + con * 2 + 2);
+  }
+  return Math.max(3, hp);
 }
 function zgNpcAutoArmor(level, stats, profile) {
   var dex = Math.max(0, zgNpcParseNullableInt(stats && stats.dex) || 0);
   var armor = (profile && profile.armor) || 10;
   if (level >= 6 && armor >= 13) armor += 1;
   if (level >= 9 && armor >= 14) armor += 1;
-  if (armor <= 11 && dex >= 5) armor += 1;
+  // Мануал: каждые 3 очка Ловкости обычно дают +1 к лёгкой защите.
+  if (armor <= 12) armor += Math.floor(dex / 3);
   return Math.max(8, Math.min(20, armor));
 }
-function zgNpcArchetypeFromStats(stats, preferred) {
+function zgNpcAutoInitiative(stats, profile) {
+  var dex = Math.max(0, zgNpcParseNullableInt(stats && stats.dex) || 0);
+  return Math.max(-3, Math.min(8, ((profile && profile.init) || 0) + Math.floor(dex / 3)));
+}
+function zgNpcArchetypeFromStats(stats, preferred, gender) {
   if (preferred) return preferred;
   stats = stats || {};
+  var female = gender === 'female';
   var ranked = [
-    { key:'con', label:'Крепкий' },
-    { key:'dex', label:'Жилистый' },
-    { key:'int', label:'Умный' },
-    { key:'per', label:'Наблюдательный' },
-    { key:'cha', label:'Убедительный' },
-    { key:'str', label:'Сильный' }
+    { key:'con', label:female ? 'Крепкая' : 'Крепкий' },
+    { key:'dex', label:female ? 'Жилистая' : 'Жилистый' },
+    { key:'int', label:female ? 'Умная' : 'Умный' },
+    { key:'per', label:female ? 'Наблюдательная' : 'Наблюдательный' },
+    { key:'cha', label:female ? 'Убедительная' : 'Убедительный' },
+    { key:'str', label:female ? 'Сильная' : 'Сильный' }
   ].sort(function(a,b){ return (stats[b.key] || 0) - (stats[a.key] || 0); });
   var top = ranked[0] ? (stats[ranked[0].key] || 0) : 0;
   var tied = ranked.filter(function(x){ return (stats[x.key] || 0) === top; }).length;
-  return top > 1 && tied <= 2 ? ranked[0].label : 'Обычный человек';
+  return top > 1 && tied <= 2 ? ranked[0].label : (female ? 'Обычная жительница' : 'Обычный человек');
 }
 function zgNpcBaseProfile(n) {
   n = n || {};
@@ -17386,6 +17548,46 @@ function zgNpcBaseProfile(n) {
     p.appearance = 'рабочая одежда, тяжёлые руки, заметная привычка к физическому труду';
     p.behavior = 'говорит прямо, ценит дело и быстро замечает тех, кто не умеет работать';
     p.about = 'выносливый местный специалист; опасен, если загнать его в угол';
+  }
+
+  if (zgNpcHas(roleHay, /моряк|рыбак|матрос|боцман|лодочник|портовик/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Крепкий моряк'; p.hp = 18; p.armor = 11; p.init = 1; p.threat = 'средняя'; p.hpBias = 3;
+    p.stats = { str:2, dex:1, int:0, cha:0, per:2, con:3 };
+    p.appearance = 'обветренное лицо, уверенная стойка, руки привыкли к канатам, снастям и тяжёлой работе';
+    p.behavior = 'быстро оценивает погоду, путь и опасность; говорит без лишних украшений';
+    p.about = 'привык к тяжёлому труду, качке, холоду и внезапным происшествиям';
+  }
+
+  if (zgNpcHas(roleHay, /гонец|курьер|посыльн|почтальон|скороход/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Жилистый гонец'; p.hp = 14; p.armor = 10; p.init = 2; p.threat = 'низкая'; p.hpBias = 1;
+    p.stats = { str:0, dex:3, int:0, cha:1, per:2, con:2 };
+    p.appearance = 'дорожная одежда, лёгкий багаж, натруженные ноги и привычка не задерживаться';
+    p.behavior = 'говорит быстро, запоминает дорогу и лица, бережёт время и поручение';
+    p.about = 'ценен скоростью, знанием маршрутов и тем, что видел между поселениями';
+  }
+
+  if (zgNpcHas(roleHay, /лекарь|целитель|травниц|знахар|аптекар|повитух/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Наблюдательный лекарь'; p.hp = 12; p.armor = 10; p.init = 0; p.threat = 'социальная';
+    p.stats = { str:0, dex:1, int:2, cha:1, per:3, con:1 };
+    p.appearance = 'практичная одежда, следы трав и настоек, внимательные руки';
+    p.behavior = 'сперва наблюдает симптомы, затем задаёт точные вопросы и не терпит суеты';
+    p.about = 'понимает тело, болезни, травы и то, что люди пытаются скрыть о своём состоянии';
+  }
+
+  if (zgNpcHas(roleHay, /охотник|следопыт|егерь|ловчий/)) {
+    p.level = Math.max(p.level, 3); p.archetype = 'Жилистый следопыт'; p.hp = 18; p.armor = 12; p.init = 2; p.threat = 'средняя'; p.hpBias = 1;
+    p.stats = { str:1, dex:3, int:0, cha:0, per:3, con:2 };
+    p.appearance = 'неброская походная одежда, удобное оружие, взгляд постоянно цепляется за следы';
+    p.behavior = 'говорит тихо, экономит движения и раньше других замечает перемену вокруг';
+    p.about = 'опасен подготовкой, дистанцией и знанием местности, а не грубой силой';
+  }
+
+  if (zgNpcHas(roleHay, /писарь|учен|учён|книжник|архивист|библиотек|счетовод|счётовод|чиновник/)) {
+    p.level = Math.max(p.level, 2); p.archetype = 'Умный книжник'; p.hp = 10; p.armor = 10; p.init = 0; p.threat = 'социальная';
+    p.stats = { str:-1, dex:0, int:3, cha:1, per:2, con:0 };
+    p.appearance = 'следы чернил, бумаги или долгой кабинетной работы; руки не привыкли к оружию';
+    p.behavior = 'уточняет формулировки, помнит документы и ищет противоречия';
+    p.about = 'опасен знаниями, бумагами и доступом к сведениям, но не рассчитан на прямой бой';
   }
 
   if (zgNpcHas(roleHay, /трактирщик|бармен|хозяин таверн|корчмар|пивовар/)) {
@@ -17466,12 +17668,7 @@ function zgNpcBaseProfile(n) {
     p.about = 'его нельзя мерить как обычного человека: сила связана с территорией и древними условиями';
   }
 
-  if ((age !== null && age >= 60) || zgNpcHas(hay, /старик|старейш|пожил|престар/)) {
-    p.hp = Math.max(8, p.hp - 4);
-    p.stats.str = Math.min(p.stats.str, 0);
-    p.stats.dex = Math.min(p.stats.dex, 0);
-    p.stats.int = Math.max(p.stats.int, 1);
-    p.stats.per = Math.max(p.stats.per, 2);
+  if (((age !== null && age >= 60) || zgNpcHas(hay, /старик|старейш|пожил|престар/)) && !n.appearance) {
     p.appearance = 'возраст заметен сразу: усталость, память в глазах, медленные движения';
   }
 
@@ -17497,17 +17694,23 @@ function zgNpcResolvedSheet(n) {
   var race = raw.race ? zgNpcRaceKey(raw.race) : zgNpcInferRace(n, hay);
   var level = zgNpcInferLevel(n, hay, p);
   var levelScale = zgNpcLevelScale(level);
-  var autoStats = zgNpcDistributeStats(p.stats, level, n && n.status);
+  var life = zgNpcLifeContext(n, race, p);
+  var statSeed = zgNpcApplyLifeContextToSeed(p.stats, life);
+  var autoStats = zgNpcDistributeStats(statSeed, level, n && n.status);
+  var rawInit = zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative);
   var out = {
     level: level,
     levelLabel: levelScale.label,
     levelCompat: levelScale.compat,
     race: race,
     age: n && n.age ? zgNpcCleanLabel(n.age) : zgNpcCleanLabel(p.age || ''),
+    gender: life.gender,
+    build: life.build,
+    ageStage: life.stage,
     archetype: '',
     hp: p.hp,
     armor: p.armor,
-    init: zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative) !== null ? zgNpcParseNullableInt(raw.init !== undefined ? raw.init : raw.initiative) : p.init,
+    init: rawInit !== null ? rawInit : 0,
     threat: raw.threat || p.threat,
     stats: {},
     appearance: zgNpcCompactText(n && n.appearance, p.appearance, 118),
@@ -17519,9 +17722,10 @@ function zgNpcResolvedSheet(n) {
     var val = zgNpcParseNullableInt(rawStats[st.key]);
     out.stats[st.key] = val !== null ? val : (autoStats[st.key] || 0);
   });
-  out.archetype = zgNpcCleanLabel(raw.archetype || p.archetype || zgNpcArchetypeFromStats(out.stats, ''));
-  out.hp = zgNpcParseNullableInt(raw.hp) !== null ? zgNpcParseNullableInt(raw.hp) : zgNpcCalcHp(level, race, out.stats, p);
+  out.archetype = zgNpcCleanLabel(raw.archetype || p.archetype || zgNpcArchetypeFromStats(out.stats, '', life.gender));
+  out.hp = zgNpcParseNullableInt(raw.hp) !== null ? zgNpcParseNullableInt(raw.hp) : zgNpcCalcHp(level, race, out.stats, p, life);
   out.armor = zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) !== null ? zgNpcParseNullableInt(raw.armor !== undefined ? raw.armor : raw.ac) : zgNpcAutoArmor(level, out.stats, p);
+  if (rawInit === null) out.init = zgNpcAutoInitiative(out.stats, p);
   return out;
 }
 function zgNpcSigned(n) {
@@ -17793,6 +17997,22 @@ function zgNpcEdit(id) {
   var rawNum = function(v){ var n = zgNpcParseNullableInt(v); return n === null ? '' : String(n); };
   var rawLevel = rawNum(rawSheet.level);
   var raceOpts = Object.keys(zgNpcRaceMap()).map(function(r){ return '<option value="' + escHTML(r) + '">'; }).join('');
+  var rawGender = rawSheet.gender || '';
+  var rawBuild = rawSheet.build || '';
+  var genderOpts = [
+    ['', 'Авто по описанию'],
+    ['male', 'Мужской'],
+    ['female', 'Женский'],
+    ['other', 'Не учитывать']
+  ].map(function(o){ return '<option value="' + o[0] + '"' + (rawGender === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
+  var buildOpts = [
+    ['', 'Авто по описанию'],
+    ['fragile', 'Хрупкое'],
+    ['wiry', 'Жилистое'],
+    ['average', 'Обычное'],
+    ['sturdy', 'Крепкое'],
+    ['massive', 'Массивное']
+  ].map(function(o){ return '<option value="' + o[0] + '"' + (rawBuild === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('');
   var statInputs = ZG_NPC_STAT_KEYS.map(function(st){
     return '<div><div style="' + lbl + ';margin-top:0" title="' + escHTML(st.title || st.label) + '">' + st.label + '</div><input id="npc-stat-' + st.key + '" type="number" value="' + rawNum(rawStats[st.key]) + '" placeholder="' + sheet.stats[st.key] + '" style="' + inp + ';padding:7px 9px"></div>';
   }).join('');
@@ -17810,7 +18030,9 @@ function zgNpcEdit(id) {
     '<datalist id="npc-factions">' + zgNpcCollectVals(zgNpcLoad(),'faction').map(function(v){ return '<option value="' + escHTML(v) + '">'; }).join('') + '</datalist>' +
     '<div style="display:flex;gap:10px"><div style="flex:1"><div style="' + lbl + '">СТАТУС</div><select id="npc-status" style="' + inp + '">' + stOpts + '</select></div>' +
     '<div style="flex:2"><div style="' + lbl + '">ТЕГИ (через запятую)</div><input id="npc-tags" type="text" placeholder="торговец, юмор, квестодатель" value="' + escHTML(n?(n.tags||[]).join(', '):'') + '" style="' + inp + '"></div></div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px"><div><div style="' + lbl + '">РАСА (пусто = авто)</div><input id="npc-race" type="text" list="npc-races" placeholder="' + escHTML(sheet.race) + '" value="' + escHTML(rawSheet.race || '') + '" style="' + inp + '"></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px"><div><div style="' + lbl + '">РАСА (пусто = авто)</div><input id="npc-race" type="text" list="npc-races" placeholder="' + escHTML(sheet.race) + '" value="' + escHTML(rawSheet.race || '') + '" style="' + inp + '"></div>' +
+    '<div><div style="' + lbl + '">ПОЛ</div><select id="npc-gender" style="' + inp + '">' + genderOpts + '</select></div>' +
+    '<div><div style="' + lbl + '">ТЕЛОСЛОЖЕНИЕ</div><select id="npc-build" style="' + inp + '">' + buildOpts + '</select></div>' +
     '<div><div style="' + lbl + '">УРОВЕНЬ (пусто = авто)</div><input id="npc-level" type="number" min="1" max="11" placeholder="' + (sheet.level >= 11 ? '11' : sheet.level) + '" value="' + rawLevel + '" style="' + inp + '"></div>' +
     '<div><div style="' + lbl + '">ТИПАЖ (пусто = авто)</div><input id="npc-archetype" type="text" placeholder="' + escHTML(sheet.archetype) + '" value="' + escHTML(rawSheet.archetype || '') + '" style="' + inp + '"></div></div>' +
     '<datalist id="npc-races">' + raceOpts + '</datalist>' +
@@ -17879,6 +18101,8 @@ function zgNpcSaveFromEditor(id) {
   n.secret = g('npc-secret') || '';
   n.npcStats = {
     race: (g('npc-race') || '').trim(),
+    gender: g('npc-gender') || '',
+    build: g('npc-build') || '',
     level: zgNpcParseNullableInt(g('npc-level')),
     archetype: (g('npc-archetype') || '').trim(),
     hp: zgNpcParseNullableInt(g('npc-hp')),
