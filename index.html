@@ -4543,7 +4543,7 @@
   /* Большая картинка-эмодзи по центру */
   .shop-card-hero {
     align-self: center;
-    width: 82px; height: 82px; margin-bottom: 12px;
+    width: 104px; height: 104px; margin-bottom: 12px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 14px;
     background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--shop-accent,#8a7a5e) 16%, #1a130a), #100b06);
@@ -4555,7 +4555,7 @@
   .shop-card-hero-emoji { font-size: 44px; line-height: 1; filter: drop-shadow(0 3px 6px #000a); }
   .shop-card-hero-img { width: 100%; height: 100%; object-fit: cover; border-radius: 13px; display: block; }
   .shop-card-hero { overflow: hidden; }
-  .shop-card-hero-wide { width: 100%; max-width: 160px; height: 82px; border-radius: 12px; overflow: hidden; }
+  .shop-card-hero-wide { width: 100%; max-width: 180px; height: 104px; border-radius: 12px; overflow: hidden; }
   /* ── Бестиарий: памятка типов (мастер-деталь) ── */
   .btype-litem { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; user-select: none;
     border: 1px solid #2f2112; border-left: 3px solid var(--btype, #c9a06a); border-radius: 8px; background: #0c0805; transition: background .15s, border-color .15s; }
@@ -8678,8 +8678,10 @@
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-17.2';
+var ZG_APP_VERSION = '2026-07-17.4';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-17.4', notes: 'Витрина товаров собрана в компактный набор из 20 предметов Зарготы. Для каждого товара добавлена единообразная рисованная иконка, цена и короткая игровая механика.' },
+  { v: '2026-07-17.3', notes: 'Добавлена единая серия рисованных портретов для НПС реестра и ключевых фигур Иерархии Зарготы. Ручной портрет по-прежнему имеет приоритет.' },
   { v: '2026-07-17.2', notes: 'Авторасчёт НПС следует Мануалу и учитывает расу, уровень, Выносливость, профессию, возраст, телосложение, пол и боевой опыт. Добавлены поля пола и телосложения.' },
   { v: '2026-07-17.1', notes: 'Реестр НПС: новая широкая карточка-шпаргалка со статусом и вертикальными характеристиками слева, ролевой информацией и связями справа.' },
   { v: '2026-05-09.10', notes: 'Поп-ап «Что произошло» после каста заклинания: большая карточка по центру с разбором — атака d20, сейв, урон, лечение, статусы. HP до/после. Авто-закрытие через 2.8-4 сек.' },
@@ -17153,6 +17155,58 @@ var ZG_NPC_CANONICAL_PROFILES = {
   'лоран безмолвный': { level:5, archetype:'Несгибаемый тюремщик', hpBias:4, armor:15, stats:{str:4,dex:2,int:2,cha:2,per:4,con:5} },
   'варг хребтолом': { level:4, archetype:'Крепкий надсмотрщик', hpBias:4, armor:14, stats:{str:4,dex:1,int:2,cha:2,per:3,con:4} }
 };
+var ZG_NPC_DEFAULT_PORTRAITS = {
+  'морган дребень': 'images/npcs/morgan-dreben.jpg',
+  'плувий беркяш': 'images/npcs/pluviy-berkyash.jpg',
+  'лукавый': 'images/npcs/lukaviy.jpg',
+  'тракельд': 'images/npcs/trakeld.jpg',
+  'савелий': 'images/npcs/saveliy.jpg',
+  'гонец почтовой службы': 'images/npcs/courier.jpg',
+  'флок': 'images/npcs/flok.jpg',
+  'весько': 'images/npcs/vesko.jpg',
+  'гаврила': 'images/npcs/gavrila.jpg',
+  'стражник-наблюдатель в таверне': 'images/npcs/guard-watcher.jpg',
+  'рахим глухарь': 'images/npcs/rahim-glukhar.jpg',
+  'мальчик у повозки': 'images/npcs/wagon-boy.jpg',
+  'тарвен': 'images/npcs/tarven.jpg',
+  'эллина': 'images/npcs/ellina.jpg',
+  'иара': 'images/npcs/iara.jpg',
+  'барон глупища': 'images/npcs/gelmir-levanniy.jpg',
+  'гелмир леванний': 'images/npcs/gelmir-levanniy.jpg',
+  'берегозор': 'images/npcs/beregozor-garda.jpg',
+  'берегозор гарда': 'images/npcs/beregozor-garda.jpg',
+  'ворожея': 'images/npcs/vorozheya.jpg',
+  'гном за стойкой': 'images/npcs/gnome-bartender.jpg',
+  'остав ол великий': 'images/npcs/ostav-ol-velikiy.jpg',
+  'кор-валтар из аркт-заргов': 'images/npcs/kor-valtar.jpg',
+  'гнилислав старец': 'images/npcs/gnilislav-starets.jpg',
+  'барон архонт': 'images/npcs/baron-archon.jpg',
+  'корбен стерн тайд': 'images/npcs/korben-stern-tide.jpg',
+  'горрин камнедер': 'images/npcs/gorrin-kamneder.jpg',
+  'капитан рейнгард тосс': 'images/npcs/captain-reingard-toss.jpg',
+  'леди сильвера найт': 'images/npcs/lady-silvera-knight.jpg',
+  'марелла вейн': 'images/npcs/marella-vein.jpg',
+  'орвель гран-сыт': 'images/npcs/orvel-gran-syt.jpg',
+  'беатрис виньяр': 'images/npcs/beatrice-vinyar.jpg',
+  'аббат ревиан тир': 'images/npcs/abbot-revian-tir.jpg',
+  'сарвен аркт-загр': 'images/npcs/sarven-arkt-zagr.jpg',
+  'вальдрен стург': 'images/npcs/valdren-sturg.jpg',
+  'далвен крючник': 'images/npcs/dalven-kryuchnik.jpg',
+  'шракс': 'images/npcs/shrax.jpg',
+  'мирта двойной счет': 'images/npcs/mirta-double-count.jpg',
+  'харитон твердомысл корнекорень': 'images/npcs/khariton-tverdomysl.jpg',
+  'рагнус полпилы': 'images/npcs/ragnus-half-saw.jpg',
+  'бартоломьюс нилозлоб': 'images/npcs/bartolomius-nilozlob.jpg',
+  'крум крюк дарвес': 'images/npcs/krum-hook-darves.jpg',
+  'шериф зарготы': 'images/npcs/sheriff-zargota.jpg',
+  'лоран безмолвный': 'images/npcs/loran-bezmolvny.jpg',
+  'варг хребтолом': 'images/npcs/varg-hrebtolom.jpg'
+};
+function zgNpcPortrait(n) {
+  if (n && n.image) return n.image;
+  var key = zgNpcNorm(n && n.name || '').replace(/[«»"'’]/g, '');
+  return ZG_NPC_DEFAULT_PORTRAITS[key] || '';
+}
 function zgNpcParseNullableInt(value) {
   if (value === null || value === undefined || String(value).trim() === '') return null;
   var n = parseInt(value, 10);
@@ -17826,7 +17880,8 @@ function zgNpcRender() {
     list.forEach(function(n){
       var s = zgNpcStatus(n.status);
       var sheet = zgNpcResolvedSheet(n);
-      var av = n.image ? '<img src="' + n.image + '" style="width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid ' + s.color + '55">' :
+      var portrait = zgNpcPortrait(n);
+      var av = portrait ? '<img src="' + escHTML(portrait) + '" alt="' + escHTML(n.name || 'НПС') + '" style="width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid ' + s.color + '55">' :
         '<div style="width:54px;height:54px;border-radius:50%;border:2px solid ' + s.color + '55;background:#241a0e;display:flex;align-items:center;justify-content:center;font-size:26px">' + (n.icon||'👤') + '</div>';
       var dead = n.status === 'dead';
       grid += '<div class="shop-card" onclick="zgNpcView(\'' + n.id + '\')" style="' + (dead?'filter:grayscale(.55);':'') + '--shop-accent:' + s.color + '">' +
@@ -17896,7 +17951,8 @@ function zgNpcView(id) {
   wrap.id = 'npc-view-popup';
   wrap.className = 'npc-sheet-overlay';
   wrap.onclick = function(e){ if (e.target === wrap) wrap.remove(); };
-  var av = n.image ? '<img class="npc-sheet-avatar" src="' + n.image + '" style="object-fit:cover;border:2px solid ' + s.color + '88">' :
+  var portrait = zgNpcPortrait(n);
+  var av = portrait ? '<img class="npc-sheet-avatar" src="' + escHTML(portrait) + '" alt="' + escHTML(n.name || 'НПС') + '" style="object-fit:cover;border:2px solid ' + s.color + '88">' :
     '<div class="npc-sheet-avatar" style="border:2px solid ' + s.color + '88;background:#241a0e;display:inline-flex;align-items:center;justify-content:center;font-size:54px">' + (n.icon||'👤') + '</div>';
   var links = '';
   if (Array.isArray(n.links) && n.links.length) {
@@ -41235,7 +41291,7 @@ function zgHydrateShopFromIdb() {
   if (_shopIdbHydrated) return;
   _shopIdbHydrated = true;
   try {
-    if (loadShopItems().length) return; // в LS уже есть — не трогаем
+    if (loadShopItems().length) { zgSeedShopIfEmpty(); return; }
     if (typeof zgReadIdbJson !== 'function') return;
     zgReadIdbJson('zargota_armory_db', 'kv', 'zargota_shop_v1', function(parsed) {
       try {
@@ -41255,7 +41311,7 @@ function saveShopItems(items) {
   try { if (typeof queueIdbWrite === 'function') queueIdbWrite('zargota_armory_db', 'kv', 'zargota_shop_v1', JSON.stringify(items), 'shop to IDB'); } catch(e) {}
 }
 // ═══ Стартовое наполнение витрины (по канону экономики Зарготы, цены в золоте) ═══
-function zgSeedShopIfEmpty() {
+function zgSeedLegacyShopItems() {
   try {
     var existing = loadShopItems();
     var seededV2 = localStorage.getItem('zargota_shop_seeded_v3');
@@ -41358,6 +41414,45 @@ function zgSeedShopIfEmpty() {
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}
 }
+
+// Компактная витрина v4. Старые автотовары заменяются, созданные вручную сохраняются.
+function zgSeedShopIfEmpty() {
+  try {
+    if (localStorage.getItem('zargota_shop_seeded_v4')) return;
+    var featured = [
+      { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
+      { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
+      { id:'shp_featured_03', name:'Сабля Морелесья', icon:'⚔️', image:'images/shop/moreles-sabre.png', imgSize:'square', cat:'weapon', rarity:'uncommon', price:{pl:1,zl:8,sr:0,md:0}, damage:'1d8', damageType:'Рубящий', range:'Ближняя / 1 клетка', effect:'+1 к инициативе в первом ходу', desc:'Короткая морская сабля с тяжёлой гардой. Удобна на палубе, в переулке и тесной каюте.' },
+      { id:'shp_featured_04', name:'Тяжёлый арбалет', icon:'🏹', image:'images/shop/heavy-crossbow.png', imgSize:'square', cat:'weapon', rarity:'rare', price:{pl:5,zl:0,sr:0,md:0}, damage:'1d10', damageType:'Колющий', range:'Дальняя / 12 клеток', effect:'Пробивает броню, долгая перезарядка', desc:'Стальной лук и ворот требуют времени, зато болт останавливает даже хорошо защищённую цель.' },
+      { id:'shp_featured_05', name:'Дорожная бригантина', icon:'🛡️', image:'images/shop/road-brigandine.png', imgSize:'square', cat:'armor', rarity:'rare', price:{pl:8,zl:0,sr:0,md:0}, defense:3, effect:'+3 AC, не мешает в пути', desc:'Стальные пластины спрятаны под плотной тканью. Защищает почти как латы, но не выдаёт владельца звоном.' },
+      { id:'shp_featured_06', name:'Щит Тихого Улья', icon:'🛡️', image:'images/shop/quiet-hive-shield.png', imgSize:'square', cat:'armor', rarity:'uncommon', price:{pl:1,zl:8,sr:0,md:0}, defense:2, effect:'+2 AC', desc:'Круглый дубовый щит с узором сот. Работа рощи ценится за лёгкость, крепкий обод и хороший баланс.' },
+      { id:'shp_featured_07', name:'Плащ болотного следопыта', icon:'🧥', image:'images/shop/swamp-tracker-cloak.png', imgSize:'square', cat:'armor', rarity:'uncommon', price:{pl:1,zl:2,sr:0,md:0}, defense:1, effect:'Преимущество к скрытности в болотах', desc:'Вощёная ткань не боится мороси, а тусклая зелень растворяет силуэт среди камыша и мха.' },
+      { id:'shp_featured_08', name:'Малое зелье лечения', icon:'🧪', image:'images/shop/minor-healing-potion.png', imgSize:'square', cat:'potion', rarity:'common', price:{pl:0,zl:8,sr:0,md:0}, effect:'Лечит 1d4 HP', desc:'Красная полевая настойка с железным привкусом. Скверную рану не закроет, но на ногах удержит.' },
+      { id:'shp_featured_09', name:'Противоядие Левошлака', icon:'🧪', image:'images/shop/levoshlak-antidote.png', imgSize:'square', cat:'potion', rarity:'uncommon', price:{pl:2,zl:0,sr:0,md:0}, effect:'Снимает Отравление', desc:'Горькая смесь болотных трав и минеральной соли. Пьют сразу, пока яд ещё не ушёл глубже.' },
+      { id:'shp_featured_10', name:'Настой ясного ока', icon:'👁️', image:'images/shop/clear-eye-tonic.png', imgSize:'square', cat:'potion', rarity:'uncommon', price:{pl:1,zl:2,sr:0,md:0}, effect:'+2 к Восприятию на сцену', desc:'Холодный голубоватый настой обостряет зрение и слух. После него трудно уснуть до рассвета.' },
+      { id:'shp_featured_11', name:'Сухпаёк Верхземья', icon:'🥖', image:'images/shop/upperland-rations.png', imgSize:'square', cat:'food', rarity:'common', price:{pl:0,zl:0,sr:1,md:0}, effect:'Провизия на один день', desc:'Чёрный хлеб, вяленое мясо и горсть орехов. Просто, сытно и переживает неделю в седельной сумке.' },
+      { id:'shp_featured_12', name:'Медовый хлеб Тихого Улья', icon:'🍯', image:'images/shop/quiet-hive-honeybread.png', imgSize:'square', cat:'food', rarity:'common', price:{pl:0,zl:0,sr:0,md:6}, effect:'Сытность до короткого привала', desc:'Плотная пряная лепёшка на тёмном мёде. Любимая дорожная еда тех, кто идёт через рощу.' },
+      { id:'shp_featured_13', name:'Фонарь бездымного стекла', icon:'🏮', image:'images/shop/smokeless-lantern.png', imgSize:'square', cat:'tool', rarity:'uncommon', price:{pl:0,zl:8,sr:0,md:0}, effect:'Свет 6 клеток, не выдаёт дымом', desc:'Латунный фонарь с тягой особой формы. Горит ровно даже в сырости и почти не коптит.' },
+      { id:'shp_featured_14', name:'Набор полевого лекаря', icon:'🩺', image:'images/shop/healer-kit.png', imgSize:'square', cat:'tool', rarity:'uncommon', price:{pl:1,zl:5,sr:0,md:0}, effect:'+2 к лечению вне боя', desc:'Бинты, шины, иглы и пахучие травы в крепкой кожаной сумке. Рассчитан на десять применений.' },
+      { id:'shp_featured_15', name:'Маска Безликого', icon:'🎭', image:'images/shop/faceless-mask.png', imgSize:'square', cat:'contraband', rarity:'rare', price:{pl:2,zl:5,sr:0,md:0}, effect:'Преимущество, чтобы скрыть личность', desc:'Чёрная кожаная полумаска без знаков мастера. Её продают тем, кому имя мешает работать.' },
+      { id:'shp_featured_16', name:'Освящённая соль', icon:'🧂', image:'images/shop/consecrated-salt.png', imgSize:'square', cat:'magic', rarity:'common', price:{pl:1,zl:0,sr:0,md:0}, effect:'Круг защиты от духов и нежити', desc:'Крупная соль, благословлённая храмовым служителем. Одного мешочка хватает на круг вокруг небольшой комнаты.' },
+      { id:'shp_featured_17', name:'Рунический оберег', icon:'📿', image:'images/shop/runic-ward.png', imgSize:'square', cat:'magic', rarity:'rare', price:{pl:4,zl:0,sr:0,md:0}, effect:'1 раз снижает магический урон на 1d8', desc:'Тёмный камень с тёплой защитной руной. После срабатывания трескается и гаснет.' },
+      { id:'shp_featured_18', name:'Походная тележка', icon:'🛒', image:'images/shop/pack-cart.png', imgSize:'square', cat:'mount', rarity:'common', price:{pl:3,zl:0,sr:0,md:0}, effect:'Перевозит до 200 кг поклажи', desc:'Два окованных колеса, складной тент и простая упряжь. Проходит там, где большой воз уже застрянет.' },
+      { id:'shp_featured_19', name:'Ночь в безопасной комнате', icon:'🗝️', image:'images/shop/safe-room-key.png', imgSize:'square', cat:'service', rarity:'common', price:{pl:0,zl:0,sr:5,md:0}, effect:'Безопасный долгий отдых', desc:'Запираемая комната, чистая вода и человек на ночном посту. Еда оплачивается отдельно.' },
+      { id:'shp_featured_20', name:'Слиток стали Казад-Дрома', icon:'⛏️', image:'images/shop/kazad-drom-steel.png', imgSize:'square', cat:'material', rarity:'rare', price:{pl:3,zl:5,sr:0,md:0}, effect:'Основа для добротного оружия или брони', desc:'Плотная многослойная сталь с клеймом подгорной кузни. Держит заточку и не боится морской соли.' }
+    ];
+    var existing = loadShopItems();
+    var manual = existing.filter(function(item) {
+      var id = String(item && item.id || '');
+      return id.indexOf('shp_seed_') !== 0 && id.indexOf('shp_featured_') !== 0;
+    });
+    saveShopItems(featured.concat(manual));
+    localStorage.setItem('zargota_shop_seeded_v4', '1');
+    var host = document.getElementById('shop-page-inner');
+    if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
+  } catch(e) {}
+}
+
 // Запуск гидрации магазина при старте приложения
 if (typeof window !== 'undefined') {
   if (document.readyState === 'loading') {
