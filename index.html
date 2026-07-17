@@ -9496,6 +9496,8 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCharSelOpen = function(){
     var ov = el('zg-cs-overlay');
     if (!ov) return;
+    // Экран лежит поверх фиксированной шапки, поэтому выводим его из контейнера main.
+    if (ov.parentNode !== document.body) document.body.appendChild(ov);
     render();
     ov.classList.add('open');
     try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
