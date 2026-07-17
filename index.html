@@ -9528,7 +9528,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var base = isBg ? 'translate(-50%,-50%) ' : '';
     img.style.transform = base + 'translate(' + (a.x||0) + 'px,' + (a.y||0) + 'px) scale(' + ((a.s!=null?a.s:a.scale||100)/100) + ')';
     var f = (a.f!=null?a.f:(a.fade!=null?a.fade:52));
-    var m = 'radial-gradient(ellipse 62% 58% at 50% 46%, #000 ' + f + '%, transparent 98%)';
+    var m = 'radial-gradient(ellipse 47% 46% at 50% 46%, #000 ' + f + '%, transparent 90%)';
     img.style.webkitMaskImage = m; img.style.maskImage = m;
   }
   function tunApplyToImg(){
@@ -9623,12 +9623,88 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCsTunerDetach = function(){
     var hs = heroes(), c = hs[selIdx];
     if (!c) return;
+    // Собираем пути прикреплённых артов и удаляем их из IDB
+    var paths = [];
+    var ha = c.heroArt || {};
+    [ha.bg, ha.fg, (!ha.bg && !ha.fg) ? ha : null].forEach(function(l){
+      if (l && l.path && String(l.path).indexOf('images/heroart/') === 0) paths.push(l.path);
+    });
     delete c.heroArt;
     if (typeof w.saveChars === 'function') w.saveChars();
+    (function rmNext(){
+      if (!paths.length || !w.zgImageStore) return;
+      var pth = paths.shift();
+      w.zgImageStore.remove(pth, rmNext);
+    })();
+    // Чистим слои и полностью сбрасываем тюнер
     var bl = el('zg-cs-bglayer'); if (bl) bl.innerHTML = '';
+    tun.fg = tunLayerDefaults(); tun.bg = tunLayerDefaults();
+    tunFiles.fg = null; tunFiles.bg = null;
+    tunSyncSliders();
     var h = el('zg-cst-hint');
-    if (h) h.textContent = 'Откреплено (оба слоя).';
+    if (h) h.textContent = 'Удалено полностью: лист, файлы, настройки.';
     render();
+  };
+  // ═══ Экспорт: JSON по всем героям с картинками (base64) ═══
+  function tunLoadDataUrl(path, cb){
+    if (!path) { cb(''); return; }
+    if (String(path).indexOf('data:') === 0) { cb(path); return; }
+    function fromUrl(url){
+      fetch(url).then(function(r){ return r.blob(); }).then(function(b){
+        var rd = new FileReader();
+        rd.onload = function(e){ cb(e.target.result || ''); };
+        rd.onerror = function(){ cb(''); };
+        rd.readAsDataURL(b);
+      }).catch(function(){ cb(''); });
+    }
+    if (String(path).indexOf('images/') === 0 && w.zgImageStore) {
+      w.zgImageStore.getBlobUrl(path, function(url){
+        if (url) fromUrl(url); else fromUrl(path);
+      });
+    } else fromUrl(path);
+  }
+  w.zgCsTunerExportAll = function(){
+    var hs = heroes();
+    var h = el('zg-cst-hint');
+    if (h) h.textContent = 'Собираю экспорт…';
+    var out = { exportedAt: new Date().toISOString(), heroes: [] };
+    var i = 0;
+    function nextHero(){
+      if (i >= hs.length) { download(); return; }
+      var c = hs[i++];
+      var ha = c.heroArt;
+      if (!ha) { nextHero(); return; }
+      if (!ha.fg && !ha.bg) ha = { fg: ha }; // старый формат
+      var rec = { id: c.id || null, name: c.name || '' };
+      function packLayer(name, done){
+        var l = ha[name];
+        if (!l || !l.path) { done(); return; }
+        tunLoadDataUrl(l.path, function(dataUrl){
+          rec[name] = { path: l.path, scale: l.scale, x: l.x, y: l.y, fade: l.fade, image: dataUrl };
+          done();
+        });
+      }
+      packLayer('bg', function(){ packLayer('fg', function(){ out.heroes.push(rec); nextHero(); }); });
+    }
+    function download(){
+      try {
+        var json = JSON.stringify(out);
+        var blob = new Blob([json], { type: 'application/json' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'zargota_hero_arts.json';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function(){
+          try { URL.revokeObjectURL(a.href); } catch(e) {}
+          try { a.remove(); } catch(e) {}
+        }, 2000);
+        if (h) h.textContent = 'Скачано: героев с артами — ' + out.heroes.length + '.';
+      } catch(e) {
+        if (h) h.textContent = 'Ошибка экспорта: ' + e.message;
+      }
+    }
+    nextHero();
   };
   // Применить сохранённые арты героя (вызывается после render)
   function tunShowLayer(host, a, isBg){
@@ -12572,7 +12648,7 @@ window.zgImageStore = (function() {
   .zg-cs-editor-link:hover{color:var(--gold)}
   .zg-cs-center{display:flex;flex-direction:column;min-height:0}
   .zg-cs-portrait{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
-  .zg-cs-portrait img{max-width:100%;max-height:100%;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 52%,transparent 98%);mask-image:radial-gradient(ellipse 62% 58% at 50% 46%,#000 52%,transparent 98%)}
+  .zg-cs-portrait img{max-width:100%;max-height:100%;object-fit:contain;-webkit-mask-image:radial-gradient(ellipse 47% 46% at 50% 46%,#000 52%,transparent 90%);mask-image:radial-gradient(ellipse 47% 46% at 50% 46%,#000 52%,transparent 90%)}
   .zg-cs-port-ph{display:flex;flex-direction:column;align-items:center;gap:14px;color:var(--dim);text-align:center}
   .zg-cs-port-ph .hint{font-size:13px;max-width:260px;color:var(--dim)}
   /* ─ АРТ-ТЮНЕР (временный инструмент примерки) ─ */
@@ -12583,7 +12659,7 @@ window.zgImageStore = (function() {
   .zg-cs-tuner .lbtn{flex:1;padding:6px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer}
   .zg-cs-tuner .lbtn.on{border-color:var(--gold);color:var(--gold);background:rgba(232,192,96,.08)}
   /* Арт — фоновый слой: панели всегда поверх разросшегося портрета */
-  .zg-cs-portrait{z-index:0}
+  .zg-cs-portrait{z-index:1} /* портрет строго над слоем тумана (z:0) */
   .zg-cs-portrait img{pointer-events:none}
   .zg-cs-head,.zg-cs-listcol,.zg-cs-detail,.zg-cs-stats,.zg-cs-foot{position:relative;z-index:2}
   .zg-cs-tuner-btn{position:absolute;bottom:8px;right:8px;z-index:6;width:28px;height:28px;border-radius:7px;background:rgba(20,15,8,.7);border:1px solid var(--border);color:var(--dim);font-size:14px;line-height:1;cursor:pointer;transition:color .25s,border-color .25s}
@@ -12654,7 +12730,7 @@ window.zgImageStore = (function() {
             <div class="trow">
               <button type="button" class="tbtn" onclick="document.getElementById('zg-cst-file').click()">Загрузить</button>
               <button type="button" class="tbtn" onclick="zgCsTunerReset()">Сброс</button>
-              <button type="button" class="tbtn" onclick="zgCsTunerCopy()">JSON ⧉</button>
+              <button type="button" class="tbtn" onclick="zgCsTunerExportAll()">⬇ JSON</button>
             </div>
             <div class="trow">
               <button type="button" class="tbtn" style="border-color:var(--gold2);color:var(--gold)" onclick="zgCsTunerAttach()">📌 Прикрепить к персонажу</button>
