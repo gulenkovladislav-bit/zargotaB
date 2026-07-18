@@ -432,6 +432,36 @@
       });
     },
 
+    publishScene: function (scene) {
+      scene = scene || {};
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Настраивать сцену может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var background = String(scene.background || '');
+          if (background.length > 3200000) throw roomError('Фон слишком большой. Выберите изображение меньшего размера.', 'scene-too-large');
+          var payload = {
+            background: background,
+            grid: scene.grid !== false,
+            gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
+            x: Math.max(-2000, Math.min(2000, Number(scene.x) || 0)),
+            y: Math.max(-2000, Math.min(2000, Number(scene.y) || 0)),
+            zoom: Math.max(0.5, Math.min(2.5, Number(scene.zoom) || 1)),
+            revision: now(),
+            publishedAt: firebase.serverTimestamp()
+          };
+          return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/scene'), payload).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','scene-too-large'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     leaveRoom: function () {
       return ensureReady().then(function (user) {
         var session = readSession();
