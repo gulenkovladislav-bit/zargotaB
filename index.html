@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-18.9';
+var ZG_APP_VERSION = '2026-07-18.10';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.10', notes: 'Верхняя панель партии получила крупные вертикальные портреты, подписи, полосы здоровья, статус сети и выделение собственного героя.' },
   { v: '2026-07-18.9', notes: 'Собран каркас VTT-стола: живая верхняя панель группы, журнал комнаты, правая лента инструментов и выдвижные панели группы, персонажа, инвентаря и кубиков.' },
   { v: '2026-07-18.8', notes: 'Начат общий VTT-стол: мастер получил панель сцены с фоном, сеткой, размером клетки и камерой. Изменения остаются черновиком до команды «Показать игрокам» и затем синхронизируются через Firebase.' },
   { v: '2026-07-18.7', notes: 'Создатель комнаты может войти в приключение как гейм-мастер без выбора героя. Мастерская кнопка видна только владельцу комнаты и участвует в общей готовности группы.' },
@@ -10459,9 +10460,11 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function renderParty(){
     var host = el('zg-vtt-party'); if (!host) return;
+    var session = state && state.session;
     host.innerHTML = heroMembers().map(function(member){
       var c = member.character || {};
-      return '<button type="button" class="zg-party-card" onclick="zgVttOpenMember(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '">' +
+      var isOwn = session && member.uid === session.uid;
+      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (member.online ? '' : ' offline') + '" onclick="zgVttOpenMember(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn ? ' aria-current="true"' : '') + '>' +
         avatar(c, c.portrait ? '' : 'zg-party-ph') +
         '<span class="zg-party-name">' + esc(c.name || member.name || 'Герой') + '</span>' +
         '<span class="zg-party-online' + (member.online ? ' on' : '') + '"></span>' +
@@ -13701,15 +13704,19 @@ window.zgImageStore = (function() {
   .zg-vtt-backdrop{position:absolute;inset:0;background-position:center;background-size:cover;background-repeat:no-repeat;filter:brightness(.78) saturate(.82)}
   .zg-vtt-backdrop::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 35%,rgba(2,3,4,.72) 100%);pointer-events:none}
   .zg-vtt-grid{position:absolute;inset:0;opacity:.34;background-image:linear-gradient(to right,rgba(202,178,112,.28) 1px,transparent 1px),linear-gradient(to bottom,rgba(202,178,112,.28) 1px,transparent 1px)}
-  .zg-vtt-party{position:absolute;z-index:4;top:10px;left:50%;transform:translateX(-50%);width:max-content;max-width:min(720px,calc(100vw - 760px));display:flex;gap:8px;overflow-x:auto;padding:0 3px 7px;scrollbar-width:none}
+  .zg-vtt-party{position:absolute;z-index:4;top:9px;left:50%;transform:translateX(-50%);width:max-content;max-width:min(720px,calc(100vw - 760px));display:flex;align-items:flex-start;gap:12px;overflow-x:auto;padding:4px 5px 10px;scrollbar-width:none}
   .zg-vtt-party::-webkit-scrollbar{display:none}
-  .zg-party-card{width:90px;min-width:90px;height:66px;padding:5px;border:1px solid #6c5328;border-radius:6px;background:linear-gradient(180deg,#171208e8,#090806e8);color:#cfb97f;cursor:pointer;position:relative;display:grid;grid-template-columns:42px 1fr;grid-template-rows:42px 12px;gap:3px 6px;text-align:left;box-shadow:0 8px 24px #0008}
-  .zg-party-card:hover{border-color:#d0a84f;box-shadow:0 0 18px #d0a84f24}
-  .zg-party-card img,.zg-party-ph{width:42px;height:42px;grid-row:1;border-radius:4px;object-fit:cover;object-position:top;background:#0a0805;display:flex;align-items:center;justify-content:center;font-size:20px}
-  .zg-party-name{align-self:end;min-width:0;font-family:'Cinzel',serif;font-size:10px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .zg-party-hp{grid-column:1 / -1;height:4px;border-radius:3px;background:#211b12;overflow:hidden;align-self:center}
+  .zg-party-card{width:82px;min-width:82px;height:105px;padding:0;border:0;background:transparent;color:#cdb576;cursor:pointer;position:relative;display:grid;grid-template-rows:76px 19px 4px;gap:3px;text-align:center;filter:drop-shadow(0 8px 13px #000a);transition:transform .18s ease,filter .18s ease,opacity .18s ease}
+  .zg-party-card:hover{transform:translateY(-2px);filter:drop-shadow(0 8px 14px #000c) drop-shadow(0 0 8px #c59b3c44)}
+  .zg-party-card img,.zg-party-ph{box-sizing:border-box;width:82px;height:76px;border:1px solid #7b5c27;border-radius:5px;object-fit:cover;object-position:top center;background:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:inset 0 0 0 1px #d4ad4a20,0 0 0 1px #0009;transition:border-color .18s ease,box-shadow .18s ease}
+  .zg-party-card:hover img,.zg-party-card:hover .zg-party-ph{border-color:#d0a84f;box-shadow:inset 0 0 0 1px #efd07738,0 0 10px #c8993538}
+  .zg-party-card.own img,.zg-party-card.own .zg-party-ph{border-color:#4d9655;box-shadow:inset 0 0 0 1px #8bd68d45,0 0 9px #42945030}
+  .zg-party-card.own::before{content:'♛';position:absolute;z-index:2;top:-9px;left:50%;transform:translateX(-50%);color:#d7b44f;font-size:12px;line-height:1;text-shadow:0 0 6px #000,0 0 8px #d7b44f66}
+  .zg-party-card.offline{opacity:.58}
+  .zg-party-name{align-self:end;min-width:0;width:100%;font-family:'Cinzel',serif;font-size:11px;font-weight:600;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 4px #000,0 0 8px #000}
+  .zg-party-hp{width:66px;height:4px;margin:0 auto;border-radius:3px;background:#1d1a11;overflow:hidden;box-shadow:0 1px 0 #000,0 0 0 1px #17140d}
   .zg-party-hp span{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
-  .zg-party-online{position:absolute;right:4px;top:4px;width:6px;height:6px;border-radius:50%;background:#85513d;box-shadow:0 0 6px #7b372b}
+  .zg-party-online{position:absolute;z-index:2;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#85513d;box-shadow:0 0 0 2px #090806cc,0 0 6px #7b372b}
   .zg-party-online.on{background:#63c982;box-shadow:0 0 7px #63c982}
   .zg-vtt-journal{position:absolute;z-index:4;left:14px;top:14px;bottom:14px;width:300px;display:none;flex-direction:column;border:1px solid #332817;border-radius:7px;background:linear-gradient(180deg,rgba(11,10,8,.9),rgba(7,8,8,.78));box-shadow:0 18px 50px #0009;backdrop-filter:blur(7px)}
   .zg-vtt-journal.open{display:flex}
@@ -13751,8 +13758,12 @@ window.zgImageStore = (function() {
     .zg-scene-row input[type=range]{width:100%}
   }
   @media(max-width:1100px){
-    .zg-vtt-party{left:14px;right:70px;transform:none;width:auto;max-width:none}
-    .zg-vtt-journal{top:88px;bottom:64px;width:min(300px,calc(100vw - 28px))}
+    .zg-vtt-party{left:10px;right:62px;transform:none;width:auto;max-width:none;gap:9px}
+    .zg-party-card{width:70px;min-width:70px;height:94px;grid-template-rows:66px 17px 4px}
+    .zg-party-card img,.zg-party-ph{width:70px;height:66px}
+    .zg-party-name{font-size:10px;line-height:14px}
+    .zg-party-hp{width:56px}
+    .zg-vtt-journal{top:114px;bottom:64px;width:min(300px,calc(100vw - 28px))}
     .zg-vtt-tools{top:auto;right:50%;bottom:10px;transform:translateX(50%);flex-direction:row}
     .zg-vtt-tool{border-bottom:0;border-right:1px solid #302515}
     .zg-vtt-tool:last-child{border-right:0}
