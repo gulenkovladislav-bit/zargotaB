@@ -377,6 +377,33 @@
       });
     },
 
+    launchJourney: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Открыть путь может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          if (room.phase === 'journey') return room;
+          if (room.phase !== 'character-select') throw roomError('Выбор персонажей ещё не начат.', 'wrong-phase');
+          var members = membersOf(room);
+          if (!members.length || members.some(function (member) { return !member.characterId; })) {
+            throw roomError('Не все участники выбрали персонажей.', 'characters-pending');
+          }
+          return firebase.update(roomRef(session.code), {
+            phase: 'journey',
+            journeyStartedAt: firebase.serverTimestamp(),
+            updatedAt: firebase.serverTimestamp()
+          }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','wrong-phase','characters-pending'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     leaveRoom: function () {
       return ensureReady().then(function (user) {
         var session = readSession();

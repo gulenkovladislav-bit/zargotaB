@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-18.5';
+var ZG_APP_VERSION = '2026-07-18.6';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.6', notes: 'Экран пути стал общим ожиданием: каждый участник остаётся на загрузке после выбора героя, а переход происходит автоматически, когда персонажей выбрали все. Скрыта служебная кнопка арт-тюнера.' },
   { v: '2026-07-18.5', notes: 'Подключение игроков упрощено: заявки автоматически появляются у мастера и принимаются одной кнопкой, без передачи и ручного ввода личных кодов.' },
   { v: '2026-07-18.4', notes: 'Комнаты переведены на Firebase Realtime Database: подключение с разных устройств и сетей, анонимные сетевые ID и синхронизация состава партии в реальном времени.' },
   { v: '2026-07-18.3', notes: 'Добавлен тестовый запуск мастера без игроков. Обычная сетевая партия поддерживает от одного до пяти подтверждённых игроков.' },
@@ -10018,6 +10019,9 @@ document.addEventListener('DOMContentLoaded', function(){
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
   var pending = null;
+  var journeyCharacter = null;
+  var journeyReleased = false;
+  var launchRequested = false;
   function el(id){ return document.getElementById(id); }
   function esc(s){
     s = (s === null || s === undefined) ? '' : String(s);
@@ -10042,13 +10046,19 @@ document.addEventListener('DOMContentLoaded', function(){
   var timers = [];
   function clearTimers(){ for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]); timers = []; }
 
-  function beginJourney(c){
+  function setJourneyStatus(text){
+    var node = document.querySelector('.zg-journey-loadtxt');
+    if (node) node.textContent = text || 'Загрузка…';
+  }
+  function beginJourney(c, waitsForParty){
     // портрет берём тот же, что показан при выборе (крупный арт из #zg-cs-portrait)
     var pImg = document.querySelector('#zg-cs-portrait img');
     var src = (pImg && pImg.getAttribute('src')) || (c && c.portrait) || '';
     w.zgJourneyCancel();
     if (w.zgCharSelClose) w.zgCharSelClose();
     if (!c) return;
+    journeyCharacter = c;
+    journeyReleased = false;
     try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {}
     var inner = el('zg-journey-inner');
     if (inner){
@@ -10063,26 +10073,87 @@ document.addEventListener('DOMContentLoaded', function(){
       jo.classList.remove('loading'); jo.classList.remove('dissolving');
       jo.classList.add('open');
     }
-    // интро (портрет держится) → загрузка со спиннером → растворение → тёмный экран
     clearTimers();
-    timers.push(setTimeout(function(){ if (jo) jo.classList.add('loading'); }, 3600));      // спиннер, портрет ещё на месте
-    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 6200));    // портрет растворяется перед самым тёмным экраном
-    timers.push(setTimeout(function(){ w.zgGameOpen(); }, 7500));
+    if (waitsForParty) {
+      if (jo) jo.classList.add('loading');
+      setJourneyStatus('Ожидаем остальных героев…');
+    } else {
+      // Одиночный локальный запуск сохраняет прежнее короткое интро.
+      setJourneyStatus('Загрузка…');
+      timers.push(setTimeout(function(){ if (jo) jo.classList.add('loading'); }, 3600));
+      timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 6200));
+      timers.push(setTimeout(function(){ w.zgGameOpen(); }, 7500));
+    }
     try { if (w.ZargotaSound) { w.ZargotaSound.buttonTap(); if (w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } } catch(e) {}
+  }
+
+  function localCharacter(snapshot){
+    var session = snapshot && snapshot.session;
+    var room = snapshot && snapshot.room;
+    var member = session && room && room.members && room.members[session.uid];
+    var id = member && member.characterId;
+    var chars = Array.isArray(w.characters) ? w.characters : [];
+    for (var i = 0; i < chars.length; i++) if (id != null && String(chars[i].id) === String(id)) return chars[i];
+    return (member && member.character) || journeyCharacter;
+  }
+
+  function finishJourney(){
+    if (journeyReleased) return;
+    journeyReleased = true;
+    clearTimers();
+    setJourneyStatus('Путь открыт…');
+    var jo = el('zg-journey-overlay');
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 900));
+    timers.push(setTimeout(function(){ w.zgGameOpen(); }, 2200));
+  }
+
+  function syncJourney(snapshot){
+    if (!snapshot || !snapshot.room || !snapshot.session) return;
+    var room = snapshot.room;
+    var members = Object.keys(room.members || {}).map(function(uid){ return room.members[uid]; }).filter(Boolean);
+    var readyCount = members.filter(function(member){ return !!member.characterId; }).length;
+    var allReady = members.length > 0 && readyCount === members.length;
+    var c = localCharacter(snapshot);
+    var jo = el('zg-journey-overlay');
+
+    if (room.phase === 'character-select') {
+      if (!allReady) launchRequested = false;
+      if (c && room.members && room.members[snapshot.session.uid] && room.members[snapshot.session.uid].characterId) {
+        if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
+        setJourneyStatus('Ожидаем героев… ' + readyCount + ' / ' + members.length);
+      }
+      if (allReady && snapshot.session.role === 'master' && w.ZargotaRooms && !launchRequested) {
+        launchRequested = true;
+        w.ZargotaRooms.launchJourney().catch(function(err){
+          launchRequested = false;
+          if (w.showToast) w.showToast(err.message || 'Не удалось открыть путь.');
+        });
+      }
+      return;
+    }
+
+    if (room.phase === 'journey' && c) {
+      if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
+      finishJourney();
+    }
   }
   // «Да» — закрепляем локальный лист за игроком и открываем экран пути.
   w.zgJourneyStart = function(){
     var c = pending;
     if (!c) return;
     var attach = w.ZargotaRooms ? w.ZargotaRooms.attachCharacter(c) : Promise.resolve();
-    Promise.resolve(attach).then(function(){
-      beginJourney(c);
+    Promise.resolve(attach).then(function(snapshot){
+      var networked = !!(snapshot && snapshot.room && snapshot.session);
+      beginJourney(c, networked);
+      if (networked) syncJourney(snapshot);
     }).catch(function(err){
       if (w.showToast) w.showToast(err.message || 'Не удалось выбрать персонажа.');
     });
   };
   w.zgJourneyClose = function(){
     clearTimers();
+    journeyCharacter = null;
+    journeyReleased = false;
     var jo = el('zg-journey-overlay'); if (jo){ jo.classList.remove('open'); jo.classList.remove('loading'); jo.classList.remove('dissolving'); }
     try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
   };
@@ -10130,6 +10201,9 @@ document.addEventListener('DOMContentLoaded', function(){
     var jo = el('zg-journey-overlay');
     if (jo && jo.classList.contains('open')) w.zgJourneyClose();
   });
+  function initJourneySync(){ if (w.ZargotaRooms) w.ZargotaRooms.subscribe(syncJourney); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initJourneySync);
+  else initJourneySync();
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -13309,7 +13383,6 @@ window.zgImageStore = (function() {
           <div class="zg-cs-portrait" id="zg-cs-portrait"></div>
           <div id="zg-cs-ghost"></div>
           <div class="zg-cs-stats" id="zg-cs-stats"></div>
-          <button type="button" class="zg-cs-tuner-btn" onclick="zgCsTunerToggle()" title="Арт-тюнер (временный)">🖼</button>
           <div class="zg-cs-tuner" id="zg-cs-tuner">
             <div class="lrow">
               <button type="button" class="lbtn" id="zg-cst-l-bg" onclick="zgCsTunerLayer('bg')">Слой 1 · Туман</button>
