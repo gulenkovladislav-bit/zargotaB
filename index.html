@@ -9707,39 +9707,54 @@ document.addEventListener('DOMContentLoaded', function(){
     nextHero();
   };
   // Применить сохранённые арты героя (вызывается после render)
-  function tunShowLayer(host, a, isBg){
+  // Токен против гонки: асинхронный ответ IDB применяем только если герой не сменился
+  var tunApplyToken = 0;
+  function tunShowLayer(host, a, isBg, token){
     if (!host) return;
-    function show(src){
+    function show(src, idbFallback){
+      if (token !== tunApplyToken) return; // герой уже другой — ответ устарел
       host.innerHTML = '<img src="' + src + '" alt="">';
-      tunStyleImg(host.querySelector('img'), a, isBg);
+      var img = host.querySelector('img');
+      tunStyleImg(img, a, isBg);
+      if (idbFallback && img) {
+        // если файла нет в репо — тихо пробуем IDB
+        img.onerror = function(){
+          img.onerror = null;
+          if (w.zgImageStore) w.zgImageStore.getBlobUrl(idbFallback, function(url){
+            if (url && token === tunApplyToken) { img.src = url; }
+          });
+        };
+      }
     }
     var path = (a && a.path) || '';
     if (!path) { if (isBg) host.innerHTML = ''; return; }
-    if (path.indexOf('images/') === 0 && w.zgImageStore) {
-      w.zgImageStore.getBlobUrl(path, function(url){ show(url || path); });
-    } else show(path);
+    // СИНХРОННО ставим путь сразу (репо), без асинхронной паузы —
+    // это убирает мигание старого портрета; IDB — только как fallback по onerror
+    show(path, path.indexOf('images/') === 0 ? path : null);
   }
   // ═══ ВШИТЫЕ НАСТРОЙКИ АРТОВ (защита от чистого браузера/устройства) ═══
   // Файлы лежат в репо: images/heroart/hero_<id>.png
   var HERO_ART_BAKED = {
-    '1776627463516': { fg: { path:'images/heroart/hero_1776627463516.png', scale:257, x:-29, y:38, fade:45 } }, // Еван (Евангелие Лукавый)
-    '1776626039651': { fg: { path:'images/heroart/hero_1776626039651.png', scale:229, x:-23, y:24, fade:52 } }, // Мелисса
-    '1776463717210': { fg: { path:'images/heroart/hero_1776463717210.png', scale:247, x:-31, y:34, fade:55 } }, // Эстерос
-    '1778221131899': { fg: { path:'images/heroart/hero_1778221131899.png', scale:235, x:19,  y:31, fade:52 } }, // Вротик
-    '1778221143711': { fg: { path:'images/heroart/hero_1778221143711.png', scale:275, x:19,  y:68, fade:20 } }  // Лин'Ин
+    '1776627463516': { fg: { path:'images/heroart/Evan.png',    scale:257, x:-29, y:38, fade:45 } }, // Еван (Евангелие Лукавый)
+    '1776626039651': { fg: { path:'images/heroart/Melissa.png', scale:229, x:-23, y:24, fade:52 } }, // Мелисса
+    '1776463717210': { fg: { path:'images/heroart/Esteros.png', scale:247, x:-31, y:34, fade:55 } }, // Эстерос
+    '1778221131899': { fg: { path:'images/heroart/Vrotik.png',  scale:235, x:19,  y:31, fade:52 } }, // Вротик
+    '1778221143711': { fg: { path:'images/heroart/LinIn.png',   scale:275, x:19,  y:68, fade:20 } }  // Лин'Ин
   };
   function heroArtOf(c){
     if (!c) return null;
-    if (c.heroArt) return c.heroArt;               // живые настройки из листа — приоритет
-    return HERO_ART_BAKED[String(c.id)] || null;   // иначе вшитый дефолт
+    // Вшитые арты — источник истины: пути из репо, без путаницы с IDB.
+    // Живой heroArt используется только для героев, которых нет во вшитой таблице.
+    return HERO_ART_BAKED[String(c.id)] || c.heroArt || null;
   }
   function tunApplyHeroArt(c){
     var bl = el('zg-cs-bglayer');
     var haSrc = heroArtOf(c);
-    if (!haSrc) { if (bl) bl.innerHTML = ''; return; }
+    if (!haSrc) { ++tunApplyToken; if (bl) bl.innerHTML = ''; return; }
     var ha = (haSrc.fg || haSrc.bg) ? haSrc : { fg: haSrc }; // совместимость со старым форматом
-    if (ha.fg && ha.fg.path) tunShowLayer(el('zg-cs-portrait'), ha.fg, false);
-    tunShowLayer(bl, ha.bg, true);
+    var token = ++tunApplyToken;
+    if (ha.fg && ha.fg.path) tunShowLayer(el('zg-cs-portrait'), ha.fg, false, token);
+    tunShowLayer(bl, ha.bg, true, token);
   }
   var _tunOrigRender = render;
   render = function(){
