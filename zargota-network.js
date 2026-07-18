@@ -440,12 +440,49 @@
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
-          var background = String(scene.background || '');
-          if (background.length > 3200000) throw roomError('Фон слишком большой. Выберите изображение меньшего размера.', 'scene-too-large');
+          var layers = (Array.isArray(scene.layers) ? scene.layers : []).slice(0, 4).map(function (layer, index) {
+            return {
+              id: String(layer.id || ('layer-' + index)).slice(0, 80),
+              name: String(layer.name || ('Слой ' + (index + 1))).slice(0, 80),
+              image: String(layer.image || ''),
+              visible: layer.visible !== false,
+              opacity: Math.max(0, Math.min(1, Number(layer.opacity == null ? 1 : layer.opacity))),
+              fit: ['cover','contain','stretch'].indexOf(layer.fit) >= 0 ? layer.fit : 'cover',
+              scale: Math.max(0.5, Math.min(3, Number(layer.scale) || 1)),
+              x: Math.max(-100, Math.min(100, Number(layer.x) || 0)),
+              y: Math.max(-100, Math.min(100, Number(layer.y) || 0)),
+              brightness: Math.max(0.25, Math.min(2, Number(layer.brightness) || 1)),
+              saturation: Math.max(0, Math.min(2, Number(layer.saturation == null ? 1 : layer.saturation)))
+            };
+          }).filter(function (layer) { return !!layer.image; });
+          if (!layers.length && scene.background) {
+            layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, saturation:1 });
+          }
+          var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 40).map(function (token, index) {
+            return {
+              id: String(token.id || ('token-' + index)).slice(0, 100),
+              type: token.type === 'hero' ? 'hero' : 'custom',
+              disposition: (token.type === 'hero' ? 'hero' : (['ally','enemy','neutral','npc'].indexOf(token.disposition) >= 0 ? token.disposition : 'neutral')),
+              hidden: token.type === 'hero' ? false : !!token.hidden,
+              memberUid: String(token.memberUid || '').slice(0, 128),
+              name: String(token.name || 'Жетон').slice(0, 80),
+              image: token.type === 'hero' ? '' : String(token.image || ''),
+              x: Math.max(0, Math.min(100, Number(token.x == null ? 50 : token.x))),
+              y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
+              size: Math.max(24, Math.min(180, Number(token.size) || 64)),
+              visible: token.visible !== false,
+              z: Math.max(0, Math.min(99, Number(token.z) || index + 1))
+            };
+          });
+          var mediaSize = layers.reduce(function (sum, layer) { return sum + layer.image.length; }, 0) +
+            tokens.reduce(function (sum, token) { return sum + token.image.length; }, 0);
+          if (mediaSize > 3400000) throw roomError('Изображения сцены слишком большие. Удалите слой или выберите более лёгкие изображения.', 'scene-too-large');
           var payload = {
-            background: background,
+            layers: layers,
+            tokens: tokens,
             grid: scene.grid !== false,
             gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
+            gridAboveTokens: !!scene.gridAboveTokens,
             x: Math.max(-2000, Math.min(2000, Number(scene.x) || 0)),
             y: Math.max(-2000, Math.min(2000, Number(scene.y) || 0)),
             zoom: Math.max(0.5, Math.min(2.5, Number(scene.zoom) || 1)),
