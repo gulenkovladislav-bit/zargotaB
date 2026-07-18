@@ -8985,9 +8985,13 @@ window.addEventListener('load', function(){
   .zg-pair-slot.ok { border-color:#398a5a;box-shadow:0 0 18px #37c87325,inset 0 0 16px #37c87312; }
   .zg-pair-slot.ok .zg-pair-gem,.zg-player-gem.ok { background:linear-gradient(145deg,#9dffc4 0%,#31d879 38%,#08733e 100%);filter:drop-shadow(0 0 10px #38e98799); }
   .zg-pair-slot-num { font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase; }
-  .zg-pair-slot input { width:100%;margin-top:7px;padding:8px 4px;text-align:center;border:1px solid #342715;border-radius:6px;background:#080604;color:#d6c298;font-family:'Cinzel',serif;font-size:13px;letter-spacing:2px;outline:none;text-transform:uppercase; }
-  .zg-pair-slot input:focus { border-color:var(--gold2); }
-  .zg-pair-slot.ok input { color:#7be2a1;border-color:#2f7048; }
+  .zg-pair-slot-state { min-height:31px;margin-top:7px;display:flex;align-items:center;justify-content:center;color:#62543d;font-size:11px; }
+  .zg-pair-slot.pending { border-color:#80652d;box-shadow:0 0 16px #d3a84116; }
+  .zg-pair-slot.pending .zg-pair-slot-state { color:#c7ab70; }
+  .zg-pair-slot.ok .zg-pair-slot-state { color:#78d99c; }
+  .zg-pair-accept { width:100%;min-height:31px;padding:6px;border:1px solid #947333;border-radius:6px;background:linear-gradient(180deg,#2c2210,#171006);color:#e8c060;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.7px;cursor:pointer; }
+  .zg-pair-accept:hover { border-color:#e8c060;box-shadow:0 0 14px #e8c06022; }
+  .zg-pair-accept:disabled { opacity:.45;cursor:wait; }
   .zg-pair-count { text-align:center;color:var(--muted);font-size:12px;margin:0 0 16px; }
   .zg-pair-count b { color:#65cc89; }
   .zg-adv-submit:disabled { opacity:.38;cursor:not-allowed;transform:none;box-shadow:none; }
@@ -9007,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-18.4';
+var ZG_APP_VERSION = '2026-07-18.5';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.5', notes: 'Подключение игроков упрощено: заявки автоматически появляются у мастера и принимаются одной кнопкой, без передачи и ручного ввода личных кодов.' },
   { v: '2026-07-18.4', notes: 'Комнаты переведены на Firebase Realtime Database: подключение с разных устройств и сетей, анонимные сетевые ID и синхронизация состава партии в реальном времени.' },
   { v: '2026-07-18.3', notes: 'Добавлен тестовый запуск мастера без игроков. Обычная сетевая партия поддерживает от одного до пяти подтверждённых игроков.' },
   { v: '2026-07-18.2', notes: 'Сбор партии перенесён в поп-ап: код комнаты мастера, личные коды игроков, пять изумрудных ячеек подтверждения и общий переход к выбору героев.' },
@@ -9516,15 +9521,15 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   };
 
-  w.zgPairCodeInput = function(slot, input){
-    if (!input || !w.ZargotaRooms) return;
-    input.value = w.ZargotaRooms.normalizePlayerCode(input.value);
-    if (input.value.length < 4) return;
-    var hint = el('zg-host-hint'); if (hint) hint.textContent = 'Проверяем код ' + input.value + '…';
-    w.ZargotaRooms.approvePlayer(input.value, slot).then(function(){
+  w.zgApprovePendingPlayer = function(slot, playerCode, button){
+    if (!playerCode || !w.ZargotaRooms) return;
+    var hint = el('zg-host-hint'); if (hint) hint.textContent = 'Подтверждаем игрока…';
+    if (button) button.disabled = true;
+    w.ZargotaRooms.approvePlayer(playerCode, slot).then(function(){
       if (hint) hint.textContent = '';
     }).catch(function(err){
       if (hint) hint.textContent = err.message || 'Не удалось подтвердить игрока.';
+      if (button) button.disabled = false;
     });
   };
 
@@ -9556,14 +9561,23 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!snapshot || !snapshot.room || !snapshot.session) return;
     var room = snapshot.room;
     var hostCode = el('zg-host-room-code'); if (hostCode) hostCode.textContent = room.code;
-    var playerCode = el('zg-player-code'); if (playerCode) playerCode.textContent = snapshot.session.playerCode || '—';
     var slots = document.querySelectorAll('.zg-pair-slot');
+    var pending = snapshot.pending || [];
+    var pendingIndex = 0;
     for (var i = 0; i < slots.length; i++) {
       var approvedSlot = room.slots && room.slots[i];
-      var field = slots[i].querySelector('input');
+      var waiting = approvedSlot ? null : pending[pendingIndex++];
+      var state = slots[i].querySelector('.zg-pair-slot-state');
       slots[i].classList.toggle('ok', !!approvedSlot);
-      if (approvedSlot && field) { field.value = approvedSlot.playerCode; field.disabled = true; }
-      else if (field) field.disabled = false;
+      slots[i].classList.toggle('pending', !!waiting);
+      if (!state) continue;
+      if (approvedSlot) state.textContent = 'Принят';
+      else if (waiting) {
+        state.innerHTML = '<button type="button" class="zg-pair-accept">Принять</button>';
+        (function(slotIndex, code, btn){
+          btn.addEventListener('click', function(){ w.zgApprovePendingPlayer(slotIndex, code, btn); });
+        })(i, waiting.playerCode, state.firstChild);
+      } else state.textContent = 'Свободно';
     }
     var count = snapshot.players ? snapshot.players.length : 0;
     var countNode = el('zg-pair-count'); if (countNode) countNode.innerHTML = 'Подтверждено: <b>' + count + '</b> из 5';
@@ -9572,7 +9586,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var wait = el('zg-player-wait');
     if (wait) wait.innerHTML = snapshot.approved
       ? '<strong>Подключение подтверждено.</strong><br>Ожидаем команду гейм-мастера…'
-      : 'Ожидаем, когда мастер введёт ваш код…';
+      : 'Заявка отправлена.<br>Ожидаем подтверждения гейм-мастера…';
     if (room.phase === 'character-select' && (snapshot.session.role === 'master' || snapshot.approved)) {
       if (lastOpenedPhase !== room.code + ':character-select') {
         lastOpenedPhase = room.code + ':character-select';
@@ -13023,7 +13037,7 @@ window.zgImageStore = (function() {
         <div class="zg-adv-hint" id="zg-adv-hint"></div>
       </div>
 
-      <!-- Вид 3: комната мастера и подтверждение личных кодов -->
+      <!-- Вид 3: комната мастера и подтверждение заявок -->
       <div id="zg-adv-view-host" class="zg-adv-view" style="display:none">
         <div class="zg-adv-title">Комната создана</div>
         <div class="zg-adv-sub">Передайте код приключения игрокам.</div>
@@ -13031,13 +13045,13 @@ window.zgImageStore = (function() {
           <div><div class="zg-pair-code-label">Код приключения</div><div class="zg-pair-code" id="zg-host-room-code">—</div></div>
           <button type="button" class="zg-pair-copy" onclick="zgCopyPairCode('room')" title="Скопировать код" aria-label="Скопировать код">⧉</button>
         </div>
-        <div class="zg-adv-sub" style="margin-bottom:14px">Введите личные коды подключившихся игроков.</div>
+        <div class="zg-adv-sub" style="margin-bottom:14px">Подтвердите игроков, которые подключились к комнате.</div>
         <div class="zg-pair-slots" id="zg-pair-slots">
-          <div class="zg-pair-slot" data-slot="0"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 1</div><input maxlength="4" aria-label="Код игрока 1" oninput="zgPairCodeInput(0,this)"></div>
-          <div class="zg-pair-slot" data-slot="1"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 2</div><input maxlength="4" aria-label="Код игрока 2" oninput="zgPairCodeInput(1,this)"></div>
-          <div class="zg-pair-slot" data-slot="2"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 3</div><input maxlength="4" aria-label="Код игрока 3" oninput="zgPairCodeInput(2,this)"></div>
-          <div class="zg-pair-slot" data-slot="3"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 4</div><input maxlength="4" aria-label="Код игрока 4" oninput="zgPairCodeInput(3,this)"></div>
-          <div class="zg-pair-slot" data-slot="4"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 5</div><input maxlength="4" aria-label="Код игрока 5" oninput="zgPairCodeInput(4,this)"></div>
+          <div class="zg-pair-slot" data-slot="0"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 1</div><div class="zg-pair-slot-state">Свободно</div></div>
+          <div class="zg-pair-slot" data-slot="1"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 2</div><div class="zg-pair-slot-state">Свободно</div></div>
+          <div class="zg-pair-slot" data-slot="2"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 3</div><div class="zg-pair-slot-state">Свободно</div></div>
+          <div class="zg-pair-slot" data-slot="3"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 4</div><div class="zg-pair-slot-state">Свободно</div></div>
+          <div class="zg-pair-slot" data-slot="4"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 5</div><div class="zg-pair-slot-state">Свободно</div></div>
         </div>
         <div class="zg-pair-count" id="zg-pair-count">Подтверждено: <b>0</b> из 5</div>
         <button type="button" class="zg-adv-submit" id="zg-pair-continue" disabled onclick="zgStartPairedAdventure()">Продолжить</button>
@@ -13045,16 +13059,12 @@ window.zgImageStore = (function() {
         <div class="zg-adv-hint" id="zg-host-hint"></div>
       </div>
 
-      <!-- Вид 4: личный код игрока и ожидание подтверждения мастера -->
+      <!-- Вид 4: ожидание подтверждения мастера -->
       <div id="zg-adv-view-player" class="zg-adv-view" style="display:none">
         <div class="zg-adv-title">Вы вошли в приключение</div>
-        <div class="zg-adv-sub">Передайте личный код гейм-мастеру.</div>
+        <div class="zg-adv-sub">Заявка на подключение отправлена гейм-мастеру.</div>
         <div class="zg-player-gem" id="zg-player-gem"></div>
-        <div class="zg-pair-code-card">
-          <div><div class="zg-pair-code-label">Ваш личный код</div><div class="zg-pair-code" id="zg-player-code">—</div></div>
-          <button type="button" class="zg-pair-copy" onclick="zgCopyPairCode('player')" title="Скопировать личный код" aria-label="Скопировать личный код">⧉</button>
-        </div>
-        <div class="zg-player-wait" id="zg-player-wait">Ожидаем, когда мастер введёт ваш код…</div>
+        <div class="zg-player-wait" id="zg-player-wait">Ожидаем подтверждения гейм-мастера…</div>
       </div>
     </div>
   </div>
