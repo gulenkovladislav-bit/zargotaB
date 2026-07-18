@@ -364,6 +364,7 @@
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
             characterId: String(character.id),
             character: characterSnapshot(character),
+            gmReady: false,
             name: character.name || member.name,
             lastSeen: firebase.serverTimestamp(),
             online: true
@@ -373,6 +374,31 @@
         });
       }).catch(function (error) {
         if (error && ['room-not-found','not-approved'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    attachGameMaster: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Этот вход доступен только создателю комнаты.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          if (room.phase !== 'character-select') throw roomError('Выбор персонажей уже завершён.', 'wrong-phase');
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+            characterId: null,
+            character: null,
+            gmReady: true,
+            name: 'Гейм-мастер',
+            lastSeen: firebase.serverTimestamp(),
+            online: true
+          }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','wrong-phase'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -387,7 +413,9 @@
           if (room.phase === 'journey') return room;
           if (room.phase !== 'character-select') throw roomError('Выбор персонажей ещё не начат.', 'wrong-phase');
           var members = membersOf(room);
-          if (!members.length || members.some(function (member) { return !member.characterId; })) {
+          if (!members.length || members.some(function (member) {
+            return member.role === 'master' ? !(member.gmReady || member.characterId) : !member.characterId;
+          })) {
             throw roomError('Не все участники выбрали персонажей.', 'characters-pending');
           }
           return firebase.update(roomRef(session.code), {

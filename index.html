@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-18.6';
+var ZG_APP_VERSION = '2026-07-18.7';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.7', notes: 'Создатель комнаты может войти в приключение как гейм-мастер без выбора героя. Мастерская кнопка видна только владельцу комнаты и участвует в общей готовности группы.' },
   { v: '2026-07-18.6', notes: 'Экран пути стал общим ожиданием: каждый участник остаётся на загрузке после выбора героя, а переход происходит автоматически, когда персонажей выбрали все. Скрыта служебная кнопка арт-тюнера.' },
   { v: '2026-07-18.5', notes: 'Подключение игроков упрощено: заявки автоматически появляются у мастера и принимаются одной кнопкой, без передачи и ручного ввода личных кодов.' },
   { v: '2026-07-18.4', notes: 'Комнаты переведены на Firebase Realtime Database: подключение с разных устройств и сетей, анонимные сетевые ID и синхронизация состава партии в реальном времени.' },
@@ -9632,7 +9633,10 @@ document.addEventListener('DOMContentLoaded', function(){
   function render(){
     var hs = heroes();
     var list = el('zg-cs-list'), port = el('zg-cs-portrait'),
-        stats = el('zg-cs-stats'), det = el('zg-cs-detail'), btn = el('zg-cs-choose');
+        stats = el('zg-cs-stats'), det = el('zg-cs-detail'), btn = el('zg-cs-choose'), gmBtn = el('zg-cs-gm');
+    var roomState = w.ZargotaRooms && w.ZargotaRooms.getSnapshot ? w.ZargotaRooms.getSnapshot() : null;
+    var isRoomMaster = !!(roomState && roomState.session && roomState.session.role === 'master' && roomState.room && roomState.room.phase === 'character-select');
+    if (gmBtn) gmBtn.style.display = isRoomMaster ? 'inline-flex' : 'none';
     if (!list) return;
     if (!hs.length) {
       list.innerHTML = '<div class="zg-cs-empty">Пока нет героев.<br>Создайте первого в редакторе персонажей.</div>';
@@ -10053,19 +10057,20 @@ document.addEventListener('DOMContentLoaded', function(){
   function beginJourney(c, waitsForParty){
     // портрет берём тот же, что показан при выборе (крупный арт из #zg-cs-portrait)
     var pImg = document.querySelector('#zg-cs-portrait img');
-    var src = (pImg && pImg.getAttribute('src')) || (c && c.portrait) || '';
+    var isGameMaster = c && String(c.id) === 'gm';
+    var src = isGameMaster ? '' : ((pImg && pImg.getAttribute('src')) || (c && c.portrait) || '');
     w.zgJourneyCancel();
     if (w.zgCharSelClose) w.zgCharSelClose();
     if (!c) return;
     journeyCharacter = c;
     journeyReleased = false;
-    try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {}
+    try { if (String(c.id) !== 'gm') localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {}
     var inner = el('zg-journey-inner');
     if (inner){
       inner.innerHTML =
         (src ? '<img class="zg-journey-port" src="' + src + '" alt="">' : '') +
         '<div class="zg-journey-name">' + esc(c.name || 'Герой') + '</div>' +
-        '<div class="zg-journey-sub">отправляется в путь…</div>';
+        '<div class="zg-journey-sub">' + (isGameMaster ? 'собирает героев…' : 'отправляется в путь…') + '</div>';
     }
     var jo = el('zg-journey-overlay');
     if (jo){
@@ -10091,6 +10096,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var session = snapshot && snapshot.session;
     var room = snapshot && snapshot.room;
     var member = session && room && room.members && room.members[session.uid];
+    if (member && member.role === 'master' && member.gmReady) return { id:'gm', name:'Гейм-мастер', portrait:'' };
     var id = member && member.characterId;
     var chars = Array.isArray(w.characters) ? w.characters : [];
     for (var i = 0; i < chars.length; i++) if (id != null && String(chars[i].id) === String(id)) return chars[i];
@@ -10111,14 +10117,16 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!snapshot || !snapshot.room || !snapshot.session) return;
     var room = snapshot.room;
     var members = Object.keys(room.members || {}).map(function(uid){ return room.members[uid]; }).filter(Boolean);
-    var readyCount = members.filter(function(member){ return !!member.characterId; }).length;
+    function memberReady(member){ return member.role === 'master' ? !!(member.gmReady || member.characterId) : !!member.characterId; }
+    var readyCount = members.filter(memberReady).length;
     var allReady = members.length > 0 && readyCount === members.length;
     var c = localCharacter(snapshot);
     var jo = el('zg-journey-overlay');
+    var ownMember = room.members && room.members[snapshot.session.uid];
 
     if (room.phase === 'character-select') {
       if (!allReady) launchRequested = false;
-      if (c && room.members && room.members[snapshot.session.uid] && room.members[snapshot.session.uid].characterId) {
+      if (c && ownMember && memberReady(ownMember)) {
         if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
         setJourneyStatus('Ожидаем героев… ' + readyCount + ' / ' + members.length);
       }
@@ -10148,6 +10156,16 @@ document.addEventListener('DOMContentLoaded', function(){
       if (networked) syncJourney(snapshot);
     }).catch(function(err){
       if (w.showToast) w.showToast(err.message || 'Не удалось выбрать персонажа.');
+    });
+  };
+  w.zgEnterAsGameMaster = function(){
+    if (!w.ZargotaRooms || !w.ZargotaRooms.attachGameMaster) return;
+    var gm = { id:'gm', name:'Гейм-мастер', portrait:'' };
+    w.ZargotaRooms.attachGameMaster().then(function(snapshot){
+      beginJourney(gm, true);
+      syncJourney(snapshot);
+    }).catch(function(err){
+      if (w.showToast) w.showToast(err.message || 'Не удалось войти как гейм-мастер.');
     });
   };
   w.zgJourneyClose = function(){
@@ -13214,7 +13232,7 @@ window.zgImageStore = (function() {
   .zg-cs-row-l .g{color:var(--gold2);margin-right:7px;font-size:12px}
   .zg-cs-row-v{color:var(--text)}
   .zg-cs-bio{font-size:14.5px;line-height:1.65;color:var(--muted);margin-top:16px}
-  .zg-cs-foot{position:relative;display:flex;justify-content:center;padding-top:16px}
+  .zg-cs-foot{position:relative;display:flex;justify-content:center;align-items:center;gap:14px;padding-top:16px;flex-wrap:wrap}
   .zg-cs-choose{position:relative;z-index:1;font-family:'Cinzel',serif;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:#e8d9b0;
     background:transparent;border:1px solid transparent;border-radius:9px;padding:13px 48px;cursor:pointer;
     animation:zgChoosePulse 5s ease-in-out infinite;
@@ -13226,6 +13244,8 @@ window.zgImageStore = (function() {
   .zg-cs-choose:hover{animation:none;color:#fbf0cf;border-color:rgba(232,192,96,.7);background:rgba(232,192,96,.05);
     box-shadow:0 0 36px rgba(232,180,90,.32);text-shadow:0 0 18px rgba(245,212,135,.75)}
   .zg-cs-choose:active{background:rgba(232,192,96,.03)}
+  .zg-cs-gm{display:none;position:relative;z-index:1;padding:12px 24px;border:1px solid rgba(93,150,128,.5);border-radius:9px;background:rgba(43,91,75,.10);color:#a9d6c2;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1.2px;cursor:pointer;transition:.25s}
+  .zg-cs-gm:hover{border-color:#7ac6a5;background:rgba(50,120,92,.18);color:#d0f0df;box-shadow:0 0 24px rgba(76,180,137,.16)}
   /* Светлячки под кнопкой — появляются на наведении */
   .zg-cs-flies{position:absolute;left:50%;top:50%;width:360px;height:170px;transform:translate(-50%,-42%);pointer-events:none;opacity:0;transition:opacity .45s ease;z-index:0}
   .zg-cs-choose:hover ~ .zg-cs-flies{opacity:1}
@@ -13409,6 +13429,7 @@ window.zgImageStore = (function() {
       </div>
       <div class="zg-cs-foot">
         <button type="button" class="zg-cs-choose" id="zg-cs-choose" onclick="zgCharSelChoose()">Отправиться в путь</button>
+        <button type="button" class="zg-cs-gm" id="zg-cs-gm" onclick="zgEnterAsGameMaster()">Войти как гейм-мастер</button>
         <div class="zg-cs-flies" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
       </div>
     </div>
