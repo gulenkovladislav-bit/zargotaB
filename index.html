@@ -9826,17 +9826,28 @@ document.addEventListener('DOMContentLoaded', function(){
     img.classList.add('zg-reveal');
   }
   function reveal(){ fire('zg-cs-portrait'); fire('zg-cs-bglayer'); }
-  function wrap(name){
+  // Случайные параметры дрейфа: разная длительность, фаза и направление —
+  // чтобы движение не выглядело метрономом (то снизу-справа вверх, то обратно)
+  function randFloat(){
+    var p = document.getElementById('zg-cs-portrait');
+    if (!p) return;
+    var dur = (10 + Math.random() * 4);          // 10–14 с — чуть медленнее
+    p.style.animationDuration = dur.toFixed(2) + 's';
+    p.style.animationDelay = (-Math.random() * dur).toFixed(2) + 's';   // случайная фаза
+    p.style.animationDirection = Math.random() < 0.5 ? 'normal' : 'reverse';
+  }
+  function wrap(name, withFloat){
     var orig = w[name];
     if (typeof orig !== 'function') return;
     w[name] = function(){
       var r = orig.apply(this, arguments);
       reveal();                          // синхронно, до отрисовки — без мигания
+      if (withFloat) randFloat();
       return r;
     };
   }
-  wrap('zgCharSelPick');
-  wrap('zgCharSelOpen');
+  wrap('zgCharSelPick', false);          // при переключении — дрейф не сбрасываем
+  wrap('zgCharSelOpen', true);           // при открытии — новые случайные параметры
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -12759,21 +12770,26 @@ window.zgImageStore = (function() {
   }
   /* ─ Анимации: проявление из тумана + «дыхание» портрета ─ */
   @keyframes zgCsReveal{
-    0%{opacity:0;filter:blur(22px) brightness(1.35)}
-    55%{opacity:1}
-    100%{opacity:1;filter:blur(0) brightness(1)}
+    0%{opacity:0;filter:blur(34px) brightness(1.18) saturate(.7)}
+    35%{opacity:.5;filter:blur(20px) brightness(1.1) saturate(.85)}
+    70%{opacity:.9;filter:blur(7px) brightness(1.03) saturate(.95)}
+    100%{opacity:1;filter:blur(0) brightness(1) saturate(1)}
   }
   @keyframes zgCsRevealBg{
-    0%{opacity:0;filter:blur(30px) brightness(1.2)}
-    100%{opacity:.85;filter:blur(2px) brightness(1)}
+    0%{opacity:0;filter:blur(40px) brightness(1.12)}
+    100%{opacity:.85;filter:blur(3px) brightness(1)}
   }
+  /* Диагональный дрейф: нижний-правый угол ⇄ верх (с «блужданием» на возврате) */
   @keyframes zgCsFloat{
-    0%,100%{transform:translateY(0) rotate(0deg) scale(1)}
-    50%{transform:translateY(-12px) rotate(.35deg) scale(1.012)}
+    0%{transform:translate(9px,10px) rotate(.28deg) scale(1.012)}
+    28%{transform:translate(-7px,-14px) rotate(-.10deg) scale(1.02)}
+    50%{transform:translate(-10px,-18px) rotate(-.28deg) scale(1.022)}
+    72%{transform:translate(4px,-6px) rotate(.06deg) scale(1.015)}
+    100%{transform:translate(9px,10px) rotate(.28deg) scale(1.012)}
   }
-  .zg-cs-portrait img.zg-reveal{animation:zgCsReveal .78s cubic-bezier(.2,.7,.25,1) both}
-  .zg-cs-bglayer img.zg-reveal{animation:zgCsRevealBg 1.1s ease-out both}
-  .zg-cs-portrait{animation:zgCsFloat 6.5s ease-in-out infinite;will-change:transform}
+  .zg-cs-portrait img.zg-reveal{animation:zgCsReveal 1.5s cubic-bezier(.22,.61,.28,1) both}
+  .zg-cs-bglayer img.zg-reveal{animation:zgCsRevealBg 1.9s ease-out both}
+  .zg-cs-portrait{animation:zgCsFloat 11s ease-in-out infinite;will-change:transform}
   @media (prefers-reduced-motion:reduce){
     .zg-cs-portrait{animation:none}
     .zg-cs-portrait img.zg-reveal,.zg-cs-bglayer img.zg-reveal{animation:none}
