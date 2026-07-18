@@ -461,12 +461,12 @@
           var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 40).map(function (token, index) {
             return {
               id: String(token.id || ('token-' + index)).slice(0, 100),
-              type: token.type === 'hero' ? 'hero' : 'custom',
+              type: (['hero','custom','spawn','portal'].indexOf(token.type) >= 0 ? token.type : 'custom'),
               disposition: (token.type === 'hero' ? 'hero' : (['ally','enemy','neutral','npc'].indexOf(token.disposition) >= 0 ? token.disposition : 'neutral')),
               hidden: token.type === 'hero' ? false : !!token.hidden,
               memberUid: String(token.memberUid || '').slice(0, 128),
               name: String(token.name || 'Жетон').slice(0, 80),
-              image: token.type === 'hero' ? '' : String(token.image || ''),
+              image: token.type === 'custom' ? String(token.image || '') : '',
               x: Math.max(0, Math.min(100, Number(token.x == null ? 50 : token.x))),
               y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
               size: Math.max(24, Math.min(180, Number(token.size) || 64)),
