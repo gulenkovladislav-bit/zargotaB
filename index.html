@@ -13989,6 +13989,7 @@ window.zgImageStore = (function() {
   /* ── Жетоны на карте: круглые аватарки с кольцом по типу ── */
   .zg-vtt-token-layer{position:absolute;inset:0;z-index:2}
   .zg-vtt-token{position:absolute;z-index:3;transform:translate(-50%,-50%);width:64px;height:64px;border:0;padding:0;background:transparent;cursor:default;filter:drop-shadow(0 6px 11px #000b);transition:transform .12s ease}
+  .zg-vtt-token:hover:not(:disabled),.zg-vtt-token:active:not(:disabled){transform:translate(-50%,-50%)}  /* глобальный button:hover не должен сбивать центрирование */
   .zg-game-overlay.gm .zg-vtt-token{cursor:grab}
   .zg-game-overlay.gm .zg-vtt-token.dragging{cursor:grabbing;transform:translate(-50%,-50%) scale(1.06)}
   .zg-vtt-token>img,.zg-vtt-token-ph{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top center;box-sizing:border-box;border:2.5px solid #c8993c;background:#0c0a07;box-shadow:0 0 0 1px #000a,0 0 12px #00000066,inset 0 0 0 1px #ffffff14}
