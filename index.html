@@ -9811,6 +9811,35 @@ document.addEventListener('DOMContentLoaded', function(){
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
+//   ЭФФЕКТ ПРОЯВЛЕНИЯ ИЗ ТУМАНА при переключении персонажей.
+//   Портрет и слой-фон получают класс .zg-reveal (перезапускает CSS-
+//   анимацию), «дыхание» портрета задано CSS постоянно. Оборачиваем
+//   zgCharSelPick/zgCharSelOpen — картинки к этому моменту уже в DOM.
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  function fire(id){
+    var host = document.getElementById(id);
+    var img = host && host.querySelector('img');
+    if (!img) return;
+    img.classList.remove('zg-reveal');
+    void img.offsetWidth;               // форс-reflow → рестарт анимации
+    img.classList.add('zg-reveal');
+  }
+  function reveal(){ fire('zg-cs-portrait'); fire('zg-cs-bglayer'); }
+  function wrap(name){
+    var orig = w[name];
+    if (typeof orig !== 'function') return;
+    w[name] = function(){
+      var r = orig.apply(this, arguments);
+      reveal();                          // синхронно, до отрисовки — без мигания
+      return r;
+    };
+  }
+  wrap('zgCharSelPick');
+  wrap('zgCharSelOpen');
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
 //   FULLSCREEN-АНИМАЦИЯ ДЛЯ БРОСКОВ ЖИЗНИ/СМЕРТИ + СЛАВЫ
 //   Частицы на canvas, текст-вердикт по центру, авто-удаление через timeout.
 //   Работает поверх всего (z-index:99999), pointer-events:none — не мешает кликам.
@@ -12727,6 +12756,27 @@ window.zgImageStore = (function() {
     .zg-cs-list{max-height:300px}
     .zg-cs-portrait{min-height:300px}
     .zg-cs-title{font-size:24px;margin-top:34px}
+  }
+  /* ─ Анимации: проявление из тумана + «дыхание» портрета ─ */
+  @keyframes zgCsReveal{
+    0%{opacity:0;filter:blur(22px) brightness(1.35)}
+    55%{opacity:1}
+    100%{opacity:1;filter:blur(0) brightness(1)}
+  }
+  @keyframes zgCsRevealBg{
+    0%{opacity:0;filter:blur(30px) brightness(1.2)}
+    100%{opacity:.85;filter:blur(2px) brightness(1)}
+  }
+  @keyframes zgCsFloat{
+    0%,100%{transform:translateY(0) rotate(0deg) scale(1)}
+    50%{transform:translateY(-12px) rotate(.35deg) scale(1.012)}
+  }
+  .zg-cs-portrait img.zg-reveal{animation:zgCsReveal .78s cubic-bezier(.2,.7,.25,1) both}
+  .zg-cs-bglayer img.zg-reveal{animation:zgCsRevealBg 1.1s ease-out both}
+  .zg-cs-portrait{animation:zgCsFloat 6.5s ease-in-out infinite;will-change:transform}
+  @media (prefers-reduced-motion:reduce){
+    .zg-cs-portrait{animation:none}
+    .zg-cs-portrait img.zg-reveal,.zg-cs-bglayer img.zg-reveal{animation:none}
   }
   </style>
   <div id="zg-cs-overlay" class="zg-cs-overlay">
