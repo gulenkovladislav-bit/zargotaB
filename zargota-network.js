@@ -1,18 +1,20 @@
 (function (w) {
   'use strict';
 
-  var STORAGE_KEY = 'zargota_vtt_rooms_v1';
-  var SESSION_KEY = 'zargota_vtt_session_v1';
+  var STORAGE_KEY = 'zargota_vtt_rooms_v2';
+  var SESSION_KEY = 'zargota_vtt_session_v2';
   var CLIENT_KEY = 'zargota_vtt_client_id';
-  var CHANNEL_NAME = 'zargota_vtt_rooms';
+  var CHANNEL_NAME = 'zargota_vtt_rooms_v2';
   var MAX_PLAYERS = 5;
   var listeners = [];
-  var pendingCode = '';
   var channel = null;
 
   function now() { return Date.now(); }
-  function normalizeCode(value) {
+  function normalizeRoomCode(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  }
+  function normalizePlayerCode(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
   }
   function randomId(prefix) {
     var bytes = new Uint8Array(10);
@@ -37,11 +39,6 @@
       return parsed && typeof parsed === 'object' ? parsed : {};
     } catch (e) { return {}; }
   }
-  function writeRooms(rooms, code) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
-    if (channel) channel.postMessage({ type: 'room-update', code: code || '' });
-    emit();
-  }
   function readSession() {
     try {
       var parsed = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
@@ -54,27 +51,37 @@
       else sessionStorage.removeItem(SESSION_KEY);
     } catch (e) {}
   }
-  function generateCode(rooms) {
+  function writeRooms(rooms, code) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
+    if (channel) channel.postMessage({ type: 'room-update', code: code || '' });
+    emit();
+  }
+  function generatedCode(length, used) {
     var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    for (var attempt = 0; attempt < 40; attempt++) {
+    for (var attempt = 0; attempt < 50; attempt++) {
       var code = '';
-      var bytes = new Uint8Array(5);
+      var bytes = new Uint8Array(length);
       if (w.crypto && w.crypto.getRandomValues) w.crypto.getRandomValues(bytes);
-      else for (var i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-      for (var j = 0; j < bytes.length; j++) code += alphabet[bytes[j] % alphabet.length];
-      if (!rooms[code]) return code;
+      else for (var i = 0; i < length; i++) bytes[i] = Math.floor(Math.random() * 256);
+      for (var j = 0; j < length; j++) code += alphabet[bytes[j] % alphabet.length];
+      if (!used[code]) return code;
     }
-    throw new Error('Не удалось создать уникальный код комнаты.');
+    throw roomError('Не удалось создать уникальный код.', 'code-failed');
   }
-  function roomForSession() {
-    var session = readSession();
-    if (!session) return null;
-    return readRooms()[session.code] || null;
+  function roomError(message, code) {
+    var err = new Error(message);
+    err.code = code || 'room-error';
+    return err;
   }
-  function playerMembers(room) {
+  function membersOf(room, role) {
     return Object.keys((room && room.members) || {}).map(function (id) {
       return room.members[id];
-    }).filter(function (member) { return member && member.role === 'player'; });
+    }).filter(function (member) { return member && (!role || member.role === role); });
+  }
+  function pendingOf(room) {
+    return Object.keys((room && room.pending) || {}).map(function (code) {
+      return room.pending[code];
+    });
   }
   function characterSnapshot(character) {
     return {
@@ -97,11 +104,6 @@
     });
     try { w.dispatchEvent(new CustomEvent('zargota-room-state', { detail: snapshot })); } catch (e) {}
   }
-  function error(message, code) {
-    var err = new Error(message);
-    err.code = code || 'room-error';
-    return err;
-  }
 
   var api = {
     mode: 'local',
@@ -110,16 +112,18 @@
     createRoom: function () {
       return Promise.resolve().then(function () {
         var rooms = readRooms();
-        var code = generateCode(rooms);
+        var code = generatedCode(5, rooms);
         var uid = clientId();
         rooms[code] = {
           code: code,
-          status: 'lobby',
+          phase: 'pairing',
           maxPlayers: MAX_PLAYERS,
           masterUid: uid,
           createdAt: now(),
           updatedAt: now(),
-          members: {}
+          members: {},
+          pending: {},
+          slots: {}
         };
         rooms[code].members[uid] = {
           uid: uid,
@@ -130,7 +134,6 @@
           lastSeen: now()
         };
         saveSession({ code: code, role: 'master', uid: uid });
-        pendingCode = '';
         writeRooms(rooms, code);
         return api.getSnapshot();
       });
@@ -138,51 +141,108 @@
 
     prepareJoin: function (rawCode) {
       return Promise.resolve().then(function () {
-        var code = normalizeCode(rawCode);
-        var room = readRooms()[code];
-        if (!room) throw error('Комната с таким кодом не найдена.', 'room-not-found');
+        var code = normalizeRoomCode(rawCode);
+        var rooms = readRooms();
+        var room = rooms[code];
+        if (!room) throw roomError('Комната с таким кодом не найдена.', 'room-not-found');
+        if (room.phase !== 'pairing') throw roomError('Мастер уже начал выбор героев.', 'room-started');
         var uid = clientId();
         var existing = room.members && room.members[uid];
-        if (!existing && playerMembers(room).length >= Number(room.maxPlayers || MAX_PLAYERS)) {
-          throw error('В комнате уже заняты все пять мест игроков.', 'room-full');
+        if (existing && existing.role === 'player') {
+          saveSession({ code: code, role: 'player', uid: uid, playerCode: existing.playerCode });
+          return api.getSnapshot();
         }
-        pendingCode = code;
-        return { code: code, room: room };
+        var ownPendingCode = '';
+        Object.keys(room.pending || {}).some(function (key) {
+          if (room.pending[key].uid === uid) { ownPendingCode = key; return true; }
+          return false;
+        });
+        if (!ownPendingCode) {
+          if (membersOf(room, 'player').length + pendingOf(room).length >= MAX_PLAYERS) {
+            throw roomError('Все пять мест уже заняты или ожидают подтверждения.', 'room-full');
+          }
+          ownPendingCode = generatedCode(4, room.pending || {});
+          room.pending[ownPendingCode] = {
+            uid: uid,
+            playerCode: ownPendingCode,
+            online: true,
+            createdAt: now()
+          };
+          room.updatedAt = now();
+          writeRooms(rooms, code);
+        }
+        saveSession({ code: code, role: 'pending', uid: uid, playerCode: ownPendingCode });
+        emit();
+        return api.getSnapshot();
+      });
+    },
+
+    approvePlayer: function (rawPlayerCode, slotIndex) {
+      return Promise.resolve().then(function () {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Подтверждать игроков может только мастер.', 'master-only');
+        var rooms = readRooms();
+        var room = rooms[session.code];
+        if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+        var playerCode = normalizePlayerCode(rawPlayerCode);
+        var pending = room.pending[playerCode];
+        if (!pending) throw roomError('Игрок с таким кодом пока не подключался.', 'player-not-found');
+        var slot = Math.max(0, Math.min(MAX_PLAYERS - 1, Number(slotIndex) || 0));
+        if (room.slots[slot] && room.slots[slot].uid !== pending.uid) {
+          throw roomError('Эта ячейка уже занята.', 'slot-busy');
+        }
+        Object.keys(room.slots || {}).forEach(function (key) {
+          if (room.slots[key] && room.slots[key].uid === pending.uid) delete room.slots[key];
+        });
+        room.members[pending.uid] = {
+          uid: pending.uid,
+          role: 'player',
+          name: 'Игрок',
+          playerCode: playerCode,
+          approved: true,
+          online: true,
+          joinedAt: pending.createdAt || now(),
+          lastSeen: now()
+        };
+        room.slots[slot] = { uid: pending.uid, playerCode: playerCode };
+        delete room.pending[playerCode];
+        room.updatedAt = now();
+        writeRooms(rooms, session.code);
+        return api.getSnapshot();
+      });
+    },
+
+    startCharacterSelection: function () {
+      return Promise.resolve().then(function () {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Начать игру может только мастер.', 'master-only');
+        var rooms = readRooms();
+        var room = rooms[session.code];
+        if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+        if (!membersOf(room, 'player').length) throw roomError('Подтвердите хотя бы одного игрока.', 'no-players');
+        room.phase = 'character-select';
+        room.updatedAt = now();
+        writeRooms(rooms, session.code);
+        return api.getSnapshot();
       });
     },
 
     attachCharacter: function (character) {
       return Promise.resolve().then(function () {
-        if (!character || character.id == null) throw error('Персонаж не выбран.', 'character-required');
+        if (!character || character.id == null) throw roomError('Персонаж не выбран.', 'character-required');
         var session = readSession();
-        var code = pendingCode || (session && session.code) || '';
-        if (!code) return api.getSnapshot();
+        if (!session) return api.getSnapshot();
         var rooms = readRooms();
-        var room = rooms[code];
-        if (!room) throw error('Комната больше недоступна.', 'room-not-found');
-        var uid = clientId();
-        var selectedId = String(character.id);
-        var taken = playerMembers(room).some(function (member) {
-          return member.uid !== uid && String(member.characterId || '') === selectedId;
-        });
-        if (taken) throw error('Этот герой уже выбран другим игроком.', 'character-taken');
-        if (!room.members[uid] && playerMembers(room).length >= Number(room.maxPlayers || MAX_PLAYERS)) {
-          throw error('В комнате уже заняты все пять мест игроков.', 'room-full');
-        }
-        room.members[uid] = {
-          uid: uid,
-          role: 'player',
-          name: character.name || 'Игрок',
-          characterId: selectedId,
-          character: characterSnapshot(character),
-          online: true,
-          joinedAt: room.members[uid] ? room.members[uid].joinedAt : now(),
-          lastSeen: now()
-        };
+        var room = rooms[session.code];
+        if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+        var member = room.members[session.uid];
+        if (!member) throw roomError('Мастер ещё не подтвердил подключение.', 'not-approved');
+        member.characterId = String(character.id);
+        member.character = characterSnapshot(character);
+        member.name = character.name || member.name;
+        member.lastSeen = now();
         room.updatedAt = now();
-        saveSession({ code: code, role: 'player', uid: uid, characterId: selectedId });
-        pendingCode = '';
-        writeRooms(rooms, code);
+        writeRooms(rooms, session.code);
         return api.getSnapshot();
       });
     },
@@ -192,18 +252,16 @@
       if (!session) return Promise.resolve();
       var rooms = readRooms();
       var room = rooms[session.code];
-      if (room && room.members && room.members[session.uid]) {
-        if (session.role === 'master') {
-          room.members[session.uid].online = false;
-          room.members[session.uid].lastSeen = now();
-        } else {
-          delete room.members[session.uid];
-        }
+      if (room) {
+        if (session.role === 'pending' && session.playerCode) delete room.pending[session.playerCode];
+        if (room.members && room.members[session.uid]) delete room.members[session.uid];
+        Object.keys(room.slots || {}).forEach(function (key) {
+          if (room.slots[key] && room.slots[key].uid === session.uid) delete room.slots[key];
+        });
         room.updatedAt = now();
         writeRooms(rooms, session.code);
       }
       saveSession(null);
-      pendingCode = '';
       emit();
       return Promise.resolve();
     },
@@ -211,12 +269,15 @@
     getSnapshot: function () {
       var session = readSession();
       var room = session ? readRooms()[session.code] || null : null;
+      var member = room && session && room.members ? room.members[session.uid] || null : null;
       return {
         mode: api.mode,
         connected: !!room,
+        approved: !!(member && member.role === 'player'),
         session: session,
         room: room,
-        players: playerMembers(room)
+        players: membersOf(room, 'player'),
+        pending: pendingOf(room)
       };
     },
 
@@ -229,7 +290,8 @@
       };
     },
 
-    normalizeCode: normalizeCode
+    normalizeCode: normalizeRoomCode,
+    normalizePlayerCode: normalizePlayerCode
   };
 
   try {
@@ -241,6 +303,5 @@
   w.addEventListener('storage', function (event) {
     if (event.key === STORAGE_KEY) emit();
   });
-
   w.ZargotaRooms = api;
 })(window);

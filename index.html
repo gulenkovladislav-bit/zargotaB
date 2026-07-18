@@ -8973,6 +8973,31 @@ window.addEventListener('load', function(){
     transform: translateY(-1px);
   }
   .zg-adv-hint { text-align: center; font-size: 12px; color: var(--dim); margin-top: 16px; min-height: 15px; }
+  .zg-adv-dialog.zg-pairing-wide { max-width: 760px; }
+  .zg-pair-code-card { display:flex;align-items:center;justify-content:center;gap:14px;margin:0 auto 24px;padding:14px 18px;width:min(390px,100%);border:1px solid #4a381c;border-radius:10px;background:#0b0805aa; }
+  .zg-pair-code-label { font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim); }
+  .zg-pair-code { margin-top:4px;font-family:'Cinzel',serif;font-size:25px;letter-spacing:6px;color:var(--gold);text-shadow:0 0 16px #e8c06040; }
+  .zg-pair-copy { width:34px;height:34px;border:1px solid #4a381c;border-radius:7px;background:#171006;color:var(--muted);font-size:15px; }
+  .zg-pair-copy:hover { color:var(--gold);border-color:var(--gold2); }
+  .zg-pair-slots { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:4px 0 18px; }
+  .zg-pair-slot { min-width:0;padding:14px 8px 11px;border:1px solid #302414;border-radius:9px;background:linear-gradient(180deg,#151006,#0c0905);text-align:center;transition:border-color .3s,box-shadow .3s; }
+  .zg-pair-gem { width:26px;height:32px;margin:0 auto 10px;clip-path:polygon(50% 0,88% 22%,100% 68%,50% 100%,0 68%,12% 22%);background:linear-gradient(145deg,#15251c,#09110c);border:1px solid #35513b;filter:drop-shadow(0 0 0 transparent);transition:.35s; }
+  .zg-pair-slot.ok { border-color:#398a5a;box-shadow:0 0 18px #37c87325,inset 0 0 16px #37c87312; }
+  .zg-pair-slot.ok .zg-pair-gem,.zg-player-gem.ok { background:linear-gradient(145deg,#9dffc4 0%,#31d879 38%,#08733e 100%);filter:drop-shadow(0 0 10px #38e98799); }
+  .zg-pair-slot-num { font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase; }
+  .zg-pair-slot input { width:100%;margin-top:7px;padding:8px 4px;text-align:center;border:1px solid #342715;border-radius:6px;background:#080604;color:#d6c298;font-family:'Cinzel',serif;font-size:13px;letter-spacing:2px;outline:none;text-transform:uppercase; }
+  .zg-pair-slot input:focus { border-color:var(--gold2); }
+  .zg-pair-slot.ok input { color:#7be2a1;border-color:#2f7048; }
+  .zg-pair-count { text-align:center;color:var(--muted);font-size:12px;margin:0 0 16px; }
+  .zg-pair-count b { color:#65cc89; }
+  .zg-adv-submit:disabled { opacity:.38;cursor:not-allowed;transform:none;box-shadow:none; }
+  .zg-player-gem { width:54px;height:68px;margin:4px auto 18px;clip-path:polygon(50% 0,88% 22%,100% 68%,50% 100%,0 68%,12% 22%);background:linear-gradient(145deg,#17231b,#09110c);transition:.4s; }
+  .zg-player-wait { text-align:center;color:var(--muted);font-size:13px;line-height:1.6; }
+  .zg-player-wait strong { color:#78d99c; }
+  @media(max-width:650px){
+    .zg-pair-slots { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .zg-pair-slot:last-child { grid-column:1 / -1;width:50%;justify-self:center; }
+  }
 </style>
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -8980,8 +9005,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-18.1';
+var ZG_APP_VERSION = '2026-07-18.2';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.2', notes: 'Сбор партии перенесён в поп-ап: код комнаты мастера, личные коды игроков, пять изумрудных ячеек подтверждения и общий переход к выбору героев.' },
   { v: '2026-07-18.1', notes: 'Добавлен первый этап VTT: комната мастера, код подключения, пять мест игроков и привязка выбранного локального листа героя.' },
   { v: '2026-07-17.7', notes: 'Окно приключения больше не обрезает верхний знак: на малых экранах оно прокручивается без потери оформления.' },
   { v: '2026-07-17.6', notes: 'На главной появился путь «Отправиться в приключение»: создать или присоединиться к игре, затем выбрать героя на полноэкранном листе.' },
@@ -9407,11 +9433,25 @@ document.addEventListener('DOMContentLoaded', function(){
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
   function el(id){ return document.getElementById(id); }
+  var lastOpenedPhase = '';
+
+  function showView(viewId, wide){
+    ['zg-adv-view-main','zg-adv-view-join','zg-adv-view-host','zg-adv-view-player'].forEach(function(id){
+      var node = el(id); if (node) node.style.display = id === viewId ? '' : 'none';
+    });
+    var dialog = document.querySelector('.zg-adv-dialog');
+    if (dialog) dialog.classList.toggle('zg-pairing-wide', !!wide);
+    var back = el('zg-adv-back'); if (back) back.style.display = viewId === 'zg-adv-view-join' ? '' : 'none';
+  }
 
   w.zgAdvOpen = function() {
     var ov = el('zg-adv-overlay');
     if (!ov) return;
-    w.zgAdvShowMain();
+    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot();
+    if (snapshot && snapshot.room && snapshot.room.phase === 'pairing' && snapshot.session) {
+      if (snapshot.session.role === 'master') w.zgAdvShowHost();
+      else w.zgAdvShowPlayer();
+    } else w.zgAdvShowMain();
     ov.classList.add('open');
     try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
   };
@@ -9422,30 +9462,30 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 
   w.zgAdvShowMain = function() {
-    var m = el('zg-adv-view-main'), j = el('zg-adv-view-join'), b = el('zg-adv-back');
-    if (j) j.style.display = 'none';
-    if (b) b.style.display = 'none';
-    if (m) { m.style.display = ''; m.classList.remove('zg-adv-view'); void m.offsetWidth; m.classList.add('zg-adv-view'); }
+    showView('zg-adv-view-main', false);
     var h = el('zg-adv-hint'); if (h) h.textContent = '';
   };
 
   w.zgAdvShowJoin = function() {
-    var m = el('zg-adv-view-main'), j = el('zg-adv-view-join'), b = el('zg-adv-back');
-    if (m) m.style.display = 'none';
-    if (b) b.style.display = '';
-    if (j) {
-      j.style.display = '';
-      j.classList.remove('zg-adv-view'); void j.offsetWidth; j.classList.add('zg-adv-view');
-      var inp = el('zg-adv-code');
-      if (inp) setTimeout(function(){ try { inp.focus(); } catch(e) {} }, 120);
-    }
+    showView('zg-adv-view-join', false);
+    var inp = el('zg-adv-code');
+    if (inp) setTimeout(function(){ try { inp.focus(); } catch(e) {} }, 120);
+  };
+
+  w.zgAdvShowHost = function() {
+    showView('zg-adv-view-host', true);
+    renderPairing(w.ZargotaRooms && w.ZargotaRooms.getSnapshot());
+  };
+
+  w.zgAdvShowPlayer = function() {
+    showView('zg-adv-view-player', false);
+    renderPairing(w.ZargotaRooms && w.ZargotaRooms.getSnapshot());
   };
 
   w.zgAdvCreateGame = function() {
     if (!w.ZargotaRooms) return;
     w.ZargotaRooms.createRoom().then(function(){
-      w.zgAdvClose();
-      if (w.zgGameOpen) w.zgGameOpen();
+      w.zgAdvShowHost();
     }).catch(function(err){
       if (w.showToast) w.showToast('Не удалось создать комнату: ' + err.message);
     });
@@ -9466,12 +9506,81 @@ document.addEventListener('DOMContentLoaded', function(){
     if (h) h.textContent = 'Ищем комнату…';
     w.ZargotaRooms.prepareJoin(code).then(function(){
       if (h) h.textContent = '';
-      w.zgAdvClose();
-      if (w.zgCharSelOpen) w.zgCharSelOpen();
+      w.zgAdvShowPlayer();
     }).catch(function(err){
       if (h) h.textContent = err.message || 'Не удалось подключиться к комнате.';
     });
   };
+
+  w.zgPairCodeInput = function(slot, input){
+    if (!input || !w.ZargotaRooms) return;
+    input.value = w.ZargotaRooms.normalizePlayerCode(input.value);
+    if (input.value.length < 4) return;
+    var hint = el('zg-host-hint'); if (hint) hint.textContent = 'Проверяем код ' + input.value + '…';
+    w.ZargotaRooms.approvePlayer(input.value, slot).then(function(){
+      if (hint) hint.textContent = '';
+    }).catch(function(err){
+      if (hint) hint.textContent = err.message || 'Не удалось подтвердить игрока.';
+    });
+  };
+
+  w.zgStartPairedAdventure = function(){
+    if (!w.ZargotaRooms) return;
+    var hint = el('zg-host-hint'); if (hint) hint.textContent = 'Открываем выбор героев…';
+    w.ZargotaRooms.startCharacterSelection().catch(function(err){
+      if (hint) hint.textContent = err.message || 'Не удалось продолжить.';
+    });
+  };
+
+  w.zgCopyPairCode = function(kind){
+    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot();
+    var value = kind === 'player'
+      ? snapshot && snapshot.session && snapshot.session.playerCode
+      : snapshot && snapshot.room && snapshot.room.code;
+    if (!value) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(function(){ if (w.showToast) w.showToast('Код скопирован: ' + value); });
+    } else try { prompt('Код:', value); } catch(e) {}
+  };
+
+  w.zgLeaveRoom = function(){
+    var leave = w.ZargotaRooms ? w.ZargotaRooms.leaveRoom() : Promise.resolve();
+    Promise.resolve(leave).then(function(){ w.zgAdvClose(); if (w.zgGameClose) w.zgGameClose(); });
+  };
+
+  function renderPairing(snapshot){
+    if (!snapshot || !snapshot.room || !snapshot.session) return;
+    var room = snapshot.room;
+    var hostCode = el('zg-host-room-code'); if (hostCode) hostCode.textContent = room.code;
+    var playerCode = el('zg-player-code'); if (playerCode) playerCode.textContent = snapshot.session.playerCode || '—';
+    var slots = document.querySelectorAll('.zg-pair-slot');
+    for (var i = 0; i < slots.length; i++) {
+      var approvedSlot = room.slots && room.slots[i];
+      var field = slots[i].querySelector('input');
+      slots[i].classList.toggle('ok', !!approvedSlot);
+      if (approvedSlot && field) { field.value = approvedSlot.playerCode; field.disabled = true; }
+      else if (field) field.disabled = false;
+    }
+    var count = snapshot.players ? snapshot.players.length : 0;
+    var countNode = el('zg-pair-count'); if (countNode) countNode.innerHTML = 'Подтверждено: <b>' + count + '</b> из 5';
+    var continueBtn = el('zg-pair-continue'); if (continueBtn) continueBtn.disabled = count < 1;
+    var gem = el('zg-player-gem'); if (gem) gem.classList.toggle('ok', !!snapshot.approved);
+    var wait = el('zg-player-wait');
+    if (wait) wait.innerHTML = snapshot.approved
+      ? '<strong>Подключение подтверждено.</strong><br>Ожидаем команду гейм-мастера…'
+      : 'Ожидаем, когда мастер введёт ваш код…';
+    if (room.phase === 'character-select' && (snapshot.session.role === 'master' || snapshot.approved)) {
+      if (lastOpenedPhase !== room.code + ':character-select') {
+        lastOpenedPhase = room.code + ':character-select';
+        w.zgAdvClose();
+        if (w.zgCharSelOpen) w.zgCharSelOpen();
+      }
+    }
+  }
+
+  function initPairing(){ if (w.ZargotaRooms) w.ZargotaRooms.subscribe(renderPairing); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initPairing);
+  else initPairing();
 
   // Esc закрывает модалку
   document.addEventListener('keydown', function(ev){
@@ -9967,7 +10076,6 @@ document.addEventListener('DOMContentLoaded', function(){
       var sp = el('zg-game-settings'); if (sp) sp.classList.remove('open');
       go.classList.add('open');
     }
-    if (w.zgRenderRoomLobby) w.zgRenderRoomLobby();
     var jo = el('zg-journey-overlay');
     if (jo){ jo.classList.remove('open'); jo.classList.remove('loading'); jo.classList.remove('dissolving'); }
     try { if (w.ZargotaSound && w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } catch(e) {}
@@ -10004,89 +10112,6 @@ document.addEventListener('DOMContentLoaded', function(){
     var jo = el('zg-journey-overlay');
     if (jo && jo.classList.contains('open')) w.zgJourneyClose();
   });
-})(window);
-
-// ═══════════════════════════════════════════════════════════════════
-//  VTT ЛОББИ — мастер + пять игроков, данные комнаты из ZargotaRooms.
-// ═══════════════════════════════════════════════════════════════════
-(function(w){
-  function el(id){ return document.getElementById(id); }
-  function esc(value){
-    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
-    });
-  }
-  function memberCard(member, role, slot){
-    if (!member) {
-      return '<div class="zg-room-member empty">' +
-        '<div class="zg-room-avatar">' + (slot || '•') + '</div>' +
-        '<div class="zg-room-member-info"><div class="zg-room-member-role">Место игрока</div>' +
-        '<div class="zg-room-member-name">Свободно</div><div class="zg-room-member-meta">Ожидает героя</div></div></div>';
-    }
-    var character = member.character || {};
-    var portrait = character.portrait
-      ? '<img src="' + esc(character.portrait) + '" alt="">'
-      : (role === 'master' ? '♜' : '✦');
-    var meta = role === 'master'
-      ? 'Ведёт приключение'
-      : [character.race, character.klasse].filter(Boolean).join(' · ');
-    var hp = role === 'player' && character.hpMax
-      ? '<div class="zg-room-member-hp">♥ ' + Number(character.hpCur || 0) + ' / ' + Number(character.hpMax || 0) + '</div>'
-      : '';
-    return '<div class="zg-room-member ' + (role === 'master' ? 'master' : '') + '">' +
-      '<div class="zg-room-avatar">' + portrait + '</div>' +
-      '<div class="zg-room-member-info"><div class="zg-room-member-role">' + (role === 'master' ? 'Гейм-мастер' : 'Герой') + '</div>' +
-      '<div class="zg-room-member-name">' + esc(member.name || (role === 'master' ? 'Гейм-мастер' : 'Игрок')) + '</div>' +
-      '<div class="zg-room-member-meta">' + esc(meta || 'Лист персонажа подключён') + '</div>' + hp + '</div></div>';
-  }
-  function render(snapshot){
-    var codeNode = el('zg-room-code'), party = el('zg-room-party');
-    if (!codeNode || !party) return;
-    snapshot = snapshot || (w.ZargotaRooms && w.ZargotaRooms.getSnapshot());
-    var room = snapshot && snapshot.room;
-    var session = snapshot && snapshot.session;
-    if (!room) {
-      codeNode.textContent = '—';
-      party.innerHTML = memberCard(null, 'master', '♜');
-      for (var emptyIndex = 1; emptyIndex <= 5; emptyIndex++) party.innerHTML += memberCard(null, 'player', emptyIndex);
-      var noRoom = el('zg-room-foot'); if (noRoom) noRoom.textContent = 'Комната не выбрана.';
-      return;
-    }
-    codeNode.textContent = room.code;
-    var master = room.members && room.members[room.masterUid];
-    var players = snapshot.players || [];
-    var html = memberCard(master, 'master', '♜');
-    for (var i = 0; i < 5; i++) html += memberCard(players[i] || null, 'player', i + 1);
-    party.innerHTML = html;
-    var status = el('zg-room-status-text');
-    if (status) status.textContent = session && session.role === 'master' ? 'Вы — мастер комнаты' : 'Вы подключены к партии';
-    var mode = el('zg-room-mode'); if (mode) mode.textContent = snapshot.mode === 'firebase' ? 'онлайн' : 'локально';
-    var foot = el('zg-room-foot');
-    if (foot) foot.textContent = session && session.role === 'master'
-      ? 'Героев в комнате: ' + players.length + ' из 5'
-      : 'Лист вашего героя закреплён за этим подключением.';
-  }
-  w.zgCopyRoomCode = function(){
-    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot();
-    var code = snapshot && snapshot.room && snapshot.room.code;
-    if (!code) return;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(function(){ if (w.showToast) w.showToast('Код комнаты скопирован: ' + code); });
-    } else {
-      try { prompt('Код комнаты:', code); } catch(e) {}
-    }
-  };
-  w.zgLeaveRoom = function(){
-    var leave = w.ZargotaRooms ? w.ZargotaRooms.leaveRoom() : Promise.resolve();
-    Promise.resolve(leave).then(function(){ if (w.zgGameClose) w.zgGameClose(); });
-  };
-  w.zgRenderRoomLobby = render;
-  function init(){
-    if (w.ZargotaRooms) w.ZargotaRooms.subscribe(render);
-    else render(null);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -12993,6 +13018,39 @@ window.zgImageStore = (function() {
         <button type="button" class="zg-adv-submit" onclick="zgAdvJoinSubmit()">Присоединиться</button>
         <div class="zg-adv-hint" id="zg-adv-hint"></div>
       </div>
+
+      <!-- Вид 3: комната мастера и подтверждение личных кодов -->
+      <div id="zg-adv-view-host" class="zg-adv-view" style="display:none">
+        <div class="zg-adv-title">Комната создана</div>
+        <div class="zg-adv-sub">Передайте код приключения игрокам.</div>
+        <div class="zg-pair-code-card">
+          <div><div class="zg-pair-code-label">Код приключения</div><div class="zg-pair-code" id="zg-host-room-code">—</div></div>
+          <button type="button" class="zg-pair-copy" onclick="zgCopyPairCode('room')" title="Скопировать код" aria-label="Скопировать код">⧉</button>
+        </div>
+        <div class="zg-adv-sub" style="margin-bottom:14px">Введите личные коды подключившихся игроков.</div>
+        <div class="zg-pair-slots" id="zg-pair-slots">
+          <div class="zg-pair-slot" data-slot="0"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 1</div><input maxlength="4" aria-label="Код игрока 1" oninput="zgPairCodeInput(0,this)"></div>
+          <div class="zg-pair-slot" data-slot="1"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 2</div><input maxlength="4" aria-label="Код игрока 2" oninput="zgPairCodeInput(1,this)"></div>
+          <div class="zg-pair-slot" data-slot="2"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 3</div><input maxlength="4" aria-label="Код игрока 3" oninput="zgPairCodeInput(2,this)"></div>
+          <div class="zg-pair-slot" data-slot="3"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 4</div><input maxlength="4" aria-label="Код игрока 4" oninput="zgPairCodeInput(3,this)"></div>
+          <div class="zg-pair-slot" data-slot="4"><div class="zg-pair-gem"></div><div class="zg-pair-slot-num">Игрок 5</div><input maxlength="4" aria-label="Код игрока 5" oninput="zgPairCodeInput(4,this)"></div>
+        </div>
+        <div class="zg-pair-count" id="zg-pair-count">Подтверждено: <b>0</b> из 5</div>
+        <button type="button" class="zg-adv-submit" id="zg-pair-continue" disabled onclick="zgStartPairedAdventure()">Продолжить</button>
+        <div class="zg-adv-hint" id="zg-host-hint"></div>
+      </div>
+
+      <!-- Вид 4: личный код игрока и ожидание подтверждения мастера -->
+      <div id="zg-adv-view-player" class="zg-adv-view" style="display:none">
+        <div class="zg-adv-title">Вы вошли в приключение</div>
+        <div class="zg-adv-sub">Передайте личный код гейм-мастеру.</div>
+        <div class="zg-player-gem" id="zg-player-gem"></div>
+        <div class="zg-pair-code-card">
+          <div><div class="zg-pair-code-label">Ваш личный код</div><div class="zg-pair-code" id="zg-player-code">—</div></div>
+          <button type="button" class="zg-pair-copy" onclick="zgCopyPairCode('player')" title="Скопировать личный код" aria-label="Скопировать личный код">⧉</button>
+        </div>
+        <div class="zg-player-wait" id="zg-player-wait">Ожидаем, когда мастер введёт ваш код…</div>
+      </div>
     </div>
   </div>
 
@@ -13143,7 +13201,7 @@ window.zgImageStore = (function() {
   .zg-journey-spin{width:30px;height:30px;border-radius:50%;border:2px solid rgba(232,192,96,.18);border-top-color:var(--gold);animation:zgSpin .9s linear infinite}
   .zg-journey-loadtxt{font-family:'Cinzel',serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--dim)}
   @keyframes zgSpin{to{transform:rotate(360deg)}}
-  /* Тёмный экран игры — сетевое лобби первого этапа VTT */
+  /* Тёмный экран игры — будущий общий стол VTT */
   .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
   .zg-game-overlay.open{display:block}   /* мгновенно непрозрачный — без мелькания меню */
   .zg-game-gear{position:absolute;top:16px;right:16px;z-index:4;width:42px;height:42px;border-radius:10px;
@@ -13159,42 +13217,7 @@ window.zgImageStore = (function() {
   .zg-game-leave{width:100%;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:11px;border-radius:8px;cursor:pointer;
     background:rgba(160,60,50,.10);border:1px solid rgba(180,70,60,.5);color:#e0b0a6;transition:.2s}
   .zg-game-leave:hover{background:rgba(180,70,60,.2);border-color:#c0504a;color:#f0d0c8}
-  .zg-game-inner{position:absolute;inset:0;overflow-y:auto;padding:42px 24px 32px;animation:zgGameFadeUp .7s .15s both}
-  .zg-room-lobby{width:min(1040px,100%);min-height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center}
-  .zg-room-head{text-align:center;margin-bottom:24px}
-  .zg-room-kicker{font-family:'Cinzel',serif;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--dim)}
-  .zg-room-title{font-family:'Cinzel Decorative',serif;font-size:34px;color:#f0d896;margin-top:8px;text-shadow:0 0 28px #e8c06030}
-  .zg-room-divider{display:flex;align-items:center;justify-content:center;gap:12px;width:min(360px,72vw);margin:14px auto 0;color:var(--gold2)}
-  .zg-room-divider::before,.zg-room-divider::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,transparent,#a0783066)}
-  .zg-room-divider::after{transform:scaleX(-1)}
-  .zg-room-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 18px;margin-bottom:18px;background:#100c0780;border:1px solid #2f2415;border-radius:8px}
-  .zg-room-code-wrap{display:flex;align-items:center;gap:12px;min-width:0}
-  .zg-room-code-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
-  .zg-room-code{font-family:'Cinzel',serif;font-size:22px;letter-spacing:5px;color:var(--gold)}
-  .zg-room-copy{width:34px;height:34px;border:1px solid #4a381c;border-radius:6px;background:#171006;color:var(--muted);font-size:15px}
-  .zg-room-copy:hover{color:var(--gold);border-color:var(--gold2)}
-  .zg-room-status{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted)}
-  .zg-room-status-dot{width:8px;height:8px;border-radius:50%;background:#70bb72;box-shadow:0 0 12px #70bb7288}
-  .zg-room-mode{padding:5px 9px;border:1px solid #5a4524;border-radius:999px;color:#b79b69;font-size:10px;letter-spacing:1px;text-transform:uppercase}
-  .zg-room-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-  .zg-room-member{height:112px;display:flex;align-items:center;gap:14px;padding:12px;background:linear-gradient(145deg,#151006cc,#0d0905cc);border:1px solid #2d2214;border-radius:8px;min-width:0}
-  .zg-room-member.master{border-color:#705522;background:linear-gradient(145deg,#1a1308,#0d0905)}
-  .zg-room-member.empty{opacity:.5;border-style:dashed}
-  .zg-room-avatar{width:66px;height:86px;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#090704;border:1px solid #3a2a16;display:flex;align-items:center;justify-content:center;font-size:25px;color:var(--gold2)}
-  .zg-room-avatar img{width:100%;height:100%;display:block;object-fit:cover;object-position:top center}
-  .zg-room-member-info{min-width:0;flex:1}
-  .zg-room-member-role{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold2);margin-bottom:6px}
-  .zg-room-member-name{font-family:'Cinzel',serif;font-size:15px;color:#ead9b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .zg-room-member-meta{font-size:11px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .zg-room-member-hp{font-size:11px;color:#75b87b;margin-top:5px}
-  .zg-room-foot{text-align:center;margin-top:20px;color:var(--dim);font-size:12px;letter-spacing:.5px}
-  @media(max-width:760px){
-    .zg-game-inner{padding:72px 12px 24px}
-    .zg-room-lobby{justify-content:flex-start}
-    .zg-room-title{font-size:26px}
-    .zg-room-bar{align-items:flex-start;flex-direction:column}
-    .zg-room-party{grid-template-columns:1fr}
-  }
+  .zg-game-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#3a3428;font-family:'Cinzel',serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;pointer-events:none;animation:zgGameFadeUp 1s .4s both}
   @keyframes zgGameFade{0%{opacity:0}100%{opacity:1}}
   @keyframes zgGameFadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
   .zg-journey-port{max-width:min(46vw,420px);max-height:52vh;object-fit:contain;
@@ -13334,31 +13357,7 @@ window.zgImageStore = (function() {
       <div class="zg-game-settings-title">Настройки</div>
       <button type="button" class="zg-game-leave" onclick="zgLeaveRoom()">Покинуть игру</button>
     </div>
-    <div class="zg-game-inner">
-      <div class="zg-room-lobby">
-        <div class="zg-room-head">
-          <div class="zg-room-kicker">Первый сбор партии</div>
-          <div class="zg-room-title">Зал ожидания</div>
-          <div class="zg-room-divider">✦</div>
-        </div>
-        <div class="zg-room-bar">
-          <div class="zg-room-code-wrap">
-            <div>
-              <div class="zg-room-code-label">Код приключения</div>
-              <div class="zg-room-code" id="zg-room-code">—</div>
-            </div>
-            <button type="button" class="zg-room-copy" onclick="zgCopyRoomCode()" title="Скопировать код" aria-label="Скопировать код">⧉</button>
-          </div>
-          <div class="zg-room-status">
-            <span class="zg-room-status-dot"></span>
-            <span id="zg-room-status-text">Комната готова</span>
-            <span class="zg-room-mode" id="zg-room-mode">локально</span>
-          </div>
-        </div>
-        <div class="zg-room-party" id="zg-room-party"></div>
-        <div class="zg-room-foot" id="zg-room-foot">Ожидаем участников приключения…</div>
-      </div>
-    </div>
+    <div class="zg-game-inner">Общий стол Зарготы · следующий этап</div>
   </div>
 
   <!-- ══ ARENA PAGE ══ -->
