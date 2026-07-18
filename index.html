@@ -4,6 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
+<script src="zargota-network.js"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -8979,8 +8980,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-17.7';
+var ZG_APP_VERSION = '2026-07-18.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.1', notes: 'Добавлен первый этап VTT: комната мастера, код подключения, пять мест игроков и привязка выбранного локального листа героя.' },
   { v: '2026-07-17.7', notes: 'Окно приключения больше не обрезает верхний знак: на малых экранах оно прокручивается без потери оформления.' },
   { v: '2026-07-17.6', notes: 'На главной появился путь «Отправиться в приключение»: создать или присоединиться к игре, затем выбрать героя на полноэкранном листе.' },
   { v: '2026-07-17.5', notes: 'Инвентарь раскрывается внутри листа персонажа: монеты сверху, снаряжение слева, сетка на 20 ячеек и карточка выбранного предмета справа. Добавлены сортировка и быстрые действия с количеством.' },
@@ -9054,6 +9056,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var ctx = null;
   var master = null;    // GainNode - общая громкость
   var comp = null;      // DynamicsCompressorNode - защита от клиппинга
+  var amb = null;       // узлы атмосферного эмбиента (дрон + ветер)
   var muted = false;
   try { muted = localStorage.getItem('zargota_sound_muted') === '1'; } catch(e) {}
 
@@ -9101,6 +9104,18 @@ document.addEventListener('DOMContentLoaded', function(){
       osc.connect(g).connect(master);
       osc.start(t0);
       osc.stop(t0 + dur + 0.05);
+    } catch(e) {}
+  }
+
+  // Волна эмбиента: плавно набегает и затухает (~5.5 с)
+  function ambSwell() {
+    if (!amb || !ctx) return;
+    try {
+      var t = ctx.currentTime, g = amb.g.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(Math.max(0.0002, g.value || 0.0002), t);
+      g.linearRampToValueAtTime(0.16, t + 3.9);          // набегание
+      g.exponentialRampToValueAtTime(0.0004, t + 8.25);  // затухание
     } catch(e) {}
   }
 
@@ -9249,6 +9264,52 @@ document.addEventListener('DOMContentLoaded', function(){
       tone(660, 0.04, { type:'sine', vol:0.09 });
     },
 
+    // ═══ Атмосфера (эмбиент-дрон + ветер, набегает волнами) ═══
+    ambientStart: function() {
+      var c = ensure();
+      if (!c || amb) return;
+      try {
+        amb = { nodes: [], g: c.createGain(), noise: null, timer: 0 };
+        amb.g.gain.setValueAtTime(0.0002, c.currentTime);
+        var lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 560; lp.Q.value = 0.6;
+        amb.g.connect(lp).connect(master);
+        [55, 82.4, 110, 164.8].forEach(function(f, i){
+          var o = c.createOscillator(); o.type = (i % 2) ? 'triangle' : 'sine';
+          o.frequency.value = f; o.detune.value = (i - 1) * 6;
+          var og = c.createGain(); og.gain.value = (i < 2) ? 0.5 : 0.22;
+          o.connect(og).connect(amb.g); o.start();
+          amb.nodes.push(o); amb.nodes.push(og);
+        });
+        // ветер — через общий g, чтобы нарастал и затухал вместе с дроном
+        var buf = c.createBuffer(1, Math.floor(c.sampleRate * 2), c.sampleRate);
+        var d = buf.getChannelData(0);
+        for (var j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * 0.5;
+        var ns = c.createBufferSource(); ns.buffer = buf; ns.loop = true;
+        var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 440; bp.Q.value = 0.7;
+        var ng = c.createGain(); ng.gain.value = 0.4;
+        ns.connect(bp).connect(ng).connect(amb.g); ns.start();
+        amb.noise = ns; amb.nodes.push(ng);
+        // волна: набегает и затухает ~8.25 с, пауза ~12 с, снова (период ~20.25 с)
+        ambSwell();
+        amb.timer = setInterval(ambSwell, 20250);
+      } catch(e) { amb = null; }
+    },
+    ambientStop: function() {
+      if (!amb || !ctx) { amb = null; return; }
+      var a = amb; amb = null;
+      try { if (a.timer) clearInterval(a.timer); } catch(e) {}
+      try {
+        var t = ctx.currentTime;
+        a.g.gain.cancelScheduledValues(t);
+        a.g.gain.setValueAtTime(Math.max(0.0001, a.g.gain.value), t);
+        a.g.gain.linearRampToValueAtTime(0.0001, t + 1.4);
+      } catch(e) {}
+      setTimeout(function(){
+        try { a.nodes.forEach(function(n){ try { n.stop && n.stop(); } catch(e){} try { n.disconnect(); } catch(e){} }); } catch(e){}
+        try { a.noise && a.noise.stop(); } catch(e){}
+      }, 1600);
+    },
+
     // ═══ Death/Life saves & Fame ═══
     // Бросок на жизнь — успех (тёплый восходящий звон)
     lifeSuccess: function() {
@@ -9380,11 +9441,14 @@ document.addEventListener('DOMContentLoaded', function(){
     }
   };
 
-  // ── ЗАГЛУШКИ: сюда позже встраивается онлайн-система ──
   w.zgAdvCreateGame = function() {
-    // Создание сессии (коды — позже). Ведём к выбору персонажа.
-    w.zgAdvClose();
-    if (w.zgCharSelOpen) w.zgCharSelOpen();
+    if (!w.ZargotaRooms) return;
+    w.ZargotaRooms.createRoom().then(function(){
+      w.zgAdvClose();
+      if (w.zgGameOpen) w.zgGameOpen();
+    }).catch(function(err){
+      if (w.showToast) w.showToast('Не удалось создать комнату: ' + err.message);
+    });
   };
 
   w.zgAdvJoinSubmit = function() {
@@ -9394,13 +9458,19 @@ document.addEventListener('DOMContentLoaded', function(){
       if (h) h.textContent = 'Введите код приключения.';
       return;
     }
-    if (!/^[A-Z0-9]{2,10}-?[A-Z0-9]{2,10}$/.test(code)) {
-      if (h) h.textContent = 'Похоже, код неверного формата. Пример: ZARG-4821';
+    if (!/^[A-Z0-9]{5,6}$/.test(code)) {
+      if (h) h.textContent = 'Проверьте код комнаты. Пример: K7F2Q';
       return;
     }
-    // Код принят — ведём к выбору персонажа (онлайн-подключение позже)
-    w.zgAdvClose();
-    if (w.zgCharSelOpen) w.zgCharSelOpen();
+    if (!w.ZargotaRooms) return;
+    if (h) h.textContent = 'Ищем комнату…';
+    w.ZargotaRooms.prepareJoin(code).then(function(){
+      if (h) h.textContent = '';
+      w.zgAdvClose();
+      if (w.zgCharSelOpen) w.zgCharSelOpen();
+    }).catch(function(err){
+      if (h) h.textContent = err.message || 'Не удалось подключиться к комнате.';
+    });
   };
 
   // Esc закрывает модалку
@@ -9500,18 +9570,21 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ov.parentNode !== document.body) document.body.appendChild(ov);
     render();
     ov.classList.add('open');
-    try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
+    try { if (w.ZargotaSound) { w.ZargotaSound.buttonTap(); if (w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } } catch(e) {}
   };
   w.zgCharSelClose = function(){
     var ov = el('zg-cs-overlay');
     if (ov) ov.classList.remove('open');
+    // эмбиент здесь НЕ гасим: этот же close вызывается при переходе в путь
   };
   w.zgCharSelBack = function(){
     w.zgCharSelClose();
+    try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
     if (w.zgAdvOpen) w.zgAdvOpen();
   };
   w.zgCharSelEditor = function(){
     w.zgCharSelClose();
+    try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
     try { showPage('chars'); } catch(e) {}
   };
   // ═══ АРТ-ТЮНЕР (временный): два слоя — фон-туман (bg) и персонаж (fg) ═══
@@ -9797,57 +9870,294 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgCharSelChoose = function(){
     var hs = heroes(), c = hs[selIdx];
-    w.zgCharSelClose();
     if (!c) return;
-    try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {}
-    try { if (w.showToast) w.showToast('⚔ ' + (c.name || 'Персонаж') + ' отправляется в путь!'); } catch(e) {}
+    if (w.zgJourneyConfirm) w.zgJourneyConfirm(c);   // сперва — подтверждение
+    else { try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {} w.zgCharSelClose(); }
   };
   document.addEventListener('keydown', function(ev){
-    if (ev.key === 'Escape') {
-      var ov = el('zg-cs-overlay');
-      if (ov && ov.classList.contains('open')) w.zgCharSelClose();
+    if (ev.key !== 'Escape') return;
+    var cf = el('zg-confirm-overlay');
+    if (cf && cf.classList.contains('open')) return;   // открыт попап — им займётся его обработчик
+    var ov = el('zg-cs-overlay');
+    if (ov && ov.classList.contains('open')) {
+      w.zgCharSelClose();
+      try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
     }
   });
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
-//   ЭФФЕКТ ПРОЯВЛЕНИЯ ИЗ ТУМАНА при переключении персонажей.
-//   Портрет и слой-фон получают класс .zg-reveal (перезапускает CSS-
-//   анимацию), «дыхание» портрета задано CSS постоянно. Оборачиваем
-//   zgCharSelPick/zgCharSelOpen — картинки к этому моменту уже в DOM.
+//   ПОДТВЕРЖДЕНИЕ ВЫБОРА + ПОЛНОЭКРАННЫЙ ЭКРАН ПУТИ (тёмный фон)
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
-  function fire(id){
-    var host = document.getElementById(id);
-    var img = host && host.querySelector('img');
-    if (!img) return;
-    img.classList.remove('zg-reveal');
-    void img.offsetWidth;               // форс-reflow → рестарт анимации
-    img.classList.add('zg-reveal');
+  var pending = null;
+  function el(id){ return document.getElementById(id); }
+  function esc(s){
+    s = (s === null || s === undefined) ? '' : String(s);
+    return (typeof w.escHTML === 'function') ? w.escHTML(s)
+      : s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
-  function reveal(){ fire('zg-cs-portrait'); fire('zg-cs-bglayer'); }
-  // Случайные параметры дрейфа: разная длительность, фаза и направление —
-  // чтобы движение не выглядело метрономом (то снизу-справа вверх, то обратно)
+  // Открыть поп-ап «Точно?»
+  w.zgJourneyConfirm = function(c){
+    pending = c || null;
+    var t = el('zg-confirm-text');
+    if (t) t.innerHTML = '<b>' + esc(c && c.name ? c.name : 'Ваш герой') +
+      '</b> ступит на тёмную тропу. Дорога полна опасностей, и обратной дороги может не быть…';
+    var ov = el('zg-confirm-overlay');
+    if (ov){ if (ov.parentNode !== document.body) document.body.appendChild(ov); ov.classList.add('open'); }
+    try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
+  };
+  w.zgJourneyCancel = function(){
+    var ov = el('zg-confirm-overlay'); if (ov) ov.classList.remove('open');
+    try { if (w.ZargotaSound && w.ZargotaSound.buttonSoft) w.ZargotaSound.buttonSoft(); } catch(e) {}
+  };
+  // Таймеры цепочки интро → загрузка → экран игры (сбрасываются при выходе)
+  var timers = [];
+  function clearTimers(){ for (var i = 0; i < timers.length; i++) clearTimeout(timers[i]); timers = []; }
+
+  function beginJourney(c){
+    // портрет берём тот же, что показан при выборе (крупный арт из #zg-cs-portrait)
+    var pImg = document.querySelector('#zg-cs-portrait img');
+    var src = (pImg && pImg.getAttribute('src')) || (c && c.portrait) || '';
+    w.zgJourneyCancel();
+    if (w.zgCharSelClose) w.zgCharSelClose();
+    if (!c) return;
+    try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {}
+    var inner = el('zg-journey-inner');
+    if (inner){
+      inner.innerHTML =
+        (src ? '<img class="zg-journey-port" src="' + src + '" alt="">' : '') +
+        '<div class="zg-journey-name">' + esc(c.name || 'Герой') + '</div>' +
+        '<div class="zg-journey-sub">отправляется в путь…</div>';
+    }
+    var jo = el('zg-journey-overlay');
+    if (jo){
+      if (jo.parentNode !== document.body) document.body.appendChild(jo);
+      jo.classList.remove('loading'); jo.classList.remove('dissolving');
+      jo.classList.add('open');
+    }
+    // интро (портрет держится) → загрузка со спиннером → растворение → тёмный экран
+    clearTimers();
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('loading'); }, 3600));      // спиннер, портрет ещё на месте
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 6200));    // портрет растворяется перед самым тёмным экраном
+    timers.push(setTimeout(function(){ w.zgGameOpen(); }, 7500));
+    try { if (w.ZargotaSound) { w.ZargotaSound.buttonTap(); if (w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } } catch(e) {}
+  }
+  // «Да» — закрепляем локальный лист за игроком и открываем экран пути.
+  w.zgJourneyStart = function(){
+    var c = pending;
+    if (!c) return;
+    var attach = w.ZargotaRooms ? w.ZargotaRooms.attachCharacter(c) : Promise.resolve();
+    Promise.resolve(attach).then(function(){
+      beginJourney(c);
+    }).catch(function(err){
+      if (w.showToast) w.showToast(err.message || 'Не удалось выбрать персонажа.');
+    });
+  };
+  w.zgJourneyClose = function(){
+    clearTimers();
+    var jo = el('zg-journey-overlay'); if (jo){ jo.classList.remove('open'); jo.classList.remove('loading'); jo.classList.remove('dissolving'); }
+    try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
+  };
+  // Тёмный экран игры (будущий инструментарий D&D)
+  w.zgGameOpen = function(){
+    var go = el('zg-game-overlay');
+    if (go){
+      if (go.parentNode !== document.body) document.body.appendChild(go);
+      var sp = el('zg-game-settings'); if (sp) sp.classList.remove('open');
+      go.classList.add('open');
+    }
+    if (w.zgRenderRoomLobby) w.zgRenderRoomLobby();
+    var jo = el('zg-journey-overlay');
+    if (jo){ jo.classList.remove('open'); jo.classList.remove('loading'); jo.classList.remove('dissolving'); }
+    try { if (w.ZargotaSound && w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } catch(e) {}
+  };
+  w.zgGameSettings = function(ev){
+    if (ev) ev.stopPropagation();
+    var sp = el('zg-game-settings'); if (sp) sp.classList.toggle('open');
+    try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
+  };
+  w.zgGameClose = function(){
+    var sp = el('zg-game-settings'); if (sp) sp.classList.remove('open');
+    var go = el('zg-game-overlay'); if (go) go.classList.remove('open');
+    try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
+  };
+  // Клик мимо панели настроек — закрыть её
+  document.addEventListener('click', function(ev){
+    var sp = el('zg-game-settings');
+    if (!sp || !sp.classList.contains('open')) return;
+    if (sp.contains(ev.target)) return;
+    if (ev.target.closest && ev.target.closest('.zg-game-gear')) return;
+    sp.classList.remove('open');
+  });
+  document.addEventListener('keydown', function(ev){
+    if (ev.key !== 'Escape') return;
+    var ov = el('zg-confirm-overlay');
+    if (ov && ov.classList.contains('open')){ w.zgJourneyCancel(); return; }
+    var go = el('zg-game-overlay');
+    if (go && go.classList.contains('open')){
+      var sp = el('zg-game-settings');
+      if (sp && sp.classList.contains('open')) sp.classList.remove('open');
+      else w.zgGameClose();
+      return;
+    }
+    var jo = el('zg-journey-overlay');
+    if (jo && jo.classList.contains('open')) w.zgJourneyClose();
+  });
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
+//  VTT ЛОББИ — мастер + пять игроков, данные комнаты из ZargotaRooms.
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  function el(id){ return document.getElementById(id); }
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+  function memberCard(member, role, slot){
+    if (!member) {
+      return '<div class="zg-room-member empty">' +
+        '<div class="zg-room-avatar">' + (slot || '•') + '</div>' +
+        '<div class="zg-room-member-info"><div class="zg-room-member-role">Место игрока</div>' +
+        '<div class="zg-room-member-name">Свободно</div><div class="zg-room-member-meta">Ожидает героя</div></div></div>';
+    }
+    var character = member.character || {};
+    var portrait = character.portrait
+      ? '<img src="' + esc(character.portrait) + '" alt="">'
+      : (role === 'master' ? '♜' : '✦');
+    var meta = role === 'master'
+      ? 'Ведёт приключение'
+      : [character.race, character.klasse].filter(Boolean).join(' · ');
+    var hp = role === 'player' && character.hpMax
+      ? '<div class="zg-room-member-hp">♥ ' + Number(character.hpCur || 0) + ' / ' + Number(character.hpMax || 0) + '</div>'
+      : '';
+    return '<div class="zg-room-member ' + (role === 'master' ? 'master' : '') + '">' +
+      '<div class="zg-room-avatar">' + portrait + '</div>' +
+      '<div class="zg-room-member-info"><div class="zg-room-member-role">' + (role === 'master' ? 'Гейм-мастер' : 'Герой') + '</div>' +
+      '<div class="zg-room-member-name">' + esc(member.name || (role === 'master' ? 'Гейм-мастер' : 'Игрок')) + '</div>' +
+      '<div class="zg-room-member-meta">' + esc(meta || 'Лист персонажа подключён') + '</div>' + hp + '</div></div>';
+  }
+  function render(snapshot){
+    var codeNode = el('zg-room-code'), party = el('zg-room-party');
+    if (!codeNode || !party) return;
+    snapshot = snapshot || (w.ZargotaRooms && w.ZargotaRooms.getSnapshot());
+    var room = snapshot && snapshot.room;
+    var session = snapshot && snapshot.session;
+    if (!room) {
+      codeNode.textContent = '—';
+      party.innerHTML = memberCard(null, 'master', '♜');
+      for (var emptyIndex = 1; emptyIndex <= 5; emptyIndex++) party.innerHTML += memberCard(null, 'player', emptyIndex);
+      var noRoom = el('zg-room-foot'); if (noRoom) noRoom.textContent = 'Комната не выбрана.';
+      return;
+    }
+    codeNode.textContent = room.code;
+    var master = room.members && room.members[room.masterUid];
+    var players = snapshot.players || [];
+    var html = memberCard(master, 'master', '♜');
+    for (var i = 0; i < 5; i++) html += memberCard(players[i] || null, 'player', i + 1);
+    party.innerHTML = html;
+    var status = el('zg-room-status-text');
+    if (status) status.textContent = session && session.role === 'master' ? 'Вы — мастер комнаты' : 'Вы подключены к партии';
+    var mode = el('zg-room-mode'); if (mode) mode.textContent = snapshot.mode === 'firebase' ? 'онлайн' : 'локально';
+    var foot = el('zg-room-foot');
+    if (foot) foot.textContent = session && session.role === 'master'
+      ? 'Героев в комнате: ' + players.length + ' из 5'
+      : 'Лист вашего героя закреплён за этим подключением.';
+  }
+  w.zgCopyRoomCode = function(){
+    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot();
+    var code = snapshot && snapshot.room && snapshot.room.code;
+    if (!code) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(function(){ if (w.showToast) w.showToast('Код комнаты скопирован: ' + code); });
+    } else {
+      try { prompt('Код комнаты:', code); } catch(e) {}
+    }
+  };
+  w.zgLeaveRoom = function(){
+    var leave = w.ZargotaRooms ? w.ZargotaRooms.leaveRoom() : Promise.resolve();
+    Promise.resolve(leave).then(function(){ if (w.zgGameClose) w.zgGameClose(); });
+  };
+  w.zgRenderRoomLobby = render;
+  function init(){
+    if (w.ZargotaRooms) w.ZargotaRooms.subscribe(render);
+    else render(null);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
+//   ПРОЯВЛЕНИЕ ПЕРСОНАЖА — кросс-фейд: старый герой темнеет и
+//   растворяется в дымку, пока новый плавно проявляется из темноты.
+//   «Дыхание» портрета задано CSS постоянно (zgCsFloat).
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  function restart(elm, cls){            // перезапуск CSS-анимации
+    if (!elm) return;
+    elm.classList.remove(cls);
+    void elm.offsetWidth;               // форс-reflow
+    elm.classList.add(cls);
+  }
+  function placeGhost(gl){               // подгоняем слой-призрак точно под портрет
+    var host = document.getElementById('zg-cs-portrait');
+    if (!gl || !host || !gl.parentNode) return null;
+    var pr = host.getBoundingClientRect(), cr = gl.parentNode.getBoundingClientRect();
+    if (!pr.width) return null;
+    gl.style.left = (pr.left - cr.left) + 'px';
+    gl.style.top = (pr.top - cr.top) + 'px';
+    gl.style.width = pr.width + 'px';
+    gl.style.height = pr.height + 'px';
+    return gl;
+  }
+  // Снимок текущего портрета ДО его замены
+  function snapshotGhost(){
+    var host = document.getElementById('zg-cs-portrait');
+    var img = host && host.querySelector('img');
+    var gl = document.getElementById('zg-cs-ghost');
+    if (!img || !placeGhost(gl)) { if (gl) gl.style.display = 'none'; return; }
+    var clone = img.cloneNode(true);
+    clone.className = '';
+    gl.innerHTML = '';
+    gl.appendChild(clone);
+    gl.style.display = 'flex';
+  }
+  function applyReveal(){
+    var host = document.getElementById('zg-cs-portrait');
+    var img = host && host.querySelector('img');
+    if (img) restart(img, 'rv-fade');            // новый герой проявляется из темноты
+    var gl = document.getElementById('zg-cs-ghost');
+    if (gl && gl.style.display !== 'none' && gl.firstChild) {
+      restart(gl, 'on');                         // старый темнеет и тает
+      setTimeout(function(){ gl.classList.remove('on'); gl.style.display = 'none'; gl.innerHTML = ''; }, 1200);
+    }
+    var bl = document.getElementById('zg-cs-bglayer');
+    if (bl && bl.querySelector('img')) restart(bl.querySelector('img'), 'zg-reveal');
+  }
+  // Случайный дрейф: разная длительность, фаза и направление
   function randFloat(){
     var p = document.getElementById('zg-cs-portrait');
     if (!p) return;
-    var dur = (10 + Math.random() * 4);          // 10–14 с — чуть медленнее
+    var dur = (24 + Math.random() * 8);          // 24–32 с — очень мягко и медленно
     p.style.animationDuration = dur.toFixed(2) + 's';
-    p.style.animationDelay = (-Math.random() * dur).toFixed(2) + 's';   // случайная фаза
+    p.style.animationDelay = (-Math.random() * dur).toFixed(2) + 's';
     p.style.animationDirection = Math.random() < 0.5 ? 'normal' : 'reverse';
   }
   function wrap(name, withFloat){
     var orig = w[name];
     if (typeof orig !== 'function') return;
     w[name] = function(){
+      snapshotGhost();                   // снять кадр старого героя ДО замены
       var r = orig.apply(this, arguments);
-      reveal();                          // синхронно, до отрисовки — без мигания
+      applyReveal();
       if (withFloat) randFloat();
       return r;
     };
   }
-  wrap('zgCharSelPick', false);          // при переключении — дрейф не сбрасываем
-  wrap('zgCharSelOpen', true);           // при открытии — новые случайные параметры
+  wrap('zgCharSelPick', false);
+  wrap('zgCharSelOpen', true);
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -12678,7 +12988,7 @@ window.zgImageStore = (function() {
         <div class="zg-adv-sub">Введите код приключения, чтобы присоединиться<br>к существующей игре.</div>
         <div class="zg-adv-input-wrap">
           <span class="icon">🔗</span>
-          <input id="zg-adv-code" class="zg-adv-input" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Введите код, например: ZARG-4821" onkeydown="if(event.key==='Enter')zgAdvJoinSubmit()">
+          <input id="zg-adv-code" class="zg-adv-input" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Введите код, например: K7F2Q" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" onkeydown="if(event.key==='Enter')zgAdvJoinSubmit()">
         </div>
         <button type="button" class="zg-adv-submit" onclick="zgAdvJoinSubmit()">Присоединиться</button>
         <div class="zg-adv-hint" id="zg-adv-hint"></div>
@@ -12757,9 +13067,148 @@ window.zgImageStore = (function() {
   .zg-cs-row-l .g{color:var(--gold2);margin-right:7px;font-size:12px}
   .zg-cs-row-v{color:var(--text)}
   .zg-cs-bio{font-size:14.5px;line-height:1.65;color:var(--muted);margin-top:16px}
-  .zg-cs-foot{display:flex;justify-content:center;padding-top:16px}
-  .zg-cs-choose{font-family:'Cinzel',serif;font-size:16px;letter-spacing:1px;color:#f0d896;background:linear-gradient(180deg,#1d1508,#0f0a05);border:1px solid #c4a04a88;border-radius:8px;padding:14px 52px;box-shadow:0 0 22px #e8c06022,inset 0 1px 0 #ffffff10;transition:box-shadow .25s,border-color .25s}
-  .zg-cs-choose:hover{border-color:var(--gold);box-shadow:0 0 34px #e8c06040}
+  .zg-cs-foot{position:relative;display:flex;justify-content:center;padding-top:16px}
+  .zg-cs-choose{position:relative;z-index:1;font-family:'Cinzel',serif;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:#e8d9b0;
+    background:transparent;border:1px solid transparent;border-radius:9px;padding:13px 48px;cursor:pointer;
+    animation:zgChoosePulse 5s ease-in-out infinite;
+    transition:color .3s,border-color .3s,background .3s,box-shadow .3s,text-shadow .3s}
+  @keyframes zgChoosePulse{
+    0%,100%{color:#d9c79a;text-shadow:0 0 5px rgba(232,180,90,.10)}
+    50%{color:#f6e6bb;text-shadow:0 0 18px rgba(244,206,126,.65),0 0 34px rgba(240,190,100,.30)}
+  }
+  .zg-cs-choose:hover{animation:none;color:#fbf0cf;border-color:rgba(232,192,96,.7);background:rgba(232,192,96,.05);
+    box-shadow:0 0 36px rgba(232,180,90,.32);text-shadow:0 0 18px rgba(245,212,135,.75)}
+  .zg-cs-choose:active{background:rgba(232,192,96,.03)}
+  /* Светлячки под кнопкой — появляются на наведении */
+  .zg-cs-flies{position:absolute;left:50%;top:50%;width:360px;height:170px;transform:translate(-50%,-42%);pointer-events:none;opacity:0;transition:opacity .45s ease;z-index:0}
+  .zg-cs-choose:hover ~ .zg-cs-flies{opacity:1}
+  .zg-cs-flies span{position:absolute;bottom:8%;width:5px;height:5px;border-radius:50%;
+    background:radial-gradient(circle,#fff0c2 0%,rgba(242,190,95,.75) 42%,transparent 72%);
+    box-shadow:0 0 6px rgba(240,190,95,.7);opacity:0;animation:zgFly 3.2s ease-in-out infinite}
+  @keyframes zgFly{
+    0%{opacity:0;transform:translate(0,12px) scale(.5)}
+    18%{opacity:1}
+    55%{opacity:.55;transform:translate(6px,-34px) scale(1)}
+    82%{opacity:.85}
+    100%{opacity:0;transform:translate(-6px,-78px) scale(.45)}
+  }
+  .zg-cs-flies span:nth-child(1){left:10%;animation-duration:3.0s;animation-delay:0s}
+  .zg-cs-flies span:nth-child(2){left:22%;animation-duration:3.6s;animation-delay:.5s;width:4px;height:4px}
+  .zg-cs-flies span:nth-child(3){left:34%;animation-duration:2.7s;animation-delay:1.0s}
+  .zg-cs-flies span:nth-child(4){left:46%;animation-duration:3.9s;animation-delay:.2s;width:6px;height:6px}
+  .zg-cs-flies span:nth-child(5){left:56%;animation-duration:3.1s;animation-delay:1.3s;width:4px;height:4px}
+  .zg-cs-flies span:nth-child(6){left:66%;animation-duration:3.5s;animation-delay:.7s}
+  .zg-cs-flies span:nth-child(7){left:78%;animation-duration:2.9s;animation-delay:.1s;width:4px;height:4px}
+  .zg-cs-flies span:nth-child(8){left:88%;animation-duration:3.7s;animation-delay:1.1s}
+  .zg-cs-flies span:nth-child(9){left:16%;animation-duration:3.3s;animation-delay:1.6s;width:4px;height:4px}
+  .zg-cs-flies span:nth-child(10){left:72%;animation-duration:3.4s;animation-delay:1.9s;width:6px;height:6px}
+  @media (prefers-reduced-motion:reduce){.zg-cs-choose{animation:none}.zg-cs-flies{display:none}}
+  /* ── Поп-ап подтверждения ── */
+  .zg-confirm-overlay{position:fixed;inset:0;z-index:9700;display:none;align-items:center;justify-content:center;background:radial-gradient(120% 100% at 50% 45%,rgba(10,6,3,.82),rgba(3,2,1,.92));-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+  .zg-confirm-overlay.open{display:flex;animation:zgFadeIn .35s ease}
+  .zg-confirm-box{position:relative;width:min(92vw,440px);padding:40px 34px 28px;border-radius:18px;text-align:center;
+    background:linear-gradient(180deg,#1d1509 0%,#120c06 60%,#0b0704 100%);border:1px solid var(--gold2);
+    box-shadow:0 30px 90px #000000cc,0 0 60px #e8c06022,inset 0 1px 0 #ffffff0d;
+    animation:zgPopIn .4s cubic-bezier(.2,.8,.3,1)}
+  .zg-confirm-box::after{content:'';position:absolute;inset:-1px;border-radius:18px;pointer-events:none;
+    box-shadow:0 0 0 1px #e8c06022;animation:zgConfirmGlow 3.4s ease-in-out infinite}
+  @keyframes zgConfirmGlow{0%,100%{box-shadow:0 0 22px #e8c06014,inset 0 0 26px #e8c0600a}50%{box-shadow:0 0 40px #e8c06030,inset 0 0 34px #e8c06016}}
+  .zg-confirm-emblem{font-size:26px;color:var(--gold);text-shadow:0 0 20px #e8c06066;margin-bottom:10px;animation:zgEmblemPulse 3.4s ease-in-out infinite}
+  @keyframes zgEmblemPulse{0%,100%{opacity:.75;transform:scale(1)}50%{opacity:1;transform:scale(1.12)}}
+  .zg-confirm-title{font-family:'Cinzel',serif;font-size:25px;font-weight:700;color:#f0d896;letter-spacing:.5px;text-shadow:0 2px 18px #00000088;margin-bottom:14px;line-height:1.25}
+  .zg-confirm-div{width:130px;height:1px;margin:0 auto 16px;background:linear-gradient(90deg,transparent,#c4a04a99,transparent);position:relative}
+  .zg-confirm-div::after{content:'✦';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:9px;color:var(--gold2);background:#120c06;padding:0 7px}
+  .zg-confirm-text{font-size:15px;line-height:1.6;color:var(--muted);font-style:italic;margin-bottom:28px}
+  .zg-confirm-text b{color:#f0e0b8;font-style:normal}
+  .zg-confirm-btns{display:flex;gap:12px;justify-content:center}
+  .zg-confirm-no,.zg-confirm-yes{font-family:'Cinzel',serif;font-size:14px;letter-spacing:1px;padding:12px 28px;border-radius:9px;cursor:pointer;transition:.2s}
+  .zg-confirm-no{background:transparent;border:1px solid var(--border);color:var(--muted)}
+  .zg-confirm-no:hover{border-color:var(--muted);color:var(--text)}
+  .zg-confirm-yes{background:rgba(232,192,96,.10);border:1px solid rgba(232,192,96,.55);color:#f4e7bf;font-weight:700}
+  .zg-confirm-yes:hover{background:rgba(232,192,96,.18);border-color:var(--gold)}
+  @keyframes zgPopIn{0%{opacity:0;transform:scale(.9) translateY(10px)}100%{opacity:1;transform:none}}
+  @keyframes zgFadeIn{0%{opacity:0}100%{opacity:1}}
+  /* ── Полноэкранный тёмный экран пути ── */
+  .zg-journey-overlay{position:fixed;inset:0;z-index:9600;display:none;overflow:hidden;
+    background:radial-gradient(120% 90% at 50% 28%,#161009 0%,#0b0805 55%,#050303 100%)}
+  .zg-journey-overlay.open{display:block}   /* без opacity-фейда — иначе на миг видно меню */
+  .zg-journey-back{position:absolute;top:16px;left:16px;background:transparent;border:none;color:var(--muted);font-family:'Cinzel',serif;font-size:15px;letter-spacing:1px;cursor:pointer;z-index:3;padding:10px 18px;border-radius:8px;transition:color .2s,background .2s}
+  .zg-journey-back:hover{color:var(--gold);background:rgba(232,192,96,.07)}
+  .zg-journey-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;pointer-events:none;transition:opacity .8s ease}
+  /* небольшая загрузка + затемнение перед экраном игры */
+  .zg-journey-loader{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .5s ease}
+  .zg-journey-overlay.loading .zg-journey-loader{opacity:1}
+  .zg-journey-overlay.dissolving .zg-journey-inner{opacity:0}   /* портрет и имя уходят только перед тёмным экраном */
+  .zg-journey-overlay.loading{background:radial-gradient(120% 90% at 50% 40%,#0a0705 0%,#050303 60%,#020101 100%);transition:background 1s ease}
+  .zg-journey-spin{width:30px;height:30px;border-radius:50%;border:2px solid rgba(232,192,96,.18);border-top-color:var(--gold);animation:zgSpin .9s linear infinite}
+  .zg-journey-loadtxt{font-family:'Cinzel',serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--dim)}
+  @keyframes zgSpin{to{transform:rotate(360deg)}}
+  /* Тёмный экран игры — сетевое лобби первого этапа VTT */
+  .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
+  .zg-game-overlay.open{display:block}   /* мгновенно непрозрачный — без мелькания меню */
+  .zg-game-gear{position:absolute;top:16px;right:16px;z-index:4;width:42px;height:42px;border-radius:10px;
+    background:rgba(20,15,8,.5);border:1px solid rgba(200,170,90,.25);color:var(--muted);font-size:20px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:color .25s,border-color .25s,background .25s,transform .4s ease;animation:zgGameFade .8s .3s both}
+  .zg-game-gear:hover{color:var(--gold);border-color:var(--gold2);background:rgba(30,22,10,.7);transform:rotate(60deg)}
+  .zg-game-settings{position:absolute;top:66px;right:16px;z-index:4;width:212px;padding:12px;border-radius:12px;
+    background:linear-gradient(180deg,#16100a,#0c0805);border:1px solid var(--gold2);
+    box-shadow:0 18px 50px #000000aa;display:none;transform-origin:top right}
+  .zg-game-settings.open{display:block;animation:zgPopIn .22s cubic-bezier(.2,.8,.3,1)}
+  .zg-game-settings-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);text-align:center;margin:2px 0 10px}
+  .zg-game-leave{width:100%;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:11px;border-radius:8px;cursor:pointer;
+    background:rgba(160,60,50,.10);border:1px solid rgba(180,70,60,.5);color:#e0b0a6;transition:.2s}
+  .zg-game-leave:hover{background:rgba(180,70,60,.2);border-color:#c0504a;color:#f0d0c8}
+  .zg-game-inner{position:absolute;inset:0;overflow-y:auto;padding:42px 24px 32px;animation:zgGameFadeUp .7s .15s both}
+  .zg-room-lobby{width:min(1040px,100%);min-height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center}
+  .zg-room-head{text-align:center;margin-bottom:24px}
+  .zg-room-kicker{font-family:'Cinzel',serif;font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--dim)}
+  .zg-room-title{font-family:'Cinzel Decorative',serif;font-size:34px;color:#f0d896;margin-top:8px;text-shadow:0 0 28px #e8c06030}
+  .zg-room-divider{display:flex;align-items:center;justify-content:center;gap:12px;width:min(360px,72vw);margin:14px auto 0;color:var(--gold2)}
+  .zg-room-divider::before,.zg-room-divider::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,transparent,#a0783066)}
+  .zg-room-divider::after{transform:scaleX(-1)}
+  .zg-room-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 18px;margin-bottom:18px;background:#100c0780;border:1px solid #2f2415;border-radius:8px}
+  .zg-room-code-wrap{display:flex;align-items:center;gap:12px;min-width:0}
+  .zg-room-code-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--dim)}
+  .zg-room-code{font-family:'Cinzel',serif;font-size:22px;letter-spacing:5px;color:var(--gold)}
+  .zg-room-copy{width:34px;height:34px;border:1px solid #4a381c;border-radius:6px;background:#171006;color:var(--muted);font-size:15px}
+  .zg-room-copy:hover{color:var(--gold);border-color:var(--gold2)}
+  .zg-room-status{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted)}
+  .zg-room-status-dot{width:8px;height:8px;border-radius:50%;background:#70bb72;box-shadow:0 0 12px #70bb7288}
+  .zg-room-mode{padding:5px 9px;border:1px solid #5a4524;border-radius:999px;color:#b79b69;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+  .zg-room-party{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .zg-room-member{height:112px;display:flex;align-items:center;gap:14px;padding:12px;background:linear-gradient(145deg,#151006cc,#0d0905cc);border:1px solid #2d2214;border-radius:8px;min-width:0}
+  .zg-room-member.master{border-color:#705522;background:linear-gradient(145deg,#1a1308,#0d0905)}
+  .zg-room-member.empty{opacity:.5;border-style:dashed}
+  .zg-room-avatar{width:66px;height:86px;flex:0 0 auto;border-radius:6px;overflow:hidden;background:#090704;border:1px solid #3a2a16;display:flex;align-items:center;justify-content:center;font-size:25px;color:var(--gold2)}
+  .zg-room-avatar img{width:100%;height:100%;display:block;object-fit:cover;object-position:top center}
+  .zg-room-member-info{min-width:0;flex:1}
+  .zg-room-member-role{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold2);margin-bottom:6px}
+  .zg-room-member-name{font-family:'Cinzel',serif;font-size:15px;color:#ead9b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-room-member-meta{font-size:11px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-room-member-hp{font-size:11px;color:#75b87b;margin-top:5px}
+  .zg-room-foot{text-align:center;margin-top:20px;color:var(--dim);font-size:12px;letter-spacing:.5px}
+  @media(max-width:760px){
+    .zg-game-inner{padding:72px 12px 24px}
+    .zg-room-lobby{justify-content:flex-start}
+    .zg-room-title{font-size:26px}
+    .zg-room-bar{align-items:flex-start;flex-direction:column}
+    .zg-room-party{grid-template-columns:1fr}
+  }
+  @keyframes zgGameFade{0%{opacity:0}100%{opacity:1}}
+  @keyframes zgGameFadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
+  .zg-journey-port{max-width:min(46vw,420px);max-height:52vh;object-fit:contain;
+    -webkit-mask-image:radial-gradient(ellipse 55% 55% at 50% 45%,#000 55%,transparent 92%);
+    mask-image:radial-gradient(ellipse 55% 55% at 50% 45%,#000 55%,transparent 92%);
+    filter:drop-shadow(0 12px 40px #000000aa);
+    opacity:1;transform:scale(1.5);          /* на 50% ближе */
+    transition:opacity 1s ease,filter 1s ease,transform 1.1s ease;
+    animation:zgPortIn 1s ease-out}
+  @keyframes zgPortIn{0%{opacity:0;transform:scale(1.32)}100%{opacity:1;transform:scale(1.5)}}
+  .zg-journey-overlay.dissolving .zg-journey-port{opacity:0;filter:blur(16px) drop-shadow(0 12px 40px #000000aa);transform:scale(1.9)}  /* растворяется перед тёмным экраном */
+  .zg-journey-name{font-family:'Cinzel',serif;font-size:38px;font-weight:700;color:#f0d896;margin-top:16px;letter-spacing:1px;text-shadow:0 0 30px #e8c06044;animation:zgJourneyRise .8s .1s ease-out both}
+  .zg-journey-sub{font-size:15px;color:var(--muted);margin-top:10px;letter-spacing:4px;text-transform:uppercase;animation:zgJourneyRise .8s .2s ease-out both}
+  @keyframes zgJourneyRise{0%{opacity:0;transform:translateY(18px)}100%{opacity:1;transform:none}}
   .zg-cs-empty{color:var(--muted);font-size:14px;line-height:1.6;padding:14px;border:1px dashed #3a2c16;border-radius:8px}
   @media (max-width:1000px){
     .zg-cs-panel{height:calc(100svh - 24px);width:calc(100vw - 24px);padding:20px 16px;display:block;overflow-y:auto}
@@ -12770,26 +13219,35 @@ window.zgImageStore = (function() {
   }
   /* ─ Анимации: проявление из тумана + «дыхание» портрета ─ */
   @keyframes zgCsReveal{
-    0%{opacity:0;filter:blur(34px) brightness(1.18) saturate(.7)}
-    35%{opacity:.5;filter:blur(20px) brightness(1.1) saturate(.85)}
-    70%{opacity:.9;filter:blur(7px) brightness(1.03) saturate(.95)}
-    100%{opacity:1;filter:blur(0) brightness(1) saturate(1)}
+    0%{opacity:0;filter:blur(22px) brightness(1.35)}
+    55%{opacity:1}
+    100%{opacity:1;filter:blur(0) brightness(1)}
   }
   @keyframes zgCsRevealBg{
-    0%{opacity:0;filter:blur(40px) brightness(1.12)}
-    100%{opacity:.85;filter:blur(3px) brightness(1)}
+    0%{opacity:0;filter:blur(30px) brightness(1.2)}
+    100%{opacity:.85;filter:blur(2px) brightness(1)}
   }
-  /* Диагональный дрейф: нижний-правый угол ⇄ верх (с «блужданием» на возврате) */
+  /* Диагональный дрейф: нижний-правый угол ⇄ верх (мягкий, без рывков) */
   @keyframes zgCsFloat{
-    0%{transform:translate(9px,10px) rotate(.28deg) scale(1.012)}
-    28%{transform:translate(-7px,-14px) rotate(-.10deg) scale(1.02)}
-    50%{transform:translate(-10px,-18px) rotate(-.28deg) scale(1.022)}
-    72%{transform:translate(4px,-6px) rotate(.06deg) scale(1.015)}
-    100%{transform:translate(9px,10px) rotate(.28deg) scale(1.012)}
+    0%{transform:translate(6px,7px) rotate(.08deg) scale(1.006)}
+    30%{transform:translate(-5px,-10px) rotate(0deg) scale(1.012)}
+    50%{transform:translate(-8px,-13px) rotate(-.08deg) scale(1.014)}
+    70%{transform:translate(2px,-5px) rotate(-.02deg) scale(1.01)}
+    100%{transform:translate(6px,7px) rotate(.08deg) scale(1.006)}
   }
-  .zg-cs-portrait img.zg-reveal{animation:zgCsReveal 1.5s cubic-bezier(.22,.61,.28,1) both}
-  .zg-cs-bglayer img.zg-reveal{animation:zgCsRevealBg 1.9s ease-out both}
-  .zg-cs-portrait{animation:zgCsFloat 11s ease-in-out infinite;will-change:transform}
+  .zg-cs-portrait img.zg-reveal{animation:zgCsReveal .78s cubic-bezier(.2,.7,.25,1) both}
+  .zg-cs-bglayer img.zg-reveal{animation:zgCsRevealBg 1.1s ease-out both}
+  .zg-cs-portrait{animation:zgCsFloat 26s ease-in-out infinite;will-change:transform}
+  /* ─ Проявление: кросс-фейд (старый темнеет и тает, новый проявляется из темноты) ─ */
+  @keyframes zgCsRvFade{0%{opacity:0;filter:brightness(.5)}60%{opacity:1}100%{opacity:1;filter:brightness(1)}}
+  .zg-cs-portrait img.rv-fade{animation:zgCsRvFade 1.05s ease-out both}
+  #zg-cs-ghost{position:absolute;z-index:1;pointer-events:none;display:none;align-items:center;justify-content:center;overflow:visible}
+  #zg-cs-ghost img{max-width:100%;max-height:100%;object-fit:contain}
+  @keyframes zgCsGhostFade{0%{opacity:.85;filter:brightness(.8)}100%{opacity:0;filter:brightness(.3) blur(3px)}}
+  #zg-cs-ghost.on img{animation:zgCsGhostFade 1.15s ease-out both}
+  @media (prefers-reduced-motion:reduce){
+    .zg-cs-portrait img.rv-fade,#zg-cs-ghost.on img{animation:none}
+  }
   @media (prefers-reduced-motion:reduce){
     .zg-cs-portrait{animation:none}
     .zg-cs-portrait img.zg-reveal,.zg-cs-bglayer img.zg-reveal{animation:none}
@@ -12811,6 +13269,7 @@ window.zgImageStore = (function() {
         </div>
         <div class="zg-cs-center" style="position:relative">
           <div class="zg-cs-portrait" id="zg-cs-portrait"></div>
+          <div id="zg-cs-ghost"></div>
           <div class="zg-cs-stats" id="zg-cs-stats"></div>
           <button type="button" class="zg-cs-tuner-btn" onclick="zgCsTunerToggle()" title="Арт-тюнер (временный)">🖼</button>
           <div class="zg-cs-tuner" id="zg-cs-tuner">
@@ -12838,7 +13297,66 @@ window.zgImageStore = (function() {
         <div class="zg-cs-detail" id="zg-cs-detail"></div>
       </div>
       <div class="zg-cs-foot">
-        <button type="button" class="zg-cs-choose" id="zg-cs-choose" onclick="zgCharSelChoose()">Выбрать персонажа</button>
+        <button type="button" class="zg-cs-choose" id="zg-cs-choose" onclick="zgCharSelChoose()">Отправиться в путь</button>
+        <div class="zg-cs-flies" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ПОДТВЕРЖДЕНИЕ ВЫБОРА ГЕРОЯ ══ -->
+  <div id="zg-confirm-overlay" class="zg-confirm-overlay">
+    <div class="zg-confirm-box" role="dialog" aria-modal="true">
+      <div class="zg-confirm-emblem">✦</div>
+      <div class="zg-confirm-title">Точно отправиться в путь?</div>
+      <div class="zg-confirm-div"></div>
+      <div class="zg-confirm-text" id="zg-confirm-text">Дорога полна опасностей, и обратной дороги может не быть…</div>
+      <div class="zg-confirm-btns">
+        <button type="button" class="zg-confirm-no" onclick="zgJourneyCancel()">Остаться</button>
+        <button type="button" class="zg-confirm-yes" onclick="zgJourneyStart()">Да, в путь</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ЭКРАН ПУТИ (полноэкранный, тёмный) ══ -->
+  <div id="zg-journey-overlay" class="zg-journey-overlay">
+    <button type="button" class="zg-journey-back" onclick="zgJourneyClose()">⟵&nbsp; Назад</button>
+    <div class="zg-journey-inner" id="zg-journey-inner"></div>
+    <div class="zg-journey-loader">
+      <div class="zg-journey-spin"></div>
+      <div class="zg-journey-loadtxt">Загрузка…</div>
+    </div>
+  </div>
+
+  <!-- ══ ЭКРАН ИГРЫ (тёмный, заглушка под инструментарий D&D) ══ -->
+  <div id="zg-game-overlay" class="zg-game-overlay">
+    <button type="button" class="zg-game-gear" onclick="zgGameSettings(event)" title="Настройки" aria-label="Настройки">⚙</button>
+    <div class="zg-game-settings" id="zg-game-settings">
+      <div class="zg-game-settings-title">Настройки</div>
+      <button type="button" class="zg-game-leave" onclick="zgLeaveRoom()">Покинуть игру</button>
+    </div>
+    <div class="zg-game-inner">
+      <div class="zg-room-lobby">
+        <div class="zg-room-head">
+          <div class="zg-room-kicker">Первый сбор партии</div>
+          <div class="zg-room-title">Зал ожидания</div>
+          <div class="zg-room-divider">✦</div>
+        </div>
+        <div class="zg-room-bar">
+          <div class="zg-room-code-wrap">
+            <div>
+              <div class="zg-room-code-label">Код приключения</div>
+              <div class="zg-room-code" id="zg-room-code">—</div>
+            </div>
+            <button type="button" class="zg-room-copy" onclick="zgCopyRoomCode()" title="Скопировать код" aria-label="Скопировать код">⧉</button>
+          </div>
+          <div class="zg-room-status">
+            <span class="zg-room-status-dot"></span>
+            <span id="zg-room-status-text">Комната готова</span>
+            <span class="zg-room-mode" id="zg-room-mode">локально</span>
+          </div>
+        </div>
+        <div class="zg-room-party" id="zg-room-party"></div>
+        <div class="zg-room-foot" id="zg-room-foot">Ожидаем участников приключения…</div>
       </div>
     </div>
   </div>
