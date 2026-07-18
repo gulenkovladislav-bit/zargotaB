@@ -212,14 +212,16 @@
       });
     },
 
-    startCharacterSelection: function () {
+    startCharacterSelection: function (options) {
       return Promise.resolve().then(function () {
+        var testMode = options === true || !!(options && options.testMode);
         var session = readSession();
         if (!session || session.role !== 'master') throw roomError('Начать игру может только мастер.', 'master-only');
         var rooms = readRooms();
         var room = rooms[session.code];
         if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
-        if (!membersOf(room, 'player').length) throw roomError('Подтвердите хотя бы одного игрока.', 'no-players');
+        if (!testMode && !membersOf(room, 'player').length) throw roomError('Подтвердите хотя бы одного игрока.', 'no-players');
+        room.testMode = testMode;
         room.phase = 'character-select';
         room.updatedAt = now();
         writeRooms(rooms, session.code);

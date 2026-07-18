@@ -8991,6 +8991,8 @@ window.addEventListener('load', function(){
   .zg-pair-count { text-align:center;color:var(--muted);font-size:12px;margin:0 0 16px; }
   .zg-pair-count b { color:#65cc89; }
   .zg-adv-submit:disabled { opacity:.38;cursor:not-allowed;transform:none;box-shadow:none; }
+  .zg-adv-test { display:block;margin:12px auto 0;padding:8px 12px;border:0;background:transparent;color:var(--dim);font-family:'Lora',serif;font-size:12px;cursor:pointer; }
+  .zg-adv-test:hover { color:var(--muted); }
   .zg-player-gem { width:54px;height:68px;margin:4px auto 18px;clip-path:polygon(50% 0,88% 22%,100% 68%,50% 100%,0 68%,12% 22%);background:linear-gradient(145deg,#17231b,#09110c);transition:.4s; }
   .zg-player-wait { text-align:center;color:var(--muted);font-size:13px;line-height:1.6; }
   .zg-player-wait strong { color:#78d99c; }
@@ -9005,8 +9007,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-18.2';
+var ZG_APP_VERSION = '2026-07-18.3';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-18.3', notes: 'Добавлен тестовый запуск мастера без игроков. Обычная сетевая партия поддерживает от одного до пяти подтверждённых игроков.' },
   { v: '2026-07-18.2', notes: 'Сбор партии перенесён в поп-ап: код комнаты мастера, личные коды игроков, пять изумрудных ячеек подтверждения и общий переход к выбору героев.' },
   { v: '2026-07-18.1', notes: 'Добавлен первый этап VTT: комната мастера, код подключения, пять мест игроков и привязка выбранного локального листа героя.' },
   { v: '2026-07-17.7', notes: 'Окно приключения больше не обрезает верхний знак: на малых экранах оно прокручивается без потери оформления.' },
@@ -9524,10 +9527,10 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   };
 
-  w.zgStartPairedAdventure = function(){
+  w.zgStartPairedAdventure = function(testMode){
     if (!w.ZargotaRooms) return;
     var hint = el('zg-host-hint'); if (hint) hint.textContent = 'Открываем выбор героев…';
-    w.ZargotaRooms.startCharacterSelection().catch(function(err){
+    w.ZargotaRooms.startCharacterSelection({ testMode: !!testMode }).catch(function(err){
       if (hint) hint.textContent = err.message || 'Не удалось продолжить.';
     });
   };
@@ -13037,6 +13040,7 @@ window.zgImageStore = (function() {
         </div>
         <div class="zg-pair-count" id="zg-pair-count">Подтверждено: <b>0</b> из 5</div>
         <button type="button" class="zg-adv-submit" id="zg-pair-continue" disabled onclick="zgStartPairedAdventure()">Продолжить</button>
+        <button type="button" class="zg-adv-test" onclick="zgStartPairedAdventure(true)">Тестовый запуск без игроков</button>
         <div class="zg-adv-hint" id="zg-host-hint"></div>
       </div>
 
