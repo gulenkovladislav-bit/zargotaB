@@ -10256,7 +10256,9 @@ document.addEventListener('DOMContentLoaded', function(){
     list:function(category,done){
       store('readonly',function(os){ if(!os){done&&done([]);return;} var out=[]; var cur=os.openCursor(); cur.onsuccess=function(e){var c=e.target.result; if(c){ if(!category||c.value.category===category) out.push(c.value); c.continue(); } else { out.sort(function(a,b){return b.created-a.created;}); done&&done(out); } }; cur.onerror=function(){done&&done([]);}; });
     },
-    remove:function(id,done){ store('readwrite',function(os){ if(!os){done&&done();return;} var r=os.delete(id); r.onsuccess=function(){done&&done();}; r.onerror=function(){done&&done();}; }); }
+    remove:function(id,done){ store('readwrite',function(os){ if(!os){done&&done();return;} var r=os.delete(id); r.onsuccess=function(){done&&done();}; r.onerror=function(){done&&done();}; }); },
+    put:function(record,done){ if(!record){done&&done(null);return;} if(!record.id)record.id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); store('readwrite',function(os){ if(!os){done&&done(null);return;} var r=os.put(record); r.onsuccess=function(){done&&done(record);}; r.onerror=function(){done&&done(null);}; }); },
+    get:function(id,done){ store('readonly',function(os){ if(!os){done&&done(null);return;} var r=os.get(id); r.onsuccess=function(){done&&done(r.result||null);}; r.onerror=function(){done&&done(null);}; }); }
   };
 })(window);
 
@@ -10310,6 +10312,32 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!w.ZargotaLib)return;
     w.ZargotaLib.remove(id,function(){ delete libCache[id]; renderLibs(); });
   };
+  // ── Сохранённые сцены (вся композиция целиком) ──
+  function renderScenes(){
+    var host=el('zg-scene-lib'); if(!host||!w.ZargotaLib)return;
+    w.ZargotaLib.list('scene',function(items){
+      items.forEach(function(r){libCache[r.id]=r;});
+      if(!items.length){host.innerHTML='<div class="zg-scene-hint">Сохранённых сцен пока нет. Соберите сцену и нажмите «Сохранить текущую сцену».</div>';return;}
+      host.innerHTML=items.map(function(r){
+        var thumbStyle=r.thumb?(' style="background-image:url('+JSON.stringify(r.thumb)+')"'):'';
+        return '<div class="zg-scene-lib-item"><button type="button" class="zg-scene-lib-card" onclick="zgSceneLoad(&#39;'+r.id+'&#39;)"><span class="zg-scene-lib-thumb"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><span class="zg-scene-lib-name">'+esc(r.name)+'</span></button><button type="button" class="zg-scene-lib-del" title="Удалить сцену" onclick="zgSceneLibDelete(&#39;'+r.id+'&#39;)">×</button></div>';
+      }).join('');
+    });
+  }
+  w.zgSceneSave=function(){
+    if(!isMaster||!w.ZargotaLib)return;
+    var name=window.prompt('Название сцены:', 'Сцена');
+    if(name===null)return; name=String(name||'Сцена').slice(0,80);
+    var thumb=(draft.layers[0]&&draft.layers[0].image)||'';
+    var rec={id:'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),category:'scene',name:name,thumb:thumb,scene:copyScene(draft),created:Date.now()};
+    w.ZargotaLib.put(rec,function(){ setStatus('Сцена сохранена: '+name); renderScenes(); });
+  };
+  w.zgSceneLoad=function(id){
+    if(!isMaster)return;
+    var apply=function(rec){ if(!rec||!rec.scene)return; draft=copyScene(rec.scene); selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:''; selectedTokenId=draft.tokens.length?draft.tokens[0].id:''; dirty=true; setStatus('Сцена загружена: '+(rec.name||'')+' · опубликуйте игрокам'); applyScene(); syncControls(); };
+    var r=libCache[id]; if(r&&r.scene)apply(r); else w.ZargotaLib.get(id,apply);
+  };
+  w.zgSceneLibDelete=function(id){ if(!w.ZargotaLib)return; w.ZargotaLib.remove(id,function(){ delete libCache[id]; renderScenes(); }); };
   function makeId(prefix){ return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7); }
   function copyLayer(layer, index){
     return {
@@ -10401,6 +10429,8 @@ document.addEventListener('DOMContentLoaded', function(){
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
     node.classList.add('selected','dragging');
     renderTokenList(); syncTokenEditor();
+    var _p=el('zg-scene-settings');
+    if(_p&&_p.classList.contains('open')){ var _cur=_p.querySelector('.zg-scene-tab.active'); if((!_cur||_cur.getAttribute('data-tab')!=='tokens')&&w.zgSceneTab) w.zgSceneTab('tokens'); }
     tokenDrag = { token:token, node:node, pointerId:ev.pointerId, startX:ev.clientX, startY:ev.clientY, moved:false };
     try { node.setPointerCapture(ev.pointerId); } catch(e) {}
   }
@@ -10443,13 +10473,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if (gridTop) gridTop.checked = draft.gridAboveTokens;
     var sizeOut = el('zg-scene-size-out'); if (sizeOut) sizeOut.textContent = Math.round(draft.gridSize) + ' px';
     var zoomOut = el('zg-scene-zoom-out'); if (zoomOut) zoomOut.textContent = Math.round(draft.zoom * 100) + '%';
-    renderLayerList(); syncLayerEditor(); renderTokenList(); syncTokenEditor(); renderLibs();
+    renderLayerList(); syncLayerEditor(); renderTokenList(); syncTokenEditor(); renderLibs(); renderScenes();
   }
   function renderLayerList(){
     var host = el('zg-scene-layer-list'); if (!host) return; host.innerHTML = '';
     if (!draft.layers.length) { var empty=document.createElement('div'); empty.className='zg-scene-empty'; empty.textContent='Фоновые слои не добавлены'; host.appendChild(empty); return; }
     draft.layers.forEach(function(layer,index){
       var row=document.createElement('div'); row.className='zg-scene-layer-row'+(layer.id===selectedLayerId?' selected':'');
+      var thumb=document.createElement('span'); thumb.className='zg-scene-layer-thumb'; if(layer.image) thumb.style.backgroundImage='url('+JSON.stringify(layer.image)+')'; row.appendChild(thumb);
       var select=document.createElement('button'); select.type='button'; select.className='zg-scene-layer-select'; select.textContent=(index+1)+'. '+layer.name; select.onclick=function(){ selectedLayerId=layer.id; renderLayerList(); syncLayerEditor(); }; row.appendChild(select);
       var eye=document.createElement('button'); eye.type='button'; eye.className='zg-scene-mini'; eye.title=layer.visible?'Скрыть':'Показать'; eye.textContent=layer.visible?'◉':'○'; eye.onclick=function(){ layer.visible=!layer.visible; markDirty('Черновик · слой'); renderLayerList(); }; row.appendChild(eye);
       var up=document.createElement('button'); up.type='button'; up.className='zg-scene-mini'; up.title='Выше'; up.textContent='↑'; up.disabled=index===draft.layers.length-1; up.onclick=function(){ moveLayer(layer.id,1); }; row.appendChild(up);
@@ -10490,6 +10521,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var hid=el('zg-token-hidden'); if(hid){ hid.checked=!!token.hidden; }
     var dispRow=el('zg-token-disp-row'); if(dispRow) dispRow.hidden=token.type==='hero'||marker;
     var hiddenRow=el('zg-token-hidden-row'); if(hiddenRow) hiddenRow.hidden=token.type==='hero';
+    var reveal=el('zg-token-reveal'); if(reveal) reveal.hidden=!(token.type!=='hero'&&token.hidden);
     var imgRow=el('zg-token-image-row'); if(imgRow) imgRow.hidden=token.type==='hero'||marker;
   }
   function applyScene(){
@@ -10534,6 +10566,7 @@ document.addEventListener('DOMContentLoaded', function(){
       applyScene();
     }
     ensureHeroTokens(snapshot);
+    var loading=el('zg-vtt-loading'); if(loading) loading.classList.toggle('on', !isMaster && (!draft.layers || !draft.layers.length));
     if(isMaster)syncControls();
   }
 
@@ -10670,6 +10703,25 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgSceneRemoveToken=function(){var token=currentToken();if(!isMaster||!token||token.type==='hero')return;draft.tokens=draft.tokens.filter(function(item){return item.id!==token.id;});selectedTokenId=draft.tokens.length?draft.tokens[0].id:'';markDirty('Черновик · жетон удалён');syncControls();};
   w.zgSceneTokenDepth=function(delta){var token=currentToken();if(!isMaster||!token)return;token.z=clamp(token.z+delta,0,99);markDirty('Черновик · порядок жетона');renderTokenList();};
+  w.zgSceneTokenDuplicate=function(){
+    if(!isMaster)return;var t=currentToken();if(!t||t.type==='hero')return;
+    if(t.type==='spawn'){setStatus('Метка появления одна на сцену');return;}
+    var copy=copyToken(t,draft.tokens.length);copy.id=makeId(copy.type||'tok');copy.memberUid='';copy.x=clamp(copy.x+4,2,98);copy.y=clamp(copy.y+4,2,98);copy.z=clamp((copy.z||0)+1,0,99);
+    draft.tokens.push(copy);selectedTokenId=copy.id;markDirty('Черновик · жетон продублирован');syncControls();
+  };
+  // Активировать скрытый токен: показать игрокам одним кликом (снять скрытость + опубликовать)
+  w.zgSceneRevealToken=function(){
+    if(!isMaster)return;var t=currentToken();if(!t||t.type==='hero'||!t.hidden)return;
+    t.hidden=false;markDirty('Активировано — показываю игрокам');syncControls();
+    if(w.zgScenePublish)w.zgScenePublish();
+  };
+  // Delete — удалить выбранный жетон (кроме героев), если открыт стол и фокус не в поле ввода
+  document.addEventListener('keydown', function(ev){
+    if(!isMaster||(ev.key!=='Delete'&&ev.key!=='Backspace'))return;
+    var overlay=el('zg-game-overlay'); if(!overlay||!overlay.classList.contains('open'))return;
+    var ae=document.activeElement; if(ae&&/^(input|select|textarea)$/i.test(ae.tagName))return;
+    var t=currentToken(); if(t&&t.type!=='hero'){ ev.preventDefault(); w.zgSceneRemoveToken&&w.zgSceneRemoveToken(); }
+  });
   w.zgScenePublish = function(){
     if (!isMaster || !w.ZargotaRooms || !w.ZargotaRooms.publishScene) return;
     var button = el('zg-scene-publish'); if (button) button.disabled = true;
@@ -10886,6 +10938,78 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initChrome);
   else initChrome();
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
+//   ЛИСТ ПЕРСОНАЖА — поп-ап справа по клику на портрет (Лист / Биография)
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  function el(id){return document.getElementById(id);}
+  function esc(s){s=(s==null)?'':String(s);return (typeof w.escHTML==='function')?w.escHTML(s):s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function charFor(m){ if(!m)return null; if(Array.isArray(w.characters)){var f=w.characters.find(function(c){return String(c.id)===String(m.characterId);});if(f)return f;} return m.character||null; }
+  function statVal(b){b=b||{};return (b.cur!=null&&b.cur!==0)?b.cur:(b.base||0);}
+  function sign(n){n=Number(n)||0;return (n>=0?'+':'')+n;}
+  function asList(v){ if(!v)return []; if(Array.isArray(v))return v; if(typeof v==='object')return Object.keys(v).map(function(k){return v[k];}); return [v]; }
+  function nameOf(it){ if(it==null)return ''; if(typeof it==='string')return it; return it.name||it.title||it.label||''; }
+  function renderStats(c){
+    var labels=w.STAT_LABEL_RU||{str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
+    var icons=w.STAT_ICON_EM||{}, keys=['str','dex','int','cha','per','con'], stats=c.stats||{};
+    return '<div class="zg-sheet-stats">'+keys.map(function(k){
+      return '<div class="zg-sheet-stat"><div class="em">'+(icons[k]||'◆')+'</div><div class="v">'+sign(statVal(stats[k]))+'</div><div class="l">'+esc(labels[k]||k)+'</div></div>';
+    }).join('')+'</div>';
+  }
+  function renderChips(list){
+    if(!list.length)return '<div class="zg-sheet-empty">Нет</div>';
+    return '<div class="zg-sheet-chips">'+list.map(function(it){ var ic=(it&&it.icon)?it.icon+' ':''; return '<span class="zg-sheet-chip">'+esc(ic)+esc(nameOf(it)||'—')+'</span>'; }).join('')+'</div>';
+  }
+  function renderItems(list){
+    if(!list.length)return '<div class="zg-sheet-empty">Инвентарь пуст</div>';
+    return '<div class="zg-sheet-items">'+list.slice(0,24).map(function(it){ if(typeof it==='string')it={name:it}; var q=Number(it.qty||1); return '<div class="zg-sheet-item" title="'+esc(it.name||'Предмет')+'"><i>'+esc(it.icon||'◈')+'</i><span>'+esc(it.name||'Предмет')+'</span>'+(q>1?'<small>'+q+'</small>':'')+'</div>'; }).join('')+'</div>';
+  }
+  function renderList(list){
+    if(!list.length)return '<div class="zg-sheet-empty">Нет</div>';
+    return '<div class="zg-sheet-list">'+list.map(function(it){ if(typeof it==='string')return '<div class="zg-sheet-listrow">'+esc(it)+'</div>'; var d=it.desc||it.text||it.effect||''; return '<div class="zg-sheet-listrow"><b>'+esc(nameOf(it)||'—')+'</b>'+(d?'<br>'+esc(d):'')+'</div>'; }).join('')+'</div>';
+  }
+  w.zgSheetOpen=function(uid){
+    var sheet=el('zg-sheet'); if(!sheet)return;
+    var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
+    var m=(snap&&snap.room&&snap.room.members)?snap.room.members[uid]:null;
+    var c=charFor(m)||{};
+    var portrait=c.portrait?'<img class="zg-sheet-portrait" src="'+esc(c.portrait)+'" alt="">':'<div class="zg-sheet-portrait" style="display:flex;align-items:center;justify-content:center;font-size:28px;color:#5a4c33">🧙</div>';
+    el('zg-sheet-portrait-host').innerHTML=portrait;
+    el('zg-sheet-name').textContent=c.name||(m&&m.name)||'Герой';
+    el('zg-sheet-sub').textContent=[c.race,c.klasse,(c.level!=null?('ур. '+c.level):'')].filter(Boolean).join(' · ');
+    var statuses=asList(c.statuses||c.conditions), inv=asList(c.inventoryItems), traits=asList(c.traits), spells=asList(c.spells||c.spellList);
+    el('zg-sheet-pane-list').innerHTML=
+      '<div class="zg-sheet-vitals">'+
+        '<div class="zg-sheet-vital"><b>'+esc(c.hpCur!=null?c.hpCur:'—')+'/'+esc(c.hpMax!=null?c.hpMax:'—')+'</b><span>HP</span></div>'+
+        '<div class="zg-sheet-vital"><b>'+esc(c.ac!=null&&c.ac!==''?c.ac:'—')+'</b><span>БРОНЯ</span></div>'+
+        '<div class="zg-sheet-vital"><b>'+esc(c.speed?c.speed:'—')+'</b><span>СКОР.</span></div>'+
+      '</div>'+
+      '<div class="zg-sheet-h">Характеристики</div>'+renderStats(c)+
+      '<div class="zg-sheet-h">Статусы</div>'+renderChips(statuses)+
+      '<div class="zg-sheet-h">Инвентарь</div>'+renderItems(inv)+
+      '<div class="zg-sheet-h">Черты</div>'+renderList(traits)+
+      (spells.length?('<div class="zg-sheet-h">Заклинания</div>'+renderList(spells)):'');
+    var bio=c.biography||c.bio||'';
+    var extra=[['Происхождение',c.origin],['Символ',c.symbol],['Бог',c.god],['Возраст',c.age]].filter(function(r){return r[1];});
+    el('zg-sheet-pane-bio').innerHTML=
+      (c.quote?'<div class="zg-sheet-quote">«'+esc(c.quote)+'»</div>':'')+
+      (extra.length?'<div class="zg-sheet-list">'+extra.map(function(r){return '<div class="zg-sheet-listrow"><b>'+esc(r[0])+':</b> '+esc(r[1])+'</div>';}).join('')+'</div>':'')+
+      (bio?'<div class="zg-sheet-bio" style="margin-top:12px">'+esc(bio)+'</div>':'<div class="zg-sheet-empty" style="margin-top:12px">Биография не заполнена</div>');
+    w.zgSheetTab('list');
+    sheet.classList.add('open');
+    try{if(w.ZargotaSound)w.ZargotaSound.buttonTap();}catch(e){}
+  };
+  w.zgSheetClose=function(){ var s=el('zg-sheet'); if(s)s.classList.remove('open'); };
+  w.zgSheetTab=function(name){
+    ['list','bio'].forEach(function(n){
+      var tab=el('zg-sheet-tab-'+n), pane=el('zg-sheet-pane-'+n);
+      if(tab)tab.classList.toggle('active',n===name);
+      if(pane)pane.classList.toggle('active',n===name);
+    });
+  };
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){ var s=el('zg-sheet'); if(s&&s.classList.contains('open')) w.zgSheetClose(); } });
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -14028,6 +14152,26 @@ window.zgImageStore = (function() {
   .zg-lib-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:1px solid #5a2a24;background:#2a1512;color:#d99;font-size:11px;line-height:1;cursor:pointer;display:none}
   .zg-lib-item:hover .zg-lib-del{display:block}
   .zg-lib-del:hover{background:#7a2a24;color:#fdd}
+  .zg-scene-layer-thumb{width:28px;height:21px;flex-shrink:0;border-radius:4px;background:#0c0a07 center/cover no-repeat;border:1px solid #4a3a1e}
+  .zg-token-reveal{width:100%;margin:2px 0 4px;border-color:#3f6da0;color:#8fb8e6}
+  .zg-token-reveal:hover{border-color:#5b8bc4;color:#bcd6f5;background:rgba(20,28,42,.4)}
+  /* сохранённые сцены */
+  .zg-scene-save-btn{width:100%;margin-bottom:8px;height:36px;border:1px solid #b58d3e;border-radius:8px;background:linear-gradient(180deg,#2b2113,#181009);color:#efd58f;font-family:'Cinzel',serif;font-size:12px;cursor:pointer;transition:.2s}
+  .zg-scene-save-btn:hover{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 14px #c8993c33}
+  .zg-scene-lib-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+  .zg-scene-lib-item{position:relative}
+  .zg-scene-lib-card{width:100%;display:flex;flex-direction:column;gap:5px;padding:7px;border:1px solid #3a2d18;border-radius:8px;background:#14110b;color:#d8c492;cursor:pointer;transition:.15s;text-align:left}
+  .zg-scene-lib-card:hover{border-color:#c8993c;background:#211809}
+  .zg-scene-lib-thumb{width:100%;aspect-ratio:16/9;border-radius:5px;background:#0c0a07 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:20px}
+  .zg-scene-lib-name{font-size:11px;font-family:'Cinzel',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-scene-lib-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;border:1px solid #5a2a24;background:#2a1512;color:#d99;font-size:11px;cursor:pointer;display:none}
+  .zg-scene-lib-item:hover .zg-scene-lib-del{display:block}
+  .zg-scene-lib-del:hover{background:#7a2a24;color:#fdd}
+  /* экран загрузки игрока, пока мастер не выбрал сцену */
+  .zg-vtt-loading{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:radial-gradient(circle at 50% 45%,#0a0806,#040303);color:#8d7c5c;font-family:'Cinzel',serif}
+  .zg-vtt-loading.on{display:flex}
+  .zg-vtt-loading-spin{width:34px;height:34px;border-radius:50%;border:2px solid rgba(232,192,96,.2);border-top-color:var(--gold);animation:zgSpin .9s linear infinite}
+  .zg-vtt-loading-txt{font-size:13px;letter-spacing:2px}
   .zg-scene-editor{margin-top:8px;padding-top:8px;border-top:1px solid #2b2112}
   .zg-scene-editor-top{display:flex;gap:6px;margin-bottom:6px}
   .zg-scene-editor-top input{flex:1;min-width:0;background:#12100c;border:1px solid #332815;border-radius:6px;color:#e7d3a0;padding:7px 9px;font-size:12px}
@@ -14315,7 +14459,23 @@ window.zgImageStore = (function() {
         <div class="zg-vtt-token-layer" id="zg-vtt-token-layer"></div>
       </div>
     </div>
+    <div class="zg-vtt-loading" id="zg-vtt-loading"><div class="zg-vtt-loading-spin"></div><div class="zg-vtt-loading-txt">Мастер готовит сцену…</div></div>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
+    <div class="zg-sheet" id="zg-sheet" aria-label="Лист персонажа">
+      <div class="zg-sheet-head">
+        <span id="zg-sheet-portrait-host"></span>
+        <div class="zg-sheet-hd-txt"><div class="zg-sheet-name" id="zg-sheet-name"></div><div class="zg-sheet-sub" id="zg-sheet-sub"></div></div>
+        <button type="button" class="zg-sheet-close" onclick="zgSheetClose()" aria-label="Закрыть лист">×</button>
+      </div>
+      <div class="zg-sheet-tabs">
+        <button type="button" class="zg-sheet-tab active" id="zg-sheet-tab-list" onclick="zgSheetTab('list')">Лист</button>
+        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-bio" onclick="zgSheetTab('bio')">Биография</button>
+      </div>
+      <div class="zg-sheet-body">
+        <div class="zg-sheet-pane active" id="zg-sheet-pane-list"></div>
+        <div class="zg-sheet-pane" id="zg-sheet-pane-bio"></div>
+      </div>
+    </div>
     <aside class="zg-vtt-journal open" id="zg-vtt-journal">
       <div class="zg-vtt-panel-head"><span id="zg-vtt-journal-title">Журнал сессии</span><button type="button" class="zg-vtt-panel-close" onclick="zgVttToggleJournal(false)" title="Свернуть" aria-label="Свернуть журнал">‹</button></div>
       <div class="zg-vtt-journal-body" id="zg-vtt-journal-body"></div>
@@ -14370,11 +14530,12 @@ window.zgImageStore = (function() {
         <div class="zg-scene-editor" id="zg-scene-token-editor" hidden>
           <div class="zg-scene-editor-top"><input id="zg-token-name" maxlength="80" placeholder="Название жетона" oninput="zgSceneTokenControl()"><button type="button" class="zg-scene-trash" id="zg-token-remove" onclick="zgSceneRemoveToken()" title="Удалить жетон" aria-label="Удалить жетон">×</button></div>
           <label class="zg-scene-row" id="zg-token-disp-row"><span>Тип</span><select id="zg-token-disp" onchange="zgSceneTokenControl()"><option value="ally">Союзник</option><option value="enemy">Враг</option><option value="npc">НПС</option><option value="neutral">Нейтрал</option></select></label>
-          <label class="zg-scene-row" id="zg-token-hidden-row" title="Скрытый жетон видит только мастер в «виде мастера». Снимите галочку и опубликуйте, чтобы активировать (показать игрокам)."><span>Скрыть от игроков</span><input class="zg-scene-toggle" id="zg-token-hidden" type="checkbox" onchange="zgSceneTokenControl()"></label>
+          <label class="zg-scene-row" id="zg-token-hidden-row" title="Скрытый жетон видит только мастер в «виде мастера»."><span>Скрыть от игроков</span><input class="zg-scene-toggle" id="zg-token-hidden" type="checkbox" onchange="zgSceneTokenControl()"></label>
+          <button type="button" class="zg-scene-ghost-btn zg-token-reveal" id="zg-token-reveal" onclick="zgSceneRevealToken()" hidden>👁 Показать игрокам (активировать)</button>
           <label class="zg-scene-row"><span>Показывать</span><input class="zg-scene-toggle" id="zg-token-visible" type="checkbox" checked onchange="zgSceneTokenControl()"></label>
           <label class="zg-scene-row zg-scene-range-row"><span>Размер</span><span><input id="zg-token-size" type="range" min="24" max="180" step="2" oninput="zgSceneTokenControl()"><output id="zg-token-size-out"></output></span></label>
           <div class="zg-scene-row" id="zg-token-image-row"><span>Картинка</span><button type="button" class="zg-scene-ghost-btn" onclick="document.getElementById('zg-token-image-file').click()">Загрузить…</button></div>
-          <div class="zg-scene-depth"><button type="button" onclick="zgSceneTokenDepth(-1)">↓ Ниже</button><button type="button" onclick="zgSceneTokenDepth(1)">↑ Выше</button></div>
+          <div class="zg-scene-depth"><button type="button" onclick="zgSceneTokenDuplicate()">⧉ Дубль</button><button type="button" onclick="zgSceneTokenDepth(-1)">↓ Ниже</button><button type="button" onclick="zgSceneTokenDepth(1)">↑ Выше</button></div>
         </div>
       </section>
       <section class="zg-scene-section">
@@ -14400,6 +14561,11 @@ window.zgImageStore = (function() {
         <label class="zg-scene-row zg-scene-range-row"><span>Размер клетки</span><span><input id="zg-scene-size" type="range" min="24" max="160" step="4" value="64" oninput="zgSceneControl()"><output id="zg-scene-size-out">64 px</output></span></label>
         <label class="zg-scene-row zg-scene-range-row"><span>Камера</span><span><input id="zg-scene-zoom" type="range" min="0.5" max="2.5" step="0.05" value="1" oninput="zgSceneControl()"><output id="zg-scene-zoom-out">100%</output></span></label>
         <button type="button" class="zg-scene-btn zg-scene-reset" onclick="zgSceneResetCamera()">⌖ Сбросить камеру</button>
+      </section>
+      <section class="zg-scene-section">
+        <div class="zg-scene-section-head"><span>💾 Сохранённые сцены</span></div>
+        <button type="button" class="zg-scene-save-btn" onclick="zgSceneSave()">＋ Сохранить текущую сцену</button>
+        <div class="zg-scene-lib-grid" id="zg-scene-lib"></div>
       </section>
       </div>
       </div>
