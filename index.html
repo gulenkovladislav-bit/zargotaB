@@ -10338,6 +10338,46 @@ document.addEventListener('DOMContentLoaded', function(){
     var r=libCache[id]; if(r&&r.scene)apply(r); else w.ZargotaLib.get(id,apply);
   };
   w.zgSceneLibDelete=function(id){ if(!w.ZargotaLib)return; w.ZargotaLib.remove(id,function(){ delete libCache[id]; renderScenes(); }); };
+  // Список сохранённых зон в выпадашке метки-перехода
+  function renderPortalTargets(token){
+    var sel=el('zg-token-target'); if(!sel||!w.ZargotaLib)return;
+    w.ZargotaLib.list('scene',function(items){
+      items.forEach(function(r){libCache[r.id]=r;});
+      var cur=(token&&token.targetZone)||'';
+      sel.innerHTML='<option value="">— не задана —</option>'+items.map(function(r){ return '<option value="'+esc(r.id)+'"'+(r.id===cur?' selected':'')+'>'+esc(r.name)+'</option>'; }).join('');
+      sel.value=cur;
+    });
+  }
+  // Переход: выбрать кто идёт → отправить выбранных героев в целевую зону
+  var portalTarget='';
+  w.zgScenePortalGo=function(){
+    if(!isMaster)return; var t=currentToken(); if(!t||t.type!=='portal')return;
+    if(!t.targetZone||!libCache[t.targetZone]){ setStatus('У перехода не выбрана сохранённая зона'); return; }
+    portalTarget=t.targetZone;
+    var members=(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.members)||{};
+    var heroes=Object.keys(members).map(function(u){return members[u];}).filter(function(m){return m&&m.characterId&&m.character;});
+    var host=el('zg-portal-list');
+    if(host){
+      host.innerHTML=heroes.length?heroes.map(function(m){
+        return '<label class="zg-portal-row"><input type="checkbox" class="zg-portal-cb" value="'+esc(m.uid)+'" checked><span>'+esc((m.character&&m.character.name)||m.name||'Герой')+'</span></label>';
+      }).join(''):'<div class="zg-scene-hint">В комнате нет героев.</div>';
+    }
+    var nm=el('zg-portal-zone-name'); if(nm) nm.textContent=(libCache[portalTarget].name)||'зону';
+    var ov=el('zg-portal-pick'); if(ov){ if(ov.parentNode!==document.body)document.body.appendChild(ov); ov.classList.add('open'); }
+  };
+  w.zgPortalCancel=function(){ var ov=el('zg-portal-pick'); if(ov)ov.classList.remove('open'); };
+  w.zgPortalConfirm=function(){
+    var ov=el('zg-portal-pick'); if(ov)ov.classList.remove('open');
+    var uids=[]; var cbs=document.querySelectorAll('#zg-portal-list .zg-portal-cb:checked');
+    for(var i=0;i<cbs.length;i++) uids.push(cbs[i].value);
+    var rec=libCache[portalTarget];
+    if(!rec||!rec.scene||!w.ZargotaRooms||!w.ZargotaRooms.publishZone){ return; }
+    setStatus('Переход…');
+    w.ZargotaRooms.publishZone(portalTarget, rec.scene).then(function(){
+      return w.ZargotaRooms.sendToZone(portalTarget, uids);
+    }).then(function(){ setStatus('Переведены в зону «'+(rec.name||'')+'»: '+uids.length); })
+      .catch(function(e){ setStatus('Ошибка перехода: '+((e&&e.message)||'')); });
+  };
   function makeId(prefix){ return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7); }
   function copyLayer(layer, index){
     return {
@@ -10353,13 +10393,16 @@ document.addEventListener('DOMContentLoaded', function(){
     return ['hero','ally','enemy','neutral','npc'].indexOf(value) >= 0 ? value : 'neutral';
   }
   function copyToken(token, index){
-    var type = ['hero','custom','spawn','portal'].indexOf(token.type) >= 0 ? token.type : 'custom';
-    var defName = type === 'spawn' ? 'Появление' : (type === 'portal' ? 'Переход' : 'Жетон');
+    var type = ['hero','custom','spawn','portal','text'].indexOf(token.type) >= 0 ? token.type : 'custom';
+    var defName = type === 'spawn' ? 'Появление' : (type === 'portal' ? 'Переход' : (type === 'text' ? 'Текст' : 'Жетон'));
     return {
       id:String(token.id || ('token-' + index)), type:type, memberUid:String(token.memberUid || ''),
       name:String(token.name || defName), image:type === 'custom' ? String(token.image || '') : '',
+      color: String(token.color || '#f0d896'),
+      targetZone: type === 'portal' ? String(token.targetZone || '') : '',
       disposition: normDisposition(token.disposition, type),
       hidden: type === 'hero' ? false : !!token.hidden,
+      opacity: clamp(token.opacity == null ? 1 : token.opacity, 0.15, 1),
       x:clamp(token.x == null ? 50 : token.x,0,100), y:clamp(token.y == null ? 50 : token.y,0,100),
       size:clamp(token.size || 64,24,180), visible:token.visible !== false, z:clamp(token.z || index + 1,0,99)
     };
@@ -10378,6 +10421,7 @@ document.addEventListener('DOMContentLoaded', function(){
       x: clamp(scene.x || 0, -2000, 2000),
       y: clamp(scene.y || 0, -2000, 2000),
       zoom: clamp(scene.zoom || 1, .5, 2.5),
+      mode: (['normal','nested'].indexOf(scene.mode) >= 0 ? scene.mode : 'normal'),
       revision: Number(scene.revision || 0)
     };
   }
@@ -10443,6 +10487,32 @@ document.addEventListener('DOMContentLoaded', function(){
     tokenDrag.node.style.left = tokenDrag.token.x + '%'; tokenDrag.node.style.top = tokenDrag.token.y + '%';
     tokenDrag.moved = tokenDrag.moved || Math.abs(ev.clientX-tokenDrag.startX) > 2 || Math.abs(ev.clientY-tokenDrag.startY) > 2;
   }
+  var sizeDrag = null;
+  function beginResize(ev, token, node){
+    if (!isMaster || ev.button !== 0) return;
+    ev.preventDefault(); ev.stopPropagation();
+    sizeDrag = { token:token, node:node, startSize:token.size, startX:ev.clientX, startY:ev.clientY };
+    document.addEventListener('pointermove', resizeMove);
+    document.addEventListener('pointerup', resizeUp);
+    document.addEventListener('pointercancel', resizeUp);
+  }
+  function resizeMove(ev){
+    if (!sizeDrag) return;
+    var d = Math.max(ev.clientX - sizeDrag.startX, ev.clientY - sizeDrag.startY);
+    var ns = clamp(sizeDrag.startSize + d * 2, 24, 180);
+    sizeDrag.token.size = ns;
+    if (sizeDrag.token.type === 'text') { sizeDrag.node.style.fontSize = ns + 'px'; }
+    else { sizeDrag.node.style.width = ns + 'px'; sizeDrag.node.style.height = ns + 'px'; }
+    var sl = el('zg-token-size'); if (sl) sl.value = ns;
+    var so = el('zg-token-size-out'); if (so) so.textContent = Math.round(ns) + ' px';
+  }
+  function resizeUp(){
+    if (!sizeDrag) return;
+    document.removeEventListener('pointermove', resizeMove);
+    document.removeEventListener('pointerup', resizeUp);
+    document.removeEventListener('pointercancel', resizeUp);
+    sizeDrag = null; dirty = true; setStatus('Черновик · размер жетона');
+  }
   function renderTokens(){
     var layer = el('zg-vtt-token-layer'); if (!layer) return;
     layer.innerHTML = '';
@@ -10452,16 +10522,29 @@ document.addEventListener('DOMContentLoaded', function(){
       if (token.hidden && !viewerGm) return;                 // скрытый жетон: игрокам и в «виде игроков» не показываем
       var node = document.createElement('button');
       var marker = isMarkerType(token.type);
-      node.type = 'button'; node.className = 'zg-vtt-token disp-' + (token.disposition || 'neutral') + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.id === selectedTokenId && isMaster ? ' selected' : '');
-      node.style.left = token.x + '%'; node.style.top = token.y + '%'; node.style.width = token.size + 'px'; node.style.height = token.size + 'px'; node.style.zIndex = String(token.z);
+      var isText = token.type === 'text';
+      node.type = 'button'; node.className = 'zg-vtt-token' + (isText ? ' text' : ' disp-' + (token.disposition || 'neutral')) + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.id === selectedTokenId && isMaster ? ' selected' : '');
+      node.style.left = token.x + '%'; node.style.top = token.y + '%'; node.style.zIndex = String(token.z); node.style.opacity = (token.opacity==null?1:token.opacity);
       node.title = tokenName(token); node.setAttribute('aria-label',tokenName(token));
-      var portrait = tokenPortrait(token);
-      if (portrait) { var img = document.createElement('img'); img.src = portrait; img.alt = ''; node.appendChild(img); }
-      else { var ph = document.createElement('span'); ph.className = 'zg-vtt-token-ph'; ph.textContent = token.type === 'spawn' ? '⚑' : token.type === 'portal' ? '➜' : token.type === 'hero' ? '♟' : '✦'; node.appendChild(ph); }
-      var label = document.createElement('span'); label.className = 'zg-vtt-token-name'; label.textContent = tokenName(token); node.appendChild(label);
+      if (isText) {
+        node.style.fontSize = token.size + 'px'; node.style.color = token.color || '#f0d896';
+        node.textContent = token.name || 'Текст';
+      } else {
+        node.style.width = token.size + 'px'; node.style.height = token.size + 'px';
+        var portrait = tokenPortrait(token);
+        if (portrait) { var img = document.createElement('img'); img.src = portrait; img.alt = ''; node.appendChild(img); }
+        else { var ph = document.createElement('span'); ph.className = 'zg-vtt-token-ph'; ph.textContent = token.type === 'spawn' ? '⚑' : token.type === 'portal' ? '➜' : token.type === 'hero' ? '♟' : '✦'; node.appendChild(ph); }
+        var label = document.createElement('span'); label.className = 'zg-vtt-token-name'; label.textContent = tokenName(token); node.appendChild(label);
+      }
+      if (token.id === selectedTokenId && isMaster) {
+        var frame = document.createElement('span'); frame.className = 'zg-vtt-token-frame'; node.appendChild(frame);
+        var handle = document.createElement('span'); handle.className = 'zg-vtt-token-handle'; handle.title = 'Растянуть';
+        handle.addEventListener('pointerdown', function(ev){ beginResize(ev, token, node); });
+        node.appendChild(handle);
+      }
       node.addEventListener('pointerdown',function(ev){ beginTokenDrag(ev,token,node); });
       node.addEventListener('pointermove',moveToken); node.addEventListener('pointerup',finishTokenDrag); node.addEventListener('pointercancel',finishTokenDrag);
-      node.addEventListener('click',function(){ if (!isMaster && token.type === 'hero' && w.zgVttOpenMember) w.zgVttOpenMember(token.memberUid); });
+      node.addEventListener('click',function(){ if (token.type === 'hero' && w.zgSheetOpen) w.zgSheetOpen(token.memberUid); });
       layer.appendChild(node);
     });
   }
@@ -10471,6 +10554,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (size) size.value = draft.gridSize;
     if (zoom) zoom.value = draft.zoom;
     if (gridTop) gridTop.checked = draft.gridAboveTokens;
+    var md = el('zg-scene-mode'); if (md) md.value = draft.mode || 'normal';
     var sizeOut = el('zg-scene-size-out'); if (sizeOut) sizeOut.textContent = Math.round(draft.gridSize) + ' px';
     var zoomOut = el('zg-scene-zoom-out'); if (zoomOut) zoomOut.textContent = Math.round(draft.zoom * 100) + '%';
     renderLayerList(); syncLayerEditor(); renderTokenList(); syncTokenEditor(); renderLibs(); renderScenes();
@@ -10516,16 +10600,24 @@ document.addEventListener('DOMContentLoaded', function(){
     var token=currentToken(),editor=el('zg-scene-token-editor');if(!editor)return;editor.hidden=!token;if(!token)return;
     el('zg-token-name').value=tokenName(token); el('zg-token-name').disabled=token.type==='hero'; el('zg-token-size').value=token.size; el('zg-token-visible').checked=token.visible;
     el('zg-token-size-out').textContent=Math.round(token.size)+' px'; var remove=el('zg-token-remove'); if(remove) remove.hidden=token.type==='hero';
-    var marker=isMarkerType(token.type);
+    var op=el('zg-token-opacity'); if(op){ op.value=(token.opacity==null?1:token.opacity); var opo=el('zg-token-opacity-out'); if(opo)opo.textContent=Math.round((token.opacity==null?1:token.opacity)*100)+'%'; }
+    var marker=isMarkerType(token.type), isText=token.type==='text';
     var disp=el('zg-token-disp'); if(disp){ disp.value=token.disposition||'neutral'; }
     var hid=el('zg-token-hidden'); if(hid){ hid.checked=!!token.hidden; }
-    var dispRow=el('zg-token-disp-row'); if(dispRow) dispRow.hidden=token.type==='hero'||marker;
+    var dispRow=el('zg-token-disp-row'); if(dispRow) dispRow.hidden=token.type==='hero'||marker||isText;
     var hiddenRow=el('zg-token-hidden-row'); if(hiddenRow) hiddenRow.hidden=token.type==='hero';
     var reveal=el('zg-token-reveal'); if(reveal) reveal.hidden=!(token.type!=='hero'&&token.hidden);
-    var imgRow=el('zg-token-image-row'); if(imgRow) imgRow.hidden=token.type==='hero'||marker;
+    var imgRow=el('zg-token-image-row'); if(imgRow) imgRow.hidden=token.type==='hero'||marker||isText;
+    var colorRow=el('zg-token-color-row'); if(colorRow) colorRow.hidden=!isText;
+    var col=el('zg-token-color'); if(col&&isText) col.value=(token.color||'#f0d896');
+    var isPortal=token.type==='portal';
+    var portalRow=el('zg-token-portal-row'); if(portalRow) portalRow.hidden=!isPortal;
+    var portalGo=el('zg-token-portal-go'); if(portalGo) portalGo.hidden=!isPortal;
+    if(isPortal) renderPortalTargets(token);
   }
   function applyScene(){
     var grid = el('zg-vtt-grid');
+    var sc = el('zg-vtt-scene'); if (sc) sc.classList.toggle('nested', draft.mode === 'nested');
     applyCamera(); renderBackgrounds(); renderTokens();
     if (grid) {
       grid.style.display = draft.grid ? 'block' : 'none';
@@ -10560,7 +10652,13 @@ document.addEventListener('DOMContentLoaded', function(){
       dirty = false;
     }
     if (!isMaster || !dirty) {
-      draft = copyScene(snapshot.room.scene || DEFAULT_SCENE);
+      var src = snapshot.room.scene || DEFAULT_SCENE;
+      if (!isMaster && snapshot.session) {
+        var me = snapshot.room.members && snapshot.room.members[snapshot.session.uid];
+        var zid = me && me.zone;
+        if (zid && snapshot.room.zones && snapshot.room.zones[zid]) src = snapshot.room.zones[zid];  // игрок в своей зоне
+      }
+      draft = copyScene(src);
       if(!selectedLayerId&&draft.layers.length)selectedLayerId=draft.layers[draft.layers.length-1].id;
       if(!selectedTokenId&&draft.tokens.length)selectedTokenId=draft.tokens[0].id;
       applyScene();
@@ -10598,6 +10696,7 @@ document.addEventListener('DOMContentLoaded', function(){
     for (var j = 0; j < panes.length; j++) panes[j].classList.toggle('active', panes[j].getAttribute('data-pane') === name);
     try { if (w.ZargotaSound && w.ZargotaSound.buttonSoft) w.ZargotaSound.buttonSoft(); } catch(e) {}
   };
+  w.zgSceneMeasureInfo = function(){ return { gridSize: draft.gridSize || 64, zoom: draft.zoom || 1 }; };
   w.zgSceneSettings = function(ev){
     if (ev) ev.stopPropagation();
     if (!isMaster) return;
@@ -10613,6 +10712,7 @@ document.addEventListener('DOMContentLoaded', function(){
     draft.gridSize = clamp(size && size.value, 24, 160);
     draft.zoom = clamp(zoom && zoom.value, .5, 2.5);
     draft.gridAboveTokens=!!(gridTop&&gridTop.checked);
+    var mode=el('zg-scene-mode'); if(mode) draft.mode = (mode.value==='nested'?'nested':'normal');
     var sizeOut=el('zg-scene-size-out');if(sizeOut)sizeOut.textContent=Math.round(draft.gridSize)+' px';var zoomOut=el('zg-scene-zoom-out');if(zoomOut)zoomOut.textContent=Math.round(draft.zoom*100)+'%';
     markDirty();
   };
@@ -10671,7 +10771,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var token=copyToken({id:makeId('custom'),type:'custom',name:file.name.replace(/\.[^.]+$/,''),image:data,x:50,y:50,size:draft.gridSize,z:draft.tokens.length+20},draft.tokens.length);draft.tokens.push(token);selectedTokenId=token.id;libSave('npc',file.name.replace(/\.[^.]+$/,''),data);markDirty('Черновик · жетон добавлен');syncControls();input.value='';
     });
   };
-  w.zgSceneTokenControl=function(){var token=currentToken();if(!isMaster||!token)return;if(token.type!=='hero'){token.name=String(el('zg-token-name').value||'Жетон').slice(0,80);if(!isMarkerType(token.type)){var d=el('zg-token-disp');if(d)token.disposition=normDisposition(d.value,token.type);}var hid=el('zg-token-hidden');if(hid)token.hidden=!!hid.checked;}token.size=clamp(el('zg-token-size').value,24,180);token.visible=el('zg-token-visible').checked;el('zg-token-size-out').textContent=Math.round(token.size)+' px';markDirty('Черновик · жетон настроен');renderTokenList();renderTokens();};
+  w.zgSceneTokenControl=function(){var token=currentToken();if(!isMaster||!token)return;if(token.type!=='hero'){token.name=String(el('zg-token-name').value||'Жетон').slice(0,80);if(!isMarkerType(token.type)&&token.type!=='text'){var d=el('zg-token-disp');if(d)token.disposition=normDisposition(d.value,token.type);}if(token.type==='text'){var col=el('zg-token-color');if(col)token.color=col.value;}if(token.type==='portal'){var tg=el('zg-token-target');if(tg)token.targetZone=tg.value;}var hid=el('zg-token-hidden');if(hid)token.hidden=!!hid.checked;}token.size=clamp(el('zg-token-size').value,24,180);var op=el('zg-token-opacity');if(op){token.opacity=clamp(op.value,0.15,1);var opo=el('zg-token-opacity-out');if(opo)opo.textContent=Math.round(token.opacity*100)+'%';}token.visible=el('zg-token-visible').checked;el('zg-token-size-out').textContent=Math.round(token.size)+' px';markDirty('Черновик · жетон настроен');renderTokenList();renderTokens();};
   // Быстрый жетон НПС/врага без картинки (буква-заглушка), можно потом дать картинку
   w.zgSceneAddToken=function(disposition){
     if(!isMaster)return;
@@ -10691,6 +10791,13 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     var token=copyToken({id:makeId(type),type:type,hidden:true,x:50,y:50,size:clamp(draft.gridSize*1.05,40,120),z:draft.tokens.length+30},draft.tokens.length);
     draft.tokens.push(token);selectedTokenId=token.id;markDirty('Черновик · метка добавлена');syncControls();
+  };
+  // Текстовый элемент на карте
+  w.zgSceneAddText=function(){
+    if(!isMaster)return;
+    var token=copyToken({id:makeId('text'),type:'text',name:'Текст',color:'#f0d896',x:50,y:50,size:26,z:draft.tokens.length+15},draft.tokens.length);
+    draft.tokens.push(token);selectedTokenId=token.id;markDirty('Черновик · текст добавлен');syncControls();
+    if(w.zgSceneTab)w.zgSceneTab('tokens');
   };
   // Заменить/задать картинку выбранного жетона
   w.zgSceneTokenImage=function(ev){
@@ -10830,7 +10937,7 @@ document.addEventListener('DOMContentLoaded', function(){
     host.innerHTML = heroMembers().map(function(member){
       var c = member.character || {};
       var isOwn = session && member.uid === session.uid;
-      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (member.online ? '' : ' offline') + '" onclick="zgVttOpenMember(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn ? ' aria-current="true"' : '') + '>' +
+      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (member.online ? '' : ' offline') + '" onclick="zgSheetOpen(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn ? ' aria-current="true"' : '') + '>' +
         avatar(c, c.portrait ? '' : 'zg-party-ph') +
         '<span class="zg-party-name">' + esc(c.name || member.name || 'Герой') + '</span>' +
         '<span class="zg-party-online' + (member.online ? ' on' : '') + '"></span>' +
@@ -11010,6 +11117,94 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   };
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){ var s=el('zg-sheet'); if(s&&s.classList.contains('open')) w.zgSheetClose(); } });
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
+//   КУБИК СНИЗУ — d4..d100; у d20 выбор характеристики и авто-бонус с листа
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  function el(id){return document.getElementById(id);}
+  function esc(s){s=(s==null)?'':String(s);return (typeof w.escHTML==='function')?w.escHTML(s):s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function ownChar(){
+    var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
+    var m=(snap&&snap.session&&snap.room&&snap.room.members)?snap.room.members[snap.session.uid]:null;
+    if(!m)return null;
+    if(Array.isArray(w.characters)){var f=w.characters.find(function(c){return String(c.id)===String(m.characterId);});if(f)return f;}
+    return m.character||null;
+  }
+  function statVal(b){b=b||{};return (b.cur!=null&&b.cur!==0)?b.cur:(b.base||0);}
+  function roll(sides){ var b=new Uint32Array(1); if(w.crypto&&w.crypto.getRandomValues)w.crypto.getRandomValues(b); else b[0]=Math.floor(Math.random()*4294967296); return b[0]%sides+1; }
+  function sound(){ try{ if(w.ZargotaSound&&w.ZargotaSound.dice) w.ZargotaSound.dice(); }catch(e){} }
+  function show(html){ var r=el('zg-dice-result'); if(r)r.innerHTML=html; }
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open'); p.classList.toggle('open',open); var a=el('zg-dice-abils'); if(a)a.classList.remove('open'); };
+  w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open'); };
+  w.zgDiceRoll=function(sides){
+    sides=Number(sides)||20;
+    if(sides===20){ var a=el('zg-dice-abils'); if(a)a.classList.toggle('open'); return; }
+    var v=roll(sides); sound(); show('<span class="zg-dice-die">d'+sides+'</span> → <b>'+v+'</b>');
+  };
+  w.zgDiceRollAbility=function(key){
+    var r=roll(20), c=ownChar(), labels=w.STAT_LABEL_RU||{}, mod=0, lbl='';
+    if(key&&key!=='plain'&&c&&c.stats){ mod=statVal(c.stats[key]); lbl=labels[key]||key; }
+    var total=r+mod;
+    sound();
+    var tag=r===20?' <span class="zg-dice-crit">крит!</span>':(r===1?' <span class="zg-dice-fail">провал</span>':'');
+    var head=(key&&key!=='plain')?('d20 ('+r+') '+(mod>=0?'+':'−')+' '+esc(lbl)+' '+Math.abs(mod)):('d20 ('+r+')');
+    show('<span class="zg-dice-die">'+head+'</span> → <b>'+total+'</b>'+tag);
+    var a=el('zg-dice-abils'); if(a)a.classList.remove('open');
+  };
+  document.addEventListener('click',function(ev){ var p=el('zg-dice-pop'); if(!p||!p.classList.contains('open'))return; if(p.contains(ev.target))return; if(ev.target.closest&&ev.target.closest('#zg-dice-fab'))return; p.classList.remove('open'); });
+})(window);
+
+// ═══════════════════════════════════════════════════════════════════
+//   ИНСТРУМЕНТЫ ИЗМЕРЕНИЯ — линейка, линия в клетку, круг, конус (для всех)
+// ═══════════════════════════════════════════════════════════════════
+(function(w){
+  var SVGNS='http://www.w3.org/2000/svg';
+  var tool='', drag=null;
+  function el(id){return document.getElementById(id);}
+  function svg(){return el('zg-measure');}
+  function cellPx(){ var i=(w.zgSceneMeasureInfo?w.zgSceneMeasureInfo():null)||{}; return Math.max(8,(i.gridSize||64)*(i.zoom||1)); }
+  function rect(){ var s=el('zg-vtt-scene'); return s?s.getBoundingClientRect():{left:0,top:0}; }
+  function clear(){ var s=svg(); if(s)s.innerHTML=''; }
+  function mk(tag,attrs){ var e=document.createElementNS(SVGNS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
+  function lbl(s,x,y,text){ var t=mk('text',{x:x,y:y,'class':'zg-m-text','text-anchor':'middle'}); t.textContent=text; s.appendChild(t); }
+  function round1(n){ return Math.round(n*10)/10; }
+  function draw(sx,sy,cx,cy){
+    clear(); var s=svg(); if(!s)return;
+    var dx=cx-sx,dy=cy-sy,dist=Math.sqrt(dx*dx+dy*dy),cp=cellPx(),cells=round1(dist/cp);
+    if(tool==='line'){ s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-wide','stroke-width':cp})); }
+    if(tool==='ruler'||tool==='line'){
+      s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-line'}));
+      s.appendChild(mk('circle',{cx:sx,cy:sy,r:3,'class':'zg-m-dot'}));
+      s.appendChild(mk('circle',{cx:cx,cy:cy,r:3,'class':'zg-m-dot'}));
+      lbl(s,(sx+cx)/2,(sy+cy)/2-8,cells+' кл');
+    } else if(tool==='circle'){
+      s.appendChild(mk('circle',{cx:sx,cy:sy,r:dist,'class':'zg-m-area'}));
+      s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-line'}));
+      lbl(s,sx,sy-8,'R '+cells+' кл');
+    } else if(tool==='cone'){
+      var ang=Math.atan2(dy,dx),half=0.4636;
+      var p1x=sx+Math.cos(ang-half)*dist,p1y=sy+Math.sin(ang-half)*dist;
+      var p2x=sx+Math.cos(ang+half)*dist,p2y=sy+Math.sin(ang+half)*dist;
+      s.appendChild(mk('path',{d:'M'+sx+' '+sy+' L'+p1x+' '+p1y+' L'+p2x+' '+p2y+' Z','class':'zg-m-area'}));
+      lbl(s,cx,cy,cells+' кл');
+    }
+  }
+  w.zgMeasureToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-measure-pick'); if(p)p.classList.toggle('open'); };
+  w.zgMeasureTool=function(name){
+    tool=(tool===name)?'':name;
+    var s=svg(); if(s) s.classList.toggle('active',!!tool);
+    var picks=document.querySelectorAll('#zg-measure-pick [data-mtool]');
+    for(var i=0;i<picks.length;i++) picks[i].classList.toggle('active',picks[i].getAttribute('data-mtool')===tool);
+    var btn=el('zg-measure-btn'); if(btn) btn.classList.toggle('active',!!tool);
+    if(!tool)clear();
+  };
+  function down(ev){ if(!tool)return; var r=rect(); drag={sx:ev.clientX-r.left,sy:ev.clientY-r.top}; try{svg().setPointerCapture(ev.pointerId);}catch(e){} ev.preventDefault(); ev.stopPropagation(); }
+  function move(ev){ if(!drag)return; var r=rect(); draw(drag.sx,drag.sy,ev.clientX-r.left,ev.clientY-r.top); }
+  function up(){ if(!drag)return; drag=null; setTimeout(clear,1500); }
+  function init(){ var s=svg(); if(!s)return; s.addEventListener('pointerdown',down); s.addEventListener('pointermove',move); s.addEventListener('pointerup',up); s.addEventListener('pointercancel',up); }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -14172,6 +14367,83 @@ window.zgImageStore = (function() {
   .zg-vtt-loading.on{display:flex}
   .zg-vtt-loading-spin{width:34px;height:34px;border-radius:50%;border:2px solid rgba(232,192,96,.2);border-top-color:var(--gold);animation:zgSpin .9s linear infinite}
   .zg-vtt-loading-txt{font-size:13px;letter-spacing:2px}
+  /* лист персонажа (поп-ап справа) */
+  .zg-sheet{position:absolute;top:0;right:0;bottom:0;z-index:8;width:min(372px,92vw);display:none;flex-direction:column;background:linear-gradient(180deg,#151009f2,#0b0806f6);border-left:1px solid #3b2d18;box-shadow:-18px 0 50px #000a;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .zg-sheet.open{display:flex;animation:zgSheetIn .28s cubic-bezier(.2,.8,.3,1)}
+  @keyframes zgSheetIn{0%{opacity:0;transform:translateX(34px)}100%{opacity:1;transform:none}}
+  .zg-sheet-head{position:relative;display:flex;gap:12px;align-items:center;padding:16px 16px 14px;border-bottom:1px solid #2b2114}
+  .zg-sheet-portrait{width:64px;height:64px;border-radius:12px;object-fit:cover;object-position:top center;border:1px solid #7b5c27;background:#0a0805;flex-shrink:0}
+  .zg-sheet-hd-txt{min-width:0}
+  .zg-sheet-name{font-family:'Cinzel',serif;font-size:19px;color:#f0d896;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-sheet-sub{font-size:12px;color:#9e8e70;margin-top:3px}
+  .zg-sheet-close{position:absolute;top:10px;right:10px;width:28px;height:28px;border:0;background:transparent;color:#8d7955;font-size:18px;cursor:pointer}
+  .zg-sheet-close:hover{color:var(--gold)}
+  .zg-sheet-tabs{display:flex;gap:4px;padding:10px 14px 0}
+  .zg-sheet-tab{flex:1;padding:8px;border:1px solid #2b2112;border-bottom:0;border-radius:8px 8px 0 0;background:#14110b;color:#8d7c5c;font-family:'Cinzel',serif;font-size:12px;cursor:pointer}
+  .zg-sheet-tab.active{border-color:#c8993c;background:#211809;color:#f0dca2}
+  .zg-sheet-body{flex:1;overflow-y:auto;padding:14px 16px 26px}
+  .zg-sheet-pane{display:none}
+  .zg-sheet-pane.active{display:block}
+  .zg-sheet-vitals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .zg-sheet-vital{padding:10px 6px;border:1px solid #302515;border-radius:8px;background:#12100c;text-align:center}
+  .zg-sheet-vital b{display:block;font-family:'Cinzel',serif;font-size:17px;color:#f0e0b8}
+  .zg-sheet-vital span{font-size:9px;color:#8d7c5c;letter-spacing:1px}
+  .zg-sheet-h{font-family:'Cinzel',serif;font-size:11px;letter-spacing:1px;color:#c8993c;text-transform:uppercase;margin:16px 0 8px}
+  .zg-sheet-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .zg-sheet-stat{padding:9px 4px;border:1px solid #302515;border-radius:8px;background:#12100c;text-align:center}
+  .zg-sheet-stat .em{font-size:15px}
+  .zg-sheet-stat .v{font-family:'Cinzel',serif;font-size:16px;color:#f0e0b8;margin-top:2px}
+  .zg-sheet-stat .l{font-size:9px;color:#8d7c5c;margin-top:1px}
+  .zg-sheet-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .zg-sheet-chip{padding:4px 10px;border:1px solid #4d3b20;border-radius:20px;background:#1a140b;color:#c9b483;font-size:11px}
+  .zg-sheet-items{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+  .zg-sheet-item{aspect-ratio:1;border:1px solid #302515;border-radius:7px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8e7e60;font-size:9px;text-align:center;padding:4px;position:relative}
+  .zg-sheet-item i{font-size:15px;font-style:normal}
+  .zg-sheet-item span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .zg-sheet-item small{position:absolute;right:3px;bottom:2px;color:#d8c492}
+  .zg-sheet-list{display:flex;flex-direction:column;gap:6px}
+  .zg-sheet-listrow{padding:8px 10px;border-left:2px solid #4d3b20;background:#15110880;color:#a99a7c;font-size:12px;line-height:1.4}
+  .zg-sheet-listrow b{color:#e7d3a0}
+  .zg-sheet-bio{font-size:13px;line-height:1.6;color:#a99a7c;white-space:pre-wrap}
+  .zg-sheet-quote{font-style:italic;color:#c9b483}
+  .zg-sheet-empty{color:#665c49;font-size:12px;padding:6px 0}
+  /* кубик снизу */
+  .zg-dice-fab{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:5;width:52px;height:52px;border-radius:50%;border:1px solid #b58d3e;background:radial-gradient(circle at 40% 35%,#2a2013,#140d06);color:#f0d58a;font-size:24px;cursor:pointer;box-shadow:0 8px 24px #000a,0 0 20px #c8993c22;transition:transform .2s,box-shadow .2s}
+  .zg-dice-fab:hover{transform:translateX(-50%) translateY(-2px);box-shadow:0 12px 30px #000b,0 0 30px #c8993c44}
+  .zg-dice-pop{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:6;width:min(342px,92vw);padding:14px;border-radius:14px;background:linear-gradient(180deg,#171108f5,#0b0805f7);border:1px solid #8a6a2f;box-shadow:0 20px 60px #000d;display:none}
+  .zg-dice-pop.open{display:block;animation:zgPopIn .2s cubic-bezier(.2,.8,.3,1)}
+  .zg-dice-result{text-align:center;color:#c9b483;font-size:15px;min-height:26px;margin-bottom:12px;font-family:'Cinzel',serif}
+  .zg-dice-result b{color:#ffe9a8;font-size:22px}
+  .zg-dice-die{color:#9e8e70;font-size:13px}
+  .zg-dice-crit{color:#69c87c}
+  .zg-dice-fail{color:#c0504a}
+  .zg-dice-row{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .zg-dice-row button{height:40px;border:1px solid #4d3a1c;border-radius:7px;background:#171108;color:#d0b36f;font-family:'Cinzel',serif;font-size:11px;cursor:pointer;transition:.15s}
+  .zg-dice-row button:hover{border-color:var(--gold);color:#ffe9a8}
+  .zg-dice-row button.d20{border-color:#b58d3e;background:#241a0d;color:#f0d58a}
+  .zg-dice-abils{display:none;margin-top:12px;padding-top:12px;border-top:1px solid #2b2114}
+  .zg-dice-abils.open{display:block;animation:zgFadeIn .18s ease}
+  .zg-dice-abils-title{text-align:center;color:#8d7c5c;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .zg-dice-abils-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .zg-dice-abils-grid button{padding:9px 8px;border:1px solid #3a2d18;border-radius:8px;background:#14110b;color:#c9b483;font-size:12px;cursor:pointer;text-align:left;transition:.15s}
+  .zg-dice-abils-grid button:hover{border-color:#c8993c;color:#f0dca2;background:#211809}
+  .zg-dice-abils-grid button:first-child{grid-column:1/-1;text-align:center}
+  /* инструменты измерения */
+  .zg-measure{position:absolute;inset:0;z-index:5;pointer-events:none;overflow:visible}
+  .zg-measure.active{pointer-events:auto;cursor:crosshair}
+  .zg-m-line{stroke:#f0d58a;stroke-width:2;stroke-dasharray:6 4;fill:none;filter:drop-shadow(0 0 4px #000)}
+  .zg-m-wide{stroke:rgba(232,192,96,.18);fill:none;stroke-linecap:round}
+  .zg-m-area{stroke:#f0d58a;stroke-width:2;fill:rgba(232,192,96,.13);filter:drop-shadow(0 0 5px #000)}
+  .zg-m-dot{fill:#ffe9a8;stroke:#000;stroke-width:1}
+  .zg-m-text{fill:#ffe9a8;font-family:'Cinzel',serif;font-size:14px;font-weight:700;paint-order:stroke;stroke:#000;stroke-width:3px}
+  .zg-measure-pick{position:absolute;right:66px;top:76px;z-index:6;width:186px;padding:10px;border-radius:10px;background:linear-gradient(180deg,#171108f5,#0b0805f7);border:1px solid #8a6a2f;box-shadow:0 16px 44px #000c;display:none}
+  .zg-measure-pick.open{display:block;animation:zgPopIn .2s cubic-bezier(.2,.8,.3,1)}
+  .zg-measure-pick-title{text-align:center;color:#8d7c5c;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;font-family:'Cinzel',serif}
+  .zg-measure-pick button{width:100%;margin-bottom:5px;padding:9px 10px;border:1px solid #3a2d18;border-radius:7px;background:#14110b;color:#c9b483;font-size:12px;cursor:pointer;text-align:left;transition:.15s}
+  .zg-measure-pick button:last-child{margin-bottom:0}
+  .zg-measure-pick button:hover{border-color:#c8993c;color:#f0dca2;background:#211809}
+  .zg-measure-pick button.active{border-color:#c8993c;background:#2a1d0b;color:#ffe9a8}
+  @media (max-width:1000px){ .zg-measure-pick{right:auto;left:50%;transform:translateX(-50%);top:auto;bottom:64px} }
   .zg-scene-editor{margin-top:8px;padding-top:8px;border-top:1px solid #2b2112}
   .zg-scene-editor-top{display:flex;gap:6px;margin-bottom:6px}
   .zg-scene-editor-top input{flex:1;min-width:0;background:#12100c;border:1px solid #332815;border-radius:6px;color:#e7d3a0;padding:7px 9px;font-size:12px}
@@ -14230,6 +14502,19 @@ window.zgImageStore = (function() {
   .zg-vtt-token-ph{display:flex;align-items:center;justify-content:center;font-size:22px;color:#e7d3a0;text-shadow:0 1px 3px #000}
   .zg-vtt-token-name{position:absolute;top:calc(100% + 3px);left:50%;transform:translateX(-50%);max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Cinzel',serif;font-size:11px;color:#e7d3a0;text-shadow:0 1px 3px #000,0 0 6px #000;pointer-events:none}
   .zg-vtt-token.selected>img,.zg-vtt-token.selected .zg-vtt-token-ph{outline:2px solid #f0d896;outline-offset:2px}
+  /* редактирование на карте: пунктирная рамка + угловая ручка */
+  .zg-vtt-token-frame{position:absolute;inset:-6px;border:1.5px dashed #f0d896;border-radius:12px;pointer-events:none;box-shadow:0 0 8px #000a}
+  .zg-vtt-token-handle{position:absolute;right:-9px;bottom:-9px;width:16px;height:16px;border-radius:4px;background:#f0d896;border:1.5px solid #4a3a1e;cursor:nwse-resize;box-shadow:0 1px 4px #000a;touch-action:none}
+  .zg-vtt-token-handle:hover{background:#ffe9a8}
+  /* текстовый элемент на карте */
+  .zg-vtt-token.text{width:auto;height:auto;font-family:'Cinzel',serif;font-weight:600;white-space:nowrap;line-height:1.15;text-shadow:0 1px 3px #000,0 0 7px #000;filter:none;padding:2px 4px}
+  /* выбор «кто переходит» */
+  .zg-portal-list{max-height:210px;overflow-y:auto;margin:0 0 22px;text-align:left;display:flex;flex-direction:column;gap:5px}
+  .zg-portal-row{display:flex;align-items:center;gap:10px;padding:8px 11px;border:1px solid #2b2112;border-radius:8px;background:#14110b;color:#c9b483;font-size:13px;cursor:pointer}
+  .zg-portal-row:hover{border-color:#4d3b20}
+  .zg-portal-row input{accent-color:#c8993c;width:16px;height:16px;cursor:pointer}
+  /* режим зоны «вложенная» — затемнённая рамка вокруг сцены */
+  .zg-vtt-scene.nested::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;border:16px solid #050303;border-radius:26px;box-shadow:inset 0 0 150px 55px rgba(3,2,1,.92),inset 0 0 0 1px rgba(200,170,90,.18)}
   .zg-vtt-token.disp-hero>img,.zg-vtt-token.disp-hero .zg-vtt-token-ph{border-color:#5aa85f;box-shadow:0 0 0 1px #000a,0 0 13px #4d965566,inset 0 0 0 1px #ffffff14}
   .zg-vtt-token.disp-ally>img,.zg-vtt-token.disp-ally .zg-vtt-token-ph{border-color:#4a86c8;box-shadow:0 0 0 1px #000a,0 0 13px #4a86c855,inset 0 0 0 1px #ffffff14}
   .zg-vtt-token.disp-enemy>img,.zg-vtt-token.disp-enemy .zg-vtt-token-ph{border-color:#c14a42;box-shadow:0 0 0 1px #000a,0 0 13px #c14a4266,inset 0 0 0 1px #ffffff14}
@@ -14458,9 +14743,35 @@ window.zgImageStore = (function() {
         <div class="zg-vtt-grid" id="zg-vtt-grid"></div>
         <div class="zg-vtt-token-layer" id="zg-vtt-token-layer"></div>
       </div>
+      <svg class="zg-measure" id="zg-measure" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
     <div class="zg-vtt-loading" id="zg-vtt-loading"><div class="zg-vtt-loading-spin"></div><div class="zg-vtt-loading-txt">Мастер готовит сцену…</div></div>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
+    <button type="button" class="zg-dice-fab" id="zg-dice-fab" onclick="zgDiceToggle(event)" title="Кубики" aria-label="Кубики">🎲</button>
+    <div class="zg-dice-pop" id="zg-dice-pop">
+      <div class="zg-dice-result" id="zg-dice-result">Бросьте кубик</div>
+      <div class="zg-dice-row">
+        <button type="button" onclick="zgDiceRoll(4)">d4</button>
+        <button type="button" onclick="zgDiceRoll(6)">d6</button>
+        <button type="button" onclick="zgDiceRoll(8)">d8</button>
+        <button type="button" onclick="zgDiceRoll(10)">d10</button>
+        <button type="button" onclick="zgDiceRoll(12)">d12</button>
+        <button type="button" class="d20" onclick="zgDiceRoll(20)">d20</button>
+        <button type="button" onclick="zgDiceRoll(100)">d100</button>
+      </div>
+      <div class="zg-dice-abils" id="zg-dice-abils">
+        <div class="zg-dice-abils-title">d20 + характеристика</div>
+        <div class="zg-dice-abils-grid">
+          <button type="button" onclick="zgDiceRollAbility('plain')">Просто d20</button>
+          <button type="button" onclick="zgDiceRollAbility('str')">💪 Сила</button>
+          <button type="button" onclick="zgDiceRollAbility('dex')">🤸 Ловкость</button>
+          <button type="button" onclick="zgDiceRollAbility('int')">🧠 Интеллект</button>
+          <button type="button" onclick="zgDiceRollAbility('cha')">😎 Харизма</button>
+          <button type="button" onclick="zgDiceRollAbility('per')">👁 Восприятие</button>
+          <button type="button" onclick="zgDiceRollAbility('con')">🧃 Выносливость</button>
+        </div>
+      </div>
+    </div>
     <div class="zg-sheet" id="zg-sheet" aria-label="Лист персонажа">
       <div class="zg-sheet-head">
         <span id="zg-sheet-portrait-host"></span>
@@ -14476,6 +14787,17 @@ window.zgImageStore = (function() {
         <div class="zg-sheet-pane" id="zg-sheet-pane-bio"></div>
       </div>
     </div>
+    <div class="zg-confirm-overlay" id="zg-portal-pick">
+      <div class="zg-confirm-box" role="dialog" aria-modal="true">
+        <div class="zg-confirm-title">Кто переходит?</div>
+        <div class="zg-confirm-text">В зону «<b id="zg-portal-zone-name"></b>» перейдут отмеченные герои. Остальные останутся, где были.</div>
+        <div class="zg-portal-list" id="zg-portal-list"></div>
+        <div class="zg-confirm-btns">
+          <button type="button" class="zg-confirm-no" onclick="zgPortalCancel()">Отмена</button>
+          <button type="button" class="zg-confirm-yes" onclick="zgPortalConfirm()">▶ Перейти</button>
+        </div>
+      </div>
+    </div>
     <aside class="zg-vtt-journal open" id="zg-vtt-journal">
       <div class="zg-vtt-panel-head"><span id="zg-vtt-journal-title">Журнал сессии</span><button type="button" class="zg-vtt-panel-close" onclick="zgVttToggleJournal(false)" title="Свернуть" aria-label="Свернуть журнал">‹</button></div>
       <div class="zg-vtt-journal-body" id="zg-vtt-journal-body"></div>
@@ -14486,7 +14808,15 @@ window.zgImageStore = (function() {
       <button type="button" class="zg-vtt-tool" data-vtt-tool="inventory" onclick="zgVttOpenPanel('inventory')" title="Инвентарь" aria-label="Инвентарь">🎒</button>
       <button type="button" class="zg-vtt-tool" data-vtt-tool="dice" onclick="zgVttOpenPanel('dice')" title="Кубики" aria-label="Кубики">◆</button>
       <button type="button" class="zg-vtt-tool" data-vtt-tool="journal" onclick="zgVttToggleJournal()" title="Журнал" aria-label="Журнал">📜</button>
+      <button type="button" class="zg-vtt-tool" id="zg-measure-btn" onclick="zgMeasureToggle(event)" title="Измерение" aria-label="Инструменты измерения">📐</button>
     </nav>
+    <div class="zg-measure-pick" id="zg-measure-pick">
+      <div class="zg-measure-pick-title">Измерение</div>
+      <button type="button" data-mtool="ruler" onclick="zgMeasureTool('ruler')">📏 Линейка</button>
+      <button type="button" data-mtool="line" onclick="zgMeasureTool('line')">▮ Линия (в клетку)</button>
+      <button type="button" data-mtool="circle" onclick="zgMeasureTool('circle')">⭕ Круг</button>
+      <button type="button" data-mtool="cone" onclick="zgMeasureTool('cone')">🔺 Конус</button>
+    </div>
     <aside class="zg-vtt-drawer" id="zg-vtt-drawer">
       <div class="zg-vtt-panel-head"><span id="zg-vtt-drawer-title">Группа</span><button type="button" class="zg-vtt-panel-close" onclick="zgVttCloseDrawer()" title="Закрыть" aria-label="Закрыть панель">×</button></div>
       <div class="zg-vtt-drawer-body" id="zg-vtt-drawer-body"></div>
@@ -14534,6 +14864,10 @@ window.zgImageStore = (function() {
           <button type="button" class="zg-scene-ghost-btn zg-token-reveal" id="zg-token-reveal" onclick="zgSceneRevealToken()" hidden>👁 Показать игрокам (активировать)</button>
           <label class="zg-scene-row"><span>Показывать</span><input class="zg-scene-toggle" id="zg-token-visible" type="checkbox" checked onchange="zgSceneTokenControl()"></label>
           <label class="zg-scene-row zg-scene-range-row"><span>Размер</span><span><input id="zg-token-size" type="range" min="24" max="180" step="2" oninput="zgSceneTokenControl()"><output id="zg-token-size-out"></output></span></label>
+          <label class="zg-scene-row zg-scene-range-row"><span>Прозрачность</span><span><input id="zg-token-opacity" type="range" min="0.15" max="1" step="0.05" oninput="zgSceneTokenControl()"><output id="zg-token-opacity-out"></output></span></label>
+          <label class="zg-scene-row" id="zg-token-color-row" hidden><span>Цвет текста</span><input type="color" id="zg-token-color" onchange="zgSceneTokenControl()" style="width:44px;height:26px;border:1px solid #332815;border-radius:6px;background:#12100c;cursor:pointer"></label>
+          <label class="zg-scene-row" id="zg-token-portal-row" hidden><span>Ведёт в зону</span><select id="zg-token-target" onchange="zgSceneTokenControl()"><option value="">— не задана —</option></select></label>
+          <button type="button" class="zg-scene-ghost-btn" id="zg-token-portal-go" onclick="zgScenePortalGo()" hidden style="width:100%;margin:2px 0 4px;border-color:#7d6bd0;color:#cfc4f2">▶ Перейти — показать зону игрокам</button>
           <div class="zg-scene-row" id="zg-token-image-row"><span>Картинка</span><button type="button" class="zg-scene-ghost-btn" onclick="document.getElementById('zg-token-image-file').click()">Загрузить…</button></div>
           <div class="zg-scene-depth"><button type="button" onclick="zgSceneTokenDuplicate()">⧉ Дубль</button><button type="button" onclick="zgSceneTokenDepth(-1)">↓ Ниже</button><button type="button" onclick="zgSceneTokenDepth(1)">↑ Выше</button></div>
         </div>
@@ -14551,13 +14885,19 @@ window.zgImageStore = (function() {
         <div class="zg-scene-hint">Метки по умолчанию скрыты (видит только мастер). «Появление» — где возникают герои. «Переход» — дверь в другую зону; поведение перехода подключим вместе со сценами.</div>
       </section>
       </div>
-      <div class="zg-scene-pane" data-pane="text"><div class="zg-scene-pane-empty">Текстовые подписи на карте — скоро. Здесь появятся добавление и настройка текста.</div></div>
+      <div class="zg-scene-pane" data-pane="text">
+        <section class="zg-scene-section">
+          <div class="zg-scene-section-head"><span>Текст на карте</span><button type="button" class="zg-scene-add" onclick="zgSceneAddText()" title="Добавить текст">＋ Текст</button></div>
+          <div class="zg-scene-hint">Добавьте подпись или заметку прямо на сцену. Настройка (текст, размер, цвет, прозрачность, скрытость) — у выбранного элемента на вкладке «Токены». Текст можно двигать и растягивать за уголок.</div>
+        </section>
+      </div>
       <div class="zg-scene-pane" data-pane="links"><div class="zg-scene-pane-empty">Связи и группы элементов — скоро. Свяжем метки-переходы со сценами и объединим элементы в группы.</div></div>
       <div class="zg-scene-pane" data-pane="grid">
       <section class="zg-scene-section">
         <div class="zg-scene-section-head"><span>Сетка и камера</span></div>
         <label class="zg-scene-row"><span>Сетка</span><input class="zg-scene-toggle" id="zg-scene-grid" type="checkbox" checked onchange="zgSceneControl()"></label>
         <label class="zg-scene-row"><span>Сетка поверх жетонов</span><input class="zg-scene-toggle" id="zg-scene-grid-top" type="checkbox" onchange="zgSceneControl()"></label>
+        <label class="zg-scene-row"><span>Режим зоны</span><select id="zg-scene-mode" onchange="zgSceneControl()"><option value="normal">Обычная</option><option value="nested">Вложенная (в рамке)</option></select></label>
         <label class="zg-scene-row zg-scene-range-row"><span>Размер клетки</span><span><input id="zg-scene-size" type="range" min="24" max="160" step="4" value="64" oninput="zgSceneControl()"><output id="zg-scene-size-out">64 px</output></span></label>
         <label class="zg-scene-row zg-scene-range-row"><span>Камера</span><span><input id="zg-scene-zoom" type="range" min="0.5" max="2.5" step="0.05" value="1" oninput="zgSceneControl()"><output id="zg-scene-zoom-out">100%</output></span></label>
         <button type="button" class="zg-scene-btn zg-scene-reset" onclick="zgSceneResetCamera()">⌖ Сбросить камеру</button>

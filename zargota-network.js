@@ -195,6 +195,61 @@
     return next();
   }
 
+  // Санитайзер сцены — общий для одиночной сцены и зон
+  function sanitizeScene(scene) {
+    scene = scene || {};
+    var layers = (Array.isArray(scene.layers) ? scene.layers : []).slice(0, 4).map(function (layer, index) {
+      return {
+        id: String(layer.id || ('layer-' + index)).slice(0, 80),
+        name: String(layer.name || ('Слой ' + (index + 1))).slice(0, 80),
+        image: String(layer.image || ''),
+        visible: layer.visible !== false,
+        opacity: Math.max(0, Math.min(1, Number(layer.opacity == null ? 1 : layer.opacity))),
+        fit: ['cover','contain','stretch'].indexOf(layer.fit) >= 0 ? layer.fit : 'cover',
+        scale: Math.max(0.5, Math.min(3, Number(layer.scale) || 1)),
+        x: Math.max(-100, Math.min(100, Number(layer.x) || 0)),
+        y: Math.max(-100, Math.min(100, Number(layer.y) || 0)),
+        brightness: Math.max(0.25, Math.min(2, Number(layer.brightness) || 1)),
+        saturation: Math.max(0, Math.min(2, Number(layer.saturation == null ? 1 : layer.saturation)))
+      };
+    }).filter(function (layer) { return !!layer.image; });
+    if (!layers.length && scene.background) {
+      layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, saturation:1 });
+    }
+    var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 40).map(function (token, index) {
+      return {
+        id: String(token.id || ('token-' + index)).slice(0, 100),
+        type: (['hero','custom','spawn','portal','text'].indexOf(token.type) >= 0 ? token.type : 'custom'),
+        disposition: (token.type === 'hero' ? 'hero' : (['ally','enemy','neutral','npc'].indexOf(token.disposition) >= 0 ? token.disposition : 'neutral')),
+        color: String(token.color || '#f0d896').slice(0, 20),
+        hidden: token.type === 'hero' ? false : !!token.hidden,
+        opacity: Math.max(0.15, Math.min(1, Number(token.opacity == null ? 1 : token.opacity))),
+        memberUid: String(token.memberUid || '').slice(0, 128),
+        name: String(token.name || 'Жетон').slice(0, 80),
+        image: token.type === 'custom' ? String(token.image || '') : '',
+        x: Math.max(0, Math.min(100, Number(token.x == null ? 50 : token.x))),
+        y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
+        size: Math.max(24, Math.min(180, Number(token.size) || 64)),
+        visible: token.visible !== false,
+        z: Math.max(0, Math.min(99, Number(token.z) || index + 1))
+      };
+    });
+    var mediaSize = layers.reduce(function (sum, layer) { return sum + layer.image.length; }, 0) +
+      tokens.reduce(function (sum, token) { return sum + token.image.length; }, 0);
+    if (mediaSize > 3400000) throw roomError('Изображения сцены слишком большие. Удалите слой или выберите более лёгкие изображения.', 'scene-too-large');
+    return {
+      layers: layers,
+      tokens: tokens,
+      grid: scene.grid !== false,
+      gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
+      gridAboveTokens: !!scene.gridAboveTokens,
+      x: Math.max(-2000, Math.min(2000, Number(scene.x) || 0)),
+      y: Math.max(-2000, Math.min(2000, Number(scene.y) || 0)),
+      zoom: Math.max(0.5, Math.min(2.5, Number(scene.zoom) || 1)),
+      mode: (['normal','nested'].indexOf(scene.mode) >= 0 ? scene.mode : 'normal')
+    };
+  }
+
   var api = {
     mode: 'firebase',
     maxPlayers: MAX_PLAYERS,
@@ -440,61 +495,61 @@
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
-          var layers = (Array.isArray(scene.layers) ? scene.layers : []).slice(0, 4).map(function (layer, index) {
-            return {
-              id: String(layer.id || ('layer-' + index)).slice(0, 80),
-              name: String(layer.name || ('Слой ' + (index + 1))).slice(0, 80),
-              image: String(layer.image || ''),
-              visible: layer.visible !== false,
-              opacity: Math.max(0, Math.min(1, Number(layer.opacity == null ? 1 : layer.opacity))),
-              fit: ['cover','contain','stretch'].indexOf(layer.fit) >= 0 ? layer.fit : 'cover',
-              scale: Math.max(0.5, Math.min(3, Number(layer.scale) || 1)),
-              x: Math.max(-100, Math.min(100, Number(layer.x) || 0)),
-              y: Math.max(-100, Math.min(100, Number(layer.y) || 0)),
-              brightness: Math.max(0.25, Math.min(2, Number(layer.brightness) || 1)),
-              saturation: Math.max(0, Math.min(2, Number(layer.saturation == null ? 1 : layer.saturation)))
-            };
-          }).filter(function (layer) { return !!layer.image; });
-          if (!layers.length && scene.background) {
-            layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, saturation:1 });
-          }
-          var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 40).map(function (token, index) {
-            return {
-              id: String(token.id || ('token-' + index)).slice(0, 100),
-              type: (['hero','custom','spawn','portal'].indexOf(token.type) >= 0 ? token.type : 'custom'),
-              disposition: (token.type === 'hero' ? 'hero' : (['ally','enemy','neutral','npc'].indexOf(token.disposition) >= 0 ? token.disposition : 'neutral')),
-              hidden: token.type === 'hero' ? false : !!token.hidden,
-              memberUid: String(token.memberUid || '').slice(0, 128),
-              name: String(token.name || 'Жетон').slice(0, 80),
-              image: token.type === 'custom' ? String(token.image || '') : '',
-              x: Math.max(0, Math.min(100, Number(token.x == null ? 50 : token.x))),
-              y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
-              size: Math.max(24, Math.min(180, Number(token.size) || 64)),
-              visible: token.visible !== false,
-              z: Math.max(0, Math.min(99, Number(token.z) || index + 1))
-            };
-          });
-          var mediaSize = layers.reduce(function (sum, layer) { return sum + layer.image.length; }, 0) +
-            tokens.reduce(function (sum, token) { return sum + token.image.length; }, 0);
-          if (mediaSize > 3400000) throw roomError('Изображения сцены слишком большие. Удалите слой или выберите более лёгкие изображения.', 'scene-too-large');
-          var payload = {
-            layers: layers,
-            tokens: tokens,
-            grid: scene.grid !== false,
-            gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
-            gridAboveTokens: !!scene.gridAboveTokens,
-            x: Math.max(-2000, Math.min(2000, Number(scene.x) || 0)),
-            y: Math.max(-2000, Math.min(2000, Number(scene.y) || 0)),
-            zoom: Math.max(0.5, Math.min(2.5, Number(scene.zoom) || 1)),
-            revision: now(),
-            publishedAt: firebase.serverTimestamp()
-          };
+          var payload = sanitizeScene(scene);
+          payload.revision = now();
+          payload.publishedAt = firebase.serverTimestamp();
           return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/scene'), payload).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found','scene-too-large'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    // Опубликовать сцену как отдельную зону rooms/{code}/zones/{zoneId}
+    publishZone: function (zoneId, scene) {
+      zoneId = String(zoneId || '').slice(0, 100);
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Управлять зонами может только мастер.', 'master-only');
+        if (!zoneId) throw roomError('Не задан идентификатор зоны.', 'zone-missing');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var payload = sanitizeScene(scene);
+          payload.revision = now();
+          payload.publishedAt = firebase.serverTimestamp();
+          return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/zones/' + zoneId), payload).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','scene-too-large','zone-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    // Назначить участникам текущую зону rooms/{code}/members/{uid}/zone
+    sendToZone: function (zoneId, uids) {
+      zoneId = String(zoneId || '');
+      uids = Array.isArray(uids) ? uids : [];
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Перемещать игроков может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var updates = {};
+          uids.forEach(function (uid) { if (uid) updates['members/' + uid + '/zone'] = zoneId; });
+          if (!Object.keys(updates).length) return api.getSnapshot();
+          return firebase.update(roomRef(session.code), updates).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
