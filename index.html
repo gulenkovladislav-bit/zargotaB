@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.5"></script>
+<script src="zargota-network.js?v=2026-07-20.6"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.5';
+var ZG_APP_VERSION = '2026-07-20.6';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.6', notes: 'Летопись на столе стала компактной лентой отдельных уведомлений вместо сплошной панели чата.' },
   { v: '2026-07-20.5', notes: 'Игровая панель, сетевые броски над жетонами, летопись и походный инвентарь героя.' },
   { v: '2026-07-20.4', notes: 'Вселение мастера распространено на движение, инвентарь, чат и броски выбранного героя.' },
   { v: '2026-07-20.3', notes: 'Мастер может вселиться в выбранного героя в режиме игрока. Левый журнал стал живой летописью с чатом, сообщениями мира, перемещениями и бросками.' },
@@ -11500,7 +11501,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     if (room.scene && room.scene.revision) events.push({id:'scene-'+room.scene.revision,kind:'world',name:'Мир Зарготы',text:'Мастер открывает новую сцену',ts:room.scene.publishedAt || room.scene.revision});
     events.sort(function(a,b){return Number(a.ts||0)-Number(b.ts||0);});
-    events = events.slice(-60);
+    events = events.slice(-5);
     body.innerHTML = events.length ? events.map(function(event){
       var icon = event.kind === 'world' ? '✦' : event.kind === 'roll' ? '🎲' : event.kind === 'move' ? '🥾' : '●';
       var avatarHtml = event.portrait ? '<img class="zg-vtt-log-avatar" src="'+esc(event.portrait)+'" alt="">' : '<span class="zg-vtt-log-avatar">'+icon+'</span>';
@@ -15350,19 +15351,21 @@ window.zgImageStore = (function() {
   .zg-party-hp span{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
   .zg-party-online{position:absolute;z-index:2;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#85513d;box-shadow:0 0 0 2px #090806cc,0 0 6px #7b372b}
   .zg-party-online.on{background:#63c982;box-shadow:0 0 7px #63c982}
-  .zg-vtt-journal{position:absolute;z-index:4;left:14px;top:14px;bottom:14px;width:300px;display:none;flex-direction:column;border:1px solid #332817;border-radius:7px;background:linear-gradient(180deg,rgba(11,10,8,.9),rgba(7,8,8,.78));box-shadow:0 18px 50px #0009;backdrop-filter:blur(7px)}
+  .zg-vtt-journal{position:absolute;z-index:4;left:18px;top:112px;width:280px;max-height:min(390px,calc(100vh - 245px));display:none;flex-direction:column;gap:8px;border:0;background:transparent;box-shadow:none;pointer-events:none}
   .zg-vtt-journal.open{display:flex}
+  .zg-vtt-journal>.zg-vtt-panel-head{display:none}
   .zg-vtt-panel-head{height:48px;flex-shrink:0;display:flex;align-items:center;gap:9px;padding:0 10px 0 14px;border-bottom:1px solid #302515;color:#d4ba78;font-family:'Cinzel',serif;font-size:13px;letter-spacing:.5px}
   .zg-vtt-panel-head span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .zg-vtt-panel-close{margin-left:auto;width:30px;height:30px;border:0;background:transparent;color:#8d7955;font-size:16px;cursor:pointer}
   .zg-vtt-panel-close:hover{color:#e1c781}
-  .zg-vtt-journal-body{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px}
-  .zg-vtt-log-entry{display:grid;grid-template-columns:34px 1fr;gap:9px;padding:8px;border-left:2px solid #4d3b20;background:#15110880;color:#9e8e70;font-size:11px;line-height:1.45}
-  .zg-vtt-log-entry.world{border-left-color:#8f7132;background:#21180680}.zg-vtt-log-entry.roll{border-left-color:#536b91}.zg-vtt-log-entry.move{border-left-color:#477a50}
-  .zg-vtt-log-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;object-position:top;border:1px solid #59451f;background:#0e0c09;display:flex;align-items:center;justify-content:center;font-size:17px}
-  .zg-vtt-log-copy{min-width:0}.zg-vtt-log-copy b{color:#cdb77f;font-family:'Cinzel',serif;font-size:10px;margin-right:5px}.zg-vtt-log-copy time{color:#5f5543;font-size:8px}.zg-vtt-log-copy p{margin:3px 0 0;overflow-wrap:anywhere}
-  .zg-vtt-chat{flex-shrink:0;display:grid;grid-template-columns:34px 1fr 36px;gap:5px;padding:9px;border-top:1px solid #302515;background:#090806d9}
-  .zg-vtt-chat-world,.zg-vtt-chat-send{width:34px;height:34px;border:1px solid #382c19;border-radius:6px;background:#151109;color:#8f7a50;cursor:pointer}
+  .zg-vtt-journal-body{overflow-y:auto;padding:0 2px 1px 0;display:flex;flex-direction:column;gap:7px;pointer-events:auto;scrollbar-width:none}.zg-vtt-journal-body::-webkit-scrollbar{display:none}
+  .zg-vtt-log-entry{display:grid;grid-template-columns:40px 1fr;gap:10px;min-height:72px;padding:11px 12px;border:1px solid #342a1c;border-left:2px solid #5c4828;border-radius:8px;background:linear-gradient(105deg,rgba(13,13,11,.94),rgba(9,10,9,.78));box-shadow:0 10px 28px #000a,inset 0 1px 0 #ddbf6b0d;color:#9e8e70;font-size:11px;line-height:1.45;backdrop-filter:blur(8px);animation:zgLogCardIn .28s ease both}
+  @keyframes zgLogCardIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
+  .zg-vtt-log-entry.world{border-left-color:#a38139}.zg-vtt-log-entry.roll{border-left-color:#657fa8}.zg-vtt-log-entry.move{border-left-color:#559063}
+  .zg-vtt-log-avatar{width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:top;border:1px solid #665027;background:#0e0c09;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px #000a}
+  .zg-vtt-log-copy{min-width:0}.zg-vtt-log-copy b{color:#d1b979;font-family:'Cinzel',serif;font-size:11px;margin-right:5px}.zg-vtt-log-copy time{float:right;color:#514a3b;font-size:8px}.zg-vtt-log-copy p{margin:5px 0 0;overflow-wrap:anywhere;font-family:'Lora',serif;font-style:italic;color:#a8997d;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .zg-vtt-chat{flex-shrink:0;display:grid;grid-template-columns:32px 1fr 34px;gap:5px;padding:6px;border:1px solid #342a1c;border-radius:8px;background:#090907d9;box-shadow:0 10px 28px #0009;pointer-events:auto;backdrop-filter:blur(8px)}
+  .zg-vtt-chat-world,.zg-vtt-chat-send{width:32px;height:32px;border:1px solid #382c19;border-radius:6px;background:#151109;color:#8f7a50;cursor:pointer}
   .zg-vtt-chat-world{display:none}.zg-game-overlay.gm .zg-vtt-chat-world{display:block}.zg-vtt-chat-world.active{border-color:#b68c3d;color:#f0d58a;background:#2a1d0b}
   .zg-vtt-chat input{min-width:0;border:1px solid #332817;border-radius:6px;background:#0e0c09;color:#d3c095;padding:0 10px;font:11px 'Lora',serif;outline:none}
   .zg-vtt-chat input:focus{border-color:#7c5f29;box-shadow:0 0 0 1px #bc913533}.zg-vtt-chat-send:hover{border-color:#b68c3d;color:#efd180}
@@ -15438,7 +15441,7 @@ window.zgImageStore = (function() {
     .zg-party-card img,.zg-party-ph{width:70px;height:66px}
     .zg-party-name{font-size:10px;line-height:14px}
     .zg-party-hp{width:56px}
-    .zg-vtt-journal{top:114px;bottom:64px;width:min(300px,calc(100vw - 28px))}
+    .zg-vtt-journal{left:10px;top:112px;width:min(270px,calc(100vw - 20px));max-height:270px}
     .zg-vtt-tools{top:auto;right:50%;bottom:10px;transform:translateX(50%);flex-direction:row}
     .zg-vtt-tool{border-bottom:0;border-right:1px solid #302515}
     .zg-vtt-tool:last-child{border-right:0}
