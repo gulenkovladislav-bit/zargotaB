@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.20"></script>
+<script src="zargota-network.js?v=2026-07-20.21"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.20';
+var ZG_APP_VERSION = '2026-07-20.21';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.21', notes: 'Исправлен вход гейм-мастера в подготовку сцены: независимый автопереход и явная кнопка на заставке.' },
   { v: '2026-07-20.20', notes: 'Выбор сцены появляется только после входа гейм-мастера за игровой стол, а не при создании комнаты.' },
   { v: '2026-07-20.19', notes: 'Новый запуск сетевой сессии: мастер готовит сцену отдельно и сам запускает игроков из портретного зала ожидания.' },
   { v: '2026-07-20.18', notes: 'Инвентарь встроен непосредственно в лист персонажа: снаряжение слева, сетка вещей справа, без отдельного экрана.' },
@@ -10075,6 +10076,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var journeyCharacter = null;
   var journeyReleased = false;
   var gmSetupOpened = false;
+  var gmSetupTimer = null;
   function el(id){ return document.getElementById(id); }
   function esc(s){
     s = (s === null || s === undefined) ? '' : String(s);
@@ -10119,7 +10121,8 @@ document.addEventListener('DOMContentLoaded', function(){
       inner.innerHTML =
         (src ? '<img class="zg-journey-port" src="' + src + '" alt="">' : '') +
         '<div class="zg-journey-name">' + esc(c.name || 'Герой') + '</div>' +
-        '<div class="zg-journey-sub">' + (isGameMaster ? 'собирает героев…' : 'отправляется в путь…') + '</div>';
+        '<div class="zg-journey-sub">' + (isGameMaster ? 'собирает героев…' : 'отправляется в путь…') + '</div>' +
+        (isGameMaster ? '<button type="button" class="zg-journey-gm-enter" onclick="zgOpenMasterSetup()">Перейти к подготовке сцены</button>' : '');
     }
     var jo = el('zg-journey-overlay');
     if (jo){
@@ -10168,9 +10171,15 @@ document.addEventListener('DOMContentLoaded', function(){
     clearTimers();
     setJourneyStatus('Открываем мастерскую сцены…');
     var jo = el('zg-journey-overlay');
-    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 3200));
-    timers.push(setTimeout(function(){ w.zgGameOpen(false); }, 5000));
+    if (gmSetupTimer) clearTimeout(gmSetupTimer);
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 1800));
+    gmSetupTimer = setTimeout(function(){ gmSetupTimer = null; w.zgGameOpen(false); }, 3200);
   }
+  w.zgOpenMasterSetup = function(){
+    if (gmSetupTimer) { clearTimeout(gmSetupTimer); gmSetupTimer = null; }
+    gmSetupOpened = true;
+    w.zgGameOpen(false);
+  };
 
   function syncJourney(snapshot){
     if (!snapshot || !snapshot.room || !snapshot.session) return;
@@ -10229,6 +10238,7 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgJourneyClose = function(){
     clearTimers();
+    if (gmSetupTimer) { clearTimeout(gmSetupTimer); gmSetupTimer = null; }
     journeyCharacter = null;
     journeyReleased = false;
     gmSetupOpened = false;
@@ -15207,6 +15217,8 @@ window.zgImageStore = (function() {
   .zg-journey-overlay.loading{background:radial-gradient(120% 90% at 50% 40%,#0a0705 0%,#050303 60%,#020101 100%);transition:background 1s ease}
   .zg-journey-spin{width:30px;height:30px;border-radius:50%;border:2px solid rgba(232,192,96,.18);border-top-color:var(--gold);animation:zgSpin .9s linear infinite}
   .zg-journey-loadtxt{font-family:'Cinzel',serif;font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--dim)}
+  .zg-journey-gm-enter{pointer-events:auto;margin-top:34px;padding:13px 24px;border:1px solid #9f7a32;border-radius:8px;background:linear-gradient(180deg,rgba(55,40,18,.82),rgba(24,16,7,.9));color:#efd58f;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;cursor:pointer;box-shadow:0 0 24px rgba(210,164,62,.1);transition:.22s}
+  .zg-journey-gm-enter:hover{border-color:#e0b650;color:#fff0ba;box-shadow:0 0 30px rgba(210,164,62,.22);transform:translateY(-1px)}
   @keyframes zgSpin{to{transform:rotate(360deg)}}
   /* Тёмный экран игры — будущий общий стол VTT */
   .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
