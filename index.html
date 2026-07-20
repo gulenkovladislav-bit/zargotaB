@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.33"></script>
+<script src="zargota-network.js?v=2026-07-20.34"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.33';
+var ZG_APP_VERSION = '2026-07-20.34';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.34', notes: 'Измерения перенесены в «Действия»; одобренное движение сопровождается походкой жетона и затухающей золотистой дорожкой следов.' },
   { v: '2026-07-20.33', notes: 'd20 выбирается только один раз; при преимуществе и помехе победивший кубик останавливается по центру; сетевые действия больше не перезапускают входной туман.' },
   { v: '2026-07-20.32', notes: 'Повторное движение героя снова доступно после решения мастера: завершённый запрос корректно очищается вместе с локальным режимом.' },
   { v: '2026-07-20.31', notes: 'Приближение к жетону выполняется только один раз во время входа сквозь туман и больше не повторяется от сетевых обновлений.' },
@@ -10896,12 +10897,33 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     if (!node) return;
     lastMovementSeen = movement.id;
+    var duration = Number(movement.duration)||900;
+    var trailLayer = el('zg-move-layer');
+    if (trailLayer) {
+      var dx=Number(movement.toX)-Number(movement.fromX),dy=Number(movement.toY)-Number(movement.fromY);
+      var layerRect=trailLayer.getBoundingClientRect();
+      var angle=Math.atan2(dy*(layerRect.height||1),dx*(layerRect.width||1))*180/Math.PI+90;
+      var steps=Math.max(2,Math.min(12,Math.round(Math.hypot(dx,dy)/4)));
+      for(var step=1;step<=steps;step++){
+        var progress=step/(steps+1),foot=document.createElement('span');
+        foot.className='zg-move-footprint';
+        foot.style.left=(Number(movement.fromX)+dx*progress)+'%';
+        foot.style.top=(Number(movement.fromY)+dy*progress)+'%';
+        foot.style.setProperty('--foot-angle',angle+'deg');
+        foot.style.setProperty('--foot-delay',Math.round(duration*progress*.78)+'ms');
+        foot.innerHTML='<i></i><i></i>';
+        trailLayer.appendChild(foot);
+        (function(mark){setTimeout(function(){if(mark.parentNode)mark.remove();},duration+1900);})(foot);
+      }
+    }
+    node.classList.add('walking');
     node.style.transition = 'none'; node.style.left = clamp(movement.fromX,0,100) + '%'; node.style.top = clamp(movement.fromY,0,100) + '%';
     void node.offsetWidth;
     requestAnimationFrame(function(){
-      node.style.transition = 'left ' + (Number(movement.duration)||900) + 'ms linear,top ' + (Number(movement.duration)||900) + 'ms linear,transform .12s ease';
+      node.style.transition = 'left ' + duration + 'ms linear,top ' + duration + 'ms linear,transform .12s ease';
       node.style.left = clamp(movement.toX,0,100) + '%'; node.style.top = clamp(movement.toY,0,100) + '%';
     });
+    setTimeout(function(){node.classList.remove('walking');},duration+80);
   }
   function applyCamera(){
     var world = el('zg-vtt-world'); if (!world) return;
@@ -11899,9 +11921,10 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgPlayerDockSelect = function(action){
     var turningOn = playerDockAction !== action;
     if (playerDockAction === 'movement' && action !== 'movement' && w.zgMovementToggle) w.zgMovementToggle(false);
+    if (playerDockAction === 'actions' && action !== 'actions' && w.zgMeasureToggle) w.zgMeasureToggle(null,false);
     if (action === 'movement' && w.zgMovementToggle) turningOn = !!w.zgMovementToggle(turningOn);
     if(action==='inventory') { w.zgVttOpenPanel('inventory'); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
-    if(action==='actions' && turningOn && w.showToast) w.showToast('Выберите действие на сцене');
+    if(action==='actions' && w.zgMeasureToggle){w.zgMeasureToggle(null,turningOn);var measure=el('zg-measure-pick');turningOn=!!(measure&&measure.classList.contains('open'));}
     if(action==='abilities' && turningOn){ var member=ownMember(); if(member&&w.zgSheetOpen)w.zgSheetOpen(member.uid); }
     w.zgPlayerDockSet(action, turningOn);
     try { if (w.ZargotaSound && w.ZargotaSound.click) w.ZargotaSound.click(); } catch(e) {}
@@ -12214,7 +12237,7 @@ document.addEventListener('DOMContentLoaded', function(){
     h.textContent = t ? ('▶ '+names[t]+': зажми ЛКМ на карте и веди') : 'Выбери инструмент';
     h.classList.toggle('on', !!t);
   }
-  w.zgMeasureToggle=function(ev){ if(ev)ev.stopPropagation(); init(); var p=el('zg-measure-pick'); if(p)p.classList.toggle('open'); };
+  w.zgMeasureToggle=function(ev,force){ if(ev)ev.stopPropagation(); init(); var p=el('zg-measure-pick'); if(p)p.classList.toggle('open',typeof force==='boolean'?force:!p.classList.contains('open')); };
   w.zgMeasureTool=function(name){
     init();                                   // гарантируем, что обработчики навешаны
     tool=(tool===name)?'':name;
@@ -15569,7 +15592,7 @@ window.zgImageStore = (function() {
   .zg-measure.fading{transition:opacity .55s ease;opacity:0}
   .zg-measure-hint{margin-top:8px;padding-top:8px;border-top:1px solid #2b2114;font-size:11px;line-height:1.4;color:#7c6f56;text-align:center}
   .zg-measure-hint.on{color:#f0dca2}
-  .zg-measure-pick{position:absolute;left:50%;bottom:128px;transform:translateX(185px);z-index:10;width:186px;padding:10px;border-radius:10px;background:linear-gradient(180deg,#171108f5,#0b0805f7);border:1px solid #8a6a2f;box-shadow:0 16px 44px #000c;display:none}
+  .zg-measure-pick{position:absolute;left:30%;bottom:128px;transform:translateX(-50%);z-index:10;width:186px;padding:10px;border-radius:10px;background:linear-gradient(180deg,#171108f5,#0b0805f7);border:1px solid #8a6a2f;box-shadow:0 16px 44px #000c;display:none}
   .zg-measure-pick.open{display:block;animation:zgPopIn .2s cubic-bezier(.2,.8,.3,1)}
   .zg-measure-pick-title{text-align:center;color:#8d7c5c;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;font-family:'Cinzel',serif}
   .zg-measure-pick button{width:100%;margin-bottom:5px;padding:9px 10px;border:1px solid #3a2d18;border-radius:7px;background:#14110b;color:#c9b483;font-size:12px;cursor:pointer;text-align:left;transition:.15s}
@@ -15640,6 +15663,11 @@ window.zgImageStore = (function() {
   .zg-vtt-scene.move-mode{cursor:crosshair}
   .zg-vtt-scene.move-mode .zg-move-preview{display:flex}
   @keyframes zgMoveMarkerPulse{0%,100%{transform:translate(-50%,-50%) scale(.94);opacity:.72}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
+  .zg-move-footprint{position:absolute;z-index:1;width:25px;height:32px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 5px #e8bc58aa);animation:zgFootprintTrail 1.55s ease-out var(--foot-delay,0ms) both}
+  .zg-move-footprint i{position:absolute;width:7px;height:13px;border:1px solid #d3a94f;border-radius:55% 55% 45% 45%;background:linear-gradient(180deg,#ffe39abd,#9c6e20a8);box-shadow:inset 0 -3px 4px #51310c,0 0 7px #d9a83f66;transform:rotate(-10deg)}
+  .zg-move-footprint i::before{content:'';position:absolute;left:1px;top:-5px;width:3px;height:5px;border-radius:50%;background:#e8c16b;box-shadow:-3px 1px 0 -1px #e8c16b,3px 1px 0 -1px #e8c16b}
+  .zg-move-footprint i:first-child{left:2px;top:13px}.zg-move-footprint i:last-child{right:2px;top:1px;transform:rotate(10deg)}
+  @keyframes zgFootprintTrail{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.45)}18%,62%{opacity:.9;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.9)}}
   .zg-move-requests{position:absolute;z-index:8;right:78px;top:134px;width:290px;display:none;flex-direction:column;gap:8px;padding:10px;border:1px solid #594521;border-radius:7px;background:linear-gradient(180deg,rgba(17,14,9,.96),rgba(8,9,9,.95));box-shadow:0 18px 45px #000c;backdrop-filter:blur(9px)}
   .zg-move-requests.open{display:flex}
   .zg-move-requests-title{padding:2px 4px 7px;border-bottom:1px solid #352916;color:#cdb270;font:600 11px/1.2 'Cinzel',serif;letter-spacing:.6px}
@@ -15656,6 +15684,8 @@ window.zgImageStore = (function() {
   .zg-move-request-empty{padding:18px 8px;text-align:center;color:#77694d;font:10px 'Cinzel',serif}.zg-move-requests-toggle{position:absolute;z-index:8;right:78px;top:82px;width:43px;height:43px;display:none;align-items:center;justify-content:center;border:1px solid #5a4625;border-radius:50%;background:#100d08dd;cursor:pointer;box-shadow:0 8px 24px #000a;backdrop-filter:blur(7px)}.zg-game-overlay.gm .zg-move-requests-toggle{display:flex}.zg-move-requests-toggle img{width:28px;height:28px;object-fit:contain;opacity:.72}.zg-move-requests-toggle:hover,.zg-move-requests-toggle.has-requests{border-color:#bd913c;box-shadow:0 8px 24px #000a,0 0 16px #cb96343d}.zg-move-requests-toggle.has-requests img{opacity:1}.zg-move-requests-count{position:absolute;right:-5px;top:-5px;min-width:18px;height:18px;padding:0 3px;border:1px solid #e0b652;border-radius:10px;background:#281b0a;color:#ffe39a;align-items:center;justify-content:center;font:700 9px 'Cinzel',serif;box-shadow:0 2px 8px #000}
   .zg-vtt-token{position:absolute;z-index:3;transform:translate(-50%,-50%);width:64px;height:64px;border:0;padding:0;background:transparent;cursor:default;filter:drop-shadow(0 6px 11px #000b);transition:transform .12s ease}
   .zg-vtt-token:hover:not(:disabled),.zg-vtt-token:active:not(:disabled){transform:translate(-50%,-50%)}  /* глобальный button:hover не должен сбивать центрирование */
+  .zg-vtt-token.walking{animation:zgTokenWalking .28s ease-in-out infinite;filter:drop-shadow(0 7px 12px #000c) drop-shadow(0 0 7px #c894354d)}
+  @keyframes zgTokenWalking{0%,100%{transform:translate(-50%,-50%) rotate(-1.4deg) translateY(0)}50%{transform:translate(-50%,-50%) rotate(1.4deg) translateY(-3px)}}
   .zg-game-overlay.gm .zg-vtt-token{cursor:grab}
   .zg-game-overlay.gm .zg-vtt-token.dragging{cursor:grabbing;transform:translate(-50%,-50%) scale(1.06)}
   .zg-vtt-token>img,.zg-vtt-token-ph{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top center;box-sizing:border-box;border:2.5px solid #c8993c;background:#0c0a07;box-shadow:0 0 0 1px #000a,0 0 12px #00000066,inset 0 0 0 1px #ffffff14}
@@ -16117,7 +16147,6 @@ window.zgImageStore = (function() {
     </div>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
     <div class="zg-dice-pop" id="zg-dice-pop">
-      <button type="button" class="zg-dice-measure" onclick="zgMeasureToggle(event)" title="Линейка и области"><img src="images/vtt-icons/measure.png" alt=""></button>
       <div class="zg-dice-row">
         <button type="button" data-die="4" onpointerdown="zgDiceDragStart(event,4)"><img src="images/vtt-dice/d4.png" alt=""><span>d4</span></button>
         <button type="button" data-die="6" onpointerdown="zgDiceDragStart(event,6)"><img src="images/vtt-dice/d6.png" alt=""><span>d6</span></button>
