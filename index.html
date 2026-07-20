@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.30"></script>
+<script src="zargota-network.js?v=2026-07-20.31"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.30';
+var ZG_APP_VERSION = '2026-07-20.31';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.31', notes: 'Приближение к жетону выполняется только один раз во время входа сквозь туман и больше не повторяется от сетевых обновлений.' },
   { v: '2026-07-20.30', notes: 'При входе камера игрока приближается к его жетону вдвое сильнее и удерживает героя в центре сцены.' },
   { v: '2026-07-20.29', notes: 'Запуск игроков больше не требует обязательного фонового изображения: выбранная сцена или чистая сетка считаются готовыми.' },
   { v: '2026-07-20.28', notes: 'Верхняя мастерская панель больше не перекрывает управление; переключение и сохранение сцен защищены от потери данных.' },
@@ -10266,7 +10267,9 @@ document.addEventListener('DOMContentLoaded', function(){
       var sp = el('zg-game-settings'); if (sp) sp.classList.remove('open');
       go.classList.add('open');
       go.classList.toggle('arriving', !!arriving);
-      if (arriving) setTimeout(function(){ go.classList.remove('arriving'); }, 6200);
+      w.zgArrivalFocusPending = !!arriving;
+      w.zgArrivalFocusReset = !!arriving;
+      if (arriving) setTimeout(function(){ go.classList.remove('arriving'); w.zgArrivalFocusPending=false; }, 6200);
     }
     if (w.zgSceneRefresh) w.zgSceneRefresh();
     var jo = el('zg-journey-overlay');
@@ -10371,6 +10374,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var possessedUid = '';
   var lastMovementSeen = '';
   var lastMovementFeedback = '';
+  var playerCameraFocus = null;
   // ── Правка фона на холсте (двигать мышью, масштаб колесом) ──
   var bgEdit = false, bgDrag = null;
   w.zgSceneBgEdit = function(){
@@ -11191,6 +11195,7 @@ document.addEventListener('DOMContentLoaded', function(){
     roomSnapshot = snapshot;
     var overlay = el('zg-game-overlay');
     isMaster = !!(snapshot && snapshot.session && snapshot.session.role === 'master');
+    if(!isMaster&&w.zgArrivalFocusReset){playerCameraFocus=null;w.zgArrivalFocusReset=false;}
     if (overlay) overlay.classList.toggle('gm', isMaster);
     if (!isMaster) gmVision = 'gm';
     updateVisionButton();
@@ -11215,6 +11220,9 @@ document.addEventListener('DOMContentLoaded', function(){
         lastSeenRevision = src.revision;
       }
       draft = copyScene(src);
+      if(!isMaster&&playerCameraFocus&&playerCameraFocus.revision===Number(draft.revision||0)){
+        draft.zoom=playerCameraFocus.zoom;draft.x=playerCameraFocus.x;draft.y=playerCameraFocus.y;
+      }
       lastSnap = snapDraft();
       if(!selectedLayerId&&draft.layers.length)selectedLayerId=draft.layers[draft.layers.length-1].id;
       applyScene();
@@ -11225,7 +11233,7 @@ document.addEventListener('DOMContentLoaded', function(){
     animateLastMovement();
     var loading=el('zg-vtt-loading');
     if(loading) loading.classList.toggle('on', !isMaster && snapshot.room.phase === 'playing' && (!draft.layers || !draft.layers.length));
-    if(!isMaster && overlay && snapshot.session){
+    if(!isMaster&&overlay&&overlay.classList.contains('arriving')&&w.zgArrivalFocusPending&&snapshot.session){
       var ownToken=(draft.tokens||[]).filter(function(token){return token&&token.type==='hero'&&token.memberUid===snapshot.session.uid;})[0];
       if(ownToken){
         overlay.style.setProperty('--zg-arrival-x',ownToken.x+'%');
@@ -11235,6 +11243,8 @@ document.addEventListener('DOMContentLoaded', function(){
         draft.zoom=focusZoom;
         draft.x=-(Number(ownToken.x)-50)/100*boardPxW*focusZoom;
         draft.y=-(Number(ownToken.y)-50)/100*boardPxH*focusZoom;
+        playerCameraFocus={revision:Number(draft.revision||0),zoom:draft.zoom,x:draft.x,y:draft.y};
+        w.zgArrivalFocusPending=false;
         applyCamera();
       }
     }
