@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.43"></script>
+<script src="zargota-network.js?v=2026-07-20.44"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.43';
+var ZG_APP_VERSION = '2026-07-20.44';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.44', notes: 'Личное выделение героя упрощено до одной жёлтой рамки, а полосы HP жетонов выровнены ниже.' },
   { v: '2026-07-20.43', notes: 'Инструменты нижней панели больше не накладываются, измерения видны группе, а отклонение движения получило отдельную анимацию.' },
   { v: '2026-07-20.42', notes: 'Собственный герой игрока постоянно выделен золотой рамкой в группе и на карте.' },
   { v: '2026-07-20.41', notes: 'Цветокод заявок, плавное сетевое движение, зум к курсору, режиссёрский обзор и расширенный редактор зон.' },
@@ -15903,7 +15904,7 @@ window.zgImageStore = (function() {
   .zg-vtt-token-ph{display:flex;align-items:center;justify-content:center;font-size:22px;color:#e7d3a0;text-shadow:0 1px 3px #000}
   .zg-vtt-token-name{position:absolute;top:calc(100% + 3px);left:50%;transform:translateX(-50%);max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Cinzel',serif;font-size:11px;color:#e7d3a0;text-shadow:0 1px 3px #000,0 0 6px #000;pointer-events:none}
   .zg-vtt-token.selected>img,.zg-vtt-token.selected .zg-vtt-token-ph{outline:2px solid #f0d896;outline-offset:2px}
-  .zg-vtt-token.own>img,.zg-vtt-token.own .zg-vtt-token-ph{border-color:#f0c85a;outline:2px solid #d6a936;outline-offset:4px;box-shadow:0 0 0 1px #fff0a84d,0 0 18px #e5b947aa,0 0 34px #b8791e66,inset 0 0 0 1px #fff1a455}
+  .zg-vtt-token.own>img,.zg-vtt-token.own .zg-vtt-token-ph{border-color:#efc653;outline:0;box-shadow:0 0 0 1px #000a,0 0 12px #00000066,inset 0 0 0 1px #ffffff14}
   .zg-vtt-token.own::before{content:'ВЫ';position:absolute;z-index:5;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%);padding:2px 7px;border:1px solid #d4a83f;border-radius:9px;background:#211606;color:#ffe59a;font:700 8px/1.2 'Cinzel',serif;letter-spacing:1px;box-shadow:0 0 10px #d5a63e66,0 3px 8px #000b}
   .zg-vtt-token.controlled>img,.zg-vtt-token.controlled .zg-vtt-token-ph{outline:2px solid #72c982;outline-offset:4px;box-shadow:0 0 0 1px #000a,0 0 20px #58b86b99,inset 0 0 0 1px #ffffff20}
   .zg-vtt-token.controlled::before{content:'ВЫ';position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%);padding:2px 7px;border:1px solid #4c8f59;border-radius:9px;background:#0d1b11;color:#9de0a8;font:700 8px/1.2 'Cinzel',serif;letter-spacing:1px;box-shadow:0 3px 8px #000b}
@@ -15949,7 +15950,7 @@ window.zgImageStore = (function() {
   /* записка ГМ */
   .zg-vtt-token.marker-note>.zg-vtt-token-ph{border-radius:8px;border-color:#c8993c;color:#ffe9a8;background:radial-gradient(circle,#2a1f0d,#160f06);font-size:16px}
   /* HP-бар на жетоне */
-  .zg-vtt-token-hp{position:absolute;top:calc(100% - 1px);left:12%;width:76%;height:5px;border-radius:3px;background:#191510;overflow:hidden;box-shadow:0 1px 2px #000,0 0 0 1px #000a}
+  .zg-vtt-token-hp{position:absolute;top:100%;left:12%;width:76%;height:5px;border-radius:3px;background:#191510;overflow:hidden;box-shadow:0 1px 2px #000,0 0 0 1px #000a}
   .zg-vtt-token-hp i{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
   .zg-vtt-token-hp i.low{background:linear-gradient(90deg,#8a2f28,#c0504a)}
   .zg-vtt-token.disp-hero .zg-vtt-token-name{top:calc(100% + 7px)}
@@ -16010,9 +16011,9 @@ window.zgImageStore = (function() {
   .zg-party-card:hover{transform:translateY(-2px);filter:drop-shadow(0 8px 14px #000c) drop-shadow(0 0 8px #c59b3c44)}
   .zg-party-card img,.zg-party-ph{box-sizing:border-box;width:82px;height:76px;border:1px solid #7b5c27;border-radius:5px;object-fit:cover;object-position:top center;background:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:inset 0 0 0 1px #d4ad4a20,0 0 0 1px #0009;transition:border-color .18s ease,box-shadow .18s ease}
   .zg-party-card:hover img,.zg-party-card:hover .zg-party-ph{border-color:#d0a84f;box-shadow:inset 0 0 0 1px #efd07738,0 0 10px #c8993538}
-  .zg-party-card.own{filter:drop-shadow(0 8px 13px #000a) drop-shadow(0 0 10px #d4a63e88)}
-  .zg-party-card.own img,.zg-party-card.own .zg-party-ph{border:2px solid #efc85e;box-shadow:inset 0 0 0 1px #fff0aa5c,0 0 0 2px #6f4d17,0 0 18px #d8a83f99}
-  .zg-party-card.own .zg-party-name{color:#ffe49a;text-shadow:0 2px 4px #000,0 0 9px #d5a83f99}
+  .zg-party-card.own{filter:drop-shadow(0 8px 13px #000a)}
+  .zg-party-card.own img,.zg-party-card.own .zg-party-ph{border:2px solid #efc85e;box-shadow:inset 0 0 0 1px #d4ad4a20,0 0 0 1px #0009}
+  .zg-party-card.own .zg-party-name{color:#ffe49a;text-shadow:0 2px 4px #000,0 0 8px #000}
   .zg-party-card.possessed img,.zg-party-card.possessed .zg-party-ph{border-color:#78c982;box-shadow:inset 0 0 0 1px #b6efbd55,0 0 15px #52b56688}
   .zg-party-card.possessed::after{content:'ВЫ';position:absolute;right:-4px;top:-7px;padding:2px 5px;border-radius:7px;background:#17331d;color:#a8e7b1;font:700 7px/1 'Cinzel',serif;letter-spacing:.7px;box-shadow:0 2px 7px #000b}
   .zg-party-card.own::before{content:'♛';position:absolute;z-index:2;top:-9px;left:50%;transform:translateX(-50%);color:#d7b44f;font-size:12px;line-height:1;text-shadow:0 0 6px #000,0 0 8px #d7b44f66}
