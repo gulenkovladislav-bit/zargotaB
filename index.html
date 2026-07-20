@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.18"></script>
+<script src="zargota-network.js?v=2026-07-20.19"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.18';
+var ZG_APP_VERSION = '2026-07-20.19';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.19', notes: 'Новый запуск сетевой сессии: мастер готовит сцену отдельно и сам запускает игроков из портретного зала ожидания.' },
   { v: '2026-07-20.18', notes: 'Инвентарь встроен непосредственно в лист персонажа: снаряжение слева, сетка вещей справа, без отдельного экрана.' },
   { v: '2026-07-20.17', notes: 'Исправлены сетевые запросы движения, добавлена очередь запросов ГМ; d20-победитель плавно занимает место второго кубика.' },
   { v: '2026-07-20.16', notes: 'Одиночный бросок без характеристики больше не дублирует число; формула итога появляется только при модификаторе.' },
@@ -10072,7 +10073,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var pending = null;
   var journeyCharacter = null;
   var journeyReleased = false;
-  var launchRequested = false;
+  var gmSetupOpened = false;
   function el(id){ return document.getElementById(id); }
   function esc(s){
     s = (s === null || s === undefined) ? '' : String(s);
@@ -10154,10 +10155,20 @@ document.addEventListener('DOMContentLoaded', function(){
     if (journeyReleased) return;
     journeyReleased = true;
     clearTimers();
-    setJourneyStatus('Путь открыт…');
+    setJourneyStatus('Мастер открывает путь…');
     var jo = el('zg-journey-overlay');
-    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 900));
-    timers.push(setTimeout(function(){ w.zgGameOpen(); }, 2200));
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 1500));
+    timers.push(setTimeout(function(){ w.zgGameOpen(true); }, 3900));
+  }
+
+  function openMasterSetup(){
+    if (gmSetupOpened) return;
+    gmSetupOpened = true;
+    clearTimers();
+    setJourneyStatus('Открываем мастерскую сцены…');
+    var jo = el('zg-journey-overlay');
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 3200));
+    timers.push(setTimeout(function(){ w.zgGameOpen(false); }, 5000));
   }
 
   function syncJourney(snapshot){
@@ -10166,28 +10177,28 @@ document.addEventListener('DOMContentLoaded', function(){
     var members = Object.keys(room.members || {}).map(function(uid){ return room.members[uid]; }).filter(Boolean);
     function memberReady(member){ return member.role === 'master' ? !!(member.gmReady || member.characterId) : !!member.characterId; }
     var readyCount = members.filter(memberReady).length;
-    var allReady = members.length > 0 && readyCount === members.length;
     var c = localCharacter(snapshot);
     var jo = el('zg-journey-overlay');
     var ownMember = room.members && room.members[snapshot.session.uid];
 
     if (room.phase === 'character-select') {
-      if (!allReady) launchRequested = false;
       if (c && ownMember && memberReady(ownMember)) {
         if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
-        setJourneyStatus('Ожидаем героев… ' + readyCount + ' / ' + members.length);
-      }
-      if (allReady && snapshot.session.role === 'master' && w.ZargotaRooms && !launchRequested) {
-        launchRequested = true;
-        w.ZargotaRooms.launchJourney().catch(function(err){
-          launchRequested = false;
-          if (w.showToast) w.showToast(err.message || 'Не удалось открыть путь.');
-        });
+        if (snapshot.session.role === 'master') {
+          setJourneyStatus('Герои собираются… ' + readyCount + ' / ' + members.length);
+          openMasterSetup();
+        } else {
+          setJourneyStatus('Герой готов · мастер выбирает сцену');
+        }
       }
       return;
     }
 
-    if (room.phase === 'journey' && c) {
+    if ((room.phase === 'journey' || room.phase === 'playing') && c) {
+      if (snapshot.session.role === 'master') {
+        if (!el('zg-game-overlay') || !el('zg-game-overlay').classList.contains('open')) w.zgGameOpen(false);
+        return;
+      }
       if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
       finishJourney();
     }
@@ -10219,16 +10230,19 @@ document.addEventListener('DOMContentLoaded', function(){
     clearTimers();
     journeyCharacter = null;
     journeyReleased = false;
+    gmSetupOpened = false;
     var jo = el('zg-journey-overlay'); if (jo){ jo.classList.remove('open'); jo.classList.remove('loading'); jo.classList.remove('dissolving'); }
     try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
   };
   // Тёмный экран игры (будущий инструментарий D&D)
-  w.zgGameOpen = function(){
+  w.zgGameOpen = function(arriving){
     var go = el('zg-game-overlay');
     if (go){
       if (go.parentNode !== document.body) document.body.appendChild(go);
       var sp = el('zg-game-settings'); if (sp) sp.classList.remove('open');
       go.classList.add('open');
+      go.classList.toggle('arriving', !!arriving);
+      if (arriving) setTimeout(function(){ go.classList.remove('arriving'); }, 6200);
     }
     if (w.zgSceneRefresh) w.zgSceneRefresh();
     var jo = el('zg-journey-overlay');
@@ -10541,7 +10555,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var ov=el('zg-scenes-popup'); if(ov){ if(ov.parentNode!==document.body)document.body.appendChild(ov); ov.classList.add('open'); }
     });
   };
-  w.zgScenesPopupPick=function(id){ w.zgScenesPopupClose(); w.zgSceneShow(id); };
+  w.zgScenesPopupPick=function(id){ w.zgSceneLoad(id); w.zgScenesPopupClose(); };
   w.zgScenesPopupClose=function(){ var ov=el('zg-scenes-popup'); if(ov)ov.classList.remove('open'); };
   // Список сохранённых зон в выпадашке метки-перехода
   function renderPortalTargets(token){
@@ -11106,7 +11120,21 @@ document.addEventListener('DOMContentLoaded', function(){
     renderMovementOverlays();
     movementFeedback();
     animateLastMovement();
-    var loading=el('zg-vtt-loading'); if(loading) loading.classList.toggle('on', !isMaster && (!draft.layers || !draft.layers.length));
+    var loading=el('zg-vtt-loading');
+    if(loading) loading.classList.toggle('on', !isMaster && snapshot.room.phase === 'playing' && (!draft.layers || !draft.layers.length));
+    if(!isMaster && overlay && overlay.classList.contains('arriving') && snapshot.session){
+      var ownToken=(draft.tokens||[]).filter(function(token){return token&&token.type==='hero'&&token.memberUid===snapshot.session.uid;})[0];
+      if(ownToken){
+        overlay.style.setProperty('--zg-arrival-x',ownToken.x+'%');
+        overlay.style.setProperty('--zg-arrival-y',ownToken.y+'%');
+      }
+    }
+    var startButton=el('zg-start-players');
+    if(startButton){
+      var started=snapshot.room.phase==='playing';
+      startButton.disabled=started;
+      startButton.textContent=started?'Игроки на сцене':'Запустить игроков';
+    }
     // ГМ вошёл, сцена игрокам ещё не показана → предложить загрузить сцену
     if (isMaster && roomChanged && !startPopupShown) {
       var sc = snapshot.room.scene;
@@ -11326,6 +11354,31 @@ document.addEventListener('DOMContentLoaded', function(){
     }).catch(function(err){
       setStatus(err.message || 'Не удалось показать сцену');
     }).then(function(){ if (button) button.disabled = false; });
+  };
+
+  w.zgStartPlayers = function(){
+    if (!isMaster || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
+    var button = el('zg-start-players');
+    if (!draft.layers || !draft.layers.length) {
+      setStatus('Сначала выберите сцену или добавьте фон');
+      if (w.showToast) w.showToast('Сначала подготовьте сцену.');
+      return;
+    }
+    ensureHeroTokens(roomSnapshot);
+    if (button) { button.disabled = true; button.textContent = 'Запускаем…'; }
+    setStatus('Показываем сцену и открываем путь…');
+    w.ZargotaRooms.publishScene(draft).then(function(){
+      dirty = false;
+      publishedSceneId = activeSceneId;
+      return w.ZargotaRooms.startGame();
+    }).then(function(){
+      setStatus('✓ Игроки входят на сцену');
+      if (button) button.textContent = 'Игроки запущены';
+    }).catch(function(err){
+      setStatus(err.message || 'Не удалось запустить игроков');
+      if (w.showToast) w.showToast(err.message || 'Не удалось запустить игроков.');
+      if (button) { button.disabled = false; button.textContent = 'Запустить игроков'; }
+    });
   };
 
   function initScene(){
@@ -15157,6 +15210,11 @@ window.zgImageStore = (function() {
   /* Тёмный экран игры — будущий общий стол VTT */
   .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
   .zg-game-overlay.open{display:block}   /* мгновенно непрозрачный — без мелькания меню */
+  .zg-game-overlay.arriving .zg-vtt-scene{transform-origin:var(--zg-arrival-x,50%) var(--zg-arrival-y,50%);animation:zgPlayerArrival 5.8s cubic-bezier(.2,.72,.2,1) both}
+  .zg-vtt-arrival-fog{position:absolute;inset:-8%;z-index:8;display:none;pointer-events:none;background:radial-gradient(circle at var(--zg-arrival-x,50%) var(--zg-arrival-y,50%),transparent 0 7%,rgba(8,9,9,.38) 20%,rgba(2,3,4,.97) 68%),radial-gradient(ellipse at 22% 45%,rgba(105,115,112,.34),transparent 48%),radial-gradient(ellipse at 78% 55%,rgba(82,91,91,.3),transparent 46%);filter:blur(12px)}
+  .zg-game-overlay.arriving .zg-vtt-arrival-fog{display:block;animation:zgArrivalFog 6.1s ease-out both}
+  @keyframes zgPlayerArrival{0%{transform:scale(.72);filter:blur(5px) brightness(.42)}38%{filter:blur(2px) brightness(.68)}100%{transform:scale(1);filter:none}}
+  @keyframes zgArrivalFog{0%,18%{opacity:1;transform:scale(1.08)}72%{opacity:.34}100%{opacity:0;transform:scale(1.28)}}
   .zg-game-gear{position:absolute;top:16px;right:16px;z-index:4;width:42px;height:42px;border-radius:10px;
     background:rgba(20,15,8,.5);border:1px solid rgba(200,170,90,.25);color:var(--muted);font-size:20px;line-height:1;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
@@ -15372,6 +15430,9 @@ window.zgImageStore = (function() {
   .zg-scene-btn{min-height:38px;border:1px solid #4b391d;border-radius:7px;background:#171006;color:#bda878;font-family:'Cinzel',serif;font-size:11px;cursor:pointer}
   .zg-scene-btn:hover{border-color:#b58d3e;color:#e7ce91}
   .zg-scene-publish{height:42px;padding:0 18px;border:1px solid #b58d3e;border-radius:10px;background:linear-gradient(180deg,#352815,#1c1409);color:#efd58f;font-family:'Cinzel',serif;font-size:12px;letter-spacing:1px;cursor:pointer;transition:.2s}
+  .zg-start-players{box-shadow:0 0 20px rgba(218,174,70,.14);white-space:nowrap}
+  .zg-start-players:hover{border-color:#e7bd5a;background:linear-gradient(180deg,#4a3719,#24190a);box-shadow:0 0 28px rgba(218,174,70,.25)}
+  .zg-start-players:disabled{opacity:.58;cursor:wait}
   .zg-scene-publish:hover{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 18px #c8993c33}
   .zg-scene-publish:disabled{opacity:.45;cursor:wait}
   .zg-scene-status{min-height:15px;text-align:center;color:#79694c;font-size:11px}
@@ -15813,9 +15874,10 @@ window.zgImageStore = (function() {
     <button type="button" class="zg-game-gear" onclick="zgGameSettings(event)" title="Настройки" aria-label="Настройки">⚙</button>
     <button type="button" class="zg-scene-gear" id="zg-scene-gear" onclick="zgSceneSettings(event)" title="Настройка сцены" aria-label="Настройка сцены">🗺</button>
     <div class="zg-gm-actions" id="zg-gm-actions">
-      <button type="button" class="zg-vision-gear" onclick="zgScenesPopup(true)" title="Сцены: загрузить и показать игрокам" aria-label="Сцены">📂 <span>Сцены</span></button>
+      <button type="button" class="zg-vision-gear" onclick="zgScenesPopup(true)" title="Выбрать сцену для подготовки" aria-label="Сцены">📂 <span>Сцены</span></button>
       <button type="button" class="zg-vision-gear" id="zg-vision-gear" onclick="zgSceneToggleVision(event)" title="Вид: мастер / игроки" aria-label="Переключить вид">👁 <span>Вид мастера</span></button>
       <button type="button" class="zg-scene-publish" id="zg-scene-publish" onclick="zgScenePublish()" title="Опубликовать сцену всем игрокам">Показать игрокам</button>
+      <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgStartPlayers()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
     </div>
     <div class="zg-game-settings" id="zg-game-settings">
       <div class="zg-game-settings-title">Настройки</div>
@@ -15845,6 +15907,7 @@ window.zgImageStore = (function() {
     </aside>
     <button type="button" class="zg-move-requests-toggle" id="zg-move-requests-toggle" onclick="zgMovementRequestsToggle()" title="Запросы движения" aria-label="Запросы движения"><img src="images/vtt-icons/movement.png" alt=""><span class="zg-move-requests-count" id="zg-move-requests-count" style="display:none">0</span></button>
     <div class="zg-vtt-loading" id="zg-vtt-loading"><div class="zg-vtt-loading-spin"></div><div class="zg-vtt-loading-txt">Мастер готовит сцену…</div></div>
+    <div class="zg-vtt-arrival-fog" aria-hidden="true"></div>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
     <div class="zg-dice-pop" id="zg-dice-pop">
       <button type="button" class="zg-dice-measure" onclick="zgMeasureToggle(event)" title="Линейка и области"><img src="images/vtt-icons/measure.png" alt=""></button>
@@ -15889,12 +15952,12 @@ window.zgImageStore = (function() {
     </div>
     <div class="zg-confirm-overlay" id="zg-scenes-popup">
       <div class="zg-confirm-box" role="dialog" aria-modal="true">
-        <div class="zg-confirm-title">Загрузить сцену</div>
-        <div class="zg-confirm-text">Выбери сцену — она откроется и <b>сразу покажется игрокам</b>. Пока не выбрана, игроки видят «Мастер готовит сцену…».</div>
+        <div class="zg-confirm-title">Подготовить сцену</div>
+        <div class="zg-confirm-text">Выберите сцену для мастерского черновика. Игроки останутся у портретов, пока вы не нажмёте <b>«Запустить игроков»</b>.</div>
         <div class="zg-scene-lib-grid" id="zg-scenes-popup-grid" style="margin-bottom:20px;max-height:300px;overflow-y:auto"></div>
         <div class="zg-confirm-btns">
-          <button type="button" class="zg-confirm-no" onclick="zgScenesPopupClose()">Пустая сцена</button>
-          <button type="button" class="zg-confirm-yes" onclick="zgScenesPopupClose();zgSceneSettings()">🗺 Настроить вручную</button>
+          <button type="button" class="zg-confirm-no" onclick="zgScenesPopupClose()">Закрыть</button>
+          <button type="button" class="zg-confirm-yes" onclick="zgScenesPopupClose();zgSceneSettings()">🗺 Создать вручную</button>
         </div>
       </div>
     </div>

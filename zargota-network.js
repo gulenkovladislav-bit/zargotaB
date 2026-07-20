@@ -514,6 +514,36 @@
       });
     },
 
+    startGame: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Запустить игроков может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          if (room.phase === 'playing') return room;
+          if (room.phase !== 'character-select' && room.phase !== 'journey') throw roomError('Сначала откройте выбор персонажей.', 'wrong-phase');
+          if (!room.scene || !Array.isArray(room.scene.layers) || !room.scene.layers.length) {
+            throw roomError('Сначала выберите и покажите сцену.', 'scene-missing');
+          }
+          var players = membersOf(room, 'player');
+          if (!room.testMode && (!players.length || players.some(function (member) { return !member.characterId; }))) {
+            throw roomError('Не все игроки выбрали персонажей.', 'characters-pending');
+          }
+          return firebase.update(roomRef(session.code), {
+            phase: 'playing',
+            gameStartedAt: firebase.serverTimestamp(),
+            updatedAt: firebase.serverTimestamp()
+          }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','wrong-phase','scene-missing','characters-pending'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     publishScene: function (scene) {
       scene = scene || {};
       return ensureReady().then(function (user) {
