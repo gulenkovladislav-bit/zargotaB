@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.25"></script>
+<script src="zargota-network.js?v=2026-07-20.26"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.25';
+var ZG_APP_VERSION = '2026-07-20.26';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.26', notes: 'Исправлены неработающие кнопки разрешения и отклонения запросов движения.' },
   { v: '2026-07-20.25', notes: 'Бросок кубика теперь запускает анимацию мгновенно локально и затем синхронизирует тот же результат остальным игрокам.' },
   { v: '2026-07-20.24', notes: 'Сцены получили верхнюю drag-and-drop ленту, собственный размер доски и встроенное окно создания без блокирующих alert.' },
   { v: '2026-07-20.23', notes: 'd20 и остальные кубики снова отображаются даже у ГМ или до появления жетона героя на сцене.' },
@@ -10790,6 +10791,8 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgMovementResolve = function(uid, accepted){
     if (!isMaster || !w.ZargotaRooms || !w.ZargotaRooms.resolveMovement) return;
     var request = roomSnapshot && roomSnapshot.room && roomSnapshot.room.members && roomSnapshot.room.members[uid] && roomSnapshot.room.members[uid].movementRequest;
+    var actions = document.querySelector('.zg-move-request[data-request-uid="' + String(uid).replace(/"/g,'') + '"] .zg-move-request-actions');
+    if (actions) { actions.classList.add('busy'); Array.prototype.forEach.call(actions.querySelectorAll('button'),function(button){button.disabled=true;}); }
     w.ZargotaRooms.resolveMovement(uid, !!accepted).then(function(snapshot){
       if (accepted && request) {
         var token = draft.tokens.filter(function(item){ return item.type === 'hero' && item.memberUid === uid; })[0];
@@ -10797,7 +10800,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
       roomState(snapshot);
       if (w.showToast) w.showToast(accepted ? 'Движение разрешено' : 'Движение отклонено');
-    }).catch(function(err){ if (w.showToast) w.showToast(err.message || 'Не удалось обработать запрос'); });
+    }).catch(function(err){ if(actions){actions.classList.remove('busy');Array.prototype.forEach.call(actions.querySelectorAll('button'),function(button){button.disabled=false;});}if (w.showToast) w.showToast(err.message || 'Не удалось обработать запрос'); });
   };
   w.zgMovementRequestsToggle=function(){if(!isMaster)return;movementPanelPinned=!movementPanelPinned;renderMovementOverlays();};
   function renderMovementOverlays(){
@@ -10821,8 +10824,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (panel) panel.classList.toggle('open', !!isMaster && (pending.length > 0 || movementPanelPinned));
     var toggle=el('zg-move-requests-toggle'),count=el('zg-move-requests-count');if(toggle)toggle.classList.toggle('has-requests',pending.length>0);if(count){count.textContent=String(pending.length);count.style.display=pending.length?'flex':'none';}
     if (list) list.innerHTML = isMaster ? (pending.map(function(request){
-      var uid = JSON.stringify(String(request.uid || ''));
-      return '<div class="zg-move-request"><span class="zg-move-request-icon">🥾</span><div class="zg-move-request-copy"><b>' + esc(request.name || 'Герой') + '</b>Просит перейти в отмеченную точку</div><div class="zg-move-request-actions"><button type="button" onclick="zgMovementResolve(' + uid + ',false)">Отклонить</button><button type="button" class="approve" onclick="zgMovementResolve(' + uid + ',true)">Разрешить</button></div></div>';
+      var uid = String(request.uid || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<div class="zg-move-request" data-request-uid="' + esc(request.uid || '') + '"><span class="zg-move-request-icon">🥾</span><div class="zg-move-request-copy"><b>' + esc(request.name || 'Герой') + '</b>Просит перейти в отмеченную точку</div><div class="zg-move-request-actions"><button type="button" onclick="zgMovementResolve(\'' + uid + '\',false)">Отклонить</button><button type="button" class="approve" onclick="zgMovementResolve(\'' + uid + '\',true)">Разрешить</button></div></div>';
     }).join('')||'<div class="zg-move-request-empty">Новых запросов нет</div>') : '';
   }
   function movementFeedback(){
@@ -15579,6 +15582,7 @@ window.zgImageStore = (function() {
   .zg-move-request-actions button{height:31px;border:1px solid #46361d;border-radius:4px;background:#17120a;color:#a89770;font:600 10px/1 'Cinzel',serif;cursor:pointer}
   .zg-move-request-actions button:hover{border-color:#aa8139;color:#efd180;background:#241a0c}
   .zg-move-request-actions .approve{border-color:#315c37;color:#8ac294;background:#0f1b11}
+  .zg-move-request-actions.busy{opacity:.55}.zg-move-request-actions button:disabled{cursor:wait;filter:saturate(.45)}
   .zg-move-request-empty{padding:18px 8px;text-align:center;color:#77694d;font:10px 'Cinzel',serif}.zg-move-requests-toggle{position:absolute;z-index:8;right:78px;top:82px;width:43px;height:43px;display:none;align-items:center;justify-content:center;border:1px solid #5a4625;border-radius:50%;background:#100d08dd;cursor:pointer;box-shadow:0 8px 24px #000a;backdrop-filter:blur(7px)}.zg-game-overlay.gm .zg-move-requests-toggle{display:flex}.zg-move-requests-toggle img{width:28px;height:28px;object-fit:contain;opacity:.72}.zg-move-requests-toggle:hover,.zg-move-requests-toggle.has-requests{border-color:#bd913c;box-shadow:0 8px 24px #000a,0 0 16px #cb96343d}.zg-move-requests-toggle.has-requests img{opacity:1}.zg-move-requests-count{position:absolute;right:-5px;top:-5px;min-width:18px;height:18px;padding:0 3px;border:1px solid #e0b652;border-radius:10px;background:#281b0a;color:#ffe39a;align-items:center;justify-content:center;font:700 9px 'Cinzel',serif;box-shadow:0 2px 8px #000}
   .zg-vtt-token{position:absolute;z-index:3;transform:translate(-50%,-50%);width:64px;height:64px;border:0;padding:0;background:transparent;cursor:default;filter:drop-shadow(0 6px 11px #000b);transition:transform .12s ease}
   .zg-vtt-token:hover:not(:disabled),.zg-vtt-token:active:not(:disabled){transform:translate(-50%,-50%)}  /* глобальный button:hover не должен сбивать центрирование */
