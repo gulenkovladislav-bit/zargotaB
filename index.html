@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.42"></script>
+<script src="zargota-network.js?v=2026-07-20.43"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.42';
+var ZG_APP_VERSION = '2026-07-20.43';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.43', notes: 'Инструменты нижней панели больше не накладываются, измерения видны группе, а отклонение движения получило отдельную анимацию.' },
   { v: '2026-07-20.42', notes: 'Собственный герой игрока постоянно выделен золотой рамкой в группе и на карте.' },
   { v: '2026-07-20.41', notes: 'Цветокод заявок, плавное сетевое движение, зум к курсору, режиссёрский обзор и расширенный редактор зон.' },
   { v: '2026-07-20.40', notes: 'Сцены больше не сохраняют личности игроков: вместо них хранятся места появления, которые занимают текущие участники комнаты.' },
@@ -10818,6 +10819,7 @@ document.addEventListener('DOMContentLoaded', function(){
     {match:/мелисс/i,accent:'#65bd72',soft:'#153b20'}
   ];
   function playerColor(name){var text=String(name||'');for(var i=0;i<PLAYER_COLOR_RULES.length;i++)if(PLAYER_COLOR_RULES[i].match.test(text))return PLAYER_COLOR_RULES[i];return{accent:'#6e9cc6',soft:'#18314b'};}
+  w.zgVttPlayerColor=function(name){return playerColor(name).accent;};
   function memberColor(uid){var member=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.members&&roomSnapshot.room.members[uid];return playerColor(member&&member.character&&member.character.name||member&&member.name||'');}
   function setPlayerColorVars(node,uid,name){if(!node)return;var color=uid?memberColor(uid):playerColor(name);node.style.setProperty('--player-accent',color.accent);node.style.setProperty('--player-soft',color.soft);}
   function ownHeroToken(){
@@ -10935,8 +10937,11 @@ document.addEventListener('DOMContentLoaded', function(){
     setMovementMode(false);
     if (w.zgPlayerDockSet) w.zgPlayerDockSet('movement', false);
     if (w.showToast) w.showToast(request.status === 'approved' ? 'Мастер разрешил движение' : 'Мастер отклонил движение');
+    if(request.status==='rejected'){
+      var layer=el('zg-move-layer'),mark=document.createElement('span');mark.className='zg-move-rejected';setPlayerColorVars(mark,session.uid,request.name);mark.style.left=clamp(request.toX,0,100)+'%';mark.style.top=clamp(request.toY,0,100)+'%';mark.innerHTML='<i></i><b>☝</b>';if(layer)layer.appendChild(mark);setTimeout(function(){if(mark.parentNode)mark.remove();},2300);
+    }
     if (w.ZargotaRooms && w.ZargotaRooms.acknowledgeMovement) {
-      w.ZargotaRooms.acknowledgeMovement(request.id).catch(function(){});
+      setTimeout(function(){w.ZargotaRooms.acknowledgeMovement(request.id).catch(function(){});},request.status==='rejected'?1900:0);
     }
   }
   function animateLastMovement(){
@@ -10993,6 +10998,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var width=Math.round(draft.boardWidth*draft.gridSize),height=Math.round(draft.boardHeight*draft.gridSize);
     world.style.width=width+'px';world.style.height=height+'px';world.style.left='50%';world.style.top='50%';world.style.right='auto';world.style.bottom='auto';world.style.marginLeft=(-width/2)+'px';world.style.marginTop=(-height/2)+'px';
     world.style.transform = 'translate(' + draft.x + 'px,' + draft.y + 'px) scale(' + draft.zoom + ')';
+    if(w.zgMeasureRefresh)requestAnimationFrame(w.zgMeasureRefresh);
   }
   function cameraToPoint(x,y,zoom){
     var boardW=Math.round(draft.boardWidth*draft.gridSize),boardH=Math.round(draft.boardHeight*draft.gridSize),view=draft.view||DEFAULT_SCENE.view;
@@ -11449,6 +11455,8 @@ document.addEventListener('DOMContentLoaded', function(){
     try { if (w.ZargotaSound && w.ZargotaSound.buttonSoft) w.ZargotaSound.buttonSoft(); } catch(e) {}
   };
   w.zgSceneMeasureInfo = function(){ return { gridSize: draft.gridSize || 64, zoom: draft.zoom || 1 }; };
+  w.zgSceneScreenToWorld=function(clientX,clientY){var world=el('zg-vtt-world'),r=world&&world.getBoundingClientRect();if(!r||!r.width||!r.height)return null;return{x:clamp((clientX-r.left)/r.width*100,0,100),y:clamp((clientY-r.top)/r.height*100,0,100)};};
+  w.zgSceneWorldToScreen=function(x,y){var world=el('zg-vtt-world'),scene=el('zg-vtt-scene'),wr=world&&world.getBoundingClientRect(),sr=scene&&scene.getBoundingClientRect();if(!wr||!sr)return null;return{x:wr.left-sr.left+clamp(x,0,100)/100*wr.width,y:wr.top-sr.top+clamp(y,0,100)/100*wr.height};};
   w.zgSceneSettings = function(ev){
     if (ev) ev.stopPropagation();
     if (!isMaster) return;
@@ -12092,8 +12100,10 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgPlayerDockSelect = function(action){
     var turningOn = playerDockAction !== action;
+    if (action !== 'dice' && w.zgDiceClose) w.zgDiceClose();
     if (playerDockAction === 'movement' && action !== 'movement' && w.zgMovementToggle) w.zgMovementToggle(false);
-    if (playerDockAction === 'actions' && action !== 'actions' && w.zgMeasureToggle) w.zgMeasureToggle(null,false);
+    if (action !== 'actions' && w.zgMeasureDeactivate) w.zgMeasureDeactivate();
+    if (action !== 'inventory' && w.zgVttCloseDrawer) w.zgVttCloseDrawer();
     if (action === 'movement' && w.zgMovementToggle) turningOn = !!w.zgMovementToggle(turningOn);
     if(action==='inventory') { w.zgVttOpenPanel('inventory'); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
     if(action==='actions' && w.zgMeasureToggle){w.zgMeasureToggle(null,turningOn);var measure=el('zg-measure-pick');turningOn=!!(measure&&measure.classList.contains('open'));}
@@ -12117,6 +12127,9 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgVttOpenPanel = function(panel){
     if (activePanel === panel && el('zg-vtt-drawer') && el('zg-vtt-drawer').classList.contains('open')) { w.zgVttCloseDrawer(); return; }
+    if(w.zgDiceClose)w.zgDiceClose();
+    if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();
+    if(w.zgMovementToggle)w.zgMovementToggle(false);
     activePanel = panel;
     var scenePanel = el('zg-scene-settings'); if (scenePanel) scenePanel.classList.remove('open');
     var gamePanel = el('zg-game-settings'); if (gamePanel) gamePanel.classList.remove('open');
@@ -12272,8 +12285,8 @@ document.addEventListener('DOMContentLoaded', function(){
       },1500);
     },900);
   }
-  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open'); p.classList.toggle('open',open); var a=el('zg-dice-abils'); if(a)a.classList.remove('open'); if(open)selectStat('plain'); };
-  w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open'); };
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();}p.classList.toggle('open',open);var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(open)selectStat('plain');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
+  w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
   function selectStat(key){
     selectedStat=key||'plain';
     document.querySelectorAll('.zg-d20-mod').forEach(function(button){button.classList.toggle('active',button.dataset.stat===selectedStat);});
@@ -12373,29 +12386,30 @@ document.addEventListener('DOMContentLoaded', function(){
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
   var SVGNS='http://www.w3.org/2000/svg';
-  var tool='', drag=null;
+  var tool='', drag=null,lastPublish=0,remoteWired=false,lastMeasureSnapshot=null;
   function el(id){return document.getElementById(id);}
   function svg(){return el('zg-measure');}
   function cellPx(){ var i=(w.zgSceneMeasureInfo?w.zgSceneMeasureInfo():null)||{}; return Math.max(8,(i.gridSize||64)*(i.zoom||1)); }
   function rect(){ var s=el('zg-vtt-scene'); return s?s.getBoundingClientRect():{left:0,top:0}; }
-  function clear(){ var s=svg(); if(s)s.innerHTML=''; }
+  function clear(){ var s=svg(); if(s){var local=s.querySelector('.zg-measure-local');if(local)local.remove();} }
+  function localGroup(){var s=svg(),g=s&&s.querySelector('.zg-measure-local');if(s&&!g){g=mk('g',{'class':'zg-measure-local'});s.appendChild(g);}return g;}
   function mk(tag,attrs){ var e=document.createElementNS(SVGNS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
   function lbl(s,x,y,text){ var t=mk('text',{x:x,y:y,'class':'zg-m-text','text-anchor':'middle'}); t.textContent=text; s.appendChild(t); }
   function round1(n){ return Math.round(n*10)/10; }
-  function draw(sx,sy,cx,cy){
-    clear(); var s=svg(); if(!s)return;
+  function draw(sx,sy,cx,cy,target,kind){
+    if(!target)clear(); var s=target||localGroup(),activeTool=kind||tool;if(!s)return;
     var dx=cx-sx,dy=cy-sy,dist=Math.sqrt(dx*dx+dy*dy),cp=cellPx(),cells=round1(dist/cp);
-    if(tool==='line'){ s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-wide','stroke-width':cp})); }
-    if(tool==='ruler'||tool==='line'){
+    if(activeTool==='line'){ s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-wide','stroke-width':cp})); }
+    if(activeTool==='ruler'||activeTool==='line'){
       s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-line'}));
       s.appendChild(mk('circle',{cx:sx,cy:sy,r:3,'class':'zg-m-dot'}));
       s.appendChild(mk('circle',{cx:cx,cy:cy,r:3,'class':'zg-m-dot'}));
       lbl(s,(sx+cx)/2,(sy+cy)/2-8,cells+' кл');
-    } else if(tool==='circle'){
+    } else if(activeTool==='circle'){
       s.appendChild(mk('circle',{cx:sx,cy:sy,r:dist,'class':'zg-m-area'}));
       s.appendChild(mk('line',{x1:sx,y1:sy,x2:cx,y2:cy,'class':'zg-m-line'}));
       lbl(s,sx,sy-8,'R '+cells+' кл');
-    } else if(tool==='cone'){
+    } else if(activeTool==='cone'){
       var ang=Math.atan2(dy,dx),half=0.4636;
       var p1x=sx+Math.cos(ang-half)*dist,p1y=sy+Math.sin(ang-half)*dist;
       var p2x=sx+Math.cos(ang+half)*dist,p2y=sy+Math.sin(ang+half)*dist;
@@ -12403,13 +12417,18 @@ document.addEventListener('DOMContentLoaded', function(){
       lbl(s,cx,cy,cells+' кл');
     }
   }
+  function publish(sx,sy,ex,ey,force){if(!w.ZargotaRooms||!w.ZargotaRooms.publishMeasurement||!w.zgSceneScreenToWorld)return;var now=Date.now();if(!force&&now-lastPublish<90)return;lastPublish=now;var r=rect(),a=w.zgSceneScreenToWorld(r.left+sx,r.top+sy),b=w.zgSceneScreenToWorld(r.left+ex,r.top+ey);if(!a||!b)return;w.ZargotaRooms.publishMeasurement({tool:tool,sx:a.x,sy:a.y,ex:b.x,ey:b.y}).catch(function(){});}
+  function clearPublished(delay){if(!w.ZargotaRooms||!w.ZargotaRooms.publishMeasurement)return;setTimeout(function(){w.ZargotaRooms.publishMeasurement(null).catch(function(){});},delay||0);}
+  function renderRemote(snapshot){lastMeasureSnapshot=snapshot||lastMeasureSnapshot;var s=svg();if(!s)return;Array.prototype.forEach.call(s.querySelectorAll('.zg-measure-remote'),function(node){node.remove();});var room=lastMeasureSnapshot&&lastMeasureSnapshot.room,session=lastMeasureSnapshot&&lastMeasureSnapshot.session,items=room&&room.liveMeasurements||{};Object.keys(items).forEach(function(uid){if(session&&uid===session.uid)return;var item=items[uid];if(!item)return;var a=w.zgSceneWorldToScreen&&w.zgSceneWorldToScreen(item.sx,item.sy),b=w.zgSceneWorldToScreen&&w.zgSceneWorldToScreen(item.ex,item.ey);if(!a||!b)return;var g=mk('g',{'class':'zg-measure-remote'}),color=(w.zgVttPlayerColor&&w.zgVttPlayerColor(item.name))||'#ffd970';g.style.setProperty('--measure-accent',color);s.appendChild(g);draw(a.x,a.y,b.x,b.y,g,item.tool);});}
+  w.zgMeasureRefresh=function(){renderRemote(lastMeasureSnapshot);};
   function setStatusHint(t){
     var h=el('zg-measure-hint'); if(!h)return;
     var names={ruler:'Линейка',line:'Линия в клетку',circle:'Круг',cone:'Конус'};
     h.textContent = t ? ('▶ '+names[t]+': зажми ЛКМ на карте и веди') : 'Выбери инструмент';
     h.classList.toggle('on', !!t);
   }
-  w.zgMeasureToggle=function(ev,force){ if(ev)ev.stopPropagation(); init(); var p=el('zg-measure-pick'); if(p)p.classList.toggle('open',typeof force==='boolean'?force:!p.classList.contains('open')); };
+  w.zgMeasureToggle=function(ev,force){if(ev)ev.stopPropagation();init();var p=el('zg-measure-pick'),open=typeof force==='boolean'?force:!(p&&p.classList.contains('open'));if(open){if(w.zgDiceClose)w.zgDiceClose();if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();}if(p)p.classList.toggle('open',open);if(!open)w.zgMeasureDeactivate();};
+  w.zgMeasureDeactivate=function(){tool='';drag=null;var p=el('zg-measure-pick'),s=svg();if(p)p.classList.remove('open');if(s)s.classList.remove('active');setStatusHint('');document.querySelectorAll('#zg-measure-pick [data-mtool]').forEach(function(button){button.classList.remove('active');});clear();clearPublished(0);if(w.zgPlayerDockSet)w.zgPlayerDockSet('actions',false);};
   w.zgMeasureTool=function(name){
     init();                                   // гарантируем, что обработчики навешаны
     tool=(tool===name)?'':name;
@@ -12426,15 +12445,18 @@ document.addEventListener('DOMContentLoaded', function(){
     try{svg().setPointerCapture(ev.pointerId);}catch(e){}
     ev.preventDefault(); ev.stopPropagation();
     draw(drag.sx,drag.sy,drag.sx,drag.sy);
+    publish(drag.sx,drag.sy,drag.sx,drag.sy,true);
     try{ if(w.ZargotaSound&&w.ZargotaSound.buttonSoft) w.ZargotaSound.buttonSoft(); }catch(e){}
   }
-  function move(ev){ if(!drag)return; ev.preventDefault(); var r=rect(); draw(drag.sx,drag.sy,ev.clientX-r.left,ev.clientY-r.top); }
+  function move(ev){if(!drag)return;ev.preventDefault();var r=rect(),ex=ev.clientX-r.left,ey=ev.clientY-r.top;draw(drag.sx,drag.sy,ex,ey);publish(drag.sx,drag.sy,ex,ey,false);}
   function up(ev){
     if(!drag)return;
+    var r=rect(),ex=ev.clientX-r.left,ey=ev.clientY-r.top;draw(drag.sx,drag.sy,ex,ey);publish(drag.sx,drag.sy,ex,ey,true);
     try{ svg().releasePointerCapture(drag.id); }catch(e){}
     drag=null;
     var s=svg(); if(s) s.classList.add('fading');
     setTimeout(function(){ var n=svg(); if(n)n.classList.remove('fading'); clear(); },1600);
+    clearPublished(1600);
   }
   var wired=false;
   function init(){
@@ -12444,6 +12466,7 @@ document.addEventListener('DOMContentLoaded', function(){
     s.addEventListener('pointerup',up);
     s.addEventListener('pointercancel',up);
     s.addEventListener('pointerleave',function(){ /* держим захват — ничего */ });
+    if(!remoteWired&&w.ZargotaRooms&&w.ZargotaRooms.subscribe){remoteWired=true;w.ZargotaRooms.subscribe(renderRemote);}
   }
   w.zgMeasureInit=init;   // на случай, если элемент появился позже
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init); else init();
@@ -15754,13 +15777,13 @@ window.zgImageStore = (function() {
   /* инструменты измерения */
   .zg-measure{position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible;display:block}
   .zg-measure.active{pointer-events:auto;cursor:crosshair}
-  .zg-m-line{stroke:#ffd970;stroke-width:2.5;stroke-dasharray:7 5;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 4px #000) drop-shadow(0 0 7px #e8c06099);animation:zgMDash .7s linear infinite}
+  .zg-m-line{stroke:var(--measure-accent,#ffd970);stroke-width:2.5;stroke-dasharray:7 5;fill:none;stroke-linecap:round;filter:drop-shadow(0 0 4px #000) drop-shadow(0 0 7px var(--measure-accent,#e8c060));animation:zgMDash .7s linear infinite}
   @keyframes zgMDash{to{stroke-dashoffset:-24}}
   .zg-m-wide{stroke:rgba(232,192,96,.16);fill:none;stroke-linecap:round}
-  .zg-m-area{stroke:#ffd970;stroke-width:2.5;fill:rgba(232,192,96,.14);stroke-linejoin:round;filter:drop-shadow(0 0 5px #000) drop-shadow(0 0 9px #e8c06077);animation:zgMPulse 1.6s ease-in-out infinite}
+  .zg-m-area{stroke:var(--measure-accent,#ffd970);stroke-width:2.5;fill:rgba(232,192,96,.14);stroke-linejoin:round;filter:drop-shadow(0 0 5px #000) drop-shadow(0 0 9px var(--measure-accent,#e8c060));animation:zgMPulse 1.6s ease-in-out infinite}
   @keyframes zgMPulse{0%,100%{fill-opacity:.5}50%{fill-opacity:1}}
-  .zg-m-dot{fill:#fff3c4;stroke:#000;stroke-width:1.2;filter:drop-shadow(0 0 5px #ffd97099)}
-  .zg-m-text{fill:#fff3c4;font-family:'Cinzel',serif;font-size:15px;font-weight:700;paint-order:stroke;stroke:#000;stroke-width:3.5px;letter-spacing:.5px}
+  .zg-m-dot{fill:var(--measure-accent,#fff3c4);stroke:#000;stroke-width:1.2;filter:drop-shadow(0 0 5px var(--measure-accent,#ffd970))}
+  .zg-m-text{fill:var(--measure-accent,#fff3c4);font-family:'Cinzel',serif;font-size:15px;font-weight:700;paint-order:stroke;stroke:#000;stroke-width:3.5px;letter-spacing:.5px}.zg-measure-remote{opacity:.9;pointer-events:none}
   .zg-measure.fading{transition:opacity .55s ease;opacity:0}
   .zg-measure-hint{margin-top:8px;padding-top:8px;border-top:1px solid #2b2114;font-size:11px;line-height:1.4;color:#7c6f56;text-align:center}
   .zg-measure-hint.on{color:#f0dca2}
@@ -15847,6 +15870,7 @@ window.zgImageStore = (function() {
   .zg-move-marker,.zg-move-preview{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--player-accent,#f0d58a);font-size:0;background-image:url('images/vtt-icons/movement.png'),radial-gradient(circle,var(--player-soft,#38270d) 0%,#0b0907d9 61%,transparent 73%);background-size:34px 34px,100% 100%;background-position:center;background-repeat:no-repeat;filter:drop-shadow(0 0 7px var(--player-accent,#f0d58a)) drop-shadow(0 5px 8px #000b);animation:zgMoveMarkerPulse 1.6s ease-in-out infinite}
   .zg-move-marker::after{content:'?';position:absolute;right:-1px;top:-3px;width:17px;height:17px;border:1px solid var(--player-accent,#b78b3d);border-radius:50%;display:flex;align-items:center;justify-content:center;background:#110f0c;color:var(--player-accent,#f2d47c);font:700 11px/1 'Cinzel',serif;box-shadow:0 0 7px var(--player-accent,#b78b3d),0 2px 6px #000}
   .zg-move-preview{display:none;opacity:.48;animation:none}
+  .zg-move-rejected{position:absolute;transform:translate(-50%,-50%);width:64px;height:72px;pointer-events:none;filter:drop-shadow(0 0 8px var(--player-accent,#e1bd62));animation:zgRejectFade 2.25s ease both}.zg-move-rejected i{position:absolute;left:9px;bottom:5px;width:40px;height:40px;background:url('images/vtt-icons/movement.png') center/contain no-repeat;opacity:.72}.zg-move-rejected b{position:absolute;right:1px;top:0;color:var(--player-accent,#f0d58a);font:34px/1 sans-serif;transform-origin:50% 100%;animation:zgRejectFinger .32s ease-in-out 3 alternate;text-shadow:0 0 9px #000,0 0 12px var(--player-accent,#e1bd62)}@keyframes zgRejectFinger{from{transform:rotate(-24deg) translateX(-3px)}to{transform:rotate(24deg) translateX(3px)}}@keyframes zgRejectFade{0%{opacity:0;transform:translate(-50%,-50%) scale(.7)}15%,72%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-58%) scale(.88)}}
   .zg-vtt-scene.move-mode{cursor:crosshair}
   .zg-vtt-scene.move-mode .zg-move-preview{display:flex}
   @keyframes zgMoveMarkerPulse{0%,100%{transform:translate(-50%,-50%) scale(.94);opacity:.72}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}

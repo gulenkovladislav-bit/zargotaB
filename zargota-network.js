@@ -766,6 +766,32 @@
       });
     },
 
+    publishMeasurement: function (measurement) {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        var room = currentRoom;
+        if (!room || !room.members || !room.members[user.uid]) throw roomError('Комната больше недоступна.', 'room-not-found');
+        var target = firebase.ref(db, 'rooms/' + session.code + '/liveMeasurements/' + user.uid);
+        if (!measurement) return firebase.set(target, null).then(function () { return api.getSnapshot(); });
+        var member = room.members[user.uid] || {};
+        var payload = {
+          uid: user.uid,
+          name: String(member.character && member.character.name || member.name || (session.role === 'master' ? 'Гейм-мастер' : 'Игрок')).slice(0, 80),
+          tool: ['ruler','line','circle','cone'].indexOf(measurement.tool) >= 0 ? measurement.tool : 'ruler',
+          sx: Math.max(0, Math.min(100, Number(measurement.sx) || 0)),
+          sy: Math.max(0, Math.min(100, Number(measurement.sy) || 0)),
+          ex: Math.max(0, Math.min(100, Number(measurement.ex) || 0)),
+          ey: Math.max(0, Math.min(100, Number(measurement.ey) || 0)),
+          updatedAt: now()
+        };
+        return firebase.set(target, payload).then(function () { return api.getSnapshot(); });
+      }).catch(function (error) {
+        if (error && ['room-required','room-not-found'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     sendChat: function (text, kind, speakerUid) {
       text = String(text || '').trim().slice(0, 500);
       if (!text) return Promise.resolve(api.getSnapshot());
