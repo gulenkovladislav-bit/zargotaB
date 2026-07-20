@@ -87,6 +87,10 @@
   }
 
   function characterSnapshot(character) {
+    function clean(value, fallback) {
+      try { return JSON.parse(JSON.stringify(value == null ? fallback : value)); }
+      catch (e) { return fallback; }
+    }
     return {
       id: String(character.id),
       name: character.name || 'Без имени',
@@ -97,7 +101,13 @@
       hpCur: Number(character.hpCur != null ? character.hpCur : character.hpMax || 0),
       hpMax: Number(character.hpMax || 0),
       ac: Number(character.ac || 10),
-      speed: Number(character.speed || 0)
+      speed: Number(character.speed || 0),
+      stats: clean(character.stats, {}),
+      statuses: clean(character.statuses || character.conditions, []),
+      inventoryItems: clean(character.inventoryItems, []).slice(0, 80),
+      equipItems: clean(character.equipItems, []).slice(0, 40),
+      arenaEquipSlots: clean(character.arenaEquipSlots, {}),
+      notes: clean(character.notes || character.journal || character.quests, [])
     };
   }
 
@@ -216,20 +226,24 @@
     if (!layers.length && scene.background) {
       layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, saturation:1 });
     }
-    var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 40).map(function (token, index) {
+    var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 60).map(function (token, index) {
       return {
         id: String(token.id || ('token-' + index)).slice(0, 100),
-        type: (['hero','custom','spawn','portal','text'].indexOf(token.type) >= 0 ? token.type : 'custom'),
+        type: (['hero','custom','spawn','portal','text','object','note'].indexOf(token.type) >= 0 ? token.type : 'custom'),
         disposition: (token.type === 'hero' ? 'hero' : (['ally','enemy','neutral','npc'].indexOf(token.disposition) >= 0 ? token.disposition : 'neutral')),
         color: String(token.color || '#f0d896').slice(0, 20),
-        hidden: token.type === 'hero' ? false : !!token.hidden,
+        hidden: token.type === 'hero' ? false : (token.type === 'note' ? true : !!token.hidden),
+        locked: !!token.locked,
+        rotation: Math.max(0, Math.min(359, Number(token.rotation) || 0)),
+        hp: token.hp == null ? null : Math.max(0, Number(token.hp) || 0),
+        hpMax: token.hpMax == null ? null : Math.max(0, Number(token.hpMax) || 0),
         opacity: Math.max(0.15, Math.min(1, Number(token.opacity == null ? 1 : token.opacity))),
         memberUid: String(token.memberUid || '').slice(0, 128),
-        name: String(token.name || 'Жетон').slice(0, 80),
-        image: token.type === 'custom' ? String(token.image || '') : '',
+        name: token.type === 'note' ? 'GM' : String(token.name || 'Жетон').slice(0, 80),
+        image: (token.type === 'custom' || token.type === 'object') ? String(token.image || '') : '',
         x: Math.max(0, Math.min(100, Number(token.x == null ? 50 : token.x))),
         y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
-        size: Math.max(24, Math.min(180, Number(token.size) || 64)),
+        size: Math.max(24, Math.min(240, Number(token.size) || 64)),
         visible: token.visible !== false,
         z: Math.max(0, Math.min(99, Number(token.z) || index + 1))
       };
@@ -433,6 +447,19 @@
       });
     },
 
+    syncCharacter: function (character) {
+      if (!character || character.id == null) return Promise.resolve(api.getSnapshot());
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || !firebase || !db) return api.getSnapshot();
+        var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
+        if (!member || String(member.characterId || '') !== String(character.id)) return api.getSnapshot();
+        return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+          character: characterSnapshot(character), name: character.name || member.name, lastSeen: firebase.serverTimestamp()
+        }).then(function () { return refreshRoom(session.code); }).then(function () { return api.getSnapshot(); });
+      }).catch(function () { return api.getSnapshot(); });
+    },
+
     attachGameMaster: function () {
       return ensureReady().then(function (user) {
         var session = readSession();
@@ -529,6 +556,189 @@
         if (error && ['master-only','room-not-found','scene-too-large','zone-missing'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
+    },
+
+    requestMovement: function (targetX, targetY) {
+      targetX = Math.max(0, Math.min(100, Number(targetX) || 0));
+      targetY = Math.max(0, Math.min(100, Number(targetY) || 0));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'player') throw roomError('Движение доступно только игроку.', 'player-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var member = room.members && room.members[user.uid];
+          if (!member || member.role !== 'player') throw roomError('Игрок не найден в комнате.', 'player-only');
+          var zoneId = String(member.zone || '');
+          var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
+          var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
+          var token = tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === user.uid; })[0];
+          if (!token) throw roomError('Мастер ещё не разместил ваш жетон на сцене.', 'token-missing');
+          var request = {
+            id: 'move-' + user.uid.slice(0, 10) + '-' + now(),
+            uid: user.uid,
+            name: member.character && member.character.name || member.name || 'Герой',
+            fromX: Math.max(0, Math.min(100, Number(token.x) || 0)),
+            fromY: Math.max(0, Math.min(100, Number(token.y) || 0)),
+            toX: targetX,
+            toY: targetY,
+            zoneId: zoneId,
+            status: 'pending',
+            createdAt: now()
+          };
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), { movementRequest: request }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['player-only','room-not-found','token-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    requestMovementAs: function (requestUid, targetX, targetY) {
+      requestUid = String(requestUid || '').slice(0, 128);
+      targetX = Math.max(0, Math.min(100, Number(targetX) || 0));
+      targetY = Math.max(0, Math.min(100, Number(targetY) || 0));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Тестировать движение от имени героя может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var member = room.members && room.members[requestUid];
+          if (!member || member.role !== 'player') throw roomError('Сначала выберите жетон героя.', 'player-missing');
+          var zoneId = String(member.zone || '');
+          var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
+          var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
+          var token = tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === requestUid; })[0];
+          if (!token) throw roomError('Жетон героя ещё не опубликован на сцене.', 'token-missing');
+          var request = {
+            id: 'move-' + requestUid.slice(0, 10) + '-' + now(), uid: requestUid,
+            name: member.character && member.character.name || member.name || 'Герой',
+            fromX: Math.max(0, Math.min(100, Number(token.x) || 0)), fromY: Math.max(0, Math.min(100, Number(token.y) || 0)),
+            toX: targetX, toY: targetY, zoneId: zoneId, status: 'pending', createdAt: now(), testByMaster: true
+          };
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + requestUid), { movementRequest: request }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','player-missing','token-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveMovement: function (requestUid, accepted) {
+      requestUid = String(requestUid || '').slice(0, 128);
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Подтверждать движение может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var request = room.members && room.members[requestUid] && room.members[requestUid].movementRequest;
+          if (!request || request.status !== 'pending') throw roomError('Этот запрос уже обработан.', 'request-missing');
+          var requestPath = 'members/' + requestUid + '/movementRequest';
+          var updates = {};
+          updates[requestPath + '/status'] = accepted ? 'approved' : 'rejected';
+          updates[requestPath + '/resolvedAt'] = now();
+          if (accepted) {
+            var zoneId = String(request.zoneId || '');
+            var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
+            var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
+            var tokenIndex = -1;
+            tokens.some(function (token, index) {
+              if (token && token.type === 'hero' && token.memberUid === requestUid) { tokenIndex = index; return true; }
+              return false;
+            });
+            if (tokenIndex < 0) throw roomError('Жетон игрока не найден на сцене.', 'token-missing');
+            var scenePath = zoneId ? 'zones/' + zoneId : 'scene';
+            updates[scenePath + '/tokens/' + tokenIndex + '/x'] = Math.max(0, Math.min(100, Number(request.toX) || 0));
+            updates[scenePath + '/tokens/' + tokenIndex + '/y'] = Math.max(0, Math.min(100, Number(request.toY) || 0));
+            var distance = Math.hypot(Number(request.toX) - Number(request.fromX), Number(request.toY) - Number(request.fromY));
+            updates.lastMovement = {
+              id: request.id,
+              uid: requestUid,
+              fromX: Number(request.fromX), fromY: Number(request.fromY),
+              toX: Number(request.toX), toY: Number(request.toY),
+              zoneId: zoneId,
+              duration: Math.max(700, Math.min(2800, Math.round(distance * 38))),
+              startedAt: now()
+            };
+          }
+          updates.updatedAt = now();
+          return firebase.update(roomRef(session.code), updates).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','request-missing','token-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    sendChat: function (text, kind, speakerUid) {
+      text = String(text || '').trim().slice(0, 500);
+      if (!text) return Promise.resolve(api.getSnapshot());
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var member = room.members && room.members[user.uid];
+          if (!member) throw roomError('Участник не найден.', 'member-missing');
+          var isWorld = session.role === 'master' && kind === 'world';
+          var speaker = session.role === 'master' && speakerUid && room.members && room.members[speakerUid] || member;
+          var id = 'msg-' + now() + '-' + Math.random().toString(36).slice(2, 6);
+          var payload = {
+            id: id, uid: user.uid, kind: isWorld ? 'world' : (session.role === 'master' && !speakerUid ? 'gm' : 'chat'),
+            name: isWorld ? 'Мир Зарготы' : (speaker.character && speaker.character.name || speaker.name || 'Игрок'),
+            portrait: isWorld ? '' : (speaker.character && speaker.character.portrait || ''),
+            text: text, ts: now()
+          };
+          var updates = {}; updates['messages/' + id] = payload;
+          var old = Object.keys(member.messages || {}).map(function (key) { return member.messages[key]; }).filter(Boolean).sort(function (a,b) { return Number(a.ts)-Number(b.ts); });
+          while (old.length >= 50) { updates['messages/' + old.shift().id] = null; }
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), updates).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['room-required','room-not-found','member-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    // Бросок хранится в записи участника: так игрок может публиковать его по существующим правилам доступа.
+    announceRoll: function (text, speakerUid) {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || !firebase || !db) return null;
+        var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
+        var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
+        return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+          lastRoll: { ts: now(), uid: user.uid, name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок', text: String(text || '').slice(0, 140) }
+        }).catch(function () { return null; });
+      }).catch(function () { return null; });
+    },
+
+    beginRoll: function (sides, speakerUid) {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || !firebase || !db) return null;
+        var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
+        var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
+        return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+          activeRoll: {
+            id: 'roll-' + now() + '-' + Math.random().toString(36).slice(2, 6),
+            ts: now(),
+            duration: 1100,
+            sides: Math.max(2, Math.min(100, Number(sides) || 20)),
+            speakerUid: speaker && speaker.uid || user.uid,
+            name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок'
+          }
+        }).catch(function () { return null; });
+      }).catch(function () { return null; });
     },
 
     // Назначить участникам текущую зону rooms/{code}/members/{uid}/zone
