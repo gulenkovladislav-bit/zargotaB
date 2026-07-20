@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.27"></script>
+<script src="zargota-network.js?v=2026-07-20.28"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.27';
+var ZG_APP_VERSION = '2026-07-20.28';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.28', notes: 'Верхняя мастерская панель больше не перекрывает управление; переключение и сохранение сцен защищены от потери данных.' },
   { v: '2026-07-20.27', notes: 'Центральная библиотека сцен получила поиск, альбомы, точный drag-and-drop, индикатор изменений и безопасный выход с сохранением.' },
   { v: '2026-07-20.26', notes: 'Исправлены неработающие кнопки разрешения и отклонения запросов движения.' },
   { v: '2026-07-20.25', notes: 'Бросок кубика теперь запускает анимацию мгновенно локально и затем синхронизирует тот же результат остальным игрокам.' },
@@ -10578,17 +10579,23 @@ document.addEventListener('DOMContentLoaded', function(){
     var thumb=(draft.layers[0]&&draft.layers[0].image)||'';
     var previous=existing?libCache[activeSceneId]:null;
     var rec={id:existing?activeSceneId:('a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),category:'scene',name:name,thumb:thumb,scene:copyScene(draft),folder:previous&&previous.folder||'',order:previous&&previous.order!=null?previous.order:Date.now(),created:previous?previous.created:Date.now()};
-    w.ZargotaLib.put(rec,function(){ libCache[rec.id]=rec; activeSceneId=rec.id; dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name); renderScenes();if(typeof done==='function')done(); });
+    w.ZargotaLib.put(rec,function(saved){
+      if(!saved){sceneNotice('Не удалось сохранить сцену в браузере','error');setStatus('Ошибка сохранения · изменения остались');return;}
+      libCache[rec.id]=rec;activeSceneId=rec.id;dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name);renderScenes();if(typeof done==='function')done(rec);
+    });
   };
-  w.zgSceneLoad=function(id){
+  w.zgSceneLoad=function(id,done,skipDirtyCheck){
     if(!isMaster)return;
-    var apply=function(rec){ if(!rec||!rec.scene)return; draft=copyScene(rec.scene); activeSceneId=id; selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:''; selectedTokenId=''; clearGroupSel(); histReset(); dirty=false; setStatus('Открыта: '+(rec.name||'')+' · игроки пока видят прежнюю'); applyScene(); syncControls(); };
+    if(!skipDirtyCheck&&dirty&&activeSceneId&&activeSceneId!==id){w.zgSceneExitPrompt(function(){w.zgSceneLoad(id,done,true);});return;}
+    var apply=function(rec){
+      if(!rec||!rec.scene){sceneNotice('Сцена не найдена в библиотеке','error');return;}
+      draft=copyScene(rec.scene);activeSceneId=id;selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:'';selectedTokenId='';clearGroupSel();histReset();dirty=false;setStatus('Открыта: '+(rec.name||'')+' · игроки пока видят прежнюю');applyScene();syncControls();if(typeof done==='function')done(rec);
+    };
     var r=libCache[id]; if(r&&r.scene)apply(r); else w.ZargotaLib.get(id,function(rec){ if(rec)libCache[id]=rec; apply(rec); });
   };
   w.zgSceneShow=function(id){
     if(!isMaster)return;
-    w.zgSceneLoad(id);
-    setTimeout(function(){ if(w.zgScenePublish)w.zgScenePublish(); publishedSceneId=id; renderScenes(); },60);
+    w.zgSceneLoad(id,function(){if(w.zgScenePublish)w.zgScenePublish();});
   };
   w.zgSceneRename=function(id){
     var r=libCache[id]; if(!r||!w.ZargotaLib)return;
@@ -10734,7 +10741,10 @@ document.addEventListener('DOMContentLoaded', function(){
     var bw=clamp(el('zg-new-scene-width')&&el('zg-new-scene-width').value||32,8,80),bh=clamp(el('zg-new-scene-height')&&el('zg-new-scene-height').value||20,8,80),gs=clamp(el('zg-new-scene-grid')&&el('zg-new-scene-grid').value||64,24,96);
     draft=copyScene({layers:[],tokens:[],grid:true,gridSize:gs,boardWidth:bw,boardHeight:bh,x:0,y:0,zoom:1});selectedLayerId='';selectedTokenId='';clearGroupSel();histReset();dirty=true;
     var rec={id:'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),category:'scene',name:name,folder:folder,thumb:'',scene:copyScene(draft),created:Date.now(),order:Date.now()};
-    w.ZargotaLib.put(rec,function(){libCache[rec.id]=rec;activeSceneId=rec.id;dirty=false;lastSnap=snapDraft();w.zgSceneCreateClose();w.zgSceneDrawerToggle(false);applyScene();syncControls();updateDirtyUi();var panel=el('zg-scene-settings');if(panel)panel.classList.add('open');w.zgSceneTab('assets');sceneNotice('Сцена «'+name+'» создана · добавьте фоновый слой','success');});
+    w.ZargotaLib.put(rec,function(saved){
+      if(!saved){sceneNotice('Не удалось создать сцену в браузере','error');setStatus('Ошибка создания сцены');return;}
+      libCache[rec.id]=rec;activeSceneId=rec.id;dirty=false;lastSnap=snapDraft();w.zgSceneCreateClose();w.zgSceneDrawerToggle(false);applyScene();syncControls();updateDirtyUi();var panel=el('zg-scene-settings');if(panel)panel.classList.add('open');w.zgSceneTab('assets');sceneNotice('Сцена «'+name+'» создана · добавьте фоновый слой','success');
+    });
   };
   function currentLayer(){ return draft.layers.filter(function(layer){ return layer.id === selectedLayerId; })[0] || null; }
   function currentToken(){ return draft.tokens.filter(function(token){ return token.id === selectedTokenId; })[0] || null; }
@@ -15330,12 +15340,12 @@ window.zgImageStore = (function() {
   .zg-game-overlay.gm.gm-vision .zg-scene-gear{display:flex}
   .zg-game-overlay.gm .zg-game-gear{right:68px}
   .zg-scene-gear:hover{color:var(--gold);border-color:var(--gold2);background:rgba(30,22,10,.8)}
-  .zg-gm-actions{display:none;position:absolute;top:16px;right:120px;z-index:5;align-items:center;gap:8px}
+  .zg-gm-actions{display:none;position:absolute;top:16px;right:120px;z-index:12;align-items:center;gap:8px}
   .zg-game-overlay.gm .zg-gm-actions{display:flex}
   .zg-game-overlay.gm:not(.gm-vision) .zg-gm-actions>:not(.zg-vision-gear){display:none}
-  .zg-scene-quick{display:none;position:absolute;z-index:10;top:10px;left:50%;width:min(980px,calc(100vw - 620px));height:44px;align-items:center;gap:7px;padding:0 7px 0 13px;border:1px solid rgba(177,137,58,.32);border-radius:8px;background:rgba(10,8,5,.92);box-shadow:0 8px 28px rgba(0,0,0,.4);font-family:'Cinzel',serif;overflow:hidden;transform:translateX(-50%)}
+  .zg-scene-quick{display:none;position:absolute;z-index:11;top:10px;left:18px;right:610px;width:auto;height:44px;align-items:center;gap:7px;padding:0 7px 0 13px;border:1px solid rgba(177,137,58,.32);border-radius:8px;background:rgba(10,8,5,.92);box-shadow:0 8px 28px rgba(0,0,0,.4);font-family:'Cinzel',serif;overflow:hidden}
   .zg-game-overlay.gm.gm-vision .zg-scene-quick{display:flex;animation:zgSceneRailIn .42s cubic-bezier(.18,.82,.3,1) both}
-  @keyframes zgSceneRailIn{from{opacity:0;transform:translate(-50%,-20px)}to{opacity:1;transform:translateX(-50%)}}
+  @keyframes zgSceneRailIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
   .zg-scene-quick-title{color:#8d7650;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;flex:none}
   .zg-scene-quick-list{display:flex;gap:5px;min-width:0;flex:1;overflow-x:auto;scrollbar-width:none}
   .zg-scene-quick-item,.zg-scene-quick-add{height:28px;border:1px solid #3b2d17;border-radius:5px;background:#100c07;color:#a99263;font-family:'Cinzel',serif;font-size:10px;white-space:nowrap;cursor:pointer;padding:0 10px}
@@ -15845,8 +15855,10 @@ window.zgImageStore = (function() {
     .zg-scene-range-row>span:last-child{display:grid;grid-template-columns:minmax(0,1fr) 48px;align-items:center;gap:6px}
     .zg-scene-row input[type=range]{width:100%}
   }
+  @media(max-width:1380px){
+    .zg-scene-quick{top:68px;left:16px;right:16px;width:auto;transform:none}.zg-game-overlay.gm.gm-vision .zg-scene-quick{animation:none}
+  }
   @media(max-width:1100px){
-    .zg-scene-quick{left:16px;width:calc(100vw - 150px);transform:none}.zg-game-overlay.gm.gm-vision .zg-scene-quick{animation:none}
     .zg-scene-dirty{display:none}.zg-scene-drawer-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
     .zg-vtt-party{left:10px;right:62px;transform:none;width:auto;max-width:none;gap:9px}
     .zg-party-card{width:70px;min-width:70px;height:94px;grid-template-rows:66px 17px 4px}
@@ -15866,7 +15878,7 @@ window.zgImageStore = (function() {
     .zg-player-action-key{font-size:8px}
   }
   @media(max-width:560px){
-    .zg-scene-quick{right:66px;width:auto}.zg-scene-quick-title{display:none}.zg-scene-drawer{top:62px;width:calc(100vw - 18px);height:calc(100vh - 126px)}.zg-scene-drawer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-scene-exit-actions{grid-template-columns:1fr}.zg-new-scene-size{grid-template-columns:1fr}.zg-new-scene-field{grid-template-columns:1fr}
+    .zg-scene-quick{top:68px;left:8px;right:8px;width:auto}.zg-scene-quick-title{display:none}.zg-scene-drawer{top:62px;width:calc(100vw - 18px);height:calc(100vh - 126px)}.zg-scene-drawer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-scene-exit-actions{grid-template-columns:1fr}.zg-new-scene-size{grid-template-columns:1fr}.zg-new-scene-field{grid-template-columns:1fr}
     .zg-dice-pop{bottom:98px;width:98vw;padding:0 26px 10px}
     .zg-dice-row{gap:1px}.zg-dice-row button{height:70px}.zg-dice-row button img{width:52px;height:50px}.zg-dice-row button span{font-size:9px}
     .zg-dice-abils{right:-8px;bottom:40px;width:230px;height:145px}.zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{padding:6px 7px;font-size:8px}
