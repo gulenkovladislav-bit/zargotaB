@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.32"></script>
+<script src="zargota-network.js?v=2026-07-20.33"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.32';
+var ZG_APP_VERSION = '2026-07-20.33';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.33', notes: 'd20 выбирается только один раз; при преимуществе и помехе победивший кубик останавливается по центру; сетевые действия больше не перезапускают входной туман.' },
   { v: '2026-07-20.32', notes: 'Повторное движение героя снова доступно после решения мастера: завершённый запрос корректно очищается вместе с локальным режимом.' },
   { v: '2026-07-20.31', notes: 'Приближение к жетону выполняется только один раз во время входа сквозь туман и больше не повторяется от сетевых обновлений.' },
   { v: '2026-07-20.30', notes: 'При входе камера игрока приближается к его жетону вдвое сильнее и удерживает героя в центре сцены.' },
@@ -10224,6 +10225,8 @@ document.addEventListener('DOMContentLoaded', function(){
         if (!el('zg-game-overlay') || !el('zg-game-overlay').classList.contains('open')) w.zgGameOpen(false);
         return;
       }
+      var gameOverlay = el('zg-game-overlay');
+      if (gameOverlay && gameOverlay.classList.contains('open')) return;
       if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
       finishJourney();
     }
@@ -11770,7 +11773,11 @@ document.addEventListener('DOMContentLoaded', function(){
           if(item.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
           else if(item.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
           else if(item.statLabel){label.textContent=item.statLabel;}
-          if(item.rollMode)setTimeout(function(){die.classList.add('contest-resolve',item.kept?'contest-winner':'contest-loser');die.style.setProperty('--contest-direction',item.kept?(index===0?'68px':'-68px'):(index===0?'-22px':'22px'));},430);
+          if(item.rollMode)setTimeout(function(){
+            var startOffset=(index-(rolls.length-1)/2)*spacing;
+            die.classList.add('contest-resolve',item.kept?'contest-winner':'contest-loser');
+            die.style.setProperty('--contest-direction',item.kept?(-startOffset+'px'):(index===0?'-22px':'22px'));
+          },430);
         },Math.max(750,Number(roll.duration)||1250));
         setTimeout(function(){if(die.parentNode)die.remove();},item.outcome?5400:(item.rollMode?4600:3400));
       });
@@ -12083,7 +12090,7 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.zg-dice-row [data-die]').forEach(function(button){var count=Number(selectedDice[button.dataset.die]||0);button.classList.toggle('selected',count>0);button.setAttribute('data-count',count>0?String(count):'');});
     var hint=el('zg-dice-hint');if(hint){var total=Object.keys(selectedDice).reduce(function(sum,key){return sum+Number(selectedDice[key]||0);},0);hint.textContent=total?('Выбрано кубиков: '+total+' · перетащите любой на сцену'):'Клик добавляет кубик · перетащите для броска';}
   }
-  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();}
+  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();}
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList){
     if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
