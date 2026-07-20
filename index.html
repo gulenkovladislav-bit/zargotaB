@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.37"></script>
+<script src="zargota-network.js?v=2026-07-20.38"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.37';
+var ZG_APP_VERSION = '2026-07-20.38';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.38', notes: 'Добавлены свободная камера игроков, меню «Обзор», кинематографический режим и полигональные зоны тумана и мест.' },
   { v: '2026-07-20.37', notes: 'Следы получили цельный приглушённый силуэт подошвы, перенесены под жетоны, а само перемещение стало заметно медленнее.' },
   { v: '2026-07-20.36', notes: 'Следы движения стали пылевыми и приглушёнными; левый и правый отпечатки теперь естественно чередуются вдоль шага.' },
   { v: '2026-07-20.35', notes: 'Золотистая дорожка движения получила новый детальный отпечаток походного сапога с протектором и каблуком.' },
@@ -10364,7 +10365,7 @@ document.addEventListener('DOMContentLoaded', function(){
 //   СЦЕНА VTT — мастер готовит черновик и публикует его всей комнате.
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
-  var DEFAULT_SCENE = { layers:[], tokens:[], grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false, snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
+  var DEFAULT_SCENE = { layers:[], tokens:[], regions:[], view:{fog:true,cinematic:false,minZoom:.6,maxZoom:2.2,panLimit:45}, grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false, snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
   var draft = copyScene(DEFAULT_SCENE);
   var dirty = false;
   var isMaster = false;
@@ -10383,6 +10384,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var lastMovementSeen = '';
   var lastMovementFeedback = '';
   var playerCameraFocus = null;
+  var zoneDrawing = null;
   // ── Правка фона на холсте (двигать мышью, масштаб колесом) ──
   var bgEdit = false, bgDrag = null;
   w.zgSceneBgEdit = function(){
@@ -10720,9 +10722,15 @@ document.addEventListener('DOMContentLoaded', function(){
     scene = scene || {};
     var layers = (Array.isArray(scene.layers) ? scene.layers : []).map(copyLayer).filter(function(layer){ return !!layer.image; });
     if (!layers.length && scene.background) layers.push(copyLayer({ id:'legacy-background', name:'Фон', image:scene.background },0));
+    var regions=(Array.isArray(scene.regions)?scene.regions:[]).slice(0,60).map(function(region,index){
+      return {id:String(region.id||('region-'+index)),name:String(region.name||'Зона').slice(0,80),kind:region.kind==='place'?'place':'fog',tooltip:String(region.tooltip||'').slice(0,180),visible:region.visible!==false,points:(Array.isArray(region.points)?region.points:[]).slice(0,32).map(function(point){return{x:clamp(point.x,0,100),y:clamp(point.y,0,100)};})};
+    }).filter(function(region){return region.points.length>=3;});
+    var view=scene.view||{};
     return {
       layers:layers,
       tokens:(Array.isArray(scene.tokens) ? scene.tokens : []).map(copyToken),
+      regions:regions,
+      view:{fog:view.fog!==false,cinematic:!!view.cinematic,minZoom:clamp(view.minZoom==null ? .6 : view.minZoom,.4,2),maxZoom:clamp(view.maxZoom==null ? 2.2 : view.maxZoom,.6,3),panLimit:clamp(view.panLimit==null ? 45 : view.panLimit,10,100)},
       grid: scene.grid !== false,
       gridSize: clamp(scene.gridSize || 64, 24, 160),
       boardWidth: clamp(scene.boardWidth || 32, 8, 80),
@@ -10810,6 +10818,10 @@ document.addEventListener('DOMContentLoaded', function(){
       wy = Math.floor((wy - oy) / cell) * cell + cell / 2 + oy;
     }
     return { x:clamp(wx / layer.offsetWidth * 100,0,100), y:clamp(wy / layer.offsetHeight * 100,0,100) };
+  }
+  function regionPoint(ev){
+    var layer=el('zg-vtt-token-layer');if(!layer)return null;var rect=layer.getBoundingClientRect();if(!rect.width||!rect.height)return null;
+    return{x:clamp((ev.clientX-rect.left)/rect.width*100,0,100),y:clamp((ev.clientY-rect.top)/rect.height*100,0,100)};
   }
   function setMovementMode(on){
     var session = roomSnapshot && roomSnapshot.session;
@@ -10932,9 +10944,53 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function applyCamera(){
     var world = el('zg-vtt-world'); if (!world) return;
+    var view=draft.view||DEFAULT_SCENE.view;
+    if(!isMaster&&!view.cinematic){
+      draft.zoom=clamp(draft.zoom,view.minZoom,Math.max(view.minZoom,view.maxZoom));
+      var maxX=Math.round(draft.boardWidth*draft.gridSize*draft.zoom*view.panLimit/100),maxY=Math.round(draft.boardHeight*draft.gridSize*draft.zoom*view.panLimit/100);
+      draft.x=clamp(draft.x,-maxX,maxX);draft.y=clamp(draft.y,-maxY,maxY);
+      playerCameraFocus={revision:Number(draft.revision||0),zoom:draft.zoom,x:draft.x,y:draft.y};
+    }
     var width=Math.round(draft.boardWidth*draft.gridSize),height=Math.round(draft.boardHeight*draft.gridSize);
     world.style.width=width+'px';world.style.height=height+'px';world.style.left='50%';world.style.top='50%';world.style.right='auto';world.style.bottom='auto';world.style.marginLeft=(-width/2)+'px';world.style.marginTop=(-height/2)+'px';
     world.style.transform = 'translate(' + draft.x + 'px,' + draft.y + 'px) scale(' + draft.zoom + ')';
+  }
+  function pointInPolygon(x,y,points){
+    var inside=false;
+    for(var i=0,j=points.length-1;i<points.length;j=i++){
+      var a=points[i],b=points[j];
+      if(((a.y>y)!==(b.y>y))&&(x<(b.x-a.x)*(y-a.y)/((b.y-a.y)||.00001)+a.x))inside=!inside;
+    }
+    return inside;
+  }
+  function ownHeroPoint(){
+    var uid=isMaster&&gmVision==='players'&&possessedUid?possessedUid:(roomSnapshot&&roomSnapshot.session&&roomSnapshot.session.uid);
+    var token=(draft.tokens||[]).filter(function(item){return item.type==='hero'&&item.memberUid===uid;})[0];
+    return token?{x:token.x,y:token.y}:null;
+  }
+  function regionConceals(region,hero){return region&&region.kind==='fog'&&region.visible!==false&&(draft.view||DEFAULT_SCENE.view).fog&&!(isMaster&&gmVision==='gm')&&!heroInside(region,hero);}
+  function heroInside(region,hero){return !!(hero&&pointInPolygon(hero.x,hero.y,region.points||[]));}
+  function tokenInClosedFog(token){
+    var hero=ownHeroPoint();
+    return (draft.regions||[]).some(function(region){return regionConceals(region,hero)&&pointInPolygon(token.x,token.y,region.points||[]);});
+  }
+  function renderRegions(){
+    var svg=el('zg-region-layer');if(!svg)return;
+    svg.innerHTML='';var hero=ownHeroPoint(),gm=isMaster&&gmVision==='gm';
+    (draft.regions||[]).forEach(function(region){
+      if(region.visible===false||!region.points.length)return;
+      if(region.kind==='fog'&&!(draft.view||DEFAULT_SCENE.view).fog&&!gm)return;
+      var p=document.createElementNS('http://www.w3.org/2000/svg','polygon');
+      p.setAttribute('points',region.points.map(function(pt){return pt.x+','+pt.y;}).join(' '));
+      p.setAttribute('vector-effect','non-scaling-stroke');
+      p.setAttribute('class','zg-region '+region.kind+(gm?' gm':'')+(heroInside(region,hero)?' revealed':''));
+      if(region.kind==='place'){var title=document.createElementNS('http://www.w3.org/2000/svg','title');title.textContent=region.tooltip||region.name;p.appendChild(title);}
+      svg.appendChild(p);
+    });
+    if(zoneDrawing&&zoneDrawing.points.length){
+      var line=document.createElementNS('http://www.w3.org/2000/svg','polyline');line.setAttribute('points',zoneDrawing.points.map(function(pt){return pt.x+','+pt.y;}).join(' '));line.setAttribute('class','zg-region-drawing');line.setAttribute('vector-effect','non-scaling-stroke');svg.appendChild(line);
+    }
+    renderOverviewZones();
   }
   function renderBackgrounds(){
     var bg = el('zg-vtt-backdrop'); if (!bg) return;
@@ -11046,6 +11102,7 @@ document.addEventListener('DOMContentLoaded', function(){
     draft.tokens.slice().sort(function(a,b){ return a.z-b.z; }).forEach(function(token){
       if (!token.visible) return;
       if (token.hidden && !viewerGm) return;                 // скрытый жетон: игрокам и в «виде игроков» не показываем
+      if (!viewerGm && token.type!=='hero' && tokenInClosedFog(token)) return;
       var node = document.createElement('button');
       var marker = isMarkerType(token.type) || token.type === 'note';
       var isText = token.type === 'text';
@@ -11122,7 +11179,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var oyc = el('zg-scene-oy'); if (oyc){ oyc.value = draft.gridOy||0; var o2=el('zg-scene-oy-out'); if(o2)o2.textContent=Math.round(draft.gridOy||0); }
     var sizeOut = el('zg-scene-size-out'); if (sizeOut) sizeOut.textContent = Math.round(draft.gridSize) + ' px';
     var zoomOut = el('zg-scene-zoom-out'); if (zoomOut) zoomOut.textContent = Math.round(draft.zoom * 100) + '%';
-    renderLayerList(); syncLayerEditor(); renderTokenList(); syncTokenEditor(); renderLibs(); renderScenes();
+    renderLayerList(); syncLayerEditor(); renderTokenList(); syncTokenEditor(); renderLibs(); renderScenes(); syncOverview();
   }
   function renderLayerList(){
     var host = el('zg-scene-layer-list'); if (!host) return; host.innerHTML = '';
@@ -11205,7 +11262,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function applyScene(){
     var grid = el('zg-vtt-grid');
     var sc = el('zg-vtt-scene'); if (sc) sc.classList.toggle('nested', draft.mode === 'nested');
-    applyCamera(); renderBackgrounds(); renderTokens();
+    applyCamera(); renderBackgrounds(); renderRegions(); renderTokens();
     if (grid) {
       grid.style.display = draft.grid ? 'block' : 'none';
       grid.style.backgroundSize = draft.gridSize + 'px ' + draft.gridSize + 'px';
@@ -11509,6 +11566,18 @@ document.addEventListener('DOMContentLoaded', function(){
       setStatus(err.message || 'Не удалось показать сцену');
     }).then(function(){ if (button) button.disabled = false; });
   };
+  function renderOverviewZones(){
+    var list=el('zg-overview-zones');if(!list)return;
+    list.innerHTML='';(draft.regions||[]).forEach(function(region){var row=document.createElement('div');row.className='zg-overview-zone';var icon=document.createElement('span');icon.textContent=region.kind==='fog'?'◉':'⌂';var input=document.createElement('input');input.value=region.name;input.maxLength=80;input.title=region.kind==='place'?'Это название увидит игрок при наведении':'Название зоны для мастера';input.onchange=function(){region.name=String(input.value||'Зона').slice(0,80);if(region.kind==='place')region.tooltip=region.name;markDirty('Зона переименована');};var remove=document.createElement('button');remove.type='button';remove.title='Удалить';remove.textContent='×';remove.onclick=function(){if(!isMaster)return;draft.regions=draft.regions.filter(function(item){return item.id!==region.id;});markDirty('Зона удалена');};row.appendChild(icon);row.appendChild(input);row.appendChild(remove);list.appendChild(row);});
+    if(!(draft.regions||[]).length)list.innerHTML='<small>Зон пока нет</small>';
+  }
+  w.zgOverviewToggle=function(ev){if(ev)ev.stopPropagation();if(!isMaster)return;var p=el('zg-overview-panel');if(p)p.classList.toggle('open');syncOverview();};
+  function syncOverview(){var v=draft.view||DEFAULT_SCENE.view;[['zg-view-fog','checked',v.fog],['zg-view-cinematic','checked',v.cinematic],['zg-view-min','value',v.minZoom],['zg-view-max','value',v.maxZoom],['zg-view-pan','value',v.panLimit]].forEach(function(item){var n=el(item[0]);if(n)n[item[1]]=item[2];});var a=el('zg-view-min-out'),b=el('zg-view-max-out'),c=el('zg-view-pan-out');if(a)a.textContent=Math.round(v.minZoom*100)+'%';if(b)b.textContent=Math.round(v.maxZoom*100)+'%';if(c)c.textContent=v.panLimit+'%';renderOverviewZones();}
+  w.zgOverviewControl=function(){if(!isMaster)return;var v=draft.view||(draft.view=copyScene(DEFAULT_SCENE).view);v.fog=el('zg-view-fog').checked;v.cinematic=el('zg-view-cinematic').checked;v.minZoom=clamp(el('zg-view-min').value,.4,2);v.maxZoom=clamp(el('zg-view-max').value,Math.max(.6,v.minZoom),3);v.panLimit=clamp(el('zg-view-pan').value,10,100);syncOverview();markDirty('Обзор настроен');};
+  w.zgOverviewPublish=function(){var p=el('zg-overview-panel');if(p)p.classList.remove('open');w.zgScenePublish();};
+  w.zgRegionStart=function(kind){if(!isMaster)return;if((draft.regions||[]).length>=60){sceneNotice('На сцене уже 60 зон','error');return;}zoneDrawing={kind:kind==='place'?'place':'fog',points:[]};var p=el('zg-overview-panel');if(p)p.classList.remove('open');var sc=el('zg-vtt-scene');if(sc)sc.classList.add('region-mode');setStatus('Ставьте точки зоны · двойной клик завершит · Esc отменит');renderRegions();};
+  function finishRegion(){if(!zoneDrawing)return;if(zoneDrawing.points.length>=3){var kind=zoneDrawing.kind;draft.regions.push({id:makeId('region'),kind:kind,name:kind==='fog'?'Зона тумана':'Место',tooltip:kind==='place'?'Интересное место':'',visible:true,points:zoneDrawing.points.slice(0,32)});zoneDrawing=null;var sc=el('zg-vtt-scene');if(sc)sc.classList.remove('region-mode');markDirty('Зона добавлена');syncOverview();}else cancelRegion();}
+  function cancelRegion(){zoneDrawing=null;var sc=el('zg-vtt-scene');if(sc)sc.classList.remove('region-mode');setStatus('Создание зоны отменено');renderRegions();}
 
   w.zgStartPlayers = function(){
     if (launchBusy || !isMaster || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
@@ -11544,6 +11613,7 @@ document.addEventListener('DOMContentLoaded', function(){
       });
       scene.addEventListener('pointerleave', function(){ var preview=el('zg-move-preview'); if(preview)preview.style.display=''; });
       scene.addEventListener('click', function(ev){
+        if(zoneDrawing){ev.preventDefault();ev.stopPropagation();if(ev.detail>1)return;var point=regionPoint(ev);if(!point)return;if(zoneDrawing.points.length<32)zoneDrawing.points.push(point);renderRegions();return;}
         if (!movementMode || ev.button !== 0 || (ev.target.closest && ev.target.closest('.zg-vtt-token'))) return;
         var point = movementPoint(ev); if (!point) return;
         ev.preventDefault(); ev.stopPropagation();
@@ -11595,7 +11665,9 @@ document.addEventListener('DOMContentLoaded', function(){
       scene.addEventListener('pointerup', endRubber);
       scene.addEventListener('pointercancel', endRubber);
       scene.addEventListener('pointerdown', function(ev){
-        if (!isMaster || movementMode || ev.button !== 0 || ev.shiftKey || (ev.target.closest&&ev.target.closest('.zg-vtt-token'))) return;
+        var cinematic=(draft.view||DEFAULT_SCENE.view).cinematic;
+        if (movementMode || zoneDrawing || ev.button !== 0 || ev.shiftKey || (ev.target.closest&&ev.target.closest('.zg-vtt-token'))) return;
+        if(!isMaster&&cinematic)return;
         if (bgEdit) {                                   // правка фона: тянем выбранный слой
           var L = currentLayer();
           if (L && !L.locked) {
@@ -11605,7 +11677,7 @@ document.addEventListener('DOMContentLoaded', function(){
           } else setStatus(L ? 'Слой заблокирован 🔒' : 'Сначала выбери слой в списке «Фоновые слои»');
           return;
         }
-        drag = { px:ev.clientX, py:ev.clientY, x:draft.x, y:draft.y, id:ev.pointerId };
+        drag = { px:ev.clientX, py:ev.clientY, x:draft.x, y:draft.y, id:ev.pointerId, local:!isMaster };
         scene.classList.add('dragging');
         try { scene.setPointerCapture(ev.pointerId); } catch(e) {}
       });
@@ -11623,7 +11695,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if (!drag || drag.id !== ev.pointerId) return;
         draft.x = clamp(drag.x + ev.clientX - drag.px, -2000, 2000);
         draft.y = clamp(drag.y + ev.clientY - drag.py, -2000, 2000);
-        dirty=true;setStatus('Черновик · камера');applyCamera();
+        if(isMaster){dirty=true;setStatus('Черновик · камера');}applyCamera();
       });
       function endDrag(ev){
         if (bgDrag && (!ev || bgDrag.id === ev.pointerId)) { bgDrag = null; scene.classList.remove('dragging'); markDirty('Фон сдвинут'); syncLayerEditor(); return; }
@@ -11632,9 +11704,9 @@ document.addEventListener('DOMContentLoaded', function(){
       scene.addEventListener('pointerup', endDrag);
       scene.addEventListener('pointercancel', endDrag);
       scene.addEventListener('wheel', function(ev){
-        if (!isMaster) return;
+        var cinematic=(draft.view||DEFAULT_SCENE.view).cinematic;if(!isMaster&&cinematic)return;
         ev.preventDefault();
-        if (bgEdit) {                                   // правка фона: колесо = масштаб слоя
+        if (isMaster&&bgEdit) {                                   // правка фона: колесо = масштаб слоя
           var L = currentLayer();
           if (L && !L.locked) {
             L.scale = clamp(L.scale + (ev.deltaY < 0 ? .05 : -.05), .5, 3);
@@ -11643,12 +11715,14 @@ document.addEventListener('DOMContentLoaded', function(){
           }
           return;
         }
-        draft.zoom = clamp(draft.zoom + (ev.deltaY < 0 ? .05 : -.05), .5, 2.5);
-        dirty=true;setStatus('Черновик · камера');applyCamera();var zoom=el('zg-scene-zoom');if(zoom)zoom.value=draft.zoom;var out=el('zg-scene-zoom-out');if(out)out.textContent=Math.round(draft.zoom*100)+'%';
+        var view=draft.view||DEFAULT_SCENE.view;draft.zoom = clamp(draft.zoom + (ev.deltaY < 0 ? .08 : -.08),isMaster ? .5 : view.minZoom,isMaster ? 2.5 : view.maxZoom);
+        if(isMaster){dirty=true;setStatus('Черновик · камера');}applyCamera();var zoom=el('zg-scene-zoom');if(zoom&&isMaster)zoom.value=draft.zoom;var out=el('zg-scene-zoom-out');if(out&&isMaster)out.textContent=Math.round(draft.zoom*100)+'%';
       }, { passive:false });
+      scene.addEventListener('dblclick',function(ev){if(zoneDrawing){ev.preventDefault();ev.stopPropagation();finishRegion();}},true);
     }
     if (w.ZargotaRooms) w.ZargotaRooms.subscribe(roomState);
     document.addEventListener('click', function(ev){
+      var overview=el('zg-overview-panel');if(overview&&overview.classList.contains('open')&&!overview.contains(ev.target)&&!(ev.target.closest&&ev.target.closest('.zg-overview-button')))overview.classList.remove('open');
       var panel = el('zg-scene-settings');
       if (!panel || !panel.classList.contains('open') || panel.contains(ev.target)) return;
       if (ev.target.closest && ev.target.closest('.zg-scene-gear')) return;
@@ -13210,6 +13284,7 @@ function zgShouldPreferCollection(current, incoming, mediaFields) {
     var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
     if (key) currentIds[key] = true;
   });
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&zoneDrawing){ev.preventDefault();cancelRegion();}});
   return incoming.some(function(item) {
     if (!item) return false;
     var key = item.id !== undefined ? String(item.id) : (item.key !== undefined ? String(item.key) : '');
@@ -15636,6 +15711,13 @@ window.zgImageStore = (function() {
   .zg-start-players:disabled{opacity:.58;cursor:wait}
   .zg-scene-publish:hover{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 18px #c8993c33}
   .zg-scene-publish:disabled{opacity:.45;cursor:wait}
+  .zg-overview-button{padding:0 13px;min-width:82px}
+  .zg-overview-panel{display:none;position:absolute;right:120px;top:66px;z-index:18;width:310px;padding:14px;border:1px solid #745824;border-radius:8px;background:linear-gradient(180deg,rgba(20,15,9,.98),rgba(8,7,5,.98));box-shadow:0 22px 70px #000d;color:#bda978}
+  .zg-overview-panel.open{display:block;animation:zgPopIn .2s ease}
+  .zg-overview-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:7px;border-bottom:1px solid #352915;font:12px 'Cinzel',serif;color:#e5cb82}.zg-overview-head button{border:0;background:transparent;color:#8d7951;font-size:20px;cursor:pointer}
+  .zg-overview-switch{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;font-size:11px}.zg-overview-range{display:block;padding:7px 2px;font-size:10px}.zg-overview-range span{display:flex;justify-content:space-between;margin-bottom:5px}.zg-overview-range input{width:100%;accent-color:#b88c35}.zg-overview-range output{color:#e1bf66}
+  .zg-overview-zone-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}.zg-overview-zone-actions button,.zg-overview-publish{height:34px;border:1px solid #5a421d;border-radius:5px;background:#171006;color:#c9ad6b;font:10px 'Cinzel',serif;cursor:pointer}.zg-overview-publish{width:100%;margin-top:10px;border-color:#a17b31;background:#2a1d0b;color:#efd58f}
+  .zg-overview-zones{max-height:130px;overflow:auto;border-top:1px solid #2d2315}.zg-overview-zone{display:grid;grid-template-columns:18px 1fr 24px;align-items:center;padding:5px 2px;border-bottom:1px solid #241c11;font-size:10px}.zg-overview-zone input{min-width:0;height:26px;border:0;background:transparent;color:#bda978;font:10px 'Cinzel',serif;outline:none}.zg-overview-zone input:focus{color:#efd58f;border-bottom:1px solid #725522}.zg-overview-zone button{border:0;background:transparent;color:#8d634e;cursor:pointer}.zg-overview-zones small{display:block;padding:9px 2px;color:#655942}
   .zg-scene-status{min-height:15px;text-align:center;color:#79694c;font-size:11px}
   /* вкладки панели сцены */
   .zg-scene-tabs{display:flex;gap:4px;margin:0 0 12px;flex-wrap:wrap}
@@ -15658,6 +15740,10 @@ window.zgImageStore = (function() {
   .zg-vtt-grid{position:absolute;inset:0;opacity:.34;background-image:linear-gradient(to right,rgba(202,178,112,.28) 1px,transparent 1px),linear-gradient(to bottom,rgba(202,178,112,.28) 1px,transparent 1px)}
   /* ── Жетоны на карте: круглые аватарки с кольцом по типу ── */
   .zg-vtt-token-layer{position:absolute;inset:0;z-index:2}
+  .zg-region-layer{position:absolute;inset:0;width:100%;height:100%;z-index:5;overflow:visible;pointer-events:none}
+  .zg-region{stroke-width:.22;transition:opacity .45s ease}.zg-region.fog{fill:rgba(18,22,22,.76);stroke:rgba(151,166,158,.42);filter:drop-shadow(0 0 1.5px rgba(150,165,160,.45))}.zg-region.fog.gm{fill:rgba(90,108,104,.18);stroke:#8fa69b;stroke-dasharray:1 1}.zg-region.fog.revealed{opacity:.08}.zg-region.place{fill:rgba(194,151,58,.035);stroke:rgba(205,167,78,.25);pointer-events:auto;cursor:help}.zg-region.place:hover{fill:rgba(194,151,58,.12);stroke:#d0aa58}
+  .zg-region-drawing{fill:rgba(204,164,72,.1);stroke:#ebc461;stroke-width:.35;stroke-dasharray:1.2 .8}
+  .zg-vtt-scene.region-mode{cursor:crosshair}
   .zg-footprint-layer{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:visible}
   .zg-move-layer{position:absolute;inset:0;z-index:30;pointer-events:none;overflow:visible}
   .zg-move-marker,.zg-move-preview{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#f0d58a;font-size:27px;background:radial-gradient(circle,#38270dcc 0%,#171006b8 58%,transparent 72%);filter:drop-shadow(0 5px 8px #000b);animation:zgMoveMarkerPulse 1.6s ease-in-out infinite}
@@ -16090,8 +16176,19 @@ window.zgImageStore = (function() {
     <button type="button" class="zg-scene-gear" id="zg-scene-gear" onclick="zgSceneSettings(event)" title="Настройка сцены" aria-label="Настройка сцены">🗺</button>
     <div class="zg-gm-actions" id="zg-gm-actions">
       <button type="button" class="zg-vision-gear" id="zg-vision-gear" onclick="zgSceneToggleVision(event)" title="Вид: мастер / игроки" aria-label="Переключить вид">👁 <span>Вид мастера</span></button>
-      <button type="button" class="zg-scene-publish" id="zg-scene-publish" onclick="zgScenePublish()" title="Опубликовать сцену всем игрокам">Показать игрокам</button>
+      <button type="button" class="zg-scene-publish zg-overview-button" id="zg-scene-publish" onclick="zgOverviewToggle(event)" title="Камера, видимость и показ сцены">Обзор</button>
       <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgStartPlayers()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
+    </div>
+    <div class="zg-overview-panel" id="zg-overview-panel">
+      <div class="zg-overview-head"><b>Обзор игроков</b><button type="button" onclick="zgOverviewToggle(event)" aria-label="Закрыть">×</button></div>
+      <label class="zg-overview-switch"><span>Туман зон</span><input id="zg-view-fog" type="checkbox" onchange="zgOverviewControl()"></label>
+      <label class="zg-overview-switch"><span>Кинематографический режим</span><input id="zg-view-cinematic" type="checkbox" onchange="zgOverviewControl()"></label>
+      <label class="zg-overview-range"><span>Минимальное приближение <output id="zg-view-min-out"></output></span><input id="zg-view-min" type="range" min="0.4" max="2" step="0.1" oninput="zgOverviewControl()"></label>
+      <label class="zg-overview-range"><span>Максимальное приближение <output id="zg-view-max-out"></output></span><input id="zg-view-max" type="range" min="0.6" max="3" step="0.1" oninput="zgOverviewControl()"></label>
+      <label class="zg-overview-range"><span>Свобода движения камеры <output id="zg-view-pan-out"></output></span><input id="zg-view-pan" type="range" min="10" max="100" step="5" oninput="zgOverviewControl()"></label>
+      <div class="zg-overview-zone-actions"><button type="button" onclick="zgRegionStart('fog')">＋ Туман</button><button type="button" onclick="zgRegionStart('place')">＋ Место</button></div>
+      <div class="zg-overview-zones" id="zg-overview-zones"></div>
+      <button type="button" class="zg-overview-publish" onclick="zgOverviewPublish()">Показать игрокам</button>
     </div>
     <div class="zg-scene-quick" id="zg-scene-quick"><span class="zg-scene-quick-title">Сцены</span><div class="zg-scene-quick-list" id="zg-scene-quick-list"></div><span class="zg-scene-dirty" id="zg-scene-dirty"><i></i> Сохранено</span><button type="button" class="zg-scene-quick-save" id="zg-scene-quick-save" onclick="zgSceneSave(false)" title="Сохранить изменения" disabled>💾</button><button type="button" class="zg-scene-quick-add" onclick="zgSceneDrawerToggle(true)" title="Открыть библиотеку сцен">＋</button></div>
     <div class="zg-game-settings" id="zg-game-settings">
@@ -16104,6 +16201,7 @@ window.zgImageStore = (function() {
         <div class="zg-vtt-grid" id="zg-vtt-grid"></div>
         <div class="zg-footprint-layer" id="zg-footprint-layer" aria-hidden="true"></div>
         <div class="zg-vtt-token-layer" id="zg-vtt-token-layer"></div>
+        <svg class="zg-region-layer" id="zg-region-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Зоны сцены"></svg>
         <div class="zg-move-layer" id="zg-move-layer"><div class="zg-move-preview" id="zg-move-preview" aria-hidden="true">🥾</div></div>
       </div>
       <svg class="zg-measure" id="zg-measure" xmlns="http://www.w3.org/2000/svg"></svg>
