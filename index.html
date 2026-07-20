@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.38';
+var ZG_APP_VERSION = '2026-07-20.39';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.39', notes: 'Следы движения стали заметнее и теперь правильно чередуют левую и правую подошву.' },
   { v: '2026-07-20.38', notes: 'Добавлены свободная камера игроков, меню «Обзор», кинематографический режим и полигональные зоны тумана и мест.' },
   { v: '2026-07-20.37', notes: 'Следы получили цельный приглушённый силуэт подошвы, перенесены под жетоны, а само перемещение стало заметно медленнее.' },
   { v: '2026-07-20.36', notes: 'Следы движения стали пылевыми и приглушёнными; левый и правый отпечатки теперь естественно чередуются вдоль шага.' },
@@ -15755,10 +15756,11 @@ window.zgImageStore = (function() {
   .zg-vtt-scene.move-mode{cursor:crosshair}
   .zg-vtt-scene.move-mode .zg-move-preview{display:flex}
   @keyframes zgMoveMarkerPulse{0%,100%{transform:translate(-50%,-50%) scale(.94);opacity:.72}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
-  .zg-move-footprint{position:absolute;z-index:1;width:17px;height:34px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 3px #b8955055);animation:zgFootprintTrail 2.15s ease-out var(--foot-delay,0ms) both}
-  .zg-move-footprint i{position:absolute;inset:0;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:saturate(.48) brightness(.72);opacity:.78}
+  .zg-move-footprint{position:absolute;z-index:1;width:17px;height:34px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 5px #c6a45b88);animation:zgFootprintTrail 2.15s ease-out var(--foot-delay,0ms) both}
+  .zg-move-footprint i{position:absolute;inset:0;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:saturate(.72) brightness(1.08) contrast(1.08);opacity:.94;transform-origin:center}
+  .zg-move-footprint.right i{transform:scaleX(-1)}
   .zg-move-footprint::after{content:'';position:absolute;left:50%;top:52%;width:2px;height:2px;border-radius:50%;background:#d0b477;box-shadow:-9px -4px 0 #9f895e99,8px 6px 0 #b39a6c88,5px -10px 0 #8f7b5888;opacity:.48}
-  @keyframes zgFootprintTrail{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.45)}18%,62%{opacity:.9;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.9)}}
+  @keyframes zgFootprintTrail{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.45)}18%,68%{opacity:1;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.9)}}
   .zg-move-requests{position:absolute;z-index:8;right:78px;top:134px;width:290px;display:none;flex-direction:column;gap:8px;padding:10px;border:1px solid #594521;border-radius:7px;background:linear-gradient(180deg,rgba(17,14,9,.96),rgba(8,9,9,.95));box-shadow:0 18px 45px #000c;backdrop-filter:blur(9px)}
   .zg-move-requests.open{display:flex}
   .zg-move-requests-title{padding:2px 4px 7px;border-bottom:1px solid #352916;color:#cdb270;font:600 11px/1.2 'Cinzel',serif;letter-spacing:.6px}
