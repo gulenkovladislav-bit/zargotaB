@@ -249,7 +249,7 @@
       };
     });
     var regions = (Array.isArray(scene.regions) ? scene.regions : []).slice(0, 60).map(function(region,index){
-      return {id:String(region.id||('region-'+index)).slice(0,100),name:String(region.name||'Зона').slice(0,80),kind:region.kind==='place'?'place':'fog',tooltip:String(region.tooltip||'').slice(0,180),visible:region.visible!==false,points:(Array.isArray(region.points)?region.points:[]).slice(0,32).map(function(point){return{x:Math.max(0,Math.min(100,Number(point.x)||0)),y:Math.max(0,Math.min(100,Number(point.y)||0))};})};
+      return {id:String(region.id||('region-'+index)).slice(0,100),name:String(region.name||'Зона').slice(0,80),kind:region.kind==='place'?'place':'fog',shape:['polygon','rect','circle'].indexOf(region.shape)>=0?region.shape:'polygon',tooltip:String(region.tooltip||'').slice(0,180),opacity:Math.max(.08,Math.min(.95,Number(region.opacity==null ? .76 : region.opacity))),visible:region.visible!==false,points:(Array.isArray(region.points)?region.points:[]).slice(0,32).map(function(point){return{x:Math.max(0,Math.min(100,Number(point.x)||0)),y:Math.max(0,Math.min(100,Number(point.y)||0))};})};
     }).filter(function(region){return region.points.length>=3;});
     var view=scene.view||{};
     var mediaSize = layers.reduce(function (sum, layer) { return sum + layer.image.length; }, 0) +
@@ -569,6 +569,29 @@
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found','scene-too-large'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    cueCamera: function (x, y, zoom) {
+      x = Math.max(0, Math.min(100, Number(x) || 0));
+      y = Math.max(0, Math.min(100, Number(y) || 0));
+      zoom = Math.max(0.4, Math.min(3, Number(zoom) || 1));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Направлять обзор может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/cameraCue'), {
+            id: 'camera-' + now() + '-' + Math.random().toString(36).slice(2, 7),
+            x: x, y: y, zoom: zoom, createdAt: firebase.serverTimestamp()
+          }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
