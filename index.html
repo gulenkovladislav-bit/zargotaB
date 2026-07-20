@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.28"></script>
+<script src="zargota-network.js?v=2026-07-20.29"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.28';
+var ZG_APP_VERSION = '2026-07-20.29';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.29', notes: 'Запуск игроков больше не требует обязательного фонового изображения: выбранная сцена или чистая сетка считаются готовыми.' },
   { v: '2026-07-20.28', notes: 'Верхняя мастерская панель больше не перекрывает управление; переключение и сохранение сцен защищены от потери данных.' },
   { v: '2026-07-20.27', notes: 'Центральная библиотека сцен получила поиск, альбомы, точный drag-and-drop, индикатор изменений и безопасный выход с сохранением.' },
   { v: '2026-07-20.26', notes: 'Исправлены неработающие кнопки разрешения и отклонения запросов движения.' },
@@ -11459,12 +11460,6 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgStartPlayers = function(){
     if (launchBusy || !isMaster || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
     var button = el('zg-start-players');
-    if (!draft.layers || !draft.layers.length) {
-      setStatus('Сначала выберите сцену или добавьте фон');
-      if (w.showToast) w.showToast('Сначала подготовьте сцену.');
-      sceneNotice('Сначала выберите сцену или добавьте фоновое изображение.','error');
-      return;
-    }
     ensureHeroTokens(roomSnapshot);
     launchBusy = true;
     if (button) { button.disabled = true; button.textContent = 'Запускаем…'; }
