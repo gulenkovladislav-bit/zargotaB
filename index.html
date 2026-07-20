@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.34"></script>
+<script src="zargota-network.js?v=2026-07-20.35"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.34';
+var ZG_APP_VERSION = '2026-07-20.35';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.35', notes: 'Золотистая дорожка движения получила новый детальный отпечаток походного сапога с протектором и каблуком.' },
   { v: '2026-07-20.34', notes: 'Измерения перенесены в «Действия»; одобренное движение сопровождается походкой жетона и затухающей золотистой дорожкой следов.' },
   { v: '2026-07-20.33', notes: 'd20 выбирается только один раз; при преимуществе и помехе победивший кубик останавливается по центру; сетевые действия больше не перезапускают входной туман.' },
   { v: '2026-07-20.32', notes: 'Повторное движение героя снова доступно после решения мастера: завершённый запрос корректно очищается вместе с локальным режимом.' },
@@ -15663,10 +15664,9 @@ window.zgImageStore = (function() {
   .zg-vtt-scene.move-mode{cursor:crosshair}
   .zg-vtt-scene.move-mode .zg-move-preview{display:flex}
   @keyframes zgMoveMarkerPulse{0%,100%{transform:translate(-50%,-50%) scale(.94);opacity:.72}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
-  .zg-move-footprint{position:absolute;z-index:1;width:25px;height:32px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 5px #e8bc58aa);animation:zgFootprintTrail 1.55s ease-out var(--foot-delay,0ms) both}
-  .zg-move-footprint i{position:absolute;width:7px;height:13px;border:1px solid #d3a94f;border-radius:55% 55% 45% 45%;background:linear-gradient(180deg,#ffe39abd,#9c6e20a8);box-shadow:inset 0 -3px 4px #51310c,0 0 7px #d9a83f66;transform:rotate(-10deg)}
-  .zg-move-footprint i::before{content:'';position:absolute;left:1px;top:-5px;width:3px;height:5px;border-radius:50%;background:#e8c16b;box-shadow:-3px 1px 0 -1px #e8c16b,3px 1px 0 -1px #e8c16b}
-  .zg-move-footprint i:first-child{left:2px;top:13px}.zg-move-footprint i:last-child{right:2px;top:1px;transform:rotate(10deg)}
+  .zg-move-footprint{position:absolute;z-index:1;width:27px;height:38px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 4px #e8bc5899);animation:zgFootprintTrail 1.55s ease-out var(--foot-delay,0ms) both}
+  .zg-move-footprint i{position:absolute;width:10px;height:25px;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:sepia(.08) brightness(1.08);transform:rotate(-7deg)}
+  .zg-move-footprint i:first-child{left:2px;top:12px}.zg-move-footprint i:last-child{right:2px;top:0;transform:rotate(7deg)}
   @keyframes zgFootprintTrail{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.45)}18%,62%{opacity:.9;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.9)}}
   .zg-move-requests{position:absolute;z-index:8;right:78px;top:134px;width:290px;display:none;flex-direction:column;gap:8px;padding:10px;border:1px solid #594521;border-radius:7px;background:linear-gradient(180deg,rgba(17,14,9,.96),rgba(8,9,9,.95));box-shadow:0 18px 45px #000c;backdrop-filter:blur(9px)}
   .zg-move-requests.open{display:flex}
