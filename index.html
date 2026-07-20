@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.15"></script>
+<script src="zargota-network.js?v=2026-07-20.16"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.15';
+var ZG_APP_VERSION = '2026-07-20.16';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.16', notes: 'Одиночный бросок без характеристики больше не дублирует число; формула итога появляется только при модификаторе.' },
   { v: '2026-07-20.15', notes: 'Для d20 добавлены преимущество и помеха с двумя кубиками, столкновением и выбором итогового результата.' },
   { v: '2026-07-20.14', notes: 'Анимация итога работает и для одиночных бросков; критические записи получили цвет, формулировки бросков упрощены.' },
   { v: '2026-07-20.13', notes: 'Звук результата синхронизирован с остановкой кубика, критические исходы дольше остаются над жетоном.' },
@@ -11572,7 +11573,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var number=die.querySelector('b'),label=die.querySelector('em'),lastPreview=0;
         function nextPreview(){var next=Math.floor(Math.random()*sides)+1;if(sides>2&&next===lastPreview)next=next%sides+1;lastPreview=next;number.textContent=String(next);}
         nextPreview();var ticker=setInterval(nextPreview,135+(index%5)*19);
-        setTimeout(function(){clearInterval(ticker);number.textContent=String(item.rollMode?item.value:(item.total==null?item.value:item.total));die.classList.add('landed');
+        setTimeout(function(){clearInterval(ticker);number.textContent=String(item.rollMode||item.statLabel?item.value:(item.total==null?item.value:item.total));die.classList.add('landed');
           if(item.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
           else if(item.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
           else if(item.statLabel){label.textContent=item.statLabel;}
@@ -11581,7 +11582,8 @@ document.addEventListener('DOMContentLoaded', function(){
         setTimeout(function(){if(die.parentNode)die.remove();},item.outcome?5400:(item.rollMode?4600:3400));
       });
       var contestRoll=rolls.find(function(item){return item.kept===true;}),isContest=!!contestRoll;
-      var showTotal=isContest?Number(contestRoll.value)!==1:(rolls.length>1||(rolls.length===1&&Number(rolls[0].value)!==1));
+      var singleModifier=rolls.length===1?Number(rolls[0].total==null?rolls[0].value:rolls[0].total)-Number(rolls[0].value||0):0;
+      var showTotal=isContest?Number(contestRoll.value)!==1:(rolls.length>1||(rolls.length===1&&Number(rolls[0].value)!==1&&singleModifier!==0));
       if(showTotal&&!host.querySelector('[data-roll-total="'+String(roll.id).replace(/"/g,'')+'"]')){
         var total=isContest?Number(contestRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total==null?item.value:item.total||0);},0);
         var values=rolls.map(function(item){return Number(item.total==null?item.value:item.total||0);}),expression;
@@ -11911,7 +11913,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var keptRoll=contested?rolls.find(function(item){return item.kept;}):null;
     var grandTotal=contested?Number(keptRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
     var actionText=contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ';
-    setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(actionText+parts.join(' · ')+((contested?keptRoll.value!==1:(rolls.length>1||rolls[0].value!==1))?' · Итого = '+grandTotal:''),speaker);},contested?3300:2600);
+    var hasSingleModifier=rolls.length===1&&Number(rolls[0].total||0)!==Number(rolls[0].value||0);
+    setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(actionText+parts.join(' · ')+((contested?keptRoll.value!==1:(rolls.length>1||hasSingleModifier))?' · Итого = '+grandTotal:''),speaker);},contested?3300:2600);
     clearSelectedDice();w.zgDiceClose();
   }
   function dragMove(ev){
