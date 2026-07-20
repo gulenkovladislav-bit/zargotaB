@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.39';
+var ZG_APP_VERSION = '2026-07-20.40';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.40', notes: 'Сцены больше не сохраняют личности игроков: вместо них хранятся места появления, которые занимают текущие участники комнаты.' },
   { v: '2026-07-20.39', notes: 'Следы движения стали заметнее и теперь правильно чередуют левую и правую подошву.' },
   { v: '2026-07-20.38', notes: 'Добавлены свободная камера игроков, меню «Обзор», кинематографический режим и полигональные зоны тумана и мест.' },
   { v: '2026-07-20.37', notes: 'Следы получили цельный приглушённый силуэт подошвы, перенесены под жетоны, а само перемещение стало заметно медленнее.' },
@@ -10587,6 +10588,25 @@ document.addEventListener('DOMContentLoaded', function(){
     w.ZargotaLib.list('scene',function(items){var from=items.findIndex(function(r){return r.id===sourceId;}),to=items.findIndex(function(r){return r.id===targetId;});if(from<0||to<0)return;var moved=items.splice(from,1)[0];if(from<to)to--;if(after)to++;items.splice(Math.max(0,Math.min(items.length,to)),0,moved);var pending=items.length;items.forEach(function(r,index){r.order=index;w.ZargotaLib.put(r,function(){pending--;if(!pending)renderScenes();});});});
   };
   w.zgSceneDrawerPick=function(id){ w.zgSceneLoad(id); w.zgSceneDrawerToggle(false); };
+  function isHeroSlot(token){return !!(token&&token.type==='spawn'&&/^Место героя(?:\s|$)/.test(token.name||''));}
+  function sceneForLibrary(scene){
+    var stored=copyScene(scene),heroes=stored.tokens.filter(function(token){return token.type==='hero';}),oldSlots=stored.tokens.filter(isHeroSlot).sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});});
+    stored.tokens=stored.tokens.filter(function(token){return token.type!=='hero'&&!isHeroSlot(token);});
+    var slotCount=Math.max(heroes.length,oldSlots.length);
+    for(var index=0;index<slotCount;index++){
+      var source=heroes[index]||oldSlots[index];
+      stored.tokens.push(copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:'Место героя '+(index+1),x:source.x,y:source.y,size:Math.max(30,Math.min(54,(source.size||48)*(heroes[index] ? .62 : 1))),visible:true,hidden:true,locked:true,z:index+3},stored.tokens.length));
+    }
+    return stored;
+  }
+  function migrateLoadedHeroes(scene){
+    var loaded=copyScene(scene),legacy=loaded.tokens.filter(function(token){return token.type==='hero';});
+    if(legacy.length&&!loaded.tokens.some(isHeroSlot)){
+      legacy.forEach(function(hero,index){loaded.tokens.push(copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:'Место героя '+(index+1),x:hero.x,y:hero.y,size:Math.max(30,Math.min(54,hero.size*.62)),visible:true,hidden:true,locked:true,z:index+3},loaded.tokens.length));});
+    }
+    loaded.tokens=loaded.tokens.filter(function(token){return token.type!=='hero';});
+    return loaded;
+  }
   w.zgSceneSave=function(asNew,done){
     if(!isMaster||!w.ZargotaLib)return;
     var existing = !asNew && activeSceneId && libCache[activeSceneId];
@@ -10595,7 +10615,7 @@ document.addEventListener('DOMContentLoaded', function(){
     else { name=window.prompt('Название сцены:', 'Сцена'); if(name===null)return; name=String(name||'Сцена').slice(0,80); }
     var thumb=(draft.layers[0]&&draft.layers[0].image)||'';
     var previous=existing?libCache[activeSceneId]:null;
-    var rec={id:existing?activeSceneId:('a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),category:'scene',name:name,thumb:thumb,scene:copyScene(draft),folder:previous&&previous.folder||'',order:previous&&previous.order!=null?previous.order:Date.now(),created:previous?previous.created:Date.now()};
+    var rec={id:existing?activeSceneId:('a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)),category:'scene',name:name,thumb:thumb,scene:sceneForLibrary(draft),folder:previous&&previous.folder||'',order:previous&&previous.order!=null?previous.order:Date.now(),created:previous?previous.created:Date.now()};
     w.ZargotaLib.put(rec,function(saved){
       if(!saved){sceneNotice('Не удалось сохранить сцену в браузере','error');setStatus('Ошибка сохранения · изменения остались');return;}
       libCache[rec.id]=rec;activeSceneId=rec.id;dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name);renderScenes();if(typeof done==='function')done(rec);
@@ -10606,7 +10626,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!skipDirtyCheck&&dirty&&activeSceneId&&activeSceneId!==id){w.zgSceneExitPrompt(function(){w.zgSceneLoad(id,done,true);});return;}
     var apply=function(rec){
       if(!rec||!rec.scene){sceneNotice('Сцена не найдена в библиотеке','error');return;}
-      draft=copyScene(rec.scene);activeSceneId=id;selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:'';selectedTokenId='';clearGroupSel();histReset();dirty=false;setStatus('Открыта: '+(rec.name||'')+' · игроки пока видят прежнюю');applyScene();syncControls();if(typeof done==='function')done(rec);
+      draft=migrateLoadedHeroes(rec.scene);activeSceneId=id;selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:'';selectedTokenId='';clearGroupSel();ensureHeroTokens(roomSnapshot);histReset();dirty=false;setStatus('Открыта: '+(rec.name||'')+' · игроки пока видят прежнюю');applyScene();syncControls();if(typeof done==='function')done(rec);
     };
     var r=libCache[id]; if(r&&r.scene)apply(r); else w.ZargotaLib.get(id,function(rec){ if(rec)libCache[id]=rec; apply(rec); });
   };
@@ -10763,7 +10783,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var folder=String((el('zg-new-scene-album')&&el('zg-new-scene-album').value)||'').trim().slice(0,60);
     var bw=clamp(el('zg-new-scene-width')&&el('zg-new-scene-width').value||32,8,80),bh=clamp(el('zg-new-scene-height')&&el('zg-new-scene-height').value||20,8,80),gs=clamp(el('zg-new-scene-grid')&&el('zg-new-scene-grid').value||64,24,96);
     draft=copyScene({layers:[],tokens:[],grid:true,gridSize:gs,boardWidth:bw,boardHeight:bh,x:0,y:0,zoom:1});selectedLayerId='';selectedTokenId='';clearGroupSel();histReset();dirty=true;
-    var rec={id:'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),category:'scene',name:name,folder:folder,thumb:'',scene:copyScene(draft),created:Date.now(),order:Date.now()};
+    var rec={id:'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),category:'scene',name:name,folder:folder,thumb:'',scene:sceneForLibrary(draft),created:Date.now(),order:Date.now()};
     w.ZargotaLib.put(rec,function(saved){
       if(!saved){sceneNotice('Не удалось создать сцену в браузере','error');setStatus('Ошибка создания сцены');return;}
       libCache[rec.id]=rec;activeSceneId=rec.id;dirty=false;lastSnap=snapDraft();w.zgSceneCreateClose();w.zgSceneDrawerToggle(false);applyScene();syncControls();updateDirtyUi();var panel=el('zg-scene-settings');if(panel)panel.classList.add('open');w.zgSceneTab('assets');sceneNotice('Сцена «'+name+'» создана · добавьте фоновый слой','success');
@@ -11275,15 +11295,23 @@ document.addEventListener('DOMContentLoaded', function(){
   function ensureHeroTokens(snapshot){
     if (!isMaster || !snapshot || !snapshot.room) return;
     var members=snapshot.room.members||{}, heroes=Object.keys(members).map(function(uid){return members[uid];}).filter(function(member){return member&&member.characterId&&member.character;});
-    var spawn=draft.tokens.filter(function(t){return t.type==='spawn';})[0];
+    var activeUids=heroes.map(function(member){return member.uid;}),seenHero={},beforeHeroCount=draft.tokens.filter(function(token){return token.type==='hero';}).length;
+    draft.tokens=draft.tokens.filter(function(token){
+      if(token.type!=='hero')return true;
+      if(activeUids.indexOf(token.memberUid)<0||seenHero[token.memberUid])return false;
+      seenHero[token.memberUid]=true;return true;
+    });
+    var rosterChanged=beforeHeroCount!==draft.tokens.filter(function(token){return token.type==='hero';}).length;
+    var slots=draft.tokens.filter(isHeroSlot).sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});});
+    var spawn=draft.tokens.filter(function(t){return t.type==='spawn'&&!isHeroSlot(t);})[0];
     var base=spawn?[spawn.x,spawn.y]:[50,50];
     var offsets=[[0,0],[-7,5],[7,5],[-5,11],[5,11],[0,16]], added=false;
     heroes.forEach(function(member,index){
       if(draft.tokens.some(function(token){return token.type==='hero'&&token.memberUid===member.uid;}))return;
-      var off=offsets[index%offsets.length];
-      draft.tokens.push(copyToken({id:'hero-'+member.uid,type:'hero',disposition:'hero',memberUid:member.uid,name:member.character.name,x:clamp(base[0]+off[0],4,96),y:clamp(base[1]+off[1],4,96),size:clamp(draft.gridSize*.9,42,84),z:index+10},draft.tokens.length));added=true;
+      var slot=slots[index],off=offsets[index%offsets.length],x=slot?slot.x:clamp(base[0]+off[0],4,96),y=slot?slot.y:clamp(base[1]+off[1],4,96);
+      draft.tokens.push(copyToken({id:'hero-'+member.uid,type:'hero',disposition:'hero',memberUid:member.uid,name:member.character.name,x:x,y:y,size:clamp(draft.gridSize*.9,42,84),z:index+10},draft.tokens.length));added=true;
     });
-    if(added){dirty=true;setStatus('Жетоны героев добавлены · опубликуйте сцену');renderTokens();}
+    if(added||rosterChanged){dirty=true;setStatus('Состав героев обновлён · опубликуйте сцену');renderTokens();}
   }
   function roomState(snapshot){
     roomSnapshot = snapshot;
