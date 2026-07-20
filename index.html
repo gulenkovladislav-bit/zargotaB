@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.6"></script>
+<script src="zargota-network.js?v=2026-07-20.7"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.6';
+var ZG_APP_VERSION = '2026-07-20.7';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.7', notes: 'Кубики раскрываются веером и бросаются перетаскиванием; d20 поддерживает характеристики и сетевые критические анимации.' },
   { v: '2026-07-20.6', notes: 'Летопись на столе стала компактной лентой отдельных уведомлений вместо сплошной панели чата.' },
   { v: '2026-07-20.5', notes: 'Игровая панель, сетевые броски над жетонами, летопись и походный инвентарь героя.' },
   { v: '2026-07-20.4', notes: 'Вселение мастера распространено на движение, инвентарь, чат и броски выбранного героя.' },
@@ -11418,6 +11419,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var selectedMemberUid = '';
   var lastRoll = '';
   var inventoryFilter = 'all';
+  var seenRollVisuals = {};
 
   function el(id){ return document.getElementById(id); }
   function esc(value){
@@ -11517,11 +11519,22 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>2600)return;
       var targetUid=String(roll.speakerUid||uid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
-      if(!token||token.querySelector('[data-roll-id="'+String(roll.id).replace(/"/g,'')+'"]'))return;
+      if(!token||seenRollVisuals[roll.id])return;seenRollVisuals[roll.id]=true;
+      var sides=[4,6,8,10,12,20].indexOf(Number(roll.sides))>=0?Number(roll.sides):20;
       var die=document.createElement('span'); die.className='zg-token-roll'; die.dataset.rollId=roll.id;
-      die.innerHTML='<img src="images/vtt-icons/dice.png" alt=""><b>d'+Number(roll.sides||20)+'</b>';
+      die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';
       token.appendChild(die);
-      setTimeout(function(){if(die.parentNode)die.remove();},1800);
+      var number=die.querySelector('b'), label=die.querySelector('em');
+      var ticker=setInterval(function(){number.textContent=String(Math.floor(Math.random()*sides)+1);},68);
+      var session=state&&state.session;
+      if(!session||uid!==session.uid){try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(Number(roll.value)||2);}catch(e){}}
+      setTimeout(function(){
+        clearInterval(ticker);number.textContent=String(roll.total==null?roll.value:roll.total);die.classList.add('landed');
+        if(roll.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
+        else if(roll.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
+        else if(roll.statLabel){label.textContent=roll.statLabel;}
+      },Math.max(650,Number(roll.duration)||1100));
+      setTimeout(function(){if(die.parentNode)die.remove();},3000);
     });
   }
   var chatWorldMode = false;
@@ -11769,23 +11782,21 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function show(html){ var r=el('zg-dice-result'); if(r)r.innerHTML=html; }
   // Анимация броска: перебор цифр ~0.9с (звук катящегося кубика) → результат с «ударом»
-  var animT=null, rolling=false;
-  function animateRoll(sides, finalHtml, finalValue, announceText){
-    var r=el('zg-dice-result'); if(!r){ show(finalHtml); return; }
+  var animT=null, rolling=false, diceDrag=null, selectedStat='plain';
+  function animateRoll(sides, finalHtml, finalValue, announceText, totalValue, statLabel){
+    var r=el('zg-dice-result');
     if(rolling)return; rolling=true;
     var ov=el('zg-game-overlay');
     var speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
-    if(w.ZargotaRooms&&w.ZargotaRooms.beginRoll)w.ZargotaRooms.beginRoll(sides,speaker);
+    var outcome=sides===20&&finalValue===20?'critical-success':(sides===20&&finalValue===1?'critical-fail':'');
+    if(w.ZargotaRooms&&w.ZargotaRooms.beginRoll)w.ZargotaRooms.beginRoll(sides,speaker,finalValue,totalValue==null?finalValue:totalValue,outcome,statLabel||'');
     try{ if(w.ZargotaSound&&w.ZargotaSound.diceRoll) w.ZargotaSound.diceRoll(finalValue); }catch(e){}
-    r.classList.add('rolling');
+    if(r)r.classList.add('rolling');
     clearInterval(animT);
-    animT=setInterval(function(){ r.innerHTML='<span class="zg-dice-die">d'+sides+'</span> <b>'+(Math.floor(Math.random()*sides)+1)+'</b>'; },70);
+    if(r)animT=setInterval(function(){ r.innerHTML='<span class="zg-dice-die">d'+sides+'</span> <b>'+(Math.floor(Math.random()*sides)+1)+'</b>'; },70);
     setTimeout(function(){
       clearInterval(animT); rolling=false;
-      r.classList.remove('rolling');
-      r.innerHTML=finalHtml;
-      r.classList.add('land');
-      setTimeout(function(){ r.classList.remove('land'); },700);
+      if(r){r.classList.remove('rolling');r.innerHTML=finalHtml;r.classList.add('land');setTimeout(function(){r.classList.remove('land');},700);}
       if(announceText&&w.ZargotaRooms&&w.ZargotaRooms.announceRoll){
         w.ZargotaRooms.announceRoll(announceText,speaker);
       }
@@ -11793,11 +11804,35 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open'); p.classList.toggle('open',open); var a=el('zg-dice-abils'); if(a)a.classList.remove('open'); };
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open'); };
+  function selectStat(key){
+    selectedStat=key||'plain';
+    document.querySelectorAll('.zg-d20-mod').forEach(function(button){button.classList.toggle('active',button.dataset.stat===selectedStat);});
+  }
+  function dragMove(ev){
+    if(!diceDrag||ev.pointerId!==diceDrag.id)return;
+    var dx=ev.clientX-diceDrag.x,dy=ev.clientY-diceDrag.y;diceDrag.distance=Math.hypot(dx,dy);
+    var ghost=el('zg-dice-drag');if(ghost){ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.add('show');ghost.style.setProperty('--throw-x',Math.max(-18,Math.min(18,dx/8))+'deg');ghost.style.setProperty('--throw-y',Math.max(-18,Math.min(18,-dy/8))+'deg');}
+    if(diceDrag.sides===20){var hit=document.elementFromPoint(ev.clientX,ev.clientY);var mod=hit&&hit.closest&&hit.closest('.zg-d20-mod');if(mod)selectStat(mod.dataset.stat);}
+  }
+  function dragEnd(ev){
+    if(!diceDrag||ev.pointerId!==diceDrag.id)return;
+    var current=diceDrag;diceDrag=null;document.removeEventListener('pointermove',dragMove);document.removeEventListener('pointerup',dragEnd);document.removeEventListener('pointercancel',dragEnd);
+    var ghost=el('zg-dice-drag');if(ghost)ghost.classList.remove('show');
+    if(current.distance<38)return;
+    w.zgDiceClose();
+    if(current.sides===20)w.zgDiceRollAbility(selectedStat);else w.zgDiceRoll(current.sides);
+  }
+  w.zgDiceDragStart=function(ev,sides){
+    if(ev.button!==0&&ev.pointerType!=='touch')return;ev.preventDefault();ev.stopPropagation();
+    sides=Number(sides)||20;selectStat('plain');diceDrag={id:ev.pointerId,sides:sides,x:ev.clientX,y:ev.clientY,distance:0};
+    var ghost=el('zg-dice-drag');if(ghost){ghost.querySelector('img').src='images/vtt-dice/d'+sides+'.png';ghost.querySelector('b').textContent='d'+sides;ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.add('show');}
+    var abilities=el('zg-dice-abils');if(abilities)abilities.classList.toggle('open',sides===20);
+    document.addEventListener('pointermove',dragMove);document.addEventListener('pointerup',dragEnd);document.addEventListener('pointercancel',dragEnd);
+  };
   w.zgDiceRoll=function(sides){
     sides=Number(sides)||20;
-    if(sides===20){ var a=el('zg-dice-abils'); if(a)a.classList.toggle('open'); return; }
     var v=roll(sides);
-    animateRoll(sides,'<span class="zg-dice-die">d'+sides+'</span> → <b>'+v+'</b>',v,rollerName()+': d'+sides+' = '+v);
+    animateRoll(sides,'<span class="zg-dice-die">d'+sides+'</span> → <b>'+v+'</b>',v,rollerName()+': d'+sides+' = '+v,v,'');
   };
   w.zgDiceRollAbility=function(key){
     var r=roll(20), c=ownChar(), labels=w.STAT_LABEL_RU||{}, mod=0, lbl='';
@@ -11806,7 +11841,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var tag=r===20?' <span class="zg-dice-crit">крит!</span>':(r===1?' <span class="zg-dice-fail">провал</span>':'');
     var head=(key&&key!=='plain')?('d20 ('+r+') '+(mod>=0?'+':'−')+' '+esc(lbl)+' '+Math.abs(mod)):('d20 ('+r+')');
     var ann=rollerName()+': '+(lbl?(lbl+' — '):'')+'d20 ('+r+')'+(mod?((mod>=0?' +':' −')+Math.abs(mod)):'')+' = '+total+(r===20?' — КРИТ!':(r===1?' — провал':''));
-    animateRoll(20,'<span class="zg-dice-die">'+head+'</span> → <b>'+total+'</b>'+tag,r,ann);
+    animateRoll(20,'<span class="zg-dice-die">'+head+'</span> → <b>'+total+'</b>'+tag,r,ann,total,lbl);
     var a=el('zg-dice-abils'); if(a)a.classList.remove('open');
   };
   // Броски других игроков — уведомление всем
@@ -15136,6 +15171,28 @@ window.zgImageStore = (function() {
   .zg-dice-abils-grid button{padding:9px 8px;border:1px solid #3a2d18;border-radius:8px;background:#14110b;color:#c9b483;font-size:12px;cursor:pointer;text-align:left;transition:.15s}
   .zg-dice-abils-grid button:hover{border-color:#c8993c;color:#f0dca2;background:#211809}
   .zg-dice-abils-grid button:first-child{grid-column:1/-1;text-align:center}
+  /* Веер физических кубиков: без общей рамки, бросок выполняется перетаскиванием. */
+  .zg-dice-pop{bottom:128px;width:min(650px,92vw);padding:0 42px 16px;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
+  .zg-dice-pop.open{display:block;animation:zgDiceFanIn .28s cubic-bezier(.18,.8,.25,1)}
+  @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px) scale(.86)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+  .zg-dice-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end}
+  .zg-dice-row button{height:88px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
+  .zg-dice-row button:nth-child(2){animation-delay:.035s}.zg-dice-row button:nth-child(3){animation-delay:.07s}.zg-dice-row button:nth-child(4){animation-delay:.105s}.zg-dice-row button:nth-child(5){animation-delay:.14s}.zg-dice-row button:nth-child(6){animation-delay:.175s}
+  @keyframes zgDieRise{from{opacity:0;transform:translateY(25px) scale(.65)}to{opacity:1;transform:none}}
+  .zg-dice-row button:hover{border:0;background:transparent;color:#ffe7a0;transform:translateY(-8px) scale(1.08);filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 15px #d7a63766)}
+  .zg-dice-row button.d20{border:0;background:transparent;color:#f1d17a}
+  .zg-dice-row button img{width:72px;height:66px;object-fit:contain;pointer-events:none}.zg-dice-row button span{font:600 11px/1 'Cinzel',serif;text-shadow:0 2px 5px #000}
+  .zg-dice-hint{text-align:center;margin-top:8px;color:#766647;font:9px/1.3 'Cinzel',serif;letter-spacing:.8px;opacity:.8}
+  .zg-dice-measure{right:0;top:34px;background:#151109cc;box-shadow:0 6px 16px #000a}
+  .zg-dice-abils{position:absolute;left:50%;bottom:102px;transform:translateX(-50%);width:min(520px,88vw);margin:0;padding:0;border:0}
+  .zg-dice-abils.open{display:block;animation:zgD20StatsIn .2s ease both}
+  @keyframes zgD20StatsIn{from{opacity:0;transform:translate(-50%,12px) scale(.9)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+  .zg-dice-abils-grid{display:flex;align-items:center;justify-content:center;gap:6px}
+  .zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{width:auto;grid-column:auto;padding:7px 10px;border:1px solid #554321;border-radius:15px;background:#11100ddb;color:#a99058;font:600 9px/1 'Cinzel',serif;text-align:center;white-space:nowrap;box-shadow:0 5px 13px #0009;pointer-events:auto}
+  .zg-dice-abils-grid button:hover,.zg-dice-abils-grid button.active{border-color:#dfb652;color:#ffe6a0;background:#2b1f0d;box-shadow:0 0 15px #d7a63755}
+  .zg-dice-drag{position:fixed;z-index:9999;left:0;top:0;width:112px;height:112px;display:none;align-items:center;justify-content:center;transform:translate(-50%,-50%) perspective(300px) rotateX(var(--throw-y,0deg)) rotateY(var(--throw-x,0deg));pointer-events:none;filter:drop-shadow(0 14px 13px #000c) drop-shadow(0 0 12px #d8aa4355)}
+  .zg-dice-drag.show{display:flex;animation:zgHeldDie .5s ease-in-out infinite alternate}.zg-dice-drag img{position:absolute;width:108px;height:108px;object-fit:contain}.zg-dice-drag b{position:relative;color:#fff0b3;font:700 13px 'Cinzel',serif;text-shadow:0 2px 5px #000}
+  @keyframes zgHeldDie{to{margin-top:-5px;filter:brightness(1.12)}}
   /* инструменты измерения */
   .zg-measure{position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible;display:block}
   .zg-measure.active{pointer-events:auto;cursor:crosshair}
@@ -15408,10 +15465,15 @@ window.zgImageStore = (function() {
   .zg-bag-foot{height:50px;border-top:1px solid #3b2d18;display:flex;align-items:center;padding:0 13px;color:#817252;font:10px 'Cinzel',serif}.zg-bag-add{margin-left:auto;width:37px;height:37px;border-radius:50%;border:1px solid #9a7632;background:#2a1d0b;color:#efd181;font-size:23px;cursor:pointer}
   .zg-bag-vitals{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-bottom:12px}.zg-bag-vitals>div{min-height:78px;border:1px solid #382c1b;border-radius:6px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center}.zg-bag-vitals img{width:36px;height:36px;object-fit:contain}.zg-bag-vitals b{color:#e8d19a;font:600 16px 'Cinzel',serif}.zg-bag-vitals span{color:#75684f;font-size:9px}.zg-bag-statuses{display:flex;gap:6px;flex-wrap:wrap}.zg-bag-statuses span{padding:5px 8px;border:1px solid #63452b;border-radius:12px;color:#c6a77d;font-size:10px}.zg-bag-statuses small{color:#6e624e}
   .zg-bag-notes{display:flex;flex-direction:column;gap:8px}.zg-bag-notes article{padding:11px;border-left:2px solid #8b6a2f;background:#151108}.zg-bag-notes b{color:#d9c083;font:600 11px 'Cinzel',serif}.zg-bag-notes p{margin:5px 0 0;color:#9b8b6c;font-size:11px;line-height:1.5}
-  .zg-token-roll{position:absolute;z-index:20;left:50%;bottom:calc(100% + 12px);width:72px;height:72px;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;justify-content:center;animation:zgTokenRoll 1.7s cubic-bezier(.2,.8,.3,1) both}
-  .zg-token-roll img{position:absolute!important;inset:0;width:72px!important;height:72px!important;object-fit:contain!important;border:0!important;border-radius:0!important;filter:drop-shadow(0 8px 10px #000) drop-shadow(0 0 12px #d8a73c88);animation:zgDieSpin .62s linear infinite}
-  .zg-token-roll b{position:relative;z-index:2;color:#fff0b5;font:700 11px 'Cinzel',serif;text-shadow:0 2px 4px #000}
-  @keyframes zgDieSpin{to{transform:rotate(360deg) scale(1.04)}}@keyframes zgTokenRoll{0%{opacity:0;transform:translate(-50%,18px) scale(.5)}18%,72%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-18px) scale(.8)}}
+  .zg-token-roll{position:absolute;z-index:20;left:50%;bottom:calc(100% + 15px);width:108px;height:108px;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;justify-content:center;animation:zgTokenRoll 3s cubic-bezier(.2,.8,.3,1) both;overflow:visible}
+  .zg-token-roll img{position:absolute!important;inset:0;width:108px!important;height:108px!important;object-fit:contain!important;border:0!important;border-radius:0!important;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 12px #d8a73c88);animation:zgDieSpin .46s linear infinite}
+  .zg-token-roll b{position:relative;z-index:2;color:#fff0b5;font:700 18px 'Cinzel',serif;text-shadow:0 2px 5px #000,0 0 8px #000}
+  .zg-token-roll em{position:absolute;top:100px;left:50%;transform:translateX(-50%);min-width:150px;color:#e7cc84;font:700 9px/1.2 'Cinzel',serif;letter-spacing:.7px;text-align:center;text-shadow:0 2px 5px #000,0 0 8px #000;white-space:nowrap}
+  .zg-token-roll.landed img{animation:zgDiceImpact .5s cubic-bezier(.2,1.7,.35,1) both;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 24px #e7bb55cc)}
+  .zg-token-roll.landed b{animation:zgNumberLand .48s cubic-bezier(.2,1.7,.35,1) both;color:#fff4c4;text-shadow:0 0 12px #ffd96d,0 2px 5px #000}
+  .zg-token-roll.critical-success img{filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 28px #f2c754)}.zg-token-roll.critical-success em{color:#ffe386;font-size:11px}
+  .zg-token-roll.critical-fail img{filter:sepia(.2) hue-rotate(315deg) saturate(1.8) drop-shadow(0 10px 12px #000) drop-shadow(0 0 28px #d93636)}.zg-token-roll.critical-fail b,.zg-token-roll.critical-fail em{color:#ff6969;text-shadow:0 0 12px #b90000,0 2px 5px #000}
+  @keyframes zgDieSpin{to{transform:rotate(360deg) scale(1.05)}}@keyframes zgDiceImpact{0%{transform:rotate(240deg) scale(.75)}65%{transform:rotate(-8deg) scale(1.16)}100%{transform:none}}@keyframes zgNumberLand{0%{transform:scale(2.4);opacity:.2}100%{transform:none;opacity:1}}@keyframes zgTokenRoll{0%{opacity:0;transform:translate(-50%,18px) scale(.5)}12%,80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-22px) scale(.82)}}
   .zg-drawer-member{width:100%;display:grid;grid-template-columns:44px 1fr auto;gap:9px;align-items:center;padding:8px;border:0;border-bottom:1px solid #2b2215;background:transparent;color:#a79572;text-align:left;font:inherit;cursor:pointer}
   .zg-drawer-member:hover,.zg-drawer-member.selected{background:#1b150c;color:#c8b181}
   .zg-drawer-member img,.zg-drawer-avatar{width:44px;height:44px;border-radius:5px;object-fit:cover;object-position:top;background:#151108;display:flex;align-items:center;justify-content:center;font-size:20px}
@@ -15454,6 +15516,10 @@ window.zgImageStore = (function() {
     .zg-player-action-key{font-size:8px}
   }
   @media(max-width:560px){
+    .zg-dice-pop{bottom:98px;width:98vw;padding:0 26px 10px}
+    .zg-dice-row{gap:1px}.zg-dice-row button{height:70px}.zg-dice-row button img{width:52px;height:50px}.zg-dice-row button span{font-size:9px}
+    .zg-dice-abils{bottom:82px;width:96vw}.zg-dice-abils-grid{gap:3px;flex-wrap:wrap}.zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{padding:6px 7px;font-size:8px}
+    .zg-dice-hint{font-size:8px}.zg-dice-measure{top:20px;width:29px;height:29px}
     .zg-player-dock{width:calc(100vw - 14px);height:72px;padding:4px 7px}
     .zg-player-action{grid-template-rows:30px 18px;padding:3px 2px}
     .zg-player-action-icon{height:30px;font-size:21px}
@@ -15631,29 +15697,28 @@ window.zgImageStore = (function() {
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
     <div class="zg-dice-pop" id="zg-dice-pop">
       <button type="button" class="zg-dice-measure" onclick="zgMeasureToggle(event)" title="Линейка и области"><img src="images/vtt-icons/measure.png" alt=""></button>
-      <div class="zg-dice-result" id="zg-dice-result">Бросьте кубик</div>
       <div class="zg-dice-row">
-        <button type="button" onclick="zgDiceRoll(4)">d4</button>
-        <button type="button" onclick="zgDiceRoll(6)">d6</button>
-        <button type="button" onclick="zgDiceRoll(8)">d8</button>
-        <button type="button" onclick="zgDiceRoll(10)">d10</button>
-        <button type="button" onclick="zgDiceRoll(12)">d12</button>
-        <button type="button" class="d20" onclick="zgDiceRoll(20)">d20</button>
-        <button type="button" onclick="zgDiceRoll(100)">d100</button>
+        <button type="button" data-die="4" onpointerdown="zgDiceDragStart(event,4)"><img src="images/vtt-dice/d4.png" alt=""><span>d4</span></button>
+        <button type="button" data-die="6" onpointerdown="zgDiceDragStart(event,6)"><img src="images/vtt-dice/d6.png" alt=""><span>d6</span></button>
+        <button type="button" data-die="8" onpointerdown="zgDiceDragStart(event,8)"><img src="images/vtt-dice/d8.png" alt=""><span>d8</span></button>
+        <button type="button" data-die="10" onpointerdown="zgDiceDragStart(event,10)"><img src="images/vtt-dice/d10.png" alt=""><span>d10</span></button>
+        <button type="button" data-die="12" onpointerdown="zgDiceDragStart(event,12)"><img src="images/vtt-dice/d12.png" alt=""><span>d12</span></button>
+        <button type="button" class="d20" data-die="20" onpointerdown="zgDiceDragStart(event,20)"><img src="images/vtt-dice/d20.png" alt=""><span>d20</span></button>
       </div>
       <div class="zg-dice-abils" id="zg-dice-abils">
-        <div class="zg-dice-abils-title">d20 + характеристика</div>
         <div class="zg-dice-abils-grid">
-          <button type="button" onclick="zgDiceRollAbility('plain')">Просто d20</button>
-          <button type="button" onclick="zgDiceRollAbility('str')">💪 Сила</button>
-          <button type="button" onclick="zgDiceRollAbility('dex')">🤸 Ловкость</button>
-          <button type="button" onclick="zgDiceRollAbility('int')">🧠 Интеллект</button>
-          <button type="button" onclick="zgDiceRollAbility('cha')">😎 Харизма</button>
-          <button type="button" onclick="zgDiceRollAbility('per')">👁 Восприятие</button>
-          <button type="button" onclick="zgDiceRollAbility('con')">🧃 Выносливость</button>
+          <button type="button" class="zg-d20-mod active" data-stat="plain">Без бонуса</button>
+          <button type="button" class="zg-d20-mod" data-stat="str">СИЛ</button>
+          <button type="button" class="zg-d20-mod" data-stat="dex">ЛОВ</button>
+          <button type="button" class="zg-d20-mod" data-stat="int">ИНТ</button>
+          <button type="button" class="zg-d20-mod" data-stat="cha">ХАР</button>
+          <button type="button" class="zg-d20-mod" data-stat="per">ВСП</button>
+          <button type="button" class="zg-d20-mod" data-stat="con">ВЫН</button>
         </div>
       </div>
+      <div class="zg-dice-hint">Зажмите и бросьте кубик на сцену</div>
     </div>
+    <div class="zg-dice-drag" id="zg-dice-drag" aria-hidden="true"><img alt=""><b></b></div>
     <div class="zg-sheet" id="zg-sheet" aria-label="Лист персонажа">
       <div class="zg-sheet-head">
         <span id="zg-sheet-portrait-host"></span>

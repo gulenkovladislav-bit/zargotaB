@@ -722,7 +722,7 @@
       }).catch(function () { return null; });
     },
 
-    beginRoll: function (sides, speakerUid) {
+    beginRoll: function (sides, speakerUid, value, total, outcome, statLabel) {
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || !firebase || !db) return null;
@@ -734,6 +734,10 @@
             ts: now(),
             duration: 1100,
             sides: Math.max(2, Math.min(100, Number(sides) || 20)),
+            value: Math.max(1, Number(value) || 1),
+            total: Number(total == null ? value : total) || 0,
+            outcome: outcome === 'critical-success' || outcome === 'critical-fail' ? outcome : '',
+            statLabel: String(statLabel || '').slice(0, 30),
             speakerUid: speaker && speaker.uid || user.uid,
             name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок'
           }
