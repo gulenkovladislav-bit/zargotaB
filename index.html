@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.14"></script>
+<script src="zargota-network.js?v=2026-07-20.15"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.14';
+var ZG_APP_VERSION = '2026-07-20.15';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.15', notes: 'Для d20 добавлены преимущество и помеха с двумя кубиками, столкновением и выбором итогового результата.' },
   { v: '2026-07-20.14', notes: 'Анимация итога работает и для одиночных бросков; критические записи получили цвет, формулировки бросков упрощены.' },
   { v: '2026-07-20.13', notes: 'Звук результата синхронизирован с остановкой кубика, критические исходы дольше остаются над жетоном.' },
   { v: '2026-07-20.12', notes: 'Каждый кубик в составном броске теперь независимо прокручивает и получает собственный результат.' },
@@ -11558,7 +11559,7 @@ document.addEventListener('DOMContentLoaded', function(){
         seenRollVisuals[roll.id]=true;
         if(!session||uid!==session.uid){
           try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
-          setTimeout(function(){var soundRoll=rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},Math.max(750,Number(roll.duration)||1250));
+          setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},Math.max(750,Number(roll.duration)||1250));
         }
       }
       rolls.forEach(function(item,index){
@@ -11571,27 +11572,31 @@ document.addEventListener('DOMContentLoaded', function(){
         var number=die.querySelector('b'),label=die.querySelector('em'),lastPreview=0;
         function nextPreview(){var next=Math.floor(Math.random()*sides)+1;if(sides>2&&next===lastPreview)next=next%sides+1;lastPreview=next;number.textContent=String(next);}
         nextPreview();var ticker=setInterval(nextPreview,135+(index%5)*19);
-        setTimeout(function(){clearInterval(ticker);number.textContent=String(item.total==null?item.value:item.total);die.classList.add('landed');
+        setTimeout(function(){clearInterval(ticker);number.textContent=String(item.rollMode?item.value:(item.total==null?item.value:item.total));die.classList.add('landed');
           if(item.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
           else if(item.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
           else if(item.statLabel){label.textContent=item.statLabel;}
+          if(item.rollMode)setTimeout(function(){die.classList.add('contest-resolve',item.kept?'contest-winner':'contest-loser');die.style.setProperty('--contest-direction',item.kept?(index===0?'68px':'-68px'):(index===0?'-22px':'22px'));},430);
         },Math.max(750,Number(roll.duration)||1250));
-        setTimeout(function(){if(die.parentNode)die.remove();},item.outcome?5400:3400);
+        setTimeout(function(){if(die.parentNode)die.remove();},item.outcome?5400:(item.rollMode?4600:3400));
       });
-      var showTotal=rolls.length>1||(rolls.length===1&&Number(rolls[0].value)!==1);
+      var contestRoll=rolls.find(function(item){return item.kept===true;}),isContest=!!contestRoll;
+      var showTotal=isContest?Number(contestRoll.value)!==1:(rolls.length>1||(rolls.length===1&&Number(rolls[0].value)!==1));
       if(showTotal&&!host.querySelector('[data-roll-total="'+String(roll.id).replace(/"/g,'')+'"]')){
-        var total=rolls.reduce(function(sum,item){return sum+Number(item.total==null?item.value:item.total||0);},0);
+        var total=isContest?Number(contestRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total==null?item.value:item.total||0);},0);
         var values=rolls.map(function(item){return Number(item.total==null?item.value:item.total||0);}),expression;
-        if(rolls.length===1){var raw=Number(rolls[0].value)||0,modifier=Number(rolls[0].total==null?raw:rolls[0].total)-raw;expression=modifier?raw+' '+(modifier>0?'+':'−')+' '+Math.abs(modifier):String(raw);}
+        if(isContest){var contestMod=Number(contestRoll.total||0)-Number(contestRoll.value||0);expression=(contestRoll.rollMode==='advantage'?'ПРЕИМУЩЕСТВО':'ПОМЕХА')+' · '+rolls.map(function(item){return item.value;}).join(' / ')+(contestMod?' · '+contestRoll.value+' '+(contestMod>0?'+':'−')+' '+Math.abs(contestMod):'');}
+        else if(rolls.length===1){var raw=Number(rolls[0].value)||0,modifier=Number(rolls[0].total==null?raw:rolls[0].total)-raw;expression=modifier?raw+' '+(modifier>0?'+':'−')+' '+Math.abs(modifier):String(raw);}
         else expression=values.join(' + ');
         var totalNode=document.createElement('span');totalNode.className='zg-roll-total';totalNode.dataset.rollTotal=roll.id;
         totalNode.style.left=token.style.left;totalNode.style.top=token.style.top;
         totalNode.innerHTML='<small>'+expression+'</small><b>…</b><em>ИТОГО</em>';host.appendChild(totalNode);
         setTimeout(function(){
           totalNode.classList.add('calculating');var valueNode=totalNode.querySelector('b'),step=0,running=0;
-          var calculator=setInterval(function(){running+=values[step]||0;valueNode.textContent=String(running);step++;if(step>=values.length){clearInterval(calculator);setTimeout(function(){valueNode.textContent=String(total);totalNode.classList.add('ready');},140);}},Math.max(150,460/values.length));
-        },1450);
-        setTimeout(function(){if(totalNode.parentNode)totalNode.remove();},3900);
+          if(isContest){valueNode.textContent=String(total);setTimeout(function(){totalNode.classList.add('ready');},180);}
+          else{var calculator=setInterval(function(){running+=values[step]||0;valueNode.textContent=String(running);step++;if(step>=values.length){clearInterval(calculator);setTimeout(function(){valueNode.textContent=String(total);totalNode.classList.add('ready');},140);}},Math.max(150,460/values.length));}
+        },isContest?2200:1450);
+        setTimeout(function(){if(totalNode.parentNode)totalNode.remove();},isContest?4600:3900);
       }
     });
   }
@@ -11849,7 +11854,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function show(html){ var r=el('zg-dice-result'); if(r)r.innerHTML=html; }
   // Анимация броска: перебор цифр ~0.9с (звук катящегося кубика) → результат с «ударом»
-  var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedDice={};
+  var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedD20Mode='normal', selectedDice={};
   function animateRoll(sides, finalHtml, finalValue, announceText, totalValue, statLabel){
     var r=el('zg-dice-result');
     if(rolling)return; rolling=true;
@@ -11877,6 +11882,8 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.zg-d20-mod').forEach(function(button){button.classList.toggle('active',button.dataset.stat===selectedStat);});
   }
   w.zgD20SelectStat=function(ev,key){if(ev){ev.preventDefault();ev.stopPropagation();}selectStat(key);};
+  function selectD20Mode(mode){selectedD20Mode=mode==='advantage'||mode==='disadvantage'?mode:'normal';document.querySelectorAll('.zg-d20-mode').forEach(function(button){button.classList.toggle('active',button.dataset.mode===selectedD20Mode);});}
+  w.zgD20SelectMode=function(ev,mode){if(ev){ev.preventDefault();ev.stopPropagation();}selectD20Mode(mode);};
   function updateDiceSelection(){
     document.querySelectorAll('.zg-dice-row [data-die]').forEach(function(button){var count=Number(selectedDice[button.dataset.die]||0);button.classList.toggle('selected',count>0);button.setAttribute('data-count',count>0?String(count):'');});
     var hint=el('zg-dice-hint');if(hint){var total=Object.keys(selectedDice).reduce(function(sum,key){return sum+Number(selectedDice[key]||0);},0);hint.textContent=total?('Выбрано кубиков: '+total+' · перетащите любой на сцену'):'Клик добавляет кубик · перетащите для броска';}
@@ -11885,7 +11892,13 @@ document.addEventListener('DOMContentLoaded', function(){
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList){
     if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
-    sidesList.slice(0,10).forEach(function(sides){var forced=forcedUsed?0:forcedRoll(sides),value=forced||roll(sides),mod=0,label='',total=value;if(forced)forcedUsed=true;
+    var contested=sidesList.length===1&&Number(sidesList[0])===20&&selectedD20Mode!=='normal';
+    if(contested){
+      var firstForced=forcedRoll(20),a=firstForced||roll(20),b=roll(20),mode=selectedD20Mode,keptIndex=mode==='advantage'?(a>=b?0:1):(a<=b?0:1),mod=0,label='';
+      if(selectedStat!=='plain'&&c&&c.stats){mod=statVal(c.stats[selectedStat]);label=labels[selectedStat]||selectedStat;}
+      [a,b].forEach(function(value,index){var kept=index===keptIndex,total=value+(kept?mod:0),outcome=kept&&value===20?'critical-success':(kept&&value===1?'critical-fail':'');rolls.push({sides:20,value:value,total:total,outcome:outcome,statLabel:kept?label:'',kept:kept,rollMode:mode});});
+      var chosen=rolls[keptIndex];parts.push('d20 '+(mode==='advantage'?'с преимуществом':'с помехой')+': '+a+' / '+b+(label?' · '+label+' '+(mod>=0?'+':'−')+Math.abs(mod):'')+(chosen.outcome==='critical-success'?' · КРИТ!':chosen.outcome==='critical-fail'?' · ПРОВАЛ!':''));
+    } else sidesList.slice(0,10).forEach(function(sides){var forced=forcedUsed?0:forcedRoll(sides),value=forced||roll(sides),mod=0,label='',total=value;if(forced)forcedUsed=true;
       if(sides===20&&selectedStat!=='plain'&&c&&c.stats){mod=statVal(c.stats[selectedStat]);label=labels[selectedStat]||selectedStat;total=value+mod;}
       var outcome=sides===20&&value===20?'critical-success':(sides===20&&value===1?'critical-fail':'');
       rolls.push({sides:sides,value:value,total:total,outcome:outcome,statLabel:label});
@@ -11894,10 +11907,11 @@ document.addEventListener('DOMContentLoaded', function(){
     var ov=el('zg-game-overlay'),speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
     try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
     if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker);
-    setTimeout(function(){var soundRoll=rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},1250);
-    var grandTotal=rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
-    var actionText=rolls.length>1?'Кидает кубики: ':'Кидает кубик: ';
-    setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(actionText+parts.join(' · ')+(rolls.length>1||rolls[0].value!==1?' · Итого = '+grandTotal:''),speaker);},2600);
+    setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},1250);
+    var keptRoll=contested?rolls.find(function(item){return item.kept;}):null;
+    var grandTotal=contested?Number(keptRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
+    var actionText=contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ';
+    setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(actionText+parts.join(' · ')+((contested?keptRoll.value!==1:(rolls.length>1||rolls[0].value!==1))?' · Итого = '+grandTotal:''),speaker);},contested?3300:2600);
     clearSelectedDice();w.zgDiceClose();
   }
   function dragMove(ev){
@@ -15290,6 +15304,7 @@ window.zgImageStore = (function() {
   .zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{width:auto;grid-column:auto;padding:7px 10px;border:1px solid #554321;border-radius:15px;background:#11100ddb;color:#a99058;font:600 9px/1 'Cinzel',serif;text-align:center;white-space:nowrap;box-shadow:0 5px 13px #0009;pointer-events:auto}
   .zg-dice-abils-grid button{position:absolute}.zg-dice-abils-grid button:nth-child(1){left:83px;top:0}.zg-dice-abils-grid button:nth-child(2){left:23px;top:35px}.zg-dice-abils-grid button:nth-child(3){left:2px;top:82px}.zg-dice-abils-grid button:nth-child(4){left:43px;top:126px}.zg-dice-abils-grid button:nth-child(5){right:42px;top:126px}.zg-dice-abils-grid button:nth-child(6){right:2px;top:82px}.zg-dice-abils-grid button:nth-child(7){right:22px;top:35px}
   .zg-dice-abils-grid button:hover,.zg-dice-abils-grid button.active{border-color:#dfb652;color:#ffe6a0;background:#2b1f0d;box-shadow:0 0 15px #d7a63755}
+  .zg-d20-modes{position:absolute;left:15px;right:15px;top:157px;display:flex;justify-content:center;gap:5px;pointer-events:auto}.zg-d20-modes button{height:25px;padding:0 9px;border:1px solid #4c3b20;border-radius:13px;background:#11100ddb;color:#8d7950;font:600 8px 'Cinzel',serif;cursor:pointer;white-space:nowrap}.zg-d20-modes button:hover,.zg-d20-modes button.active{border-color:#d2a748;color:#ffe29a;background:#2a1d0b;box-shadow:0 0 12px #c891303c}
   .zg-dice-drag{position:fixed;z-index:9999;left:0;top:0;width:112px;height:112px;display:none;align-items:center;justify-content:center;transform:translate(-50%,-50%) perspective(300px) rotateX(var(--throw-y,0deg)) rotateY(var(--throw-x,0deg));pointer-events:none;filter:drop-shadow(0 14px 13px #000c) drop-shadow(0 0 12px #d8aa4355)}
   .zg-dice-drag.show{display:flex;animation:zgHeldDie .5s ease-in-out infinite alternate}.zg-dice-drag img{position:absolute;width:108px;height:108px;object-fit:contain}.zg-dice-drag b{position:relative;color:#fff0b3;font:700 13px 'Cinzel',serif;text-shadow:0 2px 5px #000}
   @keyframes zgHeldDie{to{margin-top:-5px;filter:brightness(1.12)}}
@@ -15582,6 +15597,8 @@ window.zgImageStore = (function() {
   .zg-token-roll.critical-fail::before{border-color:#e23434;box-shadow:inset 0 0 24px #a4000066;animation-name:zgFailRing}
   .zg-token-roll.critical-fail::after{content:'×';position:absolute;inset:-20px;color:#ff3c3c;font:700 118px/145px serif;text-align:center;opacity:0;text-shadow:0 0 18px #b00000;animation:zgFailMark .9s ease-out both}
   .zg-token-roll.critical-fail img{animation:zgCritFailDie .72s ease-out both;filter:sepia(.2) hue-rotate(315deg) saturate(1.8) drop-shadow(0 10px 12px #000) drop-shadow(0 0 34px #d93636)}.zg-token-roll.critical-fail b,.zg-token-roll.critical-fail em{color:#ff6969;text-shadow:0 0 12px #b90000,0 2px 5px #000}.zg-token-roll.critical-fail em{animation:zgCritLabel .75s ease-out both}
+  .zg-token-roll.contest-resolve.contest-winner img{animation:zgContestWinner .72s cubic-bezier(.25,.9,.35,1) both}.zg-token-roll.contest-resolve.contest-winner b{animation:zgContestWinnerNumber .72s cubic-bezier(.25,.9,.35,1) both}.zg-token-roll.contest-resolve.contest-loser img,.zg-token-roll.contest-resolve.contest-loser b{animation:zgContestLoser .72s ease-out both}.zg-token-roll.contest-resolve.contest-loser em{opacity:0}
+  @keyframes zgContestWinner{0%{transform:none}48%{transform:translateX(var(--contest-direction)) rotate(24deg) scale(1.16);filter:brightness(1.35) drop-shadow(0 0 24px #f0bc4f)}72%{transform:translateX(0) rotate(-8deg) scale(1.08)}100%{transform:none}}@keyframes zgContestWinnerNumber{0%{transform:none}48%{transform:translateX(var(--contest-direction)) scale(1.25)}100%{transform:none}}@keyframes zgContestLoser{0%{transform:none;opacity:1}50%{transform:translateX(var(--contest-direction)) rotate(-28deg) scale(.72);opacity:.42}100%{transform:translateX(var(--contest-direction)) rotate(-38deg) scale(.55);opacity:.14;filter:grayscale(.8)}}
   .zg-roll-total{position:absolute;z-index:23;margin-top:-210px;transform:translateX(-50%) scale(.72);min-width:150px;min-height:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;color:#f7dd92;text-align:center;text-shadow:0 2px 7px #000,0 0 13px #d49a35}
   .zg-roll-total.calculating{animation:zgTotalReveal .35s ease-out both}.zg-roll-total small{color:#aa9568;font:600 9px 'Cinzel',serif;letter-spacing:.5px}.zg-roll-total b{font:700 34px/1.15 'Cinzel',serif}.zg-roll-total em{font:700 8px 'Cinzel',serif;letter-spacing:2px;color:#8f784b}.zg-roll-total.ready b{animation:zgTotalReady .55s cubic-bezier(.2,1.8,.3,1) both;color:#fff1b5}.zg-roll-total.ready::before{content:'';position:absolute;inset:2px 21px;border:1px solid #c99a3d;border-radius:50%;animation:zgTotalRing .8s ease-out both}
   @keyframes zgTotalReveal{from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.55)}to{opacity:1;transform:translateX(-50%) scale(1)}}@keyframes zgTotalReady{0%{transform:scale(.6)}65%{transform:scale(1.35)}100%{transform:none}}@keyframes zgTotalRing{from{opacity:.9;transform:scale(.4)}to{opacity:0;transform:scale(1.55)}}
@@ -15830,6 +15847,7 @@ window.zgImageStore = (function() {
           <button type="button" class="zg-d20-mod" data-stat="per" onclick="zgD20SelectStat(event,'per')">ВСП</button>
           <button type="button" class="zg-d20-mod" data-stat="con" onclick="zgD20SelectStat(event,'con')">ВЫН</button>
         </div>
+        <div class="zg-d20-modes" aria-label="Режим броска d20"><button type="button" class="zg-d20-mode active" data-mode="normal" onclick="zgD20SelectMode(event,'normal')">Обычный</button><button type="button" class="zg-d20-mode" data-mode="advantage" onclick="zgD20SelectMode(event,'advantage')">Преимущество</button><button type="button" class="zg-d20-mode" data-mode="disadvantage" onclick="zgD20SelectMode(event,'disadvantage')">Помеха</button></div>
       </div>
       <div class="zg-dice-hint" id="zg-dice-hint">Клик добавляет кубик · перетащите для броска</div>
       <label class="zg-dice-test" title="В составном броске применяется только к первому кубику"><span>Тест ГМ · первый</span><input id="zg-dice-force" type="number" min="1" max="100" inputmode="numeric" placeholder="случайно"><button type="button" onclick="zgDiceClearForced()" title="Вернуть случайный результат">×</button></label>

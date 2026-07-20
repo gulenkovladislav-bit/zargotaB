@@ -752,7 +752,9 @@
         return {
           sides: sides, value: value, total: Number(roll && roll.total == null ? value : roll.total) || 0,
           outcome: roll && (roll.outcome === 'critical-success' || roll.outcome === 'critical-fail') ? roll.outcome : '',
-          statLabel: String(roll && roll.statLabel || '').slice(0, 30)
+          statLabel: String(roll && roll.statLabel || '').slice(0, 30),
+          kept: roll && typeof roll.kept === 'boolean' ? roll.kept : null,
+          rollMode: roll && (roll.rollMode === 'advantage' || roll.rollMode === 'disadvantage') ? roll.rollMode : ''
         };
       });
       if (!rolls.length) return Promise.resolve(api.getSnapshot());
