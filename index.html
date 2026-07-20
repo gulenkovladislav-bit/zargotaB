@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.22"></script>
+<script src="zargota-network.js?v=2026-07-20.23"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.22';
+var ZG_APP_VERSION = '2026-07-20.23';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.23', notes: 'd20 и остальные кубики снова отображаются даже у ГМ или до появления жетона героя на сцене.' },
   { v: '2026-07-20.22', notes: 'Убрана автоматическая попапка сцен; добавлены верхний переключатель, левая библиотека и надёжный запуск игроков.' },
   { v: '2026-07-20.21', notes: 'Исправлен вход гейм-мастера в подготовку сцены: независимый автопереход и явная кнопка на заставке.' },
   { v: '2026-07-20.20', notes: 'Выбор сцены появляется только после входа гейм-мастера за игровой стол, а не при создании комнаты.' },
@@ -11658,7 +11659,8 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>2600)return;
       var targetUid=String(roll.speakerUid||uid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
-      if(!token)return;
+      var rollLeft=token&&token.style.left?token.style.left:'50%';
+      var rollTop=token&&token.style.top?token.style.top:'44%';
       var rolls=Array.isArray(roll.rolls)&&roll.rolls.length?roll.rolls:[roll];
       var session=state&&state.session;
       if(!seenRollVisuals[roll.id]){
@@ -11673,7 +11675,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var sides=[4,6,8,10,12,20].indexOf(Number(item.sides))>=0?Number(item.sides):20;
         var die=document.createElement('span');die.className='zg-token-roll world-roll'+(item.outcome?' long-result':'');die.dataset.rollId=visualId;
         var spacing=Math.max(42,Math.min(76,340/Math.max(1,rolls.length-1)));
-        die.style.left=token.style.left;die.style.top=token.style.top;die.style.setProperty('--roll-offset',((index-(rolls.length-1)/2)*spacing)+'px');
+        die.style.left=rollLeft;die.style.top=rollTop;die.style.setProperty('--roll-offset',((index-(rolls.length-1)/2)*spacing)+'px');
         die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';host.appendChild(die);
         var number=die.querySelector('b'),label=die.querySelector('em'),lastPreview=0;
         function nextPreview(){var next=Math.floor(Math.random()*sides)+1;if(sides>2&&next===lastPreview)next=next%sides+1;lastPreview=next;number.textContent=String(next);}
@@ -11696,7 +11698,7 @@ document.addEventListener('DOMContentLoaded', function(){
         else if(rolls.length===1){var raw=Number(rolls[0].value)||0,modifier=Number(rolls[0].total==null?raw:rolls[0].total)-raw;expression=modifier?raw+' '+(modifier>0?'+':'−')+' '+Math.abs(modifier):String(raw);}
         else expression=values.join(' + ');
         var totalNode=document.createElement('span');totalNode.className='zg-roll-total';totalNode.dataset.rollTotal=roll.id;
-        totalNode.style.left=token.style.left;totalNode.style.top=token.style.top;
+        totalNode.style.left=rollLeft;totalNode.style.top=rollTop;
         totalNode.innerHTML='<small>'+expression+'</small><b>…</b><em>ИТОГО</em>';host.appendChild(totalNode);
         setTimeout(function(){
           totalNode.classList.add('calculating');var valueNode=totalNode.querySelector('b'),step=0,running=0;
