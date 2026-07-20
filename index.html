@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.7"></script>
+<script src="zargota-network.js?v=2026-07-20.8"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.7';
+var ZG_APP_VERSION = '2026-07-20.8';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.8', notes: 'Кубик больше не исчезает при сетевом обновлении: он останавливается над жетоном и удерживает результат.' },
   { v: '2026-07-20.7', notes: 'Кубики раскрываются веером и бросаются перетаскиванием; d20 поддерживает характеристики и сетевые критические анимации.' },
   { v: '2026-07-20.6', notes: 'Летопись на столе стала компактной лентой отдельных уведомлений вместо сплошной панели чата.' },
   { v: '2026-07-20.5', notes: 'Игровая панель, сетевые броски над жетонами, летопись и походный инвентарь героя.' },
@@ -11513,21 +11514,25 @@ document.addEventListener('DOMContentLoaded', function(){
     if (wasAtBottom) body.scrollTop = body.scrollHeight;
   }
   function renderRollAnimations(){
-    var room=state&&state.room, overlay=el('zg-game-overlay'); if(!room||!overlay)return;
+    var room=state&&state.room, overlay=el('zg-game-overlay'), host=el('zg-move-layer'); if(!room||!overlay||!host)return;
     Object.keys(room.members||{}).forEach(function(uid){
       var roll=room.members[uid]&&room.members[uid].activeRoll;
       if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>2600)return;
       var targetUid=String(roll.speakerUid||uid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
-      if(!token||seenRollVisuals[roll.id])return;seenRollVisuals[roll.id]=true;
+      if(!token||host.querySelector('[data-roll-id="'+String(roll.id).replace(/"/g,'')+'"]'))return;
       var sides=[4,6,8,10,12,20].indexOf(Number(roll.sides))>=0?Number(roll.sides):20;
-      var die=document.createElement('span'); die.className='zg-token-roll'; die.dataset.rollId=roll.id;
+      var die=document.createElement('span'); die.className='zg-token-roll world-roll'; die.dataset.rollId=roll.id;
+      die.style.left=token.style.left;die.style.top=token.style.top;
       die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';
-      token.appendChild(die);
+      host.appendChild(die);
       var number=die.querySelector('b'), label=die.querySelector('em');
       var ticker=setInterval(function(){number.textContent=String(Math.floor(Math.random()*sides)+1);},68);
       var session=state&&state.session;
-      if(!session||uid!==session.uid){try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(Number(roll.value)||2);}catch(e){}}
+      if(!seenRollVisuals[roll.id]){
+        seenRollVisuals[roll.id]=true;
+        if(!session||uid!==session.uid){try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(Number(roll.value)||2);}catch(e){}}
+      }
       setTimeout(function(){
         clearInterval(ticker);number.textContent=String(roll.total==null?roll.value:roll.total);die.classList.add('landed');
         if(roll.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
@@ -15466,6 +15471,7 @@ window.zgImageStore = (function() {
   .zg-bag-vitals{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-bottom:12px}.zg-bag-vitals>div{min-height:78px;border:1px solid #382c1b;border-radius:6px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center}.zg-bag-vitals img{width:36px;height:36px;object-fit:contain}.zg-bag-vitals b{color:#e8d19a;font:600 16px 'Cinzel',serif}.zg-bag-vitals span{color:#75684f;font-size:9px}.zg-bag-statuses{display:flex;gap:6px;flex-wrap:wrap}.zg-bag-statuses span{padding:5px 8px;border:1px solid #63452b;border-radius:12px;color:#c6a77d;font-size:10px}.zg-bag-statuses small{color:#6e624e}
   .zg-bag-notes{display:flex;flex-direction:column;gap:8px}.zg-bag-notes article{padding:11px;border-left:2px solid #8b6a2f;background:#151108}.zg-bag-notes b{color:#d9c083;font:600 11px 'Cinzel',serif}.zg-bag-notes p{margin:5px 0 0;color:#9b8b6c;font-size:11px;line-height:1.5}
   .zg-token-roll{position:absolute;z-index:20;left:50%;bottom:calc(100% + 15px);width:108px;height:108px;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;justify-content:center;animation:zgTokenRoll 3s cubic-bezier(.2,.8,.3,1) both;overflow:visible}
+  .zg-token-roll.world-roll{bottom:auto;margin-top:-96px;transform:translateX(-50%)}
   .zg-token-roll img{position:absolute!important;inset:0;width:108px!important;height:108px!important;object-fit:contain!important;border:0!important;border-radius:0!important;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 12px #d8a73c88);animation:zgDieSpin .46s linear infinite}
   .zg-token-roll b{position:relative;z-index:2;color:#fff0b5;font:700 18px 'Cinzel',serif;text-shadow:0 2px 5px #000,0 0 8px #000}
   .zg-token-roll em{position:absolute;top:100px;left:50%;transform:translateX(-50%);min-width:150px;color:#e7cc84;font:700 9px/1.2 'Cinzel',serif;letter-spacing:.7px;text-align:center;text-shadow:0 2px 5px #000,0 0 8px #000;white-space:nowrap}
