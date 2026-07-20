@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.21"></script>
+<script src="zargota-network.js?v=2026-07-20.22"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.21';
+var ZG_APP_VERSION = '2026-07-20.22';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.22', notes: 'Убрана автоматическая попапка сцен; добавлены верхний переключатель, левая библиотека и надёжный запуск игроков.' },
   { v: '2026-07-20.21', notes: 'Исправлен вход гейм-мастера в подготовку сцены: независимый автопереход и явная кнопка на заставке.' },
   { v: '2026-07-20.20', notes: 'Выбор сцены появляется только после входа гейм-мастера за игровой стол, а не при создании комнаты.' },
   { v: '2026-07-20.19', notes: 'Новый запуск сетевой сессии: мастер готовит сцену отдельно и сам запускает игроков из портретного зала ожидания.' },
@@ -10340,6 +10341,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var draft = copyScene(DEFAULT_SCENE);
   var dirty = false;
   var isMaster = false;
+  var launchBusy = false;
   var drag = null;
   var tokenDrag = null;
   var activeRoomCode = '';
@@ -10499,12 +10501,12 @@ document.addEventListener('DOMContentLoaded', function(){
   // ── Менеджер сцен: активная сцена, меню (показать/переименовать/дублировать/удалить) ──
   var activeSceneId = '';      // сцена, открытая у мастера в редакторе
   var publishedSceneId = '';   // сцена, показанная игрокам
+  var sceneAlbum = '';
   function renderScenes(){
     var host=el('zg-scene-lib'); if(!host||!w.ZargotaLib)return;
     w.ZargotaLib.list('scene',function(items){
       items.forEach(function(r){libCache[r.id]=r;});
-      if(!items.length){host.innerHTML='<div class="zg-scene-hint">Сохранённых сцен пока нет. Соберите сцену и нажмите «Сохранить».</div>';return;}
-      host.innerHTML=items.map(function(r){
+      var cards=items.map(function(r){
         var thumbStyle=r.thumb?(' style="background-image:url('+r.thumb+')"'):'';
         var flags=(r.id===publishedSceneId?'<span class="zg-scene-flag live" title="Игроки видят эту сцену">🟢</span>':'')+(r.id===activeSceneId?'<span class="zg-scene-flag edit" title="Открыта в редакторе">✏️</span>':'');
         return '<div class="zg-scene-lib-item'+(r.id===activeSceneId?' active':'')+'">'+
@@ -10516,8 +10518,30 @@ document.addEventListener('DOMContentLoaded', function(){
             '<button type="button" title="Удалить" onclick="zgSceneLibDelete(&#39;'+r.id+'&#39;)">🗑</button>'+
           '</div></div>';
       }).join('');
+      host.innerHTML=items.length?cards:'<div class="zg-scene-hint">Сохранённых сцен пока нет. Соберите сцену и нажмите «Сохранить».</div>';
+      var quick=el('zg-scene-quick-list');
+      if(quick) quick.innerHTML=items.length?items.map(function(r,index){
+        return '<button type="button" class="zg-scene-quick-item'+(r.id===activeSceneId?' active':'')+'" onclick="zgSceneLoad(&#39;'+r.id+'&#39;)" title="Открыть сцену"><span>'+(index+1)+'.</span> '+esc(r.name)+'</button>';
+      }).join(''):'<span class="zg-scene-quick-empty">Нет сохранённых сцен</span>';
+      var drawer=el('zg-scene-drawer-grid');
+      var albums=items.map(function(r){return r.folder||'';}).filter(function(v,i,a){return v&&a.indexOf(v)===i;});
+      var albumHost=el('zg-scene-drawer-albums');
+      if(albumHost) albumHost.innerHTML='<button type="button" class="'+(!sceneAlbum?'active':'')+'" onclick="zgSceneAlbumPick(&#39;&#39;)">Все сцены</button>'+albums.map(function(name){return '<button type="button" class="'+(sceneAlbum===name?'active':'')+'" onclick="zgSceneAlbumPick(this.textContent)">'+esc(name)+'</button>';}).join('');
+      var shown=sceneAlbum?items.filter(function(r){return (r.folder||'')===sceneAlbum;}):items;
+      if(drawer) drawer.innerHTML=shown.length?shown.map(function(r){
+        var thumbStyle=r.thumb?(' style="background-image:url('+r.thumb+')"'):'';
+        return '<button type="button" class="zg-scene-drawer-card'+(r.id===activeSceneId?' active':'')+'" onclick="zgSceneDrawerPick(&#39;'+r.id+'&#39;)"><span class="zg-scene-drawer-thumb"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><strong>'+esc(r.name)+'</strong><small>'+esc(r.folder||'Без альбома')+'</small></button>';
+      }).join(''):'<div class="zg-scene-drawer-empty">Сцен ещё нет. Создайте фон и сохраните композицию как новую сцену.</div>';
     });
   }
+  w.zgSceneDrawerToggle=function(force){
+    if(!isMaster)return;
+    var drawer=el('zg-scene-drawer'); if(!drawer)return;
+    drawer.classList.toggle('open',typeof force==='boolean'?force:!drawer.classList.contains('open'));
+    renderScenes();
+  };
+  w.zgSceneAlbumPick=function(name){ sceneAlbum=name||''; renderScenes(); };
+  w.zgSceneDrawerPick=function(id){ w.zgSceneLoad(id); w.zgSceneDrawerToggle(false); };
   w.zgSceneSave=function(asNew){
     if(!isMaster||!w.ZargotaLib)return;
     var existing = !asNew && activeSceneId && libCache[activeSceneId];
@@ -11141,16 +11165,14 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
     var startButton=el('zg-start-players');
+    var publishButton=el('zg-scene-publish');
     if(startButton){
       var started=snapshot.room.phase==='playing';
-      startButton.disabled=started;
-      startButton.textContent=started?'Игроки на сцене':'Запустить игроков';
+      startButton.style.display=started?'none':'';
+      startButton.disabled=launchBusy;
+      startButton.textContent=launchBusy?'Запускаем…':'Запустить игроков';
     }
-    // ГМ вошёл, сцена игрокам ещё не показана → предложить загрузить сцену
-    if (isMaster && overlay && overlay.classList.contains('open') && !startPopupShown) {
-      var sc = snapshot.room.scene;
-      if (!sc || !sc.layers || !sc.layers.length) { startPopupShown = true; setTimeout(function(){ w.zgScenesPopup && w.zgScenesPopup(); }, 400); }
-    }
+    if(publishButton) publishButton.style.display=snapshot.room.phase==='playing'?'':'none';
     if(isMaster)syncControls();
   }
 
@@ -11368,14 +11390,16 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 
   w.zgStartPlayers = function(){
-    if (!isMaster || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
+    if (launchBusy || !isMaster || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
     var button = el('zg-start-players');
     if (!draft.layers || !draft.layers.length) {
       setStatus('Сначала выберите сцену или добавьте фон');
       if (w.showToast) w.showToast('Сначала подготовьте сцену.');
+      window.alert('Сначала выберите сохранённую сцену или добавьте фоновое изображение.');
       return;
     }
     ensureHeroTokens(roomSnapshot);
+    launchBusy = true;
     if (button) { button.disabled = true; button.textContent = 'Запускаем…'; }
     setStatus('Показываем сцену и открываем путь…');
     w.ZargotaRooms.publishScene(draft).then(function(){
@@ -11383,11 +11407,14 @@ document.addEventListener('DOMContentLoaded', function(){
       publishedSceneId = activeSceneId;
       return w.ZargotaRooms.startGame();
     }).then(function(){
+      launchBusy = false;
       setStatus('✓ Игроки входят на сцену');
       if (button) button.textContent = 'Игроки запущены';
     }).catch(function(err){
+      launchBusy = false;
       setStatus(err.message || 'Не удалось запустить игроков');
       if (w.showToast) w.showToast(err.message || 'Не удалось запустить игроков.');
+      window.alert('Не удалось запустить игроков: ' + (err.message || 'неизвестная ошибка'));
       if (button) { button.disabled = false; button.textContent = 'Запустить игроков'; }
     });
   };
@@ -15248,6 +15275,28 @@ window.zgImageStore = (function() {
   .zg-scene-gear:hover{color:var(--gold);border-color:var(--gold2);background:rgba(30,22,10,.8)}
   .zg-gm-actions{display:none;position:absolute;top:16px;right:120px;z-index:5;align-items:center;gap:8px}
   .zg-game-overlay.gm .zg-gm-actions{display:flex}
+  .zg-scene-quick{display:none;position:absolute;z-index:5;top:68px;left:50%;transform:translateX(-50%);max-width:min(860px,calc(100vw - 520px));height:38px;align-items:center;gap:7px;padding:0 7px 0 13px;border:1px solid rgba(177,137,58,.32);border-radius:8px;background:rgba(10,8,5,.86);box-shadow:0 8px 28px rgba(0,0,0,.4);font-family:'Cinzel',serif}
+  .zg-game-overlay.gm .zg-scene-quick{display:flex}
+  .zg-scene-quick-title{color:#8d7650;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;flex:none}
+  .zg-scene-quick-list{display:flex;gap:5px;min-width:0;overflow-x:auto;scrollbar-width:none}
+  .zg-scene-quick-item,.zg-scene-quick-add{height:28px;border:1px solid #3b2d17;border-radius:5px;background:#100c07;color:#a99263;font-family:'Cinzel',serif;font-size:10px;white-space:nowrap;cursor:pointer;padding:0 10px}
+  .zg-scene-quick-item:hover,.zg-scene-quick-item.active{border-color:#a47d32;color:#efd58f;background:#211708}
+  .zg-scene-quick-item span{color:#6f5a35}.zg-scene-quick-add{width:30px;padding:0;font-size:17px;flex:none}
+  .zg-scene-quick-empty{font-size:10px;color:#62563e;white-space:nowrap}
+  .zg-scene-library-toggle{display:none;position:absolute;left:18px;bottom:78px;z-index:6;width:46px;height:46px;border-radius:50%;border:1px solid #806128;background:rgba(13,10,6,.9);color:#d5b76f;font-size:21px;cursor:pointer;box-shadow:0 8px 28px #0009}
+  .zg-game-overlay.gm .zg-scene-library-toggle{display:block}
+  .zg-scene-library-toggle:hover{border-color:#d1a84a;color:#ffe6a0}
+  .zg-scene-drawer{position:absolute;z-index:9;left:16px;top:86px;bottom:132px;width:min(390px,calc(100vw - 32px));display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(18,14,9,.98),rgba(7,6,4,.98));border:1px solid #725526;border-radius:8px;box-shadow:16px 20px 60px #000d;transform:translateX(calc(-100% - 28px));opacity:0;pointer-events:none;transition:transform .28s ease,opacity .22s ease;color:#c9b98e}
+  .zg-scene-drawer.open{transform:none;opacity:1;pointer-events:auto}
+  .zg-scene-drawer-head{height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #332714}
+  .zg-scene-drawer-head div{display:flex;flex-direction:column;gap:3px}.zg-scene-drawer-head small{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#776744}.zg-scene-drawer-head strong{font-family:'Cinzel',serif;font-size:18px;color:#ecd391}
+  .zg-scene-drawer-head button{width:32px;height:32px;border:0;background:transparent;color:#897753;font-size:22px;cursor:pointer}
+  .zg-scene-drawer-albums{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid #292012}.zg-scene-drawer-albums button{border:1px solid #3b2e19;border-radius:5px;background:#100c07;color:#786949;font-size:10px;padding:7px 9px}.zg-scene-drawer-albums button.active{border-color:#84652c;color:#d5bd7d}
+  .zg-scene-drawer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:12px;overflow-y:auto}
+  .zg-scene-drawer-card{min-width:0;padding:5px 5px 9px;border:1px solid #332713;border-radius:6px;background:#0e0b07;color:#c7b27d;text-align:left;cursor:pointer}.zg-scene-drawer-card:hover,.zg-scene-drawer-card.active{border-color:#a27c35;background:#191207}
+  .zg-scene-drawer-thumb{display:flex;width:100%;aspect-ratio:16/9;align-items:center;justify-content:center;border-radius:4px;background-color:#080705;background-position:center;background-size:cover;font-size:24px;margin-bottom:8px}.zg-scene-drawer-card strong,.zg-scene-drawer-card small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-scene-drawer-card strong{font-family:'Cinzel',serif;font-size:11px}.zg-scene-drawer-card small{margin-top:4px;color:#665a40;font-size:9px}
+  .zg-scene-drawer-empty{grid-column:1/-1;padding:30px 15px;text-align:center;color:#6e6249;font-size:12px;line-height:1.6}
+  .zg-scene-drawer-foot{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border-top:1px solid #332714}.zg-scene-drawer-foot button{min-height:38px;border:1px solid #4b391d;border-radius:6px;background:#171006;color:#bda878;font-family:'Cinzel',serif;font-size:10px;cursor:pointer}
   .zg-vision-gear{display:inline-flex;height:42px;padding:0 14px;border-radius:10px;background:rgba(20,15,8,.62);border:1px solid rgba(200,170,90,.25);color:var(--muted);font-size:13px;font-family:'Cinzel',serif;letter-spacing:.5px;cursor:pointer;align-items:center;gap:7px;transition:.25s}
   .zg-vision-gear:hover{color:var(--gold);border-color:var(--gold2);background:rgba(30,22,10,.8)}
   .zg-vision-gear.active{color:#8fb8e6;border-color:#3f6da0;background:rgba(20,28,42,.62)}
@@ -15887,11 +15936,11 @@ window.zgImageStore = (function() {
     <button type="button" class="zg-game-gear" onclick="zgGameSettings(event)" title="Настройки" aria-label="Настройки">⚙</button>
     <button type="button" class="zg-scene-gear" id="zg-scene-gear" onclick="zgSceneSettings(event)" title="Настройка сцены" aria-label="Настройка сцены">🗺</button>
     <div class="zg-gm-actions" id="zg-gm-actions">
-      <button type="button" class="zg-vision-gear" onclick="zgScenesPopup(true)" title="Выбрать сцену для подготовки" aria-label="Сцены">📂 <span>Сцены</span></button>
       <button type="button" class="zg-vision-gear" id="zg-vision-gear" onclick="zgSceneToggleVision(event)" title="Вид: мастер / игроки" aria-label="Переключить вид">👁 <span>Вид мастера</span></button>
       <button type="button" class="zg-scene-publish" id="zg-scene-publish" onclick="zgScenePublish()" title="Опубликовать сцену всем игрокам">Показать игрокам</button>
       <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgStartPlayers()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
     </div>
+    <div class="zg-scene-quick" id="zg-scene-quick"><span class="zg-scene-quick-title">Сцена</span><div class="zg-scene-quick-list" id="zg-scene-quick-list"></div><button type="button" class="zg-scene-quick-add" onclick="zgSceneDrawerToggle(true)" title="Открыть библиотеку сцен">＋</button></div>
     <div class="zg-game-settings" id="zg-game-settings">
       <div class="zg-game-settings-title">Настройки</div>
       <button type="button" class="zg-game-leave" onclick="zgLeaveRoom()">Покинуть игру</button>
@@ -15921,6 +15970,13 @@ window.zgImageStore = (function() {
     <button type="button" class="zg-move-requests-toggle" id="zg-move-requests-toggle" onclick="zgMovementRequestsToggle()" title="Запросы движения" aria-label="Запросы движения"><img src="images/vtt-icons/movement.png" alt=""><span class="zg-move-requests-count" id="zg-move-requests-count" style="display:none">0</span></button>
     <div class="zg-vtt-loading" id="zg-vtt-loading"><div class="zg-vtt-loading-spin"></div><div class="zg-vtt-loading-txt">Мастер готовит сцену…</div></div>
     <div class="zg-vtt-arrival-fog" aria-hidden="true"></div>
+    <button type="button" class="zg-scene-library-toggle" onclick="zgSceneDrawerToggle()" title="Библиотека сцен" aria-label="Библиотека сцен">▦</button>
+    <aside class="zg-scene-drawer" id="zg-scene-drawer">
+      <div class="zg-scene-drawer-head"><div><small>Мастерская</small><strong>Сцены</strong></div><button type="button" onclick="zgSceneDrawerToggle(false)" title="Закрыть" aria-label="Закрыть">×</button></div>
+      <div class="zg-scene-drawer-albums" id="zg-scene-drawer-albums"></div>
+      <div class="zg-scene-drawer-grid" id="zg-scene-drawer-grid"></div>
+      <div class="zg-scene-drawer-foot"><button type="button" onclick="zgSceneDrawerToggle(false);zgSceneSettings()">⚙ Настройка сцены</button><button type="button" onclick="zgSceneSave(true)">＋ Сохранить текущую</button></div>
+    </aside>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
     <div class="zg-dice-pop" id="zg-dice-pop">
       <button type="button" class="zg-dice-measure" onclick="zgMeasureToggle(event)" title="Линейка и области"><img src="images/vtt-icons/measure.png" alt=""></button>
