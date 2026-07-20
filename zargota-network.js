@@ -769,19 +769,21 @@
         if (!session || !firebase || !db) return null;
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
+        var activeRoll = {
+          id: 'roll-' + now() + '-' + Math.random().toString(36).slice(2, 6),
+          ts: now(),
+          duration: 1100,
+          sides: Math.max(2, Math.min(100, Number(sides) || 20)),
+          value: Math.max(1, Number(value) || 1),
+          total: Number(total == null ? value : total) || 0,
+          outcome: outcome === 'critical-success' || outcome === 'critical-fail' ? outcome : '',
+          statLabel: String(statLabel || '').slice(0, 30),
+          speakerUid: speaker && speaker.uid || user.uid,
+          name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок'
+        };
+        if (member) { member.activeRoll = activeRoll; emit(); }
         return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-          activeRoll: {
-            id: 'roll-' + now() + '-' + Math.random().toString(36).slice(2, 6),
-            ts: now(),
-            duration: 1100,
-            sides: Math.max(2, Math.min(100, Number(sides) || 20)),
-            value: Math.max(1, Number(value) || 1),
-            total: Number(total == null ? value : total) || 0,
-            outcome: outcome === 'critical-success' || outcome === 'critical-fail' ? outcome : '',
-            statLabel: String(statLabel || '').slice(0, 30),
-            speakerUid: speaker && speaker.uid || user.uid,
-            name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок'
-          }
+          activeRoll: activeRoll
         }).catch(function () { return null; });
       }).catch(function () { return null; });
     },
@@ -803,9 +805,11 @@
         var session = readSession(); if (!session || !firebase || !db) return null;
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
+        var activeRoll = { id:'roll-'+now()+'-'+Math.random().toString(36).slice(2,6), ts:now(), duration:1250, rolls:rolls,
+          speakerUid:speaker && speaker.uid || user.uid, name:speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок' };
+        if (member) { member.activeRoll = activeRoll; emit(); }
         return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-          activeRoll: { id:'roll-'+now()+'-'+Math.random().toString(36).slice(2,6), ts:now(), duration:1250, rolls:rolls,
-            speakerUid:speaker && speaker.uid || user.uid, name:speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок' }
+          activeRoll: activeRoll
         }).catch(function () { return null; });
       }).catch(function () { return null; });
     },

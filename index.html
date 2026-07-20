@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.24"></script>
+<script src="zargota-network.js?v=2026-07-20.25"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.24';
+var ZG_APP_VERSION = '2026-07-20.25';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.25', notes: 'Бросок кубика теперь запускает анимацию мгновенно локально и затем синхронизирует тот же результат остальным игрокам.' },
   { v: '2026-07-20.24', notes: 'Сцены получили верхнюю drag-and-drop ленту, собственный размер доски и встроенное окно создания без блокирующих alert.' },
   { v: '2026-07-20.23', notes: 'd20 и остальные кубики снова отображаются даже у ГМ или до появления жетона героя на сцене.' },
   { v: '2026-07-20.22', notes: 'Убрана автоматическая попапка сцен; добавлены верхний переключатель, левая библиотека и надёжный запуск игроков.' },
@@ -11684,7 +11685,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var room=state&&state.room, overlay=el('zg-game-overlay'), host=el('zg-move-layer'); if(!room||!overlay||!host)return;
     Object.keys(room.members||{}).forEach(function(uid){
       var roll=room.members[uid]&&room.members[uid].activeRoll;
-      if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>2600)return;
+      if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>8000)return;
       var targetUid=String(roll.speakerUid||uid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
       var rollLeft=token&&token.style.left?token.style.left:'50%';
@@ -15556,7 +15557,7 @@ window.zgImageStore = (function() {
   .zg-vtt-grid{position:absolute;inset:0;opacity:.34;background-image:linear-gradient(to right,rgba(202,178,112,.28) 1px,transparent 1px),linear-gradient(to bottom,rgba(202,178,112,.28) 1px,transparent 1px)}
   /* ── Жетоны на карте: круглые аватарки с кольцом по типу ── */
   .zg-vtt-token-layer{position:absolute;inset:0;z-index:2}
-  .zg-move-layer{position:absolute;inset:0;z-index:6;pointer-events:none}
+  .zg-move-layer{position:absolute;inset:0;z-index:30;pointer-events:none;overflow:visible}
   .zg-move-marker,.zg-move-preview{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#f0d58a;font-size:27px;background:radial-gradient(circle,#38270dcc 0%,#171006b8 58%,transparent 72%);filter:drop-shadow(0 5px 8px #000b);animation:zgMoveMarkerPulse 1.6s ease-in-out infinite}
   .zg-move-marker,.zg-move-preview{font-size:0;background-image:url('images/vtt-icons/movement.png'),radial-gradient(circle,#38270dcc 0%,#171006b8 58%,transparent 72%);background-size:34px 34px,100% 100%;background-position:center;background-repeat:no-repeat}
   .zg-move-marker::after{content:'?';position:absolute;right:-1px;top:-3px;width:17px;height:17px;border:1px solid #b78b3d;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#171006;color:#f2d47c;font:700 11px/1 'Cinzel',serif;box-shadow:0 2px 6px #000}
