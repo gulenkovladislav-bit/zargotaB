@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.19"></script>
+<script src="zargota-network.js?v=2026-07-20.20"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.19';
+var ZG_APP_VERSION = '2026-07-20.20';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.20', notes: 'Выбор сцены появляется только после входа гейм-мастера за игровой стол, а не при создании комнаты.' },
   { v: '2026-07-20.19', notes: 'Новый запуск сетевой сессии: мастер готовит сцену отдельно и сам запускает игроков из портретного зала ожидания.' },
   { v: '2026-07-20.18', notes: 'Инвентарь встроен непосредственно в лист персонажа: снаряжение слева, сетка вещей справа, без отдельного экрана.' },
   { v: '2026-07-20.17', notes: 'Исправлены сетевые запросы движения, добавлена очередь запросов ГМ; d20-победитель плавно занимает место второго кубика.' },
@@ -11136,7 +11137,7 @@ document.addEventListener('DOMContentLoaded', function(){
       startButton.textContent=started?'Игроки на сцене':'Запустить игроков';
     }
     // ГМ вошёл, сцена игрокам ещё не показана → предложить загрузить сцену
-    if (isMaster && roomChanged && !startPopupShown) {
+    if (isMaster && overlay && overlay.classList.contains('open') && !startPopupShown) {
       var sc = snapshot.room.scene;
       if (!sc || !sc.layers || !sc.layers.length) { startPopupShown = true; setTimeout(function(){ w.zgScenesPopup && w.zgScenesPopup(); }, 400); }
     }
