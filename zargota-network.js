@@ -745,6 +745,28 @@
       }).catch(function () { return null; });
     },
 
+    beginRollBatch: function (rolls, speakerUid) {
+      rolls = (Array.isArray(rolls) ? rolls : []).slice(0, 10).map(function (roll) {
+        var sides = Math.max(2, Math.min(100, Number(roll && roll.sides) || 20));
+        var value = Math.max(1, Math.min(sides, Number(roll && roll.value) || 1));
+        return {
+          sides: sides, value: value, total: Number(roll && roll.total == null ? value : roll.total) || 0,
+          outcome: roll && (roll.outcome === 'critical-success' || roll.outcome === 'critical-fail') ? roll.outcome : '',
+          statLabel: String(roll && roll.statLabel || '').slice(0, 30)
+        };
+      });
+      if (!rolls.length) return Promise.resolve(api.getSnapshot());
+      return ensureReady().then(function (user) {
+        var session = readSession(); if (!session || !firebase || !db) return null;
+        var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
+        var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
+        return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+          activeRoll: { id:'roll-'+now()+'-'+Math.random().toString(36).slice(2,6), ts:now(), duration:1250, rolls:rolls,
+            speakerUid:speaker && speaker.uid || user.uid, name:speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок' }
+        }).catch(function () { return null; });
+      }).catch(function () { return null; });
+    },
+
     // Назначить участникам текущую зону rooms/{code}/members/{uid}/zone
     sendToZone: function (zoneId, uids) {
       zoneId = String(zoneId || '');

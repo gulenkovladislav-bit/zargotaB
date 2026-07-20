@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.8"></script>
+<script src="zargota-network.js?v=2026-07-20.9"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.8';
+var ZG_APP_VERSION = '2026-07-20.9';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.9', notes: 'Добавлены составные броски нескольких кубиков, спокойная смена чисел и радиальный выбор характеристики d20.' },
   { v: '2026-07-20.8', notes: 'Кубик больше не исчезает при сетевом обновлении: он останавливается над жетоном и удерживает результат.' },
   { v: '2026-07-20.7', notes: 'Кубики раскрываются веером и бросаются перетаскиванием; d20 поддерживает характеристики и сетевые критические анимации.' },
   { v: '2026-07-20.6', notes: 'Летопись на столе стала компактной лентой отдельных уведомлений вместо сплошной панели чата.' },
@@ -11520,26 +11521,29 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>2600)return;
       var targetUid=String(roll.speakerUid||uid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
-      if(!token||host.querySelector('[data-roll-id="'+String(roll.id).replace(/"/g,'')+'"]'))return;
-      var sides=[4,6,8,10,12,20].indexOf(Number(roll.sides))>=0?Number(roll.sides):20;
-      var die=document.createElement('span'); die.className='zg-token-roll world-roll'; die.dataset.rollId=roll.id;
-      die.style.left=token.style.left;die.style.top=token.style.top;
-      die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';
-      host.appendChild(die);
-      var number=die.querySelector('b'), label=die.querySelector('em');
-      var ticker=setInterval(function(){number.textContent=String(Math.floor(Math.random()*sides)+1);},68);
+      if(!token)return;
+      var rolls=Array.isArray(roll.rolls)&&roll.rolls.length?roll.rolls:[roll];
       var session=state&&state.session;
       if(!seenRollVisuals[roll.id]){
         seenRollVisuals[roll.id]=true;
-        if(!session||uid!==session.uid){try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(Number(roll.value)||2);}catch(e){}}
+        if(!session||uid!==session.uid){try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(Number(rolls[0]&&rolls[0].value)||2);}catch(e){}}
       }
-      setTimeout(function(){
-        clearInterval(ticker);number.textContent=String(roll.total==null?roll.value:roll.total);die.classList.add('landed');
-        if(roll.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
-        else if(roll.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
-        else if(roll.statLabel){label.textContent=roll.statLabel;}
-      },Math.max(650,Number(roll.duration)||1100));
-      setTimeout(function(){if(die.parentNode)die.remove();},3000);
+      rolls.forEach(function(item,index){
+        var visualId=roll.id+'-'+index;if(host.querySelector('[data-roll-id="'+visualId.replace(/"/g,'')+'"]'))return;
+        var sides=[4,6,8,10,12,20].indexOf(Number(item.sides))>=0?Number(item.sides):20;
+        var die=document.createElement('span');die.className='zg-token-roll world-roll';die.dataset.rollId=visualId;
+        var spacing=Math.max(42,Math.min(76,340/Math.max(1,rolls.length-1)));
+        die.style.left=token.style.left;die.style.top=token.style.top;die.style.setProperty('--roll-offset',((index-(rolls.length-1)/2)*spacing)+'px');
+        die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';host.appendChild(die);
+        var number=die.querySelector('b'),label=die.querySelector('em');
+        var ticker=setInterval(function(){number.textContent=String(Math.floor(Math.random()*sides)+1);},145);
+        setTimeout(function(){clearInterval(ticker);number.textContent=String(item.total==null?item.value:item.total);die.classList.add('landed');
+          if(item.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
+          else if(item.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
+          else if(item.statLabel){label.textContent=item.statLabel;}
+        },Math.max(750,Number(roll.duration)||1250));
+        setTimeout(function(){if(die.parentNode)die.remove();},3400);
+      });
     });
   }
   var chatWorldMode = false;
@@ -11787,7 +11791,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function show(html){ var r=el('zg-dice-result'); if(r)r.innerHTML=html; }
   // Анимация броска: перебор цифр ~0.9с (звук катящегося кубика) → результат с «ударом»
-  var animT=null, rolling=false, diceDrag=null, selectedStat='plain';
+  var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedDice={};
   function animateRoll(sides, finalHtml, finalValue, announceText, totalValue, statLabel){
     var r=el('zg-dice-result');
     if(rolling)return; rolling=true;
@@ -11807,11 +11811,32 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     },900);
   }
-  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open'); p.classList.toggle('open',open); var a=el('zg-dice-abils'); if(a)a.classList.remove('open'); };
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open'); p.classList.toggle('open',open); var a=el('zg-dice-abils'); if(a)a.classList.remove('open'); if(open)selectStat('plain'); };
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open'); };
   function selectStat(key){
     selectedStat=key||'plain';
     document.querySelectorAll('.zg-d20-mod').forEach(function(button){button.classList.toggle('active',button.dataset.stat===selectedStat);});
+  }
+  w.zgD20SelectStat=function(ev,key){if(ev){ev.preventDefault();ev.stopPropagation();}selectStat(key);};
+  function updateDiceSelection(){
+    document.querySelectorAll('.zg-dice-row [data-die]').forEach(function(button){var count=Number(selectedDice[button.dataset.die]||0);button.classList.toggle('selected',count>0);button.setAttribute('data-count',count>0?String(count):'');});
+    var hint=el('zg-dice-hint');if(hint){var total=Object.keys(selectedDice).reduce(function(sum,key){return sum+Number(selectedDice[key]||0);},0);hint.textContent=total?('Выбрано кубиков: '+total+' · перетащите любой на сцену'):'Клик добавляет кубик · перетащите для броска';}
+  }
+  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();}
+  function clearSelectedDice(){selectedDice={};updateDiceSelection();}
+  function throwDiceBatch(sidesList){
+    if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[];
+    sidesList.slice(0,10).forEach(function(sides){var value=roll(sides),mod=0,label='',total=value;
+      if(sides===20&&selectedStat!=='plain'&&c&&c.stats){mod=statVal(c.stats[selectedStat]);label=labels[selectedStat]||selectedStat;total=value+mod;}
+      var outcome=sides===20&&value===20?'critical-success':(sides===20&&value===1?'critical-fail':'');
+      rolls.push({sides:sides,value:value,total:total,outcome:outcome,statLabel:label});
+      parts.push('d'+sides+(label?' '+label:'')+' = '+total+(outcome==='critical-success'?' КРИТ!':outcome==='critical-fail'?' ПРОВАЛ!':''));
+    });
+    var ov=el('zg-game-overlay'),speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
+    try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(rolls[0].value);}catch(e){}
+    if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker);
+    setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(rollerName()+': '+parts.join(' · '),speaker);},1250);
+    clearSelectedDice();w.zgDiceClose();
   }
   function dragMove(ev){
     if(!diceDrag||ev.pointerId!==diceDrag.id)return;
@@ -11823,13 +11848,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!diceDrag||ev.pointerId!==diceDrag.id)return;
     var current=diceDrag;diceDrag=null;document.removeEventListener('pointermove',dragMove);document.removeEventListener('pointerup',dragEnd);document.removeEventListener('pointercancel',dragEnd);
     var ghost=el('zg-dice-drag');if(ghost)ghost.classList.remove('show');
-    if(current.distance<38)return;
-    w.zgDiceClose();
-    if(current.sides===20)w.zgDiceRollAbility(selectedStat);else w.zgDiceRoll(current.sides);
+    if(current.distance<38){addSelectedDie(current.sides);return;}
+    var list=[];Object.keys(selectedDice).forEach(function(key){for(var i=0;i<Number(selectedDice[key]||0);i++)list.push(Number(key));});
+    if(!Number(selectedDice[String(current.sides)]||0))list.push(current.sides);
+    throwDiceBatch(list);
   }
   w.zgDiceDragStart=function(ev,sides){
     if(ev.button!==0&&ev.pointerType!=='touch')return;ev.preventDefault();ev.stopPropagation();
-    sides=Number(sides)||20;selectStat('plain');diceDrag={id:ev.pointerId,sides:sides,x:ev.clientX,y:ev.clientY,distance:0};
+    sides=Number(sides)||20;diceDrag={id:ev.pointerId,sides:sides,x:ev.clientX,y:ev.clientY,distance:0};
     var ghost=el('zg-dice-drag');if(ghost){ghost.querySelector('img').src='images/vtt-dice/d'+sides+'.png';ghost.querySelector('b').textContent='d'+sides;ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.add('show');}
     var abilities=el('zg-dice-abils');if(abilities)abilities.classList.toggle('open',sides===20);
     document.addEventListener('pointermove',dragMove);document.addEventListener('pointerup',dragEnd);document.addEventListener('pointercancel',dragEnd);
@@ -15181,19 +15207,22 @@ window.zgImageStore = (function() {
   .zg-dice-pop.open{display:block;animation:zgDiceFanIn .28s cubic-bezier(.18,.8,.25,1)}
   @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px) scale(.86)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
   .zg-dice-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end}
-  .zg-dice-row button{height:88px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
+  .zg-dice-row button{position:relative;height:88px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
   .zg-dice-row button:nth-child(2){animation-delay:.035s}.zg-dice-row button:nth-child(3){animation-delay:.07s}.zg-dice-row button:nth-child(4){animation-delay:.105s}.zg-dice-row button:nth-child(5){animation-delay:.14s}.zg-dice-row button:nth-child(6){animation-delay:.175s}
   @keyframes zgDieRise{from{opacity:0;transform:translateY(25px) scale(.65)}to{opacity:1;transform:none}}
   .zg-dice-row button:hover{border:0;background:transparent;color:#ffe7a0;transform:translateY(-8px) scale(1.08);filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 15px #d7a63766)}
   .zg-dice-row button.d20{border:0;background:transparent;color:#f1d17a}
+  .zg-dice-row button.selected{color:#ffe59a;filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 18px #e2b343aa)}
+  .zg-dice-row button.selected::after{content:attr(data-count);position:absolute;right:5px;top:4px;min-width:18px;height:18px;padding:0 2px;border:1px solid #e0b64f;border-radius:10px;background:#24190b;color:#ffe7a0;font:700 10px/18px 'Cinzel',serif;box-shadow:0 0 12px #dca93988}
   .zg-dice-row button img{width:72px;height:66px;object-fit:contain;pointer-events:none}.zg-dice-row button span{font:600 11px/1 'Cinzel',serif;text-shadow:0 2px 5px #000}
   .zg-dice-hint{text-align:center;margin-top:8px;color:#766647;font:9px/1.3 'Cinzel',serif;letter-spacing:.8px;opacity:.8}
   .zg-dice-measure{right:0;top:34px;background:#151109cc;box-shadow:0 6px 16px #000a}
-  .zg-dice-abils{position:absolute;left:50%;bottom:102px;transform:translateX(-50%);width:min(520px,88vw);margin:0;padding:0;border:0}
+  .zg-dice-abils{position:absolute;left:auto;right:-25px;bottom:45px;transform:none;width:250px;height:155px;margin:0;padding:0;border:0;pointer-events:none}
   .zg-dice-abils.open{display:block;animation:zgD20StatsIn .2s ease both}
-  @keyframes zgD20StatsIn{from{opacity:0;transform:translate(-50%,12px) scale(.9)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
-  .zg-dice-abils-grid{display:flex;align-items:center;justify-content:center;gap:6px}
+  @keyframes zgD20StatsIn{from{opacity:0;transform:translateY(12px) scale(.9)}to{opacity:1;transform:none}}
+  .zg-dice-abils-grid{position:relative;width:100%;height:100%;display:block}
   .zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{width:auto;grid-column:auto;padding:7px 10px;border:1px solid #554321;border-radius:15px;background:#11100ddb;color:#a99058;font:600 9px/1 'Cinzel',serif;text-align:center;white-space:nowrap;box-shadow:0 5px 13px #0009;pointer-events:auto}
+  .zg-dice-abils-grid button{position:absolute}.zg-dice-abils-grid button:nth-child(1){left:83px;top:0}.zg-dice-abils-grid button:nth-child(2){left:23px;top:35px}.zg-dice-abils-grid button:nth-child(3){left:2px;top:82px}.zg-dice-abils-grid button:nth-child(4){left:43px;top:126px}.zg-dice-abils-grid button:nth-child(5){right:42px;top:126px}.zg-dice-abils-grid button:nth-child(6){right:2px;top:82px}.zg-dice-abils-grid button:nth-child(7){right:22px;top:35px}
   .zg-dice-abils-grid button:hover,.zg-dice-abils-grid button.active{border-color:#dfb652;color:#ffe6a0;background:#2b1f0d;box-shadow:0 0 15px #d7a63755}
   .zg-dice-drag{position:fixed;z-index:9999;left:0;top:0;width:112px;height:112px;display:none;align-items:center;justify-content:center;transform:translate(-50%,-50%) perspective(300px) rotateX(var(--throw-y,0deg)) rotateY(var(--throw-x,0deg));pointer-events:none;filter:drop-shadow(0 14px 13px #000c) drop-shadow(0 0 12px #d8aa4355)}
   .zg-dice-drag.show{display:flex;animation:zgHeldDie .5s ease-in-out infinite alternate}.zg-dice-drag img{position:absolute;width:108px;height:108px;object-fit:contain}.zg-dice-drag b{position:relative;color:#fff0b3;font:700 13px 'Cinzel',serif;text-shadow:0 2px 5px #000}
@@ -15471,8 +15500,8 @@ window.zgImageStore = (function() {
   .zg-bag-vitals{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-bottom:12px}.zg-bag-vitals>div{min-height:78px;border:1px solid #382c1b;border-radius:6px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center}.zg-bag-vitals img{width:36px;height:36px;object-fit:contain}.zg-bag-vitals b{color:#e8d19a;font:600 16px 'Cinzel',serif}.zg-bag-vitals span{color:#75684f;font-size:9px}.zg-bag-statuses{display:flex;gap:6px;flex-wrap:wrap}.zg-bag-statuses span{padding:5px 8px;border:1px solid #63452b;border-radius:12px;color:#c6a77d;font-size:10px}.zg-bag-statuses small{color:#6e624e}
   .zg-bag-notes{display:flex;flex-direction:column;gap:8px}.zg-bag-notes article{padding:11px;border-left:2px solid #8b6a2f;background:#151108}.zg-bag-notes b{color:#d9c083;font:600 11px 'Cinzel',serif}.zg-bag-notes p{margin:5px 0 0;color:#9b8b6c;font-size:11px;line-height:1.5}
   .zg-token-roll{position:absolute;z-index:20;left:50%;bottom:calc(100% + 15px);width:108px;height:108px;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;justify-content:center;animation:zgTokenRoll 3s cubic-bezier(.2,.8,.3,1) both;overflow:visible}
-  .zg-token-roll.world-roll{bottom:auto;margin-top:-96px;transform:translateX(-50%)}
-  .zg-token-roll img{position:absolute!important;inset:0;width:108px!important;height:108px!important;object-fit:contain!important;border:0!important;border-radius:0!important;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 12px #d8a73c88);animation:zgDieSpin .46s linear infinite}
+  .zg-token-roll.world-roll{bottom:auto;margin-top:-96px;margin-left:var(--roll-offset,0px);transform:translateX(-50%)}
+  .zg-token-roll img{position:absolute!important;inset:0;width:108px!important;height:108px!important;object-fit:contain!important;border:0!important;border-radius:0!important;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 12px #d8a73c88);animation:zgDieSpin .68s linear infinite}
   .zg-token-roll b{position:relative;z-index:2;color:#fff0b5;font:700 18px 'Cinzel',serif;text-shadow:0 2px 5px #000,0 0 8px #000}
   .zg-token-roll em{position:absolute;top:100px;left:50%;transform:translateX(-50%);min-width:150px;color:#e7cc84;font:700 9px/1.2 'Cinzel',serif;letter-spacing:.7px;text-align:center;text-shadow:0 2px 5px #000,0 0 8px #000;white-space:nowrap}
   .zg-token-roll.landed img{animation:zgDiceImpact .5s cubic-bezier(.2,1.7,.35,1) both;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 24px #e7bb55cc)}
@@ -15524,7 +15553,7 @@ window.zgImageStore = (function() {
   @media(max-width:560px){
     .zg-dice-pop{bottom:98px;width:98vw;padding:0 26px 10px}
     .zg-dice-row{gap:1px}.zg-dice-row button{height:70px}.zg-dice-row button img{width:52px;height:50px}.zg-dice-row button span{font-size:9px}
-    .zg-dice-abils{bottom:82px;width:96vw}.zg-dice-abils-grid{gap:3px;flex-wrap:wrap}.zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{padding:6px 7px;font-size:8px}
+    .zg-dice-abils{right:-8px;bottom:40px;width:230px;height:145px}.zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{padding:6px 7px;font-size:8px}
     .zg-dice-hint{font-size:8px}.zg-dice-measure{top:20px;width:29px;height:29px}
     .zg-player-dock{width:calc(100vw - 14px);height:72px;padding:4px 7px}
     .zg-player-action{grid-template-rows:30px 18px;padding:3px 2px}
@@ -15713,16 +15742,16 @@ window.zgImageStore = (function() {
       </div>
       <div class="zg-dice-abils" id="zg-dice-abils">
         <div class="zg-dice-abils-grid">
-          <button type="button" class="zg-d20-mod active" data-stat="plain">Без бонуса</button>
-          <button type="button" class="zg-d20-mod" data-stat="str">СИЛ</button>
-          <button type="button" class="zg-d20-mod" data-stat="dex">ЛОВ</button>
-          <button type="button" class="zg-d20-mod" data-stat="int">ИНТ</button>
-          <button type="button" class="zg-d20-mod" data-stat="cha">ХАР</button>
-          <button type="button" class="zg-d20-mod" data-stat="per">ВСП</button>
-          <button type="button" class="zg-d20-mod" data-stat="con">ВЫН</button>
+          <button type="button" class="zg-d20-mod active" data-stat="plain" onclick="zgD20SelectStat(event,'plain')">Без бонуса</button>
+          <button type="button" class="zg-d20-mod" data-stat="str" onclick="zgD20SelectStat(event,'str')">СИЛ</button>
+          <button type="button" class="zg-d20-mod" data-stat="dex" onclick="zgD20SelectStat(event,'dex')">ЛОВ</button>
+          <button type="button" class="zg-d20-mod" data-stat="int" onclick="zgD20SelectStat(event,'int')">ИНТ</button>
+          <button type="button" class="zg-d20-mod" data-stat="cha" onclick="zgD20SelectStat(event,'cha')">ХАР</button>
+          <button type="button" class="zg-d20-mod" data-stat="per" onclick="zgD20SelectStat(event,'per')">ВСП</button>
+          <button type="button" class="zg-d20-mod" data-stat="con" onclick="zgD20SelectStat(event,'con')">ВЫН</button>
         </div>
       </div>
-      <div class="zg-dice-hint">Зажмите и бросьте кубик на сцену</div>
+      <div class="zg-dice-hint" id="zg-dice-hint">Клик добавляет кубик · перетащите для броска</div>
     </div>
     <div class="zg-dice-drag" id="zg-dice-drag" aria-hidden="true"><img alt=""><b></b></div>
     <div class="zg-sheet" id="zg-sheet" aria-label="Лист персонажа">
