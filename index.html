@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.11"></script>
+<script src="zargota-network.js?v=2026-07-20.12"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.11';
+var ZG_APP_VERSION = '2026-07-20.12';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.12', notes: 'Каждый кубик в составном броске теперь независимо прокручивает и получает собственный результат.' },
   { v: '2026-07-20.11', notes: 'Составные броски получили анимированный общий итог; летопись стала прозрачнее и управляется кнопкой снизу.' },
   { v: '2026-07-20.10', notes: 'Результат броска приходит в летопись после анимации; усилены критические эффекты, добавлен тестовый результат ГМ.' },
   { v: '2026-07-20.9', notes: 'Добавлены составные броски нескольких кубиков, спокойная смена чисел и радиальный выбор характеристики d20.' },
@@ -11539,8 +11540,9 @@ document.addEventListener('DOMContentLoaded', function(){
         var spacing=Math.max(42,Math.min(76,340/Math.max(1,rolls.length-1)));
         die.style.left=token.style.left;die.style.top=token.style.top;die.style.setProperty('--roll-offset',((index-(rolls.length-1)/2)*spacing)+'px');
         die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';host.appendChild(die);
-        var number=die.querySelector('b'),label=die.querySelector('em');
-        var ticker=setInterval(function(){number.textContent=String(Math.floor(Math.random()*sides)+1);},145);
+        var number=die.querySelector('b'),label=die.querySelector('em'),lastPreview=0;
+        function nextPreview(){var next=Math.floor(Math.random()*sides)+1;if(sides>2&&next===lastPreview)next=next%sides+1;lastPreview=next;number.textContent=String(next);}
+        nextPreview();var ticker=setInterval(nextPreview,135+(index%5)*19);
         setTimeout(function(){clearInterval(ticker);number.textContent=String(item.total==null?item.value:item.total);die.classList.add('landed');
           if(item.outcome==='critical-success'){die.classList.add('critical-success');label.textContent='КРИТИЧЕСКИЙ УСПЕХ';}
           else if(item.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
@@ -11850,8 +11852,8 @@ document.addEventListener('DOMContentLoaded', function(){
   function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();}
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList){
-    if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[];
-    sidesList.slice(0,10).forEach(function(sides){var value=resultFor(sides),mod=0,label='',total=value;
+    if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
+    sidesList.slice(0,10).forEach(function(sides){var forced=forcedUsed?0:forcedRoll(sides),value=forced||roll(sides),mod=0,label='',total=value;if(forced)forcedUsed=true;
       if(sides===20&&selectedStat!=='plain'&&c&&c.stats){mod=statVal(c.stats[selectedStat]);label=labels[selectedStat]||selectedStat;total=value+mod;}
       var outcome=sides===20&&value===20?'critical-success':(sides===20&&value===1?'critical-fail':'');
       rolls.push({sides:sides,value:value,total:total,outcome:outcome,statLabel:label});
@@ -15793,7 +15795,7 @@ window.zgImageStore = (function() {
         </div>
       </div>
       <div class="zg-dice-hint" id="zg-dice-hint">Клик добавляет кубик · перетащите для броска</div>
-      <label class="zg-dice-test" title="Число ограничивается диапазоном выбранного кубика"><span>Тест ГМ</span><input id="zg-dice-force" type="number" min="1" max="100" inputmode="numeric" placeholder="случайно"><button type="button" onclick="zgDiceClearForced()" title="Вернуть случайный результат">×</button></label>
+      <label class="zg-dice-test" title="В составном броске применяется только к первому кубику"><span>Тест ГМ · первый</span><input id="zg-dice-force" type="number" min="1" max="100" inputmode="numeric" placeholder="случайно"><button type="button" onclick="zgDiceClearForced()" title="Вернуть случайный результат">×</button></label>
     </div>
     <div class="zg-dice-drag" id="zg-dice-drag" aria-hidden="true"><img alt=""><b></b></div>
     <div class="zg-sheet" id="zg-sheet" aria-label="Лист персонажа">
