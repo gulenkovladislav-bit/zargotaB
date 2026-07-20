@@ -256,6 +256,8 @@
       tokens: tokens,
       grid: scene.grid !== false,
       gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
+      boardWidth: Math.max(8, Math.min(80, Number(scene.boardWidth) || 32)),
+      boardHeight: Math.max(8, Math.min(80, Number(scene.boardHeight) || 20)),
       gridAboveTokens: !!scene.gridAboveTokens,
       x: Math.max(-2000, Math.min(2000, Number(scene.x) || 0)),
       y: Math.max(-2000, Math.min(2000, Number(scene.y) || 0)),
