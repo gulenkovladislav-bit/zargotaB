@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.35"></script>
+<script src="zargota-network.js?v=2026-07-20.36"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.35';
+var ZG_APP_VERSION = '2026-07-20.36';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.36', notes: 'Следы движения стали пылевыми и приглушёнными; левый и правый отпечатки теперь естественно чередуются вдоль шага.' },
   { v: '2026-07-20.35', notes: 'Золотистая дорожка движения получила новый детальный отпечаток походного сапога с протектором и каблуком.' },
   { v: '2026-07-20.34', notes: 'Измерения перенесены в «Действия»; одобренное движение сопровождается походкой жетона и затухающей золотистой дорожкой следов.' },
   { v: '2026-07-20.33', notes: 'd20 выбирается только один раз; при преимуществе и помехе победивший кубик останавливается по центру; сетевые действия больше не перезапускают входной туман.' },
@@ -10903,16 +10904,18 @@ document.addEventListener('DOMContentLoaded', function(){
     if (trailLayer) {
       var dx=Number(movement.toX)-Number(movement.fromX),dy=Number(movement.toY)-Number(movement.fromY);
       var layerRect=trailLayer.getBoundingClientRect();
-      var angle=Math.atan2(dy*(layerRect.height||1),dx*(layerRect.width||1))*180/Math.PI+90;
+      var width=layerRect.width||1,height=layerRect.height||1;
+      var screenDx=dx/100*width,screenDy=dy/100*height,screenLength=Math.max(1,Math.hypot(screenDx,screenDy));
+      var angle=Math.atan2(screenDy,screenDx)*180/Math.PI+90;
       var steps=Math.max(2,Math.min(12,Math.round(Math.hypot(dx,dy)/4)));
       for(var step=1;step<=steps;step++){
-        var progress=step/(steps+1),foot=document.createElement('span');
-        foot.className='zg-move-footprint';
-        foot.style.left=(Number(movement.fromX)+dx*progress)+'%';
-        foot.style.top=(Number(movement.fromY)+dy*progress)+'%';
-        foot.style.setProperty('--foot-angle',angle+'deg');
+        var progress=step/(steps+1),side=step%2?1:-1,sideOffset=6*side,foot=document.createElement('span');
+        foot.className='zg-move-footprint '+(side>0?'right':'left');
+        foot.style.left=(Number(movement.fromX)+dx*progress+(-screenDy/screenLength*sideOffset)/width*100)+'%';
+        foot.style.top=(Number(movement.fromY)+dy*progress+(screenDx/screenLength*sideOffset)/height*100)+'%';
+        foot.style.setProperty('--foot-angle',(angle+side*4)+'deg');
         foot.style.setProperty('--foot-delay',Math.round(duration*progress*.78)+'ms');
-        foot.innerHTML='<i></i><i></i>';
+        foot.innerHTML='<i></i>';
         trailLayer.appendChild(foot);
         (function(mark){setTimeout(function(){if(mark.parentNode)mark.remove();},duration+1900);})(foot);
       }
@@ -15664,9 +15667,9 @@ window.zgImageStore = (function() {
   .zg-vtt-scene.move-mode{cursor:crosshair}
   .zg-vtt-scene.move-mode .zg-move-preview{display:flex}
   @keyframes zgMoveMarkerPulse{0%,100%{transform:translate(-50%,-50%) scale(.94);opacity:.72}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
-  .zg-move-footprint{position:absolute;z-index:1;width:27px;height:38px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 4px #e8bc5899);animation:zgFootprintTrail 1.55s ease-out var(--foot-delay,0ms) both}
-  .zg-move-footprint i{position:absolute;width:10px;height:25px;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:sepia(.08) brightness(1.08);transform:rotate(-7deg)}
-  .zg-move-footprint i:first-child{left:2px;top:12px}.zg-move-footprint i:last-child{right:2px;top:0;transform:rotate(7deg)}
+  .zg-move-footprint{position:absolute;z-index:1;width:15px;height:29px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 3px #c9a66355);animation:zgFootprintTrail 1.55s ease-out var(--foot-delay,0ms) both}
+  .zg-move-footprint i{position:absolute;inset:0;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:saturate(.58) brightness(.88)}
+  .zg-move-footprint::after{content:'';position:absolute;left:50%;top:52%;width:2px;height:2px;border-radius:50%;background:#d0b477;box-shadow:-9px -4px 0 #9f895e99,8px 6px 0 #b39a6c88,5px -10px 0 #8f7b5888;opacity:.48}
   @keyframes zgFootprintTrail{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.45)}18%,62%{opacity:.9;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.9)}}
   .zg-move-requests{position:absolute;z-index:8;right:78px;top:134px;width:290px;display:none;flex-direction:column;gap:8px;padding:10px;border:1px solid #594521;border-radius:7px;background:linear-gradient(180deg,rgba(17,14,9,.96),rgba(8,9,9,.95));box-shadow:0 18px 45px #000c;backdrop-filter:blur(9px)}
   .zg-move-requests.open{display:flex}
