@@ -718,6 +718,25 @@
       });
     },
 
+    acknowledgeMovement: function (requestId) {
+      requestId = String(requestId || '').slice(0, 160);
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'player') return api.getSnapshot();
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var request = room.members && room.members[user.uid] && room.members[user.uid].movementRequest;
+          if (!request || request.status === 'pending' || (requestId && request.id !== requestId)) return api.getSnapshot();
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), { movementRequest: null }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && error.code === 'room-not-found') throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     sendChat: function (text, kind, speakerUid) {
       text = String(text || '').trim().slice(0, 500);
       if (!text) return Promise.resolve(api.getSnapshot());

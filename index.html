@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.31"></script>
+<script src="zargota-network.js?v=2026-07-20.32"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.31';
+var ZG_APP_VERSION = '2026-07-20.32';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.32', notes: 'Повторное движение героя снова доступно после решения мастера: завершённый запрос корректно очищается вместе с локальным режимом.' },
   { v: '2026-07-20.31', notes: 'Приближение к жетону выполняется только один раз во время входа сквозь туман и больше не повторяется от сетевых обновлений.' },
   { v: '2026-07-20.30', notes: 'При входе камера игрока приближается к его жетону вдвое сильнее и удерживает героя в центре сцены.' },
   { v: '2026-07-20.29', notes: 'Запуск игроков больше не требует обязательного фонового изображения: выбранная сцена или чистая сетка считаются готовыми.' },
@@ -10873,7 +10874,12 @@ document.addEventListener('DOMContentLoaded', function(){
     var key = request.id + ':' + request.status;
     if (key === lastMovementFeedback) return;
     lastMovementFeedback = key;
+    setMovementMode(false);
+    if (w.zgPlayerDockSet) w.zgPlayerDockSet('movement', false);
     if (w.showToast) w.showToast(request.status === 'approved' ? 'Мастер разрешил движение' : 'Мастер отклонил движение');
+    if (w.ZargotaRooms && w.ZargotaRooms.acknowledgeMovement) {
+      w.ZargotaRooms.acknowledgeMovement(request.id).catch(function(){});
+    }
   }
   function animateLastMovement(){
     var movement = roomSnapshot && roomSnapshot.room && roomSnapshot.room.lastMovement;
@@ -11519,7 +11525,10 @@ document.addEventListener('DOMContentLoaded', function(){
         var operation = isMaster && w.ZargotaRooms.requestMovementAs
           ? w.ZargotaRooms.requestMovementAs(actorUid,point.x,point.y,origin)
           : w.ZargotaRooms.requestMovement(point.x,point.y,origin);
-        operation.then(function(){ if(w.showToast)w.showToast(isMaster?'Тестовый запрос создан':'Запрос движения отправлен мастеру'); })
+        operation.then(function(snapshot){
+          if (snapshot) roomState(snapshot);
+          if(w.showToast)w.showToast(isMaster?'Тестовый запрос создан':'Запрос движения отправлен мастеру');
+        })
           .catch(function(err){ if(w.showToast)w.showToast(err.message||'Не удалось отправить запрос'); });
       }, true);
       // Рамка выделения (Shift+тянуть по пустому месту)
