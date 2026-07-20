@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.16"></script>
+<script src="zargota-network.js?v=2026-07-20.17"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.16';
+var ZG_APP_VERSION = '2026-07-20.17';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.17', notes: 'Исправлены сетевые запросы движения, добавлена очередь запросов ГМ; d20-победитель плавно занимает место второго кубика.' },
   { v: '2026-07-20.16', notes: 'Одиночный бросок без характеристики больше не дублирует число; формула итога появляется только при модификаторе.' },
   { v: '2026-07-20.15', notes: 'Для d20 добавлены преимущество и помеха с двумя кубиками, столкновением и выбором итогового результата.' },
   { v: '2026-07-20.14', notes: 'Анимация итога работает и для одиночных бросков; критические записи получили цвет, формулировки бросков упрощены.' },
@@ -10315,6 +10316,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var gmVision = 'gm';   // локальный вид мастера: 'gm' (видит скрытое) или 'players' (превью глазами игроков)
   var movementMode = false;
   var movementActorUid = '';
+  var movementPanelPinned = false;
   var possessedUid = '';
   var lastMovementSeen = '';
   var lastMovementFeedback = '';
@@ -10715,6 +10717,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if (w.showToast) w.showToast(accepted ? 'Движение разрешено' : 'Движение отклонено');
     }).catch(function(err){ if (w.showToast) w.showToast(err.message || 'Не удалось обработать запрос'); });
   };
+  w.zgMovementRequestsToggle=function(){if(!isMaster)return;movementPanelPinned=!movementPanelPinned;renderMovementOverlays();};
   function renderMovementOverlays(){
     var layer = el('zg-move-layer'), panel = el('zg-move-requests'), list = el('zg-move-requests-list');
     if (!layer) return;
@@ -10733,11 +10736,12 @@ document.addEventListener('DOMContentLoaded', function(){
       marker.textContent = '🥾'; marker.title = isMaster ? (request.name || 'Герой') + ': запрос движения' : 'Ожидает решения мастера';
       layer.appendChild(marker);
     });
-    if (panel) panel.classList.toggle('open', !!isMaster && pending.length > 0);
-    if (list) list.innerHTML = isMaster ? pending.map(function(request){
+    if (panel) panel.classList.toggle('open', !!isMaster && (pending.length > 0 || movementPanelPinned));
+    var toggle=el('zg-move-requests-toggle'),count=el('zg-move-requests-count');if(toggle)toggle.classList.toggle('has-requests',pending.length>0);if(count){count.textContent=String(pending.length);count.style.display=pending.length?'flex':'none';}
+    if (list) list.innerHTML = isMaster ? (pending.map(function(request){
       var uid = JSON.stringify(String(request.uid || ''));
       return '<div class="zg-move-request"><span class="zg-move-request-icon">🥾</span><div class="zg-move-request-copy"><b>' + esc(request.name || 'Герой') + '</b>Просит перейти в отмеченную точку</div><div class="zg-move-request-actions"><button type="button" onclick="zgMovementResolve(' + uid + ',false)">Отклонить</button><button type="button" class="approve" onclick="zgMovementResolve(' + uid + ',true)">Разрешить</button></div></div>';
-    }).join('') : '';
+    }).join('')||'<div class="zg-move-request-empty">Новых запросов нет</div>') : '';
   }
   function movementFeedback(){
     var session = roomSnapshot && roomSnapshot.session;
@@ -11333,9 +11337,11 @@ document.addEventListener('DOMContentLoaded', function(){
         if (!w.ZargotaRooms || !w.ZargotaRooms.requestMovement) return;
         var actorUid = movementActorUid;
         setMovementMode(false); if (w.zgPlayerDockSet) w.zgPlayerDockSet('movement',false);
+        var actorToken=draft.tokens.filter(function(item){return item.type==='hero'&&item.memberUid===actorUid;})[0];
+        var origin=actorToken?{x:actorToken.x,y:actorToken.y,tokenId:actorToken.id}:{};
         var operation = isMaster && w.ZargotaRooms.requestMovementAs
-          ? w.ZargotaRooms.requestMovementAs(actorUid,point.x,point.y)
-          : w.ZargotaRooms.requestMovement(point.x,point.y);
+          ? w.ZargotaRooms.requestMovementAs(actorUid,point.x,point.y,origin)
+          : w.ZargotaRooms.requestMovement(point.x,point.y,origin);
         operation.then(function(){ if(w.showToast)w.showToast(isMaster?'Тестовый запрос создан':'Запрос движения отправлен мастеру'); })
           .catch(function(err){ if(w.showToast)w.showToast(err.message||'Не удалось отправить запрос'); });
       }, true);
@@ -15404,6 +15410,7 @@ window.zgImageStore = (function() {
   .zg-move-request-actions button{height:31px;border:1px solid #46361d;border-radius:4px;background:#17120a;color:#a89770;font:600 10px/1 'Cinzel',serif;cursor:pointer}
   .zg-move-request-actions button:hover{border-color:#aa8139;color:#efd180;background:#241a0c}
   .zg-move-request-actions .approve{border-color:#315c37;color:#8ac294;background:#0f1b11}
+  .zg-move-request-empty{padding:18px 8px;text-align:center;color:#77694d;font:10px 'Cinzel',serif}.zg-move-requests-toggle{position:absolute;z-index:8;right:78px;top:82px;width:43px;height:43px;display:none;align-items:center;justify-content:center;border:1px solid #5a4625;border-radius:50%;background:#100d08dd;cursor:pointer;box-shadow:0 8px 24px #000a;backdrop-filter:blur(7px)}.zg-game-overlay.gm .zg-move-requests-toggle{display:flex}.zg-move-requests-toggle img{width:28px;height:28px;object-fit:contain;opacity:.72}.zg-move-requests-toggle:hover,.zg-move-requests-toggle.has-requests{border-color:#bd913c;box-shadow:0 8px 24px #000a,0 0 16px #cb96343d}.zg-move-requests-toggle.has-requests img{opacity:1}.zg-move-requests-count{position:absolute;right:-5px;top:-5px;min-width:18px;height:18px;padding:0 3px;border:1px solid #e0b652;border-radius:10px;background:#281b0a;color:#ffe39a;align-items:center;justify-content:center;font:700 9px 'Cinzel',serif;box-shadow:0 2px 8px #000}
   .zg-vtt-token{position:absolute;z-index:3;transform:translate(-50%,-50%);width:64px;height:64px;border:0;padding:0;background:transparent;cursor:default;filter:drop-shadow(0 6px 11px #000b);transition:transform .12s ease}
   .zg-vtt-token:hover:not(:disabled),.zg-vtt-token:active:not(:disabled){transform:translate(-50%,-50%)}  /* глобальный button:hover не должен сбивать центрирование */
   .zg-game-overlay.gm .zg-vtt-token{cursor:grab}
@@ -15601,7 +15608,7 @@ window.zgImageStore = (function() {
   .zg-token-roll.critical-fail::after{content:'×';position:absolute;inset:-20px;color:#ff3c3c;font:700 118px/145px serif;text-align:center;opacity:0;text-shadow:0 0 18px #b00000;animation:zgFailMark .9s ease-out both}
   .zg-token-roll.critical-fail img{animation:zgCritFailDie .72s ease-out both;filter:sepia(.2) hue-rotate(315deg) saturate(1.8) drop-shadow(0 10px 12px #000) drop-shadow(0 0 34px #d93636)}.zg-token-roll.critical-fail b,.zg-token-roll.critical-fail em{color:#ff6969;text-shadow:0 0 12px #b90000,0 2px 5px #000}.zg-token-roll.critical-fail em{animation:zgCritLabel .75s ease-out both}
   .zg-token-roll.contest-resolve.contest-winner img{animation:zgContestWinner .72s cubic-bezier(.25,.9,.35,1) both}.zg-token-roll.contest-resolve.contest-winner b{animation:zgContestWinnerNumber .72s cubic-bezier(.25,.9,.35,1) both}.zg-token-roll.contest-resolve.contest-loser img,.zg-token-roll.contest-resolve.contest-loser b{animation:zgContestLoser .72s ease-out both}.zg-token-roll.contest-resolve.contest-loser em{opacity:0}
-  @keyframes zgContestWinner{0%{transform:none}48%{transform:translateX(var(--contest-direction)) rotate(24deg) scale(1.16);filter:brightness(1.35) drop-shadow(0 0 24px #f0bc4f)}72%{transform:translateX(0) rotate(-8deg) scale(1.08)}100%{transform:none}}@keyframes zgContestWinnerNumber{0%{transform:none}48%{transform:translateX(var(--contest-direction)) scale(1.25)}100%{transform:none}}@keyframes zgContestLoser{0%{transform:none;opacity:1}50%{transform:translateX(var(--contest-direction)) rotate(-28deg) scale(.72);opacity:.42}100%{transform:translateX(var(--contest-direction)) rotate(-38deg) scale(.55);opacity:.14;filter:grayscale(.8)}}
+  @keyframes zgContestWinner{0%{transform:none}60%{transform:translateX(var(--contest-direction)) scale(1.08);filter:brightness(1.25) drop-shadow(0 0 22px #f0bc4f)}100%{transform:translateX(var(--contest-direction)) scale(1);filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 25px #e3b54f)}}@keyframes zgContestWinnerNumber{0%{transform:none}60%,100%{transform:translateX(var(--contest-direction)) scale(1.12)}}@keyframes zgContestLoser{0%{transform:none;opacity:1}55%{transform:translateX(var(--contest-direction)) scale(.76);opacity:.4}100%{transform:translateX(var(--contest-direction)) scale(.55);opacity:.08;filter:grayscale(.9)}}
   .zg-roll-total{position:absolute;z-index:23;margin-top:-210px;transform:translateX(-50%) scale(.72);min-width:150px;min-height:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;color:#f7dd92;text-align:center;text-shadow:0 2px 7px #000,0 0 13px #d49a35}
   .zg-roll-total.calculating{animation:zgTotalReveal .35s ease-out both}.zg-roll-total small{color:#aa9568;font:600 9px 'Cinzel',serif;letter-spacing:.5px}.zg-roll-total b{font:700 34px/1.15 'Cinzel',serif}.zg-roll-total em{font:700 8px 'Cinzel',serif;letter-spacing:2px;color:#8f784b}.zg-roll-total.ready b{animation:zgTotalReady .55s cubic-bezier(.2,1.8,.3,1) both;color:#fff1b5}.zg-roll-total.ready::before{content:'';position:absolute;inset:2px 21px;border:1px solid #c99a3d;border-radius:50%;animation:zgTotalRing .8s ease-out both}
   @keyframes zgTotalReveal{from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.55)}to{opacity:1;transform:translateX(-50%) scale(1)}}@keyframes zgTotalReady{0%{transform:scale(.6)}65%{transform:scale(1.35)}100%{transform:none}}@keyframes zgTotalRing{from{opacity:.9;transform:scale(.4)}to{opacity:0;transform:scale(1.55)}}
@@ -15643,7 +15650,7 @@ window.zgImageStore = (function() {
     .zg-vtt-tool{border-bottom:0;border-right:1px solid #302515}
     .zg-vtt-tool:last-child{border-right:0}
     .zg-vtt-drawer{left:10px;right:10px;top:auto;bottom:64px;width:auto;max-height:56vh}
-    .zg-move-requests{right:10px;top:116px;width:min(290px,calc(100vw - 20px))}
+    .zg-move-requests{right:10px;top:116px;width:min(290px,calc(100vw - 20px))}.zg-move-requests-toggle{right:10px;top:68px}
     .zg-player-dock{bottom:10px;width:calc(100vw - 24px);min-width:0;height:82px;padding:5px 10px;border-radius:32px}
     .zg-player-action{grid-template-rows:32px 18px 11px;padding:4px 3px 2px}
     .zg-player-action-icon{height:32px;font-size:24px}
@@ -15828,6 +15835,7 @@ window.zgImageStore = (function() {
       <div class="zg-move-requests-title">Запрос движения</div>
       <div id="zg-move-requests-list"></div>
     </aside>
+    <button type="button" class="zg-move-requests-toggle" id="zg-move-requests-toggle" onclick="zgMovementRequestsToggle()" title="Запросы движения" aria-label="Запросы движения"><img src="images/vtt-icons/movement.png" alt=""><span class="zg-move-requests-count" id="zg-move-requests-count" style="display:none">0</span></button>
     <div class="zg-vtt-loading" id="zg-vtt-loading"><div class="zg-vtt-loading-spin"></div><div class="zg-vtt-loading-txt">Мастер готовит сцену…</div></div>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
     <div class="zg-dice-pop" id="zg-dice-pop">

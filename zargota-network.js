@@ -558,7 +558,8 @@
       });
     },
 
-    requestMovement: function (targetX, targetY) {
+    requestMovement: function (targetX, targetY, origin) {
+      origin = origin || {};
       targetX = Math.max(0, Math.min(100, Number(targetX) || 0));
       targetY = Math.max(0, Math.min(100, Number(targetY) || 0));
       return ensureReady().then(function (user) {
@@ -572,13 +573,14 @@
           var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
           var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
           var token = tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === user.uid; })[0];
-          if (!token) throw roomError('Мастер ещё не разместил ваш жетон на сцене.', 'token-missing');
+          if (!token && (!isFinite(Number(origin.x)) || !isFinite(Number(origin.y)))) throw roomError('Мастер ещё не разместил ваш жетон на сцене.', 'token-missing');
           var request = {
             id: 'move-' + user.uid.slice(0, 10) + '-' + now(),
             uid: user.uid,
             name: member.character && member.character.name || member.name || 'Герой',
-            fromX: Math.max(0, Math.min(100, Number(token.x) || 0)),
-            fromY: Math.max(0, Math.min(100, Number(token.y) || 0)),
+            fromX: Math.max(0, Math.min(100, Number(token ? token.x : origin.x) || 0)),
+            fromY: Math.max(0, Math.min(100, Number(token ? token.y : origin.y) || 0)),
+            tokenId: String(token && token.id || origin.tokenId || '').slice(0, 128),
             toX: targetX,
             toY: targetY,
             zoneId: zoneId,
@@ -595,7 +597,8 @@
       });
     },
 
-    requestMovementAs: function (requestUid, targetX, targetY) {
+    requestMovementAs: function (requestUid, targetX, targetY, origin) {
+      origin = origin || {};
       requestUid = String(requestUid || '').slice(0, 128);
       targetX = Math.max(0, Math.min(100, Number(targetX) || 0));
       targetY = Math.max(0, Math.min(100, Number(targetY) || 0));
@@ -611,11 +614,12 @@
           var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
           var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
           var token = tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === requestUid; })[0];
-          if (!token) throw roomError('Жетон героя ещё не опубликован на сцене.', 'token-missing');
+          if (!token && (!isFinite(Number(origin.x)) || !isFinite(Number(origin.y)))) throw roomError('Жетон героя ещё не опубликован на сцене.', 'token-missing');
           var request = {
             id: 'move-' + requestUid.slice(0, 10) + '-' + now(), uid: requestUid,
             name: member.character && member.character.name || member.name || 'Герой',
-            fromX: Math.max(0, Math.min(100, Number(token.x) || 0)), fromY: Math.max(0, Math.min(100, Number(token.y) || 0)),
+            fromX: Math.max(0, Math.min(100, Number(token ? token.x : origin.x) || 0)), fromY: Math.max(0, Math.min(100, Number(token ? token.y : origin.y) || 0)),
+            tokenId: String(token && token.id || origin.tokenId || '').slice(0, 128),
             toX: targetX, toY: targetY, zoneId: zoneId, status: 'pending', createdAt: now(), testByMaster: true
           };
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + requestUid), { movementRequest: request }).then(function () {
@@ -651,10 +655,15 @@
               if (token && token.type === 'hero' && token.memberUid === requestUid) { tokenIndex = index; return true; }
               return false;
             });
-            if (tokenIndex < 0) throw roomError('Жетон игрока не найден на сцене.', 'token-missing');
             var scenePath = zoneId ? 'zones/' + zoneId : 'scene';
-            updates[scenePath + '/tokens/' + tokenIndex + '/x'] = Math.max(0, Math.min(100, Number(request.toX) || 0));
-            updates[scenePath + '/tokens/' + tokenIndex + '/y'] = Math.max(0, Math.min(100, Number(request.toY) || 0));
+            if (tokenIndex < 0) {
+              var member = room.members && room.members[requestUid] || {};
+              tokenIndex = tokens.length;
+              updates[scenePath + '/tokens/' + tokenIndex] = { id:String(request.tokenId||('hero-'+requestUid)),type:'hero',disposition:'hero',memberUid:requestUid,name:member.character&&member.character.name||member.name||'Герой',x:Math.max(0,Math.min(100,Number(request.toX)||0)),y:Math.max(0,Math.min(100,Number(request.toY)||0)),size:58,z:tokenIndex+10,visible:true,hidden:false,locked:false,opacity:1 };
+            } else {
+              updates[scenePath + '/tokens/' + tokenIndex + '/x'] = Math.max(0, Math.min(100, Number(request.toX) || 0));
+              updates[scenePath + '/tokens/' + tokenIndex + '/y'] = Math.max(0, Math.min(100, Number(request.toY) || 0));
+            }
             var distance = Math.hypot(Number(request.toX) - Number(request.fromX), Number(request.toY) - Number(request.fromY));
             updates.lastMovement = {
               id: request.id,
