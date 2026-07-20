@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.12"></script>
+<script src="zargota-network.js?v=2026-07-20.13"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9011,8 +9011,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.12';
+var ZG_APP_VERSION = '2026-07-20.13';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.13', notes: 'Звук результата синхронизирован с остановкой кубика, критические исходы дольше остаются над жетоном.' },
   { v: '2026-07-20.12', notes: 'Каждый кубик в составном броске теперь независимо прокручивает и получает собственный результат.' },
   { v: '2026-07-20.11', notes: 'Составные броски получили анимированный общий итог; летопись стала прозрачнее и управляется кнопкой снизу.' },
   { v: '2026-07-20.10', notes: 'Результат броска приходит в летопись после анимации; усилены критические эффекты, добавлен тестовый результат ГМ.' },
@@ -9244,6 +9245,25 @@ document.addEventListener('DOMContentLoaded', function(){
       } else {
         tone(330, 0.15, { delay: finalDelay, type:'sine', vol:0.2 });
       }
+    },
+
+    // Для VTT катание и раскрытие результата синхронизируются с анимацией отдельно.
+    diceRollStart: function() {
+      ensure();
+      var bounces = 8;
+      for (var i = 0, t = 0; i < bounces; i++) {
+        tick(t, 1400 + Math.random() * 900, 0.27 - (i / bounces) * 0.13);
+        t += 0.07 + (i / bounces) * 0.11;
+      }
+    },
+    diceResult: function(result) {
+      ensure(); tick(0, 850, 0.36);
+      if (result === 20) {
+        tone(523,0.1,{delay:.08,type:'triangle',vol:.3});tone(659,0.1,{delay:.16,type:'triangle',vol:.32});tone(784,0.15,{delay:.24,type:'triangle',vol:.34});tone(1047,0.3,{delay:.34,type:'triangle',vol:.36});
+      } else if (result === 1) tone(200,0.4,{delay:.08,type:'sawtooth',vol:.28,freqEnd:70});
+      else if (result >= 16) tone(523,0.15,{delay:.08,type:'triangle',vol:.26});
+      else if (result >= 10) tone(440,0.12,{delay:.08,type:'sine',vol:.22});
+      else tone(330,0.15,{delay:.08,type:'sine',vol:.2});
     },
 
     // Бросок кубика урона (без итогового тона - только катание)
@@ -11531,12 +11551,15 @@ document.addEventListener('DOMContentLoaded', function(){
       var session=state&&state.session;
       if(!seenRollVisuals[roll.id]){
         seenRollVisuals[roll.id]=true;
-        if(!session||uid!==session.uid){try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(Number(rolls[0]&&rolls[0].value)||2);}catch(e){}}
+        if(!session||uid!==session.uid){
+          try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
+          setTimeout(function(){var soundRoll=rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},Math.max(750,Number(roll.duration)||1250));
+        }
       }
       rolls.forEach(function(item,index){
         var visualId=roll.id+'-'+index;if(host.querySelector('[data-roll-id="'+visualId.replace(/"/g,'')+'"]'))return;
         var sides=[4,6,8,10,12,20].indexOf(Number(item.sides))>=0?Number(item.sides):20;
-        var die=document.createElement('span');die.className='zg-token-roll world-roll';die.dataset.rollId=visualId;
+        var die=document.createElement('span');die.className='zg-token-roll world-roll'+(item.outcome?' long-result':'');die.dataset.rollId=visualId;
         var spacing=Math.max(42,Math.min(76,340/Math.max(1,rolls.length-1)));
         die.style.left=token.style.left;die.style.top=token.style.top;die.style.setProperty('--roll-offset',((index-(rolls.length-1)/2)*spacing)+'px');
         die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';host.appendChild(die);
@@ -11548,7 +11571,7 @@ document.addEventListener('DOMContentLoaded', function(){
           else if(item.outcome==='critical-fail'){die.classList.add('critical-fail');label.textContent='КРИТИЧЕСКИЙ ПРОВАЛ';}
           else if(item.statLabel){label.textContent=item.statLabel;}
         },Math.max(750,Number(roll.duration)||1250));
-        setTimeout(function(){if(die.parentNode)die.remove();},3400);
+        setTimeout(function(){if(die.parentNode)die.remove();},item.outcome?5400:3400);
       });
       if(rolls.length>1&&!host.querySelector('[data-roll-total="'+String(roll.id).replace(/"/g,'')+'"]')){
         var total=rolls.reduce(function(sum,item){return sum+Number(item.total==null?item.value:item.total||0);},0);
@@ -11826,13 +11849,14 @@ document.addEventListener('DOMContentLoaded', function(){
     var speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
     var outcome=sides===20&&finalValue===20?'critical-success':(sides===20&&finalValue===1?'critical-fail':'');
     if(w.ZargotaRooms&&w.ZargotaRooms.beginRoll)w.ZargotaRooms.beginRoll(sides,speaker,finalValue,totalValue==null?finalValue:totalValue,outcome,statLabel||'');
-    try{ if(w.ZargotaSound&&w.ZargotaSound.diceRoll) w.ZargotaSound.diceRoll(finalValue); }catch(e){}
+    try{ if(w.ZargotaSound&&w.ZargotaSound.diceRollStart) w.ZargotaSound.diceRollStart(); }catch(e){}
     if(r)r.classList.add('rolling');
     clearInterval(animT);
     if(r)animT=setInterval(function(){ r.innerHTML='<span class="zg-dice-die">d'+sides+'</span> <b>'+(Math.floor(Math.random()*sides)+1)+'</b>'; },70);
     setTimeout(function(){
       clearInterval(animT); rolling=false;
       if(r){r.classList.remove('rolling');r.innerHTML=finalHtml;r.classList.add('land');setTimeout(function(){r.classList.remove('land');},700);}
+      try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(finalValue);}catch(e){}
       if(announceText&&w.ZargotaRooms&&w.ZargotaRooms.announceRoll)setTimeout(function(){
         w.ZargotaRooms.announceRoll(announceText,speaker);
       },950);
@@ -11860,8 +11884,9 @@ document.addEventListener('DOMContentLoaded', function(){
       parts.push('d'+sides+(label?' '+label:'')+' = '+total+(outcome==='critical-success'?' КРИТ!':outcome==='critical-fail'?' ПРОВАЛ!':''));
     });
     var ov=el('zg-game-overlay'),speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
-    try{if(w.ZargotaSound&&w.ZargotaSound.diceRoll)w.ZargotaSound.diceRoll(rolls[0].value);}catch(e){}
+    try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
     if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker);
+    setTimeout(function(){var soundRoll=rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},1250);
     var grandTotal=rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
     setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(rollerName()+': '+parts.join(' · ')+' · Итого = '+grandTotal,speaker);},2600);
     clearSelectedDice();w.zgDiceClose();
@@ -15533,6 +15558,7 @@ window.zgImageStore = (function() {
   .zg-bag-vitals{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-bottom:12px}.zg-bag-vitals>div{min-height:78px;border:1px solid #382c1b;border-radius:6px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center}.zg-bag-vitals img{width:36px;height:36px;object-fit:contain}.zg-bag-vitals b{color:#e8d19a;font:600 16px 'Cinzel',serif}.zg-bag-vitals span{color:#75684f;font-size:9px}.zg-bag-statuses{display:flex;gap:6px;flex-wrap:wrap}.zg-bag-statuses span{padding:5px 8px;border:1px solid #63452b;border-radius:12px;color:#c6a77d;font-size:10px}.zg-bag-statuses small{color:#6e624e}
   .zg-bag-notes{display:flex;flex-direction:column;gap:8px}.zg-bag-notes article{padding:11px;border-left:2px solid #8b6a2f;background:#151108}.zg-bag-notes b{color:#d9c083;font:600 11px 'Cinzel',serif}.zg-bag-notes p{margin:5px 0 0;color:#9b8b6c;font-size:11px;line-height:1.5}
   .zg-token-roll{position:absolute;z-index:20;left:50%;bottom:calc(100% + 15px);width:108px;height:108px;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;justify-content:center;animation:zgTokenRoll 3s cubic-bezier(.2,.8,.3,1) both;overflow:visible}
+  .zg-token-roll.long-result{animation-name:zgTokenRollCritical;animation-duration:5.2s}
   .zg-token-roll.world-roll{bottom:auto;margin-top:-96px;margin-left:var(--roll-offset,0px);transform:translateX(-50%)}
   .zg-token-roll img{position:absolute!important;inset:0;width:108px!important;height:108px!important;object-fit:contain!important;border:0!important;border-radius:0!important;filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 12px #d8a73c88);animation:zgDieSpin .68s linear infinite}
   .zg-token-roll b{position:relative;z-index:2;color:#fff0b5;font:700 18px 'Cinzel',serif;text-shadow:0 2px 5px #000,0 0 8px #000}
@@ -15551,7 +15577,7 @@ window.zgImageStore = (function() {
   @keyframes zgCritRing{0%{opacity:0;transform:scale(.35)}35%{opacity:1}100%{opacity:0;transform:scale(1.75)}}@keyframes zgFailRing{0%{opacity:0;transform:scale(.5)}30%{opacity:1}100%{opacity:0;transform:scale(1.55)}}
   @keyframes zgCritStars{0%{opacity:0;transform:rotate(-25deg) scale(.35)}35%{opacity:1}100%{opacity:0;transform:rotate(24deg) scale(1.45)}}@keyframes zgFailMark{0%{opacity:0;transform:scale(1.7) rotate(-12deg)}35%{opacity:.9}100%{opacity:0;transform:scale(.78) rotate(5deg)}}
   @keyframes zgCritSuccessDie{0%{transform:rotate(250deg) scale(.65)}60%{transform:rotate(-8deg) scale(1.28)}100%{transform:none}}@keyframes zgCritFailDie{0%{transform:rotate(210deg) scale(.75)}45%{transform:rotate(-12deg) translateX(-7px) scale(1.15)}60%{transform:rotate(8deg) translateX(7px)}75%{transform:rotate(-5deg) translateX(-4px)}100%{transform:none}}@keyframes zgCritLabel{0%{opacity:0;transform:translateX(-50%) scale(1.8)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
-  @keyframes zgDieSpin{to{transform:rotate(360deg) scale(1.05)}}@keyframes zgDiceImpact{0%{transform:rotate(240deg) scale(.75)}65%{transform:rotate(-8deg) scale(1.16)}100%{transform:none}}@keyframes zgNumberLand{0%{transform:scale(2.4);opacity:.2}100%{transform:none;opacity:1}}@keyframes zgTokenRoll{0%{opacity:0;transform:translate(-50%,18px) scale(.5)}12%,80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-22px) scale(.82)}}
+  @keyframes zgDieSpin{to{transform:rotate(360deg) scale(1.05)}}@keyframes zgDiceImpact{0%{transform:rotate(240deg) scale(.75)}65%{transform:rotate(-8deg) scale(1.16)}100%{transform:none}}@keyframes zgNumberLand{0%{transform:scale(2.4);opacity:.2}100%{transform:none;opacity:1}}@keyframes zgTokenRoll{0%{opacity:0;transform:translate(-50%,18px) scale(.5)}12%,80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-22px) scale(.82)}}@keyframes zgTokenRollCritical{0%{opacity:0;transform:translate(-50%,18px) scale(.5)}7%,88%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-18px) scale(.9)}}
   .zg-drawer-member{width:100%;display:grid;grid-template-columns:44px 1fr auto;gap:9px;align-items:center;padding:8px;border:0;border-bottom:1px solid #2b2215;background:transparent;color:#a79572;text-align:left;font:inherit;cursor:pointer}
   .zg-drawer-member:hover,.zg-drawer-member.selected{background:#1b150c;color:#c8b181}
   .zg-drawer-member img,.zg-drawer-avatar{width:44px;height:44px;border-radius:5px;object-fit:cover;object-position:top;background:#151108;display:flex;align-items:center;justify-content:center;font-size:20px}
