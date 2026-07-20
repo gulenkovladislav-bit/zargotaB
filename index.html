@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.36"></script>
+<script src="zargota-network.js?v=2026-07-20.37"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.36';
+var ZG_APP_VERSION = '2026-07-20.37';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.37', notes: 'Следы получили цельный приглушённый силуэт подошвы, перенесены под жетоны, а само перемещение стало заметно медленнее.' },
   { v: '2026-07-20.36', notes: 'Следы движения стали пылевыми и приглушёнными; левый и правый отпечатки теперь естественно чередуются вдоль шага.' },
   { v: '2026-07-20.35', notes: 'Золотистая дорожка движения получила новый детальный отпечаток походного сапога с протектором и каблуком.' },
   { v: '2026-07-20.34', notes: 'Измерения перенесены в «Действия»; одобренное движение сопровождается походкой жетона и затухающей золотистой дорожкой следов.' },
@@ -10900,7 +10901,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!node) return;
     lastMovementSeen = movement.id;
     var duration = Number(movement.duration)||900;
-    var trailLayer = el('zg-move-layer');
+    var trailLayer = el('zg-footprint-layer');
     if (trailLayer) {
       var dx=Number(movement.toX)-Number(movement.fromX),dy=Number(movement.toY)-Number(movement.fromY);
       var layerRect=trailLayer.getBoundingClientRect();
@@ -15657,6 +15658,7 @@ window.zgImageStore = (function() {
   .zg-vtt-grid{position:absolute;inset:0;opacity:.34;background-image:linear-gradient(to right,rgba(202,178,112,.28) 1px,transparent 1px),linear-gradient(to bottom,rgba(202,178,112,.28) 1px,transparent 1px)}
   /* ── Жетоны на карте: круглые аватарки с кольцом по типу ── */
   .zg-vtt-token-layer{position:absolute;inset:0;z-index:2}
+  .zg-footprint-layer{position:absolute;inset:0;z-index:1;pointer-events:none;overflow:visible}
   .zg-move-layer{position:absolute;inset:0;z-index:30;pointer-events:none;overflow:visible}
   .zg-move-marker,.zg-move-preview{position:absolute;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#f0d58a;font-size:27px;background:radial-gradient(circle,#38270dcc 0%,#171006b8 58%,transparent 72%);filter:drop-shadow(0 5px 8px #000b);animation:zgMoveMarkerPulse 1.6s ease-in-out infinite}
   .zg-move-marker,.zg-move-preview{font-size:0;background-image:url('images/vtt-icons/movement.png'),radial-gradient(circle,#38270dcc 0%,#171006b8 58%,transparent 72%);background-size:34px 34px,100% 100%;background-position:center;background-repeat:no-repeat}
@@ -15667,8 +15669,8 @@ window.zgImageStore = (function() {
   .zg-vtt-scene.move-mode{cursor:crosshair}
   .zg-vtt-scene.move-mode .zg-move-preview{display:flex}
   @keyframes zgMoveMarkerPulse{0%,100%{transform:translate(-50%,-50%) scale(.94);opacity:.72}50%{transform:translate(-50%,-50%) scale(1.06);opacity:1}}
-  .zg-move-footprint{position:absolute;z-index:1;width:15px;height:29px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 3px #c9a66355);animation:zgFootprintTrail 1.55s ease-out var(--foot-delay,0ms) both}
-  .zg-move-footprint i{position:absolute;inset:0;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:saturate(.58) brightness(.88)}
+  .zg-move-footprint{position:absolute;z-index:1;width:17px;height:34px;transform:translate(-50%,-50%) rotate(var(--foot-angle,0deg));pointer-events:none;opacity:0;filter:drop-shadow(0 0 3px #b8955055);animation:zgFootprintTrail 2.15s ease-out var(--foot-delay,0ms) both}
+  .zg-move-footprint i{position:absolute;inset:0;background:url('images/vtt-icons/boot-print.png') center/contain no-repeat;filter:saturate(.48) brightness(.72);opacity:.78}
   .zg-move-footprint::after{content:'';position:absolute;left:50%;top:52%;width:2px;height:2px;border-radius:50%;background:#d0b477;box-shadow:-9px -4px 0 #9f895e99,8px 6px 0 #b39a6c88,5px -10px 0 #8f7b5888;opacity:.48}
   @keyframes zgFootprintTrail{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.45)}18%,62%{opacity:.9;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--foot-angle)) scale(.9)}}
   .zg-move-requests{position:absolute;z-index:8;right:78px;top:134px;width:290px;display:none;flex-direction:column;gap:8px;padding:10px;border:1px solid #594521;border-radius:7px;background:linear-gradient(180deg,rgba(17,14,9,.96),rgba(8,9,9,.95));box-shadow:0 18px 45px #000c;backdrop-filter:blur(9px)}
@@ -16100,6 +16102,7 @@ window.zgImageStore = (function() {
       <div class="zg-vtt-world" id="zg-vtt-world">
         <div class="zg-vtt-backdrop" id="zg-vtt-backdrop"></div>
         <div class="zg-vtt-grid" id="zg-vtt-grid"></div>
+        <div class="zg-footprint-layer" id="zg-footprint-layer" aria-hidden="true"></div>
         <div class="zg-vtt-token-layer" id="zg-vtt-token-layer"></div>
         <div class="zg-move-layer" id="zg-move-layer"><div class="zg-move-preview" id="zg-move-preview" aria-hidden="true">🥾</div></div>
       </div>

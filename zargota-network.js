@@ -703,7 +703,7 @@
               fromX: Number(request.fromX), fromY: Number(request.fromY),
               toX: Number(request.toX), toY: Number(request.toY),
               zoneId: zoneId,
-              duration: Math.max(700, Math.min(2800, Math.round(distance * 38))),
+              duration: Math.max(1400, Math.min(4800, Math.round(distance * 68))),
               startedAt: now()
             };
           }
