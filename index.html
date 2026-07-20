@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-20.17"></script>
+<script src="zargota-network.js?v=2026-07-20.18"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -2143,6 +2143,12 @@ window.addEventListener('load', function(){
     background: #080604; font-size: 18px;
   }
   .char-inventory-launch-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .char-inventory-inline{display:grid;grid-template-columns:minmax(220px,42%) minmax(0,1fr);min-height:270px;border:1px solid #3a2918;border-radius:5px;background:#0a0704aa;overflow:hidden}
+  .char-inventory-inline>section{min-width:0;padding:10px}.char-inventory-inline-equip{border-right:1px solid #352513;background:#0c0906aa}.char-inventory-inline-items{background:#09070577}
+  .char-inventory-inline-head{height:31px;display:flex;align-items:center;gap:7px;margin-bottom:7px}.char-inventory-inline-head>span{font:600 9px 'Cinzel',serif;color:var(--gold2);letter-spacing:1.1px;text-transform:uppercase}.char-inventory-inline-head small{margin-left:auto;color:var(--dim);font:9px 'Cinzel',serif;white-space:nowrap}.char-inventory-inline-head select{height:27px;max-width:112px;padding:0 20px 0 7px;border:1px solid #3a2918;border-radius:4px;background:#0a0704;color:var(--muted);font:8px 'Cinzel',serif}.char-inventory-inline-head button{width:28px;height:28px;flex-shrink:0;border:1px solid #634b25;border-radius:4px;background:#181006;color:var(--gold);font-size:17px;cursor:pointer}.char-inventory-inline-head button:hover{border-color:var(--gold2);background:#24180a}
+  .char-inventory-arena-link{width:100%;height:29px;margin-bottom:7px;border:1px solid #3b2c18;border-radius:4px;background:#100c07;color:#927b4f;font:8px 'Cinzel',serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.char-inventory-arena-link:hover{border-color:#81632e;color:#d5b766}
+  .char-inventory-inline-equip-list{max-height:220px;overflow-y:auto;padding-right:2px;scrollbar-width:thin;scrollbar-color:#513c1d transparent}.char-inventory-inline-empty{padding:35px 8px;text-align:center;color:var(--dim);font:italic 10px 'Lora',serif}
+  .char-inventory-inline-grid{display:grid;grid-template-columns:repeat(5,minmax(42px,1fr));gap:6px}.char-inventory-inline-slot{position:relative;min-width:0;aspect-ratio:1;border:1px solid #362817;border-radius:4px;background:radial-gradient(circle at 50% 38%,#1c1309,#090604 75%);display:flex;align-items:center;justify-content:center;padding:5px;color:#d5c18c;cursor:pointer;overflow:hidden}.char-inventory-inline-slot:hover{border-color:#9b7634;background:radial-gradient(circle at 50% 38%,#2a1b0b,#0b0704 76%)}.char-inventory-inline-slot.empty{opacity:.55;cursor:default;background:#080604}.char-inventory-inline-slot>span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:27px}.char-inventory-inline-slot img{width:100%;height:100%;object-fit:contain;display:block}.char-inventory-inline-slot b{position:absolute;right:3px;bottom:2px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#0a0704dd;color:#efd079;font:700 9px/16px 'Cinzel',serif;text-align:center}
   .char-inventory-panel {
     width: 100%; min-height: 560px; height: min(720px, calc(100vh - 150px)); overflow: hidden;
     display: flex; flex-direction: column;
@@ -2207,6 +2213,7 @@ window.addEventListener('load', function(){
     color: var(--gold); font-family: 'Cinzel', serif; font-size: 10px;
   }
   @media (max-width: 760px) {
+    .char-inventory-inline{grid-template-columns:1fr}.char-inventory-inline-equip{border-right:0;border-bottom:1px solid #352513}.char-inventory-inline-grid{grid-template-columns:repeat(4,minmax(44px,1fr))}.char-inventory-inline-head{flex-wrap:wrap;height:auto}.char-inventory-inline-head small{margin-left:auto}
     .char-inventory-panel { width: 100%; min-height: 0; height: auto; overflow: visible; border-radius: 0; border-width: 0; }
     .char-inventory-header { flex-wrap: wrap; padding: 10px 12px; }
     .char-inventory-columns { grid-template-columns: 1fr; overflow-y: auto; }
@@ -9011,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-20.17';
+var ZG_APP_VERSION = '2026-07-20.18';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-20.18', notes: 'Инвентарь встроен непосредственно в лист персонажа: снаряжение слева, сетка вещей справа, без отдельного экрана.' },
   { v: '2026-07-20.17', notes: 'Исправлены сетевые запросы движения, добавлена очередь запросов ГМ; d20-победитель плавно занимает место второго кубика.' },
   { v: '2026-07-20.16', notes: 'Одиночный бросок без характеристики больше не дублирует число; формула итога появляется только при модификаторе.' },
   { v: '2026-07-20.15', notes: 'Для d20 добавлены преимущество и помеха с двумя кубиками, столкновением и выбором итогового результата.' },
@@ -29927,12 +29935,6 @@ function renderCharSheet() {
     var oldBarD = document.getElementById('char-sheet-tab-bar');
     if (oldBarD) oldBarD.remove();
 
-    if (_charInventoryOpen[c.id]) {
-      sheetD.innerHTML = '<div id="char-inventory-panel" class="char-inventory-panel" data-char-id="' + c.id + '"></div>';
-      charRenderInventoryPanel(c.id);
-      return;
-    }
-
     // Портрет
     var portraitInnerD = c.portrait
       ? '<img src="'+c.portrait+'" style="width:100%;height:100%;object-fit:cover;display:block">'
@@ -30078,7 +30080,6 @@ function renderCharSheet() {
 
         // Row 3: Inventory
         '<div style="background:#0e0a0666;border:1px solid var(--border);border-radius:4px;padding:8px 10px">' +
-          '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1px;margin-bottom:7px">ИНВЕНТАРЬ</div>' +
           '<div id="inv-items-'+c.id+'">'+buildCharacterInventoryLauncher(c)+'</div>' +
         '</div>' +
 
@@ -30349,9 +30350,7 @@ function renderCharSheet() {
     '</div>';
 
   // ─── ВКЛАДКА: ВЕЩИ ───
-  var tabInventory = _charInventoryOpen[c.id]
-    ? '<div id="char-inventory-panel" class="char-inventory-panel" data-char-id="' + c.id + '"></div>'
-    : '<div style="padding:14px">' +
+  var tabInventory = '<div style="padding:14px">' +
         '<div style="margin-bottom:10px">' + buildCoinsWidget(c) + '</div>' +
         '<div id="inv-items-'+c.id+'">' + buildCharacterInventoryLauncher(c) + '</div>' +
       '</div>';
@@ -30395,8 +30394,6 @@ function renderCharSheet() {
       header +
       '<div class="tab-content-wrap">' + tabContent + '</div>' +
     '</div>';
-  if (sheetTab === 'inventory' && _charInventoryOpen[c.id]) charRenderInventoryPanel(c.id);
-
   // Применение ambient-свечения по уровню славы
   // 0..2 = тусклое, 3..5 = заметное, 6..8 = яркое с аурой
   var fameMax = Math.max(parseInt(c.fameMundo,10)||0, parseInt(c.fameZargoty,10)||0);
@@ -30442,24 +30439,18 @@ function charInventoryArt(item) {
 }
 
 function buildCharacterInventoryLauncher(c) {
-  var items = Array.isArray(c.inventoryItems) ? c.inventoryItems : [];
-  var equippedManual = (c.equipItems || []).filter(function(item) { return item && item.equipped; }).length;
-  var equippedArena = Object.keys(c.arenaEquipSlots || {}).filter(function(key) { return c.arenaEquipSlots[key]; }).length;
-  var preview = items.slice(0, 6).map(function(item) {
-    if (typeof item === 'string') item = { name:item, icon:'📦', qty:1 };
-    return '<span class="char-inventory-launch-icon">' + charInventoryArt(item) + '</span>';
-  }).join('');
-  while ((preview.match(/char-inventory-launch-icon/g) || []).length < 6) {
-    preview += '<span class="char-inventory-launch-icon" style="opacity:.28">·</span>';
-  }
-  return '<button type="button" class="char-inventory-launch" onclick="charOpenInventoryPanel(' + c.id + ')" title="Открыть большой инвентарь">' +
-    '<span class="char-inventory-launch-icons">' + preview + '</span>' +
-    '<span style="flex:1;min-width:0">' +
-      '<span style="display:block;font-family:\'Cinzel\',serif;font-size:12px;color:var(--gold);letter-spacing:.7px;margin-bottom:5px">Открыть инвентарь</span>' +
-      '<span style="display:block;font-family:\'Lora\',serif;font-size:11px;color:var(--dim);line-height:1.5">' + items.length + ' из 20 ячеек · снаряжено ' + (equippedManual + equippedArena) + '</span>' +
-    '</span>' +
-    '<span style="font-size:22px;color:var(--gold2);flex-shrink:0">›</span>' +
-  '</button>';
+  if (!Array.isArray(c.inventoryItems)) c.inventoryItems = [];
+  c.inventoryItems.forEach(function(item,index){if(typeof item==='string')c.inventoryItems[index]={name:item,icon:'📦',qty:1,description:''};});
+  var rows=c.inventoryItems.map(function(item,index){return{item:item,index:index};}),sortKey=_charInventorySort[c.id]||'manual';
+  if(sortKey==='name')rows.sort(function(a,b){return String(a.item.name||'').localeCompare(String(b.item.name||''),'ru');});
+  if(sortKey==='qty')rows.sort(function(a,b){return(parseInt(b.item.qty,10)||1)-(parseInt(a.item.qty,10)||1);});
+  var slots=rows.map(function(row){var item=row.item,qty=Math.max(1,parseInt(item.qty,10)||1);return '<button type="button" class="char-inventory-inline-slot" onclick="openItemConstructor('+c.id+',\'inventory\','+row.index+')" title="'+escHTML(item.name||'Предмет')+'"><span>'+charInventoryArt(item)+'</span>'+(qty>1?'<b>'+qty+'</b>':'')+'</button>';}).join('');
+  for(var i=rows.length;i<Math.max(20,rows.length);i++)slots+='<span class="char-inventory-inline-slot empty"></span>';
+  var equipment=buildEquipList(c)||'<div class="char-inventory-inline-empty">Снаряжение пока не добавлено</div>';
+  return '<div class="char-inventory-inline">'+
+    '<section class="char-inventory-inline-equip"><div class="char-inventory-inline-head"><span>Снаряжение</span><button type="button" onclick="addEquipItem('+c.id+')" title="Добавить снаряжение">＋</button></div><button type="button" class="char-inventory-arena-link" onclick="charOpenEquipModal('+c.id+')">⚔ Снаряжение арены — изменить</button><div class="char-inventory-inline-equip-list" id="equip-list-'+c.id+'">'+equipment+'</div></section>'+
+    '<section class="char-inventory-inline-items"><div class="char-inventory-inline-head"><span>Инвентарь</span><small>Вместимость '+c.inventoryItems.length+' / 20</small><select onchange="charInventorySetSort('+c.id+',this.value)" title="Сортировка"><option value="manual"'+(sortKey==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(sortKey==='name'?' selected':'')+'>По названию</option><option value="qty"'+(sortKey==='qty'?' selected':'')+'>По количеству</option></select><button type="button" onclick="addInventoryItem('+c.id+')" title="Добавить предмет">＋</button></div><div class="char-inventory-inline-grid">'+slots+'</div></section>'+
+  '</div>';
 }
 
 function charOpenInventoryPanel(charId) {
@@ -30484,7 +30475,7 @@ function charInventorySelect(charId, itemIndex) {
 
 function charInventorySetSort(charId, sortKey) {
   _charInventorySort[charId] = sortKey || 'manual';
-  charRenderInventoryPanel(charId);
+  var panel=document.getElementById('char-inventory-panel');if(panel)charRenderInventoryPanel(charId);else renderCharSheet();
 }
 
 function charRefreshInventoryLaunch(charId) {
