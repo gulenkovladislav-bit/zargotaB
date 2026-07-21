@@ -12082,7 +12082,10 @@ document.addEventListener('DOMContentLoaded', function(){
     return max > 0 ? Math.max(0, Math.min(100, cur / max * 100)) : 0;
   }
   function combatSceneTokens(){
-    var scene=state&&state.room&&state.room.scene, tokens=scene&&Array.isArray(scene.tokens)?scene.tokens:[];
+    // The GM fights against the scene currently visible in the editor. The
+    // published Firebase snapshot can legitimately lag behind this draft.
+    var scene=isMaster&&draft ? draft : state&&state.room&&state.room.scene,
+        tokens=scene&&Array.isArray(scene.tokens)?scene.tokens:[];
     return tokens.filter(function(token){
       return token&&token.type!=='hero'&&token.visible!==false&&['custom','object'].indexOf(token.type)>=0&&['enemy','npc','ally'].indexOf(token.disposition)>=0;
     });
