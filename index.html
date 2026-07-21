@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.58"></script>
+<script src="zargota-network.js?v=2026-07-21.59"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.58';
+var ZG_APP_VERSION = '2026-07-21.59';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.59', notes: 'Боевые атаки учитывают дистанцию жетонов и резисты из листов; при 0 HP решение остаётся мастеру, а результат появляется в летописи после анимации.' },
   { v: '2026-07-21.58', notes: 'Первая полноценная атака по Мануалу: выбор цели, оружия, характеристики и режима броска; проверка против брони, критический урон и синхронное изменение HP.' },
   { v: '2026-07-21.57', notes: 'Состояния участников теперь отображаются компактными значками над жетонами в бою; длительность видна прямо на сцене, а HP существ скрыто от игроков.' },
   { v: '2026-07-21.56', notes: 'Фазы хода по Мануалу: горение, яд, кровотечение и регенерация автоматически меняют HP в начале хода, а раундовые состояния истекают в конце хода.' },
@@ -10756,6 +10757,15 @@ document.addEventListener('DOMContentLoaded', function(){
       rotation: clamp(token.rotation || 0, 0, 359),
       hp: token.hp == null || token.hp === '' ? null : Math.max(0, Number(token.hp) || 0),
       hpMax: token.hpMax == null || token.hpMax === '' ? null : Math.max(0, Number(token.hpMax) || 0),
+      ac: clamp(token.ac == null ? 10 : token.ac,0,99), initiative:clamp(token.initiative || 0,-20,20), speed:clamp(token.speed || 7,0,80),
+      stats: token.stats && typeof token.stats === 'object' ? JSON.parse(JSON.stringify(token.stats)) : {},
+      mastery: Array.isArray(token.mastery) ? token.mastery.slice(0,40) : [],
+      weaponProfiles: Array.isArray(token.weaponProfiles) ? token.weaponProfiles.slice(0,12) : [],
+      resistances: Array.isArray(token.resistances) ? token.resistances.slice(0,24) : [],
+      vulnerabilities: Array.isArray(token.vulnerabilities) ? token.vulnerabilities.slice(0,24) : [],
+      immunities: Array.isArray(token.immunities) ? token.immunities.slice(0,24) : [],
+      statuses: Array.isArray(token.statuses) ? token.statuses.slice(0,23) : [],
+      statusEffects: Array.isArray(token.statusEffects) ? token.statusEffects.slice(0,40) : [],
       opacity: clamp(token.opacity == null ? 1 : token.opacity, 0.15, 1),
       x:clamp(token.x == null ? 50 : token.x,0,100), y:clamp(token.y == null ? 50 : token.y,0,100),
       size:clamp(token.size || 64,24,240), visible:token.visible !== false, z:clamp(token.z || index + 1,0,99)
@@ -12068,6 +12078,13 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     if (room.scene && room.scene.revision) events.push({id:'scene-'+room.scene.revision,kind:'world',name:'Мир Зарготы',text:'Мастер открывает новую сцену',ts:room.scene.publishedAt || room.scene.revision});
     if (room.combatEvent && room.combatEvent.ts) events.push(room.combatEvent);
+    var hiddenUntil=0,clock=Date.now();
+    events=events.filter(function(event){
+      var revealAt=Number(event&&event.revealAt||0);
+      if(revealAt>clock){hiddenUntil=!hiddenUntil||revealAt<hiddenUntil?revealAt:hiddenUntil;return false;}
+      return true;
+    });
+    if(hiddenUntil){clearTimeout(renderJournal.revealTimer);renderJournal.revealTimer=setTimeout(renderJournal,Math.max(20,hiddenUntil-clock+20));}
     events.sort(function(a,b){return Number(a.ts||0)-Number(b.ts||0);});
     events = events.slice(-5);
     body.innerHTML = events.length ? events.map(function(event){
@@ -12303,7 +12320,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgCombatToggle=function(){var combat=state&&state.room&&state.room.combat;if(combat&&combat.active){w.zgCombatConfirmEnd();return;}renderCombatParticipants();var modal=el('zg-combat-confirm');if(modal)modal.classList.add('open');};
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
-  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
+  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
   w.zgCombatAdvance=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.advanceCombat)return;combatBusy(true);w.ZargotaRooms.advanceCombat().catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось передать ход');}).then(function(){combatBusy(false);});};
   var combatActionBusy=false;
   w.zgCombatUseAction=function(type){
