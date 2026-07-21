@@ -1019,6 +1019,64 @@
       });
     },
 
+    prepareCombatReaction: function (text, participantKey) {
+      text = String(text || '').trim().slice(0, 220);
+      participantKey = String(participantKey || '').slice(0, 160);
+      if (!text) return Promise.reject(roomError('Опишите условие и действие реакции.', 'combat-reaction-empty'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
+          if(!combat||!combat.active||!order.length)throw roomError('Сейчас нет активного боя.','combat-missing');
+          var turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0)),index=-1;
+          if(session.role==='master')index=participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey;}):turnIndex;
+          else index=order.findIndex(function(entry){return entry&&entry.uid===user.uid;});
+          if(index<0)throw roomError('Участник боя не найден.','combat-participant-missing');
+          if(index!==turnIndex)throw roomError('Подготовить реакцию можно только в свой ход.','combat-not-turn');
+          var entry=Object.assign({},order[index]),economy=Object.assign({long:1,short:1,reaction:1},entry.economy||{});
+          if(Number(economy.long||0)<1)throw roomError('Долгое действие уже израсходовано.','combat-action-spent');
+          economy.long=Math.max(0,Number(economy.long||0)-1);entry.economy=economy;
+          entry.preparedReaction={text:text,preparedAt:now(),round:Number(combat.round||1)};order[index]=entry;
+          var stamp=now();
+          return firebase.update(roomRef(session.code),{
+            'combat/order':order,'combat/updatedAt':stamp,
+            combatEvent:{id:'combat-prepare-'+stamp,kind:'combat-action',name:entry.name||'Участник',portrait:entry.portrait||'',text:'Готовит реакцию: «'+text+'».',actionType:'long',ts:stamp},updatedAt:stamp
+          }).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+        });
+      }).catch(function(error){
+        if(error&&['combat-reaction-empty','room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    triggerPreparedReaction: function (participantKey) {
+      participantKey=String(participantKey||'').slice(0,160);
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session)throw roomError('Сначала войдите в комнату.','room-required');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
+          if(!combat||!combat.active||!order.length)throw roomError('Сейчас нет активного боя.','combat-missing');
+          var index=session.role==='master'?(participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey;}):Number(combat.turnIndex)||0):order.findIndex(function(entry){return entry&&entry.uid===user.uid;});
+          if(index<0||!order[index])throw roomError('Участник боя не найден.','combat-participant-missing');
+          var entry=Object.assign({},order[index]),prepared=entry.preparedReaction;
+          if(!prepared||!prepared.text)throw roomError('Подготовленной реакции нет.','combat-reaction-missing');
+          var economy=Object.assign({reaction:1},entry.economy||{});
+          if(Number(economy.reaction||0)<1)throw roomError('Реакция в этом раунде уже израсходована.','combat-action-spent');
+          economy.reaction=Math.max(0,Number(economy.reaction||0)-1);entry.economy=economy;entry.preparedReaction=null;order[index]=entry;
+          var stamp=now();return firebase.update(roomRef(session.code),{
+            'combat/order':order,'combat/updatedAt':stamp,
+            combatEvent:{id:'combat-trigger-'+stamp,kind:'combat-action',name:entry.name||'Участник',portrait:entry.portrait||'',text:'Срабатывает подготовленная реакция: «'+prepared.text+'».',actionType:'reaction',ts:stamp},updatedAt:stamp
+          }).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+        });
+      }).catch(function(error){
+        if(error&&['room-required','room-not-found','combat-missing','combat-participant-missing','combat-reaction-missing','combat-action-spent'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     endCombat: function () {
       return ensureReady().then(function (user) {
         var session = readSession();
