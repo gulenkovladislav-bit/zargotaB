@@ -1262,12 +1262,15 @@
     advanceCombat: function () {
       return ensureReady().then(function (user) {
         var session = readSession();
-        if (!session || session.role !== 'master') throw roomError('Передавать ход может только мастер.', 'master-only');
+        if (!session) throw roomError('Сессия не найдена.', 'session-missing');
         return readRoom(session.code).then(function (room) {
-          if (!room || room.masterUid !== user.uid) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order : [];
           if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
           var previous = Math.max(0, Math.min(order.length - 1, Number(combat.turnIndex) || 0));
+          var activeEntry = order[previous];
+          if (session.role !== 'master' && (!activeEntry || String(activeEntry.uid || '') !== String(user.uid))) throw roomError('Сейчас не ваш ход.', 'turn-owner-only');
+          if (session.role === 'master' && room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
           var next = (previous + 1) % order.length;
           var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), updates = {}, phaseNotes = [];
           order = order.map(function (entry) { return Object.assign({}, entry); });
