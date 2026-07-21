@@ -766,6 +766,87 @@
       });
     },
 
+    requestAction: function (text, actionKind, speakerUid) {
+      text = String(text || '').trim().slice(0, 300);
+      actionKind = String(actionKind || 'custom').slice(0, 40);
+      speakerUid = String(speakerUid || '').slice(0, 128);
+      if (!text) return Promise.resolve(api.getSnapshot());
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var targetUid = session.role === 'master' && speakerUid ? speakerUid : user.uid;
+          var member = room.members && room.members[targetUid];
+          if (!member || member.role !== 'player') throw roomError('Герой не найден в комнате.', 'player-missing');
+          if (member.actionRequest && member.actionRequest.status === 'pending') throw roomError('Предыдущая заявка ещё ждёт решения мастера.', 'request-pending');
+          var request = {
+            id: 'action-' + targetUid.slice(0, 10) + '-' + now(), uid: targetUid,
+            name: member.character && member.character.name || member.name || 'Герой',
+            portrait: member.character && member.character.portrait || '',
+            text: text, actionKind: actionKind, status: 'pending', createdAt: now(),
+            testByMaster: session.role === 'master'
+          };
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + targetUid), { actionRequest: request }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['room-required','room-not-found','player-missing','request-pending'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveAction: function (requestUid, accepted) {
+      requestUid = String(requestUid || '').slice(0, 128);
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Решать заявки может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var member = room.members && room.members[requestUid];
+          var request = member && member.actionRequest;
+          if (!request || request.status !== 'pending') throw roomError('Эта заявка уже обработана.', 'request-missing');
+          var resolvedAt = now(), messageId = 'action-result-' + resolvedAt;
+          var updates = {};
+          updates['members/' + requestUid + '/actionRequest/status'] = accepted ? 'approved' : 'rejected';
+          updates['members/' + requestUid + '/actionRequest/resolvedAt'] = resolvedAt;
+          updates['members/' + requestUid + '/messages/' + messageId] = {
+            id: messageId, uid: requestUid, kind: accepted ? 'action-approved' : 'action-rejected',
+            name: request.name || member.name || 'Герой', portrait: request.portrait || '',
+            text: (accepted ? 'Мастер разрешает: ' : 'Мастер отклоняет: ') + request.text, ts: resolvedAt
+          };
+          updates.updatedAt = resolvedAt;
+          return firebase.update(roomRef(session.code), updates).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','request-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    acknowledgeAction: function (requestId) {
+      requestId = String(requestId || '').slice(0, 160);
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'player') return api.getSnapshot();
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var request = room.members && room.members[user.uid] && room.members[user.uid].actionRequest;
+          if (!request || request.status === 'pending' || (requestId && request.id !== requestId)) return api.getSnapshot();
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), { actionRequest: null }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && error.code === 'room-not-found') throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     publishMeasurement: function (measurement) {
       return ensureReady().then(function (user) {
         var session = readSession();
