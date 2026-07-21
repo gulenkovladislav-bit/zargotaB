@@ -183,6 +183,7 @@
     });
     var hpMax = Math.max(0, Number(entry && entry.hpMax) || 0);
     var hp = Math.max(0, Number(entry && entry.hp != null ? entry.hp : hpMax) || 0);
+    var tempHp = Math.max(0, Number(entry && entry.tempHp) || 0);
     keys.forEach(function (key) {
       if (seen[key]) return;
       seen[key] = true;
@@ -191,13 +192,18 @@
       if (!delta && ['burn','poison','bleed'].indexOf(key) >= 0) delta = -rollDie(4);
       if (!delta && key === 'regen') delta = rollDie(4);
       if (!delta) return;
-      var before = hp;
+      var before = hp, absorbed = 0;
+      if (delta < 0 && tempHp > 0) {
+        absorbed = Math.min(tempHp, Math.abs(delta));
+        tempHp -= absorbed;
+        delta += absorbed;
+      }
       hp = delta > 0 ? Math.min(hpMax || hp + delta, hp + delta) : Math.max(0, hp + delta);
       var labels = { burn:'Горит', poison:'Отравлен', bleed:'Кровотечение', regen:'Регенерация' };
-      changes.push((labels[key] || effect && effect.value || key) + ': ' + (delta > 0 ? '+' : '') + delta + ' HP');
-      if (before === hp) changes.pop();
+      changes.push((labels[key] || effect && effect.value || key) + ': ' + (delta > 0 ? '+' : '') + delta + ' HP' + (absorbed ? ' (🛡 поглощено ' + absorbed + ')' : ''));
+      if (before === hp && !absorbed) changes.pop();
     });
-    return { hp:hp, changes:changes };
+    return { hp:hp, tempHp:tempHp, changes:changes };
   }
 
   function expireTurnStatuses(entry) {
@@ -297,6 +303,13 @@
       weaponProfiles.push({ id:key, name:item.name || 'Оружие', damageFormula:formula[0].replace(/\s+/g,''), damageType:item.damageType || '', range:item.range || '1 клетка', stat:item.attackStat || item.stat || '' });
     });
     if (!weaponProfiles.length) weaponProfiles.push({ id:'improvised', name:'Импровизированная атака', damageFormula:'1d4', damageType:'Дробящий', range:'1 клетка', stat:'str' });
+    var hpMax = Math.max(0, Number(character.hpMax || 0));
+    var effectTempHp = (Array.isArray(character.tempEffects) ? character.tempEffects : []).reduce(function (sum, effect) {
+      if (!effect || effect.type !== 'hp') return sum;
+      return sum + Math.max(0, Number(effect.value) || 0);
+    }, 0);
+    var tempHp = Math.max(0, Number(character.tempHp == null ? effectTempHp : character.tempHp) || 0);
+    tempHp = Math.min(Math.floor(hpMax * 0.5), tempHp);
     return {
       id: String(character.id),
       name: character.name || 'Без имени',
@@ -305,7 +318,8 @@
       klasse: character.klasse || '',
       level: Number(character.level || 1),
       hpCur: Number(character.hpCur != null ? character.hpCur : character.hpMax || 0),
-      hpMax: Number(character.hpMax || 0),
+      hpMax: hpMax,
+      tempHp: tempHp,
       ac: Number(character.ac || 10),
       initiative: Number(character.initiative || 0),
       speed: Number(character.speed || 0),
@@ -454,6 +468,7 @@
         rotation: Math.max(0, Math.min(359, Number(token.rotation) || 0)),
         hp: token.hp == null ? null : Math.max(0, Number(token.hp) || 0),
         hpMax: token.hpMax == null ? null : Math.max(0, Number(token.hpMax) || 0),
+        tempHp: Math.min(Math.floor(Math.max(0, Number(token.hpMax) || 0) * 0.5), Math.max(0, Number(token.tempHp) || 0)),
         ac: Math.max(0, Math.min(99, Number(token.ac) || 10)),
         initiative: Math.max(-20, Math.min(20, Number(token.initiative) || 0)),
         speed: Math.max(0, Math.min(80, Number(token.speed) || 7)),
@@ -1124,7 +1139,7 @@
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
             var speed = Math.max(0, Number(member.character.speed) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), tempHp:Math.max(0,Number(member.character.tempHp)||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -1144,6 +1159,7 @@
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
+              tempHp:Math.min(Math.floor(Math.max(0,Number(participant.hpMax)||0)*0.5),Math.max(0,Number(participant.tempHp)||0)),
               ac:Math.max(0,Number(participant.ac)||10),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
               statuses:Array.isArray(participant.statuses) ? participant.statuses.slice(0, 23) : [],
               statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
@@ -1211,13 +1227,17 @@
           });
           var current = order[next], tick = statusTurnTick(current);
           current.hp = tick.hp;
+          current.tempHp = tick.tempHp;
           order[next] = current;
           if (tick.changes.length) phaseNotes.push(tick.changes.join('; '));
           [ending,current].forEach(function (entry) {
             if (!entry || !entry.uid || !room.members || !room.members[entry.uid]) return;
             updates['members/'+entry.uid+'/character/statuses'] = entry.statuses || [];
             updates['members/'+entry.uid+'/character/statusEffects'] = entry.statusEffects || [];
-            if (entry === current) updates['members/'+entry.uid+'/character/hpCur'] = Number(entry.hp || 0);
+            if (entry === current) {
+              updates['members/'+entry.uid+'/character/hpCur'] = Number(entry.hp || 0);
+              updates['members/'+entry.uid+'/character/tempHp'] = Math.max(0, Number(entry.tempHp) || 0);
+            }
           });
           updates['combat/turnIndex']=next;updates['combat/round']=round;updates['combat/order']=order;updates['combat/updatedAt']=stamp;
           updates.combatEvent={ id:'combat-turn-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Ход: '+(current.name || 'участник')+'. Раунд '+round+'.'+(phaseNotes.length?' '+phaseNotes.join(' · '):''), ts:stamp };
@@ -1305,18 +1325,18 @@
           var damageResult=hit?rollFormula(weapon.damageFormula||'1d4',critical):{total:0,rolls:[],formula:String(weapon.damageFormula||'1d4')};
           var rawDamage=hit?Math.max(0,damageResult.total+statBonus):0,damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
           if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
-          var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),after=Math.max(0,before-damage),reachedZero=before>0&&after===0;
-          economy.long=0;if(restrictions.slowed)economy.short=0;attacker.economy=economy;target.hp=after;if(reachedZero)target.zeroHp={pending:true,reachedAt:now(),source:attacker.key};order[attackerIndex]=attacker;order[targetIndex]=target;
+          var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),tempBefore=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(tempBefore,damage),hpDamage=Math.max(0,damage-absorbed),after=Math.max(0,before-hpDamage),tempAfter=Math.max(0,tempBefore-absorbed),reachedZero=before>0&&after===0;
+          economy.long=0;if(restrictions.slowed)economy.short=0;attacker.economy=economy;target.hp=after;target.tempHp=tempAfter;if(reachedZero)target.zeroHp={pending:true,reachedAt:now(),source:attacker.key};order[attackerIndex]=attacker;order[targetIndex]=target;
           var stamp=now(),updates={},statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;
-          if(target.uid)updates['members/'+target.uid+'/character/hpCur']=after;
+          if(target.uid){updates['members/'+target.uid+'/character/hpCur']=after;updates['members/'+target.uid+'/character/tempHp']=tempAfter;}
           if(target.tokenId){
-            (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId))updates['scene/tokens/'+index+'/hp']=after;});
-            Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId))updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;});});
+            (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=after;updates['scene/tokens/'+index+'/tempHp']=tempAfter;}});
+            Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=tempAfter;}});});
           }
           var rollText=second==null?String(natural):(first+' / '+second+' → '+natural),resultText=failed?'автопромах':(critical?'КРИТ':(hit?'попадание':'промах'));
           var damageNote=immune?' · иммунитет':(resisted&&!vulnerable?' · сопротивление':(vulnerable&&!resisted?' · уязвимость':(resisted&&vulnerable?' · сопротивление и уязвимость нейтрализованы':'')));
-          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+damageNote+').':'')+(reachedZero?' Цель достигает 0 HP — исход определяет мастер.':''),attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,targetAc:targetAc,hit:hit,critical:critical,damage:damage,rawDamage:rawDamage,damageType:damageType,distanceCells:distance,rangeCells:rangeCells,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
+          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+damageNote+').'+(absorbed?' Временные HP поглощают '+absorbed+(hpDamage?' — в здоровье проходит '+hpDamage+'.':'.'):''):'')+(reachedZero?' Цель достигает 0 HP — исход определяет мастер.':''),attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,targetAc:targetAc,hit:hit,critical:critical,damage:damage,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:tempAfter,rawDamage:rawDamage,damageType:damageType,distanceCells:distance,rangeCells:rangeCells,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });

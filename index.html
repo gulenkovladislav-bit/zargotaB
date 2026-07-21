@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.59"></script>
+<script src="zargota-network.js?v=2026-07-21.60"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.59';
+var ZG_APP_VERSION = '2026-07-21.60';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.60', notes: 'Временные HP из листа героя теперь входят в сетевой бой, поглощают урон раньше здоровья и отображаются у участников и целей.' },
   { v: '2026-07-21.59', notes: 'Боевые атаки учитывают дистанцию жетонов и резисты из листов; при 0 HP решение остаётся мастеру, а результат появляется в летописи после анимации.' },
   { v: '2026-07-21.58', notes: 'Первая полноценная атака по Мануалу: выбор цели, оружия, характеристики и режима броска; проверка против брони, критический урон и синхронное изменение HP.' },
   { v: '2026-07-21.57', notes: 'Состояния участников теперь отображаются компактными значками над жетонами в бою; длительность видна прямо на сцене, а HP существ скрыто от игроков.' },
@@ -10757,6 +10758,7 @@ document.addEventListener('DOMContentLoaded', function(){
       rotation: clamp(token.rotation || 0, 0, 359),
       hp: token.hp == null || token.hp === '' ? null : Math.max(0, Number(token.hp) || 0),
       hpMax: token.hpMax == null || token.hpMax === '' ? null : Math.max(0, Number(token.hpMax) || 0),
+      tempHp: Math.min(Math.floor(Math.max(0, Number(token.hpMax) || 0) * 0.5), Math.max(0, Number(token.tempHp) || 0)),
       ac: clamp(token.ac == null ? 10 : token.ac,0,99), initiative:clamp(token.initiative || 0,-20,20), speed:clamp(token.speed || 7,0,80),
       stats: token.stats && typeof token.stats === 'object' ? JSON.parse(JSON.stringify(token.stats)) : {},
       mastery: Array.isArray(token.mastery) ? token.mastery.slice(0,40) : [],
@@ -12027,14 +12029,14 @@ document.addEventListener('DOMContentLoaded', function(){
       host.innerHTML=order.map(function(entry,index){
         var member=entry.uid&&members.find(function(item){return item.uid===entry.uid;}),c=member&&member.character||entry||{};
         var isOwn=!!(session&&member&&member.uid===session.uid),possessed=!!(session&&session.role==='master'&&member&&w.zgPossessedPlayerUid===member.uid),current=index===(Number(combat.turnIndex)||0);
-        var portrait=combatEntryPortrait(entry),hpMax=member?Number(c.hpMax||0):Number(entry.hpMax||0),hpCur=member?Number(c.hpCur||0):Number(entry.hp==null?hpMax:entry.hp),hp=hpMax>0?Math.max(0,Math.min(100,hpCur/hpMax*100)):100;
+        var portrait=combatEntryPortrait(entry),hpMax=member?Number(c.hpMax||0):Number(entry.hpMax||0),hpCur=Number(entry.hp==null?(member?c.hpCur:hpMax):entry.hp),tempHp=Math.max(0,Number(entry.tempHp==null?(member?c.tempHp:0):entry.tempHp)||0),hp=hpMax>0?Math.max(0,Math.min(100,hpCur/hpMax*100)):100;
         var click=member?' onclick="zgVttPartyClick('+JSON.stringify(member.uid)+')"':'';
         return '<button type="button" class="zg-party-card combatant '+esc(entry.kind||'hero')+(isOwn?' own':'')+(possessed?' possessed':'')+(current?' current-turn':'')+(member&&!member.online?' offline':'')+'"'+click+' title="'+esc(entry.name||'Участник')+'">'+
           '<span class="zg-party-init" title="Инициатива: d20 '+Number(entry.roll||0)+(Number(entry.bonus||0)>=0?' + ':' − ')+Math.abs(Number(entry.bonus||0))+'">'+Number(entry.total||0)+'</span>'+
           (portrait?'<img src="'+esc(portrait)+'" alt="">':'<span class="zg-party-ph">'+(entry.kind==='enemy'?'☠':'✦')+'</span>')+
           '<span class="zg-party-name">'+esc(entry.name||'Участник')+'</span>'+
           (member?'<span class="zg-party-online'+(member.online?' on':'')+'"></span>':'<span class="zg-party-kind">'+(entry.kind==='ally'?'Союзник':entry.kind==='npc'?'NPC':'Враг')+'</span>')+
-          '<span class="zg-party-hp"><span style="width:'+hp+'%"></span></span></button>';
+          '<span class="zg-party-hp"><span style="width:'+hp+'%"></span></span>'+(tempHp?'<span class="zg-party-temp-hp" title="Временные HP">🛡 +'+tempHp+'</span>':'')+'</button>';
       }).join('');
       return;
     }
@@ -12320,7 +12322,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgCombatToggle=function(){var combat=state&&state.room&&state.room.combat;if(combat&&combat.active){w.zgCombatConfirmEnd();return;}renderCombatParticipants();var modal=el('zg-combat-confirm');if(modal)modal.classList.add('open');};
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
-  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
+  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
   w.zgCombatAdvance=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.advanceCombat)return;combatBusy(true);w.ZargotaRooms.advanceCombat().catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось передать ход');}).then(function(){combatBusy(false);});};
   var combatActionBusy=false;
   w.zgCombatUseAction=function(type){
@@ -12344,7 +12346,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
     var weaponOptions=weapons.map(function(item){return '<option value="'+esc(item.id||'')+'">'+esc(item.name||'Оружие')+' · '+esc(item.damageFormula||'1d4')+'</option>';}).join('');
     var statOptions=Object.keys(statLabels).map(function(key){var value=attacker.stats&&attacker.stats[key]||{},bonus=typeof value==='number'?value:(value.cur!=null&&value.cur!==0?value.cur:value.base||0);return '<option value="'+key+'" '+(key===(weapons[0].stat||'str')?'selected':'')+'>'+statLabels[key]+' '+(Number(bonus)>=0?'+':'')+Number(bonus||0)+'</option>';}).join('');
-    var targetHtml=targets.map(function(target){var portrait=combatEntryPortrait(target);return '<button type="button" class="zg-combat-attack-target '+(target.key===combatAttackTargetKey?'active':'')+'" onclick="zgCombatAttackTarget('+JSON.stringify(target.key)+')">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i>☠</i>')+'<span><b>'+esc(target.name||'Цель')+'</b><small>HP '+Number(target.hp==null?target.hpMax:target.hp)+' · AC '+Number(target.ac||10)+'</small></span></button>';}).join('');
+    var targetHtml=targets.map(function(target){var portrait=combatEntryPortrait(target),tempHp=Math.max(0,Number(target.tempHp)||0);return '<button type="button" class="zg-combat-attack-target '+(target.key===combatAttackTargetKey?'active':'')+'" onclick="zgCombatAttackTarget('+JSON.stringify(target.key)+')">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i>☠</i>')+'<span><b>'+esc(target.name||'Цель')+'</b><small>HP '+Number(target.hp==null?target.hpMax:target.hp)+(tempHp?' · 🛡 +'+tempHp:'')+' · AC '+Number(target.ac||10)+'</small></span></button>';}).join('');
     body.innerHTML='<div class="zg-combat-attack-grid"><label>Оружие<select id="zg-combat-attack-weapon">'+weaponOptions+'</select></label><label>Характеристика<select id="zg-combat-attack-stat">'+statOptions+'</select></label><label>Мастерство<select id="zg-combat-attack-mastery"><option value="0">Без бонуса</option><option value="1">Обучен · +1</option><option value="2">Специалист · +2</option><option value="3">Мастер · +3</option></select></label><label>Бросок<select id="zg-combat-attack-mode"><option value="normal">Обычный</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select></label></div><div class="zg-combat-attack-targets">'+(targetHtml||'<div class="zg-combat-prepare-unavailable">Доступных целей нет.</div>')+'</div><button type="button" class="zg-combat-attack-submit" onclick="zgCombatAttackSubmit()" '+(!combatAttackTargetKey||combatAttackBusy?'disabled':'')+'>'+(combatAttackBusy?'Бросок…':'Атаковать выбранную цель')+'</button>';
   }
   w.zgCombatAttackToggle=function(force){var panel=el('zg-combat-attack');if(!panel)return false;var open=typeof force==='boolean'?force:!panel.classList.contains('open');if(open){if(w.zgVttDeactivateTools)w.zgVttDeactivateTools('combat-attack');renderCombatAttack();}panel.classList.toggle('open',open);return open;};
@@ -16450,6 +16452,7 @@ window.zgImageStore = (function() {
   .zg-party-name{align-self:end;min-width:0;width:100%;font-family:'Cinzel',serif;font-size:11px;font-weight:600;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 4px #000,0 0 8px #000}
   .zg-party-hp{width:66px;height:4px;margin:0 auto;border-radius:3px;background:#1d1a11;overflow:hidden;box-shadow:0 1px 0 #000,0 0 0 1px #17140d}
   .zg-party-hp span{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
+  .zg-party-temp-hp{position:absolute;z-index:3;right:-8px;bottom:0;padding:1px 4px;border:1px solid #52789b;border-radius:7px;background:#0b1722e8;color:#87b7df;font:700 7px/1.25 'Cinzel',serif;box-shadow:0 2px 7px #000b}
   .zg-party-online{position:absolute;z-index:2;right:5px;top:5px;width:6px;height:6px;border-radius:50%;background:#85513d;box-shadow:0 0 0 2px #090806cc,0 0 6px #7b372b}
   .zg-party-online.on{background:#63c982;box-shadow:0 0 7px #63c982}
   .zg-vtt-journal{position:absolute;z-index:4;left:18px;bottom:76px;width:270px;max-height:min(360px,calc(100vh - 180px));display:none;flex-direction:column;gap:7px;border:0;background:transparent;box-shadow:none;pointer-events:none}
