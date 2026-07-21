@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.55"></script>
+<script src="zargota-network.js?v=2026-07-21.56"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.55';
+var ZG_APP_VERSION = '2026-07-21.56';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.56', notes: 'Фазы хода по Мануалу: горение, яд, кровотечение и регенерация автоматически меняют HP в начале хода, а раундовые состояния истекают в конце хода.' },
   { v: '2026-07-21.55', notes: 'Канонические состояния из Мануала теперь ограничивают действия, реакции и движение в сетевом бою; замедление оставляет одно действие и половину скорости.' },
   { v: '2026-07-21.54', notes: 'Подготовленная реакция по Мануалу: условие тратит долгое действие при подготовке, сохраняется в бою и отдельно расходует реакцию при срабатывании.' },
   { v: '2026-07-21.53', notes: 'Боевое движение следует Мануалу: считается по клеткам с диагональю 1, дробится в течение хода, проверяется до заявки и списывается после разрешения мастера.' },
@@ -12270,7 +12271,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgCombatToggle=function(){var combat=state&&state.room&&state.room.combat;if(combat&&combat.active){w.zgCombatConfirmEnd();return;}renderCombatParticipants();var modal=el('zg-combat-confirm');if(modal)modal.classList.add('open');};
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
-  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,statuses:Array.isArray(token.statuses)?token.statuses:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
+  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
   w.zgCombatAdvance=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.advanceCombat)return;combatBusy(true);w.ZargotaRooms.advanceCombat().catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось передать ход');}).then(function(){combatBusy(false);});};
   var combatActionBusy=false;
   w.zgCombatUseAction=function(type){

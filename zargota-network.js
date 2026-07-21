@@ -110,6 +110,53 @@
     return base;
   }
 
+  function combatStatusEffects(entry) {
+    return (Array.isArray(entry && entry.statusEffects) ? entry.statusEffects : []).filter(function (effect) {
+      return effect && effect.type === 'status' && (effect.unit !== 'rounds' || Number(effect.remaining) > 0);
+    }).map(function (effect) { return Object.assign({}, effect); });
+  }
+
+  function rollDie(sides) { return Math.floor(Math.random() * Math.max(2, Number(sides) || 4)) + 1; }
+
+  function statusTurnTick(entry) {
+    var effects = combatStatusEffects(entry), keys = combatStatusKeys(entry), seen = {}, changes = [];
+    effects.forEach(function (effect) {
+      if (effect.statusKey && keys.indexOf(effect.statusKey) < 0) keys.push(effect.statusKey);
+    });
+    var hpMax = Math.max(0, Number(entry && entry.hpMax) || 0);
+    var hp = Math.max(0, Number(entry && entry.hp != null ? entry.hp : hpMax) || 0);
+    keys.forEach(function (key) {
+      if (seen[key]) return;
+      seen[key] = true;
+      var effect = effects.filter(function (item) { return item.statusKey === key; })[0];
+      var delta = effect && effect.tickType === 'hp' && Number(effect.tickValue) ? Number(effect.tickValue) : 0;
+      if (!delta && ['burn','poison','bleed'].indexOf(key) >= 0) delta = -rollDie(4);
+      if (!delta && key === 'regen') delta = rollDie(4);
+      if (!delta) return;
+      var before = hp;
+      hp = delta > 0 ? Math.min(hpMax || hp + delta, hp + delta) : Math.max(0, hp + delta);
+      var labels = { burn:'Горит', poison:'Отравлен', bleed:'Кровотечение', regen:'Регенерация' };
+      changes.push((labels[key] || effect && effect.value || key) + ': ' + (delta > 0 ? '+' : '') + delta + ' HP');
+      if (before === hp) changes.pop();
+    });
+    return { hp:hp, changes:changes };
+  }
+
+  function expireTurnStatuses(entry) {
+    var effects = combatStatusEffects(entry), expired = [], active = [];
+    effects.forEach(function (effect) {
+      if (effect.unit === 'rounds') {
+        effect.remaining = Math.max(0, Number(effect.remaining) - 1);
+        if (!effect.remaining) { expired.push(effect); return; }
+      }
+      active.push(effect);
+    });
+    var statuses = combatStatusKeys(entry).filter(function (key) {
+      return !expired.some(function (effect) { return effect.statusKey === key; }) || active.some(function (effect) { return effect.statusKey === key; });
+    });
+    return { effects:active, statuses:statuses, expired:expired };
+  }
+
   function normalizeRoomCode(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   }
@@ -190,6 +237,7 @@
       speed: Number(character.speed || 0),
       stats: clean(character.stats, {}),
       statuses: clean(character.statuses || character.conditions, []),
+      statusEffects: clean((character.tempEffects || []).filter(function (effect) { return effect && effect.type === 'status'; }), []).slice(0, 40),
       inventoryItems: clean(character.inventoryItems, []).slice(0, 80),
       equipItems: clean(character.equipItems, []).slice(0, 40),
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
@@ -982,7 +1030,7 @@
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
             var speed = Math.max(0, Number(member.character.speed) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -1003,6 +1051,7 @@
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
               statuses:Array.isArray(participant.statuses) ? participant.statuses.slice(0, 23) : [],
+              statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
               economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
             });
           });
@@ -1015,12 +1064,14 @@
           });
           order.sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || Number(a.orderHint || 0) - Number(b.orderHint || 0) || a.name.localeCompare(b.name, 'ru'); });
           if (!order.length) throw roomError('В комнате пока нет героев.', 'combat-empty');
-          var stamp = now();
-          return firebase.update(roomRef(session.code), {
-            combat: { active:true, round:1, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp },
-            combatEvent: { id:'combat-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Начинается бой. Инициатива определена.', ts:stamp },
-            updatedAt: stamp
-          }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+          var opening = order[0], openingTick = statusTurnTick(opening), stamp = now(), startUpdates = {};
+          opening.hp = openingTick.hp;
+          order[0] = opening;
+          startUpdates.combat={ active:true, round:1, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp };
+          startUpdates.combatEvent={ id:'combat-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Начинается бой. Инициатива определена. Ход: '+(opening.name||'участник')+'.'+(openingTick.changes.length?' '+openingTick.changes.join('; '):''), ts:stamp };
+          if(opening.uid)startUpdates['members/'+opening.uid+'/character/hpCur']=Number(opening.hp||0);
+          startUpdates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code), startUpdates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found','combat-active','combat-empty'].indexOf(error.code) >= 0) throw error;
@@ -1036,11 +1087,22 @@
           if (!room || room.masterUid !== user.uid) throw roomError('Комната больше недоступна.', 'room-not-found');
           var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order : [];
           if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
-          var next = (Number(combat.turnIndex) + 1) % order.length;
-          var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), current = order[next];
+          var previous = Math.max(0, Math.min(order.length - 1, Number(combat.turnIndex) || 0));
+          var next = (previous + 1) % order.length;
+          var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), updates = {}, phaseNotes = [];
+          order = order.map(function (entry) { return Object.assign({}, entry); });
+          var ending = order[previous], expiry = expireTurnStatuses(ending);
+          ending.statusEffects = expiry.effects;
+          ending.statuses = expiry.statuses;
+          if (expiry.expired.length) phaseNotes.push('Истекло: ' + expiry.expired.map(function (effect) { return effect.label || effect.value || effect.statusKey; }).join(', '));
+          order[previous] = ending;
           order = order.map(function (entry, index) {
             if (entry && entry.uid && room.members && room.members[entry.uid] && room.members[entry.uid].character) {
-              entry = Object.assign({}, entry, { statuses:Array.isArray(room.members[entry.uid].character.statuses) ? room.members[entry.uid].character.statuses : [] });
+              var memberCharacter = room.members[entry.uid].character;
+              if (index !== previous) entry = Object.assign({}, entry, {
+                statuses:Array.isArray(memberCharacter.statuses) ? memberCharacter.statuses : [],
+                statusEffects:Array.isArray(memberCharacter.statusEffects) ? memberCharacter.statusEffects : []
+              });
             }
             var economy = Object.assign({ long:1, short:1, reaction:1, movement:7, movementMax:7 }, entry.economy || {});
             var updated = Object.assign({}, entry, { economy:economy }), restrictions = combatRestrictions(updated);
@@ -1052,11 +1114,20 @@
             if (next === 0) economy.reaction = restrictions.blocked.reaction ? 0 : 1;
             return updated;
           });
-          return firebase.update(roomRef(session.code), {
-            'combat/turnIndex':next, 'combat/round':round, 'combat/order':order, 'combat/updatedAt':stamp,
-            combatEvent:{ id:'combat-turn-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Ход: '+(current.name || 'участник')+'. Раунд '+round+'.', ts:stamp },
-            updatedAt:stamp
-          }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+          var current = order[next], tick = statusTurnTick(current);
+          current.hp = tick.hp;
+          order[next] = current;
+          if (tick.changes.length) phaseNotes.push(tick.changes.join('; '));
+          [ending,current].forEach(function (entry) {
+            if (!entry || !entry.uid || !room.members || !room.members[entry.uid]) return;
+            updates['members/'+entry.uid+'/character/statuses'] = entry.statuses || [];
+            updates['members/'+entry.uid+'/character/statusEffects'] = entry.statusEffects || [];
+            if (entry === current) updates['members/'+entry.uid+'/character/hpCur'] = Number(entry.hp || 0);
+          });
+          updates['combat/turnIndex']=next;updates['combat/round']=round;updates['combat/order']=order;updates['combat/updatedAt']=stamp;
+          updates.combatEvent={ id:'combat-turn-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Ход: '+(current.name || 'участник')+'. Раунд '+round+'.'+(phaseNotes.length?' '+phaseNotes.join(' · '):''), ts:stamp };
+          updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code), updates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found','combat-missing'].indexOf(error.code) >= 0) throw error;
