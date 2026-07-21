@@ -311,6 +311,11 @@
     }, 0);
     var tempHp = Math.max(0, Number(character.tempHp == null ? effectTempHp : character.tempHp) || 0);
     tempHp = Math.min(Math.floor(hpMax * 0.5), tempHp);
+    var abilityUsage = {};
+    (Array.isArray(character.spellRefs) ? character.spellRefs : []).slice(0, 80).forEach(function (id) {
+      var state = character.spellCD && character.spellCD[id] || {}, key = 'spell-' + String(id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+      abilityUsage[key] = { used:Math.max(0, Number(state.used) || 0), max:Math.max(0, Number(state.max) || 0) };
+    });
     return {
       id: String(character.id),
       name: character.name || 'Без имени',
@@ -332,6 +337,7 @@
       immunities: clean(character.immunities || character.damageImmunities, []),
       statuses: clean(character.statuses || character.conditions, []),
       statusEffects: clean((character.tempEffects || []).filter(function (effect) { return effect && effect.type === 'status'; }), []).slice(0, 40),
+      abilityUsage: clean(abilityUsage, {}),
       inventoryItems: clean(character.inventoryItems, []).slice(0, 80),
       equipItems: clean(character.equipItems, []).slice(0, 40),
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
@@ -1079,19 +1085,28 @@
               saveStat:['str','dex','int','cha','per','con'].indexOf(details.saveStat)>=0?details.saveStat:'',
               saveDC:details.saveDC==null?null:Math.max(1,Math.min(40,Number(details.saveDC)||10)),
               rangeCells:Math.max(0,Math.min(100,Number(details.rangeCells)||0)),
+              aoeRadius:Math.max(0,Math.min(30,Number(details.aoeRadius)||0)),
+              targetCount:Math.max(1,Math.min(30,Number(details.targetCount)||1)),
               damageFormula:String(details.damageFormula || '').slice(0,24), damageType:String(details.damageType || '').slice(0,50),
               healFormula:String(details.healFormula || '').slice(0,24), halfOnSave:!!details.halfOnSave,
               targetMode:String(details.targetMode || 'target').slice(0,24),
+              durationRounds:Math.max(0,Math.min(99,Number(details.durationRounds)||0)), concentration:!!details.concentration,
+              cooldown:details.cooldown&&typeof details.cooldown==='object'?{kind:String(details.cooldown.kind||'').slice(0,30),rounds:Math.max(0,Math.min(99,Number(details.cooldown.rounds)||0)),label:String(details.cooldown.label||'').slice(0,80)}:null,
+              resourceKey:String(details.resourceKey || '').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),
+              resourceMax:Math.max(0,Math.min(99,Number(details.resourceMax)||0)),
+              resourceUsed:Math.max(0,Math.min(99,Number(details.resourceUsed)||0)),
               statuses:(Array.isArray(details.statuses)?details.statuses:[]).slice(0,8).map(function(status){return String(status&&typeof status==='object'&&(status.key||status.statusKey||status.id)||status||'').slice(0,60);}).filter(Boolean),
               description:String(details.description || '').slice(0,500)
             };
+            var usage=member.character&&member.character.abilityUsage&&member.character.abilityUsage[request.ability.resourceKey];
+            if(request.ability.resourceMax&&usage&&Number(usage.used)>=request.ability.resourceMax)throw roomError('Заряды этой способности закончились.','ability-exhausted');
           }
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + targetUid), { actionRequest: request }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
-        if (error && ['room-required','room-not-found','player-missing','request-pending'].indexOf(error.code) >= 0) throw error;
+        if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -1442,6 +1457,7 @@
           var effect=Object.assign({},ability),allowedModes=['utility','attack','save'],baseStatuses=Array.isArray(effect.statuses)?effect.statuses:String(effect.statuses||'').split(',');effect.resolutionMode=allowedModes.indexOf(overrides.resolutionMode)>=0?overrides.resolutionMode:(allowedModes.indexOf(effect.resolutionMode)>=0?effect.resolutionMode:'utility');effect.attackStat=safeStat(overrides.attackStat,effect.attackStat||'int');effect.saveStat=safeStat(overrides.saveStat,effect.saveStat||'con');effect.saveDC=overrides.saveDC===''||overrides.saveDC==null?effect.saveDC:Math.max(1,Math.min(99,Number(overrides.saveDC)||10));effect.damageFormula=safeFormula(overrides.damageFormula==null?effect.damageFormula:overrides.damageFormula);effect.healFormula=safeFormula(overrides.healFormula==null?effect.healFormula:overrides.healFormula);effect.damageType=String(overrides.damageType==null?effect.damageType:overrides.damageType).trim().slice(0,32);effect.halfOnSave=overrides.halfOnSave==null?!!effect.halfOnSave:!!overrides.halfOnSave;effect.durationRounds=Math.max(0,Math.min(99,Number(overrides.durationRounds==null?effect.durationRounds:overrides.durationRounds)||0));effect.concentration=overrides.concentration==null?!!effect.concentration:!!overrides.concentration;effect.statuses=Array.isArray(overrides.statuses)?overrides.statuses:String(overrides.statuses==null?baseStatuses.join(','):overrides.statuses).split(',');effect.statuses=effect.statuses.map(function(key){return String(key||'').trim().slice(0,48);}).filter(Boolean).slice(0,12);effect.areaMode=overrides.areaMode==='circle'?'circle':'manual';effect.areaRadius=Math.max(1,Math.min(30,Number(overrides.areaRadius)||Number(effect.aoeRadius)||1));effect.areaAnchorKey=String(overrides.areaAnchorKey||'').slice(0,160);
           var areaAnchorIndex=-1;if(effect.areaMode==='circle'){areaAnchorIndex=order.findIndex(function(entry){return entry&&entry.key===effect.areaAnchorKey;});if(areaAnchorIndex<0||!combatEntryToken(room,order[areaAnchorIndex]))throw roomError('Центр области не найден на карте.','combat-area-anchor');targetIndexes=order.map(function(entry,index){var distance=combatEntryDistance(room,order[areaAnchorIndex],entry);return distance!=null&&distance<=effect.areaRadius?index:-1;}).filter(function(index){return index>=0;});targetKeys=targetIndexes.map(function(index){return order[index].key;});}
           if(!targetIndexes.length||targetIndexes.some(function(index){return index<0;}))throw roomError('Цели способности не найдены.','combat-participant-missing');
+          var resourceKey=String(effect.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),resourceMax=Math.max(0,Math.min(99,Number(effect.resourceMax)||0)),abilityUsage=member.character&&member.character.abilityUsage||{},resourceState=resourceKey&&abilityUsage[resourceKey]||{},resourceUsed=Math.max(Number(resourceState.used)||0,Number(effect.resourceUsed)||0);if(resourceMax&&resourceUsed>=resourceMax)throw roomError('Заряды этой способности закончились.','ability-exhausted');
           var cost=['long','short','reaction','free'].indexOf(effect.actionCost)>=0?effect.actionCost:'long',turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0));
           if((cost==='long'||cost==='short')&&actorIndex!==turnIndex)throw roomError('Долгие и короткие способности применяются только в свой ход.','combat-not-turn');
           var economy=Object.assign({long:1,short:1,reaction:1},actor.economy||{}),restrictions=combatRestrictions(actor);
@@ -1463,13 +1479,14 @@
           });
           if(cost!=='free')economy[cost]=Math.max(0,Number(economy[cost]||0)-1);if(restrictions.slowed&&(cost==='long'||cost==='short')){economy.long=0;economy.short=0;}order[actorIndex].economy=economy;if(effect.concentration)order[actorIndex].concentration={sourceId:effectSource,abilityKey:effect.key||'',name:effect.name||'Способность',startedAt:castStamp,durationRounds:effect.durationRounds||0};
           var stamp=now(),updates={};updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['members/'+requestUid+'/actionRequest/status']='approved';updates['members/'+requestUid+'/actionRequest/resolvedAt']=stamp;
+          if(resourceKey&&resourceMax){updates['members/'+requestUid+'/character/abilityUsage/'+resourceKey]={used:resourceUsed+1,max:resourceMax,updatedAt:stamp};}
           targetIndexes.forEach(function(targetIndex,listIndex){var target=order[targetIndex],result=results[listIndex];if(target.uid){updates['members/'+target.uid+'/character/hpCur']=result.hp;updates['members/'+target.uid+'/character/tempHp']=result.tempHp;updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=result.hp;updates['scene/tokens/'+index+'/tempHp']=result.tempHp;updates['scene/tokens/'+index+'/statuses']=target.statuses||[];updates['scene/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=result.hp;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=result.tempHp;updates['zones/'+zoneId+'/tokens/'+index+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});});}});
           concentrationTouched.forEach(function(index){if(targetIndexes.indexOf(index)>=0)return;var target=order[index];if(target.uid){updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['scene/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});});}});
           var summaries=results.map(function(result){var outcome=mode==='save'?(result.success?'спасся':'провалил спасбросок'):mode==='attack'?(result.success?'попадание':'промах'):'эффект применён';return result.name+': '+outcome+(result.damage?' · урон '+result.damage:'')+(result.heal?' · лечение '+result.heal:'')+(result.statuses.length?' · '+result.statuses.join(', '):'');});var firstRoll=results.filter(function(result){return result.roll!=null;})[0]||{};
           updates.combatEvent={id:'combat-ability-'+stamp,kind:'combat-ability',name:actor.name||request.name||'Участник',portrait:actor.portrait||'',text:'Применяет «'+(effect.name||'способность')+'»'+(effect.areaMode==='circle'?' по области радиусом '+effect.areaRadius+' кл.':'')+'. '+summaries.join('; ')+'.'+(effect.durationRounds?' Длительность: '+effect.durationRounds+' р.':'')+(effect.concentration?' Требует концентрации.':''),ability:effect.name||'',abilityKey:effect.key||'',targetKeys:targetKeys,results:results,areaMode:effect.areaMode,areaRadius:effect.areaMode==='circle'?effect.areaRadius:0,areaAnchorKey:effect.areaMode==='circle'?effect.areaAnchorKey:'',concentration:effect.concentration,durationRounds:effect.durationRounds,roll:firstRoll.roll==null?null:firstRoll.roll,rolls:firstRoll.rolls||[],total:firstRoll.total==null?null:firstRoll.total,dc:firstRoll.dc==null?null:firstRoll.dc,success:results.every(function(result){return result.success;}),damage:results.reduce(function(sum,result){return sum+result.damage;},0),heal:results.reduce(function(sum,result){return sum+result.heal;},0),ts:stamp,revealAt:stamp+(firstRoll.roll!=null?3200:500)};updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
-      }).catch(function(error){if(error&&['master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-area-anchor','combat-not-turn','combat-status-blocked','combat-action-spent','combat-target-range'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+      }).catch(function(error){if(error&&['master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-area-anchor','combat-not-turn','combat-status-blocked','combat-action-spent','combat-target-range','ability-exhausted'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
     prepareCombatReaction: function (text, participantKey) {
