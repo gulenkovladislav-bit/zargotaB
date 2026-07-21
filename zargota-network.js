@@ -866,7 +866,8 @@
       });
     },
 
-    startCombat: function () {
+    startCombat: function (sceneParticipants) {
+      sceneParticipants = Array.isArray(sceneParticipants) ? sceneParticipants.slice(0, 40) : [];
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || session.role !== 'master') throw roomError('Начать бой может только мастер.', 'master-only');
@@ -876,8 +877,23 @@
           if (room.combat && room.combat.active) throw roomError('Бой уже идёт.', 'combat-active');
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
-            return { uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus };
-          }).sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || a.name.localeCompare(b.name, 'ru'); });
+            return { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus };
+          });
+          sceneParticipants.forEach(function (participant, index) {
+            if (!participant || !participant.tokenId) return;
+            var name = String(participant.name || 'Существо').trim().slice(0, 80) || 'Существо';
+            var bonus = Math.max(-20, Math.min(20, Number(participant.bonus) || 0));
+            var roll = Math.floor(Math.random() * 20) + 1;
+            var portrait = String(participant.portrait || '');
+            if (/^data:/i.test(portrait) && portrait.length > 16000) portrait = '';
+            order.push({
+              key:'token:'+String(participant.tokenId).slice(0, 120), kind:participant.kind === 'ally' ? 'ally' : (participant.kind === 'npc' ? 'npc' : 'enemy'),
+              tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
+              roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
+              hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index
+            });
+          });
+          order.sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || Number(a.orderHint || 0) - Number(b.orderHint || 0) || a.name.localeCompare(b.name, 'ru'); });
           if (!order.length) throw roomError('В комнате пока нет героев.', 'combat-empty');
           var stamp = now();
           return firebase.update(roomRef(session.code), {
