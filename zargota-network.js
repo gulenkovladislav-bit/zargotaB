@@ -1095,6 +1095,18 @@
             text: text, actionKind: actionKind, status: 'pending', createdAt: now(),
             testByMaster: session.role === 'master'
           };
+          if (details && actionKind !== 'ability') {
+            request.details = {
+              x: details.x == null ? null : Math.max(0, Math.min(100, Number(details.x) || 0)),
+              y: details.y == null ? null : Math.max(0, Math.min(100, Number(details.y) || 0)),
+              tokenId: String(details.tokenId || '').slice(0, 120),
+              targetKey: String(details.targetKey || '').slice(0, 160),
+              weaponId: String(details.weaponId || '').slice(0, 120),
+              statKey: String(details.statKey || '').slice(0, 16),
+              masteryBonus: Math.max(0, Math.min(3, Number(details.masteryBonus) || 0)),
+              mode: ['normal','advantage','disadvantage'].indexOf(details.mode) >= 0 ? details.mode : 'normal'
+            };
+          }
           if (details && actionKind === 'ability') {
             request.ability = {
               key:String(details.key || '').slice(0,120), sourceId:String(details.sourceId || '').slice(0,120),
