@@ -13081,16 +13081,64 @@ window.zgData = (function() {
       var remoteVersion = manifest.version;
       log('manifest loaded, version: ' + remoteVersion + ', saved: ' + savedVersion);
 
-      // Если версии совпадают и у нас есть локальные данные — ничего не грузим
+      // Если версии совпадают — проверяем, что данные РЕАЛЬНО лежат локально.
+      // Иначе баг: при переполнении квоты запись данных падала, а метка версии
+      // всё равно сохранялась — и человек навсегда оставался с пустыми персонажами.
       if (savedVersion === remoteVersion && savedVersion) {
-        log('Version match, using cached data');
-        prog('ready', 100, 'Данные актуальны');
-        api.version = savedVersion;
-        finishReady(false);
-        return;
+        return hasLocalData().then(function(ok){
+          if (ok) {
+            log('Version match, using cached data');
+            prog('ready', 100, 'Данные актуальны');
+            api.version = savedVersion;
+            finishReady(false);
+            return;
+          }
+          log('Version match, НО локальных данных нет — качаю заново');
+          return downloadAndApply(remoteVersion);
+        });
       }
 
-      // Нужна новая загрузка
+      return downloadAndApply(remoteVersion);
+    }).catch(function(err) {
+      log('start error: ' + (err && err.message));
+      prog('error', 100, 'Не удалось загрузить данные');
+      finishReady(false);
+    });
+
+    // Есть ли локально персонажи (localStorage или IndexedDB)
+    function hasLocalData(){
+      return new Promise(function(resolve){
+        var lsOk = false;
+        try {
+          var raw = localStorage.getItem('grimoire_chars');
+          if (raw) { var arr = JSON.parse(raw); lsOk = Array.isArray(arr) && arr.length > 0; }
+        } catch(e) {}
+        if (lsOk) { resolve(true); return; }
+        var done = false;
+        var finish = function(v){ if (!done) { done = true; resolve(v); } };
+        setTimeout(function(){ finish(false); }, 1500);   // не зависаем, если IDB молчит
+        try {
+          var r = indexedDB.open('zargota_chars', 1);
+          r.onupgradeneeded = function(e){ var db = e.target.result; if (!db.objectStoreNames.contains('data')) db.createObjectStore('data'); };
+          r.onerror = function(){ finish(false); };
+          r.onsuccess = function(e){
+            var db = e.target.result;
+            try {
+              var req = db.transaction('data','readonly').objectStore('data').get('grimoire_chars');
+              req.onsuccess = function(ev){
+                db.close();
+                var ok = false;
+                try { var a = JSON.parse(ev.target.result || 'null'); ok = Array.isArray(a) && a.length > 0; } catch(e2) {}
+                finish(ok);
+              };
+              req.onerror = function(){ try{db.close();}catch(_){} finish(false); };
+            } catch(ex) { try{db.close();}catch(_){} finish(false); }
+          };
+        } catch(e) { finish(false); }
+      });
+    }
+
+    function downloadAndApply(remoteVersion){
       prog('downloading', 30, 'Загружаю мир...');
       return fetchJsonVersioned(DATA_URL, remoteVersion).then(function(data) {
         prog('downloading', 70, 'Применяю данные...');
@@ -13102,20 +13150,20 @@ window.zgData = (function() {
           prog('ready', 100, 'Готово');
           finishReady(true);
         });
+      }).catch(function(err) {
+        log('Fetch failed: ' + err.message);
+        api.error = err.message;
+        // Нет сети — используем локальные данные если есть
+        if (savedVersion) {
+          prog('offline', 100, 'Офлайн-режим');
+          api.version = savedVersion;
+          finishReady(false);
+        } else {
+          prog('error', 0, 'Нет данных');
+          finishReady(false);
+        }
       });
-    }).catch(function(err) {
-      log('Fetch failed: ' + err.message);
-      api.error = err.message;
-      // Нет сети — используем локальные данные если есть
-      if (savedVersion) {
-        prog('offline', 100, 'Офлайн-режим');
-        api.version = savedVersion;
-        finishReady(false);
-      } else {
-        prog('error', 0, 'Нет данных');
-        finishReady(false);
-      }
-    });
+    }
   }
 
   function finishReady(wasDownloaded) {
