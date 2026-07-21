@@ -12090,6 +12090,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var selectedMemberUid = '';
   var lastRoll = '';
   var inventoryFilter = 'all';
+  var inventoryDetail = null;
   var abilitiesFilter = 'all';
   var expandedAbilityKey = '';
   var abilityRequestBusy = false;
@@ -12340,15 +12341,19 @@ document.addEventListener('DOMContentLoaded', function(){
     var allItems = Array.isArray(local.inventoryItems) ? local.inventoryItems : [];
     function category(item){var hay=String((item&&item.category||'')+' '+(item&&item.type||'')+' '+(item&&item.name||'')).toLowerCase();if(/оруж|меч|кинжал|топор|лук|weapon/.test(hay))return'weapon';if(/брон|доспех|щит|одеж|armor/.test(hay))return'armor';if(/зель|эликс|настой|potion/.test(hay))return'potion';return'other';}
     var items=inventoryFilter==='all'?allItems:allItems.filter(function(item){return category(typeof item==='string'?{name:item}:item)===inventoryFilter;});
-    var equipped=(Array.isArray(local.equipItems)?local.equipItems:[]).filter(function(item){return item&&item.equipped!==false;});
-    function art(item){ if(item&&item.image)return '<img src="'+esc(item.image)+'" alt="">'; return '<i>'+esc(item&&item.icon||'◈')+'</i>'; }
-    function slot(item){
+    var equipped=(Array.isArray(local.equipItems)?local.equipItems:[]).map(function(item,index){return{item:item,index:index};}).filter(function(entry){return entry.item&&entry.item.equipped!==false;});
+    function art(item){var src=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item&&item.image||'');if(src)return '<img src="'+esc(src)+'" alt="">';return '<i>'+esc(item&&item.icon||'◈')+'</i>';}
+    function slot(item,index,source){
       if (typeof item === 'string') item = { name:item };
-      return '<button type="button" class="zg-bag-item" title="'+esc(item.name||'Предмет')+'">'+art(item)+'<span>'+esc(item.name||'Предмет')+'</span>'+(Number(item.qty||1)>1?'<small>'+Number(item.qty)+'</small>':'')+'</button>';
+      var draggable=source==='inventory'?' draggable="true" ondragstart="zgVttInventoryDrag(event,'+index+')"':'';
+      return '<button type="button" class="zg-bag-item"'+draggable+' onclick="zgVttInventoryOpenItem(\''+source+'\','+index+')" title="'+esc(item.name||'Предмет')+'">'+art(item)+'<span>'+esc(item.name||'Предмет')+'</span>'+(Number(item.qty||1)>1?'<small>'+Number(item.qty)+'</small>':'')+'</button>';
     }
     var canEdit=fullLocalCharacter(member), add=canEdit?'<button type="button" class="zg-bag-add" onclick="zgVttAddInventoryItem()" title="Добавить предмет">＋</button>':'';
-    return '<div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Снаряжение</h4>'+(equipped.map(slot).join('')||'<div class="zg-bag-empty">Не экипировано</div>')+'</section>'+
-      '<section class="zg-bag-storage"><div class="zg-bag-storage-head"><h4>Вещи</h4><div class="zg-bag-filters"><button class="'+(inventoryFilter==='all'?'active':'')+'" onclick="zgVttInventoryFilter(\'all\')">Все</button><button class="'+(inventoryFilter==='weapon'?'active':'')+'" onclick="zgVttInventoryFilter(\'weapon\')" title="Оружие">⚔</button><button class="'+(inventoryFilter==='armor'?'active':'')+'" onclick="zgVttInventoryFilter(\'armor\')" title="Броня">◈</button><button class="'+(inventoryFilter==='potion'?'active':'')+'" onclick="zgVttInventoryFilter(\'potion\')" title="Зелья">⚗</button></div></div><div class="zg-bag-grid">'+items.map(slot).join('')+Array(Math.max(0,12-items.length)).fill('<span class="zg-bag-item empty"></span>').join('')+'</div></section></div>'+
+    var equipmentSlots=['head','body','weapon','accessory','utility'],slotLabels={head:'Голова',body:'Доспех',weapon:'Оружие',accessory:'Талисман',utility:'Пояс'};
+    var used={};function equippedFor(slotName){var found=-1;equipped.some(function(entry,index){if(used[index])return false;var item=entry.item,hay=String((item.slot||'')+' '+(item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),match=slotName==='head'?/голов|шлем|капюш|head/.test(hay):slotName==='body'?/брон|доспех|одеж|ряса|плащ|body|armor/.test(hay):slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):slotName==='accessory'?/талис|кольц|амул|ожерел|access/.test(hay):false;if(match){found=index;used[index]=true;return true;}return false;});if(found<0){found=equipped.findIndex(function(_,index){return!used[index];});if(found>=0)used[found]=true;}return found>=0?equipped[found]:null;}
+    var equipmentHtml=equipmentSlots.map(function(slotName){var entry=equippedFor(slotName);return '<div class="zg-bag-equip-slot'+(entry?' filled':'')+'" data-equip-slot="'+slotName+'" ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="zgVttInventoryDrop(event,\''+slotName+'\')"><small>'+slotLabels[slotName]+'</small>'+(entry?slot(entry.item,entry.index,'equip'):'<span class="zg-bag-slot-mark">◇</span>')+'</div>';}).join('');
+    return '<div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Снаряжение</h4><div class="zg-bag-equip-list">'+equipmentHtml+'</div></section>'+
+      '<section class="zg-bag-storage"><div class="zg-bag-storage-head"><h4>Рюкзак</h4><div class="zg-bag-filters"><button class="'+(inventoryFilter==='all'?'active':'')+'" onclick="zgVttInventoryFilter(\'all\')">Все</button><button class="'+(inventoryFilter==='weapon'?'active':'')+'" onclick="zgVttInventoryFilter(\'weapon\')" title="Оружие">⚔</button><button class="'+(inventoryFilter==='armor'?'active':'')+'" onclick="zgVttInventoryFilter(\'armor\')" title="Броня">◈</button><button class="'+(inventoryFilter==='potion'?'active':'')+'" onclick="zgVttInventoryFilter(\'potion\')" title="Зелья">⚗</button></div></div><div class="zg-bag-grid">'+items.map(function(item){return slot(item,allItems.indexOf(item),'inventory');}).join('')+Array(Math.max(0,16-items.length)).fill('<span class="zg-bag-item empty"></span>').join('')+'</div></section></div>'+
       '<div class="zg-bag-foot"><span>Вместимость '+allItems.length+' / 20</span>'+add+'</div>';
   }
   function journalPanel(){
@@ -12397,7 +12402,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var requestLabel=card.passive?'Показать мастеру':'Заявить применение';
       return '<article class="zg-ability-card'+(open?' open':'')+(disabled?' locked':'')+(exhausted?' exhausted':'')+'"><button type="button" class="zg-ability-summary" onclick="zgVttAbilityExpand(\''+card.key+'\')"><i>'+esc(card.icon)+'</i><span><small>'+esc(card.kind)+'</small><b>'+esc(card.name)+'</b></span>'+(resource?'<em>'+esc(resource)+'</em>':'')+'<strong>⌄</strong></button>'+(open?'<div class="zg-ability-detail">'+abilityProfileBadges(card.profile)+'<p>'+esc(card.description||'Описание пока не заполнено в листе персонажа.')+'</p>'+(card.restriction?'<small>'+esc(card.restriction)+'</small>':'')+'<button type="button" onclick="zgVttRequestAbility(\''+card.key+'\')" '+((disabled||exhausted||abilityRequestBusy)?'disabled':'')+'>'+(disabled?'Не изучено':exhausted?'Нет зарядов':requestLabel)+'</button></div>':'')+'</article>';
     }
-    return '<div class="zg-abilities-panel"><header><div><small>'+esc(c.name||member&&member.character&&member.character.name||'Герой')+'</small><b>Приёмы героя</b></div><span>'+cards.length+'</span></header><nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все</button><button class="'+(abilitiesFilter==='skills'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'skills\')">Навыки</button><button class="'+(abilitiesFilter==='spells'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'spells\')">Заклинания</button></nav><div class="zg-ability-list">'+(shown.length?shown.map(cardHtml).join(''):'<div class="zg-vtt-empty">В этой категории пока ничего нет</div>')+'</div><footer>Применение отправляется мастеру и не расходует заряд до подтверждения.</footer></div>';
+    return '<div class="zg-abilities-panel"><header><div><small>'+esc(c.name||member&&member.character&&member.character.name||'Герой')+'</small><b>Приёмы и магия</b></div><span>'+cards.length+'</span></header><nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все</button><button class="'+(abilitiesFilter==='skills'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'skills\')">Навыки</button><button class="'+(abilitiesFilter==='spells'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'spells\')">Заклинания</button></nav><div class="zg-ability-list">'+(shown.length?shown.map(cardHtml).join(''):'<div class="zg-vtt-empty">В этой категории пока ничего нет</div>')+'</div><footer>Подробности раскрываются по нажатию. Применение отправляется мастеру.</footer></div>';
   }
   function dicePanel(){
     return '<div class="zg-vtt-dice">' + [4,6,8,10,12,20].map(function(sides){
@@ -12407,7 +12412,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function renderDrawer(){
     if (!activePanel) return;
     var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'); if (!body) return;
-    var labels = { group:'Группа', character:'Герой', inventory:'Походная сумка', abilities:'Навыки и заклинания', journal:'Журнал', dice:'Кубики' };
+    var labels = { group:'Группа', character:'Состояние героя', inventory:'Походный набор', abilities:'Приёмы и магия', journal:'Журнал', dice:'Кубики' };
     if (title) title.textContent = labels[activePanel] || 'Панель';
     document.querySelectorAll('.zg-bag-tabs button[onclick*="zgVttOpenPanel"]').forEach(function(button){
       button.classList.toggle('active',button.getAttribute('onclick').indexOf("'"+activePanel+"'")>=0);
@@ -12626,6 +12631,31 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){w.zgVttOpenPanel('inventory');},120);
   };
   w.zgVttInventoryFilter=function(filter){inventoryFilter=filter||'all';renderDrawer();};
+  w.zgVttRefreshDrawer=function(){if(activePanel)renderDrawer();};
+  w.zgVttInventoryDrag=function(event,index){if(!event||!event.dataTransfer)return;event.dataTransfer.setData('text/zargota-item',String(index));event.dataTransfer.effectAllowed='copy';};
+  w.zgVttInventoryDrop=function(event,slotName){
+    if(event){event.preventDefault();if(event.currentTarget)event.currentTarget.classList.remove('dragover');}
+    var index=Number(event&&event.dataTransfer&&event.dataTransfer.getData('text/zargota-item')),member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];
+    if(!item||!c)return;if(typeof item==='string')item={name:item,icon:'📦',qty:1};
+    var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),allowed=slotName==='head'?/голов|шлем|капюш|head/.test(hay):slotName==='body'?/брон|доспех|одеж|ряса|плащ|body|armor/.test(hay):slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):slotName==='accessory'?/талис|кольц|амул|ожерел|access/.test(hay):!/зель|еда|монет|ключ|potion/.test(hay);
+    if(!allowed){if(w.showToast)w.showToast('Этот предмет не подходит для выбранного слота');return;}
+    if(!Array.isArray(c.equipItems))c.equipItems=[];
+    var existing=c.equipItems.find(function(entry){return entry&&entry._sourceInventoryIndex===index;});
+    if(existing){existing.slot=slotName;existing.equipped=true;}else c.equipItems.push(Object.assign({},item,{text:item.name||'',slot:slotName,equipped:true,_sourceInventoryIndex:index}));
+    if(typeof w.saveChars==='function')w.saveChars();renderDrawer();if(w.showToast)w.showToast('Предмет экипирован');
+  };
+  w.zgVttInventoryOpenItem=function(source,index){
+    var member=ownMember(),c=fullLocalCharacter(member)||member&&member.character;if(!c)return;
+    var list=source==='equip'?c.equipItems:c.inventoryItems,item=list&&list[index];if(!item)return;if(typeof item==='string')item={name:item};
+    inventoryDetail={source:source,index:index};
+    var old=el('zg-vtt-item-detail');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-vtt-item-detail';modal.className='zg-item-detail-backdrop';
+    var itemImage=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item.image||''),image=itemImage?'<img src="'+esc(itemImage)+'" alt="">':'<i>'+esc(item.icon||'◈')+'</i>',meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · '),canEdit=!!fullLocalCharacter(member);
+    modal.innerHTML='<section class="zg-item-detail-card"><button type="button" class="zg-item-detail-close" onclick="zgVttInventoryCloseItem()">×</button><div class="zg-item-detail-art">'+image+'</div><small>'+(source==='equip'?'Снаряжение':'Предмет из рюкзака')+'</small><h3>'+esc(item.name||item.text||'Без названия')+'</h3>'+(meta?'<div class="zg-item-detail-meta">'+esc(meta)+'</div>':'')+'<p>'+esc(item.description||item.effect||item.text||'Описание предмета пока не заполнено.')+'</p>'+(Number(item.qty||1)>1?'<b class="zg-item-detail-qty">Количество: '+Number(item.qty)+'</b>':'')+(canEdit?'<div class="zg-item-detail-actions">'+(source==='inventory'?'<button type="button" onclick="zgVttInventoryQuickEquip('+index+')">Экипировать</button>':'')+'<button type="button" onclick="zgVttInventoryEditItem()">Изменить в листе</button></div>':'')+'</section>';
+    modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttInventoryCloseItem();});document.body.appendChild(modal);
+  };
+  w.zgVttInventoryCloseItem=function(){var modal=el('zg-vtt-item-detail');if(modal)modal.remove();inventoryDetail=null;};
+  w.zgVttInventoryEditItem=function(){if(!inventoryDetail)return;var member=ownMember(),c=fullLocalCharacter(member);if(!c)return;var detail=inventoryDetail;w.zgVttInventoryCloseItem();if(typeof w.openItemConstructor==='function')w.openItemConstructor(c.id,detail.source,detail.index);};
+  w.zgVttInventoryQuickEquip=function(index){var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];if(!item)return;var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),slot=/голов|шлем|капюш/.test(hay)?'head':/брон|доспех|одеж|ряса|плащ/.test(hay)?'body':/оруж|меч|кинжал|топор|лук|молот/.test(hay)?'weapon':/талис|кольц|амул|ожерел/.test(hay)?'accessory':'utility';var transfer={getData:function(){return String(index);}};w.zgVttInventoryDrop({preventDefault:function(){},dataTransfer:transfer},slot);w.zgVttInventoryCloseItem();};
   w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','skills','spells'].indexOf(filter)>=0?filter:'all';expandedAbilityKey='';renderDrawer();};
   w.zgVttAbilityExpand=function(key){expandedAbilityKey=expandedAbilityKey===key?'':String(key||'');renderDrawer();};
   w.zgVttRequestAbility=function(key){
