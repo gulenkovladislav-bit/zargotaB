@@ -35,6 +35,21 @@
     return inside;
   }
 
+  function movementCells(scene, fromX, fromY, toX, toY) {
+    scene = scene || {};
+    var width = Math.max(1, Number(scene.boardWidth) || 32);
+    var height = Math.max(1, Number(scene.boardHeight) || 20);
+    var dx = Math.abs(Number(toX) - Number(fromX)) * width / 100;
+    var dy = Math.abs(Number(toY) - Number(fromY)) * height / 100;
+    return Math.max(0, Math.ceil(Math.max(dx, dy) - 0.001));
+  }
+
+  function combatHeroEntry(room, uid) {
+    var combat = room && room.combat, order = combat && Array.isArray(combat.order) ? combat.order : [];
+    var index = order.findIndex(function (entry) { return entry && entry.uid === uid; });
+    return { combat:combat, order:order, index:index, entry:index >= 0 ? order[index] : null };
+  }
+
   function normalizeRoomCode(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   }
@@ -659,12 +674,20 @@
             status: 'pending',
             createdAt: now()
           };
+          var battle = combatHeroEntry(room, user.uid);
+          if (battle.combat && battle.combat.active) {
+            if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
+            request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
+            var moveLeft = Number(battle.entry.economy && battle.entry.economy.movement);
+            if (!isFinite(moveLeft)) moveLeft = Math.max(0, Number(member.character && member.character.speed) || 7);
+            if (request.cells > moveLeft) throw roomError('Не хватает движения: нужно '+request.cells+', осталось '+moveLeft+' клеток.', 'combat-movement-spent');
+          }
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), { movementRequest: request }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
-        if (error && ['player-only','room-not-found','token-missing'].indexOf(error.code) >= 0) throw error;
+        if (error && ['player-only','room-not-found','token-missing','combat-not-turn','combat-movement-spent'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -694,12 +717,20 @@
             tokenId: String(token && token.id || origin.tokenId || '').slice(0, 128),
             toX: targetX, toY: targetY, zoneId: zoneId, status: 'pending', createdAt: now(), testByMaster: true
           };
+          var battle = combatHeroEntry(room, requestUid);
+          if (battle.combat && battle.combat.active) {
+            if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
+            request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
+            var moveLeft = Number(battle.entry.economy && battle.entry.economy.movement);
+            if (!isFinite(moveLeft)) moveLeft = Math.max(0, Number(member.character && member.character.speed) || 7);
+            if (request.cells > moveLeft) throw roomError('Не хватает движения: нужно '+request.cells+', осталось '+moveLeft+' клеток.', 'combat-movement-spent');
+          }
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + requestUid), { movementRequest: request }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','player-missing','token-missing'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','player-missing','token-missing','combat-not-turn','combat-movement-spent'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -728,6 +759,16 @@
               return false;
             });
             var scenePath = zoneId ? 'zones/' + zoneId : 'scene';
+            var battle = combatHeroEntry(room, requestUid);
+            if (battle.combat && battle.combat.active) {
+              if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Ход этого героя уже завершён.', 'combat-not-turn');
+              var spent = request.cells == null ? movementCells(scene, request.fromX, request.fromY, request.toX, request.toY) : Math.max(0, Number(request.cells) || 0);
+              var battleEntry = Object.assign({}, battle.entry), battleEconomy = Object.assign({ movement:7, movementMax:7 }, battleEntry.economy || {});
+              if (spent > Number(battleEconomy.movement || 0)) throw roomError('У героя больше нет движения на этот путь.', 'combat-movement-spent');
+              battleEconomy.movement = Math.max(0, Number(battleEconomy.movement || 0) - spent);
+              battleEntry.economy = battleEconomy; battle.order[battle.index] = battleEntry;
+              updates['combat/order'] = battle.order;
+            }
             if (tokenIndex < 0) {
               var member = room.members && room.members[requestUid] || {};
               tokenIndex = tokens.length;
@@ -761,7 +802,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','request-missing','token-missing'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','request-missing','token-missing','combat-not-turn','combat-movement-spent'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -877,7 +918,8 @@
           if (room.combat && room.combat.active) throw roomError('Бой уже идёт.', 'combat-active');
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
-            return { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, economy:{ long:1, short:1, reaction:1 } };
+            var speed = Math.max(0, Number(member.character.speed) || 7);
+            return { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
           });
           sceneParticipants.forEach(function (participant, index) {
             if (!participant || !participant.tokenId) return;
@@ -891,7 +933,7 @@
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
-              economy:{ long:1, short:1, reaction:1 }
+              economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
             });
           });
           order.sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || Number(a.orderHint || 0) - Number(b.orderHint || 0) || a.name.localeCompare(b.name, 'ru'); });
@@ -920,8 +962,8 @@
           var next = (Number(combat.turnIndex) + 1) % order.length;
           var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), current = order[next];
           order = order.map(function (entry, index) {
-            var economy = Object.assign({ long:1, short:1, reaction:1 }, entry.economy || {});
-            if (index === next) { economy.long = 1; economy.short = 1; }
+            var economy = Object.assign({ long:1, short:1, reaction:1, movement:7, movementMax:7 }, entry.economy || {});
+            if (index === next) { economy.long = 1; economy.short = 1; economy.movement = Math.max(0, Number(economy.movementMax) || 7); }
             if (next === 0) economy.reaction = 1;
             return Object.assign({}, entry, { economy:economy });
           });
