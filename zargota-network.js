@@ -50,6 +50,66 @@
     return { combat:combat, order:order, index:index, entry:index >= 0 ? order[index] : null };
   }
 
+  function combatStatusKeys(entry) {
+    return (Array.isArray(entry && entry.statuses) ? entry.statuses : []).map(function (status) {
+      if (typeof status === 'string') return status;
+      return status && (status.key || status.statusKey || status.id) || '';
+    }).filter(Boolean);
+  }
+
+  function combatEntryWithRoomStatuses(room, entry) {
+    if (!entry || !entry.uid || !room || !room.members || !room.members[entry.uid] || !room.members[entry.uid].character) return entry;
+    return Object.assign({}, entry, {
+      statuses:Array.isArray(room.members[entry.uid].character.statuses) ? room.members[entry.uid].character.statuses : []
+    });
+  }
+
+  // Ограничения следуют актуальному Мануалу; Arena остаётся только редактором статусов.
+  function combatRestrictions(entry) {
+    var keys = combatStatusKeys(entry), has = function (key) { return keys.indexOf(key) >= 0; };
+    var blocked = { long:false, short:false, reaction:false, movement:false };
+    var reasons = [];
+    if (has('paralyze')) {
+      blocked.long = blocked.short = blocked.reaction = blocked.movement = true;
+      reasons.push('Паралич: действия, реакции и движение недоступны');
+    } else if (has('dominate')) {
+      blocked.long = blocked.short = blocked.reaction = true;
+      reasons.push('Подчинён: собственные действия недоступны');
+    } else if (has('freeze')) {
+      blocked.long = blocked.short = blocked.movement = true;
+      reasons.push('Заморожен: действия и движение недоступны');
+    }
+    if (has('stun')) {
+      blocked.long = blocked.reaction = true;
+      reasons.push('Оглушён: долгое действие и реакция недоступны');
+    }
+    if (has('restrain')) {
+      blocked.movement = true;
+      reasons.push('Обездвижен: скорость равна 0');
+    }
+    var exhaustion = (Array.isArray(entry && entry.statuses) ? entry.statuses : []).filter(function (status) {
+      return status && typeof status === 'object' && (status.key === 'exhausted' || status.statusKey === 'exhausted');
+    })[0];
+    var exhaustionLevel = Math.max(0, Number(exhaustion && (exhaustion.level || exhaustion.stacks)) || 0);
+    if (exhaustionLevel >= 2) {
+      blocked.reaction = true;
+      reasons.push('Истощение II: реакции недоступны');
+    }
+    if (exhaustionLevel >= 5) {
+      blocked.long = blocked.short = blocked.movement = true;
+      reasons.push('Истощение V: герой без сознания');
+    }
+    return { blocked:blocked, slowed:has('slow'), prone:has('prone'), reasons:reasons };
+  }
+
+  function combatTurnMovement(entry) {
+    var restrictions = combatRestrictions(entry);
+    if (restrictions.blocked.movement) return 0;
+    var base = Math.max(0, Number(entry && entry.economy && entry.economy.movementMax) || 7);
+    if (restrictions.slowed) base = Math.floor(base / 2);
+    return base;
+  }
+
   function normalizeRoomCode(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   }
@@ -677,6 +737,7 @@
           var battle = combatHeroEntry(room, user.uid);
           if (battle.combat && battle.combat.active) {
             if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
+            if (combatRestrictions(combatEntryWithRoomStatuses(room, battle.entry)).blocked.movement) throw roomError('Текущее состояние не позволяет двигаться.', 'combat-status-blocked');
             request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
             var moveLeft = Number(battle.entry.economy && battle.entry.economy.movement);
             if (!isFinite(moveLeft)) moveLeft = Math.max(0, Number(member.character && member.character.speed) || 7);
@@ -687,7 +748,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['player-only','room-not-found','token-missing','combat-not-turn','combat-movement-spent'].indexOf(error.code) >= 0) throw error;
+        if (error && ['player-only','room-not-found','token-missing','combat-not-turn','combat-movement-spent','combat-status-blocked'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -720,6 +781,7 @@
           var battle = combatHeroEntry(room, requestUid);
           if (battle.combat && battle.combat.active) {
             if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
+            if (combatRestrictions(combatEntryWithRoomStatuses(room, battle.entry)).blocked.movement) throw roomError('Текущее состояние не позволяет двигаться.', 'combat-status-blocked');
             request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
             var moveLeft = Number(battle.entry.economy && battle.entry.economy.movement);
             if (!isFinite(moveLeft)) moveLeft = Math.max(0, Number(member.character && member.character.speed) || 7);
@@ -730,7 +792,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','player-missing','token-missing','combat-not-turn','combat-movement-spent'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','player-missing','token-missing','combat-not-turn','combat-movement-spent','combat-status-blocked'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -762,6 +824,7 @@
             var battle = combatHeroEntry(room, requestUid);
             if (battle.combat && battle.combat.active) {
               if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Ход этого героя уже завершён.', 'combat-not-turn');
+              if (combatRestrictions(combatEntryWithRoomStatuses(room, battle.entry)).blocked.movement) throw roomError('Текущее состояние не позволяет двигаться.', 'combat-status-blocked');
               var spent = request.cells == null ? movementCells(scene, request.fromX, request.fromY, request.toX, request.toY) : Math.max(0, Number(request.cells) || 0);
               var battleEntry = Object.assign({}, battle.entry), battleEconomy = Object.assign({ movement:7, movementMax:7 }, battleEntry.economy || {});
               if (spent > Number(battleEconomy.movement || 0)) throw roomError('У героя больше нет движения на этот путь.', 'combat-movement-spent');
@@ -802,7 +865,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','request-missing','token-missing','combat-not-turn','combat-movement-spent'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','request-missing','token-missing','combat-not-turn','combat-movement-spent','combat-status-blocked'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -919,7 +982,13 @@
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
             var speed = Math.max(0, Number(member.character.speed) || 7);
-            return { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var restrictions = combatRestrictions(entry);
+            entry.economy.long = restrictions.blocked.long ? 0 : 1;
+            entry.economy.short = restrictions.blocked.short ? 0 : 1;
+            entry.economy.reaction = restrictions.blocked.reaction ? 0 : 1;
+            entry.economy.movement = combatTurnMovement(entry);
+            return entry;
           });
           sceneParticipants.forEach(function (participant, index) {
             if (!participant || !participant.tokenId) return;
@@ -933,8 +1002,16 @@
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
+              statuses:Array.isArray(participant.statuses) ? participant.statuses.slice(0, 23) : [],
               economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
             });
+          });
+          order.forEach(function (entry) {
+            var restrictions = combatRestrictions(entry);
+            entry.economy.long = restrictions.blocked.long ? 0 : 1;
+            entry.economy.short = restrictions.blocked.short ? 0 : 1;
+            entry.economy.reaction = restrictions.blocked.reaction ? 0 : 1;
+            entry.economy.movement = combatTurnMovement(entry);
           });
           order.sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || Number(a.orderHint || 0) - Number(b.orderHint || 0) || a.name.localeCompare(b.name, 'ru'); });
           if (!order.length) throw roomError('В комнате пока нет героев.', 'combat-empty');
@@ -962,10 +1039,18 @@
           var next = (Number(combat.turnIndex) + 1) % order.length;
           var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), current = order[next];
           order = order.map(function (entry, index) {
+            if (entry && entry.uid && room.members && room.members[entry.uid] && room.members[entry.uid].character) {
+              entry = Object.assign({}, entry, { statuses:Array.isArray(room.members[entry.uid].character.statuses) ? room.members[entry.uid].character.statuses : [] });
+            }
             var economy = Object.assign({ long:1, short:1, reaction:1, movement:7, movementMax:7 }, entry.economy || {});
-            if (index === next) { economy.long = 1; economy.short = 1; economy.movement = Math.max(0, Number(economy.movementMax) || 7); }
-            if (next === 0) economy.reaction = 1;
-            return Object.assign({}, entry, { economy:economy });
+            var updated = Object.assign({}, entry, { economy:economy }), restrictions = combatRestrictions(updated);
+            if (index === next) {
+              economy.long = restrictions.blocked.long ? 0 : 1;
+              economy.short = restrictions.blocked.short ? 0 : 1;
+              economy.movement = combatTurnMovement(updated);
+            }
+            if (next === 0) economy.reaction = restrictions.blocked.reaction ? 0 : 1;
+            return updated;
           });
           return firebase.update(roomRef(session.code), {
             'combat/turnIndex':next, 'combat/round':round, 'combat/order':order, 'combat/updatedAt':stamp,
@@ -999,10 +1084,14 @@
           }
           if (index < 0) throw roomError('Участник боя не найден.', 'combat-participant-missing');
           if ((actionType === 'long' || actionType === 'short') && index !== turnIndex) throw roomError('Длинное и короткое действие доступны только в свой ход.', 'combat-not-turn');
-          var entry = Object.assign({}, order[index]);
+          var entry = combatEntryWithRoomStatuses(room, Object.assign({}, order[index]));
           var economy = Object.assign({ long:1, short:1, reaction:1 }, entry.economy || {});
+          var restrictions = combatRestrictions(entry);
+          if (actionType !== 'free' && restrictions.blocked[actionType]) throw roomError(restrictions.reasons[0] || 'Текущее состояние запрещает это действие.', 'combat-status-blocked');
           if (actionType !== 'free' && Number(economy[actionType] || 0) < 1) throw roomError('Это действие уже израсходовано.', 'combat-action-spent');
           if (actionType !== 'free') economy[actionType] = Math.max(0, Number(economy[actionType] || 0) - 1);
+          if (restrictions.slowed && actionType === 'long') economy.short = 0;
+          if (restrictions.slowed && actionType === 'short') economy.long = 0;
           entry.economy = economy;
           order[index] = entry;
           var labels = { long:'длинное действие', short:'короткое действие', reaction:'реакцию', free:'свободное действие' };
@@ -1014,7 +1103,7 @@
           }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
       }).catch(function (error) {
-        if (error && ['room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent','combat-action-invalid'].indexOf(error.code) >= 0) throw error;
+        if (error && ['room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent','combat-action-invalid','combat-status-blocked'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -1035,9 +1124,13 @@
           else index=order.findIndex(function(entry){return entry&&entry.uid===user.uid;});
           if(index<0)throw roomError('Участник боя не найден.','combat-participant-missing');
           if(index!==turnIndex)throw roomError('Подготовить реакцию можно только в свой ход.','combat-not-turn');
-          var entry=Object.assign({},order[index]),economy=Object.assign({long:1,short:1,reaction:1},entry.economy||{});
+          var entry=combatEntryWithRoomStatuses(room,Object.assign({},order[index])),economy=Object.assign({long:1,short:1,reaction:1},entry.economy||{});
+          var restrictions=combatRestrictions(entry);
+          if(restrictions.blocked.long)throw roomError(restrictions.reasons[0]||'Текущее состояние запрещает долгое действие.','combat-status-blocked');
           if(Number(economy.long||0)<1)throw roomError('Долгое действие уже израсходовано.','combat-action-spent');
-          economy.long=Math.max(0,Number(economy.long||0)-1);entry.economy=economy;
+          economy.long=Math.max(0,Number(economy.long||0)-1);
+          if(restrictions.slowed)economy.short=0;
+          entry.economy=economy;
           entry.preparedReaction={text:text,preparedAt:now(),round:Number(combat.round||1)};order[index]=entry;
           var stamp=now();
           return firebase.update(roomRef(session.code),{
@@ -1046,7 +1139,7 @@
           }).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
       }).catch(function(error){
-        if(error&&['combat-reaction-empty','room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent'].indexOf(error.code)>=0)throw error;
+        if(error&&['combat-reaction-empty','room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent','combat-status-blocked'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -1061,9 +1154,11 @@
           if(!combat||!combat.active||!order.length)throw roomError('Сейчас нет активного боя.','combat-missing');
           var index=session.role==='master'?(participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey;}):Number(combat.turnIndex)||0):order.findIndex(function(entry){return entry&&entry.uid===user.uid;});
           if(index<0||!order[index])throw roomError('Участник боя не найден.','combat-participant-missing');
-          var entry=Object.assign({},order[index]),prepared=entry.preparedReaction;
+          var entry=combatEntryWithRoomStatuses(room,Object.assign({},order[index])),prepared=entry.preparedReaction;
           if(!prepared||!prepared.text)throw roomError('Подготовленной реакции нет.','combat-reaction-missing');
           var economy=Object.assign({reaction:1},entry.economy||{});
+          var restrictions=combatRestrictions(entry);
+          if(restrictions.blocked.reaction)throw roomError(restrictions.reasons[0]||'Текущее состояние запрещает реакцию.','combat-status-blocked');
           if(Number(economy.reaction||0)<1)throw roomError('Реакция в этом раунде уже израсходована.','combat-action-spent');
           economy.reaction=Math.max(0,Number(economy.reaction||0)-1);entry.economy=economy;entry.preparedReaction=null;order[index]=entry;
           var stamp=now();return firebase.update(roomRef(session.code),{
@@ -1072,7 +1167,7 @@
           }).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
       }).catch(function(error){
-        if(error&&['room-required','room-not-found','combat-missing','combat-participant-missing','combat-reaction-missing','combat-action-spent'].indexOf(error.code)>=0)throw error;
+        if(error&&['room-required','room-not-found','combat-missing','combat-participant-missing','combat-reaction-missing','combat-action-spent','combat-status-blocked'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
