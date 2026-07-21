@@ -1047,10 +1047,11 @@
       });
     },
 
-    requestAction: function (text, actionKind, speakerUid) {
+    requestAction: function (text, actionKind, speakerUid, details) {
       text = String(text || '').trim().slice(0, 300);
       actionKind = String(actionKind || 'custom').slice(0, 40);
       speakerUid = String(speakerUid || '').slice(0, 128);
+      details = details && typeof details === 'object' ? details : null;
       if (!text) return Promise.resolve(api.getSnapshot());
       return ensureReady().then(function (user) {
         var session = readSession();
@@ -1068,6 +1069,23 @@
             text: text, actionKind: actionKind, status: 'pending', createdAt: now(),
             testByMaster: session.role === 'master'
           };
+          if (details && actionKind === 'ability') {
+            request.ability = {
+              key:String(details.key || '').slice(0,120), sourceId:String(details.sourceId || '').slice(0,120),
+              name:String(details.name || '').slice(0,120), kind:String(details.kind || '').slice(0,60),
+              actionCost:['long','short','reaction','free'].indexOf(details.actionCost)>=0?details.actionCost:'long',
+              resolutionMode:['attack','save','automatic','utility'].indexOf(details.resolutionMode)>=0?details.resolutionMode:'utility',
+              attackStat:['str','dex','int','cha','per','con'].indexOf(details.attackStat)>=0?details.attackStat:'',
+              saveStat:['str','dex','int','cha','per','con'].indexOf(details.saveStat)>=0?details.saveStat:'',
+              saveDC:details.saveDC==null?null:Math.max(1,Math.min(40,Number(details.saveDC)||10)),
+              rangeCells:Math.max(0,Math.min(100,Number(details.rangeCells)||0)),
+              damageFormula:String(details.damageFormula || '').slice(0,24), damageType:String(details.damageType || '').slice(0,50),
+              healFormula:String(details.healFormula || '').slice(0,24), halfOnSave:!!details.halfOnSave,
+              targetMode:String(details.targetMode || 'target').slice(0,24),
+              statuses:(Array.isArray(details.statuses)?details.statuses:[]).slice(0,8).map(function(status){return String(status&&status.key||status||'').slice(0,60);}).filter(Boolean),
+              description:String(details.description || '').slice(0,500)
+            };
+          }
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + targetUid), { actionRequest: request }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });

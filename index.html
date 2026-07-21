@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.61"></script>
+<script src="zargota-network.js?v=2026-07-21.62"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.61';
+var ZG_APP_VERSION = '2026-07-21.62';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.62', notes: 'Заявки навыков и заклинаний передают мастеру структурированный боевой профиль из Каталога: действие, разрешение, дальность, урон, лечение и спасбросок.' },
   { v: '2026-07-21.61', notes: 'Гейм-мастер получил спасброски по Мануалу: цель, характеристика, DC, бонус, преимущество или помеха, критические исходы и снятие состояния при успехе.' },
   { v: '2026-07-21.60', notes: 'Временные HP из листа героя теперь входят в сетевой бой, поглощают урон раньше здоровья и отображаются у участников и целей.' },
   { v: '2026-07-21.59', notes: 'Боевые атаки учитывают дистанцию жетонов и резисты из листов; при 0 HP решение остаётся мастеру, а результат появляется в летописи после анимации.' },
@@ -10960,7 +10961,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(list)list.innerHTML=isMaster?((pending.map(function(request){
       var uid = String(request.uid || '').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
       var color=memberColor(request.uid),distance=request.cells!=null?' · '+Number(request.cells)+' кл.':'';return '<div class="zg-move-request" data-request-uid="' + esc(request.uid || '') + '" style="--player-accent:'+color.accent+';--player-soft:'+color.soft+'"><span class="zg-move-request-icon">🥾</span><div class="zg-move-request-copy"><b>' + esc(request.name || 'Герой') + '</b>Просит перейти в отмеченную точку'+distance+'</div><div class="zg-move-request-actions"><button type="button" onclick="zgMovementResolve(\'' + uid + '\',false)">Отклонить</button><button type="button" class="approve" onclick="zgMovementResolve(\'' + uid + '\',true)">Разрешить</button></div></div>';
-    }).join('')+actionPending.map(function(request){var uid=String(request.uid||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'");var color=memberColor(request.uid);return '<div class="zg-move-request zg-action-request" data-request-uid="'+esc(request.uid||'')+'" style="--player-accent:'+color.accent+';--player-soft:'+color.soft+'"><span class="zg-move-request-icon zg-action-request-icon">✋</span><div class="zg-move-request-copy"><b>'+esc(request.name||'Герой')+'</b>'+esc(request.text||'Заявляет действие')+'</div><div class="zg-move-request-actions"><button type="button" onclick="zgActionResolve(\''+uid+'\',false)">Отклонить</button><button type="button" class="approve" onclick="zgActionResolve(\''+uid+'\',true)">Разрешить</button></div></div>';}).join(''))||'<div class="zg-move-request-empty">Новых запросов нет</div>'):'';
+    }).join('')+actionPending.map(function(request){var uid=String(request.uid||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"),ability=request.ability||null,color=memberColor(request.uid),costLabels={long:'Долгое',short:'Короткое',reaction:'Реакция',free:'Свободное'},tags=[];if(ability){tags.push(costLabels[ability.actionCost]||'Действие');if(ability.damageFormula)tags.push(ability.damageFormula+(ability.damageType?' '+ability.damageType:''));if(ability.healFormula)tags.push('Лечение '+ability.healFormula);if(ability.resolutionMode==='save')tags.push('Спас '+String(ability.saveStat||'').toUpperCase()+(ability.saveDC?' · DC '+ability.saveDC:''));else if(ability.resolutionMode==='attack')tags.push('Атака '+String(ability.attackStat||'').toUpperCase());if(ability.rangeCells)tags.push(ability.rangeCells+' кл.');}return '<div class="zg-move-request zg-action-request" data-request-uid="'+esc(request.uid||'')+'" style="--player-accent:'+color.accent+';--player-soft:'+color.soft+'"><span class="zg-move-request-icon zg-action-request-icon">'+(ability?'✦':'✋')+'</span><div class="zg-move-request-copy"><b>'+esc(request.name||'Герой')+'</b>'+esc(request.text||'Заявляет действие')+(tags.length?'<div class="zg-action-request-tags">'+tags.map(function(tag){return'<span>'+esc(tag)+'</span>';}).join('')+'</div>':'')+'</div><div class="zg-move-request-actions"><button type="button" onclick="zgActionResolve(\''+uid+'\',false)">Отклонить</button><button type="button" class="approve" onclick="zgActionResolve(\''+uid+'\',true)">Разрешить</button></div></div>';}).join(''))||'<div class="zg-move-request-empty">Новых запросов нет</div>'):'';
   }
   function movementFeedback(){
     var session = roomSnapshot && roomSnapshot.session;
@@ -12223,6 +12224,24 @@ document.addEventListener('DOMContentLoaded', function(){
     if(typeof notes==='string')notes=[notes];
     return '<div class="zg-bag-notes">'+(notes.length?notes.map(function(note){return '<article><b>'+esc(note.title||note.name||'Запись')+'</b><p>'+esc(typeof note==='string'?note:(note.text||note.description||''))+'</p></article>';}).join(''):'<div class="zg-vtt-empty">В журнале пока нет записей</div>')+'</div>';
   }
+  function vttAbilityProfile(key,item,isSpell){
+    item=item||{};var meta={};
+    if(isSpell&&typeof w._arenaParseSpellMetaV2==='function'){try{meta=w._arenaParseSpellMetaV2(item)||{};}catch(ignore){meta={};}}
+    var explicit=item._battleMeta&&typeof item._battleMeta==='object'?item._battleMeta:{};
+    Object.keys(explicit).forEach(function(name){if(explicit[name]!=null)meta[name]=explicit[name];});
+    var actionCost=String(meta.actionCost||item.actionCost||item.actionType||'long').toLowerCase();if(['long','short','reaction','free'].indexOf(actionCost)<0)actionCost=/реак/i.test(String(item.type||item.tip||''))?'reaction':'long';
+    var resolution=meta.usesSave||meta.saveStat?'save':meta.usesAttackRoll?'attack':(meta.effectKind==='heal'||meta.healFormula?'automatic':'utility');
+    return{key:key,sourceId:String(item.id||''),name:item.name||item.title||'Без названия',kind:isSpell?'spell':'skill',actionCost:actionCost,resolutionMode:resolution,attackStat:meta.attackStat||'',saveStat:meta.saveStat||'',saveDC:meta.saveDC==null?null:Number(meta.saveDC),rangeCells:Number(meta.rangeCells)||0,damageFormula:meta.damageFormula||item.damageFormula||'',damageType:meta.damageType||((item.damageTypes||[])[0])||'',healFormula:meta.healFormula||'',halfOnSave:!!meta.halfOnSave,targetMode:meta.targetMode||'target',statuses:meta.statuses||[],description:item.effect||item.description||item.battle||item.desc||item.text||''};
+  }
+  function abilityProfileBadges(profile){
+    if(!profile)return'';var actionLabels={long:'Долгое',short:'Короткое',reaction:'Реакция',free:'Свободное'},parts=[actionLabels[profile.actionCost]||'Действие'];
+    if(profile.damageFormula)parts.push(profile.damageFormula+(profile.damageType?' '+profile.damageType:''));
+    if(profile.healFormula)parts.push('Лечение '+profile.healFormula);
+    if(profile.resolutionMode==='save')parts.push('Спас '+String(profile.saveStat||'').toUpperCase()+(profile.saveDC?' · DC '+profile.saveDC:''));
+    else if(profile.resolutionMode==='attack')parts.push('Атака '+String(profile.attackStat||'').toUpperCase());
+    if(profile.rangeCells)parts.push(profile.rangeCells+' кл.');
+    return '<div class="zg-ability-battle-tags">'+parts.map(function(part){return'<span>'+esc(part)+'</span>';}).join('')+'</div>';
+  }
   function abilitiesPanel(){
     var member=ownMember(),c=fullLocalCharacter(member)||member&&member.character||{};
     var positions=c.positions||c.masteries||c.mastery||[],skills=c.skills||c.abilities||[];
@@ -12233,14 +12252,14 @@ document.addEventListener('DOMContentLoaded', function(){
     function spellLimit(spell){var match=String(spell&&spell.cd||'').match(/(\d+)\s*раз/i);return match?Math.max(1,Number(match[1])||1):0;}
     var cards=[];
     positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',kind:'Позиция',icon:item.icon||'⚔',name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
-    skills.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'skill-'+index,group:'skills',kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',passive:/пассив/i.test(item.type||'')});});
-    (c.spellRefs||[]).forEach(function(id){var spell=spellById(id);if(!spell)return;var limit=spellLimit(spell),used=Number(c.spellCD&&c.spellCD[id]&&c.spellCD[id].used||0),learned=!!(c.spellsLearned&&c.spellsLearned[id]);cards.push({key:'spell-'+id,group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.effect||spell.battle||spell.description||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,passive:false});});
+    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index;cards.push({key:key,group:'skills',kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',passive:/пассив/i.test(item.type||''),profile:vttAbilityProfile(key,item,false)});});
+    (c.spellRefs||[]).forEach(function(id){var spell=spellById(id);if(!spell)return;var key='spell-'+id,limit=spellLimit(spell),used=Number(c.spellCD&&c.spellCD[id]&&c.spellCD[id].used||0),learned=!!(c.spellsLearned&&c.spellsLearned[id]);cards.push({key:key,group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.effect||spell.battle||spell.description||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,passive:false,profile:vttAbilityProfile(key,spell,true)});});
     var shown=abilitiesFilter==='all'?cards:cards.filter(function(card){return card.group===abilitiesFilter;});
     function cardHtml(card){
       var open=expandedAbilityKey===card.key,disabled=card.group==='spells'&&!card.learned,exhausted=card.limit>0&&card.used>=card.limit;
       var resource=card.limit?Math.max(0,card.limit-card.used)+' / '+card.limit:(card.usage||'');
       var requestLabel=card.passive?'Показать мастеру':'Заявить применение';
-      return '<article class="zg-ability-card'+(open?' open':'')+(disabled?' locked':'')+(exhausted?' exhausted':'')+'"><button type="button" class="zg-ability-summary" onclick="zgVttAbilityExpand(\''+card.key+'\')"><i>'+esc(card.icon)+'</i><span><small>'+esc(card.kind)+'</small><b>'+esc(card.name)+'</b></span>'+(resource?'<em>'+esc(resource)+'</em>':'')+'<strong>⌄</strong></button>'+(open?'<div class="zg-ability-detail"><p>'+esc(card.description||'Описание пока не заполнено в листе персонажа.')+'</p>'+(card.restriction?'<small>'+esc(card.restriction)+'</small>':'')+'<button type="button" onclick="zgVttRequestAbility(\''+card.key+'\')" '+((disabled||exhausted||abilityRequestBusy)?'disabled':'')+'>'+(disabled?'Не изучено':exhausted?'Нет зарядов':requestLabel)+'</button></div>':'')+'</article>';
+      return '<article class="zg-ability-card'+(open?' open':'')+(disabled?' locked':'')+(exhausted?' exhausted':'')+'"><button type="button" class="zg-ability-summary" onclick="zgVttAbilityExpand(\''+card.key+'\')"><i>'+esc(card.icon)+'</i><span><small>'+esc(card.kind)+'</small><b>'+esc(card.name)+'</b></span>'+(resource?'<em>'+esc(resource)+'</em>':'')+'<strong>⌄</strong></button>'+(open?'<div class="zg-ability-detail">'+abilityProfileBadges(card.profile)+'<p>'+esc(card.description||'Описание пока не заполнено в листе персонажа.')+'</p>'+(card.restriction?'<small>'+esc(card.restriction)+'</small>':'')+'<button type="button" onclick="zgVttRequestAbility(\''+card.key+'\')" '+((disabled||exhausted||abilityRequestBusy)?'disabled':'')+'>'+(disabled?'Не изучено':exhausted?'Нет зарядов':requestLabel)+'</button></div>':'')+'</article>';
     }
     return '<div class="zg-abilities-panel"><header><div><small>'+esc(c.name||member&&member.character&&member.character.name||'Герой')+'</small><b>Приёмы героя</b></div><span>'+cards.length+'</span></header><nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все</button><button class="'+(abilitiesFilter==='skills'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'skills\')">Навыки</button><button class="'+(abilitiesFilter==='spells'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'spells\')">Заклинания</button></nav><div class="zg-ability-list">'+(shown.length?shown.map(cardHtml).join(''):'<div class="zg-vtt-empty">В этой категории пока ничего нет</div>')+'</div><footer>Применение отправляется мастеру и не расходует заряд до подтверждения.</footer></div>';
   }
@@ -12444,13 +12463,13 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttRequestAbility=function(key){
     if(abilityRequestBusy)return;
     var member=ownMember(),c=fullLocalCharacter(member)||member&&member.character||{};
-    var label='приём';
-    if(/^mastery-/.test(key)){var mastery=(c.mastery||c.masteries||[])[Number(key.split('-')[1])];label=(typeof mastery==='string'?mastery:mastery&&mastery.name)||label;}
-    if(/^skill-/.test(key)){var skill=(c.skills||c.abilities||[])[Number(key.split('-')[1])];label=(typeof skill==='string'?skill:skill&&skill.name)||label;}
-    if(/^spell-/.test(key)){var id=key.slice(6),spell=(typeof entries!=='undefined'&&Array.isArray(entries))?entries.find(function(item){return String(item.id)===String(id);}):null;label=spell&&spell.name||'заклинание';}
+    var label='приём',source={},profile=null;
+    if(/^mastery-/.test(key)){var mastery=(c.mastery||c.masteries||[])[Number(key.split('-')[1])];source=typeof mastery==='string'?{name:mastery}:mastery||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
+    if(/^skill-/.test(key)){var skill=(c.skills||c.abilities||[])[Number(key.split('-')[1])];source=typeof skill==='string'?{name:skill}:skill||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
+    if(/^spell-/.test(key)){var id=key.slice(6),spell=(typeof entries!=='undefined'&&Array.isArray(entries))?entries.find(function(item){return String(item.id)===String(id);}):null;source=spell||{};label=spell&&spell.name||'заклинание';profile=vttAbilityProfile(key,source,true);}
     if(!w.ZargotaRooms||(!w.ZargotaRooms.requestAction&&!w.ZargotaRooms.sendChat)){if(w.showToast)w.showToast('Нет соединения с комнатой');return;}
     abilityRequestBusy=true;renderDrawer();
-    var abilityOperation=w.ZargotaRooms.requestAction?w.ZargotaRooms.requestAction('Хочет применить «'+label+'»','ability',w.zgPossessedPlayerUid||''):w.ZargotaRooms.sendChat('Хочет применить «'+label+'»','action',w.zgPossessedPlayerUid||'');
+    var abilityOperation=w.ZargotaRooms.requestAction?w.ZargotaRooms.requestAction('Хочет применить «'+label+'»','ability',w.zgPossessedPlayerUid||'',profile):w.ZargotaRooms.sendChat('Хочет применить «'+label+'»','action',w.zgPossessedPlayerUid||'');
     abilityOperation.then(function(){if(w.showToast)w.showToast('Заявка отправлена мастеру');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку');}).then(function(){abilityRequestBusy=false;renderDrawer();});
   };
 
@@ -16316,6 +16335,7 @@ window.zgImageStore = (function() {
   .zg-move-request-icon.zg-action-request-icon{font-size:20px;background:var(--player-soft,#20170a);color:var(--player-accent,#e4c36e)}
   .zg-move-request-copy{min-width:0;color:#8e8066;font-size:10px;line-height:1.35}
   .zg-move-request-copy b{display:block;color:var(--player-accent,#dbc486);font:600 11px/1.25 'Cinzel',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-action-request-tags,.zg-ability-battle-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}.zg-action-request-tags span,.zg-ability-battle-tags span{padding:3px 6px;border:1px solid #4b391d;border-radius:9px;background:#120d07;color:#bda66c;font:7px 'Cinzel',serif;white-space:nowrap}.zg-ability-battle-tags{margin:0 0 8px}.zg-ability-battle-tags span:first-child{border-color:#745829;color:#dfc578}
   .zg-move-request-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:7px}
   .zg-move-request-actions button{height:31px;border:1px solid #46361d;border-radius:4px;background:#17120a;color:#a89770;font:600 10px/1 'Cinzel',serif;cursor:pointer}
   .zg-move-request-actions button:hover{border-color:#aa8139;color:#efd180;background:#241a0c}
