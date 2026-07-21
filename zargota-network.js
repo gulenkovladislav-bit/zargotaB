@@ -877,7 +877,7 @@
           if (room.combat && room.combat.active) throw roomError('Бой уже идёт.', 'combat-active');
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
-            return { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus };
+            return { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, economy:{ long:1, short:1, reaction:1 } };
           });
           sceneParticipants.forEach(function (participant, index) {
             if (!participant || !participant.tokenId) return;
@@ -890,7 +890,8 @@
               key:'token:'+String(participant.tokenId).slice(0, 120), kind:participant.kind === 'ally' ? 'ally' : (participant.kind === 'npc' ? 'npc' : 'enemy'),
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
-              hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index
+              hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
+              economy:{ long:1, short:1, reaction:1 }
             });
           });
           order.sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || Number(a.orderHint || 0) - Number(b.orderHint || 0) || a.name.localeCompare(b.name, 'ru'); });
@@ -918,14 +919,60 @@
           if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
           var next = (Number(combat.turnIndex) + 1) % order.length;
           var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), current = order[next];
+          order = order.map(function (entry, index) {
+            var economy = Object.assign({ long:1, short:1, reaction:1 }, entry.economy || {});
+            if (index === next) { economy.long = 1; economy.short = 1; }
+            if (next === 0) economy.reaction = 1;
+            return Object.assign({}, entry, { economy:economy });
+          });
           return firebase.update(roomRef(session.code), {
-            'combat/turnIndex':next, 'combat/round':round, 'combat/updatedAt':stamp,
+            'combat/turnIndex':next, 'combat/round':round, 'combat/order':order, 'combat/updatedAt':stamp,
             combatEvent:{ id:'combat-turn-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Ход: '+(current.name || 'участник')+'. Раунд '+round+'.', ts:stamp },
             updatedAt:stamp
           }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found','combat-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    useCombatAction: function (actionType, participantKey) {
+      actionType = String(actionType || '').toLowerCase();
+      participantKey = String(participantKey || '').slice(0, 160);
+      if (['long','short','reaction','free'].indexOf(actionType) < 0) return Promise.reject(roomError('Неизвестный тип действия.', 'combat-action-invalid'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order.slice() : [];
+          if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
+          var turnIndex = Math.max(0, Math.min(order.length - 1, Number(combat.turnIndex) || 0));
+          var index = -1;
+          if (session.role === 'master') {
+            index = participantKey ? order.findIndex(function (entry) { return entry && entry.key === participantKey; }) : turnIndex;
+          } else {
+            index = order.findIndex(function (entry) { return entry && entry.uid === user.uid; });
+          }
+          if (index < 0) throw roomError('Участник боя не найден.', 'combat-participant-missing');
+          if ((actionType === 'long' || actionType === 'short') && index !== turnIndex) throw roomError('Длинное и короткое действие доступны только в свой ход.', 'combat-not-turn');
+          var entry = Object.assign({}, order[index]);
+          var economy = Object.assign({ long:1, short:1, reaction:1 }, entry.economy || {});
+          if (actionType !== 'free' && Number(economy[actionType] || 0) < 1) throw roomError('Это действие уже израсходовано.', 'combat-action-spent');
+          if (actionType !== 'free') economy[actionType] = Math.max(0, Number(economy[actionType] || 0) - 1);
+          entry.economy = economy;
+          order[index] = entry;
+          var labels = { long:'длинное действие', short:'короткое действие', reaction:'реакцию', free:'свободное действие' };
+          var stamp = now();
+          return firebase.update(roomRef(session.code), {
+            'combat/order':order, 'combat/updatedAt':stamp,
+            combatEvent:{ id:'combat-action-'+stamp, kind:'combat-action', name:entry.name || 'Участник', portrait:entry.portrait || '', text:'Использует '+labels[actionType]+'.', actionType:actionType, ts:stamp },
+            updatedAt:stamp
+          }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+        });
+      }).catch(function (error) {
+        if (error && ['room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent','combat-action-invalid'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
