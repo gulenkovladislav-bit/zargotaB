@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.56"></script>
+<script src="zargota-network.js?v=2026-07-21.57"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.56';
+var ZG_APP_VERSION = '2026-07-21.57';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.57', notes: 'Состояния участников теперь отображаются компактными значками над жетонами в бою; длительность видна прямо на сцене, а HP существ скрыто от игроков.' },
   { v: '2026-07-21.56', notes: 'Фазы хода по Мануалу: горение, яд, кровотечение и регенерация автоматически меняют HP в начале хода, а раундовые состояния истекают в конце хода.' },
   { v: '2026-07-21.55', notes: 'Канонические состояния из Мануала теперь ограничивают действия, реакции и движение в сетевом бою; замедление оставляет одно действие и половину скорости.' },
   { v: '2026-07-21.54', notes: 'Подготовленная реакция по Мануалу: условие тратит долгое действие при подготовке, сохраняется в бою и отдельно расходует реакцию при срабатывании.' },
@@ -11073,6 +11074,32 @@ document.addEventListener('DOMContentLoaded', function(){
   function tokenInClosedFog(token){
     return (draft.regions||[]).some(function(region){return regionConceals(region)&&pointInPolygon(token.x,token.y,region.points||[]);});
   }
+  function combatEntryForToken(token){
+    var combat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[];
+    if(!combat||!combat.active)return null;
+    if(token.type==='hero'&&token.memberUid)return order.find(function(entry){return entry&&entry.uid===token.memberUid;})||null;
+    return order.find(function(entry){return entry&&entry.tokenId===token.id;})||null;
+  }
+  function tokenCombatStatuses(token){
+    var entry=combatEntryForToken(token),member=token.type==='hero'?memberForToken(token):null;
+    var effects=Array.isArray(entry&&entry.statusEffects)?entry.statusEffects:(member&&member.character&&Array.isArray(member.character.statusEffects)?member.character.statusEffects:(Array.isArray(token.statusEffects)?token.statusEffects:[]));
+    var statuses=Array.isArray(entry&&entry.statuses)?entry.statuses:(member&&member.character&&Array.isArray(member.character.statuses)?member.character.statuses:(Array.isArray(token.statuses)?token.statuses:[]));
+    var result=[],seen={};
+    effects.forEach(function(effect){
+      if(!effect||effect.type!=='status')return;
+      var key=String(effect.statusKey||effect.key||effect.id||'').toLowerCase();if(!key||seen[key])return;seen[key]=true;
+      result.push({key:key,label:effect.label||effect.value||key,icon:effect.icon||'',color:effect.color||'',remaining:effect.unit==='rounds'?Number(effect.remaining||0):null});
+    });
+    statuses.forEach(function(status){var key=String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase();if(!key||seen[key])return;seen[key]=true;result.push({key:key,label:typeof status==='object'&&(status.label||status.value)||key,icon:typeof status==='object'&&status.icon||'',color:typeof status==='object'&&status.color||'',remaining:null});});
+    return result.slice(0,5);
+  }
+  function appendTokenCombatStatuses(node,token){
+    var defs={stun:['✦','#d4bd36','Оглушён'],burn:['♨','#e05b2d','Горит'],poison:['☠','#5fbd55','Отравлен'],freeze:['❄','#55a7d8','Заморожен'],fear:['◈','#a46bd0','Страх'],blind:['◉','#aaa79f','Ослеплён'],prone:['↘','#bc7b45','Опрокинут'],bleed:['♦','#cf4848','Кровотечение'],restrain:['⌁','#bb7950','Обездвижен'],slow:['◷','#b5a66d','Замедлен'],paralyze:['ϟ','#bdcf42','Паралич'],dominate:['♛','#9d62ca','Подчинён'],regen:['♥','#59c875','Регенерация'],exhausted:['◒','#9b8061','Истощён']};
+    var statuses=tokenCombatStatuses(token);if(!statuses.length)return;
+    var host=document.createElement('span');host.className='zg-vtt-token-statuses';
+    statuses.forEach(function(status){var def=defs[status.key]||['✦','#9b875c',status.label],badge=document.createElement('span');badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.remaining>0?' · '+status.remaining+' р.':'');if(status.remaining>0){var duration=document.createElement('em');duration.textContent=status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
+    node.appendChild(host);
+  }
   function renderRegions(){
     var svg=el('zg-region-layer');if(!svg)return;
     svg.innerHTML='';var gm=isMaster&&gmVision==='gm';
@@ -11226,10 +11253,13 @@ document.addEventListener('DOMContentLoaded', function(){
         if (rot) vis.style.transform = 'rotate(' + rot + 'deg)';
         node.appendChild(vis);
         var label = document.createElement('span'); label.className = 'zg-vtt-token-name'; label.textContent = tokenName(token); node.appendChild(label);
-        // HP-бар (если задано)
-        var hpMax = token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpMax; })() : token.hpMax;
-        var hpCur = token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpCur; })() : token.hp;
-        if (hpMax != null && hpMax > 0 && hpCur != null) {
+        // В бою статусы видят все; HP существ — только мастер, HP героев — всегда.
+        var combatEntry=combatEntryForToken(token),combatActive=!!combatEntry;
+        if(combatActive)appendTokenCombatStatuses(node,token);
+        var hpMax = combatEntry&&combatEntry.hpMax!=null?combatEntry.hpMax:(token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpMax; })() : token.hpMax);
+        var hpCur = combatEntry&&combatEntry.hp!=null?combatEntry.hp:(token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpCur; })() : token.hp);
+        var showHp=token.type==='hero'||(combatActive&&viewerGm);
+        if (showHp && hpMax != null && hpMax > 0 && hpCur != null) {
           var bar = document.createElement('span'); bar.className = 'zg-vtt-token-hp';
           var fill = document.createElement('i'); fill.style.width = clamp(hpCur / hpMax * 100, 0, 100) + '%';
           if (hpCur / hpMax <= .35) fill.className = 'low';
@@ -16274,6 +16304,9 @@ window.zgImageStore = (function() {
   .zg-vtt-token-hp{position:absolute;top:calc(100% + 3px);left:12%;width:76%;height:5px;border-radius:3px;background:#191510;overflow:hidden;box-shadow:0 1px 2px #000,0 0 0 1px #000a}
   .zg-vtt-token-hp i{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
   .zg-vtt-token-hp i.low{background:linear-gradient(90deg,#8a2f28,#c0504a)}
+  .zg-vtt-token-statuses{position:absolute;z-index:6;left:50%;bottom:calc(100% + 5px);display:flex;gap:3px;transform:translateX(-50%);pointer-events:none}
+  .zg-vtt-token-status{position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent)}
+  .zg-vtt-token-status em{position:absolute;right:-4px;bottom:-4px;min-width:12px;height:12px;padding:0 2px;border:1px solid #100d08;border-radius:7px;background:var(--status-color,#9b875c);color:#090704;font:700 8px/11px Arial,sans-serif;text-align:center}
   .zg-vtt-token.disp-hero .zg-vtt-token-name{top:calc(100% + 11px)}
   /* панель сцен: флажки, меню, кнопки сохранения */
   .zg-scene-save-row{display:flex;gap:7px;margin-bottom:8px}
