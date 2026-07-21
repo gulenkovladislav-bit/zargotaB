@@ -25,6 +25,16 @@
 
   function now() { return Date.now(); }
 
+  function pointInPolygon(x, y, points) {
+    var inside = false;
+    points = Array.isArray(points) ? points : [];
+    for (var i = 0, j = points.length - 1; i < points.length; j = i++) {
+      var a = points[i], b = points[j];
+      if (((a.y > y) !== (b.y > y)) && (x < (b.x - a.x) * (y - a.y) / ((b.y - a.y) || 0.00001) + a.x)) inside = !inside;
+    }
+    return inside;
+  }
+
   function normalizeRoomCode(value) {
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   }
@@ -735,6 +745,14 @@
               duration: Math.max(1400, Math.min(4800, Math.round(distance * 68))),
               startedAt: now()
             };
+            var view = scene && scene.view || {};
+            if (view.rememberExplored !== false) {
+              (scene && Array.isArray(scene.regions) ? scene.regions : []).forEach(function (region) {
+                if (!region || region.kind !== 'fog' || region.visible === false || !region.id || !pointInPolygon(Number(request.toX), Number(request.toY), region.points)) return;
+                if (view.visionMode === 'individual') updates['members/' + requestUid + '/exploredRegions/' + region.id] = true;
+                else updates['exploredRegions/' + region.id] = true;
+              });
+            }
           }
           updates.updatedAt = now();
           return firebase.update(roomRef(session.code), updates).then(function () {
@@ -843,6 +861,25 @@
         });
       }).catch(function (error) {
         if (error && error.code === 'room-not-found') throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resetExploration: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Сбрасывать исследование может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var updates = { exploredRegions: null, updatedAt: now() };
+          Object.keys(room.members || {}).forEach(function (uid) { updates['members/' + uid + '/exploredRegions'] = null; });
+          return firebase.update(roomRef(session.code), updates).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },

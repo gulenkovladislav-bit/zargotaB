@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.48"></script>
+<script src="zargota-network.js?v=2026-07-21.49"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.48';
+var ZG_APP_VERSION = '2026-07-21.49';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.49', notes: 'Исследованные зоны тумана запоминаются после одобренного движения отдельно для группы или героя; мастер может сбросить память карты.' },
   { v: '2026-07-21.48', notes: 'Туман зон получил общее и индивидуальное зрение; закрытые области теперь корректно скрывают чужих героев, NPC и объекты.' },
   { v: '2026-07-21.47', notes: 'Заявки действий получили полный сетевой цикл: ожидание, общую панель мастера, разрешение или отказ и обратное уведомление игроку.' },
   { v: '2026-07-21.46', notes: 'Панель навыков и заклинаний связана с листом героя и Каталогом; кнопка действий получила отдельные заявки, произвольное действие и вход в измерения.' },
@@ -10375,7 +10376,7 @@ document.addEventListener('DOMContentLoaded', function(){
 //   СЦЕНА VTT — мастер готовит черновик и публикует его всей комнате.
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
-  var DEFAULT_SCENE = { layers:[], tokens:[], regions:[], view:{fog:true,visionMode:'party',cinematic:false,minZoom:.6,maxZoom:2.2,panLimit:45}, grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false, snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
+  var DEFAULT_SCENE = { layers:[], tokens:[], regions:[], view:{fog:true,visionMode:'party',rememberExplored:true,cinematic:false,minZoom:.6,maxZoom:2.2,panLimit:45}, grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false, snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
   var draft = copyScene(DEFAULT_SCENE);
   var dirty = false;
   var isMaster = false;
@@ -10764,7 +10765,7 @@ document.addEventListener('DOMContentLoaded', function(){
       layers:layers,
       tokens:(Array.isArray(scene.tokens) ? scene.tokens : []).map(copyToken),
       regions:regions,
-      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',cinematic:!!view.cinematic,minZoom:clamp(view.minZoom==null ? .6 : view.minZoom,.4,2),maxZoom:clamp(view.maxZoom==null ? 2.2 : view.maxZoom,.6,3),panLimit:clamp(view.panLimit==null ? 45 : view.panLimit,10,100)},
+      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,minZoom:clamp(view.minZoom==null ? .6 : view.minZoom,.4,2),maxZoom:clamp(view.maxZoom==null ? 2.2 : view.maxZoom,.6,3),panLimit:clamp(view.panLimit==null ? 45 : view.panLimit,10,100)},
       grid: scene.grid !== false,
       gridSize: clamp(scene.gridSize || 64, 24, 160),
       boardWidth: clamp(scene.boardWidth || 32, 8, 80),
@@ -11052,7 +11053,14 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     return (draft.tokens||[]).filter(function(token){return token&&token.type==='hero'&&token.visible!==false;}).map(function(token){return{x:token.x,y:token.y};});
   }
-  function regionRevealed(region){return visionHeroes().some(function(hero){return heroInside(region,hero);});}
+  function exploredRegions(){
+    var view=draft.view||DEFAULT_SCENE.view;if(view.rememberExplored===false)return{};
+    var room=roomSnapshot&&roomSnapshot.room||{},session=roomSnapshot&&roomSnapshot.session||{};
+    if(view.visionMode!=='individual')return room.exploredRegions||{};
+    var uid=isMaster&&gmVision==='players'&&possessedUid?possessedUid:session.uid;
+    return room.members&&room.members[uid]&&room.members[uid].exploredRegions||{};
+  }
+  function regionRevealed(region){return !!exploredRegions()[region.id]||visionHeroes().some(function(hero){return heroInside(region,hero);});}
   function regionConceals(region){return region&&region.kind==='fog'&&region.visible!==false&&(draft.view||DEFAULT_SCENE.view).fog&&!(isMaster&&gmVision==='gm')&&!regionRevealed(region);}
   function heroInside(region,hero){return !!(hero&&pointInPolygon(hero.x,hero.y,region.points||[]));}
   function tokenInClosedFog(token){
@@ -11705,9 +11713,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if(name)name.value=region.name;if(kind)kind.value=region.kind;if(tip)tip.value=region.tooltip||'';if(opacity)opacity.value=region.opacity==null ? .76 : region.opacity;if(out)out.textContent=Math.round((region.opacity==null ? .76 : region.opacity)*100)+'%';
   }
   w.zgOverviewToggle=function(ev){if(ev)ev.stopPropagation();if(!isMaster)return;var p=el('zg-overview-panel'),zones=el('zg-zones-panel');if(zones)zones.classList.remove('open');if(p)p.classList.toggle('open');syncOverview();renderRegions();};
-  function syncOverview(){var v=draft.view||DEFAULT_SCENE.view;[['zg-view-fog','checked',v.fog],['zg-view-cinematic','checked',v.cinematic],['zg-view-min','value',v.minZoom],['zg-view-max','value',v.maxZoom],['zg-view-pan','value',v.panLimit]].forEach(function(item){var n=el(item[0]);if(n)n[item[1]]=item[2];});document.querySelectorAll('[data-vision-mode]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-vision-mode')===(v.visionMode||'party'));});var a=el('zg-view-min-out'),b=el('zg-view-max-out'),c=el('zg-view-pan-out');if(a)a.textContent=Math.round(v.minZoom*100)+'%';if(b)b.textContent=Math.round(v.maxZoom*100)+'%';if(c)c.textContent=v.panLimit+'%';}
+  function syncOverview(){var v=draft.view||DEFAULT_SCENE.view;[['zg-view-fog','checked',v.fog],['zg-view-memory','checked',v.rememberExplored!==false],['zg-view-cinematic','checked',v.cinematic],['zg-view-min','value',v.minZoom],['zg-view-max','value',v.maxZoom],['zg-view-pan','value',v.panLimit]].forEach(function(item){var n=el(item[0]);if(n)n[item[1]]=item[2];});document.querySelectorAll('[data-vision-mode]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-vision-mode')===(v.visionMode||'party'));});var a=el('zg-view-min-out'),b=el('zg-view-max-out'),c=el('zg-view-pan-out');if(a)a.textContent=Math.round(v.minZoom*100)+'%';if(b)b.textContent=Math.round(v.maxZoom*100)+'%';if(c)c.textContent=v.panLimit+'%';}
   w.zgOverviewVisionMode=function(mode){if(!isMaster)return;var v=draft.view||(draft.view=copyScene(DEFAULT_SCENE).view);v.visionMode=mode==='individual'?'individual':'party';syncOverview();renderRegions();renderTokens();markDirty(v.visionMode==='party'?'Общее зрение отряда':'Индивидуальное зрение');};
-  w.zgOverviewControl=function(){if(!isMaster)return;var v=draft.view||(draft.view=copyScene(DEFAULT_SCENE).view);v.fog=el('zg-view-fog').checked;v.cinematic=el('zg-view-cinematic').checked;v.minZoom=clamp(el('zg-view-min').value,.4,2);v.maxZoom=clamp(el('zg-view-max').value,Math.max(.6,v.minZoom),3);v.panLimit=clamp(el('zg-view-pan').value,10,100);syncOverview();renderRegions();renderTokens();markDirty('Обзор настроен');};
+  w.zgOverviewResetExploration=function(){if(!isMaster||!w.ZargotaRooms||!w.ZargotaRooms.resetExploration)return;var button=el('zg-view-memory-reset');if(button)button.disabled=true;w.ZargotaRooms.resetExploration().then(function(snapshot){if(snapshot)roomState(snapshot);renderRegions();renderTokens();if(w.showToast)w.showToast('Исследованные области скрыты заново');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось сбросить туман');}).then(function(){if(button)button.disabled=false;});};
+  w.zgOverviewControl=function(){if(!isMaster)return;var v=draft.view||(draft.view=copyScene(DEFAULT_SCENE).view);v.fog=el('zg-view-fog').checked;v.rememberExplored=el('zg-view-memory').checked;v.cinematic=el('zg-view-cinematic').checked;v.minZoom=clamp(el('zg-view-min').value,.4,2);v.maxZoom=clamp(el('zg-view-max').value,Math.max(.6,v.minZoom),3);v.panLimit=clamp(el('zg-view-pan').value,10,100);syncOverview();renderRegions();renderTokens();markDirty('Обзор настроен');};
   w.zgOverviewPublish=function(){var p=el('zg-overview-panel');if(p)p.classList.remove('open');w.zgScenePublish();};
   w.zgFocusCueStart=function(){if(!isMaster)return;if(w.zgVttDeactivateTools)w.zgVttDeactivateTools('focus');focusCueMode=true;var p=el('zg-overview-panel');if(p)p.classList.remove('open');var sc=el('zg-vtt-scene');if(sc)sc.classList.add('focus-cue-mode');setStatus('Обзор: укажите точку, которую должны увидеть игроки · Esc отменит');};
   function sendFocusCue(point){if(!isMaster||!w.ZargotaRooms||!w.ZargotaRooms.cueCamera)return;focusCueMode=false;var sc=el('zg-vtt-scene');if(sc)sc.classList.remove('focus-cue-mode');w.ZargotaRooms.cueCamera(point.x,point.y,draft.zoom).then(function(){setStatus('Обзор отправлен игрокам');}).catch(function(err){setStatus(err.message||'Не удалось отправить обзор');});}
@@ -16019,6 +16028,7 @@ window.zgImageStore = (function() {
   .zg-overview-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:10px;margin-bottom:7px;border-bottom:1px solid #352915;font:12px 'Cinzel',serif;color:#e5cb82}.zg-overview-head button{border:0;background:transparent;color:#8d7951;font-size:20px;cursor:pointer}
   .zg-overview-switch{display:flex;justify-content:space-between;align-items:center;padding:8px 2px;font-size:11px}.zg-overview-range{display:block;padding:7px 2px;font-size:10px}.zg-overview-range span{display:flex;justify-content:space-between;margin-bottom:5px}.zg-overview-range input{width:100%;accent-color:#b88c35}.zg-overview-range output{color:#e1bf66}
   .zg-overview-mode-title{margin:8px 2px 6px;color:#756647;font:8px 'Cinzel',serif;letter-spacing:.8px;text-transform:uppercase}.zg-overview-modes{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-overview-modes button{min-height:52px;padding:7px;border:1px solid #3d301b;border-radius:5px;background:#110e09;color:#887653;font:600 9px/1.25 'Cinzel',serif;cursor:pointer}.zg-overview-modes button span{display:block;margin-top:4px;color:#655a44;font:9px/1.25 Georgia,serif}.zg-overview-modes button:hover,.zg-overview-modes button.active{border-color:#b78b38;background:#211709;color:#efd38b}.zg-overview-modes button.active span{color:#9f8a60}
+  .zg-overview-memory-reset{width:100%;height:31px;margin:2px 0 6px;border:1px solid #49351d;border-radius:5px;background:#120e09;color:#8e7851;font:9px 'Cinzel',serif;cursor:pointer}.zg-overview-memory-reset:hover:not(:disabled){border-color:#9d7130;color:#d7b96f}.zg-overview-memory-reset:disabled{opacity:.45;cursor:wait}
   .zg-overview-zone-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}.zg-overview-zone-actions button,.zg-overview-publish{height:34px;border:1px solid #5a421d;border-radius:5px;background:#171006;color:#c9ad6b;font:10px 'Cinzel',serif;cursor:pointer}.zg-overview-publish{width:100%;margin-top:10px;border-color:#a17b31;background:#2a1d0b;color:#efd58f}
   .zg-overview-zones{max-height:130px;overflow:auto;border-top:1px solid #2d2315}.zg-overview-zone{display:grid;grid-template-columns:18px 1fr 24px;align-items:center;padding:5px 2px;border-bottom:1px solid #241c11;font-size:10px}.zg-overview-zone input{min-width:0;height:26px;border:0;background:transparent;color:#bda978;font:10px 'Cinzel',serif;outline:none}.zg-overview-zone input:focus{color:#efd58f;border-bottom:1px solid #725522}.zg-overview-zone button{border:0;background:transparent;color:#8d634e;cursor:pointer}.zg-overview-zones small{display:block;padding:9px 2px;color:#655942}
   .zg-scene-status{min-height:15px;text-align:center;color:#79694c;font-size:11px}
@@ -16515,6 +16525,8 @@ window.zgImageStore = (function() {
       <label class="zg-overview-switch"><span>Туман зон</span><input id="zg-view-fog" type="checkbox" onchange="zgOverviewControl()"></label>
       <div class="zg-overview-mode-title">Режим видимости</div>
       <div class="zg-overview-modes"><button type="button" data-vision-mode="party" onclick="zgOverviewVisionMode('party')">Общее зрение<span>Зона открыта всей группе</span></button><button type="button" data-vision-mode="individual" onclick="zgOverviewVisionMode('individual')">Личное зрение<span>Каждый видит от себя</span></button></div>
+      <label class="zg-overview-switch"><span>Запоминать исследованное</span><input id="zg-view-memory" type="checkbox" onchange="zgOverviewControl()"></label>
+      <button type="button" class="zg-overview-memory-reset" id="zg-view-memory-reset" onclick="zgOverviewResetExploration()">Скрыть исследованные области заново</button>
       <label class="zg-overview-switch"><span>Кинематографический режим</span><input id="zg-view-cinematic" type="checkbox" onchange="zgOverviewControl()"></label>
       <label class="zg-overview-range"><span>Минимальное приближение <output id="zg-view-min-out"></output></span><input id="zg-view-min" type="range" min="0.4" max="2" step="0.1" oninput="zgOverviewControl()"></label>
       <label class="zg-overview-range"><span>Максимальное приближение <output id="zg-view-max-out"></output></span><input id="zg-view-max" type="range" min="0.6" max="3" step="0.1" oninput="zgOverviewControl()"></label>
