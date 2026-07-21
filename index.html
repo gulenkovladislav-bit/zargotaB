@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.65"></script>
+<script src="zargota-network.js?v=2026-07-21.69"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.68';
+var ZG_APP_VERSION = '2026-07-21.69';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.69', notes: 'Жетоны сцены связываются с Реестром НПС и Бестиарием: поиск подставляет канонические портрет, HP, AC, инициативу, характеристики, атаки и защиты, а обновление источника не исцеляет сессионное здоровье.' },
   { v: '2026-07-21.68', notes: 'Направленные способности получили линии и конусы: герой задаёт начало, выбранный участник — направление, мастер настраивает длину и ширину, а цели подсвечиваются на карте и проверяются сервером.' },
   { v: '2026-07-21.67', notes: 'Заряды способностей связаны с сетевой сессией: остаток виден игроку и мастеру, списывается только после подтверждённого применения и проверяется повторно перед розыгрышем.' },
   { v: '2026-07-21.66', notes: 'Способности получили круговые области на карте: мастер выбирает центр и радиус, видит живой предпросмотр целей, а сервер повторно проверяет геометрию перед применением.' },
@@ -10767,7 +10768,12 @@ document.addEventListener('DOMContentLoaded', function(){
       hp: token.hp == null || token.hp === '' ? null : Math.max(0, Number(token.hp) || 0),
       hpMax: token.hpMax == null || token.hpMax === '' ? null : Math.max(0, Number(token.hpMax) || 0),
       tempHp: Math.min(Math.floor(Math.max(0, Number(token.hpMax) || 0) * 0.5), Math.max(0, Number(token.tempHp) || 0)),
+      level: clamp(token.level || 1,1,99),
       ac: clamp(token.ac == null ? 10 : token.ac,0,99), initiative:clamp(token.initiative || 0,-20,20), speed:clamp(token.speed || 7,0,80),
+      sourceRef: token.sourceRef && ['npc','beast'].indexOf(token.sourceRef.type) >= 0 ? {
+        type:String(token.sourceRef.type), id:String(token.sourceRef.id || '').slice(0,120),
+        name:String(token.sourceRef.name || '').slice(0,80), revision:Number(token.sourceRef.revision)||0
+      } : null,
       stats: token.stats && typeof token.stats === 'object' ? JSON.parse(JSON.stringify(token.stats)) : {},
       mastery: Array.isArray(token.mastery) ? token.mastery.slice(0,40) : [],
       weaponProfiles: Array.isArray(token.weaponProfiles) ? token.weaponProfiles.slice(0,12) : [],
@@ -11399,7 +11405,7 @@ document.addEventListener('DOMContentLoaded', function(){
     else thumb.textContent=token.type==='spawn'?'⚑':token.type==='portal'?'➜':token.type==='note'?'✦':token.type==='text'?'𝐓':'✦';
     row.appendChild(thumb);
     var label=document.createElement('span');label.textContent=tokenName(token);row.appendChild(label);
-    var state=document.createElement('small');state.textContent=(token.locked?'🔒 ':'')+(token.hidden?'🙈':(token.visible?'◉':'○'));row.appendChild(state);
+    var state=document.createElement('small');state.textContent=(token.sourceRef?(token.sourceRef.type==='beast'?'🐾 ':'👤 '):'')+(token.locked?'🔒 ':'')+(token.hidden?'🙈':(token.visible?'◉':'○'));row.appendChild(state);
     return row;
   }
   var objFilter='all';
@@ -11436,6 +11442,11 @@ document.addEventListener('DOMContentLoaded', function(){
     var hpRow=el('zg-token-hp-row'); if(hpRow) hpRow.hidden=!(token.type==='custom'||token.type==='object');
     var hpi=el('zg-token-hp'); if(hpi) hpi.value=(token.hp==null?'':token.hp);
     var hpm=el('zg-token-hpmax'); if(hpm) hpm.value=(token.hpMax==null?'':token.hpMax);
+    var sourceRow=el('zg-token-source-row'),sourceText=el('zg-token-source-text'),sourceRefresh=el('zg-token-source-refresh'),sourceUnlink=el('zg-token-source-unlink');
+    if(sourceRow) sourceRow.hidden=!(token.type==='custom');
+    if(sourceText) sourceText.textContent=token.sourceRef ? ((token.sourceRef.type==='beast'?'Бестиарий · ':'Реестр НПС · ')+(token.sourceRef.name||token.name)) : 'Свободный жетон';
+    if(sourceRefresh) sourceRefresh.hidden=!token.sourceRef;
+    if(sourceUnlink) sourceUnlink.hidden=!token.sourceRef;
     var marker=isMarkerType(token.type), isText=token.type==='text';
     var disp=el('zg-token-disp'); if(disp){ disp.value=token.disposition||'neutral'; }
     var hid=el('zg-token-hidden'); if(hid){ hid.checked=!!token.hidden; }
@@ -11703,6 +11714,30 @@ document.addEventListener('DOMContentLoaded', function(){
     var token=copyToken({id:makeId('tok'),type:'custom',disposition:disposition,name:names[disposition]||'Жетон',x:50,y:50,size:draft.gridSize,z:draft.tokens.length+20},draft.tokens.length);
     draft.tokens.push(token);selectedTokenId=token.id;markDirty('Черновик · жетон добавлен');syncControls();
   };
+  function sourceSpeed(value){var match=String(value==null?'':value).match(/-?\d+(?:[.,]\d+)?/);return clamp(match?Number(match[0].replace(',','.')):7,0,80);}
+  function sourceWeaponProfiles(attacks){return (Array.isArray(attacks)?attacks:[]).slice(0,12).map(function(a,index){
+    return {id:String(a.id||('source-attack-'+index)),name:String(a.name||'Атака').slice(0,80),damageFormula:String(a.damageFormula||a.damage||'1d6').slice(0,40),damageType:String(a.damageType||((a.damageTypes||[])[0])||'').slice(0,40),range:String(a.range||'').slice(0,40),toHit:Number(a.toHit)||0,description:String(a.desc||a.description||'').slice(0,220)};
+  });}
+  function sourceEntries(kind){
+    if(kind==='npc') return (typeof zgNpcLoad==='function'?zgNpcLoad():[]).map(function(n){var sheet=typeof zgNpcResolvedSheet==='function'?zgNpcResolvedSheet(n):{};return {kind:'npc',id:String(n.id),name:n.name||'НПС',subtitle:[n.role,n.place].filter(Boolean).join(' · '),image:typeof zgNpcPortrait==='function'?zgNpcPortrait(n):(n.image||''),level:Number(sheet.level)||1,hpMax:Number(sheet.hp)||10,ac:Number(sheet.armor)||10,initiative:Number(sheet.init)||0,speed:7,stats:sheet.stats||{},mastery:[],weaponProfiles:sourceWeaponProfiles((n.npcStats&&n.npcStats.attacks)||n.attacks),resistances:[],vulnerabilities:[],immunities:[]};});
+    return (Array.isArray(w.beasts)?w.beasts:[]).map(function(b){return {kind:'beast',id:String(b.id),name:b.name||'Существо',subtitle:[b.role,b.family,'ур. '+(b.level||1)].filter(Boolean).join(' · '),image:b.portrait||b.image||'',level:Number(b.level)||1,hpMax:Math.max(1,Number(b.hp)||10),ac:Number(b.ac)||10,initiative:Number(b.initiative)||0,speed:sourceSpeed(b.speed),stats:{str:Number(b.str)||0,dex:Number(b.dex)||0,con:Number(b.con)||0,int:Number(b.int)||0,per:Number(b.wis)||0,cha:Number(b.cha)||0},mastery:[],weaponProfiles:sourceWeaponProfiles(b.attacks),resistances:Array.isArray(b.resistances)?b.resistances:[],vulnerabilities:Array.isArray(b.vulnerabilities)?b.vulnerabilities:[],immunities:Array.isArray(b.immunities)?b.immunities:[]};});
+  }
+  function findSource(ref){if(!ref)return null;return sourceEntries(ref.type).filter(function(entry){return entry.id===String(ref.id);})[0]||null;}
+  function applySource(token,entry,resetHp){
+    if(!token||!entry)return false;var oldHp=token.hp==null?entry.hpMax:Math.max(0,Number(token.hp)||0);
+    token.sourceRef={type:entry.kind,id:entry.id,name:entry.name,revision:Date.now()};token.name=entry.name;token.image=entry.image||token.image||'';token.level=entry.level;token.hpMax=entry.hpMax;token.hp=resetHp?entry.hpMax:Math.min(entry.hpMax,oldHp);token.ac=entry.ac;token.initiative=entry.initiative;token.speed=entry.speed;token.stats=JSON.parse(JSON.stringify(entry.stats||{}));token.mastery=(entry.mastery||[]).slice();token.weaponProfiles=(entry.weaponProfiles||[]).slice();token.resistances=(entry.resistances||[]).slice();token.vulnerabilities=(entry.vulnerabilities||[]).slice();token.immunities=(entry.immunities||[]).slice();return true;
+  }
+  var sourcePickerKind='npc',sourcePickerQuery='';
+  function renderSourcePicker(){var host=el('zg-source-results');if(!host)return;var q=sourcePickerQuery.toLowerCase().trim(),list=sourceEntries(sourcePickerKind).filter(function(entry){return !q||(entry.name+' '+entry.subtitle).toLowerCase().indexOf(q)>=0;});host.innerHTML='';
+    if(!list.length){host.innerHTML='<div class="zg-source-empty">'+(q?'Ничего не найдено':'В этом разделе пока нет записей')+'</div>';return;}
+    list.forEach(function(entry){var btn=document.createElement('button');btn.type='button';btn.className='zg-source-card';var art=document.createElement('span');art.className='zg-source-art';if(entry.image)art.style.backgroundImage='url('+JSON.stringify(entry.image)+')';else art.textContent=entry.kind==='beast'?'🐾':'👤';btn.appendChild(art);var copy=document.createElement('span');copy.className='zg-source-copy';copy.innerHTML='<strong>'+escHTML(entry.name)+'</strong><small>'+escHTML(entry.subtitle||'Без подписи')+'</small><em>HP '+entry.hpMax+' · AC '+entry.ac+' · Иниц. '+(entry.initiative>=0?'+':'')+entry.initiative+'</em>';btn.appendChild(copy);btn.onclick=function(){var token=currentToken();if(!token)return;if(applySource(token,entry,true)){w.zgSceneSourceClose();markDirty('Черновик · источник привязан');syncControls();setStatus('Жетон связан с '+(entry.kind==='beast'?'Бестиарием':'Реестром НПС'));}};host.appendChild(btn);});
+  }
+  w.zgSceneSourceOpen=function(kind){var token=currentToken();if(!isMaster||!token||token.type!=='custom')return;sourcePickerKind=kind==='beast'?'beast':'npc';sourcePickerQuery='';var old=el('zg-source-overlay');if(old)old.remove();var overlay=document.createElement('div');overlay.id='zg-source-overlay';overlay.className='zg-source-overlay';overlay.onclick=function(ev){if(ev.target===overlay)w.zgSceneSourceClose();};overlay.innerHTML='<div class="zg-source-modal" role="dialog" aria-modal="true"><div class="zg-source-head"><div><small>ИСТОЧНИК ЖЕТОНА</small><h3>Реестр мира</h3></div><button type="button" onclick="zgSceneSourceClose()" aria-label="Закрыть">×</button></div><div class="zg-source-tabs"><button data-kind="npc" onclick="zgSceneSourceTab(\'npc\')">Реестр НПС</button><button data-kind="beast" onclick="zgSceneSourceTab(\'beast\')">Бестиарий</button></div><label class="zg-source-search">⌕<input placeholder="Поиск по имени, роли или месту" oninput="zgSceneSourceSearch(this.value)"></label><div class="zg-source-results" id="zg-source-results"></div></div>';document.body.appendChild(overlay);w.zgSceneSourceTab(sourcePickerKind);setTimeout(function(){var input=overlay.querySelector('input');if(input)input.focus();},30);};
+  w.zgSceneSourceClose=function(){var overlay=el('zg-source-overlay');if(overlay)overlay.remove();};
+  w.zgSceneSourceTab=function(kind){sourcePickerKind=kind==='beast'?'beast':'npc';var tabs=document.querySelectorAll('#zg-source-overlay [data-kind]');for(var i=0;i<tabs.length;i++)tabs[i].classList.toggle('active',tabs[i].getAttribute('data-kind')===sourcePickerKind);renderSourcePicker();};
+  w.zgSceneSourceSearch=function(value){sourcePickerQuery=String(value||'');renderSourcePicker();};
+  w.zgSceneSourceRefresh=function(){var token=currentToken();if(!token||!token.sourceRef)return;var entry=findSource(token.sourceRef);if(!entry){setStatus('Источник больше не найден');return;}applySource(token,entry,false);markDirty('Черновик · данные источника обновлены');syncControls();setStatus('Данные обновлены · текущее здоровье сохранено');};
+  w.zgSceneSourceUnlink=function(){var token=currentToken();if(!token||!token.sourceRef)return;token.sourceRef=null;markDirty('Черновик · источник отвязан');syncControls();setStatus('Жетон отвязан · его текущие параметры сохранены');};
   // Метки: «Появление» (где возникают герои) и «Переход» (дверь в другую зону)
   w.zgSceneAddMarker=function(kind){
     if(!isMaster)return;
@@ -12383,7 +12418,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgCombatToggle=function(){var combat=state&&state.room&&state.room.combat;if(combat&&combat.active){w.zgCombatConfirmEnd();return;}renderCombatParticipants();var modal=el('zg-combat-confirm');if(modal)modal.classList.add('open');};
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
-  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
+  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,sourceRef:token.sourceRef||null,level:token.level||1,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
   w.zgCombatAdvance=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.advanceCombat)return;combatBusy(true);w.ZargotaRooms.advanceCombat().catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось передать ход');}).then(function(){combatBusy(false);});};
   var combatActionBusy=false;
   w.zgCombatUseAction=function(type){
@@ -16466,6 +16501,8 @@ window.zgImageStore = (function() {
   .zg-scene-lib-menu button:hover{border-color:#c8993c;color:#f0dca2}
   .zg-hp-inputs{display:flex;gap:6px}
   .zg-hp-inputs input{width:58px;background:#12100c;border:1px solid #332815;border-radius:6px;color:#e7d3a0;padding:6px 8px;font-size:12px}
+  .zg-token-source{padding:9px 0;border-top:1px solid #2b2112}.zg-token-source-label{display:flex;align-items:center;gap:7px;color:#d5bd7d;font:11px 'Cinzel',serif}.zg-token-source-label::before{content:'⌁';color:#c8993c;font-size:17px}.zg-token-source-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.zg-token-source-actions button{min-height:30px;border:1px solid #49381e;border-radius:6px;background:#151007;color:#b9a475;font:9px 'Cinzel',serif;cursor:pointer}.zg-token-source-actions button:hover{border-color:#a47c31;color:#efd181}.zg-token-source-actions button.danger{border-color:#542e28;color:#c98980}
+  .zg-source-overlay{position:fixed;inset:0;z-index:10080;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(0,0,0,.78);backdrop-filter:blur(4px)}.zg-source-modal{display:flex;flex-direction:column;width:min(680px,calc(100vw - 32px));height:min(720px,calc(100vh - 48px));overflow:hidden;border:1px solid #8b682b;border-radius:8px;background:linear-gradient(160deg,#171108,#090705);box-shadow:0 28px 90px #000,0 0 38px rgba(172,125,39,.12)}.zg-source-head{display:flex;align-items:center;justify-content:space-between;padding:20px 22px 14px;border-bottom:1px solid #302313}.zg-source-head small{color:#806b43;font:9px 'Cinzel',serif;letter-spacing:2px}.zg-source-head h3{margin:4px 0 0;color:#ead29a;font:22px 'Cinzel',serif}.zg-source-head>button{width:34px;height:34px;border:1px solid #49381e;border-radius:6px;background:#120e08;color:#a9956b;font-size:23px;cursor:pointer}.zg-source-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:13px 20px 8px}.zg-source-tabs button{height:38px;border:1px solid #3b2d18;border-radius:6px;background:#100c07;color:#887650;font:11px 'Cinzel',serif;cursor:pointer}.zg-source-tabs button.active{border-color:#a17a31;background:#281b09;color:#edcf83}.zg-source-search{display:flex;align-items:center;gap:10px;margin:4px 20px 12px;padding:0 12px;height:42px;border:1px solid #42331c;border-radius:6px;background:#0b0906;color:#ad8d4d}.zg-source-search input{flex:1;border:0;outline:0;background:transparent;color:#e3cf9c;font:12px 'Lora',serif}.zg-source-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 20px 20px;overflow-y:auto}.zg-source-card{display:grid;grid-template-columns:64px 1fr;gap:11px;min-width:0;padding:9px;border:1px solid #342817;border-radius:7px;background:#100d08;color:#d9c38d;text-align:left;cursor:pointer;transition:.16s}.zg-source-card:hover{border-color:#9b7530;background:#1b1308;transform:translateY(-1px)}.zg-source-art{display:flex;width:64px;height:64px;align-items:center;justify-content:center;border:1px solid #4a381d;border-radius:6px;background:#090705 center/cover no-repeat;font-size:25px}.zg-source-copy{display:flex;min-width:0;flex-direction:column;justify-content:center}.zg-source-copy strong,.zg-source-copy small,.zg-source-copy em{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-source-copy strong{font:600 13px 'Cinzel',serif;color:#ead7a7}.zg-source-copy small{margin-top:4px;color:#847554;font:11px 'Lora',serif}.zg-source-copy em{margin-top:7px;color:#6fb881;font:normal 10px 'Cinzel',serif}.zg-source-empty{grid-column:1/-1;padding:55px 20px;text-align:center;color:#74664a;font:italic 13px 'Lora',serif}@media(max-width:620px){.zg-source-results{grid-template-columns:1fr}.zg-source-overlay{padding:12px}.zg-source-modal{width:100%;height:calc(100vh - 24px)}}
   /* три вкладки — читаемые, без обрезки */
   .zg-scene-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px}
   .zg-scene-tab{flex:none;min-width:0;flex-direction:row;justify-content:center;padding:10px 6px;font-size:13px;letter-spacing:.3px}
@@ -17090,6 +17127,10 @@ window.zgImageStore = (function() {
           <label class="zg-scene-row zg-scene-range-row" id="zg-token-rot-row"><span>Поворот</span><span><input id="zg-token-rot" type="range" min="0" max="359" step="1" oninput="zgSceneTokenControl()"><output id="zg-token-rot-out"></output></span></label>
           <label class="zg-scene-row"><span>🔒 Заблокировать</span><input class="zg-scene-toggle" id="zg-token-locked" type="checkbox" onchange="zgSceneTokenControl()"></label>
           <div class="zg-scene-row" id="zg-token-hp-row"><span>HP тек / макс</span><span class="zg-hp-inputs"><input id="zg-token-hp" type="number" min="0" max="999" placeholder="—" oninput="zgSceneTokenControl()"><input id="zg-token-hpmax" type="number" min="0" max="999" placeholder="—" oninput="zgSceneTokenControl()"></span></div>
+          <div class="zg-token-source" id="zg-token-source-row" hidden>
+            <div class="zg-token-source-label" id="zg-token-source-text">Свободный жетон</div>
+            <div class="zg-token-source-actions"><button type="button" onclick="zgSceneSourceOpen('npc')">Реестр НПС</button><button type="button" onclick="zgSceneSourceOpen('beast')">Бестиарий</button><button type="button" id="zg-token-source-refresh" onclick="zgSceneSourceRefresh()" hidden>↻ Обновить</button><button type="button" class="danger" id="zg-token-source-unlink" onclick="zgSceneSourceUnlink()" hidden>Отвязать</button></div>
+          </div>
           <label class="zg-scene-row" id="zg-token-color-row" hidden><span>Цвет текста</span><input type="color" id="zg-token-color" onchange="zgSceneTokenControl()" style="width:44px;height:26px;border:1px solid #332815;border-radius:6px;background:#12100c;cursor:pointer"></label>
           <label class="zg-scene-row" id="zg-token-portal-row" hidden><span>Ведёт в зону</span><select id="zg-token-target" onchange="zgSceneTokenControl()"><option value="">— не задана —</option></select></label>
           <button type="button" class="zg-scene-ghost-btn" id="zg-token-portal-go" onclick="zgScenePortalGo()" hidden style="width:100%;margin:2px 0 4px;border-color:#7d6bd0;color:#cfc4f2">▶ Перейти — показать зону игрокам</button>

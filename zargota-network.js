@@ -491,9 +491,14 @@
         hp: token.hp == null ? null : Math.max(0, Number(token.hp) || 0),
         hpMax: token.hpMax == null ? null : Math.max(0, Number(token.hpMax) || 0),
         tempHp: Math.min(Math.floor(Math.max(0, Number(token.hpMax) || 0) * 0.5), Math.max(0, Number(token.tempHp) || 0)),
+        level: Math.max(1, Math.min(99, Number(token.level) || 1)),
         ac: Math.max(0, Math.min(99, Number(token.ac) || 10)),
         initiative: Math.max(-20, Math.min(20, Number(token.initiative) || 0)),
         speed: Math.max(0, Math.min(80, Number(token.speed) || 7)),
+        sourceRef: token.sourceRef && ['npc','beast'].indexOf(token.sourceRef.type) >= 0 ? {
+          type:String(token.sourceRef.type), id:String(token.sourceRef.id || '').slice(0, 120),
+          name:String(token.sourceRef.name || '').slice(0, 80), revision:Number(token.sourceRef.revision) || 0
+        } : null,
         stats: token.stats && typeof token.stats === 'object' ? token.stats : {},
         mastery: safeList(token.mastery, 40),
         weaponProfiles: safeList(token.weaponProfiles, 12),
@@ -1207,6 +1212,8 @@
             order.push({
               key:'token:'+String(participant.tokenId).slice(0, 120), kind:participant.kind === 'ally' ? 'ally' : (participant.kind === 'npc' ? 'npc' : 'enemy'),
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
+              sourceRef:participant.sourceRef&&['npc','beast'].indexOf(participant.sourceRef.type)>=0?{type:participant.sourceRef.type,id:String(participant.sourceRef.id||'').slice(0,120)}:null,
+              level:Math.max(1,Math.min(99,Number(participant.level)||1)),
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
               tempHp:Math.min(Math.floor(Math.max(0,Number(participant.hpMax)||0)*0.5),Math.max(0,Number(participant.tempHp)||0)),
