@@ -803,10 +803,11 @@
           var member = room.members && room.members[user.uid];
           if (!member) throw roomError('Участник не найден.', 'member-missing');
           var isWorld = session.role === 'master' && kind === 'world';
+          var isAction = kind === 'action';
           var speaker = session.role === 'master' && speakerUid && room.members && room.members[speakerUid] || member;
           var id = 'msg-' + now() + '-' + Math.random().toString(36).slice(2, 6);
           var payload = {
-            id: id, uid: user.uid, kind: isWorld ? 'world' : (session.role === 'master' && !speakerUid ? 'gm' : 'chat'),
+            id: id, uid: user.uid, kind: isWorld ? 'world' : (isAction ? 'action' : (session.role === 'master' && !speakerUid ? 'gm' : 'chat')),
             name: isWorld ? 'Мир Зарготы' : (speaker.character && speaker.character.name || speaker.name || 'Игрок'),
             portrait: isWorld ? '' : (speaker.character && speaker.character.portrait || ''),
             text: text, ts: now()
