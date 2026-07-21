@@ -118,6 +118,21 @@
 
   function rollDie(sides) { return Math.floor(Math.random() * Math.max(2, Number(sides) || 4)) + 1; }
 
+  function combatStat(entry, key) {
+    var stat = entry && entry.stats && entry.stats[key] || {};
+    if (typeof stat === 'number') return Number(stat) || 0;
+    return Number(stat.cur != null && stat.cur !== 0 ? stat.cur : stat.base) || 0;
+  }
+
+  function rollFormula(formula, critical) {
+    var match = String(formula || '1d4').replace(/\s+/g, '').match(/^(\d{1,2})d(\d{1,3})([+-]\d+)?$/i);
+    var count = match ? Math.max(1, Math.min(20, Number(match[1]) || 1)) : 1;
+    var sides = match ? Math.max(2, Math.min(100, Number(match[2]) || 4)) : 4;
+    var bonus = match ? Number(match[3] || 0) : 0, rolls = [], total = bonus;
+    for (var i = 0; i < count * (critical ? 2 : 1); i += 1) { var value = rollDie(sides); rolls.push(value); total += value; }
+    return { total:total, rolls:rolls, formula:count+'d'+sides+(bonus?(bonus>0?'+':'')+bonus:'') };
+  }
+
   function statusTurnTick(entry) {
     var effects = combatStatusEffects(entry), keys = combatStatusKeys(entry), seen = {}, changes = [];
     effects.forEach(function (effect) {
@@ -223,6 +238,22 @@
       try { return JSON.parse(JSON.stringify(value == null ? fallback : value)); }
       catch (e) { return fallback; }
     }
+    var directItems = [].concat(Array.isArray(character.equipItems) ? character.equipItems : [], Array.isArray(character.inventoryItems) ? character.inventoryItems : []);
+    var armoryItems = [];
+    try { if (typeof w.loadArmoryItems === 'function') armoryItems = w.loadArmoryItems() || []; } catch (e) {}
+    Object.keys(character.arenaEquipSlots || {}).forEach(function (slot) {
+      var id = character.arenaEquipSlots[slot], item = armoryItems.filter(function (candidate) { return candidate && String(candidate.id) === String(id); })[0];
+      if (item) directItems.push(Object.assign({}, item, { equipped:true, slot:slot }));
+    });
+    var weaponProfiles = [], weaponSeen = {};
+    directItems.forEach(function (item) {
+      if (!item || item.equipped === false || String(item.category || '').toLowerCase() !== 'weapon') return;
+      var formula = String(item.damageFormula || item.damage || '').match(/\d+d\d+(?:\s*[+-]\s*\d+)?/i);
+      if (!formula) return;
+      var key = String(item.id || item.name || formula[0]); if (weaponSeen[key]) return; weaponSeen[key] = true;
+      weaponProfiles.push({ id:key, name:item.name || 'Оружие', damageFormula:formula[0].replace(/\s+/g,''), damageType:item.damageType || '', range:item.range || '1 клетка', stat:item.attackStat || item.stat || '' });
+    });
+    if (!weaponProfiles.length) weaponProfiles.push({ id:'improvised', name:'Импровизированная атака', damageFormula:'1d4', damageType:'Дробящий', range:'1 клетка', stat:'str' });
     return {
       id: String(character.id),
       name: character.name || 'Без имени',
@@ -236,6 +267,8 @@
       initiative: Number(character.initiative || 0),
       speed: Number(character.speed || 0),
       stats: clean(character.stats, {}),
+      mastery: clean(Array.isArray(character.mastery) ? character.mastery : [], []).slice(0, 40),
+      weaponProfiles: clean(weaponProfiles, []).slice(0, 12),
       statuses: clean(character.statuses || character.conditions, []),
       statusEffects: clean((character.tempEffects || []).filter(function (effect) { return effect && effect.type === 'status'; }), []).slice(0, 40),
       inventoryItems: clean(character.inventoryItems, []).slice(0, 80),
@@ -1030,7 +1063,7 @@
           var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
             var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
             var speed = Math.max(0, Number(member.character.speed) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -1050,6 +1083,7 @@
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
+              ac:Math.max(0,Number(participant.ac)||10),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],
               statuses:Array.isArray(participant.statuses) ? participant.statuses.slice(0, 23) : [],
               statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
               economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
@@ -1175,6 +1209,52 @@
         });
       }).catch(function (error) {
         if (error && ['room-required','room-not-found','combat-missing','combat-participant-missing','combat-not-turn','combat-action-spent','combat-action-invalid','combat-status-blocked'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveCombatAttack: function (targetKey, options, participantKey) {
+      options = options || {}; targetKey = String(targetKey || '').slice(0, 160); participantKey = String(participantKey || '').slice(0, 160);
+      return ensureReady().then(function (user) {
+        var session = readSession(); if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
+          if(!combat||!combat.active||!order.length)throw roomError('Сейчас нет активного боя.','combat-missing');
+          var turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0)),attackerIndex=-1;
+          if(session.role==='master')attackerIndex=participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey;}):turnIndex;
+          else attackerIndex=order.findIndex(function(entry){return entry&&entry.uid===user.uid;});
+          if(attackerIndex<0||attackerIndex!==turnIndex)throw roomError('Атаковать можно только в свой ход.','combat-not-turn');
+          var targetIndex=order.findIndex(function(entry){return entry&&entry.key===targetKey;});
+          if(targetIndex<0||targetIndex===attackerIndex)throw roomError('Выберите другую цель.','combat-target-invalid');
+          var attacker=combatEntryWithRoomStatuses(room,Object.assign({},order[attackerIndex])),target=combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex]));
+          var restrictions=combatRestrictions(attacker),economy=Object.assign({long:1,short:1,reaction:1},attacker.economy||{});
+          if(restrictions.blocked.long)throw roomError(restrictions.reasons[0]||'Текущее состояние запрещает атаку.','combat-status-blocked');
+          if(Number(economy.long||0)<1)throw roomError('Долгое действие уже израсходовано.','combat-action-spent');
+          var profiles=Array.isArray(attacker.weaponProfiles)?attacker.weaponProfiles:[],weaponId=String(options.weaponId||''),weapon=profiles.filter(function(item){return item&&String(item.id)===weaponId;})[0]||profiles[0]||{id:'improvised',name:'Импровизированная атака',damageFormula:'1d4',damageType:'Дробящий'};
+          var statKey=['str','dex','int','cha','per','con'].indexOf(options.statKey)>=0?options.statKey:(weapon.stat||'str');
+          var statBonus=combatStat(attacker,statKey),masteryBonus=Math.max(0,Math.min(3,Number(options.masteryBonus)||0));
+          var keys=combatStatusKeys(attacker),mode=String(options.mode||'normal'),forcedDisadvantage=['stun','blind','fear'].some(function(key){return keys.indexOf(key)>=0;});
+          if(forcedDisadvantage)mode='disadvantage';
+          var first=rollDie(20),second=mode==='normal'?null:rollDie(20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
+          var attackTotal=natural+statBonus+masteryBonus,targetAc=Math.max(0,Number(target.ac)||10),critical=natural===20,failed=natural===1,hit=!failed&&(critical||attackTotal>=targetAc);
+          var damageResult=hit?rollFormula(weapon.damageFormula||'1d4',critical):{total:0,rolls:[],formula:String(weapon.damageFormula||'1d4')};
+          var damage=hit?Math.max(0,damageResult.total+statBonus):0,before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),after=Math.max(0,before-damage);
+          economy.long=0;if(restrictions.slowed)economy.short=0;attacker.economy=economy;target.hp=after;order[attackerIndex]=attacker;order[targetIndex]=target;
+          var stamp=now(),updates={},statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
+          updates['combat/order']=order;updates['combat/updatedAt']=stamp;
+          if(target.uid)updates['members/'+target.uid+'/character/hpCur']=after;
+          if(target.tokenId){
+            (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId))updates['scene/tokens/'+index+'/hp']=after;});
+            Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId))updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;});});
+          }
+          var rollText=second==null?String(natural):(first+' / '+second+' → '+natural),resultText=failed?'автопромах':(critical?'КРИТ':(hit?'попадание':'промах'));
+          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+').':'.'),attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,targetAc:targetAc,hit:hit,critical:critical,damage:damage,targetKey:target.key,weapon:weapon.name||'Оружие',ts:stamp};
+          updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+        });
+      }).catch(function(error){
+        if(error&&['room-required','room-not-found','combat-missing','combat-not-turn','combat-target-invalid','combat-status-blocked','combat-action-spent'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
