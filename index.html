@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.49"></script>
+<script src="zargota-network.js?v=2026-07-21.50"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.49';
+var ZG_APP_VERSION = '2026-07-21.50';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.50', notes: 'Первый каркас боя: мастер запускает инициативу с подтверждением, общая очередь синхронизируется между устройствами, показывает раунд и текущий ход.' },
   { v: '2026-07-21.49', notes: 'Исследованные зоны тумана запоминаются после одобренного движения отдельно для группы или героя; мастер может сбросить память карты.' },
   { v: '2026-07-21.48', notes: 'Туман зон получил общее и индивидуальное зрение; закрытые области теперь корректно скрывают чужих героев, NPC и объекты.' },
   { v: '2026-07-21.47', notes: 'Заявки действий получили полный сетевой цикл: ожидание, общую панель мастера, разрешение или отказ и обратное уведомление игроку.' },
@@ -11961,11 +11962,17 @@ document.addEventListener('DOMContentLoaded', function(){
   function renderParty(){
     var host = el('zg-vtt-party'); if (!host) return;
     var session = state && state.session;
-    host.innerHTML = heroMembers().map(function(member){
+    var combat=state&&state.room&&state.room.combat, order=combat&&combat.active&&Array.isArray(combat.order)?combat.order:[];
+    var members=heroMembers();
+    if(order.length)members=order.map(function(entry){return members.find(function(member){return member.uid===entry.uid;});}).filter(Boolean);
+    host.classList.toggle('combat',!!order.length);
+    host.innerHTML = members.map(function(member){
       var c = member.character || {};
       var isOwn = session && member.uid === session.uid;
       var possessed = session && session.role === 'master' && w.zgPossessedPlayerUid === member.uid;
-      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (possessed ? ' possessed' : '') + (member.online ? '' : ' offline') + '" onclick="zgVttPartyClick(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn || possessed ? ' aria-current="true"' : '') + '>' +
+      var initiative=order.find(function(entry){return entry.uid===member.uid;}), current=initiative&&order[Number(combat.turnIndex)||0]&&order[Number(combat.turnIndex)||0].uid===member.uid;
+      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (possessed ? ' possessed' : '') + (current ? ' current-turn' : '') + (member.online ? '' : ' offline') + '" onclick="zgVttPartyClick(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn || possessed ? ' aria-current="true"' : '') + '>' +
+        (initiative?'<span class="zg-party-init" title="Инициатива: d20 '+initiative.roll+(initiative.bonus>=0?' + ':' − ')+Math.abs(initiative.bonus)+'">'+initiative.total+'</span>':'')+
         avatar(c, c.portrait ? '' : 'zg-party-ph') +
         '<span class="zg-party-name">' + esc(c.name || member.name || 'Герой') + '</span>' +
         '<span class="zg-party-online' + (member.online ? ' on' : '') + '"></span>' +
@@ -11998,10 +12005,11 @@ document.addEventListener('DOMContentLoaded', function(){
       events.push({id:'move-'+room.lastMovement.id,kind:'move',name:'Мир Зарготы',text:(moved&&moved.character&&moved.character.name||'Герой')+' перемещается по сцене',ts:room.lastMovement.startedAt});
     }
     if (room.scene && room.scene.revision) events.push({id:'scene-'+room.scene.revision,kind:'world',name:'Мир Зарготы',text:'Мастер открывает новую сцену',ts:room.scene.publishedAt || room.scene.revision});
+    if (room.combatEvent && room.combatEvent.ts) events.push(room.combatEvent);
     events.sort(function(a,b){return Number(a.ts||0)-Number(b.ts||0);});
     events = events.slice(-5);
     body.innerHTML = events.length ? events.map(function(event){
-      var icon = event.kind === 'world' ? '✦' : event.kind === 'roll' ? '🎲' : event.kind === 'move' ? '🥾' : /^action/.test(event.kind||'') ? '✋' : '●';
+      var icon = event.kind === 'world' ? '✦' : event.kind === 'combat' ? '⚔' : event.kind === 'roll' ? '🎲' : event.kind === 'move' ? '🥾' : /^action/.test(event.kind||'') ? '✋' : '●';
       var avatarHtml = event.portrait ? '<img class="zg-vtt-log-avatar" src="'+esc(event.portrait)+'" alt="">' : '<span class="zg-vtt-log-avatar">'+icon+'</span>';
       var stamp = event.ts ? new Date(Number(event.ts)).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '';
       var eventText=esc(event.text||'');
@@ -12180,8 +12188,27 @@ document.addEventListener('DOMContentLoaded', function(){
     renderParty();
     renderJournal();
     renderDrawer();
+    renderCombat();
     requestAnimationFrame(renderRollAnimations);
   }
+
+  function renderCombat(){
+    var combat=state&&state.room&&state.room.combat, active=!!(combat&&combat.active), order=active&&Array.isArray(combat.order)?combat.order:[];
+    var button=el('zg-combat-toggle'),bar=el('zg-combat-bar'),turn=order[Number(combat&&combat.turnIndex)||0],session=state&&state.session;
+    if(button){button.textContent=active?'Бой · '+Number(combat.round||1):'Начать бой';button.classList.toggle('active',active);}
+    if(bar){bar.classList.toggle('open',active);bar.innerHTML=active?'<span class="zg-combat-round">Раунд <b>'+Number(combat.round||1)+'</b></span><span class="zg-combat-turn"><small>Сейчас ходит</small><b>'+esc(turn&&turn.name||'—')+'</b></span>'+(session&&session.role==='master'?'<button type="button" class="zg-combat-next" onclick="zgCombatAdvance()">Следующий ход <span>›</span></button><button type="button" class="zg-combat-end" onclick="zgCombatConfirmEnd()" title="Завершить бой">×</button>':'') : '';}
+    var own=ownMember(),notice=el('zg-combat-own-turn');
+    if(notice){var ownTurn=!!(active&&turn&&own&&turn.uid===own.uid);notice.classList.toggle('show',ownTurn);notice.innerHTML=ownTurn?'<span>✦</span><b>Ваш ход</b><small>Раунд '+Number(combat.round||1)+'</small>':'';}
+    var dock=el('zg-player-dock');if(dock)dock.classList.toggle('combat-mode',active);
+  }
+  function combatBusy(value){document.querySelectorAll('#zg-combat-bar button,#zg-combat-confirm button,#zg-combat-toggle').forEach(function(button){button.disabled=!!value;});}
+  w.zgCombatToggle=function(){var combat=state&&state.room&&state.room.combat;if(combat&&combat.active){w.zgCombatConfirmEnd();return;}var modal=el('zg-combat-confirm');if(modal)modal.classList.add('open');};
+  w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
+  w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;combatBusy(true);w.ZargotaRooms.startCombat().then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
+  w.zgCombatAdvance=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.advanceCombat)return;combatBusy(true);w.ZargotaRooms.advanceCombat().catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось передать ход');}).then(function(){combatBusy(false);});};
+  w.zgCombatConfirmEnd=function(){var modal=el('zg-combat-end-confirm');if(modal)modal.classList.add('open');};
+  w.zgCombatEndClose=function(){var modal=el('zg-combat-end-confirm');if(modal)modal.classList.remove('open');};
+  w.zgCombatEnd=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.endCombat)return;combatBusy(true);w.ZargotaRooms.endCombat().then(function(){w.zgCombatEndClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось завершить бой');}).then(function(){combatBusy(false);});};
 
   var playerDockAction = '';
   w.zgVttDeactivateTools=function(except){
@@ -16017,6 +16044,12 @@ window.zgImageStore = (function() {
   .zg-start-players:disabled{opacity:.58;cursor:wait}
   .zg-scene-publish:hover{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 18px #c8993c33}
   .zg-scene-publish:disabled{opacity:.45;cursor:wait}
+  .zg-combat-toggle.active{border-color:#b95a45;background:linear-gradient(180deg,#402018,#21100b);color:#f1b099}
+  .zg-combat-bar{position:absolute;z-index:13;top:126px;left:50%;transform:translate(-50%,-16px);display:flex;align-items:center;gap:13px;min-width:360px;height:42px;padding:0 8px 0 16px;border:1px solid #715429;border-radius:22px;background:linear-gradient(180deg,#181108f4,#090705f5);box-shadow:0 12px 30px #000b,inset 0 1px 0 #f2d37712;opacity:0;pointer-events:none;transition:.28s ease}
+  .zg-combat-bar.open{opacity:1;transform:translate(-50%,0);pointer-events:auto}.zg-game-overlay.gm .zg-combat-bar{top:176px}
+  .zg-combat-round{color:#8d7953;font:9px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-combat-round b{margin-left:5px;color:#f0cf77;font-size:15px}.zg-combat-turn{min-width:145px;padding-left:13px;border-left:1px solid #3e2d17;line-height:1.1}.zg-combat-turn small{display:block;color:#786a50;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-combat-turn b{display:block;max-width:170px;margin-top:3px;color:#e6d09b;font:600 11px 'Cinzel',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zg-combat-next{height:30px;padding:0 13px;border:1px solid #846329;border-radius:15px;background:#241708;color:#e9c96e;font:9px 'Cinzel',serif;cursor:pointer}.zg-combat-next span{font-size:16px;vertical-align:-1px}.zg-combat-end{width:29px;height:29px;border:0;border-radius:50%;background:transparent;color:#826f50;font-size:17px;cursor:pointer}.zg-combat-end:hover{color:#d56a5b;background:#4a171733}
+  .zg-combat-own-turn{position:absolute;z-index:14;right:24px;bottom:28px;width:116px;height:116px;border:1px solid #765a2b;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#231707e8,#090705e8 68%);box-shadow:0 0 0 5px #09070599,0 0 28px #d29b3838;opacity:0;transform:scale(.75);pointer-events:none;transition:.35s ease}.zg-combat-own-turn.show{opacity:1;transform:scale(1)}.zg-combat-own-turn span{color:#e7bb55;font-size:22px}.zg-combat-own-turn b{color:#f1d384;font:600 13px 'Cinzel',serif}.zg-combat-own-turn small{margin-top:4px;color:#846f4b;font:8px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}
+  .zg-combat-confirm .zg-confirm-box{max-width:500px}.zg-combat-confirm-mark{width:62px;height:62px;margin:-6px auto 15px;border:1px solid #88682e;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,#33200d,#100b06 72%);color:#eccb74;font-size:28px;box-shadow:0 0 25px #d29b3933}.zg-combat-confirm .zg-confirm-text{max-width:390px;margin-left:auto;margin-right:auto}.zg-combat-confirm-note{margin:14px 0 3px;color:#74664d;font:9px 'Cinzel',serif;letter-spacing:.6px;text-align:center}
   .zg-overview-button{padding:0 13px;min-width:82px}
   .zg-overview-panel{display:none;position:absolute;right:120px;top:66px;z-index:18;width:310px;padding:14px;border:1px solid #745824;border-radius:8px;background:linear-gradient(180deg,rgba(20,15,9,.98),rgba(8,7,5,.98));box-shadow:0 22px 70px #000d;color:#bda978}
   .zg-overview-panel.open{display:block;animation:zgPopIn .2s ease}
@@ -16231,6 +16264,11 @@ window.zgImageStore = (function() {
   .zg-party-card.possessed::after{content:'ВЫ';position:absolute;right:-4px;top:-7px;padding:2px 5px;border-radius:7px;background:#17331d;color:#a8e7b1;font:700 7px/1 'Cinzel',serif;letter-spacing:.7px;box-shadow:0 2px 7px #000b}
   .zg-party-card.own::before{content:'♛';position:absolute;z-index:2;top:-9px;left:50%;transform:translateX(-50%);color:#d7b44f;font-size:12px;line-height:1;text-shadow:0 0 6px #000,0 0 8px #d7b44f66}
   .zg-party-card.offline{opacity:.58}
+  .zg-vtt-party.combat{gap:15px;overflow:visible}
+  .zg-party-card.current-turn{transform:translateY(5px);filter:drop-shadow(0 9px 16px #000d) drop-shadow(0 0 13px #d9aa4a88)}
+  .zg-party-card.current-turn img,.zg-party-card.current-turn .zg-party-ph{border-color:#f2ce68;box-shadow:inset 0 0 0 1px #ffe6a155,0 0 0 2px #9d762e,0 0 18px #e2ad3b66}
+  .zg-party-card.current-turn::after{content:'ХОД';position:absolute;left:50%;top:-10px;transform:translateX(-50%);padding:2px 7px;border:1px solid #b88c35;border-radius:8px;background:#171006;color:#f4d77d;font:700 7px 'Cinzel',serif;letter-spacing:1px;box-shadow:0 0 12px #d19a3444}
+  .zg-party-init{position:absolute;z-index:3;left:-8px;top:-7px;width:24px;height:24px;border:1px solid #9d7833;border-radius:50%;background:#100c07;color:#f0d27d;font:700 10px/24px 'Cinzel',serif;box-shadow:0 3px 9px #000c}
   .zg-party-name{align-self:end;min-width:0;width:100%;font-family:'Cinzel',serif;font-size:11px;font-weight:600;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 4px #000,0 0 8px #000}
   .zg-party-hp{width:66px;height:4px;margin:0 auto;border-radius:3px;background:#1d1a11;overflow:hidden;box-shadow:0 1px 0 #000,0 0 0 1px #17140d}
   .zg-party-hp span{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
@@ -16518,6 +16556,7 @@ window.zgImageStore = (function() {
       <button type="button" class="zg-vision-gear" id="zg-vision-gear" onclick="zgSceneToggleVision(event)" title="Вид: мастер / игроки" aria-label="Переключить вид">👁 <span>Вид мастера</span></button>
       <button type="button" class="zg-scene-publish zg-overview-button" id="zg-scene-publish" onclick="zgOverviewToggle(event)" title="Камера, видимость и показ сцены">Обзор</button>
       <button type="button" class="zg-scene-publish zg-zones-button" onclick="zgZonesToggle(event)" title="Редактор областей сцены">Зоны</button>
+      <button type="button" class="zg-scene-publish zg-combat-toggle" id="zg-combat-toggle" onclick="zgCombatToggle()" title="Боевой режим и инициатива">Начать бой</button>
       <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgStartPlayers()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
     </div>
     <div class="zg-overview-panel" id="zg-overview-panel">
@@ -16568,6 +16607,14 @@ window.zgImageStore = (function() {
       <div class="zg-vtt-rubber" id="zg-vtt-rubber"></div>
     </div>
     <div class="zg-camera-vignette" aria-hidden="true"></div>
+    <div class="zg-combat-bar" id="zg-combat-bar" aria-live="polite"></div>
+    <div class="zg-combat-own-turn" id="zg-combat-own-turn" aria-live="assertive"></div>
+    <div class="zg-confirm-overlay zg-combat-confirm" id="zg-combat-confirm">
+      <div class="zg-confirm-box" role="dialog" aria-modal="true" aria-labelledby="zg-combat-confirm-title"><div class="zg-combat-confirm-mark">⚔</div><div class="zg-confirm-title" id="zg-combat-confirm-title">Начать бой?</div><div class="zg-confirm-text">Герои бросят инициативу. Верхняя панель перестроится в очередь, и первый участник получит ход.</div><div class="zg-combat-confirm-note">За существ мастер будет бросать отдельно на следующем этапе.</div><div class="zg-confirm-btns"><button type="button" class="zg-confirm-no" onclick="zgCombatConfirmClose()">Отмена</button><button type="button" class="zg-confirm-yes" onclick="zgCombatStart()">Бросить инициативу</button></div></div>
+    </div>
+    <div class="zg-confirm-overlay zg-combat-confirm" id="zg-combat-end-confirm">
+      <div class="zg-confirm-box" role="dialog" aria-modal="true" aria-labelledby="zg-combat-end-title"><div class="zg-combat-confirm-mark">⚔</div><div class="zg-confirm-title" id="zg-combat-end-title">Завершить бой?</div><div class="zg-confirm-text">Очередь и текущий раунд будут закрыты. Положение жетонов на сцене сохранится.</div><div class="zg-confirm-btns"><button type="button" class="zg-confirm-no" onclick="zgCombatEndClose()">Остаться в бою</button><button type="button" class="zg-confirm-yes" onclick="zgCombatEnd()">Завершить</button></div></div>
+    </div>
     <div class="zg-region-draw-actions" aria-live="polite"><span>Контур зоны</span><button type="button" onclick="zgRegionFinish()">Завершить · Enter</button><button type="button" onclick="zgRegionCancel()">Отмена · Esc</button></div>
     <div class="zg-group-bar" id="zg-group-bar">
       <span id="zg-group-count">0 выбрано</span>

@@ -111,6 +111,7 @@
       hpCur: Number(character.hpCur != null ? character.hpCur : character.hpMax || 0),
       hpMax: Number(character.hpMax || 0),
       ac: Number(character.ac || 10),
+      initiative: Number(character.initiative || 0),
       speed: Number(character.speed || 0),
       stats: clean(character.stats, {}),
       statuses: clean(character.statuses || character.conditions, []),
@@ -861,6 +862,73 @@
         });
       }).catch(function (error) {
         if (error && error.code === 'room-not-found') throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    startCombat: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Начать бой может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          if (room.combat && room.combat.active) throw roomError('Бой уже идёт.', 'combat-active');
+          var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
+            var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
+            return { uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus };
+          }).sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || a.name.localeCompare(b.name, 'ru'); });
+          if (!order.length) throw roomError('В комнате пока нет героев.', 'combat-empty');
+          var stamp = now();
+          return firebase.update(roomRef(session.code), {
+            combat: { active:true, round:1, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp },
+            combatEvent: { id:'combat-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Начинается бой. Инициатива определена.', ts:stamp },
+            updatedAt: stamp
+          }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','combat-active','combat-empty'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    advanceCombat: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Передавать ход может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room || room.masterUid !== user.uid) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order : [];
+          if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
+          var next = (Number(combat.turnIndex) + 1) % order.length;
+          var round = Number(combat.round || 1) + (next === 0 ? 1 : 0), stamp = now(), current = order[next];
+          return firebase.update(roomRef(session.code), {
+            'combat/turnIndex':next, 'combat/round':round, 'combat/updatedAt':stamp,
+            combatEvent:{ id:'combat-turn-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Ход: '+(current.name || 'участник')+'. Раунд '+round+'.', ts:stamp },
+            updatedAt:stamp
+          }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','combat-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    endCombat: function () {
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Завершить бой может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room || room.masterUid !== user.uid) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var stamp = now();
+          return firebase.update(roomRef(session.code), {
+            combat:null,
+            combatEvent:{ id:'combat-end-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Бой завершён.', ts:stamp },
+            updatedAt:stamp
+          }).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
