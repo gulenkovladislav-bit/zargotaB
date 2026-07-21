@@ -10934,6 +10934,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var cursor=el('zg-action-cursor');if(cursor){cursor.textContent=actionToolIcons[actionToolKind]||'';cursor.classList.toggle('open',!!actionToolKind);}
     Array.prototype.forEach.call(document.querySelectorAll('#zg-action-menu [data-action-kind]'),function(button){button.classList.toggle('active',button.getAttribute('data-action-kind')===actionToolKind);});
   }
+  w.zgSceneActionTool=function(kind){setMovementMode(false);setActionTool(kind);return actionToolKind;};
   w.zgMovementToggle = function(force){ return setMovementMode(typeof force === 'boolean' ? force : !movementMode); };
   w.zgMovementResolve = function(uid, accepted){
     if (!isMaster || !w.ZargotaRooms || !w.ZargotaRooms.resolveMovement) return;
@@ -11904,6 +11905,12 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   };
 
+  // Combat and other VTT modules must not reach into this editor's private
+  // draft directly. Return a detached snapshot of the scene the GM sees.
+  w.zgGetCurrentScene = function(){
+    return copyScene(draft || DEFAULT_SCENE);
+  };
+
   function initScene(){
     var scene = el('zg-vtt-scene');
     if (scene) {
@@ -11922,7 +11929,9 @@ document.addEventListener('DOMContentLoaded', function(){
         if(actionToolKind&&ev.button===0){
           var actionPoint=regionPoint(ev);if(!actionPoint)return;ev.preventDefault();ev.stopPropagation();
           var targetNode=ev.target.closest&&ev.target.closest('.zg-vtt-token'),targetId=targetNode&&targetNode.getAttribute('data-tid')||'';
-          sendActionRequest(actionToolKind,{x:actionPoint.x,y:actionPoint.y,tokenId:targetId});return;
+          if(w.zgVttSendActionRequest)w.zgVttSendActionRequest(actionToolKind,{x:actionPoint.x,y:actionPoint.y,tokenId:targetId});
+          else if(w.showToast)w.showToast('Модуль заявок ещё не готов');
+          return;
         }
         if (!movementMode || ev.button !== 0 || (ev.target.closest && ev.target.closest('.zg-vtt-token'))) return;
         var point = movementPoint(ev); if (!point) return;
@@ -12107,9 +12116,9 @@ document.addEventListener('DOMContentLoaded', function(){
     return max > 0 ? Math.max(0, Math.min(100, cur / max * 100)) : 0;
   }
   function combatSceneTokens(){
-    // The GM fights against the scene currently visible in the editor. The
-    // published Firebase snapshot can legitimately lag behind this draft.
-    var scene=isMaster&&draft ? draft : state&&state.room&&state.room.scene,
+    // The published Firebase snapshot can legitimately lag behind the GM's
+    // current draft, so ask the scene module for its public snapshot.
+    var scene=w.zgGetCurrentScene ? w.zgGetCurrentScene() : state&&state.room&&state.room.scene,
         tokens=scene&&Array.isArray(scene.tokens)?scene.tokens:[];
     return tokens.filter(function(token){
       return token&&token.type!=='hero'&&token.visible!==false&&['custom','object'].indexOf(token.type)>=0&&['enemy','npc','ally'].indexOf(token.disposition)>=0;
@@ -12447,7 +12456,21 @@ document.addEventListener('DOMContentLoaded', function(){
     var tokenHtml=tokens.map(function(token,index){var kind=token.disposition==='ally'?'Союзник':token.disposition==='npc'?'NPC':'Враг';return '<label class="zg-combat-participant token"><input type="checkbox" class="zg-combat-participant-toggle" data-token-index="'+index+'" '+(token.disposition==='enemy'?'checked':'')+'><span class="zg-combat-participant-check">✓</span>'+(token.image?'<img src="'+esc(token.image)+'" alt="">':'<i>'+(token.disposition==='enemy'?'☠':'✦')+'</i>')+'<span><b>'+esc(token.name||'Существо')+'</b><small>'+kind+(token.hpMax!=null?' · HP '+Number(token.hp||token.hpMax||0)+'/'+Number(token.hpMax||0):'')+'</small></span><em>Иниц. <input type="number" min="-20" max="20" value="'+Number(token.initiative||0)+'" aria-label="Бонус инициативы"></em></label>';}).join('');
     host.innerHTML='<div class="zg-combat-participant-title">Герои <small>'+heroes.length+'</small></div>'+heroHtml+'<div class="zg-combat-participant-title creatures">Жетоны сцены <small>'+tokens.length+'</small></div>'+(tokenHtml||'<div class="zg-combat-participant-empty">На сцене нет жетонов врагов, NPC или союзников.</div>');
   }
-  w.zgCombatToggle=function(){var combat=state&&state.room&&state.room.combat;if(combat&&combat.active){w.zgCombatConfirmEnd();return;}['zg-scene-settings','zg-zone-settings','zg-scene-drawer'].forEach(function(id){var panel=el(id);if(panel)panel.classList.remove('open');});renderCombatParticipants();var modal=el('zg-combat-confirm');if(modal){modal.classList.add('open');modal.style.zIndex='120';}};
+  w.zgCombatToggle=function(){
+    try{
+      var combat=state&&state.room&&state.room.combat;
+      if(combat&&combat.active){w.zgCombatConfirmEnd();return;}
+      ['zg-scene-settings','zg-zone-settings','zg-scene-drawer'].forEach(function(id){var panel=el(id);if(panel)panel.classList.remove('open');});
+      renderCombatParticipants();
+      var modal=el('zg-combat-confirm');
+      if(!modal)throw new Error('Окно подготовки боя не найдено');
+      modal.classList.add('open');
+      modal.style.zIndex='12000';
+    }catch(error){
+      console.error('Не удалось открыть подготовку боя',error);
+      if(w.showToast)w.showToast(error&&error.message||'Не удалось открыть подготовку боя');
+    }
+  };
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
   w.zgCombatStart=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;var tokens=combatSceneTokens(),selected=[];document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var token=tokens[Number(toggle.dataset.tokenIndex)],bonus=row.querySelector('input[type=number]');if(token)selected.push({tokenId:token.id,name:token.name,portrait:token.image||'',kind:token.disposition,sourceRef:token.sourceRef||null,level:token.level||1,bonus:Number(bonus&&bonus.value)||0,hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});combatBusy(true);w.ZargotaRooms.startCombat(selected).then(function(){w.zgCombatConfirmClose();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');}).then(function(){combatBusy(false);});};
   w.zgCombatAdvance=function(){if(!w.ZargotaRooms||!w.ZargotaRooms.advanceCombat)return;combatBusy(true);w.ZargotaRooms.advanceCombat().catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось передать ход');}).then(function(){combatBusy(false);});};
@@ -12606,7 +12629,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if(actionRequestBusy)return;
     var labels={inspect:'Осматривает окружение',interact:'Хочет взаимодействовать с объектом',take:'Хочет взять предмет',push:'Хочет толкнуть или сдвинуть объект',search:'Ищет скрытое',speak:'Хочет заговорить',attack:'Заявляет атаку',custom:'Хочет сделать'};
     var detail=String(custom||'').trim(),text=labels[kind]||labels.custom;
-    if(kind!=='custom'){setActionTool(kind);w.zgVttActionClose(false);if(w.showToast)w.showToast('Укажите место или цель на сцене');return;}
+    if(kind!=='custom'){
+      if(!w.zgSceneActionTool){if(w.showToast)w.showToast('Инструмент действия недоступен');return;}
+      w.zgSceneActionTool(kind);w.zgVttActionClose(false);if(w.showToast)w.showToast('Укажите место или цель на сцене');return;
+    }
     if(kind==='custom'&&!detail){var input=el('zg-action-custom');detail=input&&input.value.trim();if(!detail){if(input)input.focus();return;}}
     if(detail)text+=': '+detail;
     if(!w.ZargotaRooms||(!w.ZargotaRooms.requestAction&&!w.ZargotaRooms.sendChat)){if(w.showToast)w.showToast('Нет соединения с комнатой');return;}
@@ -12618,9 +12644,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if(actionRequestBusy)return;
     var labels={inspect:'Осматривает отмеченное место',interact:'Хочет взаимодействовать здесь',take:'Хочет взять отмеченное',search:'Ищет следы и тайники',speak:'Хочет заговорить с целью',attack:'Заявляет атаку вне боя'};
     if(!w.ZargotaRooms||!w.ZargotaRooms.requestAction){if(w.showToast)w.showToast('Нет соединения с комнатой');return;}
-    actionRequestBusy=true;setActionTool('');if(w.zgPlayerDockSet)w.zgPlayerDockSet('actions',false);
+    actionRequestBusy=true;if(w.zgSceneActionTool)w.zgSceneActionTool('');if(w.zgPlayerDockSet)w.zgPlayerDockSet('actions',false);
     w.ZargotaRooms.requestAction(labels[kind]||'Заявляет действие',kind,w.zgPossessedPlayerUid||'',details||{}).then(function(snapshot){if(snapshot)roomState(snapshot);if(w.showToast)w.showToast('Заявка отправлена мастеру');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку');}).then(function(){actionRequestBusy=false;});
   }
+  w.zgVttSendActionRequest=sendActionRequest;
 
   w.zgVttCloseDrawer = function(){
     activePanel = '';
