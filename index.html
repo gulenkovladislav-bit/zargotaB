@@ -11091,12 +11091,7 @@ document.addEventListener('DOMContentLoaded', function(){
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
     node.classList.add('selected');
     renderTokenList(); syncTokenEditor();
-    var _p=el('zg-scene-settings');
-    if(_p&&_p.classList.contains('open')&&w.zgSceneTab){
-      var want=isMarkerType(token.type)||token.type==='note'?'markers':(token.type==='text'?'text':'tokens');
-      var _cur=_p.querySelector('.zg-scene-tab.active');
-      if(!_cur||_cur.getAttribute('data-tab')!==want) w.zgSceneTab(want);
-    }
+    // вкладку не переключаем — свойства выбранного показываются в контекст-блоке над вкладками
     if (token.locked) { renderTokens(); return; }              // заблокирован — только выбор, без перетаскивания
     node.classList.add('dragging');
     // группа: если токен в выделении — двигаем всё выделение вместе
@@ -11260,7 +11255,8 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
   function syncLayerEditor(){
-    var layer=currentLayer(), editor=el('zg-scene-layer-editor'); if (!editor) return; editor.hidden=!layer; if (!layer) return;
+    var layer=currentLayer(), editor=el('zg-scene-layer-editor'); if (!editor) return; editor.hidden=!layer; if (!layer) { syncCtx(); return; }
+    syncCtx();
     el('zg-layer-name').value=layer.name; el('zg-layer-fit').value=layer.fit; el('zg-layer-opacity').value=layer.opacity; el('zg-layer-scale').value=layer.scale;
     el('zg-layer-x').value=layer.x; el('zg-layer-y').value=layer.y; el('zg-layer-brightness').value=layer.brightness; el('zg-layer-saturation').value=layer.saturation;
     updateLayerOutputs();
@@ -11285,16 +11281,29 @@ document.addEventListener('DOMContentLoaded', function(){
     var state=document.createElement('small');state.textContent=(token.locked?'🔒 ':'')+(token.hidden?'🙈':(token.visible?'◉':'○'));row.appendChild(state);
     return row;
   }
+  var objFilter='all';
+  function objKind(t){
+    if(t.type==='text')return 'text';
+    if(t.type==='object')return 'objects';
+    if(isMarkerType(t.type)||t.type==='note')return 'markers';
+    return 'tokens';
+  }
+  w.zgObjFilter=function(kind){
+    objFilter=kind||'all';
+    var chips=document.querySelectorAll('#zg-obj-filters .zg-lib-chip');
+    for(var i=0;i<chips.length;i++) chips[i].classList.toggle('on',chips[i].getAttribute('data-filter')===objFilter);
+    renderTokenList();
+  };
   function renderTokenList(){
-    var hosts={tokens:el('zg-scene-token-list'),markers:el('zg-scene-marker-list'),text:el('zg-scene-text-list')};
-    var empties={tokens:'Жетонов пока нет',markers:'Меток пока нет',text:'Текста пока нет'};
-    var groups={tokens:[],markers:[],text:[]};
-    draft.tokens.slice().sort(function(a,b){return a.z-b.z;}).forEach(function(token){ groups[tokenPaneOf(token)].push(token); });
-    Object.keys(hosts).forEach(function(k){
-      var host=hosts[k]; if(!host)return; host.innerHTML='';
-      if(!groups[k].length){var empty=document.createElement('div');empty.className='zg-scene-empty';empty.textContent=empties[k];host.appendChild(empty);return;}
-      groups[k].forEach(function(token){ host.appendChild(buildTokenRow(token)); });
-    });
+    var host=el('zg-scene-object-list'); if(!host)return; host.innerHTML='';
+    var list=draft.tokens.slice().sort(function(a,b){return a.z-b.z;})
+      .filter(function(t){ return objFilter==='all'||objKind(t)===objFilter; });
+    if(!list.length){
+      var empty=document.createElement('div');empty.className='zg-scene-empty';
+      empty.textContent=objFilter==='all'?'На сцене пока пусто — добавь кнопками выше':'В этой категории пусто';
+      host.appendChild(empty);return;
+    }
+    list.forEach(function(token){ host.appendChild(buildTokenRow(token)); });
   }
   function syncTokenEditor(){
     var token=currentToken(),editor=el('zg-scene-token-editor');if(!editor)return;editor.hidden=!token;if(!token)return;
@@ -11320,10 +11329,26 @@ document.addEventListener('DOMContentLoaded', function(){
     var portalGo=el('zg-token-portal-go'); if(portalGo) portalGo.hidden=!isPortal;
     if(isPortal) renderPortalTargets(token);
     if(token.type==='note'){ if(hiddenRow)hiddenRow.hidden=true; var rv=el('zg-token-reveal'); if(rv)rv.hidden=true; }
-    // редактор живёт в той вкладке, к которой относится выбранный элемент
-    var pane=document.querySelector('#zg-scene-settings .zg-scene-pane[data-pane="'+tokenPaneOf(token)+'"]');
-    if(pane&&editor&&editor.parentNode!==pane) pane.appendChild(editor);
+    syncCtx();
   }
+  // Контекст-блок: показывает свойства выбранного в любой вкладке
+  function syncCtx(){
+    var ctx=el('zg-ctx'); if(!ctx)return;
+    var tok=currentToken(), lay=currentLayer();
+    var tokEd=el('zg-scene-token-editor'), layEd=el('zg-scene-layer-editor');
+    var showTok=!!(tok&&tokEd&&!tokEd.hidden), showLay=!!(lay&&layEd&&!layEd.hidden);
+    ctx.hidden=!(showTok||showLay);
+    var kinds={hero:'Герой',custom:'Жетон',object:'Объект',spawn:'Метка появления',portal:'Метка перехода',note:'Записка ГМ',text:'Текст'};
+    var k=el('zg-ctx-kind'), t=el('zg-ctx-title');
+    if(showTok){ if(k)k.textContent=kinds[tok.type]||'Жетон'; if(t)t.textContent=tokenName(tok); }
+    else if(showLay){ if(k)k.textContent='Слой фона'; if(t)t.textContent=lay.name||'Слой'; }
+  }
+  w.zgSceneDeselect=function(){
+    selectedTokenId=''; selectedLayerId='';
+    var te=el('zg-scene-token-editor'); if(te)te.hidden=true;
+    var le=el('zg-scene-layer-editor'); if(le)le.hidden=true;
+    syncCtx(); renderTokenList(); renderLayerList(); renderTokens();
+  };
   function applyScene(){
     var grid = el('zg-vtt-grid');
     var sc = el('zg-vtt-scene'); if (sc) sc.classList.toggle('nested', draft.mode === 'nested');
@@ -15990,8 +16015,26 @@ window.zgImageStore = (function() {
   .zg-scene-lib-menu button:hover{border-color:#c8993c;color:#f0dca2}
   .zg-hp-inputs{display:flex;gap:6px}
   .zg-hp-inputs input{width:58px;background:#12100c;border:1px solid #332815;border-radius:6px;color:#e7d3a0;padding:6px 8px;font-size:12px}
-  /* вкладки без переноса-каши */
-  .zg-scene-tabs{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+  /* три вкладки — читаемые, без обрезки */
+  .zg-scene-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:12px}
+  .zg-scene-tab{flex:none;min-width:0;flex-direction:row;justify-content:center;padding:10px 6px;font-size:13px;letter-spacing:.3px}
+  /* контекст-блок: свойства выбранного над вкладками */
+  .zg-ctx{margin-bottom:12px;padding:10px;border:1px solid #3f6da0;border-radius:10px;background:linear-gradient(180deg,#141c2a,#0e1520)}
+  .zg-ctx-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px}
+  .zg-ctx-kind{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#6f93bd}
+  .zg-ctx-title{flex:1;min-width:0;font-family:'Cinzel',serif;font-size:15px;color:#cfe2f7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .zg-ctx-close{width:24px;height:24px;flex-shrink:0;border:1px solid #2c3f58;border-radius:6px;background:#101823;color:#8fb8e6;font-size:14px;line-height:1;cursor:pointer;padding:0}
+  .zg-ctx-close:hover{border-color:#5b8bc4;color:#bcd6f5}
+  .zg-ctx .zg-scene-editor{margin-top:0;padding-top:0;border-top:0}
+  /* фильтры объектов */
+  .zg-obj-filters{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+  /* пустое состояние библиотеки — на всю ширину, не в сетке */
+  .zg-lib-empty{padding:14px;text-align:center;color:#6b6049;font-size:12px;border:1px dashed #33291a;border-radius:8px}
+  /* панель чуть шире и строки крупнее */
+  .zg-scene-settings{width:min(400px,calc(100vw - 32px))}
+  .zg-scene-row{min-height:40px;font-size:13.5px}
+  .zg-scene-section-head{font-size:12px;letter-spacing:1.2px}
+  .zg-scene-hint{font-size:11px;opacity:.85}
   /* папки библиотек */
   .zg-lib-folders{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
   .zg-lib-chip{padding:5px 9px;border:1px solid #33291a;border-radius:14px;background:#14110b;color:#b39a68;font-size:11px;cursor:pointer;transition:.15s}
@@ -16528,18 +16571,13 @@ window.zgImageStore = (function() {
     <div class="zg-scene-settings" id="zg-scene-settings">
       <div class="zg-scene-title-row"><div class="zg-scene-title">Настройка сцены</div><span class="zg-scene-histbtns"><button type="button" id="zg-scene-undo" onclick="zgSceneUndo()" title="Отменить (Ctrl+Z)" disabled>↶</button><button type="button" id="zg-scene-redo" onclick="zgSceneRedo()" title="Повторить (Ctrl+Shift+Z)" disabled>↷</button></span></div>
       <div class="zg-scene-tabs" role="tablist">
-        <button type="button" class="zg-scene-tab active" data-tab="assets" onclick="zgSceneTab('assets')" title="Фоны и слои"><span class="ic">🖼</span><span class="lb">Ассеты</span></button>
-        <button type="button" class="zg-scene-tab" data-tab="tokens" onclick="zgSceneTab('tokens')" title="Токены"><span class="ic">♟</span><span class="lb">Токены</span></button>
-        <button type="button" class="zg-scene-tab" data-tab="markers" onclick="zgSceneTab('markers')" title="Метки"><span class="ic">⚑</span><span class="lb">Метки</span></button>
-        <button type="button" class="zg-scene-tab" data-tab="text" onclick="zgSceneTab('text')" title="Текст"><span class="ic">🅰</span><span class="lb">Текст</span></button>
-        <button type="button" class="zg-scene-tab" data-tab="links" onclick="zgSceneTab('links')" title="Связи"><span class="ic">🔗</span><span class="lb">Связи</span></button>
-        <button type="button" class="zg-scene-tab" data-tab="grid" onclick="zgSceneTab('grid')" title="Сетка и камера"><span class="ic">⚙</span><span class="lb">Сцена</span></button>
+        <button type="button" class="zg-scene-tab active" data-tab="scene" onclick="zgSceneTab('scene')">Сцена</button>
+        <button type="button" class="zg-scene-tab" data-tab="objects" onclick="zgSceneTab('objects')">Объекты</button>
+        <button type="button" class="zg-scene-tab" data-tab="library" onclick="zgSceneTab('library')">Библиотека</button>
       </div>
-      <div class="zg-scene-panes">
-      <div class="zg-scene-pane active" data-pane="assets">
-      <section class="zg-scene-section">
-        <div class="zg-scene-section-head"><span>Фоновые слои</span><button type="button" class="zg-scene-add" onclick="document.getElementById('zg-scene-file').click()" title="Добавить слой" aria-label="Добавить фоновый слой">＋</button></div>
-        <div class="zg-scene-layer-list" id="zg-scene-layer-list"></div>
+
+      <div class="zg-ctx" id="zg-ctx" hidden>
+        <div class="zg-ctx-head"><span class="zg-ctx-kind" id="zg-ctx-kind"></span><span class="zg-ctx-title" id="zg-ctx-title"></span><button type="button" class="zg-ctx-close" onclick="zgSceneDeselect()" aria-label="Снять выделение">×</button></div>
         <div class="zg-scene-editor" id="zg-scene-layer-editor" hidden>
           <div class="zg-scene-editor-top"><input id="zg-layer-name" maxlength="80" placeholder="Название слоя" oninput="zgSceneLayerControl()"><button type="button" class="zg-scene-trash" onclick="zgSceneRemoveLayer()" title="Удалить слой" aria-label="Удалить слой">×</button></div>
           <label class="zg-scene-row"><span>Заполнение</span><select id="zg-layer-fit" onchange="zgSceneLayerControl()"><option value="cover">Заполнить</option><option value="contain">Вместить</option><option value="stretch">Растянуть</option></select></label>
@@ -16550,23 +16588,6 @@ window.zgImageStore = (function() {
           <label class="zg-scene-row zg-scene-range-row"><span>Яркость</span><span><input id="zg-layer-brightness" type="range" min="0.25" max="2" step="0.05" oninput="zgSceneLayerControl()"><output id="zg-layer-brightness-out"></output></span></label>
           <label class="zg-scene-row zg-scene-range-row"><span>Насыщенность</span><span><input id="zg-layer-saturation" type="range" min="0" max="2" step="0.05" oninput="zgSceneLayerControl()"><output id="zg-layer-saturation-out"></output></span></label>
         </div>
-      </section>
-      <section class="zg-scene-section">
-        <button type="button" class="zg-scene-ghost-btn" id="zg-bgedit-btn" onclick="zgSceneBgEdit()" style="width:100%;margin-bottom:8px" title="Двигай выбранный слой фона мышью прямо по карте, масштаб — колесом">🖱 Правка фона на холсте: выкл</button>
-        <label class="zg-scene-row zg-scene-range-row" title="Сжатие загружаемых картинок: ниже — легче для игроков, выше — красивее"><span>Качество загрузки</span><span><input id="zg-lib-quality" type="range" min="50" max="95" step="5" oninput="zgLibQuality()"><output id="zg-lib-quality-out">84%</output></span></label>
-      </section>
-      <section class="zg-scene-section">
-        <div class="zg-scene-section-head"><span>📁 Библиотека фонов</span></div>
-        <div class="zg-lib-folders" id="zg-asset-folders"></div>
-        <div class="zg-lib-grid" id="zg-asset-lib"></div>
-      </section>
-      </div>
-      <input id="zg-scene-file" type="file" accept="image/*" style="display:none" onchange="zgSceneLoadBackground(event)">
-      <div class="zg-scene-pane" data-pane="tokens">
-      <section class="zg-scene-section">
-        <div class="zg-scene-section-head"><span>Жетоны</span><span class="zg-scene-add-group"><button type="button" class="zg-scene-add" onclick="zgSceneAddToken('npc')" title="Быстрый жетон НПС (золотое кольцо)">＋ НПС</button><button type="button" class="zg-scene-add" onclick="zgSceneAddToken('enemy')" title="Быстрый жетон врага (красное кольцо)">＋ Враг</button><button type="button" class="zg-scene-add" onclick="document.getElementById('zg-token-file').click()" title="Круглый жетон из своей картинки">🖼 Жетон</button><button type="button" class="zg-scene-add" onclick="document.getElementById('zg-object-file').click()" title="Объект-декорация из картинки (стол, дерево, сундук) — можно вращать">🪑 Объект</button></span></div>
-        <div class="zg-scene-hint">НПС/Враг — жетоны существ с кольцом. Жетон — из своей картинки. Объект — декорация (мебель, деревья), вращается. Клик по элементу на карте — иконки действий; Shift+клик или Shift+рамка — выделить несколько.</div>
-        <div class="zg-scene-token-list" id="zg-scene-token-list"></div>
         <div class="zg-scene-editor" id="zg-scene-token-editor" hidden>
           <div class="zg-scene-editor-top"><input id="zg-token-name" maxlength="80" placeholder="Название жетона" oninput="zgSceneTokenControl()"><button type="button" class="zg-scene-trash" id="zg-token-remove" onclick="zgSceneRemoveToken()" title="Удалить жетон" aria-label="Удалить жетон">×</button></div>
           <label class="zg-scene-row" id="zg-token-disp-row"><span>Тип</span><select id="zg-token-disp" onchange="zgSceneTokenControl()"><option value="ally">Союзник</option><option value="enemy">Враг</option><option value="npc">НПС</option><option value="neutral">Нейтрал</option></select></label>
@@ -16584,32 +16605,64 @@ window.zgImageStore = (function() {
           <div class="zg-scene-row" id="zg-token-image-row"><span>Картинка</span><button type="button" class="zg-scene-ghost-btn" onclick="document.getElementById('zg-token-image-file').click()">Загрузить…</button></div>
           <div class="zg-scene-depth"><button type="button" onclick="zgSceneTokenDuplicate()">⧉ Дубль</button><button type="button" onclick="zgSceneTokenDepth(-1)">↓ Ниже</button><button type="button" onclick="zgSceneTokenDepth(1)">↑ Выше</button></div>
         </div>
-      </section>
+      </div>
+
+      <div class="zg-scene-panes">
+
+      <div class="zg-scene-pane" data-pane="objects">
       <section class="zg-scene-section">
-        <div class="zg-scene-section-head"><span>📁 Библиотека НПС</span></div>
-        <div class="zg-lib-folders" id="zg-npc-folders"></div>
-        <div class="zg-lib-grid" id="zg-npc-lib"></div>
+        <div class="zg-scene-add-group">
+          <button type="button" class="zg-scene-add" onclick="zgSceneAddToken('npc')">НПС</button>
+          <button type="button" class="zg-scene-add" onclick="zgSceneAddToken('enemy')">Враг</button>
+          <button type="button" class="zg-scene-add" onclick="document.getElementById('zg-token-file').click()">Жетон…</button>
+          <button type="button" class="zg-scene-add" onclick="document.getElementById('zg-object-file').click()">Объект…</button>
+          <button type="button" class="zg-scene-add" onclick="zgSceneAddText()">Текст</button>
+          <button type="button" class="zg-scene-add" onclick="zgSceneAddMarker('spawn')">Появление</button>
+          <button type="button" class="zg-scene-add" onclick="zgSceneAddMarker('portal')">Переход</button>
+          <button type="button" class="zg-scene-add" onclick="zgSceneAddNote()">Записка</button>
+        </div>
+        <div class="zg-obj-filters" id="zg-obj-filters">
+          <button type="button" class="zg-lib-chip on" data-filter="all" onclick="zgObjFilter('all')">Все</button>
+          <button type="button" class="zg-lib-chip" data-filter="tokens" onclick="zgObjFilter('tokens')">Жетоны</button>
+          <button type="button" class="zg-lib-chip" data-filter="objects" onclick="zgObjFilter('objects')">Объекты</button>
+          <button type="button" class="zg-lib-chip" data-filter="markers" onclick="zgObjFilter('markers')">Метки</button>
+          <button type="button" class="zg-lib-chip" data-filter="text" onclick="zgObjFilter('text')">Текст</button>
+        </div>
+        <div class="zg-scene-token-list" id="zg-scene-object-list"></div>
       </section>
       </div>
+
+      <div class="zg-scene-pane" data-pane="library">
+      <section class="zg-scene-section">
+        <div class="zg-scene-section-head"><span>Фоны</span><button type="button" class="zg-scene-add" onclick="document.getElementById('zg-scene-file').click()">Загрузить…</button></div>
+        <div class="zg-lib-folders" id="zg-asset-folders"></div>
+        <div class="zg-lib-grid" id="zg-asset-lib"></div>
+        <div class="zg-lib-empty" id="zg-asset-lib-empty" hidden>Пусто. Загруженные фоны сохранятся здесь.</div>
+      </section>
+      <section class="zg-scene-section">
+        <div class="zg-scene-section-head"><span>Жетоны и объекты</span><button type="button" class="zg-scene-add" onclick="document.getElementById('zg-token-file').click()">Загрузить…</button></div>
+        <div class="zg-lib-folders" id="zg-npc-folders"></div>
+        <div class="zg-lib-grid" id="zg-npc-lib"></div>
+        <div class="zg-lib-empty" id="zg-npc-lib-empty" hidden>Пусто. Загруженные жетоны сохранятся здесь.</div>
+      </section>
+      <section class="zg-scene-section">
+        <label class="zg-scene-row zg-scene-range-row"><span>Качество загрузки</span><span><input id="zg-lib-quality" type="range" min="50" max="95" step="5" oninput="zgLibQuality()"><output id="zg-lib-quality-out">84%</output></span></label>
+        <div class="zg-scene-hint">Ниже — легче для игроков, выше — красивее.</div>
+      </section>
+      </div>
+
+      <input id="zg-scene-file" type="file" accept="image/*" style="display:none" onchange="zgSceneLoadBackground(event)">
       <input id="zg-token-file" type="file" accept="image/*" style="display:none" onchange="zgSceneAddCustomToken(event)">
       <input id="zg-object-file" type="file" accept="image/*" style="display:none" onchange="zgSceneAddObject(event)">
       <input id="zg-token-image-file" type="file" accept="image/*" style="display:none" onchange="zgSceneTokenImage(event)">
-      <div class="zg-scene-pane" data-pane="markers">
+
+      <div class="zg-scene-pane active" data-pane="scene">
       <section class="zg-scene-section">
-        <div class="zg-scene-section-head"><span>Метки</span><span class="zg-scene-add-group"><button type="button" class="zg-scene-add" onclick="zgSceneAddMarker('spawn')" title="Метка появления">⚑ Появление</button><button type="button" class="zg-scene-add" onclick="zgSceneAddMarker('portal')" title="Метка перехода">➜ Переход</button><button type="button" class="zg-scene-add" onclick="zgSceneAddNote()" title="Невидимая игрокам записка">✦ Записка</button></span></div>
-        <div class="zg-scene-token-list" id="zg-scene-marker-list"></div>
-        <div class="zg-scene-hint">Метки видит только мастер. «Появление» — где возникают герои. «Переход» — дверь в другую зону. «Записка» — заметка ГМ (текст в поле «Название»), игроки её не видят никогда.</div>
+        <div class="zg-scene-section-head"><span>Фоновые слои</span><button type="button" class="zg-scene-add" onclick="document.getElementById('zg-scene-file').click()">＋</button></div>
+        <div class="zg-scene-layer-list" id="zg-scene-layer-list"></div>
+        <button type="button" class="zg-scene-ghost-btn" id="zg-bgedit-btn" onclick="zgSceneBgEdit()" style="width:100%;margin-top:8px">Правка фона на холсте: выкл</button>
+        <div class="zg-scene-hint">Включи — двигай фон мышью, масштаб колесом.</div>
       </section>
-      </div>
-      <div class="zg-scene-pane" data-pane="text">
-        <section class="zg-scene-section">
-          <div class="zg-scene-section-head"><span>Текст на карте</span><button type="button" class="zg-scene-add" onclick="zgSceneAddText()" title="Добавить текст">＋ Текст</button></div>
-          <div class="zg-scene-token-list" id="zg-scene-text-list"></div>
-          <div class="zg-scene-hint">Подписи на сцене. Выбери текст — редактор появится здесь же: содержимое, размер, цвет, поворот, скрытость.</div>
-        </section>
-      </div>
-      <div class="zg-scene-pane" data-pane="links"><div class="zg-scene-pane-empty">Связи и группы элементов — скоро. Свяжем метки-переходы со сценами и объединим элементы в группы.</div></div>
-      <div class="zg-scene-pane" data-pane="grid">
       <section class="zg-scene-section">
         <div class="zg-scene-section-head"><span>Сетка и камера</span></div>
         <label class="zg-scene-row"><span>Сетка</span><input class="zg-scene-toggle" id="zg-scene-grid" type="checkbox" checked onchange="zgSceneControl()"></label>
