@@ -1082,7 +1082,7 @@
               damageFormula:String(details.damageFormula || '').slice(0,24), damageType:String(details.damageType || '').slice(0,50),
               healFormula:String(details.healFormula || '').slice(0,24), halfOnSave:!!details.halfOnSave,
               targetMode:String(details.targetMode || 'target').slice(0,24),
-              statuses:(Array.isArray(details.statuses)?details.statuses:[]).slice(0,8).map(function(status){return String(status&&status.key||status||'').slice(0,60);}).filter(Boolean),
+              statuses:(Array.isArray(details.statuses)?details.statuses:[]).slice(0,8).map(function(status){return String(status&&typeof status==='object'&&(status.key||status.statusKey||status.id)||status||'').slice(0,60);}).filter(Boolean),
               description:String(details.description || '').slice(0,500)
             };
           }
@@ -1422,6 +1422,48 @@
         if (error && ['master-only','room-not-found','combat-missing','combat-participant-missing'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
+    },
+
+    resolveCombatAbility: function (requestUid, targetKey) {
+      requestUid=String(requestUid||'').slice(0,128);targetKey=String(targetKey||'').slice(0,160);
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Разыгрывать способности может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var member=room.members&&room.members[requestUid],request=member&&member.actionRequest,ability=request&&request.ability;
+          if(!request||request.status!=='pending'||!ability)throw roomError('Заявка способности уже обработана.','request-missing');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
+          if(!combat||!combat.active||!order.length)throw roomError('Разыграть способность можно только в активном бою.','combat-missing');
+          var actorIndex=order.findIndex(function(entry){return entry&&entry.uid===requestUid;}),targetIndex=order.findIndex(function(entry){return entry&&entry.key===targetKey;});
+          if(actorIndex<0||targetIndex<0)throw roomError('Участник способности не найден.','combat-participant-missing');
+          var actor=combatEntryWithRoomStatuses(room,Object.assign({},order[actorIndex])),target=combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex]));
+          var cost=['long','short','reaction','free'].indexOf(ability.actionCost)>=0?ability.actionCost:'long',turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0));
+          if((cost==='long'||cost==='short')&&actorIndex!==turnIndex)throw roomError('Долгие и короткие способности применяются только в свой ход.','combat-not-turn');
+          var economy=Object.assign({long:1,short:1,reaction:1},actor.economy||{}),restrictions=combatRestrictions(actor);
+          if(cost!=='free'&&restrictions.blocked[cost])throw roomError(restrictions.reasons[0]||'Текущее состояние запрещает способность.','combat-status-blocked');
+          if(cost!=='free'&&Number(economy[cost]||0)<1)throw roomError('Нужное действие уже израсходовано.','combat-action-spent');
+          var distance=combatEntryDistance(room,actor,target),range=Math.max(0,Number(ability.rangeCells)||0);if(range&&distance!=null&&distance>range)throw roomError('Цель слишком далеко: '+distance+' кл., дальность способности '+range+' кл.','combat-target-range');
+          var mode=ability.resolutionMode||'utility',natural=null,rolls=[],modifier=0,total=null,success=true,dc=null;
+          if(mode==='attack'){var attackStat=ability.attackStat||'int';modifier=combatStat(actor,attackStat);natural=rollDie(20);rolls=[natural];total=natural+modifier;dc=Math.max(0,Number(target.ac)||10);success=natural===20||(natural!==1&&total>=dc);}
+          if(mode==='save'){var saveStat=ability.saveStat||'con';modifier=combatStat(target,saveStat);natural=rollDie(20);rolls=[natural];dc=ability.saveDC==null?10+combatStat(actor,ability.attackStat||'int'):Math.max(1,Number(ability.saveDC)||10);total=natural+modifier;success=natural===20||(natural!==1&&total>=dc);}
+          var damageRoll=ability.damageFormula?rollFormula(ability.damageFormula,natural===20&&mode==='attack'):{total:0,formula:''},healRoll=ability.healFormula?rollFormula(ability.healFormula,false):{total:0,formula:''};
+          var damage=Math.max(0,Number(damageRoll.total)||0);if(mode==='attack'&&!success)damage=0;if(mode==='save'&&success)damage=ability.halfOnSave?Math.floor(damage/2):0;
+          var damageType=String(ability.damageType||''),immune=combatHasDamageTrait(target.immunities,damageType),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType);if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
+          var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),tempBefore=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(tempBefore,damage),hpDamage=Math.max(0,damage-absorbed),heal=Math.max(0,Number(healRoll.total)||0),after=Math.min(Math.max(before,Number(target.hpMax)||before),Math.max(0,before-hpDamage+heal));
+          target.hp=after;target.tempHp=Math.max(0,tempBefore-absorbed);
+          var applyStatuses=mode==='save'?!success:success;if(applyStatuses&&Array.isArray(ability.statuses)){target.statuses=Array.isArray(target.statuses)?target.statuses.slice():[];ability.statuses.forEach(function(key){if(key&&combatStatusKeys(target).indexOf(key)<0)target.statuses.push(key);});}
+          if(cost!=='free')economy[cost]=Math.max(0,Number(economy[cost]||0)-1);if(restrictions.slowed&&(cost==='long'||cost==='short')){economy.long=0;economy.short=0;}actor.economy=economy;order[actorIndex]=actor;order[targetIndex]=target;
+          var stamp=now(),updates={};updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['members/'+requestUid+'/actionRequest/status']='approved';updates['members/'+requestUid+'/actionRequest/resolvedAt']=stamp;
+          if(target.uid){updates['members/'+target.uid+'/character/hpCur']=after;updates['members/'+target.uid+'/character/tempHp']=target.tempHp;updates['members/'+target.uid+'/character/statuses']=target.statuses||[];}
+          if(target.tokenId){
+            (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=after;updates['scene/tokens/'+index+'/tempHp']=target.tempHp;updates['scene/tokens/'+index+'/statuses']=target.statuses||[];}});
+            Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=target.tempHp;updates['zones/'+zoneId+'/tokens/'+index+'/statuses']=target.statuses||[];}});});
+          }
+          var result=mode==='save'?(success?'цель спаслась':'спасбросок провален'):mode==='attack'?(success?'попадание':'промах'):'эффект применён';
+          updates.combatEvent={id:'combat-ability-'+stamp,kind:'combat-ability',name:actor.name||request.name||'Участник',portrait:actor.portrait||'',text:'Применяет «'+(ability.name||'способность')+'» на '+(target.name||'цель')+' — '+result+'.'+(natural!=null?' d20 '+natural+(modifier?' '+(modifier>0?'+ ':'- ')+Math.abs(modifier):'')+' = '+total+(dc!=null?' против '+(mode==='attack'?'AC ':'DC ')+dc:'')+'.':'')+(damage?' Урон '+damage+(damageType?' ('+damageType+')':'')+'.':'')+(heal?' Лечение '+heal+'.':'')+(absorbed?' Временные HP поглощают '+absorbed+'.':'')+(applyStatuses&&ability.statuses&&ability.statuses.length?' Состояния: '+ability.statuses.join(', ')+'.':''),ability:ability.name||'',abilityKey:ability.key||'',targetKey:target.key,roll:natural,rolls:rolls,total:total,dc:dc,success:success,damage:damage,heal:heal,ts:stamp,revealAt:stamp+(natural!=null?3200:500)};updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+        });
+      }).catch(function(error){if(error&&['master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-not-turn','combat-status-blocked','combat-action-spent','combat-target-range'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
     prepareCombatReaction: function (text, participantKey) {
