@@ -1194,8 +1194,9 @@
       });
     },
 
-    startCombat: function (sceneParticipants) {
+    startCombat: function (sceneParticipants, heroOptions) {
       sceneParticipants = Array.isArray(sceneParticipants) ? sceneParticipants.slice(0, 40) : [];
+      heroOptions = heroOptions && typeof heroOptions === 'object' ? heroOptions : {};
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || session.role !== 'master') throw roomError('Начать бой может только мастер.', 'master-only');
@@ -1203,10 +1204,13 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
           if (room.combat && room.combat.active) throw roomError('Бой уже идёт.', 'combat-active');
-          var order = membersOf(room, 'player').filter(function (member) { return member.characterId && member.character; }).map(function (member) {
-            var bonus = Number(member.character.initiative || 0), roll = Math.floor(Math.random() * 20) + 1;
+          var order = membersOf(room, 'player').filter(function (member) {
+            return member.characterId && member.character && (!heroOptions[member.uid] || heroOptions[member.uid].selected !== false);
+          }).map(function (member) {
+            var option=heroOptions[member.uid]||{},bonus = Number(member.character.initiative || 0), mode=['advantage','disadvantage'].indexOf(option.mode)>=0?option.mode:'normal';
+            var first=Math.floor(Math.random()*20)+1,second=mode==='normal'?null:Math.floor(Math.random()*20)+1,roll=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
             var speed = Math.max(0, Number(member.character.speed) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), tempHp:Math.max(0,Number(member.character.tempHp)||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, rolls:second==null?[first]:[first,second], rollMode:mode, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), tempHp:Math.max(0,Number(member.character.tempHp)||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -1218,7 +1222,8 @@
             if (!participant || !participant.tokenId) return;
             var name = String(participant.name || 'Существо').trim().slice(0, 80) || 'Существо';
             var bonus = Math.max(-20, Math.min(20, Number(participant.bonus) || 0));
-            var roll = Math.floor(Math.random() * 20) + 1;
+            var mode=['advantage','disadvantage'].indexOf(participant.mode)>=0?participant.mode:'normal',first=Math.floor(Math.random()*20)+1,second=mode==='normal'?null:Math.floor(Math.random()*20)+1;
+            var roll=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
             var portrait = String(participant.portrait || '');
             if (/^data:/i.test(portrait) && portrait.length > 16000) portrait = '';
             order.push({
@@ -1226,7 +1231,7 @@
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               sourceRef:participant.sourceRef&&['npc','beast'].indexOf(participant.sourceRef.type)>=0?{type:participant.sourceRef.type,id:String(participant.sourceRef.id||'').slice(0,120)}:null,
               level:Math.max(1,Math.min(99,Number(participant.level)||1)),
-              roll:roll, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
+              roll:roll, rolls:second==null?[first]:[first,second], rollMode:mode, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
               tempHp:Math.min(Math.floor(Math.max(0,Number(participant.hpMax)||0)*0.5),Math.max(0,Number(participant.tempHp)||0)),
               ac:Math.max(0,Number(participant.ac)||10),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
@@ -1249,6 +1254,11 @@
           order[0] = opening;
           startUpdates.combat={ active:true, round:1, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp };
           startUpdates.combatEvent={ id:'combat-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Начинается бой. Инициатива определена. Ход: '+(opening.name||'участник')+'.'+(openingTick.changes.length?' '+openingTick.changes.join('; '):''), ts:stamp };
+          order.forEach(function(entry,index){
+            if(!entry.uid)return;
+            var dice=(entry.rolls||[entry.roll]).map(function(value){return{sides:20,value:value,total:value+(entry.roll===value?entry.bonus:0),outcome:value===20?'critical-success':value===1?'critical-fail':'',kept:entry.rolls&&entry.rolls.length>1?value===entry.roll:null,rollMode:entry.rollMode||'',statLabel:'Инициатива'};});
+            startUpdates['members/'+entry.uid+'/activeRoll']={id:'initiative-'+stamp+'-'+index,ts:stamp,duration:1450,rolls:dice,speakerUid:entry.uid,name:entry.name};
+          });
           if(opening.uid)startUpdates['members/'+opening.uid+'/character/hpCur']=Number(opening.hp||0);
           startUpdates.updatedAt=stamp;
           return firebase.update(roomRef(session.code), startUpdates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
@@ -1718,14 +1728,14 @@
       }).catch(function () { return null; });
     },
 
-    beginRoll: function (sides, speakerUid, value, total, outcome, statLabel) {
+    beginRoll: function (sides, speakerUid, value, total, outcome, statLabel, clientRollId) {
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || !firebase || !db) return null;
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
         var activeRoll = {
-          id: 'roll-' + now() + '-' + Math.random().toString(36).slice(2, 6),
+          id: String(clientRollId || ('roll-' + now() + '-' + Math.random().toString(36).slice(2, 6))).slice(0,120),
           ts: now(),
           duration: 1100,
           sides: Math.max(2, Math.min(100, Number(sides) || 20)),
@@ -1737,13 +1747,14 @@
           name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок'
         };
         if (member) { member.activeRoll = activeRoll; emit(); }
+        try { window.dispatchEvent(new CustomEvent('zg-local-roll',{detail:{ownerUid:user.uid,roll:activeRoll}})); } catch(e) {}
         return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
           activeRoll: activeRoll
         }).catch(function () { return null; });
       }).catch(function () { return null; });
     },
 
-    beginRollBatch: function (rolls, speakerUid) {
+    beginRollBatch: function (rolls, speakerUid, clientRollId) {
       rolls = (Array.isArray(rolls) ? rolls : []).slice(0, 10).map(function (roll) {
         var sides = Math.max(2, Math.min(100, Number(roll && roll.sides) || 20));
         var value = Math.max(1, Math.min(sides, Number(roll && roll.value) || 1));
@@ -1760,9 +1771,10 @@
         var session = readSession(); if (!session || !firebase || !db) return null;
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
-        var activeRoll = { id:'roll-'+now()+'-'+Math.random().toString(36).slice(2,6), ts:now(), duration:1250, rolls:rolls,
+        var activeRoll = { id:String(clientRollId||('roll-'+now()+'-'+Math.random().toString(36).slice(2,6))).slice(0,120), ts:now(), duration:1250, rolls:rolls,
           speakerUid:speaker && speaker.uid || user.uid, name:speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок' };
         if (member) { member.activeRoll = activeRoll; emit(); }
+        try { window.dispatchEvent(new CustomEvent('zg-local-roll',{detail:{ownerUid:user.uid,roll:activeRoll}})); } catch(e) {}
         return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
           activeRoll: activeRoll
         }).catch(function () { return null; });
