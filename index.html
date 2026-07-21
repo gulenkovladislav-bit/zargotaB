@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.60"></script>
+<script src="zargota-network.js?v=2026-07-21.61"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9018,8 +9018,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.60';
+var ZG_APP_VERSION = '2026-07-21.61';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-21.61', notes: 'Гейм-мастер получил спасброски по Мануалу: цель, характеристика, DC, бонус, преимущество или помеха, критические исходы и снятие состояния при успехе.' },
   { v: '2026-07-21.60', notes: 'Временные HP из листа героя теперь входят в сетевой бой, поглощают урон раньше здоровья и отображаются у участников и целей.' },
   { v: '2026-07-21.59', notes: 'Боевые атаки учитывают дистанцию жетонов и резисты из листов; при 0 HP решение остаётся мастеру, а результат появляется в летописи после анимации.' },
   { v: '2026-07-21.58', notes: 'Первая полноценная атака по Мануалу: выбор цели, оружия, характеристики и режима броска; проверка против брони, критический урон и синхронное изменение HP.' },
@@ -12292,7 +12293,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var combat=state&&state.room&&state.room.combat, active=!!(combat&&combat.active), order=active&&Array.isArray(combat.order)?combat.order:[];
     var button=el('zg-combat-toggle'),bar=el('zg-combat-bar'),turn=order[Number(combat&&combat.turnIndex)||0],session=state&&state.session;
     if(button){button.textContent=active?'Бой · '+Number(combat.round||1):'Начать бой';button.classList.toggle('active',active);}
-    if(bar){bar.classList.toggle('open',active);bar.innerHTML=active?'<span class="zg-combat-round">Раунд <b>'+Number(combat.round||1)+'</b></span><span class="zg-combat-turn"><small>Сейчас ходит</small><b>'+esc(turn&&turn.name||'—')+'</b></span>'+(session&&session.role==='master'?'<button type="button" class="zg-combat-next" onclick="zgCombatAdvance()">Следующий ход <span>›</span></button><button type="button" class="zg-combat-end" onclick="zgCombatConfirmEnd()" title="Завершить бой">×</button>':'') : '';}
+    if(bar){bar.classList.toggle('open',active);bar.innerHTML=active?'<span class="zg-combat-round">Раунд <b>'+Number(combat.round||1)+'</b></span><span class="zg-combat-turn"><small>Сейчас ходит</small><b>'+esc(turn&&turn.name||'—')+'</b></span>'+(session&&session.role==='master'?'<button type="button" class="zg-combat-save-open" onclick="zgCombatSaveToggle()">Спасбросок</button><button type="button" class="zg-combat-next" onclick="zgCombatAdvance()">Следующий ход <span>›</span></button><button type="button" class="zg-combat-end" onclick="zgCombatConfirmEnd()" title="Завершить бой">×</button>':'') : '';}
     var own=ownMember(),notice=el('zg-combat-own-turn');
     if(notice){var ownTurn=!!(active&&turn&&own&&turn.uid===own.uid);notice.classList.toggle('show',ownTurn);notice.innerHTML=ownTurn?'<span>✦</span><b>Ваш ход</b><small>Раунд '+Number(combat.round||1)+'</small>':'';}
     var economyHost=el('zg-combat-economy');
@@ -12310,6 +12311,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     renderCombatPrepare();
     if(el('zg-combat-attack')&&el('zg-combat-attack').classList.contains('open'))renderCombatAttack();
+    if(el('zg-combat-save')&&el('zg-combat-save').classList.contains('open'))renderCombatSave();
     var dock=el('zg-player-dock');if(dock)dock.classList.toggle('combat-mode',active);
   }
   function combatBusy(value){document.querySelectorAll('#zg-combat-bar button,#zg-combat-confirm button,#zg-combat-toggle').forEach(function(button){button.disabled=!!value;});}
@@ -12359,6 +12361,27 @@ document.addEventListener('DOMContentLoaded', function(){
       var event=snapshot&&snapshot.room&&snapshot.room.combatEvent;if(event){var speaker=attacker&&attacker.uid||'',outcome=event.critical?'critical-success':(event.attackRoll===1?'critical-fail':''),rolls=Array.isArray(event.attackRolls)?event.attackRolls:[];if(rolls.length>1&&w.ZargotaRooms.beginRollBatch){var selected=Number(event.attackRoll);return w.ZargotaRooms.beginRollBatch(rolls.map(function(value){return{sides:20,value:Number(value),total:Number(value),outcome:Number(value)===selected?outcome:'',kept:Number(value)===selected,rollMode:event.rollMode||'advantage',statLabel:'Атака'};}),speaker);}if(w.ZargotaRooms.beginRoll)return w.ZargotaRooms.beginRoll(20,speaker,event.attackRoll,event.attackTotal,outcome,'Атака');}
     }).then(function(){w.zgCombatAttackToggle(false);}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Атака не удалась');}).then(function(){combatAttackBusy=false;});
   };
+  var combatSaveTargetKey='',combatSaveBusy=false;
+  function combatSaveStat(entry,key){var value=entry&&entry.stats&&entry.stats[key]||{};return Number(typeof value==='number'?value:(value.cur!=null&&value.cur!==0?value.cur:value.base||0))||0;}
+  function renderCombatSave(){
+    var panel=el('zg-combat-save'),body=el('zg-combat-save-body');if(!panel||!body)return;
+    var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],session=state&&state.session;
+    if(!combat||!combat.active||!session||session.role!=='master'){panel.classList.remove('open');return;}
+    if(!order.some(function(entry){return entry&&entry.key===combatSaveTargetKey;}))combatSaveTargetKey=order[0]&&order[0].key||'';
+    var target=order.filter(function(entry){return entry&&entry.key===combatSaveTargetKey;})[0]||order[0],labels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
+    var targets=order.map(function(entry){return '<button type="button" class="zg-combat-attack-target '+(entry.key===combatSaveTargetKey?'active':'')+'" onclick="zgCombatSaveTarget('+JSON.stringify(entry.key)+')"><span><b>'+esc(entry.name||'Участник')+'</b><small>HP '+Number(entry.hp==null?entry.hpMax:entry.hp)+'</small></span></button>';}).join('');
+    var stats=Object.keys(labels).map(function(key){return '<option value="'+key+'">'+labels[key]+' '+(combatSaveStat(target,key)>=0?'+':'')+combatSaveStat(target,key)+'</option>';}).join('');
+    var statuses=(target&&Array.isArray(target.statuses)?target.statuses:[]).map(function(status){var key=String(typeof status==='string'?status:status&&(status.key||status.statusKey||status.id)||'');var name=String(typeof status==='string'?status:status&&(status.name||status.label||key)||key);return key?'<option value="'+esc(key)+'">'+esc(name)+'</option>':'';}).join('');
+    body.innerHTML='<div class="zg-combat-save-targets">'+targets+'</div><div class="zg-combat-save-grid"><label>Характеристика<select id="zg-combat-save-stat">'+stats+'</select></label><label>DC<input id="zg-combat-save-dc" type="number" min="1" max="40" value="10"></label><label>Доп. бонус<input id="zg-combat-save-bonus" type="number" min="-10" max="10" value="0"></label><label>Режим<select id="zg-combat-save-mode"><option value="normal">Обычный</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select></label><label class="wide">При успехе снять<select id="zg-combat-save-status"><option value="">Ничего</option>'+statuses+'</select></label></div><button type="button" class="zg-combat-attack-submit" onclick="zgCombatSaveSubmit()" '+(!combatSaveTargetKey||combatSaveBusy?'disabled':'')+'>'+(combatSaveBusy?'Бросок…':'Назначить спасбросок')+'</button>';
+  }
+  w.zgCombatSaveToggle=function(force){var panel=el('zg-combat-save');if(!panel)return false;var open=typeof force==='boolean'?force:!panel.classList.contains('open');if(open){if(w.zgVttDeactivateTools)w.zgVttDeactivateTools('combat-save');renderCombatSave();}panel.classList.toggle('open',open);return open;};
+  w.zgCombatSaveTarget=function(key){combatSaveTargetKey=String(key||'');renderCombatSave();};
+  w.zgCombatSaveSubmit=function(){
+    if(combatSaveBusy||!combatSaveTargetKey||!w.ZargotaRooms||!w.ZargotaRooms.resolveCombatSavingThrow)return;
+    var options={statKey:el('zg-combat-save-stat')&&el('zg-combat-save-stat').value||'con',dc:Number(el('zg-combat-save-dc')&&el('zg-combat-save-dc').value)||10,bonus:Number(el('zg-combat-save-bonus')&&el('zg-combat-save-bonus').value)||0,mode:el('zg-combat-save-mode')&&el('zg-combat-save-mode').value||'normal',removeStatus:el('zg-combat-save-status')&&el('zg-combat-save-status').value||''};
+    combatSaveBusy=true;renderCombatSave();
+    w.ZargotaRooms.resolveCombatSavingThrow(combatSaveTargetKey,options).then(function(snapshot){var event=snapshot&&snapshot.room&&snapshot.room.combatEvent;if(!event)return;var rolls=Array.isArray(event.saveRolls)?event.saveRolls:[],outcome=event.saveRoll===20?'critical-success':(event.saveRoll===1?'critical-fail':'');if(rolls.length>1&&w.ZargotaRooms.beginRollBatch)return w.ZargotaRooms.beginRollBatch(rolls.map(function(value){return{sides:20,value:Number(value),total:Number(value),outcome:Number(value)===Number(event.saveRoll)?outcome:'',kept:Number(value)===Number(event.saveRoll),rollMode:event.rollMode,statLabel:'Спасбросок'};}),'');if(w.ZargotaRooms.beginRoll)return w.ZargotaRooms.beginRoll(20,'',event.saveRoll,event.total,outcome,'Спасбросок');}).then(function(){w.zgCombatSaveToggle(false);}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Спасбросок не выполнен');}).then(function(){combatSaveBusy=false;});
+  };
   function renderCombatPrepare(){
     var panel=el('zg-combat-prepare'),body=el('zg-combat-prepare-body');if(!panel||!body)return;
     var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],session=state&&state.session,turn=order[Number(combat&&combat.turnIndex)||0],own=ownMember();
@@ -12381,6 +12404,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttDeactivateTools=function(except){
     if(except!=='combat-prepare'&&w.zgCombatPrepareToggle)w.zgCombatPrepareToggle(false);
     if(except!=='combat-attack'&&w.zgCombatAttackToggle)w.zgCombatAttackToggle(false);
+    if(except!=='combat-save'&&w.zgCombatSaveToggle)w.zgCombatSaveToggle(false);
     if(except!=='dice'&&w.zgDiceClose)w.zgDiceClose();
     if(except!=='movement'&&w.zgMovementToggle)w.zgMovementToggle(false);
     if(except!=='actions'){
@@ -16225,6 +16249,7 @@ window.zgImageStore = (function() {
   .zg-combat-confirm .zg-confirm-box{max-width:500px}.zg-combat-confirm-mark{width:62px;height:62px;margin:-6px auto 15px;border:1px solid #88682e;border-radius:50%;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle,#33200d,#100b06 72%);color:#eccb74;font-size:28px;box-shadow:0 0 25px #d29b3933}.zg-combat-confirm .zg-confirm-text{max-width:390px;margin-left:auto;margin-right:auto}.zg-combat-confirm-note{margin:14px 0 3px;color:#74664d;font:9px 'Cinzel',serif;letter-spacing:.6px;text-align:center}
   .zg-combat-participants{max-height:min(42vh,390px);overflow:auto;margin:15px 0 4px;padding:2px 5px 2px 2px;text-align:left;scrollbar-color:#6a4c20 #0b0805}.zg-combat-participant-title{display:flex;align-items:center;gap:7px;margin:7px 3px;color:#a38b57;font:700 8px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-combat-participant-title.creatures{margin-top:14px;padding-top:10px;border-top:1px solid #352713}.zg-combat-participant-title small{min-width:17px;padding:2px 5px;border-radius:8px;background:#241909;color:#d4ad56;text-align:center}.zg-combat-participant{position:relative;display:grid;grid-template-columns:22px 38px minmax(0,1fr) auto;gap:8px;align-items:center;min-height:50px;margin:5px 0;padding:5px 8px;border:1px solid #342716;border-radius:6px;background:#100d08;color:#bba77b}.zg-combat-participant.hero{grid-template-columns:22px 38px minmax(0,1fr);opacity:.82}.zg-combat-participant img,.zg-combat-participant>i{width:36px;height:36px;border:1px solid #604820;border-radius:4px;object-fit:cover;background:#080705;display:flex;align-items:center;justify-content:center;font-style:normal}.zg-combat-participant b,.zg-combat-participant small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-combat-participant b{color:#dfc987;font:600 11px Georgia,serif}.zg-combat-participant small{margin-top:3px;color:#796b50;font-size:9px}.zg-combat-participant-check{width:17px;height:17px;border:1px solid #57431f;border-radius:4px;color:transparent;text-align:center;font:700 11px/17px Arial;background:#0b0906}.zg-combat-participant.hero .zg-combat-participant-check{border-color:#49704c;background:#172719;color:#8fd195}.zg-combat-participant-toggle{position:absolute;opacity:0;pointer-events:none}.zg-combat-participant.token{cursor:pointer}.zg-combat-participant.token:has(.zg-combat-participant-toggle:checked){border-color:#79602d;background:#191107}.zg-combat-participant-toggle:checked+.zg-combat-participant-check{border-color:#b78c39;background:#3b2a0d;color:#f2d77f}.zg-combat-participant em{display:flex;align-items:center;gap:5px;color:#76694f;font:8px 'Cinzel',serif;font-style:normal}.zg-combat-participant em input{width:42px;height:27px;padding:0 3px;border:1px solid #49361b;border-radius:4px;background:#090704;color:#e1c77f;text-align:center;font:700 11px Georgia,serif}.zg-combat-participant-empty{padding:18px;border:1px dashed #392b18;border-radius:6px;color:#75684e;text-align:center;font-size:10px}
   .zg-combat-attack-grid{grid-template-columns:1.35fr repeat(3,.8fr)}.zg-vtt-log-entry.combat-attack{border-left-color:#a76237}.zg-vtt-log-entry.combat-critical{border-left-color:#d9ad45;box-shadow:inset 10px 0 18px #c58a2510}@media(max-width:720px){.zg-combat-attack-grid{grid-template-columns:1fr 1fr}.zg-combat-attack-targets{grid-template-columns:1fr 1fr}}
+  .zg-combat-save-open{height:29px;padding:0 10px;border:1px solid #665126;border-radius:15px;background:#171006;color:#d8bb6e;font:8px 'Cinzel',serif;cursor:pointer}.zg-combat-save{width:min(560px,calc(100vw - 28px))}.zg-combat-save-targets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:10px}.zg-combat-save-targets .zg-combat-attack-target{grid-template-columns:1fr}.zg-combat-save-grid{display:grid;grid-template-columns:1.2fr repeat(3,.75fr);gap:8px;margin-top:10px}.zg-combat-save-grid label{display:grid;gap:5px;color:#806f4e;font:8px 'Cinzel',serif;text-transform:uppercase}.zg-combat-save-grid label.wide{grid-column:1/-1}.zg-combat-save-grid select,.zg-combat-save-grid input{min-width:0;height:35px;padding:0 8px;border:1px solid #4b321d;border-radius:5px;background:#0a0705;color:#dfc58d;font:10px Georgia,serif}.zg-vtt-log-entry.combat-save-success{border-left-color:#5d9a63}.zg-vtt-log-entry.combat-save-fail{border-left-color:#a94d45}@media(max-width:720px){.zg-combat-save-grid{grid-template-columns:1fr 1fr}.zg-combat-save-targets{grid-template-columns:1fr 1fr}}
   .zg-overview-button{padding:0 13px;min-width:82px}
   .zg-overview-panel{display:none;position:absolute;right:120px;top:66px;z-index:18;width:310px;padding:14px;border:1px solid #745824;border-radius:8px;background:linear-gradient(180deg,rgba(20,15,9,.98),rgba(8,7,5,.98));box-shadow:0 22px 70px #000d;color:#bda978}
   .zg-overview-panel.open{display:block;animation:zgPopIn .2s ease}
@@ -16793,6 +16818,7 @@ window.zgImageStore = (function() {
     <div class="zg-combat-economy" id="zg-combat-economy" aria-label="Экономика боевого хода"></div>
     <section class="zg-combat-prepare" id="zg-combat-prepare"><header>Подготовленная реакция<button type="button" onclick="zgCombatPrepareToggle(false)" aria-label="Закрыть">×</button></header><div id="zg-combat-prepare-body"></div></section>
     <section class="zg-combat-attack" id="zg-combat-attack"><header>Атака оружием<button type="button" onclick="zgCombatAttackToggle(false)" aria-label="Закрыть">×</button></header><div id="zg-combat-attack-body"></div></section>
+    <section class="zg-combat-attack zg-combat-save" id="zg-combat-save"><header>Спасбросок<button type="button" onclick="zgCombatSaveToggle(false)" aria-label="Закрыть">×</button></header><div id="zg-combat-save-body"></div></section>
     <div class="zg-confirm-overlay zg-combat-confirm" id="zg-combat-confirm">
       <div class="zg-confirm-box" role="dialog" aria-modal="true" aria-labelledby="zg-combat-confirm-title"><div class="zg-combat-confirm-mark">⚔</div><div class="zg-confirm-title" id="zg-combat-confirm-title">Собрать участников</div><div class="zg-confirm-text">Герои уже готовы. Выберите существ и NPC, которые вступают в бой.</div><div class="zg-combat-participants" id="zg-combat-participants"></div><div class="zg-confirm-btns"><button type="button" class="zg-confirm-no" onclick="zgCombatConfirmClose()">Отмена</button><button type="button" class="zg-confirm-yes" onclick="zgCombatStart()">Бросить инициативу</button></div></div>
     </div>

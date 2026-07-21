@@ -103,7 +103,8 @@
   function combatEntryWithRoomStatuses(room, entry) {
     if (!entry || !entry.uid || !room || !room.members || !room.members[entry.uid] || !room.members[entry.uid].character) return entry;
     return Object.assign({}, entry, {
-      statuses:Array.isArray(room.members[entry.uid].character.statuses) ? room.members[entry.uid].character.statuses : []
+      statuses:Array.isArray(room.members[entry.uid].character.statuses) ? room.members[entry.uid].character.statuses : [],
+      statusEffects:Array.isArray(room.members[entry.uid].character.statusEffects) ? room.members[entry.uid].character.statusEffects : (Array.isArray(entry.statusEffects) ? entry.statusEffects : [])
     });
   }
 
@@ -1342,6 +1343,65 @@
         });
       }).catch(function(error){
         if(error&&['room-required','room-not-found','combat-missing','combat-not-turn','combat-target-invalid','combat-target-range','combat-zero-hp','combat-status-blocked','combat-action-spent'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveCombatSavingThrow: function (targetKey, options) {
+      targetKey = String(targetKey || '').slice(0, 160);
+      options = options || {};
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Спасбросок назначает гейм-мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order.slice() : [];
+          if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
+          var targetIndex = order.findIndex(function (entry) { return entry && entry.key === targetKey; });
+          if (targetIndex < 0) throw roomError('Участник боя не найден.', 'combat-participant-missing');
+          var target = combatEntryWithRoomStatuses(room, Object.assign({}, order[targetIndex]));
+          var statKey = ['str','dex','int','cha','per','con'].indexOf(options.statKey) >= 0 ? options.statKey : 'con';
+          var statLabels = {str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
+          var dc = Math.max(1, Math.min(40, Number(options.dc) || 10));
+          var bonus = Math.max(-10, Math.min(10, Number(options.bonus) || 0));
+          var modifier = combatStat(target, statKey) + bonus;
+          var mode = ['advantage','disadvantage'].indexOf(options.mode) >= 0 ? options.mode : 'normal';
+          var keys = combatStatusKeys(target);
+          var exhausted = (target.statuses || []).filter(function (status) { return status && typeof status === 'object' && (status.key === 'exhausted' || status.statusKey === 'exhausted'); })[0];
+          if ((statKey === 'dex' && keys.indexOf('restrain') >= 0) || Number(exhausted && (exhausted.level || exhausted.stacks)) >= 3) mode = 'disadvantage';
+          var first = rollDie(20), second = mode === 'normal' ? null : rollDie(20);
+          var natural = second == null ? first : (mode === 'advantage' ? Math.max(first, second) : Math.min(first, second));
+          var total = natural + modifier;
+          var success = natural === 20 || (natural !== 1 && total >= dc);
+          var removeKey = String(options.removeStatus || '').slice(0, 80);
+          if (success && removeKey) {
+            target.statuses = (target.statuses || []).filter(function (status) { return String(typeof status === 'string' ? status : status && (status.key || status.statusKey || status.id) || '') !== removeKey; });
+            target.statusEffects = (target.statusEffects || []).filter(function (effect) { return String(effect && (effect.statusKey || effect.key || effect.id) || '') !== removeKey; });
+          }
+          order[targetIndex] = target;
+          var stamp = now(), updates = {};
+          updates['combat/order'] = order;
+          updates['combat/updatedAt'] = stamp;
+          if (target.uid && success && removeKey) {
+            updates['members/'+target.uid+'/character/statuses'] = target.statuses;
+            updates['members/'+target.uid+'/character/statusEffects'] = target.statusEffects;
+          }
+          var rolls = second == null ? [first] : [first, second];
+          var rollText = second == null ? String(natural) : first+' / '+second+' → '+natural;
+          updates.combatEvent = {
+            id:'combat-save-'+stamp, kind:success?'combat-save-success':'combat-save-fail',
+            name:target.name || 'Участник', portrait:target.portrait || '',
+            text:'Спасбросок: '+statLabels[statKey]+'. d20 '+rollText+(modifier?' '+(modifier>0?'+ ':'- ')+Math.abs(modifier):'')+' = '+total+' против DC '+dc+' — '+(success?'успех':'провал')+(success&&removeKey?'. Состояние снято.':'.'),
+            saveRoll:natural, saveRolls:rolls, rollMode:mode, statKey:statKey,
+            modifier:modifier, total:total, dc:dc, success:success,
+            targetKey:target.key, removedStatus:success?removeKey:'', ts:stamp, revealAt:stamp+3200
+          };
+          updates.updatedAt = stamp;
+          return firebase.update(roomRef(session.code), updates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','combat-missing','combat-participant-missing'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
