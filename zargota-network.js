@@ -1948,7 +1948,7 @@
             lastSeen: firebase.serverTimestamp()
           });
         }
-        return operation.catch(function () {}).then(function () {
+        return operation.then(function () {
           saveSession(null);
           stopWatchingRoom();
           emit();
