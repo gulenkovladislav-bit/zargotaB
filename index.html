@@ -16358,7 +16358,7 @@ window.zgImageStore = (function() {
   .zg-game-overlay.arriving .zg-vtt-scene{transform-origin:var(--zg-arrival-x,50%) var(--zg-arrival-y,50%);animation:zgPlayerArrival 5.8s cubic-bezier(.2,.72,.2,1) both}
   .zg-vtt-arrival-fog{position:fixed;inset:-12%;z-index:80;display:none;pointer-events:none;background:radial-gradient(circle at var(--zg-arrival-x,50%) var(--zg-arrival-y,50%),transparent 0 9%,rgba(20,24,23,.34) 24%,rgba(5,7,7,.84) 68%),repeating-radial-gradient(ellipse at 20% 52%,rgba(104,115,111,.23) 0 7%,transparent 15% 25%),repeating-radial-gradient(ellipse at 82% 44%,rgba(78,91,89,.2) 0 8%,transparent 17% 28%);filter:blur(16px)}
   .zg-game-overlay.arriving .zg-vtt-arrival-fog{display:block;animation:zgArrivalFog 6.1s ease-out both}
-  @keyframes zgPlayerArrival{0%{transform:scale(.94);filter:blur(5px) brightness(.42)}38%{filter:blur(2px) brightness(.68)}100%{transform:scale(1);filter:none}}
+  @keyframes zgPlayerArrival{0%{transform:scale(.625);filter:blur(5px) brightness(.42)}38%{filter:blur(2px) brightness(.68)}100%{transform:scale(1);filter:none}}
   @keyframes zgArrivalFog{0%,18%{opacity:1;transform:scale(1.08)}72%{opacity:.34}100%{opacity:0;transform:scale(1.28)}}
   .zg-game-gear{position:absolute;top:16px;right:16px;z-index:4;width:42px;height:42px;border-radius:10px;
     background:rgba(20,15,8,.5);border:1px solid rgba(200,170,90,.25);color:var(--muted);font-size:20px;line-height:1;cursor:pointer;
