@@ -650,14 +650,23 @@
       if (createRoomPromise) return createRoomPromise;
       createRoomPromise = ensureReady().then(function (user) {
         var saved=readSession();
-        if(saved&&saved.role==='master')return readRoom(saved.code).then(function(existing){
-          if(existing&&existing.masterUid===user.uid){currentRoom=existing;watchRoom(saved.code);setPresence(saved);ensureCampaign(user);watchCampaign();emit();return api.getSnapshot();}
-          saveSession(null);return null;
+        if(!saved)return null;
+        return readRoom(saved.code).then(function(existing){
+          stopWatchingRoom();
+          saveSession(null);
+          currentRoom=null;
+          emit();
+          if(!existing)return null;
+          if(saved.role==='master'&&existing.masterUid===user.uid){
+            return firebase.remove(roomRef(saved.code)).then(function(){return null;});
+          }
+          var cleanup={};
+          if(existing.members&&existing.members[user.uid])cleanup['members/'+user.uid]=null;
+          if(saved.playerCode&&existing.pending&&existing.pending[saved.playerCode])cleanup['pending/'+saved.playerCode]=null;
+          Object.keys(existing.slots||{}).forEach(function(slot){if(existing.slots[slot]&&existing.slots[slot].uid===user.uid)cleanup['slots/'+slot]=null;});
+          return Object.keys(cleanup).length?firebase.update(roomRef(saved.code),cleanup).then(function(){return null;}):null;
         });
-        if(saved)return readRoom(saved.code).then(function(existing){if(existing)throw roomError('У вас уже есть активная сессия. Сначала вернитесь в неё или покиньте комнату.','active-room');saveSession(null);return null;});
-        return null;
-      }).then(function(existingSnapshot){
-        if(existingSnapshot)return existingSnapshot;
+      }).then(function(){
         return ensureReady().then(function (user) {
         return uniqueRoomCode().then(function (code) {
           var room = {

@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-22.9"></script>
+<script src="zargota-network.js?v=2026-07-23.1"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.29';
+var ZG_APP_VERSION = '2026-07-23.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.1', notes: 'Новая GM-комната больше не восстанавливает старую сессию. Мастер остаётся на экране выбора героев, наблюдает за игроками и переходит к сцене только отдельной кнопкой.' },
   { v: '2026-07-22.29', notes: 'Все пять героев снова можно свободно листать и рассматривать: выбор другим игроком блокирует только окончательное подтверждение, но не карточку персонажа.' },
   { v: '2026-07-22.28', notes: 'Сессии разделены по вкладкам: создание защищено паролем 7777, создавшая вкладка автоматически становится GM, а новые вкладки работают как отдельные клиенты.' },
   { v: '2026-07-22.27', notes: 'Устранено вечное ожидание при входе гейм-мастера: повторный запуск больше не теряет таймер, а подготовка сцены открывается автоматически.' },
@@ -9603,8 +9604,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(snapshot.room.phase==='pairing'){
         if (snapshot.session.role === 'master') w.zgAdvShowHost(); else w.zgAdvShowPlayer();
       }else if(snapshot.room.phase==='character-select'){
-        if(snapshot.session.role==='master'){if(w.zgEnterAsGameMaster)w.zgEnterAsGameMaster();}
-        else if(w.zgCharSelOpen)w.zgCharSelOpen();return;
+        if(w.zgCharSelOpen)w.zgCharSelOpen();return;
       }else{
         if(w.zgGameOpen)w.zgGameOpen(false);return;
       }
@@ -9772,11 +9772,11 @@ document.addEventListener('DOMContentLoaded', function(){
       ? '<strong>Подключение подтверждено.</strong><br>Ожидаем команду гейм-мастера…'
       : 'Заявка отправлена.<br>Ожидаем подтверждения гейм-мастера…';
     if (room.phase === 'character-select' && (snapshot.session.role === 'master' || snapshot.approved)) {
+      if (w.zgCharSelRefresh) w.zgCharSelRefresh();
       if (lastOpenedPhase !== room.code + ':character-select') {
         lastOpenedPhase = room.code + ':character-select';
         w.zgAdvClose();
-        if(snapshot.session.role==='master'){if(w.zgEnterAsGameMaster)w.zgEnterAsGameMaster();}
-        else if (w.zgCharSelOpen) w.zgCharSelOpen();
+        if (w.zgCharSelOpen) w.zgCharSelOpen();
       }
     }
   }
@@ -9828,7 +9828,15 @@ document.addEventListener('DOMContentLoaded', function(){
         stats = el('zg-cs-stats'), det = el('zg-cs-detail'), btn = el('zg-cs-choose'), gmBtn = el('zg-cs-gm');
     var roomState = w.ZargotaRooms && w.ZargotaRooms.getSnapshot ? w.ZargotaRooms.getSnapshot() : null;
     var isRoomMaster = !!(roomState && roomState.session && roomState.session.role === 'master' && roomState.room && roomState.room.phase === 'character-select');
-    if (gmBtn) gmBtn.style.display = isRoomMaster ? 'inline-flex' : 'none';
+    var roomPlayers = isRoomMaster ? Object.keys(roomState.room.members || {}).map(function(uid){ return roomState.room.members[uid]; }).filter(function(member){ return member && member.role === 'player'; }) : [];
+    var readyPlayers = roomPlayers.filter(function(member){ return member.characterId != null; }).length;
+    var subtitle = document.querySelector('#zg-cs-overlay .zg-cs-sub');
+    if (subtitle) subtitle.textContent = isRoomMaster ? 'Наблюдайте, как герои выбирают свой путь' : 'Выберите персонажа';
+    if (gmBtn) {
+      gmBtn.style.display = isRoomMaster ? 'inline-flex' : 'none';
+      gmBtn.disabled = !roomPlayers.length || readyPlayers !== roomPlayers.length;
+      gmBtn.textContent = gmBtn.disabled ? 'Герои выбирают персонажей · ' + readyPlayers + ' / ' + roomPlayers.length : 'Перейти к подготовке сцены';
+    }
     if (!list) return;
     if (!hs.length) {
       list.innerHTML = '<div class="zg-cs-empty">Пока нет героев.<br>Создайте первого в редакторе персонажей.</div>';
@@ -9838,7 +9846,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if (btn) btn.style.display = 'none';
       return;
     }
-    if (btn) btn.style.display = '';
+    if (btn) btn.style.display = isRoomMaster ? 'none' : '';
     if (selIdx >= hs.length) selIdx = 0;
     list.innerHTML = hs.map(function(c, i){
       var taken = heroTaken(c, roomState);
@@ -9902,6 +9910,7 @@ document.addEventListener('DOMContentLoaded', function(){
     ov.classList.add('open');
     try { if (w.ZargotaSound) { w.ZargotaSound.buttonTap(); if (w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } } catch(e) {}
   };
+  w.zgCharSelRefresh = function(){ render(); };
   w.zgCharSelClose = function(){
     var ov = el('zg-cs-overlay');
     if (ov) ov.classList.remove('open');
@@ -10348,14 +10357,10 @@ document.addEventListener('DOMContentLoaded', function(){
     var ownMember = room.members && room.members[snapshot.session.uid];
 
     if (room.phase === 'character-select') {
+      if (snapshot.session.role === 'master') return;
       if (c && ownMember && memberReady(ownMember)) {
         if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
-        if (snapshot.session.role === 'master') {
-          setJourneyStatus('Герои собираются… ' + readyCount + ' / ' + members.length);
-          openMasterSetup();
-        } else {
-          setJourneyStatus('Герой готов · мастер выбирает сцену');
-        }
+        setJourneyStatus('Герой готов · мастер выбирает сцену');
       }
       return;
     }
@@ -10386,10 +10391,9 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgEnterAsGameMaster = function(){
     if (!w.ZargotaRooms || !w.ZargotaRooms.attachGameMaster) return;
-    var gm = { id:'gm', name:'Гейм-мастер', portrait:'' };
     w.ZargotaRooms.attachGameMaster().then(function(snapshot){
-      beginJourney(gm, true);
-      syncJourney(snapshot);
+      if (w.zgCharSelClose) w.zgCharSelClose();
+      w.zgGameOpen(false);
     }).catch(function(err){
       if (w.showToast) w.showToast(err.message || 'Не удалось войти как гейм-мастер.');
     });
