@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.17';
+var ZG_APP_VERSION = '2026-07-23.18';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.18', notes: 'Панель кубиков остаётся на месте после броска: драг уносит только визуальную копию, а исходные кубики сразу доступны для следующего броска.' },
   { v: '2026-07-23.17', notes: 'Отскоки кубиков заменены двумя мягкими сжатиями с тихими ударами; финальные цифры визуально влетают в итог перед раскрытием суммы.' },
   { v: '2026-07-23.16', notes: 'Панель характеристик d20 сдвинута ещё правее и больше не касается изображения кубика.' },
   { v: '2026-07-23.15', notes: 'Запуск боя разделён на сбор инициативы и начало ходов: игроки бросают d20 драгом, мастер бросает за группы существ, портреты сортируются по результату, а бой начинается отдельной кнопкой.' },
@@ -13405,7 +13406,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var actionText=contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ';
     var hasSingleModifier=rolls.length===1&&Number(rolls[0].total||0)!==Number(rolls[0].value||0);
     setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(actionText+parts.join(' · ')+((contested?keptRoll.value!==1:(rolls.length>1||hasSingleModifier))?' · Итого = '+grandTotal:''),speaker);},contested?3300:2600);
-    clearSelectedDice();w.zgDiceClose();
+    /* The palette remains an inexhaustible source: drag moves a visual copy. */
+    clearSelectedDice();
   }
   function dragMove(ev){
     if(!diceDrag||ev.pointerId!==diceDrag.id)return;
