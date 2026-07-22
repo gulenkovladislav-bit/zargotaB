@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.2';
+var ZG_APP_VERSION = '2026-07-23.3';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.3', notes: 'Курсор выбранного действия больше не исчезает и не запаздывает: декоративная иконка движется одним GPU-слоем, а точный системный указатель остаётся видимым.' },
   { v: '2026-07-23.2', notes: 'Ряд кубиков центрируется по фактическим границам изображений точно над серединой нижней панели, включая коррекцию после анимации открытия.' },
   { v: '2026-07-23.1', notes: 'Новая GM-комната больше не восстанавливает старую сессию. Мастер остаётся на экране выбора героев, наблюдает за игроками и переходит к сцене только отдельной кнопкой.' },
   { v: '2026-07-22.29', notes: 'Все пять героев снова можно свободно листать и рассматривать: выбор другим игроком блокирует только окончательное подтверждение, но не карточку персонажа.' },
@@ -10557,6 +10558,17 @@ document.addEventListener('DOMContentLoaded', function(){
     custom:'images/vtt-actions/cursors/custom.png',
     movement:'images/vtt-actions/cursors/movement.png'
   };
+  var actionPointerX = Math.round(w.innerWidth / 2), actionPointerY = Math.round(w.innerHeight / 2), actionCursorFrame = 0;
+  function placeActionCursor(x,y){
+    actionPointerX=Number.isFinite(x)?x:actionPointerX;actionPointerY=Number.isFinite(y)?y:actionPointerY;
+    if(actionCursorFrame)return;
+    actionCursorFrame=w.requestAnimationFrame(function(){
+      actionCursorFrame=0;
+      var cursor=el('zg-action-cursor');
+      if(cursor)cursor.style.transform='translate3d('+actionPointerX+'px,'+actionPointerY+'px,0) translate(-18%,-18%)';
+    });
+  }
+  w.zgPlaceActionCursor=placeActionCursor;
   var movementActorUid = '';
   var movementPanelPinned = false;
   var possessedUid = '';
@@ -11070,7 +11082,7 @@ document.addEventListener('DOMContentLoaded', function(){
     movementMode = !!on;
     if (movementMode) setActionTool('');
     var scene = el('zg-vtt-scene'); if (scene) scene.classList.toggle('move-mode', movementMode);
-    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?'<img src="'+actionCursorIcons.movement+'" alt="">':'';cursor.classList.toggle('open',movementMode);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?'<img src="'+actionCursorIcons.movement+'" alt="">':'';cursor.classList.toggle('open',movementMode);if(movementMode)placeActionCursor(actionPointerX,actionPointerY);}
     preview = el('zg-move-preview'); if (preview && !movementMode) preview.style.display = '';
     return movementMode;
   }
@@ -11078,7 +11090,7 @@ document.addEventListener('DOMContentLoaded', function(){
     actionToolKind=String(kind||'');
     var scene=el('zg-vtt-scene');
     if(scene){scene.classList.toggle('action-tool',!!actionToolKind);scene.setAttribute('data-action-tool',actionToolKind);}
-    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionToolKind?'<img src="'+actionCursorIcons[actionToolKind]+'" alt="">':'';cursor.classList.toggle('open',!!actionToolKind);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionToolKind?'<img src="'+actionCursorIcons[actionToolKind]+'" alt="">':'';cursor.classList.toggle('open',!!actionToolKind);if(actionToolKind)placeActionCursor(actionPointerX,actionPointerY);}
     Array.prototype.forEach.call(document.querySelectorAll('#zg-action-menu [data-action-kind]'),function(button){button.classList.toggle('active',button.getAttribute('data-action-kind')===actionToolKind);});
   }
   w.zgSceneActionTool=function(kind){setMovementMode(false);setActionTool(kind);return actionToolKind;};
@@ -12087,7 +12099,6 @@ document.addEventListener('DOMContentLoaded', function(){
     var scene = el('zg-vtt-scene');
     if (scene) {
       scene.addEventListener('pointermove', function(ev){
-        var actionCursor=el('zg-action-cursor');if(actionCursor&&(movementMode||actionToolKind||w.zgCombatAttackToolActive)){actionCursor.style.left=ev.clientX+'px';actionCursor.style.top=ev.clientY+'px';}
         if(zoneDrawing&&zoneDrawing.points.length&&zoneDrawing.shape!=='polygon'){var zonePoint=regionPoint(ev);if(zonePoint){zoneDrawing.previewPoints=shapePoints(zoneDrawing.shape,zoneDrawing.points[0],zonePoint);renderRegions();}}
         if (!movementMode) return;
         var point = movementPoint(ev), preview = el('zg-move-preview');
@@ -12231,8 +12242,8 @@ document.addEventListener('DOMContentLoaded', function(){
     applyScene();
   }
   document.addEventListener('pointermove',function(ev){
-    var actionCursor=el('zg-action-cursor');
-    if(actionCursor&&(movementMode||actionToolKind||w.zgCombatAttackToolActive)){actionCursor.style.left=ev.clientX+'px';actionCursor.style.top=ev.clientY+'px';}
+    actionPointerX=ev.clientX;actionPointerY=ev.clientY;
+    if(movementMode||actionToolKind||w.zgCombatAttackToolActive)placeActionCursor(ev.clientX,ev.clientY);
   });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initScene);
   else initScene();
@@ -12748,7 +12759,7 @@ document.addEventListener('DOMContentLoaded', function(){
     w.ZargotaRooms.useCombatAction(type,turn&&turn.key||'').then(function(){if(w.ZargotaSound&&w.ZargotaSound.click)w.ZargotaSound.click();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Действие недоступно');}).then(function(){combatActionBusy=false;if(host)host.classList.remove('busy');});
   };
   var combatAttackTargetKey='',combatAttackBusy=false,combatAttackTool=false;
-  function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=combatAttackTool?'<img src="'+actionCursorIcons['combat-attack']+'" alt="">':'';cursor.classList.toggle('open',combatAttackTool);}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
+  function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=combatAttackTool?'<img src="'+actionCursorIcons['combat-attack']+'" alt="">':'';cursor.classList.toggle('open',combatAttackTool);if(combatAttackTool&&w.zgPlaceActionCursor)w.zgPlaceActionCursor();}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
   function selectCombatMapTarget(entry,token,node){
     if(!entry)return;combatAttackTargetKey=entry.key;setCombatAttackTool(false);
     node.classList.add('combat-target');setTimeout(function(){node.classList.remove('combat-target');},1200);
@@ -16849,7 +16860,7 @@ window.zgImageStore = (function() {
   .zg-action-menu-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:#bda46f;font:600 11px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}
   .zg-action-menu-close{border:0;background:transparent;color:#806f4c;font-size:18px;line-height:1;cursor:pointer}.zg-action-menu-close:hover{color:#efd895}
   .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
-  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate(-72%,-72%);width:52px;height:52px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 6px #d6a73f80)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}
+  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate3d(-100px,-100px,0) translate(-18%,-18%);width:46px;height:46px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none;will-change:transform;contain:layout paint}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 6px #d6a73f80)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:crosshair!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:crosshair!important}
 
   .zg-vtt-drawer.inventory-skin{width:min(650px,calc(100vw - 36px));border:0;background:url('images/vtt-ui/inventory-leather.png') center/100% 100% no-repeat;padding:34px 42px 42px;box-shadow:0 28px 80px #000e;overflow:hidden}
   .zg-vtt-drawer.inventory-skin .zg-bag-tabs{border:0;background:transparent;padding:10px 38px 18px}
@@ -17249,7 +17260,7 @@ window.zgImageStore = (function() {
   /* Session combat polish: keep the active turn control clear of the dock. */
   .zg-combat-own-turn{left:auto;right:25px;bottom:24px;width:154px;height:154px;min-width:0;padding:22px;border-radius:50%;flex-direction:column;justify-content:center;gap:5px;text-align:center;z-index:28;transform:translateY(12px) scale(.92)}.zg-combat-own-turn.show{transform:none}.zg-combat-own-turn b{max-width:120px;overflow:hidden;text-overflow:ellipsis}.zg-combat-own-turn button{margin:4px 0 0;border-radius:15px}
   .zg-combat-participant,.zg-combat-participant.hero{grid-template-columns:22px 38px minmax(0,1fr) auto;cursor:pointer;opacity:1}.zg-combat-participant:not(:has(.zg-combat-participant-toggle:checked)){opacity:.48;filter:saturate(.35)}.zg-combat-participant:has(.zg-combat-participant-toggle:checked){border-color:#79602d;background:#191107}.zg-combat-participant.hero .zg-combat-participant-check{border-color:#57431f;background:#0b0906;color:transparent}.zg-combat-participant-toggle:checked+.zg-combat-participant-check{border-color:#b78c39;background:#3b2a0d;color:#f2d77f}.zg-combat-init-mode{height:27px;max-width:112px;padding:0 5px;border:1px solid #49361b;border-radius:4px;background:#090704;color:#e1c77f;font:9px Georgia,serif}
-  .zg-game-overlay.combat-targeting .zg-vtt-token{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-token:hover{filter:brightness(1.2) drop-shadow(0 0 9px #e9b847);transform:translate(-50%,-50%) scale(1.06)}
+  .zg-game-overlay.combat-targeting .zg-vtt-token{cursor:crosshair!important}.zg-game-overlay.combat-targeting .zg-vtt-token:hover{filter:brightness(1.2) drop-shadow(0 0 9px #e9b847);transform:translate(-50%,-50%) scale(1.06)}
   .zg-move-marker::after,.zg-action-marker::after{content:'?';position:absolute;right:-5px;top:-6px;width:17px;height:17px;border:1px solid var(--player-accent,#ddb34c);border-radius:50%;background:#0b0907;color:var(--player-accent,#ddb34c);font:700 11px/17px Arial;text-align:center;box-shadow:0 0 9px var(--player-soft,#ddb34c66)}
   @keyframes zgContestWinner{0%{transform:none}60%{transform:translateX(var(--contest-direction)) scale(1.08);filter:brightness(1.25) drop-shadow(0 0 22px #f0bc4f)}100%{transform:translateX(var(--contest-direction)) scale(1);filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 25px #e3b54f)}}@keyframes zgContestWinnerFail{0%{transform:none;filter:sepia(.2) hue-rotate(315deg) saturate(1.8) drop-shadow(0 10px 12px #000) drop-shadow(0 0 34px #d93636)}60%{transform:translateX(var(--contest-direction)) scale(1.08);filter:sepia(.25) hue-rotate(315deg) saturate(2.1) brightness(1.08) drop-shadow(0 0 28px #dc3434)}100%{transform:translateX(var(--contest-direction)) scale(1);filter:sepia(.2) hue-rotate(315deg) saturate(1.9) drop-shadow(0 10px 12px #000) drop-shadow(0 0 34px #d93636)}}@keyframes zgContestWinnerNumber{0%{transform:none}60%,100%{transform:translateX(var(--contest-direction)) scale(1.12)}}@keyframes zgContestWinnerLabel{0%{transform:translateX(-50%)}60%{transform:translateX(calc(-50% + var(--contest-direction))) scale(1.06)}100%{transform:translateX(calc(-50% + var(--contest-direction))) scale(1)}}@keyframes zgContestLoser{0%{transform:none;opacity:1;filter:none}42%{transform:translateX(var(--contest-direction)) scale(.76);opacity:.32;filter:grayscale(.55) blur(.4px)}100%{transform:translateX(var(--contest-direction)) scale(.48);opacity:0;filter:grayscale(1) blur(2px)}}
   .zg-roll-total{position:absolute;z-index:23;margin-top:-210px;transform:translateX(-50%) scale(.72);min-width:150px;min-height:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;color:#f7dd92;text-align:center;text-shadow:0 2px 7px #000,0 0 13px #d49a35}
