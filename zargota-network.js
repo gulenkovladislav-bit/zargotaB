@@ -554,6 +554,42 @@
     }).catch(function(){return null;});
   }
 
+  var compactSceneImageCache = Object.create(null);
+  function compactSceneImageKey(source) {
+    return String(source.length)+'|'+source.slice(0,72)+'|'+source.slice(-72);
+  }
+  function compactSceneTokenImage(source,targetChars) {
+    source=String(source||'');
+    targetChars=Math.max(10000,Math.min(28000,Number(targetChars)||28000));
+    if(!/^data:image\//i.test(source)||source.length<=targetChars||typeof Image==='undefined'||typeof document==='undefined')return Promise.resolve(source);
+    var key=targetChars+'|'+compactSceneImageKey(source);if(compactSceneImageCache[key])return Promise.resolve(compactSceneImageCache[key]);
+    return new Promise(function(resolve){
+      var image=new Image();
+      image.onload=function(){
+        try{
+          var maxSide=192,scale=Math.min(1,maxSide/image.naturalWidth,maxSide/image.naturalHeight),canvas=document.createElement('canvas');
+          canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+          canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+          var quality=.72,data=canvas.toDataURL('image/webp',quality);
+          for(var attempt=0;data.length>targetChars&&attempt<7;attempt++){
+            var shrink=Math.max(.62,Math.sqrt(targetChars/data.length)*.94),small=document.createElement('canvas');
+            small.width=Math.max(1,Math.round(canvas.width*shrink));small.height=Math.max(1,Math.round(canvas.height*shrink));
+            small.getContext('2d').drawImage(canvas,0,0,small.width,small.height);canvas=small;quality=Math.max(.46,quality-.055);data=canvas.toDataURL('image/webp',quality);
+          }
+          compactSceneImageCache[key]=data;resolve(data);
+        }catch(error){resolve(source);}
+      };
+      image.onerror=function(){resolve(source);};image.src=source;
+    });
+  }
+  function prepareSceneMedia(scene) {
+    scene=scene||{};var copy=Object.assign({},scene),tokens=Array.isArray(scene.tokens)?scene.tokens:[];
+    var layerChars=(Array.isArray(scene.layers)?scene.layers:[]).reduce(function(sum,layer){return sum+String(layer&&layer.image||'').length;},0);
+    var imageCount=tokens.filter(function(token){return /^data:image\//i.test(String(token&&token.image||''));}).length;
+    var tokenBudget=Math.max(10000,Math.min(28000,Math.floor(Math.max(600000,3200000-layerChars)/Math.max(1,imageCount))));
+    return Promise.all(tokens.map(function(token){var next=Object.assign({},token);return compactSceneTokenImage(next.image,tokenBudget).then(function(image){next.image=image;return next;});})).then(function(prepared){copy.tokens=prepared;return copy;});
+  }
+
   // Санитайзер сцены — общий для одиночной сцены и зон
   function sanitizeScene(scene) {
     scene = scene || {};
@@ -963,10 +999,12 @@
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
-          var payload = sanitizeScene(scene);
-          payload.revision = now();
-          payload.publishedAt = firebase.serverTimestamp();
-          return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/scene'), payload).then(function () {
+          return prepareSceneMedia(scene).then(function(preparedScene){
+            var payload = sanitizeScene(preparedScene);
+            payload.revision = now();
+            payload.publishedAt = firebase.serverTimestamp();
+            return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/scene'), payload);
+          }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
@@ -1009,10 +1047,12 @@
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
-          var payload = sanitizeScene(scene);
-          payload.revision = now();
-          payload.publishedAt = firebase.serverTimestamp();
-          return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/zones/' + zoneId), payload).then(function () {
+          return prepareSceneMedia(scene).then(function(preparedScene){
+            var payload = sanitizeScene(preparedScene);
+            payload.revision = now();
+            payload.publishedAt = firebase.serverTimestamp();
+            return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/zones/' + zoneId), payload);
+          }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
