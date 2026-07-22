@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.28';
+var ZG_APP_VERSION = '2026-07-22.29';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.29', notes: 'Все пять героев снова можно свободно листать и рассматривать: выбор другим игроком блокирует только окончательное подтверждение, но не карточку персонажа.' },
   { v: '2026-07-22.28', notes: 'Сессии разделены по вкладкам: создание защищено паролем 7777, создавшая вкладка автоматически становится GM, а новые вкладки работают как отдельные клиенты.' },
   { v: '2026-07-22.27', notes: 'Устранено вечное ожидание при входе гейм-мастера: повторный запуск больше не теряет таймер, а подготовка сцены открывается автоматически.' },
   { v: '2026-07-22.26', notes: 'Кнопка «Назад» на экране выбора персонажа поднята над заголовочным слоем и снова корректно нажимается.' },
@@ -9844,7 +9845,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var thumb = c.portrait
         ? '<img class="zg-cs-thumb" src="' + c.portrait + '" alt="">'
         : '<div class="zg-cs-thumb-ph">🧙</div>';
-      return '<button type="button" class="zg-cs-item' + (i === selIdx ? ' sel' : '') + (taken ? ' taken' : '') + '" onclick="zgCharSelPick(' + i + ')"' + (taken ? ' disabled' : '') + '>' +
+      return '<button type="button" class="zg-cs-item' + (i === selIdx ? ' sel' : '') + (taken ? ' taken' : '') + '" onclick="zgCharSelPick(' + i + ')">' +
         thumb +
         '<div class="zg-cs-item-info">' +
           '<div class="zg-cs-item-name">' + esc(c.name || 'Без имени') + '</div>' +
@@ -10190,8 +10191,6 @@ document.addEventListener('DOMContentLoaded', function(){
   })();
 
   w.zgCharSelPick = function(i){
-    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot ? w.ZargotaRooms.getSnapshot() : null;
-    if (heroTaken(heroes()[i], snapshot)) return;
     selIdx = i;
     render();
     // слайдеры переприменяем только если тюнер открыт и у героя нет сохранённого арта
@@ -16455,8 +16454,8 @@ window.zgImageStore = (function() {
   .zg-cs-item{position:relative;display:flex;align-items:center;border:1px solid #2a1e0f80;border-radius:8px;background:#0f0b064d;cursor:pointer;text-align:left;padding:0;overflow:hidden;color:var(--text);font-family:'Lora',serif;flex-shrink:0}
   .zg-cs-item:hover{border-color:#c4a04a66}
   .zg-cs-item.sel{border-color:#e8c060;box-shadow:0 0 20px #e8c06026,inset 0 0 26px #e8c06010}
-  .zg-cs-item.taken{opacity:.48;cursor:not-allowed;filter:saturate(.65)}
-  .zg-cs-item.taken:hover{border-color:#2a1e0f80}
+  .zg-cs-item.taken{opacity:.78;cursor:pointer;filter:saturate(.82)}
+  .zg-cs-item.taken:hover,.zg-cs-item.taken.sel{opacity:1;filter:none;border-color:var(--gold)}
   .zg-cs-thumb{width:72px;height:94px;object-fit:cover;object-position:top center;display:block;flex-shrink:0}
   .zg-cs-thumb-ph{width:72px;height:94px;display:flex;align-items:center;justify-content:center;font-size:30px;background:#0a0703;opacity:.5;flex-shrink:0}
   .zg-cs-item-info{padding:10px 14px;min-width:0}
