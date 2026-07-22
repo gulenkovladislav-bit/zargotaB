@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.11';
+var ZG_APP_VERSION = '2026-07-23.12';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.12', notes: 'Катсцена входа героя снова начинается общим видом с высоты и плавно приближает камеру к жетону сквозь рассеивающийся туман.' },
   { v: '2026-07-23.11', notes: 'Подтверждение выбора героя теперь сопровождается одним отдельным весомым аккордом без дублирования обычного звука кнопки.' },
   { v: '2026-07-23.10', notes: 'Подсказка под панелью кубиков получила читаемый контраст, мягкую тёмную подложку и больше не теряется на фоне карты.' },
   { v: '2026-07-23.9', notes: 'Вкладка объектов получила единое компактное меню добавления; реестр НПС и Бестиарий открываются без блокировки интерфейса и повторно используют подготовленные данные.' },
@@ -11835,14 +11836,20 @@ document.addEventListener('DOMContentLoaded', function(){
       if(ownToken){
         overlay.style.setProperty('--zg-arrival-x',ownToken.x+'%');
         overlay.style.setProperty('--zg-arrival-y',ownToken.y+'%');
-        var focusZoom=clamp((Number(draft.zoom)||1)*2,.5,2.5);
+        var sceneZoom=Number(draft.zoom)||1,startZoom=Math.min(sceneZoom,1),focusZoom=clamp(sceneZoom*2,.5,2.5);
         var boardPxW=Math.round(draft.boardWidth*draft.gridSize),boardPxH=Math.round(draft.boardHeight*draft.gridSize);
-        draft.zoom=focusZoom;
-        draft.x=-(Number(ownToken.x)-50)/100*boardPxW*focusZoom;
-        draft.y=-(Number(ownToken.y)-50)/100*boardPxH*focusZoom;
-        playerCameraFocus={revision:Number(draft.revision||0),zoom:draft.zoom,x:draft.x,y:draft.y};
+        var targetX=-(Number(ownToken.x)-50)/100*boardPxW*focusZoom,targetY=-(Number(ownToken.y)-50)/100*boardPxH*focusZoom;
+        var world=el('zg-vtt-world');
+        // Первый кадр — общий вид сверху. Со следующего кадра камера начинает настоящий полёт к герою.
+        draft.zoom=startZoom;draft.x=0;draft.y=0;applyCamera();
+        if(world){world.classList.remove('arrival-glide');void world.offsetWidth;world.classList.add('arrival-glide');}
         w.zgArrivalFocusPending=false;
-        applyCamera();
+        requestAnimationFrame(function(){requestAnimationFrame(function(){
+          draft.zoom=focusZoom;draft.x=targetX;draft.y=targetY;
+          playerCameraFocus={revision:Number(draft.revision||0),zoom:draft.zoom,x:draft.x,y:draft.y};
+          applyCamera();
+        });});
+        setTimeout(function(){if(world)world.classList.remove('arrival-glide');},5900);
       }
     }
     var startButton=el('zg-start-players');
@@ -16689,10 +16696,11 @@ window.zgImageStore = (function() {
   .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
   .zg-game-overlay.open{display:block}   /* мгновенно непрозрачный — без мелькания меню */
   .zg-session-connection{position:absolute;z-index:80;left:50%;top:14px;display:none;transform:translateX(-50%);padding:7px 13px;border:1px solid #9a6a2c;border-radius:16px;background:#180f07e8;color:#e0bd72;font:600 9px 'Cinzel',serif;letter-spacing:.7px;box-shadow:0 6px 18px #000a}.zg-session-connection.show{display:block}
-  .zg-game-overlay.arriving .zg-vtt-scene{transform-origin:var(--zg-arrival-x,50%) var(--zg-arrival-y,50%);animation:zgPlayerArrival 5.8s cubic-bezier(.2,.72,.2,1) both}
+  .zg-game-overlay.arriving .zg-vtt-scene{animation:zgPlayerArrival 5.8s cubic-bezier(.2,.72,.2,1) both}
+  .zg-vtt-world.arrival-glide{transition:transform 5.55s cubic-bezier(.18,.72,.16,1)!important;will-change:transform}
   .zg-vtt-arrival-fog{position:fixed;inset:-16%;z-index:80;display:none;pointer-events:none;background:radial-gradient(circle at var(--zg-arrival-x,50%) var(--zg-arrival-y,50%),rgba(137,146,140,.72) 0 8%,rgba(74,83,79,.88) 27%,rgba(13,17,16,.98) 72%),repeating-radial-gradient(ellipse at 18% 48%,rgba(164,173,166,.34) 0 8%,transparent 17% 27%),repeating-radial-gradient(ellipse at 84% 42%,rgba(136,148,142,.3) 0 9%,transparent 19% 30%);filter:blur(22px) saturate(.72)}
   .zg-game-overlay.arriving .zg-vtt-arrival-fog{display:block;animation:zgArrivalFog 6.1s ease-out both}
-  @keyframes zgPlayerArrival{0%{transform:scale(1.1);filter:blur(7px) brightness(.38)}24%{filter:blur(5px) brightness(.5)}58%{transform:scale(1.035);filter:blur(1.5px) brightness(.78)}100%{transform:scale(1);filter:none}}
+  @keyframes zgPlayerArrival{0%{filter:blur(8px) brightness(.3) saturate(.62)}24%{filter:blur(5px) brightness(.48) saturate(.72)}58%{filter:blur(1.5px) brightness(.8) saturate(.9)}100%{filter:none}}
   @keyframes zgArrivalFog{0%,16%{opacity:1;transform:scale(1);filter:blur(22px) saturate(.72)}42%{opacity:.82}76%{opacity:.24;filter:blur(30px) saturate(.9)}100%{opacity:0;transform:scale(1.22);filter:blur(38px) saturate(1)}}
   .zg-game-gear{position:absolute;top:16px;right:16px;z-index:4;width:42px;height:42px;border-radius:10px;
     background:rgba(20,15,8,.5);border:1px solid rgba(200,170,90,.25);color:var(--muted);font-size:20px;line-height:1;cursor:pointer;
