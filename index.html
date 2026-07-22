@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.9';
+var ZG_APP_VERSION = '2026-07-23.10';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.10', notes: 'Подсказка под панелью кубиков получила читаемый контраст, мягкую тёмную подложку и больше не теряется на фоне карты.' },
   { v: '2026-07-23.9', notes: 'Вкладка объектов получила единое компактное меню добавления; реестр НПС и Бестиарий открываются без блокировки интерфейса и повторно используют подготовленные данные.' },
   { v: '2026-07-23.8', notes: 'Редактор фонового слоя перенесён внутрь вкладки «Сцена» и оформлен компактной карточкой с миниатюрой и сгруппированными настройками.' },
   { v: '2026-07-23.7', notes: 'Движение героя и появление следов используют единый покадровый прогресс; длинные маршруты на экране игрока больше не заканчиваются телепортацией.' },
@@ -16876,7 +16877,7 @@ window.zgImageStore = (function() {
   .zg-dice-row button .zg-dice-stack-copy{--stack-x:0px;--stack-y:0px;--stack-rotate:0deg;position:absolute;z-index:1;left:50%;top:8px;width:103px;height:95px;opacity:1;filter:none;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate));animation:zgDiceStackIn .3s cubic-bezier(.16,.9,.25,1.15) both}
   .zg-dice-row button .zg-dice-stack-copy.stack-1{--stack-x:-12px;--stack-y:2px;--stack-rotate:-9deg}.zg-dice-row button .zg-dice-stack-copy.stack-2{--stack-x:13px;--stack-y:3px;--stack-rotate:10deg}.zg-dice-row button .zg-dice-stack-copy.stack-3{--stack-x:-19px;--stack-y:7px;--stack-rotate:-15deg}
   @keyframes zgDiceStackIn{from{opacity:0;transform:translateX(-50%) translateY(-4px) rotate(0) scale(.78)}to{opacity:1;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate)) scale(1)}}
-  .zg-dice-hint{text-align:center;margin-top:8px;color:#766647;font:9px/1.3 'Cinzel',serif;letter-spacing:.8px;opacity:.8}
+  .zg-dice-hint{width:max-content;max-width:calc(100% - 24px);margin:8px auto 0;padding:4px 10px;border:1px solid rgba(143,111,51,.24);border-radius:12px;background:rgba(8,7,5,.68);box-shadow:0 2px 10px rgba(0,0,0,.46);color:#c9b27a;text-align:center;text-shadow:0 1px 3px #000,0 0 8px rgba(0,0,0,.9);font:9px/1.3 'Cinzel',serif;letter-spacing:.8px;opacity:1}
   .zg-dice-test{display:none;justify-content:center;align-items:center;gap:7px;margin:8px auto 0;color:#8d784d;font:9px 'Cinzel',serif}
   .zg-game-overlay.gm .zg-dice-test{display:flex}
   .zg-dice-test input{width:82px;height:28px;border:1px solid #58431e;border-radius:5px;background:#100d08dd;color:#f0d58a;text-align:center;font:600 11px 'Cinzel',serif;outline:none}
