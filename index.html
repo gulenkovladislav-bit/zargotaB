@@ -9652,14 +9652,28 @@ document.addEventListener('DOMContentLoaded', function(){
     } else try { prompt('Код:', value); } catch(e) {}
   };
 
-  w.zgLeaveRoom = function(){
-    if (arguments[0] !== true && w.zgSceneHasUnsavedChanges && w.zgSceneHasUnsavedChanges()) {
-      if (w.zgSceneExitPrompt) w.zgSceneExitPrompt(function(){ w.zgLeaveRoom(true); });
-      return;
-    }
+  function performRoomLeave(){
     var leave = w.ZargotaRooms ? w.ZargotaRooms.leaveRoom() : Promise.resolve();
     Promise.resolve(leave).then(function(){ w.zgAdvClose(); if (w.zgGameClose) w.zgGameClose(); });
+  }
+  w.zgLeaveRoom = function(confirmed){
+    if (confirmed !== true) { w.zgLeaveConfirmOpen(); return; }
+    if (w.zgSceneHasUnsavedChanges && w.zgSceneHasUnsavedChanges()) {
+      if (w.zgSceneExitPrompt) w.zgSceneExitPrompt(performRoomLeave);
+      return;
+    }
+    performRoomLeave();
   };
+  w.zgLeaveConfirmOpen = function(){
+    var overlay=el('zg-leave-confirm'),text=el('zg-leave-confirm-text');
+    var snapshot=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+    var master=!!(snapshot&&snapshot.session&&snapshot.session.role==='master');
+    if(text)text.textContent=master?'Вы создали эту комнату. После выхода сессия завершится для всех подключённых игроков.':'Вы покинете текущую сессию и вернётесь на главный экран.';
+    if(overlay)overlay.classList.add('open');
+  };
+  w.zgLeaveConfirmCancel = function(){var overlay=el('zg-leave-confirm');if(overlay)overlay.classList.remove('open');};
+  w.zgLeaveConfirmProceed = function(){w.zgLeaveConfirmCancel();w.zgLeaveRoom(true);};
+  w.zgLeaveConfirmIsOpen = function(){var overlay=el('zg-leave-confirm');return !!(overlay&&overlay.classList.contains('open'));};
 
   function renderPairing(snapshot){
     if (!snapshot || !snapshot.room || !snapshot.session) return;
@@ -10343,13 +10357,24 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   document.addEventListener('keydown', function(ev){
     if (ev.key !== 'Escape') return;
+    if (w.zgLeaveConfirmIsOpen && w.zgLeaveConfirmIsOpen()){ w.zgLeaveConfirmCancel(); ev.preventDefault(); return; }
     var ov = el('zg-confirm-overlay');
     if (ov && ov.classList.contains('open')){ w.zgJourneyCancel(); return; }
     var go = el('zg-game-overlay');
     if (go && go.classList.contains('open')){
       var sp = el('zg-game-settings');
+      var drawer=el('zg-vtt-drawer'),actions=el('zg-action-menu'),dice=el('zg-dice-pop'),sceneSettings=el('zg-scene-settings'),overview=el('zg-overview-panel'),zones=el('zg-zones-panel'),sceneDrawer=el('zg-scene-drawer');
       if (sp && sp.classList.contains('open')) sp.classList.remove('open');
-      else w.zgGameClose();
+      else if(drawer&&drawer.classList.contains('open')&&w.zgVttCloseDrawer)w.zgVttCloseDrawer();
+      else if(actions&&actions.classList.contains('open')&&w.zgVttActionClose)w.zgVttActionClose();
+      else if(dice&&dice.classList.contains('open')&&w.zgDiceClose)w.zgDiceClose();
+      else if(sceneSettings&&sceneSettings.classList.contains('open'))sceneSettings.classList.remove('open');
+      else if(overview&&overview.classList.contains('open'))overview.classList.remove('open');
+      else if(zones&&zones.classList.contains('open'))zones.classList.remove('open');
+      else if(sceneDrawer&&sceneDrawer.classList.contains('open')&&w.zgSceneDrawerToggle)w.zgSceneDrawerToggle(false);
+      else if(go.querySelector('.move-mode,.action-tool,.region-mode,.focus-cue-mode')||go.classList.contains('combat-targeting')){if(w.zgVttDeactivateTools)w.zgVttDeactivateTools();}
+      else if(w.zgLeaveConfirmOpen)w.zgLeaveConfirmOpen();
+      ev.preventDefault();
       return;
     }
     var jo = el('zg-journey-overlay');
@@ -16260,6 +16285,7 @@ window.zgImageStore = (function() {
   .zg-scene-drawer-foot{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;border-top:1px solid #332714}.zg-scene-drawer-foot button{min-height:38px;border:1px solid #4b391d;border-radius:6px;background:#171006;color:#bda878;font-family:'Cinzel',serif;font-size:10px;cursor:pointer}
   .zg-scene-drawer-foot button.primary{border-color:#9b7530;background:#2a1d0b;color:#efd181}
   .zg-scene-exit{z-index:9720}.zg-scene-exit-actions{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:8px;margin-top:20px}.zg-scene-exit-actions button{min-height:42px;border:1px solid #49381e;border-radius:6px;background:#120e08;color:#a9956b;font:10px 'Cinzel',serif;cursor:pointer}.zg-scene-exit-actions button.primary{border-color:#a47c31;background:#2b1e0b;color:#f0d181}
+  .zg-leave-confirm{z-index:9750}.zg-leave-confirm .zg-confirm-box{width:min(500px,calc(100vw - 30px))}.zg-leave-confirm-actions{display:grid;grid-template-columns:1fr 1.15fr;gap:9px;margin-top:20px}.zg-leave-confirm-actions button{min-height:44px;border:1px solid #49381e;border-radius:6px;background:#120e08;color:#aa9872;font:10px 'Cinzel',serif;cursor:pointer}.zg-leave-confirm-actions .danger{border-color:#8c3b32;background:#2a100d;color:#efa69c}.zg-leave-confirm-actions .danger:hover{border-color:#d35d4f;background:#3b1511;color:#ffd0c9}
   .zg-scene-notice{position:absolute;z-index:30;top:68px;left:50%;max-width:min(520px,calc(100vw - 40px));transform:translate(-50%,-16px);padding:12px 18px;border:1px solid #85652b;border-radius:7px;background:rgba(18,13,7,.97);box-shadow:0 14px 38px #000c;color:#d9c083;font:600 11px/1.45 'Cinzel',serif;text-align:center;opacity:0;pointer-events:none;transition:.25s}.zg-scene-notice.open{opacity:1;transform:translate(-50%,0)}.zg-scene-notice.error{border-color:#8b3f35;color:#e5a69c}.zg-scene-notice.success{border-color:#47784c;color:#9ed0a4}
   .zg-scene-create{z-index:9710}.zg-scene-create .zg-confirm-box{width:min(610px,calc(100vw - 32px));text-align:left}.zg-scene-create .zg-confirm-title,.zg-scene-create .zg-confirm-text{text-align:center}
   .zg-new-scene-field{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:12px;margin:10px 0;color:#a58e61;font:11px 'Cinzel',serif}.zg-new-scene-field input,.zg-new-scene-size input,.zg-new-scene-size select{width:100%;height:38px;border:1px solid #46351c;border-radius:6px;background:#0d0a06;color:#e0c887;padding:0 10px;font:12px 'Cinzel',serif}
@@ -17121,6 +17147,14 @@ window.zgImageStore = (function() {
         <div class="zg-confirm-title" id="zg-scene-exit-title">Сохранить изменения?</div>
         <div class="zg-confirm-text">В текущей сцене есть изменения, которые ещё не записаны в библиотеку.</div>
         <div class="zg-scene-exit-actions"><button type="button" onclick="zgSceneExitConfirm(false)">Выйти без сохранения</button><button type="button" onclick="zgSceneExitCancel()">Отмена</button><button type="button" class="primary" onclick="zgSceneExitConfirm(true)">💾 Сохранить и выйти</button></div>
+      </div>
+    </div>
+    <div class="zg-confirm-overlay zg-leave-confirm" id="zg-leave-confirm">
+      <div class="zg-confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="zg-leave-confirm-title" aria-describedby="zg-leave-confirm-text">
+        <div class="zg-confirm-emblem">↶</div>
+        <div class="zg-confirm-title" id="zg-leave-confirm-title">Покинуть сессию?</div>
+        <div class="zg-confirm-text" id="zg-leave-confirm-text">Вы покинете текущую сессию и вернётесь на главный экран.</div>
+        <div class="zg-leave-confirm-actions"><button type="button" onclick="zgLeaveConfirmCancel()">Остаться</button><button type="button" class="danger" onclick="zgLeaveConfirmProceed()">Покинуть сессию</button></div>
       </div>
     </div>
     <div class="zg-scene-notice" id="zg-scene-notice" role="status" aria-live="polite"></div>
