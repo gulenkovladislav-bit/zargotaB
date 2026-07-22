@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.10';
+var ZG_APP_VERSION = '2026-07-23.11';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.11', notes: 'Подтверждение выбора героя теперь сопровождается одним отдельным весомым аккордом без дублирования обычного звука кнопки.' },
   { v: '2026-07-23.10', notes: 'Подсказка под панелью кубиков получила читаемый контраст, мягкую тёмную подложку и больше не теряется на фоне карты.' },
   { v: '2026-07-23.9', notes: 'Вкладка объектов получила единое компактное меню добавления; реестр НПС и Бестиарий открываются без блокировки интерфейса и повторно используют подготовленные данные.' },
   { v: '2026-07-23.8', notes: 'Редактор фонового слоя перенесён внутрь вкладки «Сцена» и оформлен компактной карточкой с миниатюрой и сгруппированными настройками.' },
@@ -9452,6 +9453,15 @@ document.addEventListener('DOMContentLoaded', function(){
       tone(880, 0.18, { delay:0.18, type:'triangle', vol:0.22 });
     },
 
+    // Один весомый аккорд подтверждения героя вместо двух обычных кликов.
+    journeyAccept: function() {
+      ensure();
+      tone(146.8, 0.34, { type:'triangle', vol:0.22, freqEnd:110 });
+      tone(293.7, 0.18, { delay:0.05, type:'triangle', vol:0.18 });
+      tone(440, 0.22, { delay:0.14, type:'sine', vol:0.21 });
+      tone(659.3, 0.38, { delay:0.25, type:'sine', vol:0.18 });
+    },
+
     // ═══ UI ═══
     buttonTap: function() {
       tone(880, 0.04, { type:'sine', vol:0.12 });
@@ -9570,7 +9580,7 @@ document.addEventListener('DOMContentLoaded', function(){
     try {
       if (muted) return;
       var el = ev.target && ev.target.closest ? ev.target.closest('button, .btn, .home-card, .arena-hub-card, .shop-card, .fam-node, .fam-add-tile, .htree-card, .eco-row, .btype-litem, [role="button"], a, select, .char-card, .beast-card') : null;
-      if (!el) return;
+      if (!el || (el.getAttribute && el.getAttribute('data-zg-sound') === 'custom')) return;
       var now = Date.now();
       if (now - _uiLastClickTs < 70) return; // антидребезг
       _uiLastClickTs = now;
@@ -10324,7 +10334,7 @@ document.addEventListener('DOMContentLoaded', function(){
       timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 6200));
       timers.push(setTimeout(function(){ w.zgGameOpen(); }, 7500));
     }
-    try { if (w.ZargotaSound) { w.ZargotaSound.buttonTap(); if (w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } } catch(e) {}
+    try { if (w.ZargotaSound && w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } catch(e) {}
   }
 
   function localCharacter(snapshot){
@@ -10399,6 +10409,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgJourneyStart = function(){
     var c = pending;
     if (!c) return;
+    try { if (w.ZargotaSound && w.ZargotaSound.journeyAccept) w.ZargotaSound.journeyAccept(); } catch(e) {}
     var attach = w.ZargotaRooms ? w.ZargotaRooms.attachCharacter(c) : Promise.resolve();
     Promise.resolve(attach).then(function(snapshot){
       var networked = !!(snapshot && snapshot.room && snapshot.session);
@@ -17528,7 +17539,7 @@ window.zgImageStore = (function() {
       <div class="zg-confirm-text" id="zg-confirm-text">Дорога полна опасностей, и обратной дороги может не быть…</div>
       <div class="zg-confirm-btns">
         <button type="button" class="zg-confirm-no" onclick="zgJourneyCancel()">Остаться</button>
-        <button type="button" class="zg-confirm-yes" onclick="zgJourneyStart()">Да, в путь</button>
+        <button type="button" class="zg-confirm-yes" data-zg-sound="custom" onclick="zgJourneyStart()">Да, в путь</button>
       </div>
     </div>
   </div>
