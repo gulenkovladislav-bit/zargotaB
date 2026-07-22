@@ -12307,7 +12307,7 @@ document.addEventListener('DOMContentLoaded', function(){
     Object.keys(renderedRollVisuals).forEach(function(key){
       if(rollVisualNow-Number(renderedRollVisuals[key]||0)>30000)delete renderedRollVisuals[key];
     });
-    var room=state&&state.room, overlay=el('zg-game-overlay'), host=el('zg-move-layer'); if(!room||!overlay||!host)return;
+    var room=state&&state.room, overlay=el('zg-game-overlay'), host=el('zg-move-layer'); if(!overlay||!host)return;room=room||{members:{}};
     var visualMembers={},session=state&&state.session;Object.keys(room.members||{}).forEach(function(uid){visualMembers[uid]=room.members[uid];});
     Object.keys(localRollVisuals).forEach(function(uid){
       var cached=localRollVisuals[uid];
