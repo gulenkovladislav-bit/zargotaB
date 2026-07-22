@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.22';
+var ZG_APP_VERSION = '2026-07-22.23';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.23', notes: 'Панель выбора кубиков центрируется по фактическому центру нижнего меню при любом размере окна и масштабе сцены.' },
   { v: '2026-07-22.22', notes: 'Владелец Firebase-комнаты снова автоматически распознаётся как гейм-мастер и может принимать игроков даже после сбоя локальной роли.' },
   { v: '2026-07-22.21', notes: 'Переход от перетаскивания к броску стал бесшовным: сохраняются размер и угол кубика, убран резкий fade-in, а полёт стал плавнее.' },
   { v: '2026-07-22.20', notes: 'Несколько брошенных кубиков расходятся по отдельным траекториям, приземляются с интервалом и независимо отскакивают.' },
@@ -13154,8 +13155,14 @@ document.addEventListener('DOMContentLoaded', function(){
       },1500);
     },900);
   }
-  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();}p.classList.toggle('open',open);var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(open)selectStat('plain');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
+  function alignDicePanel(){
+    var panel=el('zg-dice-pop'),dock=el('zg-player-dock');if(!panel||!dock||!panel.offsetParent)return;
+    var dockRect=dock.getBoundingClientRect(),parentRect=panel.offsetParent.getBoundingClientRect(),scale=parentRect.width&&panel.offsetParent.offsetWidth?parentRect.width/panel.offsetParent.offsetWidth:1;
+    panel.style.left=((dockRect.left+dockRect.width/2-parentRect.left)/(scale||1))+'px';
+  }
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();alignDicePanel();}p.classList.toggle('open',open);if(open)requestAnimationFrame(alignDicePanel);var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(open)selectStat('plain');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
+  w.addEventListener('resize',function(){var p=el('zg-dice-pop');if(p&&p.classList.contains('open'))alignDicePanel();});
   function selectStat(key){
     selectedStat=key||'plain';
     document.querySelectorAll('.zg-d20-mod').forEach(function(button){button.classList.toggle('active',button.dataset.stat===selectedStat);});
