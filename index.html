@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-23.3"></script>
+<script src="zargota-network.js?v=2026-07-23.4"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.19';
+var ZG_APP_VERSION = '2026-07-23.20';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.20', notes: 'Добавленные во время игры токены публикуются строго по порядку без затирания старым снимком; игроки могут обновлять собственную боевую запись и надёжно сохранять бросок инициативы в Firebase.' },
   { v: '2026-07-23.19', notes: 'Тяжёлые изображения токенов Бестиария, NPC и объектов автоматически сжимаются в сетевые WebP-превью перед отправкой в Firebase; оригиналы в локальных разделах сохраняются.' },
   { v: '2026-07-23.18', notes: 'Панель кубиков остаётся на месте после броска: драг уносит только визуальную копию, а исходные кубики сразу доступны для следующего броска.' },
   { v: '2026-07-23.17', notes: 'Отскоки кубиков заменены двумя мягкими сжатиями с тихими ударами; финальные цифры визуально влетают в итог перед раскрытием суммы.' },
@@ -10626,7 +10627,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var focusCueMode = false;
   var lastCameraCue = '';
   var lastCombatVisual = '';
-  var livePublishTimer = 0;
+  var livePublishTimer = 0, livePublishInFlight = false, livePublishQueued = false, livePublishGeneration = 0;
   // ── Правка фона на холсте (двигать мышью, масштаб колесом) ──
   var bgEdit = false, bgDrag = null;
   w.zgSceneBgEdit = function(){
@@ -11776,8 +11777,23 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function scheduleLivePublish(){
     if(!isMaster||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.phase!=='playing'||!w.ZargotaRooms||!w.ZargotaRooms.publishScene)return;
+    livePublishGeneration++;
     clearTimeout(livePublishTimer);
-    livePublishTimer=setTimeout(function(){livePublishTimer=0;w.ZargotaRooms.publishScene(draft).then(function(){publishedSceneId=activeSceneId;dirty=false;syncDirtyUi();}).catch(function(error){setStatus(error&&error.message||'Не удалось обновить сцену для игроков');});},450);
+    livePublishTimer=setTimeout(function publishLatestScene(){
+      livePublishTimer=0;
+      if(livePublishInFlight){livePublishQueued=true;return;}
+      var generation=livePublishGeneration,sceneSnapshot=copyScene(draft);
+      livePublishInFlight=true;livePublishQueued=false;
+      w.ZargotaRooms.publishScene(sceneSnapshot).then(function(){
+        publishedSceneId=activeSceneId;
+        if(generation===livePublishGeneration){dirty=false;syncDirtyUi();}
+      }).catch(function(error){
+        setStatus(error&&error.message||'Не удалось обновить сцену для игроков');
+      }).then(function(){
+        livePublishInFlight=false;
+        if(livePublishQueued||generation!==livePublishGeneration){livePublishQueued=false;setTimeout(publishLatestScene,0);}
+      });
+    },450);
   }
   function markDirty(message){ histPush(); dirty = true; setStatus((message || 'Черновик') + ' •'); applyScene(); scheduleLivePublish(); }
   function ensureHeroTokens(snapshot){

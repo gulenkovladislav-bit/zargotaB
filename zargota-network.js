@@ -1485,7 +1485,10 @@
             updates['combat/order/'+row.index+'/total']=kept+Number(row.entry.bonus||0);
             updates['combat/order/'+row.index+'/rolledAt']=stamp;
           });
-          updates['combat/updatedAt']=stamp;updates.combatEvent={id:'initiative-roll-'+stamp,kind:'combat',name:targets[0].entry.name||'Участник',portrait:targets[0].entry.portrait||'',text:'Бросает инициативу.',ts:stamp};
+          if(session.role==='master'){
+            updates['combat/updatedAt']=stamp;
+            updates.combatEvent={id:'initiative-roll-'+stamp,kind:'combat',name:targets[0].entry.name||'Участник',portrait:targets[0].entry.portrait||'',text:'Бросает инициативу.',ts:stamp};
+          }
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['session-missing','room-not-found','initiative-closed','initiative-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});

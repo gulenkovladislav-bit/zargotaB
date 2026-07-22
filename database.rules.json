@@ -25,6 +25,13 @@
           "$uid": {
             ".write": "auth != null && $uid === auth.uid && data.child('role').val() === 'player' && newData.child('role').val() === 'player' && newData.child('uid').val() === auth.uid"
           }
+        },
+        "combat": {
+          "order": {
+            "$index": {
+              ".write": "auth != null && data.child('uid').val() === auth.uid && newData.child('uid').val() === auth.uid"
+            }
+          }
         }
       }
     }
