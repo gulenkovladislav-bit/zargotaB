@@ -1,7 +1,7 @@
 (function (w) {
   'use strict';
 
-  var SESSION_KEY = 'zargota_vtt_session_v3';
+  var SESSION_KEY = 'zargota_vtt_session_v4';
   var CAMPAIGN_ID = 'zargota-main';
   var CAMPAIGN_HERO_KEYS = {
     '1776627463516':'evan','1776626039651':'melissa','1776463717210':'esteros','1778221131899':'vrotik','1778221143711':'lin-yin'
@@ -30,6 +30,11 @@
   var initError = null;
   var createRoomPromise = null;
   var campaignMirrorSignatures = {};
+
+  try {
+    var navigationEntry=w.performance&&w.performance.getEntriesByType&&w.performance.getEntriesByType('navigation')[0];
+    if(!navigationEntry||navigationEntry.type!=='reload')sessionStorage.removeItem(SESSION_KEY);
+  } catch(e) {}
 
   function now() { return Date.now(); }
 
@@ -255,9 +260,8 @@
 
   function readSession() {
     try {
-      var raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null';
+      var raw = sessionStorage.getItem(SESSION_KEY) || 'null';
       var parsed = JSON.parse(raw);
-      if (parsed && parsed.code) localStorage.setItem(SESSION_KEY, JSON.stringify(parsed));
       return parsed && parsed.code ? parsed : null;
     } catch (e) { return null; }
   }
@@ -265,10 +269,8 @@
   function saveSession(session) {
     try {
       if (session) {
-        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
       } else {
-        localStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem(SESSION_KEY);
       }
     } catch (e) {}
@@ -547,8 +549,7 @@
     var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes/'+key);
     return firebase.get(target).then(function(snapshot){
       var existing=snapshot.exists()?snapshot.val():null,owner=existing&&existing.ownerUid||'';
-      if(owner&&owner!==user.uid)return null;
-      var payload=campaignHeroPayload(character,owner|| (allowClaim?user.uid:''));
+      var payload=campaignHeroPayload(character,allowClaim?user.uid:(owner||user.uid));
       return firebase.set(target,payload).then(function(){return payload;});
     }).catch(function(){return null;});
   }
@@ -2032,7 +2033,9 @@
       onDisconnect: databaseModule.onDisconnect,
       serverTimestamp: databaseModule.serverTimestamp
     };
-    return authModule.setPersistence(auth, authModule.browserLocalPersistence).then(function () {
+    try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+    return authModule.setPersistence(auth, authModule.browserSessionPersistence).then(function () {
+      if(!readSession()&&auth.currentUser)return authModule.signOut(auth).then(function(){return authModule.signInAnonymously(auth).then(function(credential){return credential.user;});});
       if (auth.currentUser) return auth.currentUser;
       return authModule.signInAnonymously(auth).then(function (credential) { return credential.user; });
     }).then(function (user) {

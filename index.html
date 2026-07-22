@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-22.8"></script>
+<script src="zargota-network.js?v=2026-07-22.9"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.27';
+var ZG_APP_VERSION = '2026-07-22.28';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.28', notes: 'Сессии разделены по вкладкам: создание защищено паролем 7777, создавшая вкладка автоматически становится GM, а новые вкладки работают как отдельные клиенты.' },
   { v: '2026-07-22.27', notes: 'Устранено вечное ожидание при входе гейм-мастера: повторный запуск больше не теряет таймер, а подготовка сцены открывается автоматически.' },
   { v: '2026-07-22.26', notes: 'Кнопка «Назад» на экране выбора персонажа поднята над заголовочным слоем и снова корректно нажимается.' },
   { v: '2026-07-22.25', notes: 'Без активной мастерской вкладки нет активной комнаты: отключение GM удаляет сессию, а метка «Занят» учитывает только выбор участников текущей комнаты.' },
@@ -9585,12 +9586,12 @@ document.addEventListener('DOMContentLoaded', function(){
   var lastOpenedPhase = '';
 
   function showView(viewId, wide){
-    ['zg-adv-view-main','zg-adv-view-join','zg-adv-view-host','zg-adv-view-player'].forEach(function(id){
+    ['zg-adv-view-main','zg-adv-view-create','zg-adv-view-join','zg-adv-view-host','zg-adv-view-player'].forEach(function(id){
       var node = el(id); if (node) node.style.display = id === viewId ? '' : 'none';
     });
     var dialog = document.querySelector('.zg-adv-dialog');
     if (dialog) dialog.classList.toggle('zg-pairing-wide', !!wide);
-    var back = el('zg-adv-back'); if (back) back.style.display = viewId === 'zg-adv-view-join' ? '' : 'none';
+    var back = el('zg-adv-back'); if (back) back.style.display = viewId === 'zg-adv-view-join' || viewId === 'zg-adv-view-create' ? '' : 'none';
   }
 
   w.zgAdvOpen = function() {
@@ -9601,7 +9602,8 @@ document.addEventListener('DOMContentLoaded', function(){
       if(snapshot.room.phase==='pairing'){
         if (snapshot.session.role === 'master') w.zgAdvShowHost(); else w.zgAdvShowPlayer();
       }else if(snapshot.room.phase==='character-select'){
-        if(w.zgCharSelOpen)w.zgCharSelOpen();return;
+        if(snapshot.session.role==='master'){if(w.zgEnterAsGameMaster)w.zgEnterAsGameMaster();}
+        else if(w.zgCharSelOpen)w.zgCharSelOpen();return;
       }else{
         if(w.zgGameOpen)w.zgGameOpen(false);return;
       }
@@ -9626,6 +9628,11 @@ document.addEventListener('DOMContentLoaded', function(){
     if (inp) setTimeout(function(){ try { inp.focus(); } catch(e) {} }, 120);
   };
 
+  w.zgAdvShowCreate = function() {
+    showView('zg-adv-view-create', false);
+    var inp=el('zg-adv-master-password'),hint=el('zg-adv-create-hint');if(inp){inp.value='';setTimeout(function(){try{inp.focus();}catch(e){}},120);}if(hint)hint.textContent='';
+  };
+
   w.zgAdvShowHost = function() {
     showView('zg-adv-view-host', true);
     renderPairing(w.ZargotaRooms && w.ZargotaRooms.getSnapshot());
@@ -9638,10 +9645,13 @@ document.addEventListener('DOMContentLoaded', function(){
 
   w.zgAdvCreateGame = function() {
     if (!w.ZargotaRooms) return;
+    var password=el('zg-adv-master-password'),hint=el('zg-adv-create-hint');
+    if(!password||String(password.value||'')!=='7777'){if(hint)hint.textContent='Неверный пароль гейм-мастера.';if(password){password.value='';password.focus();}return;}
+    if(hint)hint.textContent='Создаём мастерскую комнату…';
     w.ZargotaRooms.createRoom().then(function(){
       w.zgAdvShowHost();
     }).catch(function(err){
-      if (w.showToast) w.showToast('Не удалось создать комнату: ' + err.message);
+      if(hint)hint.textContent=err.message||'Не удалось создать комнату.';if (w.showToast) w.showToast('Не удалось создать комнату: ' + err.message);
     });
   };
 
@@ -9764,7 +9774,8 @@ document.addEventListener('DOMContentLoaded', function(){
       if (lastOpenedPhase !== room.code + ':character-select') {
         lastOpenedPhase = room.code + ':character-select';
         w.zgAdvClose();
-        if (w.zgCharSelOpen) w.zgCharSelOpen();
+        if(snapshot.session.role==='master'){if(w.zgEnterAsGameMaster)w.zgEnterAsGameMaster();}
+        else if (w.zgCharSelOpen) w.zgCharSelOpen();
       }
     }
   }
@@ -16355,7 +16366,7 @@ window.zgImageStore = (function() {
         <div class="zg-adv-title">Отправиться в приключение</div>
         <div class="zg-adv-sub">Выберите, что вы хотите сделать.</div>
         <div class="zg-adv-cards">
-          <button type="button" class="zg-adv-card" onclick="zgAdvCreateGame()">
+          <button type="button" class="zg-adv-card" onclick="zgAdvShowCreate()">
             <div class="zg-adv-card-art" aria-hidden="true"><img src="images/session-ui/create-adventure.png" alt=""></div>
             <div class="zg-adv-card-title">Создать игру</div>
             <div class="zg-adv-card-desc">Создайте новое приключение и получите код для приглашения игроков.</div>
@@ -16366,6 +16377,18 @@ window.zgImageStore = (function() {
             <div class="zg-adv-card-desc">Введите код приключения, чтобы присоединиться к существующей игре.</div>
           </button>
         </div>
+      </div>
+
+      <!-- Вид 2: пароль мастера -->
+      <div id="zg-adv-view-create" class="zg-adv-view" style="display:none">
+        <div class="zg-adv-title">Создать приключение</div>
+        <div class="zg-adv-sub">Введите пароль гейм-мастера.<br>Эта вкладка станет единственной мастерской вкладкой комнаты.</div>
+        <div class="zg-adv-input-wrap">
+          <span class="icon">⚔</span>
+          <input id="zg-adv-master-password" class="zg-adv-input" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Пароль мастера" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')zgAdvCreateGame()">
+        </div>
+        <button type="button" class="zg-adv-submit" onclick="zgAdvCreateGame()">Создать комнату</button>
+        <div class="zg-adv-hint" id="zg-adv-create-hint"></div>
       </div>
 
       <!-- Вид 2: присоединиться -->
@@ -16486,8 +16509,8 @@ window.zgImageStore = (function() {
   .zg-cs-row-l .g{color:var(--gold2);margin-right:7px;font-size:12px}
   .zg-cs-row-v{color:var(--text)}
   .zg-cs-bio{font-size:14.5px;line-height:1.65;color:var(--muted);margin-top:16px}
-  .zg-cs-foot{position:relative;display:flex;justify-content:center;align-items:center;gap:14px;padding-top:16px;flex-wrap:wrap}
-  .zg-cs-choose{position:relative;z-index:1;font-family:'Cinzel',serif;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:#e8d9b0;
+  .zg-cs-foot{position:relative;z-index:12;display:flex;justify-content:center;align-items:center;gap:14px;padding-top:16px;flex-wrap:wrap;pointer-events:auto}
+  .zg-cs-choose{position:relative;z-index:13;pointer-events:auto;font-family:'Cinzel',serif;font-size:15px;letter-spacing:2px;text-transform:uppercase;color:#e8d9b0;
     background:transparent;border:1px solid transparent;border-radius:9px;padding:13px 48px;cursor:pointer;
     animation:zgChoosePulse 5s ease-in-out infinite;
     transition:color .3s,border-color .3s,background .3s,box-shadow .3s,text-shadow .3s}
@@ -16499,7 +16522,7 @@ window.zgImageStore = (function() {
     box-shadow:0 0 36px rgba(232,180,90,.32);text-shadow:0 0 18px rgba(245,212,135,.75)}
   .zg-cs-choose:active{background:rgba(232,192,96,.03)}
   .zg-cs-choose:disabled{animation:none;opacity:.42;cursor:not-allowed;border-color:transparent;background:transparent;box-shadow:none;text-shadow:none}
-  .zg-cs-gm{display:none;position:relative;z-index:1;padding:12px 24px;border:1px solid rgba(93,150,128,.5);border-radius:9px;background:rgba(43,91,75,.10);color:#a9d6c2;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1.2px;cursor:pointer;transition:.25s}
+  .zg-cs-gm{display:none;position:relative;z-index:13;pointer-events:auto;padding:12px 24px;border:1px solid rgba(93,150,128,.5);border-radius:9px;background:rgba(43,91,75,.10);color:#a9d6c2;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1.2px;cursor:pointer;transition:.25s}
   .zg-cs-gm:hover{border-color:#7ac6a5;background:rgba(50,120,92,.18);color:#d0f0df;box-shadow:0 0 24px rgba(76,180,137,.16)}
   /* Светлячки под кнопкой — появляются на наведении */
   .zg-cs-flies{position:absolute;left:50%;top:50%;width:360px;height:170px;transform:translate(-50%,-42%);pointer-events:none;opacity:0;transition:opacity .45s ease;z-index:0}
@@ -16542,7 +16565,7 @@ window.zgImageStore = (function() {
   .zg-confirm-div::after{content:'✦';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:9px;color:var(--gold2);background:#120c06;padding:0 7px}
   .zg-confirm-text{font-size:15px;line-height:1.6;color:var(--muted);font-style:italic;margin-bottom:28px}
   .zg-confirm-text b{color:#f0e0b8;font-style:normal}
-  .zg-confirm-btns{display:flex;gap:12px;justify-content:center}
+  .zg-confirm-btns{position:relative;z-index:4;display:flex;gap:12px;justify-content:center;pointer-events:auto}.zg-confirm-btns button{position:relative;z-index:5;pointer-events:auto}
   .zg-confirm-no,.zg-confirm-yes{font-family:'Cinzel',serif;font-size:14px;letter-spacing:1px;padding:12px 28px;border-radius:9px;cursor:pointer;transition:.2s}
   .zg-confirm-no{background:transparent;border:1px solid var(--border);color:var(--muted)}
   .zg-confirm-no:hover{border-color:var(--muted);color:var(--text)}
