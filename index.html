@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-22.2"></script>
+<script src="zargota-network.js?v=2026-07-22.3"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -1892,6 +1892,7 @@ window.addEventListener('load', function(){
     color: var(--gold); font-family: 'Cinzel', serif;
     font-size: 10px; padding: 2px 7px; border-radius: 2px; letter-spacing: 1px;
   }
+  .char-campaign-sync{position:absolute;left:9px;top:9px;z-index:3;width:19px;height:19px;display:grid;place-items:center;border:1px solid #55bd70;border-radius:50%;background:#092012e8;color:#7bf09a;font-size:11px;box-shadow:0 0 12px #45d66a88}
   .char-card-type {
     position: absolute; top: 8px; right: 8px;
     background: #000000aa; font-size: 10px;
@@ -9020,8 +9021,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.2';
+var ZG_APP_VERSION = '2026-07-22.3';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.3', notes: 'Устойчивое переподключение к сессии и постоянная синхронизация пяти героев кампании между локальными листами и Firebase.' },
   { v: '2026-07-22.2', notes: 'Атака через подтверждение экипированного оружия и заявку мастеру; после решения последовательно показываются бросок попадания и кубики урона.' },
   { v: '2026-07-22.1', notes: 'Новые иконки создания и входа в приключение, единый кристалл игрока в тусклом и активном состояниях; экранный курсор действий больше не смещается масштабом сцены, восстановлены боевые визуальные события.' },
   { v: '2026-07-21.69', notes: 'Жетоны сцены связываются с Реестром НПС и Бестиарием: поиск подставляет канонические портрет, HP, AC, инициативу, характеристики, атаки и защиты, а обновление источника не исцеляет сессионное здоровье.' },
@@ -9568,9 +9570,14 @@ document.addEventListener('DOMContentLoaded', function(){
     var ov = el('zg-adv-overlay');
     if (!ov) return;
     var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot();
-    if (snapshot && snapshot.room && snapshot.room.phase === 'pairing' && snapshot.session) {
-      if (snapshot.session.role === 'master') w.zgAdvShowHost();
-      else w.zgAdvShowPlayer();
+    if (snapshot && snapshot.room && snapshot.session) {
+      if(snapshot.room.phase==='pairing'){
+        if (snapshot.session.role === 'master') w.zgAdvShowHost(); else w.zgAdvShowPlayer();
+      }else if(snapshot.room.phase==='character-select'){
+        if(w.zgCharSelOpen)w.zgCharSelOpen();return;
+      }else{
+        if(w.zgGameOpen)w.zgGameOpen(false);return;
+      }
     } else w.zgAdvShowMain();
     ov.classList.add('open');
     try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
@@ -9757,6 +9764,12 @@ document.addEventListener('DOMContentLoaded', function(){
   function statHtml(ic, val, lab){
     return '<div class="zg-cs-stat"><span class="ic">' + ic + '</span><div><div class="v">' + val + '</div><div class="l">' + lab + '</div></div></div>';
   }
+  function heroTaken(character, snapshot){
+    var key = character && character.campaignKey;
+    var remote = key && snapshot && snapshot.campaign && snapshot.campaign.heroes && snapshot.campaign.heroes[key];
+    var ownUid = snapshot && snapshot.session && snapshot.session.uid;
+    return !!(remote && remote.ownerUid && remote.ownerUid !== ownUid);
+  }
   function render(){
     var hs = heroes();
     var list = el('zg-cs-list'), port = el('zg-cs-portrait'),
@@ -9776,20 +9789,26 @@ document.addEventListener('DOMContentLoaded', function(){
     if (btn) btn.style.display = '';
     if (selIdx >= hs.length) selIdx = 0;
     list.innerHTML = hs.map(function(c, i){
+      var taken = heroTaken(c, roomState);
       var thumb = c.portrait
         ? '<img class="zg-cs-thumb" src="' + c.portrait + '" alt="">'
         : '<div class="zg-cs-thumb-ph">🧙</div>';
-      return '<button type="button" class="zg-cs-item' + (i === selIdx ? ' sel' : '') + '" onclick="zgCharSelPick(' + i + ')">' +
+      return '<button type="button" class="zg-cs-item' + (i === selIdx ? ' sel' : '') + (taken ? ' taken' : '') + '" onclick="zgCharSelPick(' + i + ')"' + (taken ? ' disabled' : '') + '>' +
         thumb +
         '<div class="zg-cs-item-info">' +
           '<div class="zg-cs-item-name">' + esc(c.name || 'Без имени') + '</div>' +
           '<div class="zg-cs-item-meta">' + esc([c.race, c.klasse].filter(Boolean).join(' • ') || '—') + '</div>' +
           '<div class="zg-cs-item-hp">♥ ' + (c.hpCur != null ? c.hpCur : '?') + ' / ' + (c.hpMax != null ? c.hpMax : '?') + '</div>' +
         '</div>' +
-        (i === selIdx ? '<div class="zg-cs-item-star">✦</div>' : '') +
+        (taken ? '<div class="zg-cs-item-owner">Занят</div>' : (i === selIdx ? '<div class="zg-cs-item-star">✦</div>' : '')) +
       '</button>';
     }).join('');
     var c = hs[selIdx];
+    var selectedTaken = heroTaken(c, roomState);
+    if (btn) {
+      btn.disabled = selectedTaken;
+      btn.textContent = selectedTaken ? 'Герой уже выбран' : 'Отправиться в путь';
+    }
     if (port) port.innerHTML = c.portrait
       ? '<img src="' + c.portrait + '" alt="">'
       : '<div class="zg-cs-port-ph"><div style="font-size:110px;opacity:.25">🧙</div><div class="hint">Портрет не загружен — добавьте его в редакторе персонажей</div></div>';
@@ -10120,6 +10139,8 @@ document.addEventListener('DOMContentLoaded', function(){
   })();
 
   w.zgCharSelPick = function(i){
+    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot ? w.ZargotaRooms.getSnapshot() : null;
+    if (heroTaken(heroes()[i], snapshot)) return;
     selIdx = i;
     render();
     // слайдеры переприменяем только если тюнер открыт и у героя нет сохранённого арта
@@ -10130,6 +10151,12 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCharSelChoose = function(){
     var hs = heroes(), c = hs[selIdx];
     if (!c) return;
+    var snapshot = w.ZargotaRooms && w.ZargotaRooms.getSnapshot ? w.ZargotaRooms.getSnapshot() : null;
+    if (heroTaken(c, snapshot)) {
+      if (w.showToast) w.showToast('Этот герой уже закреплён за другим игроком.');
+      render();
+      return;
+    }
     if (w.zgJourneyConfirm) w.zgJourneyConfirm(c);   // сперва — подтверждение
     else { try { localStorage.setItem('zg_selected_char_id', String(c.id)); } catch(e) {} w.zgCharSelClose(); }
   };
@@ -12531,6 +12558,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function render(snapshot){
     state = snapshot;
+    var connection=el('zg-session-connection');if(connection){var reconnecting=!!(snapshot&&snapshot.session&&!snapshot.online);connection.classList.toggle('show',reconnecting);connection.textContent=reconnecting?'Связь потеряна · переподключаемся…':'';}
     renderParty();
     renderJournal();
     renderDrawer();
@@ -16265,6 +16293,8 @@ window.zgImageStore = (function() {
   .zg-cs-item{position:relative;display:flex;align-items:center;border:1px solid #2a1e0f80;border-radius:8px;background:#0f0b064d;cursor:pointer;text-align:left;padding:0;overflow:hidden;color:var(--text);font-family:'Lora',serif;flex-shrink:0}
   .zg-cs-item:hover{border-color:#c4a04a66}
   .zg-cs-item.sel{border-color:#e8c060;box-shadow:0 0 20px #e8c06026,inset 0 0 26px #e8c06010}
+  .zg-cs-item.taken{opacity:.48;cursor:not-allowed;filter:saturate(.65)}
+  .zg-cs-item.taken:hover{border-color:#2a1e0f80}
   .zg-cs-thumb{width:72px;height:94px;object-fit:cover;object-position:top center;display:block;flex-shrink:0}
   .zg-cs-thumb-ph{width:72px;height:94px;display:flex;align-items:center;justify-content:center;font-size:30px;background:#0a0703;opacity:.5;flex-shrink:0}
   .zg-cs-item-info{padding:10px 14px;min-width:0}
@@ -16272,6 +16302,7 @@ window.zgImageStore = (function() {
   .zg-cs-item-meta{font-size:13px;color:var(--muted);margin-top:2px}
   .zg-cs-item-hp{font-size:13px;color:#7dba7d;margin-top:4px}
   .zg-cs-item-star{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gold);font-size:22px;text-shadow:0 0 14px #e8c06088}
+  .zg-cs-item-owner{position:absolute;right:10px;top:9px;padding:3px 7px;border:1px solid #936d3266;border-radius:10px;background:#120c06d9;color:#bca374;font-size:10px;letter-spacing:.7px;text-transform:uppercase}
   .zg-cs-editor-link{margin-top:14px;padding:12px 6px 2px;border-top:1px solid #2a1e0f;color:var(--muted);font-size:14px;cursor:pointer;flex-shrink:0}
   .zg-cs-editor-link:hover{color:var(--gold)}
   .zg-cs-center{display:flex;flex-direction:column;min-height:0}
@@ -16328,6 +16359,7 @@ window.zgImageStore = (function() {
   .zg-cs-choose:hover{animation:none;color:#fbf0cf;border-color:rgba(232,192,96,.7);background:rgba(232,192,96,.05);
     box-shadow:0 0 36px rgba(232,180,90,.32);text-shadow:0 0 18px rgba(245,212,135,.75)}
   .zg-cs-choose:active{background:rgba(232,192,96,.03)}
+  .zg-cs-choose:disabled{animation:none;opacity:.42;cursor:not-allowed;border-color:transparent;background:transparent;box-shadow:none;text-shadow:none}
   .zg-cs-gm{display:none;position:relative;z-index:1;padding:12px 24px;border:1px solid rgba(93,150,128,.5);border-radius:9px;background:rgba(43,91,75,.10);color:#a9d6c2;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1.2px;cursor:pointer;transition:.25s}
   .zg-cs-gm:hover{border-color:#7ac6a5;background:rgba(50,120,92,.18);color:#d0f0df;box-shadow:0 0 24px rgba(76,180,137,.16)}
   /* Светлячки под кнопкой — появляются на наведении */
@@ -16399,6 +16431,7 @@ window.zgImageStore = (function() {
   /* Тёмный экран игры — будущий общий стол VTT */
   .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
   .zg-game-overlay.open{display:block}   /* мгновенно непрозрачный — без мелькания меню */
+  .zg-session-connection{position:absolute;z-index:80;left:50%;top:14px;display:none;transform:translateX(-50%);padding:7px 13px;border:1px solid #9a6a2c;border-radius:16px;background:#180f07e8;color:#e0bd72;font:600 9px 'Cinzel',serif;letter-spacing:.7px;box-shadow:0 6px 18px #000a}.zg-session-connection.show{display:block}
   .zg-game-overlay.arriving .zg-vtt-scene{transform-origin:var(--zg-arrival-x,50%) var(--zg-arrival-y,50%);animation:zgPlayerArrival 5.8s cubic-bezier(.2,.72,.2,1) both}
   .zg-vtt-arrival-fog{position:fixed;inset:-12%;z-index:80;display:none;pointer-events:none;background:radial-gradient(circle at var(--zg-arrival-x,50%) var(--zg-arrival-y,50%),transparent 0 9%,rgba(20,24,23,.34) 24%,rgba(5,7,7,.84) 68%),repeating-radial-gradient(ellipse at 20% 52%,rgba(104,115,111,.23) 0 7%,transparent 15% 25%),repeating-radial-gradient(ellipse at 82% 44%,rgba(78,91,89,.2) 0 8%,transparent 17% 28%);filter:blur(16px)}
   .zg-game-overlay.arriving .zg-vtt-arrival-fog{display:block;animation:zgArrivalFog 6.1s ease-out both}
@@ -17240,6 +17273,7 @@ window.zgImageStore = (function() {
 
   <!-- ══ ЭКРАН ИГРЫ (тёмный, заглушка под инструментарий D&D) ══ -->
   <div id="zg-game-overlay" class="zg-game-overlay">
+    <div class="zg-session-connection" id="zg-session-connection" aria-live="polite"></div>
     <button type="button" class="zg-game-gear" onclick="zgGameSettings(event)" title="Настройки" aria-label="Настройки">⚙</button>
     <button type="button" class="zg-scene-gear" id="zg-scene-gear" onclick="zgSceneSettings(event)" title="Настройка сцены" aria-label="Настройка сцены">🗺</button>
     <div class="zg-gm-actions" id="zg-gm-actions">
@@ -29238,8 +29272,10 @@ function readTempHpTotal(c) {
 // ── Load/Save ──
 // Общие миграции/нормализации персонажей
 function applyCharsMigrations(arr) {
+  var campaignKeys={'1776627463516':'evan','1776626039651':'melissa','1776463717210':'esteros','1778221131899':'vrotik','1778221143711':'lin-yin'};
   (arr || []).forEach(function(c){
     if (!c) return;
+    if(!c.campaignKey&&campaignKeys[String(c.id)])c.campaignKey=campaignKeys[String(c.id)];
     if (c.skills) c.skills = c.skills.filter(function(s){
       if (!s) return false;
       if (typeof s === 'object') return s.name || s.description;
@@ -29335,7 +29371,8 @@ function loadChars() {
   } catch(e) {}
 }
 
-function saveChars() {
+function saveChars(options) {
+  options=options||{};
   var bad = ['', '_new_', '​', ' '];
   function clean(arr) {
     return (arr || []).filter(function(s){
@@ -29386,7 +29423,7 @@ function saveChars() {
   } catch(e) {
     try { localStorage.removeItem('grimoire_chars'); } catch(e2) {}
   }
-  clearTimeout(window._zgCharacterSyncTimer);
+  if(options.sync!==false){clearTimeout(window._zgCharacterSyncTimer);
   window._zgCharacterSyncTimer = setTimeout(function(){
     try {
       var snap=window.ZargotaRooms&&window.ZargotaRooms.getSnapshot&&window.ZargotaRooms.getSnapshot();
@@ -29394,7 +29431,38 @@ function saveChars() {
       var character=member&&characters.find(function(c){return String(c.id)===String(member.characterId);});
       if(character&&window.ZargotaRooms.syncCharacter)window.ZargotaRooms.syncCharacter(character);
     } catch(e) {}
-  },450);
+  },700);}
+}
+
+function zgMergeCampaignState(snapshot) {
+  if(!snapshot)return;
+  var changed=false,campaign=snapshot.campaign||{},heroes=campaign.heroes||{};
+  Object.keys(heroes).forEach(function(key){
+    var remote=heroes[key]||{},local=characters.find(function(c){return c&&c.campaignKey===key;});
+    if(!local&&remote.profile){
+      try{local=JSON.parse(JSON.stringify(remote.profile));}catch(e){local=null;}
+      if(local){local.campaignKey=key;local.campaignLinked=true;if(!local.id)local.id='campaign-'+key;var runtime=remote.runtime||{};Object.keys(runtime).forEach(function(field){if(field!=='updatedAt')local[field]=runtime[field];});characters.push(local);changed=true;}
+    }else if(local){
+      if(!local.campaignLinked){local.campaignLinked=true;changed=true;}
+      if(snapshot.session&&snapshot.session.role==='master'&&remote.profile){window._zgCampaignProfileSig=window._zgCampaignProfileSig||{};var profileSig=JSON.stringify(remote.profile);if(window._zgCampaignProfileSig[key]!==profileSig){window._zgCampaignProfileSig[key]=profileSig;var keepId=local.id;Object.keys(remote.profile).forEach(function(field){if(field!=='id'&&field!=='campaignKey')local[field]=remote.profile[field];});local.id=keepId;local.campaignKey=key;changed=true;}}
+      if(snapshot.session&&(snapshot.session.role==='master'||remote.ownerUid===snapshot.session.uid)&&remote.runtime){window._zgCampaignOwnedRuntimeSig=window._zgCampaignOwnedRuntimeSig||{};var ownedSig=JSON.stringify(remote.runtime);if(window._zgCampaignOwnedRuntimeSig[key]!==ownedSig){window._zgCampaignOwnedRuntimeSig[key]=ownedSig;Object.keys(remote.runtime).forEach(function(field){if(field!=='updatedAt')local[field]=remote.runtime[field];});changed=true;}}
+    }
+  });
+  var session=snapshot.session,member=session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[session.uid],roomCharacter=member&&member.character;
+  if(roomCharacter){
+    var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
+    if(localCharacter){
+      var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:roomCharacter.inventoryItems,equipItems:roomCharacter.equipItems};
+      var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
+      if(window._zgCampaignRuntimeSig[sigKey]!==signature){
+        window._zgCampaignRuntimeSig[sigKey]=signature;Object.keys(runtime).forEach(function(field){if(runtime[field]!==undefined)localCharacter[field]=runtime[field];});
+        if(Array.isArray(roomCharacter.statusEffects)){localCharacter.tempEffects=(localCharacter.tempEffects||[]).filter(function(effect){return !effect||effect.type!=='status';}).concat(roomCharacter.statusEffects);}
+        changed=true;
+        if(window.ZargotaRooms&&window.ZargotaRooms.persistCampaignCharacter)window.ZargotaRooms.persistCampaignCharacter(localCharacter);
+      }
+    }
+  }
+  if(changed){applyCharsMigrations(characters);saveChars({sync:false});if(typeof renderCharsPage==='function'&&document.getElementById('page-characters')&&document.getElementById('page-characters').classList.contains('active'))renderCharsPage();}
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -30520,6 +30588,7 @@ function renderCharList() {
     var hpPct = c.hpMax > 0 ? Math.round(c.hpCur / c.hpMax * 100) : 0;
     var hpColor = hpPct > 60 ? '#50a050' : hpPct > 25 ? '#a0a020' : '#a03020';
     return '<div class="char-card" onclick="openCharSheet(' + c.id + ')">' +
+      (c.campaignKey?'<span class="char-campaign-sync" title="Герой кампании · синхронизация Firebase">◆</span>':'') +
       '<div class="char-card-lvl">LVL ' + c.level + '</div>' +
       portrait +
       '<div class="char-card-body">' +
@@ -35997,6 +36066,8 @@ detectTelegramLikeWebView();
 try { load(); } catch(e) {}
 try { window.entries = entries; } catch(e) {}
 try { loadChars(); } catch(e) {}
+window.addEventListener('zargota-room-state',function(event){try{zgMergeCampaignState(event&&event.detail);}catch(e){}});
+try { if(window.ZargotaRooms)zgMergeCampaignState(window.ZargotaRooms.getSnapshot()); } catch(e) {}
 try { initFilterPills(); } catch(e) {}
 try { initFormPills(); } catch(e) {}
 try { const v = localStorage.getItem('grimoire_view'); if (v) setView(v); } catch(e) {}

@@ -1,5 +1,17 @@
 {
   "rules": {
+    "campaigns": {
+      "$campaign": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && newData.child('masterUid').val() === auth.uid) || (data.child('masterUid').val() === auth.uid && newData.child('masterUid').val() === auth.uid))",
+        "heroes": {
+          "$hero": {
+            ".write": "auth != null && ((!data.exists() && newData.child('ownerUid').val() === auth.uid) || (data.child('ownerUid').val() === auth.uid && newData.child('ownerUid').val() === auth.uid) || (data.child('ownerUid').val() === '' && newData.child('ownerUid').val() === auth.uid))",
+            ".validate": "!newData.exists() || newData.child('campaignKey').val() === $hero"
+          }
+        }
+      }
+    },
     "rooms": {
       "$room": {
         ".read": "auth != null",

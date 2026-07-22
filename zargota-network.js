@@ -2,6 +2,10 @@
   'use strict';
 
   var SESSION_KEY = 'zargota_vtt_session_v3';
+  var CAMPAIGN_ID = 'zargota-main';
+  var CAMPAIGN_HERO_KEYS = {
+    '1776627463516':'evan','1776626039651':'melissa','1776463717210':'esteros','1778221131899':'vrotik','1778221143711':'lin-yin'
+  };
   var MAX_PLAYERS = 5;
   var FIREBASE_VERSION = '12.16.0';
   var FIREBASE_CONFIG = {
@@ -19,9 +23,13 @@
   var auth = null;
   var db = null;
   var currentRoom = null;
+  var currentCampaign = null;
   var roomUnsubscribe = null;
+  var campaignUnsubscribe = null;
   var connected = false;
   var initError = null;
+  var createRoomPromise = null;
+  var campaignMirrorSignatures = {};
 
   function now() { return Date.now(); }
 
@@ -247,15 +255,22 @@
 
   function readSession() {
     try {
-      var parsed = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+      var raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY) || 'null';
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.code) localStorage.setItem(SESSION_KEY, JSON.stringify(parsed));
       return parsed && parsed.code ? parsed : null;
     } catch (e) { return null; }
   }
 
   function saveSession(session) {
     try {
-      if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-      else sessionStorage.removeItem(SESSION_KEY);
+      if (session) {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      } else {
+        localStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
+      }
     } catch (e) {}
   }
 
@@ -333,6 +348,7 @@
     });
     return {
       id: String(character.id),
+      campaignKey: campaignKeyFor(character),
       name: character.name || 'Без имени',
       portrait: character.portrait || '',
       race: character.race || '',
@@ -360,6 +376,31 @@
     };
   }
 
+  function campaignKeyFor(character) {
+    if (!character) return '';
+    return String(character.campaignKey || CAMPAIGN_HERO_KEYS[String(character.id)] || '').slice(0, 40);
+  }
+
+  function campaignProfileSnapshot(character) {
+    var copy;
+    try { copy=JSON.parse(JSON.stringify(character||{})); } catch(e) { copy={}; }
+    var runtimeKeys=['hpCur','hpMax','tempHp','statuses','tempEffects','statusEffects','abilityUsage','inventoryItems','equipItems','deathSaves','combatRound','battleEcho'];
+    runtimeKeys.forEach(function(key){delete copy[key];});
+    delete copy.heroArt;
+    if(/^data:/i.test(String(copy.portrait||'')))copy.portrait='';
+    copy.id=String(copy.id||'');copy.campaignKey=campaignKeyFor(character);
+    return copy;
+  }
+
+  function campaignRuntimeSnapshot(character) {
+    var snap=characterSnapshot(character);
+    return {hpCur:snap.hpCur,hpMax:snap.hpMax,tempHp:snap.tempHp,statuses:snap.statuses,statusEffects:snap.statusEffects,abilityUsage:snap.abilityUsage,inventoryItems:snap.inventoryItems,equipItems:snap.equipItems,updatedAt:now()};
+  }
+
+  function campaignHeroPayload(character,ownerUid) {
+    return {campaignKey:campaignKeyFor(character),ownerUid:String(ownerUid||''),profile:campaignProfileSnapshot(character),runtime:campaignRuntimeSnapshot(character),updatedAt:now()};
+  }
+
   function emit() {
     var snapshot = api.getSnapshot();
     listeners.slice().forEach(function (listener) {
@@ -374,6 +415,12 @@
       roomUnsubscribe = null;
     }
     currentRoom = null;
+  }
+
+  function watchCampaign() {
+    if(campaignUnsubscribe){try{campaignUnsubscribe();}catch(e){}campaignUnsubscribe=null;}
+    if(!firebase||!db)return;
+    campaignUnsubscribe=firebase.onValue(firebase.ref(db,'campaigns/'+CAMPAIGN_ID),function(snapshot){currentCampaign=snapshot.exists()?snapshot.val():null;emit();},function(){currentCampaign=null;emit();});
   }
 
   function syncSessionRole(room) {
@@ -394,10 +441,20 @@
     roomUnsubscribe = firebase.onValue(firebase.ref(db, 'rooms/' + code), function (snapshot) {
       currentRoom = snapshot.exists() ? snapshot.val() : null;
       syncSessionRole(currentRoom);
+      mirrorRoomCampaign(currentRoom);
       emit();
     }, function (error) {
       console.error('Zargota room listener:', error);
       emit();
+    });
+  }
+
+  function mirrorRoomCampaign(room) {
+    var session=readSession();if(!room||!session||session.role!=='master'||!auth||!auth.currentUser||room.masterUid!==auth.currentUser.uid)return;
+    Object.keys(room.members||{}).forEach(function(uid){
+      var member=room.members[uid],character=member&&member.character,key=campaignKeyFor(character);if(!character||!key)return;
+      var signature=JSON.stringify(character);if(campaignMirrorSignatures[key]===signature)return;campaignMirrorSignatures[key]=signature;
+      firebase.update(firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes/'+key),{runtime:campaignRuntimeSnapshot(character),updatedAt:now()}).catch(function(){});
     });
   }
 
@@ -452,6 +509,28 @@
       });
     }
     return next();
+  }
+
+  function ensureCampaign(user) {
+    var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID);
+    return firebase.get(target).then(function(snapshot){
+      var campaign=snapshot.exists()?snapshot.val():null;
+      if(campaign&&campaign.masterUid&&campaign.masterUid!==user.uid)return campaign;
+      var updates={masterUid:user.uid,updatedAt:now()},chars=Array.isArray(w.characters)?w.characters:[];
+      chars.forEach(function(character){var key=campaignKeyFor(character);if(key&&!(campaign&&campaign.heroes&&campaign.heroes[key]))updates['heroes/'+key]=campaignHeroPayload(character,'');});
+      return firebase.update(target,updates).then(function(){watchCampaign();return true;});
+    }).catch(function(){return null;});
+  }
+
+  function writeCampaignCharacter(character,user,allowClaim) {
+    var key=campaignKeyFor(character);if(!key)return Promise.resolve(null);
+    var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes/'+key);
+    return firebase.get(target).then(function(snapshot){
+      var existing=snapshot.exists()?snapshot.val():null,owner=existing&&existing.ownerUid||'';
+      if(owner&&owner!==user.uid)return null;
+      var payload=campaignHeroPayload(character,owner|| (allowClaim?user.uid:''));
+      return firebase.set(target,payload).then(function(){return payload;});
+    }).catch(function(){return null;});
   }
 
   // Санитайзер сцены — общий для одиночной сцены и зон
@@ -547,7 +626,18 @@
     maxPlayers: MAX_PLAYERS,
 
     createRoom: function () {
-      return ensureReady().then(function (user) {
+      if (createRoomPromise) return createRoomPromise;
+      createRoomPromise = ensureReady().then(function (user) {
+        var saved=readSession();
+        if(saved&&saved.role==='master')return readRoom(saved.code).then(function(existing){
+          if(existing&&existing.masterUid===user.uid){currentRoom=existing;watchRoom(saved.code);setPresence(saved);ensureCampaign(user);watchCampaign();emit();return api.getSnapshot();}
+          saveSession(null);return null;
+        });
+        if(saved)return readRoom(saved.code).then(function(existing){if(existing)throw roomError('У вас уже есть активная сессия. Сначала вернитесь в неё или покиньте комнату.','active-room');saveSession(null);return null;});
+        return null;
+      }).then(function(existingSnapshot){
+        if(existingSnapshot)return existingSnapshot;
+        return ensureReady().then(function (user) {
         return uniqueRoomCode().then(function (code) {
           var room = {
             code: code,
@@ -573,15 +663,18 @@
             saveSession(session);
             currentRoom = room;
             watchRoom(code);
+            ensureCampaign(user);
             setPresence(session);
             emit();
             return api.getSnapshot();
           });
         });
+        });
       }).catch(function (error) {
-        if (error && error.code && String(error.code).indexOf('room-') === 0) throw error;
+        if (error && (error.code==='active-room'||error.code&&String(error.code).indexOf('room-')===0)) throw error;
         throw friendlyFirebaseError(error);
-      });
+      }).then(function(result){createRoomPromise=null;return result;},function(error){createRoomPromise=null;throw error;});
+      return createRoomPromise;
     },
 
     prepareJoin: function (rawCode) {
@@ -589,7 +682,6 @@
       return ensureReady().then(function (user) {
         return readRoom(code).then(function (room) {
           if (!room) throw roomError('Комната с таким кодом не найдена.', 'room-not-found');
-          if (room.phase !== 'pairing') throw roomError('Мастер уже начал выбор героев.', 'room-started');
           var existing = room.members && room.members[user.uid];
           if (existing && existing.role === 'player') {
             var existingSession = { code: code, role: 'player', uid: user.uid, playerCode: existing.playerCode || '' };
@@ -599,6 +691,7 @@
             setPresence(existingSession);
             return api.getSnapshot();
           }
+          if (room.phase !== 'pairing') throw roomError('Мастер уже начал выбор героев.', 'room-started');
           var ownPendingCode = '';
           Object.keys(room.pending || {}).some(function (key) {
             if (room.pending[key] && room.pending[key].uid === user.uid) { ownPendingCode = key; return true; }
@@ -708,19 +801,18 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var member = room.members && room.members[user.uid];
           if (!member) throw roomError('Мастер ещё не подтвердил подключение.', 'not-approved');
-          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-            characterId: String(character.id),
-            character: characterSnapshot(character),
-            gmReady: false,
-            name: character.name || member.name,
-            lastSeen: firebase.serverTimestamp(),
-            online: true
+          return writeCampaignCharacter(character,user,true).then(function(campaignResult){
+            if(campaignKeyFor(character)&&!campaignResult)throw roomError('Этот герой уже закреплён за другим игроком.','hero-taken');
+            return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+              characterId: String(character.id),character:characterSnapshot(character),campaignKey:campaignKeyFor(character),gmReady:false,
+              name:character.name||member.name,lastSeen:firebase.serverTimestamp(),online:true
+            });
           }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
-        if (error && ['room-not-found','not-approved'].indexOf(error.code) >= 0) throw error;
+        if (error && ['room-not-found','not-approved','hero-taken'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -732,10 +824,15 @@
         if (!session || !firebase || !db) return api.getSnapshot();
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         if (!member || String(member.characterId || '') !== String(character.id)) return api.getSnapshot();
-        return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+        var roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
           character: characterSnapshot(character), name: character.name || member.name, lastSeen: firebase.serverTimestamp()
-        }).then(function () { return refreshRoom(session.code); }).then(function () { return api.getSnapshot(); });
+        });
+        return Promise.all([roomWrite,writeCampaignCharacter(character,user,false)]).then(function () { return refreshRoom(session.code); }).then(function () { return api.getSnapshot(); });
       }).catch(function () { return api.getSnapshot(); });
+    },
+
+    persistCampaignCharacter: function(character) {
+      return ensureReady().then(function(user){return writeCampaignCharacter(character,user,false);}).catch(function(){return null;});
     },
 
     attachGameMaster: function () {
@@ -1842,6 +1939,7 @@
         approved: !!(member && member.role === 'player'),
         session: session,
         room: currentRoom,
+        campaign: currentCampaign,
         players: membersOf(currentRoom, 'player'),
         pending: pendingOf(currentRoom),
         error: initError ? initError.message : ''
@@ -1880,7 +1978,7 @@
       onDisconnect: databaseModule.onDisconnect,
       serverTimestamp: databaseModule.serverTimestamp
     };
-    return authModule.setPersistence(auth, authModule.browserSessionPersistence).then(function () {
+    return authModule.setPersistence(auth, authModule.browserLocalPersistence).then(function () {
       if (auth.currentUser) return auth.currentUser;
       return authModule.signInAnonymously(auth).then(function (credential) { return credential.user; });
     }).then(function (user) {
@@ -1894,6 +1992,7 @@
         session.uid = user.uid;
         saveSession(session);
         watchRoom(session.code);
+        watchCampaign();
         setPresence(session);
       }
       emit();
