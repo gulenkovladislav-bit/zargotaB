@@ -426,6 +426,16 @@
   function syncSessionRole(room) {
     var session = readSession();
     if (!session || !auth || !auth.currentUser) return;
+    if (room && room.masterUid === auth.currentUser.uid) {
+      if (session.role !== 'master' || session.uid !== auth.currentUser.uid || session.code !== room.code) {
+        session.role = 'master';
+        session.uid = auth.currentUser.uid;
+        session.code = room.code || session.code;
+        delete session.playerCode;
+        saveSession(session);
+      }
+      return;
+    }
     var member = room && room.members && room.members[auth.currentUser.uid];
     if (member && member.role === 'player' && session.role !== 'player') {
       session.role = 'player';
@@ -732,10 +742,13 @@
       var playerCode = normalizePlayerCode(rawPlayerCode);
       return ensureReady().then(function (user) {
         var session = readSession();
-        if (!session || session.role !== 'master') throw roomError('Подтверждать игроков может только мастер.', 'master-only');
-        return readRoom(session.code).then(function (room) {
+        var code = session && session.code || currentRoom && currentRoom.code;
+        if (!code) throw roomError('Активная комната не найдена.', 'room-not-found');
+        return readRoom(code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          session = { code: room.code || code, role: 'master', uid: user.uid };
+          saveSession(session);
           var pending = room.pending && room.pending[playerCode];
           if (!pending) throw roomError('Игрок с таким кодом пока не подключался.', 'player-not-found');
           var slot = Math.max(0, Math.min(MAX_PLAYERS - 1, Number(slotIndex) || 0));
@@ -773,10 +786,13 @@
       var testMode = options === true || !!(options && options.testMode);
       return ensureReady().then(function (user) {
         var session = readSession();
-        if (!session || session.role !== 'master') throw roomError('Начать игру может только мастер.', 'master-only');
-        return readRoom(session.code).then(function (room) {
+        var code = session && session.code || currentRoom && currentRoom.code;
+        if (!code) throw roomError('Активная комната не найдена.', 'room-not-found');
+        return readRoom(code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          session = { code: room.code || code, role: 'master', uid: user.uid };
+          saveSession(session);
           if (!testMode && !membersOf(room, 'player').length) throw roomError('Подтвердите хотя бы одного игрока.', 'no-players');
           return firebase.update(roomRef(session.code), {
             testMode: testMode,
