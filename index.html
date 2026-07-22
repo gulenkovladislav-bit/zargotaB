@@ -4,7 +4,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-21.69"></script>
+<script src="zargota-network.js?v=2026-07-22.1"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -8931,13 +8931,10 @@ window.addEventListener('load', function(){
     box-shadow: 0 0 22px rgba(232,192,96,0.10), inset 0 0 18px rgba(232,192,96,0.04);
     transform: translateY(-2px);
   }
-  .zg-adv-card-art { height: 74px; margin: 0 auto 14px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-  .zg-adv-card-art--compass { position:relative; width:82px; }
-  .zg-adv-card-art--compass::before, .zg-adv-card-art--compass::after { content:''; position:absolute; width:74px; height:2px; background:linear-gradient(90deg,transparent,#9d7029 22%,#f0d080 50%,#9d7029 78%,transparent); }
-  .zg-adv-card-art--compass::after { transform:rotate(90deg); }
-  .zg-adv-compass-star { position:relative; z-index:1; color:#f0c85a; font-size:60px; line-height:1; text-shadow:0 0 16px rgba(232,192,96,.55), 0 0 2px #fff0ad; }
-  .zg-adv-card-art--join { width:92px; border:1px solid rgba(196,160,74,.34); border-radius:50%; background:#0c0906; box-shadow:0 0 18px rgba(232,192,96,.12); }
-  .zg-adv-card-art--join img { width:100%; height:100%; object-fit:cover; object-position:50% 20%; filter:saturate(.72) contrast(1.08) brightness(.82); }
+  .zg-adv-card-art { width:98px;height:94px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;overflow:visible; }
+  .zg-adv-card-art img { width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 14px rgba(232,192,96,.2));transition:filter .3s ease,transform .3s ease; }
+  .zg-adv-card:hover .zg-adv-card-art img { filter:drop-shadow(0 0 20px rgba(232,192,96,.42));transform:scale(1.04); }
+  .zg-adv-card-art--join { width:92px; }
   .zg-adv-card-title { font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold); letter-spacing: 0.5px; margin-bottom: 10px; }
   .zg-adv-card-desc { font-size: 13px; color: var(--muted); line-height: 1.55; }
 
@@ -8988,9 +8985,9 @@ window.addEventListener('load', function(){
   .zg-pair-copy:hover { color:var(--gold);border-color:var(--gold2); }
   .zg-pair-slots { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:4px 0 18px; }
   .zg-pair-slot { min-width:0;padding:14px 8px 11px;border:1px solid #302414;border-radius:9px;background:linear-gradient(180deg,#151006,#0c0905);text-align:center;transition:border-color .3s,box-shadow .3s; }
-  .zg-pair-gem { width:26px;height:32px;margin:0 auto 10px;clip-path:polygon(50% 0,88% 22%,100% 68%,50% 100%,0 68%,12% 22%);background:linear-gradient(145deg,#15251c,#09110c);border:1px solid #35513b;filter:drop-shadow(0 0 0 transparent);transition:.35s; }
+  .zg-pair-gem { width:42px;height:52px;margin:0 auto 7px;background:url('images/session-ui/player-crystal-dim.png') center/contain no-repeat;filter:drop-shadow(0 2px 4px #000);transition:filter .35s,transform .35s; }
   .zg-pair-slot.ok { border-color:#398a5a;box-shadow:0 0 18px #37c87325,inset 0 0 16px #37c87312; }
-  .zg-pair-slot.ok .zg-pair-gem,.zg-player-gem.ok { background:linear-gradient(145deg,#9dffc4 0%,#31d879 38%,#08733e 100%);filter:drop-shadow(0 0 10px #38e98799); }
+  .zg-pair-slot.ok .zg-pair-gem,.zg-player-gem.ok { background-image:url('images/session-ui/player-crystal-lit.png');filter:drop-shadow(0 0 10px #38e98799);transform:translateY(-1px); }
   .zg-pair-slot-num { font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase; }
   .zg-pair-slot-state { min-height:31px;margin-top:7px;display:flex;align-items:center;justify-content:center;color:#62543d;font-size:11px; }
   .zg-pair-slot.pending { border-color:#80652d;box-shadow:0 0 16px #d3a84116; }
@@ -9004,7 +9001,7 @@ window.addEventListener('load', function(){
   .zg-adv-submit:disabled { opacity:.38;cursor:not-allowed;transform:none;box-shadow:none; }
   .zg-adv-test { display:block;margin:12px auto 0;padding:8px 12px;border:0;background:transparent;color:var(--dim);font-family:'Lora',serif;font-size:12px;cursor:pointer; }
   .zg-adv-test:hover { color:var(--muted); }
-  .zg-player-gem { width:54px;height:68px;margin:4px auto 18px;clip-path:polygon(50% 0,88% 22%,100% 68%,50% 100%,0 68%,12% 22%);background:linear-gradient(145deg,#17231b,#09110c);transition:.4s; }
+  .zg-player-gem { width:76px;height:94px;margin:4px auto 14px;background:url('images/session-ui/player-crystal-dim.png') center/contain no-repeat;filter:drop-shadow(0 2px 5px #000);transition:filter .4s,transform .4s; }
   .zg-player-wait { text-align:center;color:var(--muted);font-size:13px;line-height:1.6; }
   .zg-player-wait strong { color:#78d99c; }
   @media(max-width:650px){
@@ -9018,8 +9015,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-21.69';
+var ZG_APP_VERSION = '2026-07-22.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.1', notes: 'Новые иконки создания и входа в приключение, единый кристалл игрока в тусклом и активном состояниях; экранный курсор действий больше не смещается масштабом сцены, восстановлены боевые визуальные события.' },
   { v: '2026-07-21.69', notes: 'Жетоны сцены связываются с Реестром НПС и Бестиарием: поиск подставляет канонические портрет, HP, AC, инициативу, характеристики, атаки и защиты, а обновление источника не исцеляет сессионное здоровье.' },
   { v: '2026-07-21.68', notes: 'Направленные способности получили линии и конусы: герой задаёт начало, выбранный участник — направление, мастер настраивает длину и ширину, а цели подсвечиваются на карте и проверяются сервером.' },
   { v: '2026-07-21.67', notes: 'Заряды способностей связаны с сетевой сессией: остаток виден игроку и мастеру, списывается только после подтверждённого применения и проверяется повторно перед розыгрышем.' },
@@ -12123,6 +12121,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var abilityRequestBusy = false;
   var seenRollVisuals = {};
   var localRollVisuals = {};
+  var lastCombatVisual = '';
 
   function el(id){ return document.getElementById(id); }
   function esc(value){
@@ -16022,12 +16021,12 @@ window.zgImageStore = (function() {
         <div class="zg-adv-sub">Выберите, что вы хотите сделать.</div>
         <div class="zg-adv-cards">
           <button type="button" class="zg-adv-card" onclick="zgAdvCreateGame()">
-            <div class="zg-adv-card-art zg-adv-card-art--compass" aria-hidden="true"><span class="zg-adv-compass-star">✦</span></div>
+            <div class="zg-adv-card-art" aria-hidden="true"><img src="images/session-ui/create-adventure.png" alt=""></div>
             <div class="zg-adv-card-title">Создать игру</div>
             <div class="zg-adv-card-desc">Создайте новое приключение и получите код для приглашения игроков.</div>
           </button>
           <button type="button" class="zg-adv-card" onclick="zgAdvShowJoin()">
-            <div class="zg-adv-card-art zg-adv-card-art--join" aria-hidden="true"><img src="images/portraits/char_1776463717210.png" alt=""></div>
+            <div class="zg-adv-card-art zg-adv-card-art--join" aria-hidden="true"><img src="images/session-ui/join-adventure.png" alt=""></div>
             <div class="zg-adv-card-title">Присоединиться</div>
             <div class="zg-adv-card-desc">Введите код приключения, чтобы присоединиться к существующей игре.</div>
           </button>
@@ -17111,8 +17110,8 @@ window.zgImageStore = (function() {
         <div class="zg-vtt-token-layer" id="zg-vtt-token-layer"></div>
         <svg class="zg-region-layer" id="zg-region-layer" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Зоны сцены"></svg>
         <div class="zg-move-layer" id="zg-move-layer"><div class="zg-move-preview" id="zg-move-preview" aria-hidden="true">🥾</div></div>
-        <span class="zg-action-cursor" id="zg-action-cursor" aria-hidden="true"></span>
       </div>
+      <span class="zg-action-cursor" id="zg-action-cursor" aria-hidden="true"></span>
       <svg class="zg-measure" id="zg-measure" xmlns="http://www.w3.org/2000/svg"></svg>
       <div class="zg-vtt-rubber" id="zg-vtt-rubber"></div>
     </div>
