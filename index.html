@@ -10442,6 +10442,17 @@ document.addEventListener('DOMContentLoaded', function(){
     'combat-attack':'images/vtt-actions/attack.png',custom:'images/vtt-actions/custom.png',
     movement:'images/vtt-actions/movement.png'
   };
+  var actionCursorIcons = {
+    inspect:'images/vtt-actions/cursors/inspect.png',
+    interact:'images/vtt-actions/cursors/interact.png',
+    take:'images/vtt-actions/cursors/take.png',
+    search:'images/vtt-actions/cursors/search.png',
+    speak:'images/vtt-actions/cursors/speak.png',
+    attack:'images/vtt-actions/cursors/attack.png',
+    'combat-attack':'images/vtt-actions/cursors/attack.png',
+    custom:'images/vtt-actions/cursors/custom.png',
+    movement:'images/vtt-actions/cursors/movement.png'
+  };
   var movementActorUid = '';
   var movementPanelPinned = false;
   var possessedUid = '';
@@ -10955,7 +10966,7 @@ document.addEventListener('DOMContentLoaded', function(){
     movementMode = !!on;
     if (movementMode) setActionTool('');
     var scene = el('zg-vtt-scene'); if (scene) scene.classList.toggle('move-mode', movementMode);
-    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?'<img src="'+actionToolIcons.movement+'" alt="">':'';cursor.classList.toggle('open',movementMode);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?'<img src="'+actionCursorIcons.movement+'" alt="">':'';cursor.classList.toggle('open',movementMode);}
     preview = el('zg-move-preview'); if (preview && !movementMode) preview.style.display = '';
     return movementMode;
   }
@@ -10963,7 +10974,7 @@ document.addEventListener('DOMContentLoaded', function(){
     actionToolKind=String(kind||'');
     var scene=el('zg-vtt-scene');
     if(scene){scene.classList.toggle('action-tool',!!actionToolKind);scene.setAttribute('data-action-tool',actionToolKind);}
-    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionToolKind?'<img src="'+actionToolIcons[actionToolKind]+'" alt="">':'';cursor.classList.toggle('open',!!actionToolKind);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionToolKind?'<img src="'+actionCursorIcons[actionToolKind]+'" alt="">':'';cursor.classList.toggle('open',!!actionToolKind);}
     Array.prototype.forEach.call(document.querySelectorAll('#zg-action-menu [data-action-kind]'),function(button){button.classList.toggle('active',button.getAttribute('data-action-kind')===actionToolKind);});
   }
   w.zgSceneActionTool=function(kind){setMovementMode(false);setActionTool(kind);return actionToolKind;};
@@ -12606,7 +12617,7 @@ document.addEventListener('DOMContentLoaded', function(){
     w.ZargotaRooms.useCombatAction(type,turn&&turn.key||'').then(function(){if(w.ZargotaSound&&w.ZargotaSound.click)w.ZargotaSound.click();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Действие недоступно');}).then(function(){combatActionBusy=false;if(host)host.classList.remove('busy');});
   };
   var combatAttackTargetKey='',combatAttackBusy=false,combatAttackTool=false;
-  function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=combatAttackTool?'<img src="images/vtt-actions/attack.png" alt="">':'';cursor.classList.toggle('open',combatAttackTool);}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
+  function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=combatAttackTool?'<img src="'+actionCursorIcons['combat-attack']+'" alt="">':'';cursor.classList.toggle('open',combatAttackTool);}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
   function selectCombatMapTarget(entry,token,node){
     if(!entry)return;combatAttackTargetKey=entry.key;setCombatAttackTool(false);
     node.classList.add('combat-target');setTimeout(function(){node.classList.remove('combat-target');},1200);
@@ -16596,7 +16607,7 @@ window.zgImageStore = (function() {
   .zg-action-menu-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:#bda46f;font:600 11px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}
   .zg-action-menu-close{border:0;background:transparent;color:#806f4c;font-size:18px;line-height:1;cursor:pointer}.zg-action-menu-close:hover{color:#efd895}
   .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
-  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate(-50%,-50%);width:42px;height:42px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 7px #d6a73f99)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}
+  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate(-72%,-72%);width:52px;height:52px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:52px;height:52px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 6px #d6a73f80)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}
 
   .zg-vtt-drawer.inventory-skin{width:min(650px,calc(100vw - 36px));border:0;background:url('images/vtt-ui/inventory-leather.png') center/100% 100% no-repeat;padding:34px 42px 42px;box-shadow:0 28px 80px #000e;overflow:hidden}
   .zg-vtt-drawer.inventory-skin .zg-bag-tabs{border:0;background:transparent;padding:10px 38px 18px}
