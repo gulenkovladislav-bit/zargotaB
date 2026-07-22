@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.6';
+var ZG_APP_VERSION = '2026-07-23.7';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.7', notes: 'Движение героя и появление следов используют единый покадровый прогресс; длинные маршруты на экране игрока больше не заканчиваются телепортацией.' },
   { v: '2026-07-23.6', notes: 'Кубики раскрываются сразу в окончательной позиции со звуком камня. Настройки d20 вынесены вправо и собраны в компактную панель характеристик и режима броска.' },
   { v: '2026-07-23.5', notes: 'Кат-сцена входа начинается с плотного полноэкранного тумана, который рассеивается вокруг героя; чёрные поля по краям убраны.' },
   { v: '2026-07-23.4', notes: 'Гейм-мастер снова может войти на карту сразу, пока игроки продолжают выбирать своих героев.' },
@@ -10586,6 +10587,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var movementPanelPinned = false;
   var possessedUid = '';
   var lastMovementSeen = '';
+  var activeMovementVisual = null;
   var lastMovementFeedback = '';
   var lastActionFeedback = '';
   var playerCameraFocus = null;
@@ -11239,6 +11241,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (!node) return;
     lastMovementSeen = movement.id;
     var duration = Number(movement.duration)||900;
+    var footprints=[];
     var trailLayer = el('zg-footprint-layer');
     if (trailLayer) {
       var dx=Number(movement.toX)-Number(movement.fromX),dy=Number(movement.toY)-Number(movement.fromY);
@@ -11254,20 +11257,28 @@ document.addEventListener('DOMContentLoaded', function(){
         foot.style.top=(Number(movement.fromY)+dy*progress+(screenDx/screenLength*sideOffset)/height*100)+'%';
         foot.style.setProperty('--foot-angle',(angle+side*4)+'deg');
         // След появляется лишь после того, как центр жетона дошёл до этой точки.
-        foot.style.setProperty('--foot-delay',Math.round(duration*progress+55)+'ms');
+        foot.style.animation='none';foot.style.opacity='0';
+        foot.dataset.progress=String(progress);
         foot.innerHTML='<i></i>';
         trailLayer.appendChild(foot);
-        (function(mark){setTimeout(function(){if(mark.parentNode)mark.remove();},duration+1900);})(foot);
+        footprints.push(foot);
       }
     }
-    node.classList.add('walking');
-    node.style.transition = 'none'; node.style.left = clamp(movement.fromX,0,100) + '%'; node.style.top = clamp(movement.fromY,0,100) + '%';
-    void node.offsetWidth;
-    requestAnimationFrame(function(){
-      node.style.transition = 'left ' + duration + 'ms linear,top ' + duration + 'ms linear,transform .12s ease';
-      node.style.left = clamp(movement.toX,0,100) + '%'; node.style.top = clamp(movement.toY,0,100) + '%';
-    });
-    setTimeout(function(){node.classList.remove('walking');},duration+80);
+    var fromX=clamp(movement.fromX,0,100),fromY=clamp(movement.fromY,0,100),toX=clamp(movement.toX,0,100),toY=clamp(movement.toY,0,100),started=performance.now();
+    activeMovementVisual={id:movement.id,uid:movement.uid,tokenId:token.id,fromX:fromX,fromY:fromY,toX:toX,toY:toY,progress:0};
+    node.classList.add('walking');node.style.transition='none';node.style.left=fromX+'%';node.style.top=fromY+'%';
+    function frame(now){
+      var progress=Math.max(0,Math.min(1,(now-started)/duration));
+      if(activeMovementVisual&&activeMovementVisual.id===movement.id)activeMovementVisual.progress=progress;
+      if(!node||!node.isConnected){node=document.querySelector('.zg-vtt-token[data-tid="'+String(token.id).replace(/"/g,'')+'"]');if(node){node.classList.add('walking');node.style.transition='none';}}
+      if(node){node.style.left=(fromX+(toX-fromX)*progress)+'%';node.style.top=(fromY+(toY-fromY)*progress)+'%';}
+      footprints.forEach(function(foot){if(foot.dataset.shown==='1'||progress<Number(foot.dataset.progress||0))return;foot.dataset.shown='1';foot.style.animation='zgFootprintTrail 2.15s ease-out both';});
+      if(progress<1){requestAnimationFrame(frame);return;}
+      if(node){node.style.left=toX+'%';node.style.top=toY+'%';node.classList.remove('walking');node.style.transition='transform .12s ease';}
+      if(activeMovementVisual&&activeMovementVisual.id===movement.id)activeMovementVisual=null;
+      setTimeout(function(){footprints.forEach(function(foot){if(foot.parentNode)foot.remove();});},2200);
+    }
+    requestAnimationFrame(frame);
   }
   function applyCamera(){
     var world = el('zg-vtt-world'); if (!world) return;
@@ -11492,8 +11503,10 @@ document.addEventListener('DOMContentLoaded', function(){
       var isObj = token.type === 'object';
       node.type = 'button'; node.className = 'zg-vtt-token' + (isText ? ' text' : (isObj ? ' obj' : ' disp-' + (token.disposition || 'neutral'))) + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.locked ? ' locked' : '') + (ownToken ? ' own' : '') + (gmCombatControlled ? ' gm-combat-controlled' : '') + (token.id === selectedTokenId && isMaster && gmVision === 'gm' ? ' selected' : '') + (token.type === 'hero' && token.memberUid === possessedUid && isMaster && gmVision === 'players' ? ' controlled' : '') + (groupSel.indexOf(token.id) >= 0 ? ' gsel' : '');
       var incomingMove=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.lastMovement;
-      var holdAtOrigin=incomingMove&&incomingMove.id&&incomingMove.id!==lastMovementSeen&&token.type==='hero'&&token.memberUid===incomingMove.uid;
-      node.style.left = (holdAtOrigin?clamp(incomingMove.fromX,0,100):token.x) + '%'; node.style.top = (holdAtOrigin?clamp(incomingMove.fromY,0,100):token.y) + '%'; node.style.zIndex = String(token.z); node.style.opacity = (token.opacity==null?1:token.opacity);
+      var liveMove=activeMovementVisual&&token.type==='hero'&&token.memberUid===activeMovementVisual.uid?activeMovementVisual:null;
+      var holdAtOrigin=!liveMove&&incomingMove&&incomingMove.id&&incomingMove.id!==lastMovementSeen&&token.type==='hero'&&token.memberUid===incomingMove.uid;
+      node.style.left = (liveMove?liveMove.fromX+(liveMove.toX-liveMove.fromX)*liveMove.progress:holdAtOrigin?clamp(incomingMove.fromX,0,100):token.x) + '%'; node.style.top = (liveMove?liveMove.fromY+(liveMove.toY-liveMove.fromY)*liveMove.progress:holdAtOrigin?clamp(incomingMove.fromY,0,100):token.y) + '%'; node.style.zIndex = String(token.z); node.style.opacity = (token.opacity==null?1:token.opacity);
+      if(liveMove)node.classList.add('walking');
       node.dataset.tid = token.id;
       if (token.memberUid) node.dataset.memberUid = token.memberUid;
       node.title = tokenName(token); node.setAttribute('aria-label',tokenName(token));
