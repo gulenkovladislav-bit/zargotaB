@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.16';
+var ZG_APP_VERSION = '2026-07-22.17';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.17', notes: 'Кубики в панели выбора увеличены на 20%, включая их копии при выборе нескольких штук.' },
   { v: '2026-07-22.16', notes: 'Бросок начинается точно в месте отпускания курсора, плавно продолжается по инерции и показывает результат только после завершения всех отскоков.' },
   { v: '2026-07-22.15', notes: 'После отпускания кубики летят по направлению жеста, разлетаются веером, вращаются, отскакивают и останавливаются на рассчитанном результате.' },
   { v: '2026-07-22.14', notes: 'При перетаскивании вращается сама грань каждого кубика, а подпись остаётся неподвижной и всегда читаемой.' },
@@ -16735,7 +16736,7 @@ window.zgImageStore = (function() {
   .zg-dice-pop.open{display:block;animation:zgDiceFanIn .28s cubic-bezier(.18,.8,.25,1)}
   @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px) scale(.86)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
   .zg-dice-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end}
-  .zg-dice-row button{position:relative;height:88px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
+  .zg-dice-row button{position:relative;height:102px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
   .zg-dice-row button:nth-child(2){animation-delay:.035s}.zg-dice-row button:nth-child(3){animation-delay:.07s}.zg-dice-row button:nth-child(4){animation-delay:.105s}.zg-dice-row button:nth-child(5){animation-delay:.14s}.zg-dice-row button:nth-child(6){animation-delay:.175s}
   @keyframes zgDieRise{from{opacity:0;transform:translateY(25px) scale(.65)}to{opacity:1;transform:none}}
   .zg-dice-row button{transition:transform .22s cubic-bezier(.18,.9,.25,1),filter .24s ease,color .2s ease}
@@ -16743,8 +16744,8 @@ window.zgImageStore = (function() {
   .zg-dice-row button.d20{border:0;background:transparent;color:#f1d17a}
   .zg-dice-row button.selected{color:#ffe59a;filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 18px #e2b343aa)}
   .zg-dice-row button.selected::after{content:attr(data-count);position:absolute;right:5px;top:4px;min-width:18px;height:18px;padding:0 2px;border:1px solid #e0b64f;border-radius:10px;background:#24190b;color:#ffe7a0;font:700 10px/18px 'Cinzel',serif;box-shadow:0 0 12px #dca93988}
-  .zg-dice-row button img{width:72px;height:66px;object-fit:contain;pointer-events:none;transition:transform .22s cubic-bezier(.18,.9,.25,1)}.zg-dice-row button>img:not(.zg-dice-stack-copy){position:relative;z-index:4}.zg-dice-row button:hover>img:not(.zg-dice-stack-copy){transform:scale(1.24)}.zg-dice-row button span{position:relative;z-index:5;font:600 11px/1 'Cinzel',serif;text-shadow:0 2px 5px #000}
-  .zg-dice-row button .zg-dice-stack-copy{--stack-x:0px;--stack-y:0px;--stack-rotate:0deg;position:absolute;z-index:1;left:50%;top:8px;width:72px;height:66px;opacity:1;filter:none;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate));animation:zgDiceStackIn .3s cubic-bezier(.16,.9,.25,1.15) both}
+  .zg-dice-row button img{width:86px;height:79px;object-fit:contain;pointer-events:none;transition:transform .22s cubic-bezier(.18,.9,.25,1)}.zg-dice-row button>img:not(.zg-dice-stack-copy){position:relative;z-index:4}.zg-dice-row button:hover>img:not(.zg-dice-stack-copy){transform:scale(1.24)}.zg-dice-row button span{position:relative;z-index:5;font:600 11px/1 'Cinzel',serif;text-shadow:0 2px 5px #000}
+  .zg-dice-row button .zg-dice-stack-copy{--stack-x:0px;--stack-y:0px;--stack-rotate:0deg;position:absolute;z-index:1;left:50%;top:8px;width:86px;height:79px;opacity:1;filter:none;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate));animation:zgDiceStackIn .3s cubic-bezier(.16,.9,.25,1.15) both}
   .zg-dice-row button .zg-dice-stack-copy.stack-1{--stack-x:-12px;--stack-y:2px;--stack-rotate:-9deg}.zg-dice-row button .zg-dice-stack-copy.stack-2{--stack-x:13px;--stack-y:3px;--stack-rotate:10deg}.zg-dice-row button .zg-dice-stack-copy.stack-3{--stack-x:-19px;--stack-y:7px;--stack-rotate:-15deg}
   @keyframes zgDiceStackIn{from{opacity:0;transform:translateX(-50%) translateY(-4px) rotate(0) scale(.78)}to{opacity:1;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate)) scale(1)}}
   .zg-dice-hint{text-align:center;margin-top:8px;color:#766647;font:9px/1.3 'Cinzel',serif;letter-spacing:.8px;opacity:.8}
@@ -17250,7 +17251,7 @@ window.zgImageStore = (function() {
   @media(max-width:560px){
     .zg-scene-quick{top:68px;left:8px;right:8px;width:auto}.zg-scene-quick-title{display:none}.zg-scene-drawer{top:62px;width:calc(100vw - 18px);height:calc(100vh - 126px)}.zg-scene-drawer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-scene-exit-actions{grid-template-columns:1fr}.zg-new-scene-size{grid-template-columns:1fr}.zg-new-scene-field{grid-template-columns:1fr}
     .zg-dice-pop{bottom:98px;width:98vw;padding:0 26px 10px}
-    .zg-dice-row{gap:1px}.zg-dice-row button{height:70px}.zg-dice-row button img{width:52px;height:50px}.zg-dice-row button span{font-size:9px}
+    .zg-dice-row{gap:1px}.zg-dice-row button{height:84px}.zg-dice-row button img{width:62px;height:60px}.zg-dice-row button .zg-dice-stack-copy{width:62px;height:60px}.zg-dice-row button span{font-size:9px}
     .zg-dice-abils{left:auto;right:4px;bottom:34px;width:164px;min-height:210px;height:auto}.zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{padding:6px 7px;font-size:8px}
     .zg-dice-hint{font-size:8px}.zg-dice-measure{top:20px;width:29px;height:29px}
     .zg-player-dock{width:calc(100vw - 14px);height:72px;padding:4px 7px}
