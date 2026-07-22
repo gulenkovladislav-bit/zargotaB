@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.31';
+var ZG_APP_VERSION = '2026-07-23.32';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.32', notes: 'Панель редактирования сцены больше не закрывается при клике по карте; выбор существа или объекта сразу переключает её на настройки выбранного элемента.' },
   { v: '2026-07-23.31', notes: 'Отдельная круглая кнопка библиотеки убрана; список сцен теперь открывается кликом по надписи «Сцены» в верхней панели.' },
   { v: '2026-07-23.30', notes: 'Пульт ГМ перенесён во второй ряд панели мастера; верхние кнопки больше не перекрывают сохранение сцены.' },
   { v: '2026-07-23.29', notes: 'Настройки видимости теперь показывают не только системные, но и все действующие пользовательские статусы; клик по значку у жетона открывает его описание.' },
@@ -11517,6 +11518,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ev.shiftKey){ toggleGroupSel(token); return; }         // Shift+клик — добавить/убрать из выделения
     if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
     selectedTokenId = token.id;
+    var sceneEditor=el('zg-scene-settings');
+    if(sceneEditor&&sceneEditor.classList.contains('open')&&w.zgSceneTab)w.zgSceneTab('objects');
     if(el('zg-gm-intervention')&&el('zg-gm-intervention').classList.contains('open')){gmInterventionTokenId=token.id;renderGmIntervention();}
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
     node.classList.add('selected');
@@ -12432,10 +12435,8 @@ document.addEventListener('DOMContentLoaded', function(){
     document.addEventListener('click', function(ev){
       var overview=el('zg-overview-panel');if(overview&&overview.classList.contains('open')&&!overview.contains(ev.target)&&!(ev.target.closest&&ev.target.closest('.zg-overview-button')))overview.classList.remove('open');
       var zones=el('zg-zones-panel');if(zones&&zones.classList.contains('open')&&!zones.contains(ev.target)&&!(ev.target.closest&&ev.target.closest('.zg-zones-button')))zones.classList.remove('open');
-      var panel = el('zg-scene-settings');
-      if (!panel || !panel.classList.contains('open') || panel.contains(ev.target)) return;
-      if (ev.target.closest && ev.target.closest('.zg-scene-gear')) return;
-      panel.classList.remove('open');
+      /* Редактор сцены — постоянная рабочая панель. Он закрывается
+         только повторной кнопкой/крестиком/Escape, а не кликом по карте. */
     });
     applyScene();
   }
