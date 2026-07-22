@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.3';
+var ZG_APP_VERSION = '2026-07-23.4';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.4', notes: 'Гейм-мастер снова может войти на карту сразу, пока игроки продолжают выбирать своих героев.' },
   { v: '2026-07-23.3', notes: 'Курсор выбранного действия больше не исчезает и не запаздывает: декоративная иконка движется одним GPU-слоем, а точный системный указатель остаётся видимым.' },
   { v: '2026-07-23.2', notes: 'Ряд кубиков центрируется по фактическим границам изображений точно над серединой нижней панели, включая коррекцию после анимации открытия.' },
   { v: '2026-07-23.1', notes: 'Новая GM-комната больше не восстанавливает старую сессию. Мастер остаётся на экране выбора героев, наблюдает за игроками и переходит к сцене только отдельной кнопкой.' },
@@ -9836,8 +9837,9 @@ document.addEventListener('DOMContentLoaded', function(){
     if (subtitle) subtitle.textContent = isRoomMaster ? 'Наблюдайте, как герои выбирают свой путь' : 'Выберите персонажа';
     if (gmBtn) {
       gmBtn.style.display = isRoomMaster ? 'inline-flex' : 'none';
-      gmBtn.disabled = !roomPlayers.length || readyPlayers !== roomPlayers.length;
-      gmBtn.textContent = gmBtn.disabled ? 'Герои выбирают персонажей · ' + readyPlayers + ' / ' + roomPlayers.length : 'Перейти к подготовке сцены';
+      gmBtn.disabled = false;
+      gmBtn.textContent = 'Войти в игру как гейм-мастер';
+      gmBtn.title = roomPlayers.length ? 'Герои выбрали персонажей: ' + readyPlayers + ' / ' + roomPlayers.length : 'Можно готовить сцену до подключения игроков';
     }
     if (!list) return;
     if (!hs.length) {
