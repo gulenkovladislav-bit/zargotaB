@@ -1092,7 +1092,7 @@
           var stamp=now(),distance=Math.hypot(targetX-fromX,targetY-fromY),updates={};
           updates[found.path+'/tokens/'+found.index+'/x']=targetX;updates[found.path+'/tokens/'+found.index+'/y']=targetY;
           if(entryIndex>=0){updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
-          updates.lastMovement={id:'gm-move-'+tokenId.slice(0,28)+'-'+stamp,uid:'',tokenId:tokenId,name:String(found.token.name||'Существо').slice(0,80),fromX:fromX,fromY:fromY,toX:targetX,toY:targetY,zoneId:found.path.indexOf('zones/')===0?found.path.slice(6):'',duration:Math.max(900,Math.min(4200,Math.round(distance*62))),startedAt:stamp};updates.updatedAt=stamp;
+          updates.lastMovement={id:String(origin.visualId||('gm-move-'+tokenId.slice(0,28)+'-'+stamp)).slice(0,160),uid:'',tokenId:tokenId,name:String(found.token.name||'Существо').slice(0,80),fromX:fromX,fromY:fromY,toX:targetX,toY:targetY,zoneId:found.path.indexOf('zones/')===0?found.path.slice(6):'',duration:Math.max(900,Math.min(4200,Math.round(distance*62))),startedAt:stamp};updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['master-only','room-not-found','token-missing','token-invalid','combat-not-turn','combat-status-blocked','combat-movement-spent'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
