@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.20';
+var ZG_APP_VERSION = '2026-07-23.21';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.21', notes: 'Клик по пустому месту сцены снимает выделение жетонов; в редактор добавлены быстрые размеры: малый, средний, большой и гигантский.' },
   { v: '2026-07-23.20', notes: 'Добавленные во время игры токены публикуются строго по порядку без затирания старым снимком; игроки могут обновлять собственную боевую запись и надёжно сохранять бросок инициативы в Firebase.' },
   { v: '2026-07-23.19', notes: 'Тяжёлые изображения токенов Бестиария, NPC и объектов автоматически сжимаются в сетевые WebP-превью перед отправкой в Firebase; оригиналы в локальных разделах сохраняются.' },
   { v: '2026-07-23.18', notes: 'Панель кубиков остаётся на месте после броска: драг уносит только визуальную копию, а исходные кубики сразу доступны для следующего броска.' },
@@ -11449,6 +11450,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     ev.preventDefault(); ev.stopPropagation();
     if (ev.shiftKey){ toggleGroupSel(token); return; }         // Shift+клик — добавить/убрать из выделения
+    if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
     selectedTokenId = token.id;
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
     node.classList.add('selected');
@@ -11707,7 +11709,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncTokenEditor(){
     var token=currentToken(),editor=el('zg-scene-token-editor');if(!editor)return;editor.hidden=!token;if(!token)return;
     el('zg-token-name').value=tokenName(token); el('zg-token-name').disabled=token.type==='hero'; el('zg-token-size').value=token.size; el('zg-token-visible').checked=token.visible;
-    el('zg-token-size-out').textContent=Math.round(token.size)+' px'; var remove=el('zg-token-remove'); if(remove) remove.hidden=token.type==='hero';
+    el('zg-token-size-out').textContent=Math.round(token.size)+' px'; syncTokenSizePresets(token); var remove=el('zg-token-remove'); if(remove) remove.hidden=token.type==='hero';
     var op=el('zg-token-opacity'); if(op){ op.value=(token.opacity==null?1:token.opacity); var opo=el('zg-token-opacity-out'); if(opo)opo.textContent=Math.round((token.opacity==null?1:token.opacity)*100)+'%'; }
     var rot=el('zg-token-rot'); if(rot){ rot.value=token.rotation||0; var roto=el('zg-token-rot-out'); if(roto)roto.textContent=(token.rotation||0)+'°'; }
     var lk=el('zg-token-locked'); if(lk) lk.checked=!!token.locked;
@@ -12015,7 +12017,21 @@ document.addEventListener('DOMContentLoaded', function(){
       if(hpI)token.hp=(hpI.value===''?null:Math.max(0,Number(hpI.value)||0));
       if(hpMI)token.hpMax=(hpMI.value===''?null:Math.max(0,Number(hpMI.value)||0));
     }
-    token.size=clamp(el('zg-token-size').value,24,240);var op=el('zg-token-opacity');if(op){token.opacity=clamp(op.value,0.15,1);var opo=el('zg-token-opacity-out');if(opo)opo.textContent=Math.round(token.opacity*100)+'%';}token.visible=el('zg-token-visible').checked;el('zg-token-size-out').textContent=Math.round(token.size)+' px';markDirty('Черновик · жетон настроен');renderTokenList();renderTokens();};
+    token.size=clamp(el('zg-token-size').value,24,240);var op=el('zg-token-opacity');if(op){token.opacity=clamp(op.value,0.15,1);var opo=el('zg-token-opacity-out');if(opo)opo.textContent=Math.round(token.opacity*100)+'%';}token.visible=el('zg-token-visible').checked;el('zg-token-size-out').textContent=Math.round(token.size)+' px';syncTokenSizePresets(token);markDirty('Черновик · жетон настроен');renderTokenList();renderTokens();};
+  function tokenPresetSize(multiplier){return Math.round(clamp((draft.gridSize||64)*Number(multiplier||1),24,240));}
+  function syncTokenSizePresets(token){
+    var buttons=document.querySelectorAll('#zg-token-size-presets [data-token-size]');
+    for(var i=0;i<buttons.length;i++){
+      var expected=tokenPresetSize(buttons[i].getAttribute('data-token-size'));
+      buttons[i].classList.toggle('active',!!token&&Math.abs(Number(token.size)-expected)<=2);
+    }
+  }
+  w.zgSceneTokenSizePreset=function(multiplier,label){
+    var token=currentToken();if(!isMaster||!token)return;
+    token.size=tokenPresetSize(multiplier);
+    var slider=el('zg-token-size'),out=el('zg-token-size-out');if(slider)slider.value=token.size;if(out)out.textContent=Math.round(token.size)+' px';
+    syncTokenSizePresets(token);markDirty('Размер: '+String(label||'готовый'));syncControls();
+  };
   // Быстрый жетон НПС/врага без картинки (буква-заглушка), можно потом дать картинку
   w.zgSceneAddToken=function(disposition){
     if(!isMaster)return;
@@ -12226,6 +12242,9 @@ document.addEventListener('DOMContentLoaded', function(){
           if(w.zgVttSendActionRequest)w.zgVttSendActionRequest(actionToolKind,{x:actionPoint.x,y:actionPoint.y,tokenId:targetId});
           else if(w.showToast)w.showToast('Модуль заявок ещё не готов');
           return;
+        }
+        if(isMaster&&ev.button===0&&!ev.shiftKey&&!movementMode&&!zoneDrawing&&!focusCueMode&&!(ev.target.closest&&ev.target.closest('.zg-vtt-token'))){
+          if(selectedTokenId||groupSel.length){selectedTokenId='';clearGroupSel();syncTokenEditor();syncCtx();renderTokenList();renderTokens();}
         }
         if (!movementMode || ev.button !== 0 || (ev.target.closest && ev.target.closest('.zg-vtt-token'))) return;
         var point = movementPoint(ev); if (!point) return;
@@ -16861,6 +16880,7 @@ window.zgImageStore = (function() {
   .zg-scene-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;min-height:38px;border-top:1px solid #2b2112;font-size:13px}
   .zg-scene-row input[type=range]{width:142px;accent-color:#c8a64f}
   .zg-scene-row output{display:inline-block;width:48px;text-align:right;color:#d8c492;font-family:'Cinzel',serif;font-size:11px}
+  .zg-token-size-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:7px 0 9px;border-top:1px solid #2b2112}.zg-token-size-presets button{min-width:0;height:31px;padding:0 4px;border:1px solid #49371d;border-radius:6px;background:#120e08;color:#8f7b53;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-token-size-presets button:hover{border-color:#a47d32;color:#ecd18d}.zg-token-size-presets button.active{border-color:#d0a548;background:#31210d;color:#ffe39a;box-shadow:inset 0 0 12px #d49b2926,0 0 8px #b8832830}
   .zg-scene-board-size{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:9px 0;border-top:1px solid #2b2112}.zg-scene-board-size label{display:flex;flex-direction:column;gap:5px;color:#817353;font-size:9px}.zg-scene-board-size input{width:100%;height:32px;border:1px solid #3b2e19;border-radius:5px;background:#100d08;color:#dfc785;padding:0 8px;font:11px 'Cinzel',serif;outline:0}.zg-scene-board-size input:focus{border-color:#9a7430}
   .zg-scene-toggle{width:38px;height:21px;appearance:none;border-radius:12px;background:#322819;box-shadow:inset 0 0 0 1px #574523;cursor:pointer;position:relative;transition:.2s}
   .zg-scene-toggle::after{content:'';position:absolute;width:15px;height:15px;left:3px;top:3px;border-radius:50%;background:#887555;transition:.2s}
@@ -17926,7 +17946,8 @@ window.zgImageStore = (function() {
           <label class="zg-scene-row" id="zg-token-hidden-row" title="Скрытый жетон видит только мастер в «виде мастера»."><span>Скрыть от игроков</span><input class="zg-scene-toggle" id="zg-token-hidden" type="checkbox" onchange="zgSceneTokenControl()"></label>
           <button type="button" class="zg-scene-ghost-btn zg-token-reveal" id="zg-token-reveal" onclick="zgSceneRevealToken()" hidden>👁 Показать игрокам (активировать)</button>
           <label class="zg-scene-row"><span>Показывать</span><input class="zg-scene-toggle" id="zg-token-visible" type="checkbox" checked onchange="zgSceneTokenControl()"></label>
-          <label class="zg-scene-row zg-scene-range-row"><span>Размер</span><span><input id="zg-token-size" type="range" min="24" max="180" step="2" oninput="zgSceneTokenControl()"><output id="zg-token-size-out"></output></span></label>
+          <label class="zg-scene-row zg-scene-range-row"><span>Размер</span><span><input id="zg-token-size" type="range" min="24" max="240" step="2" oninput="zgSceneTokenControl()"><output id="zg-token-size-out"></output></span></label>
+          <div class="zg-token-size-presets" id="zg-token-size-presets" aria-label="Готовые размеры жетона"><button type="button" data-token-size="0.75" onclick="zgSceneTokenSizePreset(0.75,'малый')">Малый</button><button type="button" data-token-size="1" onclick="zgSceneTokenSizePreset(1,'средний')">Средний</button><button type="button" data-token-size="1.5" onclick="zgSceneTokenSizePreset(1.5,'большой')">Большой</button><button type="button" data-token-size="2.25" onclick="zgSceneTokenSizePreset(2.25,'гигантский')">Гигантский</button></div>
           <label class="zg-scene-row zg-scene-range-row"><span>Прозрачность</span><span><input id="zg-token-opacity" type="range" min="0.15" max="1" step="0.05" oninput="zgSceneTokenControl()"><output id="zg-token-opacity-out"></output></span></label>
           <label class="zg-scene-row zg-scene-range-row" id="zg-token-rot-row"><span>Поворот</span><span><input id="zg-token-rot" type="range" min="0" max="359" step="1" oninput="zgSceneTokenControl()"><output id="zg-token-rot-out"></output></span></label>
           <label class="zg-scene-row"><span>🔒 Заблокировать</span><input class="zg-scene-toggle" id="zg-token-locked" type="checkbox" onchange="zgSceneTokenControl()"></label>
