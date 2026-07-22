@@ -12275,6 +12275,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if (wasAtBottom) body.scrollTop = body.scrollHeight;
   }
   function renderRollAnimations(){
+    var rollVisualNow=Date.now();
+    Object.keys(renderedRollVisuals).forEach(function(key){
+      if(rollVisualNow-Number(renderedRollVisuals[key]||0)>30000)delete renderedRollVisuals[key];
+    });
     var room=state&&state.room, overlay=el('zg-game-overlay'), host=el('zg-move-layer'); if(!room||!overlay||!host)return;
     var visualMembers={},session=state&&state.session;Object.keys(room.members||{}).forEach(function(uid){visualMembers[uid]=room.members[uid];});
     Object.keys(localRollVisuals).forEach(function(uid){
@@ -12296,7 +12300,7 @@ document.addEventListener('DOMContentLoaded', function(){
       /* activeRoll intentionally remains in the room for the log/reconnect flow.
          Once its animation has finished, later combat renders must not replay it. */
       if(renderedRollVisuals[rollKey]&&!existingRollVisual)return;
-      renderedRollVisuals[rollKey]=true;
+      renderedRollVisuals[rollKey]=rollVisualNow;
       var ownerUid=String(uid),targetUid=String(roll.speakerUid||ownerUid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
       var rollLeft=token&&token.style.left?token.style.left:'50%';
@@ -16745,6 +16749,8 @@ window.zgImageStore = (function() {
   .zg-vtt-token.own::before{content:'ТЫ';position:absolute;z-index:7;left:50%;bottom:calc(100% + 13px);transform:translateX(-50%);padding:2px 7px;border:1px solid #d4a83f;border-radius:9px;background:#211606;color:#ffe59a;font:700 8px/1.2 'Cinzel',serif;letter-spacing:1px;box-shadow:0 0 10px #d5a63e66,0 3px 8px #000b}
   .zg-vtt-token.controlled>img,.zg-vtt-token.controlled .zg-vtt-token-ph{outline:2px solid #72c982;outline-offset:4px;box-shadow:0 0 0 1px #000a,0 0 20px #58b86b99,inset 0 0 0 1px #ffffff20}
   .zg-vtt-token.controlled::before{content:'ТЫ';position:absolute;z-index:7;left:50%;bottom:calc(100% + 13px);transform:translateX(-50%);padding:2px 7px;border:1px solid #4c8f59;border-radius:9px;background:#0d1b11;color:#9de0a8;font:700 8px/1.2 'Cinzel',serif;letter-spacing:1px;box-shadow:0 3px 8px #000b}
+  .zg-vtt-token.gm-combat-controlled>img,.zg-vtt-token.gm-combat-controlled .zg-vtt-token-ph{border-color:#f0c85a;box-shadow:0 0 0 2px #261b08,0 0 20px #e4ad3a99,inset 0 0 0 1px #fff3bf42}
+  .zg-vtt-gm-combat-badge{position:absolute;z-index:8;left:50%;bottom:calc(100% + 12px);transform:translateX(-50%);white-space:nowrap;padding:3px 8px;border:1px solid #d9ac43;border-radius:10px;background:#211607;color:#ffe29a;font:700 8px/1 'Cinzel',serif;letter-spacing:.8px;box-shadow:0 0 14px #d6a43666,0 3px 8px #000c;pointer-events:none}
   /* редактирование на карте: пунктирная рамка + угловая ручка */
   .zg-vtt-token-frame{position:absolute;inset:-6px;border:1.5px dashed #f0d896;border-radius:12px;pointer-events:none;box-shadow:0 0 8px #000a}
   .zg-vtt-token-handle{position:absolute;right:-9px;bottom:-9px;width:16px;height:16px;border-radius:4px;background:#f0d896;border:1.5px solid #4a3a1e;cursor:nwse-resize;box-shadow:0 1px 4px #000a;touch-action:none}
