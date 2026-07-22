@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-22.3"></script>
+<script src="zargota-network.js?v=2026-07-22.4"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9021,8 +9021,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.3';
+var ZG_APP_VERSION = '2026-07-22.4';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.4', notes: 'После выхода из сессии полностью закрываются игровые экраны и открывается главное меню.' },
   { v: '2026-07-22.3', notes: 'Устойчивое переподключение к сессии и постоянная синхронизация пяти героев кампании между локальными листами и Firebase.' },
   { v: '2026-07-22.2', notes: 'Атака через подтверждение экипированного оружия и заявку мастеру; после решения последовательно показываются бросок попадания и кубики урона.' },
   { v: '2026-07-22.1', notes: 'Новые иконки создания и входа в приключение, единый кристалл игрока в тусклом и активном состояниях; экранный курсор действий больше не смещается масштабом сцены, восстановлены боевые визуальные события.' },
@@ -9672,7 +9673,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
   function performRoomLeave(){
     var leave = w.ZargotaRooms ? w.ZargotaRooms.leaveRoom() : Promise.resolve();
-    Promise.resolve(leave).then(function(){ w.zgAdvClose(); if (w.zgGameClose) w.zgGameClose(); });
+    Promise.resolve(leave).then(function(){
+      if (w.zgLeaveConfirmCancel) w.zgLeaveConfirmCancel();
+      if (w.zgGameClose) w.zgGameClose(true);
+      if (w.zgJourneyClose) w.zgJourneyClose();
+      if (w.zgCharSelClose) w.zgCharSelClose();
+      if (w.zgJourneyCancel) w.zgJourneyCancel();
+      w.zgAdvClose();
+      try { if (typeof w.showPage === 'function') w.showPage('home'); } catch(e) {}
+    }).catch(function(err){
+      if (w.showToast) w.showToast(err && err.message ? err.message : 'Не удалось покинуть сессию.');
+    });
   }
   w.zgLeaveRoom = function(confirmed){
     if (confirmed !== true) { w.zgLeaveConfirmOpen(); return; }
