@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.7';
+var ZG_APP_VERSION = '2026-07-22.8';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.8', notes: 'Заданный GM-результат работает на тестовом столе; звук критического провала при единице оставлен только для d20.' },
   { v: '2026-07-22.7', notes: 'Firebase, публикация и бэкап объединены в единый центр управления под шестерёнкой в верхней панели.' },
   { v: '2026-07-22.6', notes: 'В верхней панели появился постоянный монитор Firebase и активной комнаты с возвратом, завершением сессии и очисткой устаревшего следа.' },
   { v: '2026-07-22.5', notes: 'Плавное подтверждённое движение видно игроку, боевой курсор мастера не пропадает, одобренная атака безопасно разыгрывается через мастерский клиент.' },
@@ -9332,11 +9333,11 @@ document.addEventListener('DOMContentLoaded', function(){
         t += 0.07 + (i / bounces) * 0.11;
       }
     },
-    diceResult: function(result) {
+    diceResult: function(result, sides) {
       ensure(); tick(0, 850, 0.36);
       if (result === 20) {
         tone(523,0.1,{delay:.08,type:'triangle',vol:.3});tone(659,0.1,{delay:.16,type:'triangle',vol:.32});tone(784,0.15,{delay:.24,type:'triangle',vol:.34});tone(1047,0.3,{delay:.34,type:'triangle',vol:.36});
-      } else if (result === 1) tone(200,0.4,{delay:.08,type:'sawtooth',vol:.28,freqEnd:70});
+      } else if (result === 1 && Number(sides) === 20) tone(200,0.4,{delay:.08,type:'sawtooth',vol:.28,freqEnd:70});
       else if (result >= 16) tone(523,0.15,{delay:.08,type:'triangle',vol:.26});
       else if (result >= 10) tone(440,0.12,{delay:.08,type:'sine',vol:.22});
       else tone(330,0.15,{delay:.08,type:'sine',vol:.2});
@@ -12393,7 +12394,7 @@ document.addEventListener('DOMContentLoaded', function(){
         seenRollVisuals[roll.id]=true;
         if(!session||ownerUid!==session.uid){
           try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
-          setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},Math.max(750,Number(roll.duration)||1250));
+          setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2,Number(soundRoll&&soundRoll.sides)||0);}catch(e){}},Math.max(750,Number(roll.duration)||1250));
         }
       }
       var contestRoll=rolls.find(function(item){return item.kept===true;}),isContest=!!contestRoll;
@@ -13103,7 +13104,8 @@ document.addEventListener('DOMContentLoaded', function(){
   function roll(sides){ var b=new Uint32Array(1); if(w.crypto&&w.crypto.getRandomValues)w.crypto.getRandomValues(b); else b[0]=Math.floor(Math.random()*4294967296); return b[0]%sides+1; }
   function forcedRoll(sides){
     var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
-    if(!snap||!snap.session||snap.session.role!=='master')return 0;
+    var overlay=el('zg-game-overlay'),testMode=!!(overlay&&overlay.classList.contains('dice-test-mode'));
+    if(!testMode&&(!snap||!snap.session||snap.session.role!=='master'))return 0;
     var input=el('zg-dice-force'),value=input?parseInt(input.value,10):0;
     return Number.isFinite(value)&&value>0?Math.max(1,Math.min(Number(sides)||20,value)):0;
   }
@@ -13131,7 +13133,7 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){
       clearInterval(animT); rolling=false;
       if(r){r.classList.remove('rolling');r.innerHTML=finalHtml;r.classList.add('land');setTimeout(function(){r.classList.remove('land');},700);}
-      try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(finalValue);}catch(e){}
+      try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(finalValue,sides);}catch(e){}
       if(announceText&&w.ZargotaRooms&&w.ZargotaRooms.announceRoll)setTimeout(function(){
         w.ZargotaRooms.announceRoll(announceText,speaker);
       },1500);
@@ -13183,7 +13185,7 @@ document.addEventListener('DOMContentLoaded', function(){
     try{if(w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,speaker,clientRollId);}catch(e){}
     try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
     if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker,clientRollId);
-    setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},1250);
+    setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2,Number(soundRoll&&soundRoll.sides)||0);}catch(e){}},1250);
     var keptRoll=contested?rolls.find(function(item){return item.kept;}):null;
     var grandTotal=contested?Number(keptRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
     var actionText=contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ';
