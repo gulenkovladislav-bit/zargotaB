@@ -9340,6 +9340,13 @@ document.addEventListener('DOMContentLoaded', function(){
       tick(t, 1000, 0.25);
     },
 
+    // Тихое касание при наведении на физический кубик в веере.
+    diceHover: function() {
+      ensure();
+      tone(760, 0.035, { type:'sine', vol:0.035, freqEnd:620 });
+      tone(1180, 0.025, { delay:0.012, type:'triangle', vol:0.018, freqEnd:920 });
+    },
+
     // ═══ Исходы атаки ═══
     hit: function() {
       // Удар — быстрое "чпок"
@@ -13052,6 +13059,13 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     var hint=el('zg-dice-hint');if(hint){var total=Object.keys(selectedDice).reduce(function(sum,key){return sum+Number(selectedDice[key]||0);},0);hint.textContent=total?('Выбрано кубиков: '+total+' · перетащите любой на сцену'):'Клик добавляет кубик · перетащите для броска';}
   }
+  var lastDiceHoverSound=0;
+  document.addEventListener('pointerover',function(ev){
+    var button=ev.target&&ev.target.closest&&ev.target.closest('.zg-dice-row button[data-die]');
+    if(!button||button.contains(ev.relatedTarget))return;
+    var now=Date.now();if(now-lastDiceHoverSound<75)return;lastDiceHoverSound=now;
+    try{if(w.ZargotaSound&&w.ZargotaSound.diceHover)w.ZargotaSound.diceHover();}catch(e){}
+  });
   function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();var button=document.querySelector('.zg-dice-row button[data-sides="'+key+'"]');if(button){button.classList.remove('count-pop');void button.offsetWidth;button.classList.add('count-pop');}try{if(w.ZargotaSound&&w.ZargotaSound.diceRollSmall)w.ZargotaSound.diceRollSmall();}catch(e){}}
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList){
@@ -16556,8 +16570,8 @@ window.zgImageStore = (function() {
   .zg-dice-row button{position:relative;height:88px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
   .zg-dice-row button:nth-child(2){animation-delay:.035s}.zg-dice-row button:nth-child(3){animation-delay:.07s}.zg-dice-row button:nth-child(4){animation-delay:.105s}.zg-dice-row button:nth-child(5){animation-delay:.14s}.zg-dice-row button:nth-child(6){animation-delay:.175s}
   @keyframes zgDieRise{from{opacity:0;transform:translateY(25px) scale(.65)}to{opacity:1;transform:none}}
-  .zg-dice-row button{transition:transform .26s cubic-bezier(.2,.85,.25,1),filter .26s ease,color .2s ease}
-  .zg-dice-row button:hover{border:0;background:transparent;color:#ffe7a0;transform:translateY(-8px) scale(1.08);filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 15px #d7a63766)}
+  .zg-dice-row button{transition:transform .22s cubic-bezier(.18,.9,.25,1),filter .24s ease,color .2s ease}
+  .zg-dice-row button:hover{border:0;background:transparent;color:#ffe7a0;transform:translateY(-10px) scale(1.13);filter:drop-shadow(0 12px 11px #000c) drop-shadow(0 0 16px #d7a63766)}
   .zg-dice-row button.count-pop{animation:zgDiceCountPop .32s cubic-bezier(.2,1.5,.3,1)}
   @keyframes zgDiceCountPop{45%{transform:translateY(-10px) scale(1.16)}100%{transform:translateY(0) scale(1)}}
   .zg-dice-row button.d20{border:0;background:transparent;color:#f1d17a}
