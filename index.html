@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.23';
+var ZG_APP_VERSION = '2026-07-23.24';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.24', notes: 'Боевые статусы вынесены в аккуратную колонку сбоку от портрета; мастер может отдельно включать и скрывать каждый тип статуса в общих настройках.' },
   { v: '2026-07-23.23', notes: 'Панель раунда перенесена в правый верхний угол, увеличена на 60% и получила красную боевую вспышку при смене хода.' },
   { v: '2026-07-23.22', notes: 'Мастер может выбрать существо и напрямую двигать его во фрироуме; в бою движение активного NPC учитывает дальность, состояния и оставшиеся клетки, а атаки и действия выполняются от его имени.' },
   { v: '2026-07-23.21', notes: 'Клик по пустому месту сцены снимает выделение жетонов; в редактор добавлены быстрые размеры: малый, средний, большой и гигантский.' },
@@ -10486,6 +10487,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (w.zgVttCloseDrawer) w.zgVttCloseDrawer();
     var scenePanel = el('zg-scene-settings'); if (scenePanel) scenePanel.classList.remove('open');
     var sp = el('zg-game-settings'); if (sp) sp.classList.toggle('open');
+    if (sp && sp.classList.contains('open') && w.zgStatusVisibilityRender) w.zgStatusVisibilityRender();
     try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
   };
   w.zgGameClose = function(force){
@@ -10572,7 +10574,8 @@ document.addEventListener('DOMContentLoaded', function(){
 //   СЦЕНА VTT — мастер готовит черновик и публикует его всей комнате.
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
-  var DEFAULT_SCENE = { layers:[], tokens:[], regions:[], view:{fog:true,visionMode:'party',rememberExplored:true,cinematic:false,showOtherRequests:false,minZoom:.6,maxZoom:2.2,panLimit:45}, grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false, snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
+  var TOKEN_STATUS_DEFS={stun:['✦','#d4bd36','Оглушён'],burn:['♨','#e05b2d','Горит'],poison:['☠','#5fbd55','Отравлен'],freeze:['❄','#55a7d8','Заморожен'],fear:['◈','#a46bd0','Страх'],blind:['◉','#aaa79f','Ослеплён'],prone:['↘','#bc7b45','Опрокинут'],bleed:['♦','#cf4848','Кровотечение'],restrain:['⌁','#bb7950','Обездвижен'],slow:['◷','#b5a66d','Замедлен'],paralyze:['ϟ','#bdcf42','Паралич'],dominate:['♛','#9d62ca','Подчинён'],regen:['♥','#59c875','Регенерация'],exhausted:['◒','#9b8061','Истощён']};
+  var DEFAULT_SCENE = { layers:[], tokens:[], regions:[], view:{fog:true,visionMode:'party',rememberExplored:true,cinematic:false,showOtherRequests:false,statusVisibility:{},minZoom:.6,maxZoom:2.2,panLimit:45}, grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false, snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
   var draft = copyScene(DEFAULT_SCENE);
   var dirty = false;
   var isMaster = false;
@@ -11010,7 +11013,7 @@ document.addEventListener('DOMContentLoaded', function(){
       layers:layers,
       tokens:(Array.isArray(scene.tokens) ? scene.tokens : []).map(copyToken),
       regions:regions,
-      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,showOtherRequests:!!view.showOtherRequests,minZoom:clamp(view.minZoom==null ? .6 : view.minZoom,.4,2),maxZoom:clamp(view.maxZoom==null ? 2.2 : view.maxZoom,.6,3),panLimit:clamp(view.panLimit==null ? 45 : view.panLimit,10,100)},
+      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,showOtherRequests:!!view.showOtherRequests,statusVisibility:(function(){var clean={};Object.keys(view.statusVisibility||{}).forEach(function(key){if(/^[a-z0-9_-]{1,40}$/.test(key))clean[key]=view.statusVisibility[key]!==false;});return clean;})(),minZoom:clamp(view.minZoom==null ? .6 : view.minZoom,.4,2),maxZoom:clamp(view.maxZoom==null ? 2.2 : view.maxZoom,.6,3),panLimit:clamp(view.panLimit==null ? 45 : view.panLimit,10,100)},
       grid: scene.grid !== false,
       gridSize: clamp(scene.gridSize || 64, 24, 160),
       boardWidth: clamp(scene.boardWidth || 32, 8, 80),
@@ -11397,12 +11400,24 @@ document.addEventListener('DOMContentLoaded', function(){
     return result.slice(0,5);
   }
   function appendTokenCombatStatuses(node,token){
-    var defs={stun:['✦','#d4bd36','Оглушён'],burn:['♨','#e05b2d','Горит'],poison:['☠','#5fbd55','Отравлен'],freeze:['❄','#55a7d8','Заморожен'],fear:['◈','#a46bd0','Страх'],blind:['◉','#aaa79f','Ослеплён'],prone:['↘','#bc7b45','Опрокинут'],bleed:['♦','#cf4848','Кровотечение'],restrain:['⌁','#bb7950','Обездвижен'],slow:['◷','#b5a66d','Замедлен'],paralyze:['ϟ','#bdcf42','Паралич'],dominate:['♛','#9d62ca','Подчинён'],regen:['♥','#59c875','Регенерация'],exhausted:['◒','#9b8061','Истощён']};
-    var statuses=tokenCombatStatuses(token);if(!statuses.length)return;
+    var visibility=(draft.view&&draft.view.statusVisibility)||{};
+    var statuses=tokenCombatStatuses(token).filter(function(status){return visibility[status.key]!==false;});if(!statuses.length)return;
     var host=document.createElement('span');host.className='zg-vtt-token-statuses';
-    statuses.forEach(function(status){var def=defs[status.key]||['✦','#9b875c',status.label],badge=document.createElement('span');badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.remaining>0?' · '+status.remaining+' р.':'');if(status.remaining>0){var duration=document.createElement('em');duration.textContent=status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
+    statuses.forEach(function(status){var def=TOKEN_STATUS_DEFS[status.key]||['✦','#9b875c',status.label],badge=document.createElement('span');badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.remaining>0?' · '+status.remaining+' р.':'');if(status.remaining>0){var duration=document.createElement('em');duration.textContent=status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
     node.appendChild(host);
   }
+  w.zgStatusVisibilityRender=function(){
+    var host=el('zg-status-visibility-settings');if(!host)return;
+    host.hidden=!isMaster;if(!isMaster){host.innerHTML='';return;}
+    var visibility=(draft.view&&draft.view.statusVisibility)||{};
+    host.innerHTML='<div class="zg-status-settings-head"><span>Статусы на жетонах</span><small>Что увидят все участники</small></div><div class="zg-status-settings-list">'+Object.keys(TOKEN_STATUS_DEFS).map(function(key){var def=TOKEN_STATUS_DEFS[key],shown=visibility[key]!==false;return '<button type="button" class="'+(shown?'on':'off')+'" onclick="zgStatusVisibilityToggle(\''+key+'\')"><i style="--status-color:'+def[1]+'">'+def[0]+'</i><span>'+def[2]+'</span><em>'+(shown?'Показан':'Скрыт')+'</em></button>';}).join('')+'</div>';
+  };
+  w.zgStatusVisibilityToggle=function(key){
+    if(!isMaster||!TOKEN_STATUS_DEFS[key])return;
+    var view=draft.view||(draft.view=copyScene(DEFAULT_SCENE).view),visibility=view.statusVisibility||(view.statusVisibility={});
+    visibility[key]=visibility[key]===false;
+    w.zgStatusVisibilityRender();markDirty((visibility[key]===false?'Скрыт статус: ':'Показан статус: ')+TOKEN_STATUS_DEFS[key][2]);
+  };
   function renderRegions(){
     var svg=el('zg-region-layer');if(!svg)return;
     svg.innerHTML='';var gm=isMaster&&gmVision==='gm';
@@ -16831,6 +16846,7 @@ window.zgImageStore = (function() {
     box-shadow:0 18px 50px #000000aa;display:none;transform-origin:top right}
   .zg-game-settings.open{display:block;animation:zgPopIn .22s cubic-bezier(.2,.8,.3,1)}
   .zg-game-settings-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);text-align:center;margin:2px 0 10px}
+  .zg-game-overlay.gm .zg-game-settings{width:310px;max-height:calc(100vh - 92px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#735525 #120d07}.zg-status-settings-head{margin:4px 0 8px;padding-top:10px;border-top:1px solid #372817}.zg-status-settings-head span,.zg-status-settings-head small{display:block}.zg-status-settings-head span{color:#d8bd7c;font:600 10px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-status-settings-head small{margin-top:3px;color:#79694d;font:9px 'Lora',serif}.zg-status-settings-list{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:11px}.zg-status-settings-list button{min-width:0;height:38px;padding:4px 7px;display:grid;grid-template-columns:24px minmax(0,1fr);grid-template-rows:1fr 1fr;column-gap:6px;align-items:center;border:1px solid #3b2d19;border-radius:7px;background:#100d08;color:#aa9565;text-align:left;cursor:pointer}.zg-status-settings-list button:hover{border-color:#856329;background:#1b1309}.zg-status-settings-list button.off{opacity:.55;filter:saturate(.45)}.zg-status-settings-list button i{grid-row:1/3;width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--status-color);border-radius:50%;color:#f0dda9;font:normal 12px Arial;background:#0b0907;box-shadow:0 0 6px color-mix(in srgb,var(--status-color) 42%,transparent)}.zg-status-settings-list button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 8px 'Cinzel',serif}.zg-status-settings-list button em{color:#6e6149;font:normal 8px 'Lora',serif}.zg-status-settings-list button.on em{color:#6fb17b}.zg-status-settings-list button.off em{color:#b16e68}
   .zg-game-leave{width:100%;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:11px;border-radius:8px;cursor:pointer;
     background:rgba(160,60,50,.10);border:1px solid rgba(180,70,60,.5);color:#e0b0a6;transition:.2s}
   .zg-game-leave:hover{background:rgba(180,70,60,.2);border-color:#c0504a;color:#f0d0c8}
@@ -17263,7 +17279,7 @@ window.zgImageStore = (function() {
   .zg-vtt-token-hp{position:absolute;top:calc(100% + 3px);left:12%;width:76%;height:5px;border-radius:3px;background:#191510;overflow:hidden;box-shadow:0 1px 2px #000,0 0 0 1px #000a}
   .zg-vtt-token-hp i{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
   .zg-vtt-token-hp i.low{background:linear-gradient(90deg,#8a2f28,#c0504a)}
-  .zg-vtt-token-statuses{position:absolute;z-index:6;left:50%;bottom:calc(100% + 5px);display:flex;gap:3px;transform:translateX(-50%);pointer-events:none}
+  .zg-vtt-token-statuses{position:absolute;z-index:6;left:calc(100% + 7px);top:50%;display:flex;flex-direction:column;gap:3px;transform:translateY(-50%);pointer-events:none}
   .zg-vtt-token-status{position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent)}
   .zg-vtt-token-status em{position:absolute;right:-4px;bottom:-4px;min-width:12px;height:12px;padding:0 2px;border:1px solid #100d08;border-radius:7px;background:var(--status-color,#9b875c);color:#090704;font:700 8px/11px Arial,sans-serif;text-align:center}
   .zg-vtt-token.disp-hero .zg-vtt-token-name{top:calc(100% + 11px)}
@@ -17738,6 +17754,7 @@ window.zgImageStore = (function() {
     <div class="zg-scene-quick" id="zg-scene-quick"><span class="zg-scene-quick-title">Сцены</span><div class="zg-scene-quick-list" id="zg-scene-quick-list"></div><span class="zg-scene-dirty" id="zg-scene-dirty"><i></i> Сохранено</span><button type="button" class="zg-scene-quick-save" id="zg-scene-quick-save" onclick="zgSceneSave(false)" title="Сохранить изменения" disabled>💾</button><button type="button" class="zg-scene-quick-add" onclick="zgSceneDrawerToggle(true)" title="Открыть библиотеку сцен">＋</button></div>
     <div class="zg-game-settings" id="zg-game-settings">
       <div class="zg-game-settings-title">Настройки</div>
+      <div id="zg-status-visibility-settings" hidden></div>
       <button type="button" class="zg-game-leave" onclick="zgLeaveRoom()">Покинуть игру</button>
     </div>
     <div class="zg-vtt-scene" id="zg-vtt-scene">

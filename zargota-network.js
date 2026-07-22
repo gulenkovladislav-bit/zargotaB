@@ -658,6 +658,10 @@
       return {id:String(region.id||('region-'+index)).slice(0,100),name:String(region.name||'Зона').slice(0,80),kind:region.kind==='place'?'place':'fog',shape:['polygon','rect','circle'].indexOf(region.shape)>=0?region.shape:'polygon',tooltip:String(region.tooltip||'').slice(0,180),opacity:Math.max(.08,Math.min(.95,Number(region.opacity==null ? .76 : region.opacity))),visible:region.visible!==false,points:(Array.isArray(region.points)?region.points:[]).slice(0,32).map(function(point){return{x:Math.max(0,Math.min(100,Number(point.x)||0)),y:Math.max(0,Math.min(100,Number(point.y)||0))};})};
     }).filter(function(region){return region.points.length>=3;});
     var view=scene.view||{};
+    var statusVisibility={};
+    Object.keys(view.statusVisibility||{}).slice(0,40).forEach(function(key){
+      if(/^[a-z0-9_-]{1,40}$/.test(key))statusVisibility[key]=view.statusVisibility[key]!==false;
+    });
     var mediaSize = layers.reduce(function (sum, layer) { return sum + layer.image.length; }, 0) +
       tokens.reduce(function (sum, token) { return sum + token.image.length; }, 0);
     if (mediaSize > 3400000) throw roomError('Изображения сцены слишком большие. Удалите слой или выберите более лёгкие изображения.', 'scene-too-large');
@@ -665,7 +669,7 @@
       layers: layers,
       tokens: tokens,
       regions: regions,
-      view:{fog:view.fog!==false,cinematic:!!view.cinematic,minZoom:Math.max(.4,Math.min(2,Number(view.minZoom)||.6)),maxZoom:Math.max(.6,Math.min(3,Number(view.maxZoom)||2.2)),panLimit:Math.max(10,Math.min(100,Number(view.panLimit)||45))},
+      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,showOtherRequests:!!view.showOtherRequests,statusVisibility:statusVisibility,minZoom:Math.max(.4,Math.min(2,Number(view.minZoom)||.6)),maxZoom:Math.max(.6,Math.min(3,Number(view.maxZoom)||2.2)),panLimit:Math.max(10,Math.min(100,Number(view.panLimit)||45))},
       grid: scene.grid !== false,
       gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
       boardWidth: Math.max(8, Math.min(80, Number(scene.boardWidth) || 32)),
