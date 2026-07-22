@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.30';
+var ZG_APP_VERSION = '2026-07-23.31';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.31', notes: 'Отдельная круглая кнопка библиотеки убрана; список сцен теперь открывается кликом по надписи «Сцены» в верхней панели.' },
   { v: '2026-07-23.30', notes: 'Пульт ГМ перенесён во второй ряд панели мастера; верхние кнопки больше не перекрывают сохранение сцены.' },
   { v: '2026-07-23.29', notes: 'Настройки видимости теперь показывают не только системные, но и все действующие пользовательские статусы; клик по значку у жетона открывает его описание.' },
   { v: '2026-07-23.28', notes: 'При преимуществе и помехе победивший d20 теперь ровно поглощает второй кубик; критические 1 и 20 и их подписи остаются по центру.' },
@@ -16929,7 +16930,7 @@ window.zgImageStore = (function() {
   .zg-scene-quick{display:none;position:absolute;z-index:11;top:10px;left:18px;right:610px;width:auto;height:44px;align-items:center;gap:7px;padding:0 7px 0 13px;border:1px solid rgba(177,137,58,.32);border-radius:8px;background:rgba(10,8,5,.92);box-shadow:0 8px 28px rgba(0,0,0,.4);font-family:'Cinzel',serif;overflow:hidden}
   .zg-game-overlay.gm.gm-vision .zg-scene-quick{display:flex;animation:zgSceneRailIn .42s cubic-bezier(.18,.82,.3,1) both}
   @keyframes zgSceneRailIn{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
-  .zg-scene-quick-title{color:#8d7650;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;flex:none}
+  .zg-scene-quick-title{flex:none;padding:5px 4px;border:0;background:transparent;color:#8d7650;font:600 10px 'Cinzel',serif;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:color .16s,text-shadow .16s}.zg-scene-quick-title:hover,.zg-scene-quick-title:focus-visible{outline:0;color:#efd58f;text-shadow:0 0 12px #c7933e88}
   .zg-scene-quick-list{display:flex;gap:5px;min-width:0;flex:1;overflow-x:auto;scrollbar-width:none}
   .zg-scene-quick-item,.zg-scene-quick-add{height:28px;border:1px solid #3b2d17;border-radius:5px;background:#100c07;color:#a99263;font-family:'Cinzel',serif;font-size:10px;white-space:nowrap;cursor:pointer;padding:0 10px}
   .zg-scene-quick-item:hover,.zg-scene-quick-item.active{border-color:#a47d32;color:#efd58f;background:#211708}
@@ -17833,7 +17834,7 @@ window.zgImageStore = (function() {
       <div class="zg-overview-head"><b>Ручное вмешательство</b><button type="button" onclick="zgGmInterventionToggle(event,false)" aria-label="Закрыть">×</button></div>
       <div id="zg-gm-intervention-body"></div>
     </div>
-    <div class="zg-scene-quick" id="zg-scene-quick"><span class="zg-scene-quick-title">Сцены</span><div class="zg-scene-quick-list" id="zg-scene-quick-list"></div><span class="zg-scene-dirty" id="zg-scene-dirty"><i></i> Сохранено</span><button type="button" class="zg-scene-quick-save" id="zg-scene-quick-save" onclick="zgSceneSave(false)" title="Сохранить изменения" disabled>💾</button><button type="button" class="zg-scene-quick-add" onclick="zgSceneDrawerToggle(true)" title="Открыть библиотеку сцен">＋</button></div>
+    <div class="zg-scene-quick" id="zg-scene-quick"><button type="button" class="zg-scene-quick-title" onclick="zgSceneDrawerToggle()" title="Открыть библиотеку сцен">Сцены</button><div class="zg-scene-quick-list" id="zg-scene-quick-list"></div><span class="zg-scene-dirty" id="zg-scene-dirty"><i></i> Сохранено</span><button type="button" class="zg-scene-quick-save" id="zg-scene-quick-save" onclick="zgSceneSave(false)" title="Сохранить изменения" disabled>💾</button><button type="button" class="zg-scene-quick-add" onclick="zgSceneDrawerToggle(true)" title="Открыть библиотеку сцен">＋</button></div>
     <div class="zg-game-settings" id="zg-game-settings">
       <div class="zg-game-settings-title">Настройки</div>
       <div id="zg-status-visibility-settings" hidden></div>
@@ -17885,7 +17886,6 @@ window.zgImageStore = (function() {
     <button type="button" class="zg-move-requests-toggle" id="zg-move-requests-toggle" onclick="zgMovementRequestsToggle()" title="Заявки игроков" aria-label="Заявки игроков"><img src="images/vtt-icons/actions.png" alt=""><span class="zg-move-requests-count" id="zg-move-requests-count" style="display:none">0</span></button>
     <div class="zg-vtt-loading" id="zg-vtt-loading"><div class="zg-vtt-loading-spin"></div><div class="zg-vtt-loading-txt">Мастер готовит сцену…</div></div>
     <div class="zg-vtt-arrival-fog" aria-hidden="true"></div>
-    <button type="button" class="zg-scene-library-toggle" onclick="zgSceneDrawerToggle()" title="Библиотека сцен" aria-label="Библиотека сцен">▦</button>
     <aside class="zg-scene-drawer" id="zg-scene-drawer">
       <div class="zg-scene-drawer-head"><div><small>Мастерская</small><strong>Сцены</strong></div><button type="button" onclick="zgSceneDrawerToggle(false)" title="Закрыть" aria-label="Закрыть">×</button></div>
       <label class="zg-scene-drawer-search"><span>⌕</span><input type="search" placeholder="Поиск по названию или альбому…" oninput="zgSceneSearch(this.value)" aria-label="Поиск сцен"></label>
