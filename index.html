@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.26';
+var ZG_APP_VERSION = '2026-07-22.27';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.27', notes: 'Устранено вечное ожидание при входе гейм-мастера: повторный запуск больше не теряет таймер, а подготовка сцены открывается автоматически.' },
   { v: '2026-07-22.26', notes: 'Кнопка «Назад» на экране выбора персонажа поднята над заголовочным слоем и снова корректно нажимается.' },
   { v: '2026-07-22.25', notes: 'Без активной мастерской вкладки нет активной комнаты: отключение GM удаляет сессию, а метка «Занят» учитывает только выбор участников текущей комнаты.' },
   { v: '2026-07-22.24', notes: 'Псевдофизика возвращена к базовому этапу: кубик плавно летит на фиксированное расстояние по направлению жеста и показывает результат после остановки.' },
@@ -10252,6 +10253,7 @@ document.addEventListener('DOMContentLoaded', function(){
     // портрет берём тот же, что показан при выборе (крупный арт из #zg-cs-portrait)
     var pImg = document.querySelector('#zg-cs-portrait img');
     var isGameMaster = c && String(c.id) === 'gm';
+    if(isGameMaster){if(gmSetupTimer){clearTimeout(gmSetupTimer);gmSetupTimer=null;}gmSetupOpened=false;}
     var src = isGameMaster ? '' : ((pImg && pImg.getAttribute('src')) || (c && c.portrait) || '');
     w.zgJourneyCancel();
     if (w.zgCharSelClose) w.zgCharSelClose();
@@ -10309,14 +10311,15 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 
   function openMasterSetup(){
-    if (gmSetupOpened) return;
+    var game=el('zg-game-overlay');
+    if(gmSetupOpened&&(gmSetupTimer||game&&game.classList.contains('open')))return;
     gmSetupOpened = true;
     clearTimers();
     setJourneyStatus('Открываем мастерскую сцены…');
     var jo = el('zg-journey-overlay');
     if (gmSetupTimer) clearTimeout(gmSetupTimer);
-    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 1800));
-    gmSetupTimer = setTimeout(function(){ gmSetupTimer = null; w.zgGameOpen(false); }, 3200);
+    timers.push(setTimeout(function(){ if (jo) jo.classList.add('dissolving'); }, 700));
+    gmSetupTimer = setTimeout(function(){ gmSetupTimer = null; w.zgGameOpen(false); }, 1250);
   }
   w.zgOpenMasterSetup = function(){
     if (gmSetupTimer) { clearTimeout(gmSetupTimer); gmSetupTimer = null; }
