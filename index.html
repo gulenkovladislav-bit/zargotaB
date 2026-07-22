@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.28';
+var ZG_APP_VERSION = '2026-07-23.29';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.29', notes: 'Настройки видимости теперь показывают не только системные, но и все действующие пользовательские статусы; клик по значку у жетона открывает его описание.' },
   { v: '2026-07-23.28', notes: 'При преимуществе и помехе победивший d20 теперь ровно поглощает второй кубик; критические 1 и 20 и их подписи остаются по центру.' },
   { v: '2026-07-23.27', notes: '«Бесплатное» объединено с аварийным «Планом Б» для неограниченных свободных бросков; мастер получил ручной пульт урона, лечения и эффектов для выбранного жетона.' },
   { v: '2026-07-23.26', notes: 'Коронка собственного героя во время его хода поднята выше и больше не перекрывает метку «ХОД».' },
@@ -11425,29 +11426,38 @@ document.addEventListener('DOMContentLoaded', function(){
     effects.forEach(function(effect){
       if(!effect||effect.type!=='status')return;
       var key=String(effect.statusKey||effect.key||effect.id||'').toLowerCase();if(!key||seen[key])return;seen[key]=true;
-      result.push({key:key,label:effect.label||effect.value||key,icon:effect.icon||'',color:effect.color||'',remaining:effect.unit==='rounds'?Number(effect.remaining||0):null});
+      result.push({key:key,label:effect.value||effect.label||key,icon:effect.icon||'',color:effect.color||'',remaining:effect.remaining==null?null:Number(effect.remaining),unit:effect.unit||'',duration:effect.duration==null?null:Number(effect.duration),description:effect.description||effect.desc||'',tickType:effect.tickType||'',tickValue:Number(effect.tickValue)||0});
     });
     statuses.forEach(function(status){var key=String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase();if(!key||seen[key])return;seen[key]=true;result.push({key:key,label:typeof status==='object'&&(status.label||status.value)||key,icon:typeof status==='object'&&status.icon||'',color:typeof status==='object'&&status.color||'',remaining:null});});
     return result.slice(0,5);
   }
+  function statusCatalog(){
+    var catalog={};Object.keys(TOKEN_STATUS_DEFS).forEach(function(key){var def=TOKEN_STATUS_DEFS[key];catalog[key]={key:key,icon:def[0],color:def[1],label:def[2],description:''};});
+    function collect(source){if(!source)return;(Array.isArray(source.statusEffects)?source.statusEffects:[]).forEach(function(effect){if(!effect)return;var key=String(effect.statusKey||effect.key||effect.id||'').toLowerCase();if(!key)return;catalog[key]=Object.assign({},catalog[key]||{key:key},{icon:effect.icon||(catalog[key]&&catalog[key].icon)||'✦',color:effect.color||(catalog[key]&&catalog[key].color)||'#9b875c',label:effect.value||effect.label||(catalog[key]&&catalog[key].label)||key,description:effect.description||effect.desc||(catalog[key]&&catalog[key].description)||''});});}
+    (draft.tokens||[]).forEach(collect);var room=roomSnapshot&&roomSnapshot.room;Object.keys(room&&room.members||{}).forEach(function(uid){collect(room.members[uid]&&room.members[uid].character);});var order=room&&room.combat&&room.combat.order||[];order.forEach(collect);return catalog;
+  }
+  w.zgTokenStatusInfo=function(tokenId,key){
+    var token=(draft.tokens||[]).filter(function(item){return item&&item.id===tokenId;})[0];if(!token)return;var status=tokenCombatStatuses(token).filter(function(item){return item.key===key;})[0],def=statusCatalog()[key]||{};status=Object.assign({},def,status||{});var old=el('zg-token-status-info');if(old)old.remove();
+    var overlay=document.createElement('div');overlay.id='zg-token-status-info';overlay.className='zg-token-status-info';overlay.onclick=function(ev){if(ev.target===overlay)overlay.remove();};var duration=status.remaining!=null?(status.remaining+' '+({rounds:'раунд.',minutes:'мин.',hours:'ч.',days:'дн.'}[status.unit]||status.unit||'')):'';overlay.innerHTML='<article style="--status-color:'+esc(status.color||'#9b875c')+'"><button type="button" onclick="this.closest(\'.zg-token-status-info\').remove()" aria-label="Закрыть">×</button><i>'+esc(status.icon||'✦')+'</i><h3>'+esc(status.label||key)+'</h3>'+(duration?'<small>⏳ '+esc(duration)+'</small>':'')+(status.tickType?'<small>⚙ '+(status.tickValue>0?'+':'')+status.tickValue+' к '+esc(status.tickType)+' каждый раун</small>':'')+'<p>'+esc(status.description||'Этот статус отмечен на персонаже. Подробное описание для него пока не задано.')+'</p></article>';document.body.appendChild(overlay);
+  };
   function appendTokenCombatStatuses(node,token){
     var visibility=(draft.view&&draft.view.statusVisibility)||{};
     var statuses=tokenCombatStatuses(token).filter(function(status){return visibility[status.key]!==false;});if(!statuses.length)return;
     var host=document.createElement('span');host.className='zg-vtt-token-statuses';
-    statuses.forEach(function(status){var def=TOKEN_STATUS_DEFS[status.key]||['✦','#9b875c',status.label],badge=document.createElement('span');badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.remaining>0?' · '+status.remaining+' р.':'');if(status.remaining>0){var duration=document.createElement('em');duration.textContent=status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
+    statuses.forEach(function(status){var def=TOKEN_STATUS_DEFS[status.key]||['✦','#9b875c',status.label],badge=document.createElement('button');badge.type='button';badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.remaining>0?' · '+status.remaining+' р.':'')+' · нажмите для описания';badge.addEventListener('pointerdown',function(ev){ev.preventDefault();ev.stopPropagation();});badge.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();w.zgTokenStatusInfo(token.id,status.key);});if(status.remaining>0){var duration=document.createElement('em');duration.textContent=status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
     node.appendChild(host);
   }
   w.zgStatusVisibilityRender=function(){
     var host=el('zg-status-visibility-settings');if(!host)return;
     host.hidden=!isMaster;if(!isMaster){host.innerHTML='';return;}
-    var visibility=(draft.view&&draft.view.statusVisibility)||{};
-    host.innerHTML='<div class="zg-status-settings-head"><span>Статусы на жетонах</span><small>Что увидят все участники</small></div><div class="zg-status-settings-list">'+Object.keys(TOKEN_STATUS_DEFS).map(function(key){var def=TOKEN_STATUS_DEFS[key],shown=visibility[key]!==false;return '<button type="button" class="'+(shown?'on':'off')+'" onclick="zgStatusVisibilityToggle(\''+key+'\')"><i style="--status-color:'+def[1]+'">'+def[0]+'</i><span>'+def[2]+'</span><em>'+(shown?'Показан':'Скрыт')+'</em></button>';}).join('')+'</div>';
+    var visibility=(draft.view&&draft.view.statusVisibility)||{},catalog=statusCatalog();
+    host.innerHTML='<div class="zg-status-settings-head"><span>Статусы на жетонах</span><small>Что увидят все участники</small></div><div class="zg-status-settings-list">'+Object.keys(catalog).map(function(key){var def=catalog[key],shown=visibility[key]!==false,safeKey=String(key).replace(/[^a-z0-9_-]/g,'');return '<button type="button" class="'+(shown?'on':'off')+'" onclick="zgStatusVisibilityToggle(\''+safeKey+'\')"><i style="--status-color:'+esc(def.color)+'">'+esc(def.icon)+'</i><span>'+esc(def.label)+'</span><em>'+(shown?'Показан':'Скрыт')+'</em></button>';}).join('')+'</div>';
   };
   w.zgStatusVisibilityToggle=function(key){
-    if(!isMaster||!TOKEN_STATUS_DEFS[key])return;
+    var def=statusCatalog()[key];if(!isMaster||!def)return;
     var view=draft.view||(draft.view=copyScene(DEFAULT_SCENE).view),visibility=view.statusVisibility||(view.statusVisibility={});
     visibility[key]=visibility[key]===false;
-    w.zgStatusVisibilityRender();markDirty((visibility[key]===false?'Скрыт статус: ':'Показан статус: ')+TOKEN_STATUS_DEFS[key][2]);
+    w.zgStatusVisibilityRender();markDirty((visibility[key]===false?'Скрыт статус: ':'Показан статус: ')+def.label);
   };
   function renderRegions(){
     var svg=el('zg-region-layer');if(!svg)return;
@@ -17342,9 +17352,10 @@ window.zgImageStore = (function() {
   .zg-vtt-token-hp{position:absolute;top:calc(100% + 3px);left:12%;width:76%;height:5px;border-radius:3px;background:#191510;overflow:hidden;box-shadow:0 1px 2px #000,0 0 0 1px #000a}
   .zg-vtt-token-hp i{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
   .zg-vtt-token-hp i.low{background:linear-gradient(90deg,#8a2f28,#c0504a)}
-  .zg-vtt-token-statuses{position:absolute;z-index:6;left:calc(100% + 7px);top:50%;display:flex;flex-direction:column;gap:3px;transform:translateY(-50%);pointer-events:none}
-  .zg-vtt-token-status{position:relative;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent)}
+  .zg-vtt-token-statuses{position:absolute;z-index:6;left:calc(100% + 7px);top:50%;display:flex;flex-direction:column;gap:3px;transform:translateY(-50%);pointer-events:auto}
+  .zg-vtt-token-status{position:relative;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent);cursor:pointer;pointer-events:auto;transition:transform .15s,filter .15s}.zg-vtt-token-status:hover{transform:scale(1.15);filter:brightness(1.25)}
   .zg-vtt-token-status em{position:absolute;right:-4px;bottom:-4px;min-width:12px;height:12px;padding:0 2px;border:1px solid #100d08;border-radius:7px;background:var(--status-color,#9b875c);color:#090704;font:700 8px/11px Arial,sans-serif;text-align:center}
+  .zg-token-status-info{position:fixed;z-index:13050;inset:0;display:grid;place-items:center;padding:20px;background:#020201b8;backdrop-filter:blur(6px)}.zg-token-status-info article{position:relative;width:min(390px,calc(100vw - 34px));padding:23px 22px 20px;border:1px solid var(--status-color);border-radius:10px;background:radial-gradient(circle at 50% 0,color-mix(in srgb,var(--status-color) 18%,transparent),transparent 42%),linear-gradient(160deg,#1b130b,#090705 74%);box-shadow:0 28px 90px #000,0 0 25px color-mix(in srgb,var(--status-color) 25%,transparent);color:#a99672;text-align:center}.zg-token-status-info article>button{position:absolute;right:8px;top:7px;width:32px;height:32px;border:0;background:transparent;color:#9b835a;font-size:24px;cursor:pointer}.zg-token-status-info article>i{display:grid;place-items:center;width:60px;height:60px;margin:0 auto 10px;border:1px solid var(--status-color);border-radius:50%;background:#0b0805;color:#f3dfa9;box-shadow:0 0 20px color-mix(in srgb,var(--status-color) 38%,transparent);font:normal 29px Arial}.zg-token-status-info h3{margin:0 0 7px;color:var(--status-color);font:600 18px 'Cinzel',serif}.zg-token-status-info small{display:block;margin:3px 0;color:#b59b68;font:10px 'Cinzel',serif}.zg-token-status-info p{margin:15px 0 0;padding-top:13px;border-top:1px solid #3a2b1a;color:#b8a98d;font:13px/1.6 'Lora',serif;white-space:pre-wrap}
   .zg-vtt-token.disp-hero .zg-vtt-token-name{top:calc(100% + 11px)}
   /* панель сцен: флажки, меню, кнопки сохранения */
   .zg-scene-save-row{display:flex;gap:7px;margin-bottom:8px}
