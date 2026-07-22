@@ -1062,6 +1062,38 @@
       });
     },
 
+    moveMasterToken: function (tokenId, targetX, targetY, origin) {
+      origin=origin||{};tokenId=String(tokenId||'').slice(0,128);
+      targetX=Math.max(0,Math.min(100,Number(targetX)||0));targetY=Math.max(0,Math.min(100,Number(targetY)||0));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Управлять существами может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var found=null,candidates=[{path:'scene',scene:room.scene}];
+          Object.keys(room.zones||{}).forEach(function(zoneId){candidates.push({path:'zones/'+zoneId,scene:room.zones[zoneId]});});
+          candidates.some(function(candidate){var tokens=candidate.scene&&Array.isArray(candidate.scene.tokens)?candidate.scene.tokens:[];var index=tokens.findIndex(function(token){return token&&String(token.id)===tokenId;});if(index<0)return false;found={path:candidate.path,scene:candidate.scene,tokens:tokens,index:index,token:tokens[index]};return true;});
+          if(!found)throw roomError('Жетон существа не найден на опубликованной сцене.','token-missing');
+          if(found.token.type==='hero')throw roomError('Для героя используется управление игрока.','token-invalid');
+          var fromX=Math.max(0,Math.min(100,Number(found.token.x==null?origin.x:found.token.x)||0)),fromY=Math.max(0,Math.min(100,Number(found.token.y==null?origin.y:found.token.y)||0));
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[],entryIndex=-1,spent=movementCells(found.scene||room.scene,fromX,fromY,targetX,targetY);
+          if(combat&&combat.active){
+            entryIndex=order.findIndex(function(entry){return entry&&String(entry.tokenId||'')===tokenId;});
+            if(entryIndex<0||entryIndex!==Number(combat.turnIndex||0))throw roomError('В бою можно двигать только активное существо.','combat-not-turn');
+            var entry=combatEntryWithRoomStatuses(room,Object.assign({},order[entryIndex]));
+            if(combatRestrictions(entry).blocked.movement)throw roomError('Текущее состояние не позволяет двигаться.','combat-status-blocked');
+            var economy=Object.assign({movement:7,movementMax:7},entry.economy||{});if(spent>Number(economy.movement||0))throw roomError('Не хватает движения: нужно '+spent+', осталось '+Number(economy.movement||0)+' клеток.','combat-movement-spent');
+            economy.movement=Math.max(0,Number(economy.movement||0)-spent);entry.economy=economy;order[entryIndex]=entry;
+          }
+          var stamp=now(),distance=Math.hypot(targetX-fromX,targetY-fromY),updates={};
+          updates[found.path+'/tokens/'+found.index+'/x']=targetX;updates[found.path+'/tokens/'+found.index+'/y']=targetY;
+          if(entryIndex>=0){updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
+          updates.lastMovement={id:'gm-move-'+tokenId.slice(0,28)+'-'+stamp,uid:'',tokenId:tokenId,name:String(found.token.name||'Существо').slice(0,80),fromX:fromX,fromY:fromY,toX:targetX,toY:targetY,zoneId:found.path.indexOf('zones/')===0?found.path.slice(6):'',duration:Math.max(900,Math.min(4200,Math.round(distance*62))),startedAt:stamp};updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['master-only','room-not-found','token-missing','token-invalid','combat-not-turn','combat-status-blocked','combat-movement-spent'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
     requestMovement: function (targetX, targetY, origin) {
       origin = origin || {};
       targetX = Math.max(0, Math.min(100, Number(targetX) || 0));
