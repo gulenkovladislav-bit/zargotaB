@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.26';
+var ZG_APP_VERSION = '2026-07-23.27';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.27', notes: '«Бесплатное» объединено с аварийным «Планом Б» для неограниченных свободных бросков; мастер получил ручной пульт урона, лечения и эффектов для выбранного жетона.' },
   { v: '2026-07-23.26', notes: 'Коронка собственного героя во время его хода поднята выше и больше не перекрывает метку «ХОД».' },
   { v: '2026-07-23.25', notes: 'Одобренная атака теперь разыгрывается перетаскиванием d20 с учётом преимущества или помехи; при попадании следом показываются кости оружия, а крит удваивает их количество.' },
   { v: '2026-07-23.24', notes: 'Боевые статусы вынесены в аккуратную колонку сбоку от портрета; мастер может отдельно включать и скрывать каждый тип статуса в общих настройках.' },
@@ -10518,7 +10519,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var go = el('zg-game-overlay');
     if (go && go.classList.contains('open')){
       var sp = el('zg-game-settings');
-      var drawer=el('zg-vtt-drawer'),actions=el('zg-action-menu'),dice=el('zg-dice-pop'),sceneSettings=el('zg-scene-settings'),overview=el('zg-overview-panel'),zones=el('zg-zones-panel'),sceneDrawer=el('zg-scene-drawer');
+      var drawer=el('zg-vtt-drawer'),actions=el('zg-action-menu'),dice=el('zg-dice-pop'),sceneSettings=el('zg-scene-settings'),overview=el('zg-overview-panel'),zones=el('zg-zones-panel'),intervention=el('zg-gm-intervention'),sceneDrawer=el('zg-scene-drawer');
       if (sp && sp.classList.contains('open')) sp.classList.remove('open');
       else if(drawer&&drawer.classList.contains('open')&&w.zgVttCloseDrawer)w.zgVttCloseDrawer();
       else if(actions&&actions.classList.contains('open')&&w.zgVttActionClose)w.zgVttActionClose();
@@ -10526,6 +10527,7 @@ document.addEventListener('DOMContentLoaded', function(){
       else if(sceneSettings&&sceneSettings.classList.contains('open'))sceneSettings.classList.remove('open');
       else if(overview&&overview.classList.contains('open'))overview.classList.remove('open');
       else if(zones&&zones.classList.contains('open'))zones.classList.remove('open');
+      else if(intervention&&intervention.classList.contains('open'))intervention.classList.remove('open');
       else if(sceneDrawer&&sceneDrawer.classList.contains('open')&&w.zgSceneDrawerToggle)w.zgSceneDrawerToggle(false);
       else if(go.querySelector('.move-mode,.action-tool,.region-mode,.focus-cue-mode')||go.classList.contains('combat-targeting')){if(w.zgVttDeactivateTools)w.zgVttDeactivateTools();}
       else if(w.zgLeaveConfirmOpen)w.zgLeaveConfirmOpen();
@@ -10588,6 +10590,8 @@ document.addEventListener('DOMContentLoaded', function(){
   var roomSnapshot = null;
   var selectedLayerId = '';
   var selectedTokenId = '';
+  var gmInterventionTokenId = '';
+  var gmInterventionBusy = false;
   var gmVision = 'gm';   // локальный вид мастера: 'gm' (видит скрытое) или 'players' (превью глазами игроков)
   var movementMode = false;
   var actionToolKind = '';
@@ -11068,6 +11072,30 @@ document.addEventListener('DOMContentLoaded', function(){
     if (token && token.type === 'hero') { var member = memberForToken(token); return member && member.character && member.character.name || token.name; }
     return token && token.name || 'Жетон';
   }
+  function interventionToken(){var id=gmInterventionTokenId||selectedTokenId;return (draft.tokens||[]).filter(function(token){return token&&token.id===id;})[0]||null;}
+  function interventionVitals(token){
+    var entry=combatEntryForToken(token),member=token&&token.type==='hero'?memberForToken(token):null,source=entry||(member&&member.character)||token||{};
+    return {hp:Number(source.hp==null?source.hpCur:source.hp)||0,hpMax:Number(source.hpMax)||0,tempHp:Number(source.tempHp)||0};
+  }
+  function renderGmIntervention(){
+    var panel=el('zg-gm-intervention'),host=el('zg-gm-intervention-body');if(!panel||!host)return;
+    var token=interventionToken();
+    if(!token){host.innerHTML='<div class="zg-gm-intervention-empty"><i>✦</i><b>Выберите сущность</b><span>Кликните по жетону на карте — пульт привяжется к нему.</span></div>';return;}
+    var vitals=interventionVitals(token),portrait=tokenPortrait(token),active={};tokenCombatStatuses(token).forEach(function(status){active[status.key]=true;});
+    host.innerHTML='<div class="zg-gm-intervention-target">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i>✦</i>')+'<span><b>'+esc(tokenName(token))+'</b><small>HP '+vitals.hp+(vitals.hpMax?' / '+vitals.hpMax:'')+(vitals.tempHp?' · врем. '+vitals.tempHp:'')+'</small></span></div><div class="zg-gm-intervention-vitals"><input id="zg-gm-intervention-amount" type="number" min="1" max="9999" value="1" aria-label="Значение"><button type="button" class="damage" onclick="zgGmInterventionApply(\'damage\')">− Урон</button><button type="button" class="heal" onclick="zgGmInterventionApply(\'heal\')">+ Лечение</button></div><div class="zg-gm-intervention-caption">Эффекты · нажатие включает или снимает</div><div class="zg-gm-intervention-statuses">'+Object.keys(TOKEN_STATUS_DEFS).map(function(key){var def=TOKEN_STATUS_DEFS[key];return '<button type="button" class="'+(active[key]?'active':'')+'" style="--status-color:'+def[1]+'" onclick="zgGmInterventionStatus(\''+key+'\')"><i>'+def[0]+'</i><span>'+def[2]+'</span></button>';}).join('')+'</div>';
+  }
+  w.zgGmInterventionToggle=function(ev,force){
+    if(ev)ev.stopPropagation();if(!isMaster)return;var panel=el('zg-gm-intervention');if(!panel)return;var open=force==null?!panel.classList.contains('open'):!!force;
+    if(open){gmInterventionTokenId=selectedTokenId||gmInterventionTokenId;var overview=el('zg-overview-panel'),zones=el('zg-zones-panel');if(overview)overview.classList.remove('open');if(zones)zones.classList.remove('open');}
+    panel.classList.toggle('open',open);if(open)renderGmIntervention();
+  };
+  function mergeInterventionSnapshot(snapshot,token){
+    if(!snapshot||!snapshot.room||!token)return;var order=snapshot.room.combat&&snapshot.room.combat.order||[],member=token.memberUid&&snapshot.room.members&&snapshot.room.members[token.memberUid],entry=order.filter(function(item){return item&&((item.tokenId&&item.tokenId===token.id)||(token.memberUid&&item.uid===token.memberUid));})[0],sceneToken=(snapshot.room.scene&&snapshot.room.scene.tokens||[]).filter(function(item){return item&&item.id===token.id;})[0],source=entry||(member&&member.character)||sceneToken;
+    if(source){if(source.hp!=null)token.hp=source.hp;else if(source.hpCur!=null)token.hp=source.hpCur;if(source.hpMax!=null)token.hpMax=source.hpMax;if(source.tempHp!=null)token.tempHp=source.tempHp;token.statuses=Array.isArray(source.statuses)?source.statuses.slice():[];token.statusEffects=Array.isArray(source.statusEffects)?source.statusEffects.slice():[];}
+    roomSnapshot=snapshot;renderTokens();renderGmIntervention();
+  }
+  w.zgGmInterventionApply=function(kind){var token=interventionToken(),input=el('zg-gm-intervention-amount'),amount=Math.floor(Number(input&&input.value)||0);if(!token||gmInterventionBusy||!w.ZargotaRooms||!w.ZargotaRooms.gmAdjustEntity)return;gmInterventionBusy=true;w.ZargotaRooms.gmAdjustEntity({tokenId:token.id,memberUid:token.memberUid||''},{kind:kind,amount:amount}).then(function(snapshot){mergeInterventionSnapshot(snapshot,token);if(w.showToast)w.showToast(kind==='heal'?'Лечение применено':'Урон применён');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить HP');}).then(function(){gmInterventionBusy=false;});};
+  w.zgGmInterventionStatus=function(key){var token=interventionToken(),def=TOKEN_STATUS_DEFS[key];if(!token||!def||gmInterventionBusy||!w.ZargotaRooms||!w.ZargotaRooms.gmAdjustEntity)return;var active=tokenCombatStatuses(token).some(function(status){return status.key===key;});gmInterventionBusy=true;w.ZargotaRooms.gmAdjustEntity({tokenId:token.id,memberUid:token.memberUid||''},{kind:'status',statusKey:key,label:def[2],enable:!active}).then(function(snapshot){mergeInterventionSnapshot(snapshot,token);}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить эффект');}).then(function(){gmInterventionBusy=false;});};
   var PLAYER_COLOR_RULES=[
     {match:/еван|евангел/i,accent:'#e8c34f',soft:'#4b3b0c'},
     {match:/лин.?ин/i,accent:'#df5a58',soft:'#491719'},
@@ -11476,6 +11504,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ev.shiftKey){ toggleGroupSel(token); return; }         // Shift+клик — добавить/убрать из выделения
     if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
     selectedTokenId = token.id;
+    if(el('zg-gm-intervention')&&el('zg-gm-intervention').classList.contains('open')){gmInterventionTokenId=token.id;renderGmIntervention();}
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
     node.classList.add('selected');
     renderTokenList(); syncTokenEditor();
@@ -11580,9 +11609,9 @@ document.addEventListener('DOMContentLoaded', function(){
         if (rot) vis.style.transform = 'rotate(' + rot + 'deg)';
         node.appendChild(vis);
         var label = document.createElement('span'); label.className = 'zg-vtt-token-name'; label.textContent = tokenName(token); node.appendChild(label);
-        // В бою статусы видят все; HP существ — только мастер, HP героев — всегда.
+        // Наложенные мастером статусы видны и в бою, и в свободном режиме.
         var combatActive=!!combatEntry;
-        if(combatActive)appendTokenCombatStatuses(node,token);
+        if(combatActive||tokenCombatStatuses(token).length)appendTokenCombatStatuses(node,token);
         var hpMax = combatEntry&&combatEntry.hpMax!=null?combatEntry.hpMax:(token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpMax; })() : token.hpMax);
         var hpCur = combatEntry&&combatEntry.hp!=null?combatEntry.hp:(token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpCur; })() : token.hp);
         var showHp=token.type==='hero'||(combatActive&&viewerGm);
@@ -12926,10 +12955,10 @@ document.addEventListener('DOMContentLoaded', function(){
       if(controlled&&controlled.uid&&state&&state.room&&state.room.members&&state.room.members[controlled.uid]&&state.room.members[controlled.uid].character){controlled=Object.assign({},controlled,{statuses:Array.isArray(state.room.members[controlled.uid].character.statuses)?state.room.members[controlled.uid].character.statuses:[]});}
       var economy=Object.assign({long:1,short:1,reaction:1,movement:7,movementMax:7},controlled&&controlled.economy||{}),isTurn=!!(controlled&&turn&&controlled.key===turn.key);
       var statusSummary=combatStatusSummary(controlled);
-      function economyButton(type,icon,label,hint,available,turnOnly){var blocked=!!statusSummary.blocked[type],enabled=canAct&&available&&!blocked&&(turnOnly?isTurn:true),handler=type==='long'?'zgCombatAttackToggle()':'zgCombatUseAction(\''+type+'\')';return '<button type="button" class="'+(!available?'spent':'')+(blocked?' status-blocked':'')+'" onclick="'+handler+'" '+(enabled?'':'disabled')+' title="'+(blocked?'Запрещено текущим состоянием':hint)+'"><i>'+icon+'</i><b>'+label+'</b><small>'+(blocked?'недоступно':hint)+'</small>'+(type!=='free'?'<span class="zg-combat-resource">'+Number(economy[type]||0)+'</span>':'')+'</button>';}
+      function economyButton(type,icon,label,hint,available,turnOnly){var blocked=!!statusSummary.blocked[type],enabled=canAct&&available&&!blocked&&(turnOnly?isTurn:true),handler=type==='long'?'zgCombatAttackToggle()':type==='free'?'zgDicePlanB()':'zgCombatUseAction(\''+type+'\')';return '<button type="button" class="'+(!available?'spent':'')+(blocked?' status-blocked':'')+'" onclick="'+handler+'" '+(enabled?'':'disabled')+' title="'+(blocked?'Запрещено текущим состоянием':hint)+'"><i>'+icon+'</i><b>'+label+'</b><small>'+(blocked?'недоступно':hint)+'</small>'+(type!=='free'?'<span class="zg-combat-resource">'+Number(economy[type]||0)+'</span>':'')+'</button>';}
       economyHost.classList.toggle('open',active&&!!controlled);
       var preparedCount=order.filter(function(entry){return entry&&entry.preparedReaction&&entry.preparedReaction.text;}).length;
-      economyHost.innerHTML=active&&controlled?'<button type="button" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement?'':'disabled')+'><i>♟</i><b>Движение</b><small>'+Number(economy.movement||0)+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','⚔','Длительное','атака или приём',Number(economy.long)>0,true)+economyButton('short','ϟ','Короткое','быстрое действие',Number(economy.short)>0,true)+economyButton('free','✦','Бесплатное','фраза, жест, мелочь',true,false)+'<button type="button" class="zg-combat-prepare-button" onclick="zgCombatPrepareToggle()" '+(statusSummary.blocked.long?'disabled title="Подготовка требует доступного долгого действия"':'')+'><i>⌛</i><b>Подготовить</b><small>реакцию</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button><button type="button" class="zg-combat-inventory-button" onclick="zgPlayerDockSelect(\'inventory\')"><i>▣</i><b>Инвентарь</b><small>вещи героя</small></button>'+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':''):'';
+      economyHost.innerHTML=active&&controlled?'<button type="button" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement?'':'disabled')+'><i>♟</i><b>Движение</b><small>'+Number(economy.movement||0)+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','⚔','Длительное','атака или приём',Number(economy.long)>0,true)+economyButton('short','ϟ','Короткое','быстрое действие',Number(economy.short)>0,true)+economyButton('free','✦','Бесплатное / План Б','свободные броски и мелочи',true,false)+'<button type="button" class="zg-combat-prepare-button" onclick="zgCombatPrepareToggle()" '+(statusSummary.blocked.long?'disabled title="Подготовка требует доступного долгого действия"':'')+'><i>⌛</i><b>Подготовить</b><small>реакцию</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button><button type="button" class="zg-combat-inventory-button" onclick="zgPlayerDockSelect(\'inventory\')"><i>▣</i><b>Инвентарь</b><small>вещи героя</small></button>'+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':''):'';
     }
     renderCombatPrepare();
     if(el('zg-combat-attack')&&el('zg-combat-attack').classList.contains('open'))renderCombatAttack();
@@ -13403,7 +13432,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function show(html){ var r=el('zg-dice-result'); if(r)r.innerHTML=html; }
   // Анимация броска: перебор цифр ~0.9с (звук катящегося кубика) → результат с «ударом»
-  var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedD20Mode='normal', selectedDice={};
+  var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedD20Mode='normal', selectedDice={},freeRollMode=false;
   function animateRoll(sides, finalHtml, finalValue, announceText, totalValue, statLabel){
     var r=el('zg-dice-result');
     if(rolling)return; rolling=true;
@@ -13437,8 +13466,10 @@ document.addEventListener('DOMContentLoaded', function(){
       panel.style.left=(baseLeft+(dockCenter-diceCenter)/(scale||1))+'px';
     }
   }
-  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';}p.classList.toggle('open',open);if(open){selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(e){}}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
-  w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
+  function syncFreeRollMode(){var p=el('zg-dice-pop');if(p)p.classList.toggle('plan-b',freeRollMode);}
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation();freeRollMode=false; var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';}p.classList.toggle('open',open);syncFreeRollMode();if(open){selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(e){}}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
+  w.zgDicePlanB=function(){var p=el('zg-dice-pop');if(!p)return;freeRollMode=true;if(!p.classList.contains('open')){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';p.classList.add('open');selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(ignore){}}syncFreeRollMode();if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',true);};
+  w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');freeRollMode=false;syncFreeRollMode();var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
   w.addEventListener('resize',function(){var p=el('zg-dice-pop');if(p&&p.classList.contains('open'))alignDicePanel();});
   function selectStat(key){
     selectedStat=key||'plain';
@@ -13466,7 +13497,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();try{if(w.ZargotaSound&&w.ZargotaSound.diceRollSmall)w.ZargotaSound.diceRollSmall();}catch(e){}}
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList,throwMotion){
-    if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
+    if(!sidesList.length)return;var isFreeRoll=freeRollMode,c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
     var contested=sidesList.length===1&&Number(sidesList[0])===20&&selectedD20Mode!=='normal';
     if(contested){
       var firstForced=forcedRoll(20),a=firstForced||roll(20),b=roll(20),mode=selectedD20Mode,keptIndex=mode==='advantage'?(a>=b?0:1):(a<=b?0:1),mod=0,label='';
@@ -13488,7 +13519,7 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2,Number(soundRoll&&soundRoll.sides)||0);}catch(e){}},throwMotion?1960:1250);
     var keptRoll=contested?rolls.find(function(item){return item.kept;}):null;
     var grandTotal=contested?Number(keptRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
-    var actionText=contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ';
+    var actionText=isFreeRoll?'Свободный бросок · ':(contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ');
     var hasSingleModifier=rolls.length===1&&Number(rolls[0].total||0)!==Number(rolls[0].value||0);
     setTimeout(function(){if(w.ZargotaRooms&&w.ZargotaRooms.announceRoll)w.ZargotaRooms.announceRoll(actionText+parts.join(' · ')+((contested?keptRoll.value!==1:(rolls.length>1||hasSingleModifier))?' · Итого = '+grandTotal:''),speaker);},contested?3300:2600);
     /* The palette remains an inexhaustible source: drag moves a visual copy. */
@@ -13521,7 +13552,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgDiceRoll=function(sides){
     sides=Number(sides)||20;
     var v=resultFor(sides);
-    animateRoll(sides,'<span class="zg-dice-die">d'+sides+'</span> → <b>'+v+'</b>',v,'Кидает кубик: d'+sides+' = '+v,v,'');
+    animateRoll(sides,'<span class="zg-dice-die">d'+sides+'</span> → <b>'+v+'</b>',v,(freeRollMode?'Свободный бросок · ':'Кидает кубик: ')+'d'+sides+' = '+v,v,'');
   };
   w.zgDiceRollAbility=function(key){
     var r=resultFor(20), c=ownChar(), labels=w.STAT_LABEL_RU||{}, mod=0, lbl='';
@@ -17041,6 +17072,7 @@ window.zgImageStore = (function() {
   /* Веер физических кубиков: без общей рамки, бросок выполняется перетаскиванием. */
   .zg-dice-pop{bottom:128px;width:min(650px,92vw);padding:0 42px 16px;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
   .zg-dice-pop.open{display:block;animation:zgDiceFanIn .28s cubic-bezier(.18,.8,.25,1)}
+  .zg-dice-pop.plan-b:before{content:'✦  ПЛАН Б · СВОБОДНЫЙ БРОСОК  ✦';display:block;width:max-content;max-width:90%;margin:0 auto 4px;padding:5px 13px;border:1px solid #8f6b2d;border-radius:20px;background:#120c05e8;color:#e8c875;box-shadow:0 0 20px #c38d2930;font:600 9px 'Cinzel',serif;letter-spacing:1.2px;text-align:center}
   @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
   .zg-dice-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end}
   .zg-dice-row button{position:relative;height:122px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
@@ -17168,6 +17200,10 @@ window.zgImageStore = (function() {
   .zg-overview-panel.open{display:block;animation:zgPopIn .2s ease}
   .zg-overview-focus{width:100%;height:38px;margin:9px 0;border:1px solid #6f5425;border-radius:5px;background:#171109;color:#e3c778;font:600 11px 'Cinzel',serif;cursor:pointer}.zg-overview-focus:hover{border-color:#c99b40;box-shadow:0 0 18px #c99b4028}
   .zg-zones-panel{display:none;position:absolute;right:120px;top:66px;z-index:19;width:340px;max-height:calc(100vh - 90px);overflow:auto;padding:14px;border:1px solid #745824;border-radius:8px;background:linear-gradient(180deg,rgba(20,15,9,.98),rgba(8,7,5,.98));box-shadow:0 22px 70px #000d;color:#bda978}.zg-zones-panel.open{display:block;animation:zgPopIn .2s ease}
+  .zg-gm-intervention-button{border-color:#8f3e32!important;color:#e8b19f!important;background:linear-gradient(180deg,#2b120d,#160a07)!important}.zg-gm-intervention-button:hover{border-color:#d06852!important;box-shadow:0 0 18px #b63d2d3d}
+  .zg-gm-intervention{display:none;position:absolute;right:120px;top:66px;z-index:21;width:370px;max-height:calc(100vh - 88px);overflow:auto;padding:14px;border:1px solid #7e4a2c;border-radius:10px;background:linear-gradient(180deg,rgba(26,14,9,.98),rgba(8,6,5,.99));box-shadow:0 24px 80px #000e,0 0 26px #a8482020;color:#c7ad79}.zg-gm-intervention.open{display:block;animation:zgPopIn .2s ease}
+  .zg-gm-intervention-target{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:center;padding:9px;border:1px solid #49301d;border-radius:7px;background:#0d0906}.zg-gm-intervention-target img,.zg-gm-intervention-target>i{width:52px;height:52px;border-radius:50%;object-fit:cover;display:grid;place-items:center;border:2px solid #9c7130;background:#1b1209;font-style:normal;font-size:23px}.zg-gm-intervention-target span{display:grid;gap:5px;min-width:0}.zg-gm-intervention-target b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#efd28b;font:600 12px 'Cinzel',serif}.zg-gm-intervention-target small{color:#9d8058;font:11px Georgia,serif}
+  .zg-gm-intervention-vitals{display:grid;grid-template-columns:68px 1fr 1fr;gap:6px;margin:10px 0}.zg-gm-intervention-vitals input,.zg-gm-intervention-vitals button{height:38px;border:1px solid #4e351f;border-radius:6px;background:#0c0906;color:#ddc186;font:600 10px 'Cinzel',serif}.zg-gm-intervention-vitals input{padding:0 8px;text-align:center;font-size:14px}.zg-gm-intervention-vitals button{cursor:pointer}.zg-gm-intervention-vitals button.damage{border-color:#843d35;color:#ef9b8e;background:#210d0b}.zg-gm-intervention-vitals button.heal{border-color:#376b45;color:#9ed5a9;background:#0c1b10}.zg-gm-intervention-caption{margin:12px 1px 7px;color:#816d4b;font:8px 'Cinzel',serif;letter-spacing:.8px;text-transform:uppercase}.zg-gm-intervention-statuses{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-gm-intervention-statuses button{display:grid;grid-template-columns:26px 1fr;align-items:center;min-height:34px;padding:4px 7px;border:1px solid #352719;border-radius:5px;background:#0e0b08;color:#8f7d5e;text-align:left;font:9px 'Cinzel',serif;cursor:pointer}.zg-gm-intervention-statuses button i{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid color-mix(in srgb,var(--status-color),transparent 35%);color:var(--status-color);font-style:normal}.zg-gm-intervention-statuses button.active{border-color:var(--status-color);color:#ebd8a9;box-shadow:inset 0 0 18px color-mix(in srgb,var(--status-color),transparent 86%)}.zg-gm-intervention-empty{display:grid;place-items:center;gap:7px;padding:30px 16px;text-align:center;border:1px dashed #4a3521;border-radius:7px;color:#846f4e}.zg-gm-intervention-empty i{font-size:28px;color:#c18c38}.zg-gm-intervention-empty b{color:#d6ba78;font:600 12px 'Cinzel',serif}.zg-gm-intervention-empty span{font:11px/1.45 Georgia,serif}
   .zg-zone-create-title{margin:10px 0 6px;color:#826e43;font:600 9px 'Cinzel',serif;text-transform:uppercase}.zg-zone-create{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.zg-zone-create button{height:31px;border:1px solid #49371c;border-radius:4px;background:#151008;color:#bba471;font:9px 'Cinzel',serif;cursor:pointer}.zg-zone-create button:hover{border-color:#b98b37;color:#f0d58a}
   .zg-zones-list{display:flex;flex-direction:column;gap:5px;margin:12px 0}.zg-zone-row{display:grid;grid-template-columns:20px 1fr auto;gap:7px;align-items:center;width:100%;min-height:36px;padding:6px 8px;border:1px solid #332817;border-radius:4px;background:#100d09;color:#9d8a63;text-align:left;cursor:pointer}.zg-zone-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 10px 'Cinzel',serif}.zg-zone-row small{font-size:8px;color:#6f624a}.zg-zone-row.selected{border-color:#bd913c;background:#20170b;color:#efd692}.zg-zone-empty{display:block;padding:13px;text-align:center;color:#74664a}
   .zg-zone-editor{display:grid;grid-template-columns:1fr 92px;gap:8px;padding-top:10px;border-top:1px solid #352916}.zg-zone-editor[hidden]{display:none}.zg-zone-editor label{display:flex;flex-direction:column;gap:4px;color:#82724f;font:9px 'Cinzel',serif}.zg-zone-editor label:nth-child(3),.zg-zone-editor label:nth-child(4){grid-column:1/-1}.zg-zone-editor input,.zg-zone-editor select{height:30px;border:1px solid #44341d;border-radius:4px;background:#0c0a07;color:#d1b979;padding:0 8px;font:10px Georgia,serif}.zg-zone-editor input[type=range]{height:auto;padding:0}.zg-zone-delete{grid-column:1/-1;height:31px;border:1px solid #6c302a;border-radius:4px;background:#1b0d0b;color:#c7786d;font:10px 'Cinzel',serif;cursor:pointer}.zg-zone-help{display:block;margin-top:9px;color:#6c6048;line-height:1.4}
@@ -17742,6 +17778,7 @@ window.zgImageStore = (function() {
       <button type="button" class="zg-vision-gear" id="zg-vision-gear" onclick="zgSceneToggleVision(event)" title="Вид: мастер / игроки" aria-label="Переключить вид">👁 <span>Вид мастера</span></button>
       <button type="button" class="zg-scene-publish zg-overview-button" id="zg-scene-publish" onclick="zgOverviewToggle(event)" title="Камера, видимость и показ сцены">Обзор</button>
       <button type="button" class="zg-scene-publish zg-zones-button" onclick="zgZonesToggle(event)" title="Редактор областей сцены">Зоны</button>
+      <button type="button" class="zg-scene-publish zg-gm-intervention-button" onclick="zgGmInterventionToggle(event)" title="Ручной урон, лечение и эффекты для выбранной сущности">✦ Пульт ГМ</button>
       <button type="button" class="zg-scene-publish zg-combat-toggle" id="zg-combat-toggle" onclick="zgCombatToggle()" title="Боевой режим и инициатива">Начать бой</button>
       <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgStartPlayers()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
     </div>
@@ -17775,6 +17812,10 @@ window.zgImageStore = (function() {
         <button type="button" class="zg-zone-delete" onclick="zgZoneDelete()">Удалить зону</button>
       </div>
       <small class="zg-zone-help">Выберите зону, затем перетаскивайте светлые точки прямо на карте.</small>
+    </div>
+    <div class="zg-gm-intervention" id="zg-gm-intervention">
+      <div class="zg-overview-head"><b>Ручное вмешательство</b><button type="button" onclick="zgGmInterventionToggle(event,false)" aria-label="Закрыть">×</button></div>
+      <div id="zg-gm-intervention-body"></div>
     </div>
     <div class="zg-scene-quick" id="zg-scene-quick"><span class="zg-scene-quick-title">Сцены</span><div class="zg-scene-quick-list" id="zg-scene-quick-list"></div><span class="zg-scene-dirty" id="zg-scene-dirty"><i></i> Сохранено</span><button type="button" class="zg-scene-quick-save" id="zg-scene-quick-save" onclick="zgSceneSave(false)" title="Сохранить изменения" disabled>💾</button><button type="button" class="zg-scene-quick-add" onclick="zgSceneDrawerToggle(true)" title="Открыть библиотеку сцен">＋</button></div>
     <div class="zg-game-settings" id="zg-game-settings">

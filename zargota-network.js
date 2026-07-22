@@ -1655,6 +1655,48 @@
       });
     },
 
+    gmAdjustEntity: function (targetRef, operation) {
+      targetRef=targetRef||{};operation=operation||{};
+      var tokenId=String(targetRef.tokenId||'').slice(0,120),memberUid=String(targetRef.memberUid||'').slice(0,128),kind=String(operation.kind||'');
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Ручной пульт доступен только мастеру.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var sceneTokens=room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[],sceneIndex=sceneTokens.findIndex(function(token){return token&&String(token.id)===tokenId;}),sceneToken=sceneIndex>=0?sceneTokens[sceneIndex]:null;
+          if(!memberUid&&sceneToken&&sceneToken.memberUid)memberUid=String(sceneToken.memberUid);
+          var member=memberUid&&room.members&&room.members[memberUid],combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[],combatIndex=order.findIndex(function(entry){return entry&&((tokenId&&String(entry.tokenId)===tokenId)||(memberUid&&String(entry.uid)===memberUid));}),entry=combatIndex>=0?Object.assign({},order[combatIndex]):null;
+          if(!sceneToken&&!member&&!entry)throw roomError('Сначала выберите жетон или героя на сцене.','entity-missing');
+          var source=entry||(member&&member.character)||sceneToken||{},name=String(source.name||member&&member.character&&member.character.name||member&&member.name||'Цель').slice(0,80),hpMax=Math.max(0,Number(source.hpMax)||0),hp=Math.max(0,Number(source.hp==null?source.hpCur:source.hp)||0),tempHp=Math.max(0,Number(source.tempHp)||0),statuses=Array.isArray(source.statuses)?source.statuses.slice(0,23):[],statusEffects=Array.isArray(source.statusEffects)?source.statusEffects.slice(0,40):[];
+          var amount=Math.max(0,Math.min(9999,Math.floor(Number(operation.amount)||0))),text='';
+          if(kind==='damage'){
+            if(!amount)throw roomError('Укажите урон больше нуля.','adjust-invalid');
+            var absorbed=Math.min(tempHp,amount);tempHp-=absorbed;hp=Math.max(0,hp-(amount-absorbed));text='Мастер наносит '+name+' '+amount+' урона'+(absorbed?' ('+absorbed+' поглощено временными HP)':'')+'.';
+          }else if(kind==='heal'){
+            if(!amount)throw roomError('Укажите лечение больше нуля.','adjust-invalid');
+            hp=hpMax?Math.min(hpMax,hp+amount):hp+amount;text='Мастер восстанавливает '+name+' '+amount+' HP.';
+          }else if(kind==='status'){
+            var statusKey=String(operation.statusKey||'').toLowerCase();if(!/^[a-z0-9_-]{1,40}$/.test(statusKey))throw roomError('Выберите корректный эффект.','adjust-invalid');
+            var active=statuses.some(function(status){return String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase()===statusKey;});
+            var enable=operation.enable==null?!active:!!operation.enable;
+            statuses=statuses.filter(function(status){return String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase()!==statusKey;});
+            statusEffects=statusEffects.filter(function(effect){return String(effect&&(effect.statusKey||effect.key||effect.id)||'').toLowerCase()!==statusKey;});
+            if(enable){statuses.push(statusKey);text='Мастер назначает '+name+' эффект «'+String(operation.label||statusKey).slice(0,60)+'».';}else{text='Мастер снимает с '+name+' эффект «'+String(operation.label||statusKey).slice(0,60)+'».';}
+          }else throw roomError('Неизвестное действие пульта.','adjust-invalid');
+          var updates={},stamp=now();
+          function writeToken(path){if(kind==='damage'||kind==='heal'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;}else{updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}}
+          if(sceneIndex>=0)writeToken('scene/tokens/'+sceneIndex);
+          Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===tokenId)writeToken('zones/'+zoneId+'/tokens/'+index);});});
+          if(entry){if(kind==='damage'||kind==='heal'){entry.hp=hp;entry.tempHp=tempHp;}else{entry.statuses=statuses;entry.statusEffects=statusEffects;}order[combatIndex]=entry;updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
+          if(member){if(kind==='damage'||kind==='heal'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;}else{updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;}}
+          var event={id:'gm-adjust-'+stamp,kind:kind==='heal'?'gm-heal':kind==='damage'?'gm-damage':'gm-status',name:'Мир Зарготы',text:text,targetKey:entry&&entry.key||'',targetTokenId:tokenId,targetUid:memberUid,amount:amount,hp:hp,tempHp:tempHp,statuses:statuses,ts:stamp};
+          if(combat&&combat.active)updates.combatEvent=event;else Object.keys(room.members||{}).forEach(function(uid){updates['members/'+uid+'/messages/'+event.id]={id:event.id,uid:user.uid,kind:'world',name:'Мир Зарготы',portrait:'',text:text,ts:stamp};});
+          updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+        });
+      }).catch(function(error){if(error&&['master-only','room-not-found','entity-missing','adjust-invalid'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
     resolveCombatAttack: function (targetKey, options, participantKey) {
       options = options || {}; targetKey = String(targetKey || '').slice(0, 160); participantKey = String(participantKey || '').slice(0, 160);
       return ensureReady().then(function (user) {
