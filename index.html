@@ -8823,6 +8823,8 @@ window.addEventListener('load', function(){
     transform: translateY(-1px);
   }
   .home-adventure-btn:active { transform: translateY(0); }
+  .home-dice-test-btn{display:flex;align-items:center;gap:8px;margin:-30px auto 30px;padding:7px 13px;border:1px dashed #725a2e;border-radius:16px;background:#110d0788;color:#a98d51;font:600 10px 'Cinzel',serif;letter-spacing:.7px;cursor:pointer;transition:.2s}
+  .home-dice-test-btn:hover{border-color:#c49a43;color:#efd17e;background:#211708;box-shadow:0 0 16px #c18e3033;transform:translateY(-1px)}
   @media (max-width: 700px) {
     .home-adventure-btn { margin: 0 auto 32px; font-size: 15px; gap: 10px; }
     .home-adventure-btn .orn-line { width: 40px; }
@@ -10335,6 +10337,14 @@ document.addEventListener('DOMContentLoaded', function(){
     var jo = el('zg-journey-overlay');
     if (jo){ jo.classList.remove('open'); jo.classList.remove('loading'); jo.classList.remove('dissolving'); }
     try { if (w.ZargotaSound && w.ZargotaSound.ambientStart) w.ZargotaSound.ambientStart(); } catch(e) {}
+  };
+  w.zgOpenDiceTestScene = function(){
+    w.zgGameOpen(false);
+    setTimeout(function(){
+      var go=el('zg-game-overlay'),dice=el('zg-dice-pop');
+      if(go)go.classList.add('gm','gm-vision','dice-test-mode');
+      if(dice&&!dice.classList.contains('open')&&w.zgDiceToggle)w.zgDiceToggle();
+    },60);
   };
   w.zgGameSettings = function(ev){
     if (ev) ev.stopPropagation();
@@ -12335,7 +12345,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var hasCritical=rolls.some(function(item){return !!item.outcome;});
       var rollLifetime=hasCritical?7000:(isContest?6000:5100);
       var physicalUntil=Number(localPhysicalRolls[String(roll.id)]||0);
-      var localThrow=physicalUntil>Date.now()&&localDiceThrow&&Date.now()-localDiceThrow.ts<9000?localDiceThrow:null;
+      var localThrow=null;
       if(physicalUntil&&physicalUntil<=Date.now())delete localPhysicalRolls[String(roll.id)];
       rolls.forEach(function(item,index){
         var visualId=roll.id+'-'+index;if(host.querySelector('[data-roll-id="'+visualId.replace(/"/g,'')+'"]'))return;
@@ -12381,6 +12391,13 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     });
   }
+  w.zgRenderLocalDiceThrow=function(rolls,speaker,clientRollId){
+    var session=state&&state.session,ownerUid=String(session&&session.uid||'local'),now=Date.now();
+    var activeRoll={id:clientRollId,ts:now,duration:1250,rolls:rolls,speakerUid:speaker||ownerUid};
+    localPhysicalRolls[clientRollId]=now+9000;localRollVisuals[ownerUid]={roll:activeRoll};
+    delete seenRollVisuals[clientRollId];delete renderedRollVisuals[clientRollId];
+    renderRollAnimations();
+  };
   var chatWorldMode = false;
   w.zgVttToggleWorldMessage = function(){
     chatWorldMode = !chatWorldMode;
@@ -12897,12 +12914,8 @@ document.addEventListener('DOMContentLoaded', function(){
     w.addEventListener('zg-possession-change',renderParty);
     w.addEventListener('zg-local-roll',function(event){
       var detail=event&&event.detail||{},roll=detail.roll;if(!roll||!roll.id)return;
-      /* A room echo can arrive before this local event. Replace that passive copy
-         so the thrower always gets the physical cursor-driven animation. */
-      document.querySelectorAll('[data-roll-id],[data-roll-total]').forEach(function(node){
-        var visualId=String(node.dataset.rollId||''),totalId=String(node.dataset.rollTotal||'');
-        if(visualId.indexOf(String(roll.id)+'-')===0||totalId===String(roll.id))node.remove();
-      });
+      /* The physical throw is created immediately on pointer release. Keep those
+         nodes in place when the network confirms the same client roll id. */
       delete seenRollVisuals[roll.id];
       delete renderedRollVisuals[String(roll.id)];
       localPhysicalRolls[String(roll.id)]=Date.now()+9000;
@@ -13020,7 +13033,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function show(html){ var r=el('zg-dice-result'); if(r)r.innerHTML=html; }
   // Анимация броска: перебор цифр ~0.9с (звук катящегося кубика) → результат с «ударом»
-  var animT=null, rolling=false, diceDrag=null, localDiceThrow=null, selectedStat='plain', selectedD20Mode='normal', selectedDice={};
+  var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedD20Mode='normal', selectedDice={};
   function animateRoll(sides, finalHtml, finalValue, announceText, totalValue, statLabel){
     var r=el('zg-dice-result');
     if(rolling)return; rolling=true;
@@ -13053,9 +13066,9 @@ document.addEventListener('DOMContentLoaded', function(){
   function updateDiceSelection(){
     document.querySelectorAll('.zg-dice-row [data-die]').forEach(function(button){
       var count=Number(selectedDice[button.dataset.die]||0);button.classList.toggle('selected',count>0);button.setAttribute('data-count',count>0?String(count):'');
-      Array.prototype.forEach.call(button.querySelectorAll('.zg-dice-stack-copy'),function(copy){copy.remove();});
-      var source=button.querySelector('img');
-      for(var i=1;i<Math.min(count,4);i++){var copy=document.createElement('img');copy.className='zg-dice-stack-copy stack-'+i;copy.src=source&&source.src||'';copy.alt='';button.insertBefore(copy,source||button.firstChild);}
+      var source=button.querySelector('img:not(.zg-dice-stack-copy)'),copies=Array.prototype.slice.call(button.querySelectorAll('.zg-dice-stack-copy')),wanted=Math.max(0,Math.min(count,4)-1);
+      while(copies.length>wanted){copies.pop().remove();}
+      for(var i=copies.length+1;i<=wanted;i++){var copy=document.createElement('img');copy.className='zg-dice-stack-copy stack-'+i;copy.src=source&&source.src||'';copy.alt='';button.insertBefore(copy,source||button.firstChild);}
     });
     var hint=el('zg-dice-hint');if(hint){var total=Object.keys(selectedDice).reduce(function(sum,key){return sum+Number(selectedDice[key]||0);},0);hint.textContent=total?('Выбрано кубиков: '+total+' · перетащите любой на сцену'):'Клик добавляет кубик · перетащите для броска';}
   }
@@ -13066,7 +13079,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var now=Date.now();if(now-lastDiceHoverSound<75)return;lastDiceHoverSound=now;
     try{if(w.ZargotaSound&&w.ZargotaSound.diceHover)w.ZargotaSound.diceHover();}catch(e){}
   });
-  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();var button=document.querySelector('.zg-dice-row button[data-sides="'+key+'"]');if(button){button.classList.remove('count-pop');void button.offsetWidth;button.classList.add('count-pop');}try{if(w.ZargotaSound&&w.ZargotaSound.diceRollSmall)w.ZargotaSound.diceRollSmall();}catch(e){}}
+  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();try{if(w.ZargotaSound&&w.ZargotaSound.diceRollSmall)w.ZargotaSound.diceRollSmall();}catch(e){}}
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList){
     if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
@@ -13083,8 +13096,10 @@ document.addEventListener('DOMContentLoaded', function(){
       parts.push('d'+sides+(label?' '+label:'')+' = '+total+(outcome==='critical-success'?' КРИТ!':outcome==='critical-fail'?' ПРОВАЛ!':''));
     });
     var ov=el('zg-game-overlay'),speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
+    var clientRollId='roll-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
+    try{if(w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,speaker,clientRollId);}catch(e){}
     try{if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
-    if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker);
+    if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker,clientRollId);
     setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},1250);
     var keptRoll=contested?rolls.find(function(item){return item.kept;}):null;
     var grandTotal=contested?Number(keptRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
@@ -13096,7 +13111,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function dragMove(ev){
     if(!diceDrag||ev.pointerId!==diceDrag.id)return;
     var dx=ev.clientX-diceDrag.x,dy=ev.clientY-diceDrag.y;diceDrag.distance=Math.hypot(dx,dy);
-    var ghost=el('zg-dice-drag');if(ghost){ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.add('show');ghost.style.setProperty('--throw-x',Math.max(-18,Math.min(18,dx/8))+'deg');ghost.style.setProperty('--throw-y',Math.max(-18,Math.min(18,-dy/8))+'deg');}
+    var ghost=el('zg-dice-drag');if(ghost&&diceDrag.distance>=12){ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.add('show');ghost.style.setProperty('--throw-x',Math.max(-18,Math.min(18,dx/8))+'deg');ghost.style.setProperty('--throw-y',Math.max(-18,Math.min(18,-dy/8))+'deg');}
     if(diceDrag.sides===20){var hit=document.elementFromPoint(ev.clientX,ev.clientY);var mod=hit&&hit.closest&&hit.closest('.zg-d20-mod');if(mod)selectStat(mod.dataset.stat);}
   }
   function dragEnd(ev){
@@ -13106,13 +13121,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(current.distance<38){addSelectedDie(current.sides);return;}
     var list=[];Object.keys(selectedDice).forEach(function(key){for(var i=0;i<Number(selectedDice[key]||0);i++)list.push(Number(key));});
     if(!Number(selectedDice[String(current.sides)]||0))list.push(current.sides);
-    localDiceThrow={x:Math.max(-150,Math.min(150,(ev.clientX-current.x)*.72)),y:Math.max(-95,Math.min(95,(ev.clientY-current.y)*.55)),power:Math.min(1.35,Math.max(.65,current.distance/145)),ts:Date.now()};
     throwDiceBatch(list);
   }
   w.zgDiceDragStart=function(ev,sides){
     if(ev.button!==0&&ev.pointerType!=='touch')return;ev.preventDefault();ev.stopPropagation();
     sides=Number(sides)||20;diceDrag={id:ev.pointerId,sides:sides,x:ev.clientX,y:ev.clientY,distance:0};
-    var ghost=el('zg-dice-drag');if(ghost){ghost.querySelector('img').src='images/vtt-dice/d'+sides+'.png';ghost.querySelector('b').textContent='d'+sides;ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.add('show');}
+    var held=[];Object.keys(selectedDice).forEach(function(key){for(var i=0;i<Number(selectedDice[key]||0);i++)held.push(Number(key));});if(!Number(selectedDice[String(sides)]||0))held.push(sides);diceDrag.held=held.slice(0,10);
+    var ghost=el('zg-dice-drag');if(ghost){ghost.innerHTML='';var spacing=Math.min(25,110/Math.max(1,diceDrag.held.length-1));diceDrag.held.forEach(function(heldSides,index){var item=document.createElement('span'),offset=(index-(diceDrag.held.length-1)/2)*spacing;item.className='zg-dice-drag-item';item.style.setProperty('--drag-item-x',offset+'px');item.style.setProperty('--drag-item-y',(Math.abs(index-(diceDrag.held.length-1)/2)*5)+'px');item.style.setProperty('--drag-item-r',(offset/6)+'deg');item.style.zIndex=String(index+1);item.innerHTML='<img src="images/vtt-dice/d'+heldSides+'.png" alt=""><b>d'+heldSides+'</b>';ghost.appendChild(item);});ghost.style.left=ev.clientX+'px';ghost.style.top=ev.clientY+'px';ghost.classList.remove('show');}
     var abilities=el('zg-dice-abils');if(abilities)abilities.classList.toggle('open',sides===20);
     document.addEventListener('pointermove',dragMove);document.addEventListener('pointerup',dragEnd);document.addEventListener('pointercancel',dragEnd);
   };
@@ -16105,6 +16120,7 @@ window.zgImageStore = (function() {
     <div class="home-title">Мир Зарготы</div>
     <div class="home-subtitle">Панель Мастера · Инструменты кампании</div>
     <button type="button" class="home-adventure-btn" onclick="zgAdvOpen()"><span class="orn-line"></span><span class="orn-star">✦</span><span class="sw">⚔</span> Отправиться в приключение <span class="orn-star">✦</span><span class="orn-line"></span></button>
+    <button type="button" class="home-dice-test-btn" onclick="zgOpenDiceTestScene()">🎲 Временно: тест бросков</button>
 
     <div class="home-grid">
 
@@ -16572,14 +16588,13 @@ window.zgImageStore = (function() {
   @keyframes zgDieRise{from{opacity:0;transform:translateY(25px) scale(.65)}to{opacity:1;transform:none}}
   .zg-dice-row button{transition:transform .22s cubic-bezier(.18,.9,.25,1),filter .24s ease,color .2s ease}
   .zg-dice-row button:hover{border:0;background:transparent;color:#ffe7a0;transform:translateY(-10px) scale(1.13);filter:drop-shadow(0 12px 11px #000c) drop-shadow(0 0 16px #d7a63766)}
-  .zg-dice-row button.count-pop{animation:zgDiceCountPop .32s cubic-bezier(.2,1.5,.3,1)}
-  @keyframes zgDiceCountPop{45%{transform:translateY(-10px) scale(1.16)}100%{transform:translateY(0) scale(1)}}
   .zg-dice-row button.d20{border:0;background:transparent;color:#f1d17a}
   .zg-dice-row button.selected{color:#ffe59a;filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 18px #e2b343aa)}
   .zg-dice-row button.selected::after{content:attr(data-count);position:absolute;right:5px;top:4px;min-width:18px;height:18px;padding:0 2px;border:1px solid #e0b64f;border-radius:10px;background:#24190b;color:#ffe7a0;font:700 10px/18px 'Cinzel',serif;box-shadow:0 0 12px #dca93988}
-  .zg-dice-row button img{width:72px;height:66px;object-fit:contain;pointer-events:none}.zg-dice-row button span{font:600 11px/1 'Cinzel',serif;text-shadow:0 2px 5px #000}
-  .zg-dice-row button .zg-dice-stack-copy{position:absolute;left:50%;top:8px;width:72px;height:66px;transform:translateX(-50%);opacity:.76;pointer-events:none;filter:brightness(.82)}
-  .zg-dice-row button .zg-dice-stack-copy.stack-1{transform:translateX(calc(-50% - 7px)) rotate(-7deg)}.zg-dice-row button .zg-dice-stack-copy.stack-2{transform:translateX(calc(-50% + 8px)) rotate(8deg)}.zg-dice-row button .zg-dice-stack-copy.stack-3{transform:translateX(calc(-50% - 12px)) translateY(4px) rotate(-12deg)}
+  .zg-dice-row button img{width:72px;height:66px;object-fit:contain;pointer-events:none;transition:transform .22s cubic-bezier(.18,.9,.25,1)}.zg-dice-row button>img:not(.zg-dice-stack-copy){position:relative;z-index:4}.zg-dice-row button:hover>img:not(.zg-dice-stack-copy){transform:scale(1.24)}.zg-dice-row button span{position:relative;z-index:5;font:600 11px/1 'Cinzel',serif;text-shadow:0 2px 5px #000}
+  .zg-dice-row button .zg-dice-stack-copy{--stack-x:0px;--stack-y:0px;--stack-rotate:0deg;position:absolute;z-index:1;left:50%;top:8px;width:72px;height:66px;opacity:1;filter:none;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate));animation:zgDiceStackIn .3s cubic-bezier(.16,.9,.25,1.15) both}
+  .zg-dice-row button .zg-dice-stack-copy.stack-1{--stack-x:-12px;--stack-y:2px;--stack-rotate:-9deg}.zg-dice-row button .zg-dice-stack-copy.stack-2{--stack-x:13px;--stack-y:3px;--stack-rotate:10deg}.zg-dice-row button .zg-dice-stack-copy.stack-3{--stack-x:-19px;--stack-y:7px;--stack-rotate:-15deg}
+  @keyframes zgDiceStackIn{from{opacity:0;transform:translateX(-50%) translateY(-4px) rotate(0) scale(.78)}to{opacity:1;transform:translateX(calc(-50% + var(--stack-x))) translateY(var(--stack-y)) rotate(var(--stack-rotate)) scale(1)}}
   .zg-dice-hint{text-align:center;margin-top:8px;color:#766647;font:9px/1.3 'Cinzel',serif;letter-spacing:.8px;opacity:.8}
   .zg-dice-test{display:none;justify-content:center;align-items:center;gap:7px;margin:8px auto 0;color:#8d784d;font:9px 'Cinzel',serif}
   .zg-game-overlay.gm .zg-dice-test{display:flex}
@@ -16593,8 +16608,8 @@ window.zgImageStore = (function() {
   .zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{position:static;width:100%;padding:6px 9px;border:1px solid #554321;border-radius:12px;background:#11100ded;color:#a99058;font:600 8px/1 'Cinzel',serif;text-align:left;white-space:nowrap;box-shadow:0 5px 13px #0009;pointer-events:auto}
   .zg-dice-abils-grid button:hover,.zg-dice-abils-grid button.active{border-color:#dfb652;color:#ffe6a0;background:#2b1f0d;box-shadow:0 0 15px #d7a63755}
   .zg-d20-modes{display:flex;flex-direction:column;gap:4px;margin-top:5px;pointer-events:auto}.zg-d20-modes button{height:24px;padding:0 9px;border:1px solid #4c3b20;border-radius:12px;background:#11100ded;color:#8d7950;font:600 8px 'Cinzel',serif;cursor:pointer;white-space:nowrap;text-align:left}.zg-d20-modes button:hover,.zg-d20-modes button.active{border-color:#d2a748;color:#ffe29a;background:#2a1d0b;box-shadow:0 0 12px #c891303c}
-  .zg-dice-drag{position:fixed;z-index:9999;left:0;top:0;width:112px;height:112px;display:none;align-items:center;justify-content:center;transform:translate(-50%,-50%) perspective(300px) rotateX(var(--throw-y,0deg)) rotateY(var(--throw-x,0deg));pointer-events:none;filter:drop-shadow(0 14px 13px #000c) drop-shadow(0 0 12px #d8aa4355)}
-  .zg-dice-drag.show{display:flex;animation:zgHeldDie .5s ease-in-out infinite alternate}.zg-dice-drag img{position:absolute;width:108px;height:108px;object-fit:contain}.zg-dice-drag b{position:relative;color:#fff0b3;font:700 13px 'Cinzel',serif;text-shadow:0 2px 5px #000}
+  .zg-dice-drag{position:fixed;z-index:9999;left:0;top:0;width:210px;height:128px;display:none;align-items:center;justify-content:center;transform:translate(-50%,-50%) perspective(300px) rotateX(var(--throw-y,0deg)) rotateY(var(--throw-x,0deg));pointer-events:none;filter:drop-shadow(0 14px 13px #000c) drop-shadow(0 0 12px #d8aa4355)}
+  .zg-dice-drag.show{display:flex;animation:zgHeldDie .5s ease-in-out infinite alternate}.zg-dice-drag-item{position:absolute;left:50%;top:50%;width:96px;height:96px;display:flex;align-items:center;justify-content:center;transform:translate(calc(-50% + var(--drag-item-x,0px)),calc(-50% + var(--drag-item-y,0px))) rotate(var(--drag-item-r,0deg));filter:drop-shadow(0 5px 7px #000b)}.zg-dice-drag-item img{position:absolute;width:96px;height:96px;object-fit:contain}.zg-dice-drag-item b{position:relative;color:#fff0b3;font:700 12px 'Cinzel',serif;text-shadow:0 2px 5px #000}
   @keyframes zgHeldDie{to{margin-top:-5px;filter:brightness(1.12)}}
   /* инструменты измерения */
   .zg-measure{position:absolute;left:0;top:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible;display:block}
