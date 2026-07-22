@@ -1144,8 +1144,9 @@
       });
     },
 
-    resolveAction: function (requestUid, accepted) {
+    resolveAction: function (requestUid, accepted, resolution) {
       requestUid = String(requestUid || '').slice(0, 128);
+      resolution = resolution && typeof resolution === 'object' ? resolution : {};
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || session.role !== 'master') throw roomError('Решать заявки может только мастер.', 'master-only');
@@ -1159,6 +1160,9 @@
           var updates = {};
           updates['members/' + requestUid + '/actionRequest/status'] = accepted ? 'approved' : 'rejected';
           updates['members/' + requestUid + '/actionRequest/resolvedAt'] = resolvedAt;
+          if (accepted && request.actionKind === 'combat-attack') {
+            updates['members/' + requestUid + '/actionRequest/details/mode'] = ['advantage','disadvantage'].indexOf(resolution.mode) >= 0 ? resolution.mode : 'normal';
+          }
           updates['members/' + requestUid + '/messages/' + messageId] = {
             id: messageId, uid: requestUid, kind: accepted ? 'action-approved' : 'action-rejected',
             name: request.name || member.name || 'Герой', portrait: request.portrait || '',
