@@ -450,6 +450,10 @@
     if (!code || !firebase || !db) return;
     roomUnsubscribe = firebase.onValue(firebase.ref(db, 'rooms/' + code), function (snapshot) {
       currentRoom = snapshot.exists() ? snapshot.val() : null;
+      if (!currentRoom) {
+        var missingSession=readSession();
+        if(missingSession&&missingSession.code===code)saveSession(null);
+      }
       syncSessionRole(currentRoom);
       mirrorRoomCampaign(currentRoom);
       emit();
@@ -471,6 +475,12 @@
   function setPresence(session) {
     if (!session || !auth || !auth.currentUser || !firebase || !db) return Promise.resolve();
     var uid = auth.currentUser.uid;
+    if (session.role === 'master') {
+      var masterMemberRef=firebase.ref(db,'rooms/'+session.code+'/members/'+uid);
+      return firebase.update(masterMemberRef,{online:true,lastSeen:firebase.serverTimestamp()}).then(function(){
+        return firebase.onDisconnect(roomRef(session.code)).remove();
+      }).catch(function(){});
+    }
     var target = session.role === 'pending' && session.playerCode
       ? 'rooms/' + session.code + '/pending/' + session.playerCode
       : 'rooms/' + session.code + '/members/' + uid;

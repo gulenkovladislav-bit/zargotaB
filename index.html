@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-22.7"></script>
+<script src="zargota-network.js?v=2026-07-22.8"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.24';
+var ZG_APP_VERSION = '2026-07-22.25';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.25', notes: 'Без активной мастерской вкладки нет активной комнаты: отключение GM удаляет сессию, а метка «Занят» учитывает только выбор участников текущей комнаты.' },
   { v: '2026-07-22.24', notes: 'Псевдофизика возвращена к базовому этапу: кубик плавно летит на фиксированное расстояние по направлению жеста и показывает результат после остановки.' },
   { v: '2026-07-22.23', notes: 'Панель выбора кубиков центрируется по фактическому центру нижнего меню при любом размере окна и масштабе сцены.' },
   { v: '2026-07-22.22', notes: 'Владелец Firebase-комнаты снова автоматически распознаётся как гейм-мастер и может принимать игроков даже после сбоя локальной роли.' },
@@ -9799,10 +9800,13 @@ document.addEventListener('DOMContentLoaded', function(){
     return '<div class="zg-cs-stat"><span class="ic">' + ic + '</span><div><div class="v">' + val + '</div><div class="l">' + lab + '</div></div></div>';
   }
   function heroTaken(character, snapshot){
-    var key = character && character.campaignKey;
-    var remote = key && snapshot && snapshot.campaign && snapshot.campaign.heroes && snapshot.campaign.heroes[key];
-    var ownUid = snapshot && snapshot.session && snapshot.session.uid;
-    return !!(remote && remote.ownerUid && remote.ownerUid !== ownUid);
+    var room=snapshot&&snapshot.room,session=snapshot&&snapshot.session,key=character&&character.campaignKey;
+    if(!room||!session||room.phase!=='character-select'||!key)return false;
+    return Object.keys(room.members||{}).some(function(uid){
+      if(String(uid)===String(session.uid))return false;
+      var member=room.members[uid],memberKey=member&&(member.campaignKey||member.character&&member.character.campaignKey);
+      return !!(member&&member.characterId!=null&&String(memberKey||'')===String(key));
+    });
   }
   function render(){
     var hs = heroes();
@@ -16222,7 +16226,7 @@ window.zgImageStore = (function() {
   function el(id){return document.getElementById(id);}
   function phaseLabel(phase){return {pairing:'Подключение', 'character-select':'Выбор героев',journey:'Подготовка сцены',playing:'Игра идёт'}[phase]||phase||'—';}
   function render(snapshot){
-    latest=snapshot||null;
+    var hadRoom=!!(latest&&latest.room);latest=snapshot||null;
     var button=el('zg-net-monitor-btn'),label=el('zg-net-monitor-label'),firebaseState=el('zg-net-firebase-state'),roomState=el('zg-net-room-state'),roleState=el('zg-net-role-state'),membersState=el('zg-net-members-state'),note=el('zg-net-monitor-note'),returnButton=el('zg-net-return'),leaveButton=el('zg-net-leave');
     if(!button)return;
     var ready=!!(snapshot&&snapshot.networkReady),online=!!(snapshot&&snapshot.online),session=snapshot&&snapshot.session,room=snapshot&&snapshot.room;
@@ -16233,9 +16237,10 @@ window.zgImageStore = (function() {
     if(roleState)roleState.textContent=room?((session&&session.role==='master'?'Гейм-мастер':session&&session.role==='player'?'Игрок':'Ожидание')+' · '+phaseLabel(room.phase)):'—';
     if(membersState)membersState.textContent=room?String(onlineMembers)+' / '+String(Object.keys(members).length):'0';
     if(label)label.textContent=room?'Сессия '+String(room.code||''):session?'След сессии':online?'Firebase':'Нет связи';
-    if(note)note.textContent=room?'Комната существует в Firebase. Закрытие игровой сцены не завершает её — используй кнопку ниже.':session?'В браузере сохранён код комнаты, но комната не найдена. Можно безопасно очистить этот след.':'Активной игровой комнаты нет. Firebase используется только для постоянной синхронизации героев.';
+    if(note)note.textContent=room?'Комната существует в Firebase, пока открыта вкладка гейм-мастера. Для ручного завершения используй кнопку ниже.':session?'В браузере сохранён код комнаты, но комната не найдена. Можно безопасно очистить этот след.':'Активной игровой комнаты нет. Firebase используется только для постоянной синхронизации героев.';
     if(returnButton)returnButton.hidden=!room;
     if(leaveButton){leaveButton.hidden=!session;leaveButton.textContent=room&&session&&session.role==='master'?'Завершить сессию':room?'Покинуть сессию':'Очистить след';}
+    if(hadRoom&&!room){w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');if(w.showToast)w.showToast('Сессия завершена: вкладка гейм-мастера закрыта.');}
   }
   w.zgSessionMonitorToggle=function(ev,force){if(ev){ev.preventDefault();ev.stopPropagation();}var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel){panel.classList.toggle('open',typeof force==='boolean'?force:!panel.classList.contains('open'));if(button)button.setAttribute('aria-expanded',panel.classList.contains('open')?'true':'false');}};
   w.zgSessionMonitorReturn=function(){w.zgSessionMonitorToggle(null,false);if(w.zgAdvOpen)w.zgAdvOpen();};
