@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.25';
+var ZG_APP_VERSION = '2026-07-22.26';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.26', notes: 'Кнопка «Назад» на экране выбора персонажа поднята над заголовочным слоем и снова корректно нажимается.' },
   { v: '2026-07-22.25', notes: 'Без активной мастерской вкладки нет активной комнаты: отключение GM удаляет сессию, а метка «Занят» учитывает только выбор участников текущей комнаты.' },
   { v: '2026-07-22.24', notes: 'Псевдофизика возвращена к базовому этапу: кубик плавно летит на фиксированное расстояние по направлению жеста и показывает результат после остановки.' },
   { v: '2026-07-22.23', notes: 'Панель выбора кубиков центрируется по фактическому центру нижнего меню при любом размере окна и масштабе сцены.' },
@@ -16413,7 +16414,7 @@ window.zgImageStore = (function() {
   .zg-cs-overlay{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;background:#050302f2;background-image:radial-gradient(ellipse at 20% 10%,#1a120830 0%,transparent 55%),radial-gradient(ellipse at 80% 90%,#10141a30 0%,transparent 55%)}
   .zg-cs-overlay.open{display:flex;animation:fadeIn .3s ease}
   .zg-cs-panel{position:relative;width:min(1360px,calc(100vw - 40px));height:min(920px,calc(100vh - 40px));background:radial-gradient(ellipse at 50% 32%,#181007 0%,#0b0805 62%);border:1px solid #c4a04a55;border-radius:10px;outline:1px solid #c4a04a22;outline-offset:5px;box-shadow:0 30px 90px #000d,inset 0 0 140px #00000090;display:grid;grid-template-rows:auto 1fr auto;padding:26px 38px;animation:fadeUp .45s ease}
-  .zg-cs-back{position:absolute;top:24px;left:30px;background:none;border:none;color:var(--text);font-family:'Lora',serif;font-size:15px;display:flex;align-items:center;gap:8px;opacity:.85;z-index:2}
+  .zg-cs-back{position:absolute;top:24px;left:30px;background:none;border:none;color:var(--text);font-family:'Lora',serif;font-size:15px;display:flex;align-items:center;gap:8px;opacity:.85;z-index:12;pointer-events:auto;cursor:pointer}
   .zg-cs-back:hover{color:var(--gold);opacity:1}
   .zg-cs-head{text-align:center}
   .zg-cs-title{font-family:'Cinzel',serif;font-size:34px;font-weight:700;color:#f0d896;letter-spacing:1px;text-shadow:0 2px 18px #00000090}
