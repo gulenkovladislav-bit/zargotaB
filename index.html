@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.5';
+var ZG_APP_VERSION = '2026-07-23.6';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.6', notes: 'Кубики раскрываются сразу в окончательной позиции со звуком камня. Настройки d20 вынесены вправо и собраны в компактную панель характеристик и режима броска.' },
   { v: '2026-07-23.5', notes: 'Кат-сцена входа начинается с плотного полноэкранного тумана, который рассеивается вокруг героя; чёрные поля по краям убраны.' },
   { v: '2026-07-23.4', notes: 'Гейм-мастер снова может войти на карту сразу, пока игроки продолжают выбирать своих героев.' },
   { v: '2026-07-23.3', notes: 'Курсор выбранного действия больше не исчезает и не запаздывает: декоративная иконка движется одним GPU-слоем, а точный системный указатель остаётся видимым.' },
@@ -9386,6 +9387,15 @@ document.addEventListener('DOMContentLoaded', function(){
       ensure();
       tone(760, 0.035, { type:'sine', vol:0.035, freqEnd:620 });
       tone(1180, 0.025, { delay:0.012, type:'triangle', vol:0.018, freqEnd:920 });
+    },
+
+    // Негромкое раскрытие каменного набора: несколько тяжёлых касаний подряд.
+    diceOpen: function() {
+      ensure();
+      tick(0, 620, 0.13);
+      tick(0.045, 780, 0.11);
+      tick(0.09, 540, 0.1);
+      tone(115, 0.16, { type:'triangle', vol:0.055, freqEnd:82 });
     },
 
     // ═══ Исходы атаки ═══
@@ -13206,7 +13216,7 @@ document.addEventListener('DOMContentLoaded', function(){
       panel.style.left=(baseLeft+(dockCenter-diceCenter)/(scale||1))+'px';
     }
   }
-  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();alignDicePanel();}p.classList.toggle('open',open);if(open){requestAnimationFrame(alignDicePanel);setTimeout(alignDicePanel,320);}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(open)selectStat('plain');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';}p.classList.toggle('open',open);if(open){selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(e){}}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
   w.addEventListener('resize',function(){var p=el('zg-dice-pop');if(p&&p.classList.contains('open'))alignDicePanel();});
   function selectStat(key){
@@ -16805,7 +16815,7 @@ window.zgImageStore = (function() {
   /* Веер физических кубиков: без общей рамки, бросок выполняется перетаскиванием. */
   .zg-dice-pop{bottom:128px;width:min(650px,92vw);padding:0 42px 16px;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
   .zg-dice-pop.open{display:block;animation:zgDiceFanIn .28s cubic-bezier(.18,.8,.25,1)}
-  @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px) scale(.86)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+  @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
   .zg-dice-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end}
   .zg-dice-row button{position:relative;height:122px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
   .zg-dice-row button:nth-child(2){animation-delay:.035s}.zg-dice-row button:nth-child(3){animation-delay:.07s}.zg-dice-row button:nth-child(4){animation-delay:.105s}.zg-dice-row button:nth-child(5){animation-delay:.14s}.zg-dice-row button:nth-child(6){animation-delay:.175s}
@@ -16825,13 +16835,16 @@ window.zgImageStore = (function() {
   .zg-dice-test input{width:82px;height:28px;border:1px solid #58431e;border-radius:5px;background:#100d08dd;color:#f0d58a;text-align:center;font:600 11px 'Cinzel',serif;outline:none}
   .zg-dice-test input:focus{border-color:#c4963d;box-shadow:0 0 12px #bd8a2f33}.zg-dice-test button{width:27px;height:27px;border:1px solid #463619;border-radius:50%;background:#151008;color:#977d4a;cursor:pointer}.zg-dice-test button:hover{color:#f0d58a;border-color:#a87d2e}
   .zg-dice-measure{right:0;top:34px;background:#151109cc;box-shadow:0 6px 16px #000a}
-  .zg-dice-abils{position:absolute;left:calc(100% - 54px);right:auto;bottom:2px;transform:none;width:176px;min-height:218px;margin:0;padding:8px;border:0;pointer-events:none}
+  .zg-dice-abils{position:absolute;left:calc(100% + 18px);right:auto;bottom:0;transform:none;width:230px;min-height:0;margin:0;padding:12px;border:1px solid #795b27;border-radius:14px;background:linear-gradient(155deg,rgba(25,18,9,.97),rgba(8,7,5,.98));box-shadow:0 18px 42px #000c,inset 0 1px 0 #e7c6651c;pointer-events:none}
   .zg-dice-abils.open{display:block;animation:zgD20StatsIn .2s ease both}
-  @keyframes zgD20StatsIn{from{opacity:0;transform:translateY(12px) scale(.9)}to{opacity:1;transform:none}}
-  .zg-dice-abils-grid{position:relative;width:100%;display:flex;flex-direction:column;align-items:stretch;gap:4px}
-  .zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{position:static;width:100%;padding:6px 9px;border:1px solid #554321;border-radius:12px;background:#11100ded;color:#a99058;font:600 8px/1 'Cinzel',serif;text-align:left;white-space:nowrap;box-shadow:0 5px 13px #0009;pointer-events:auto}
+  @keyframes zgD20StatsIn{from{opacity:0;transform:translateX(-10px) scale(.96)}to{opacity:1;transform:none}}
+  .zg-dice-abils-title{text-align:left;margin:0 0 7px;color:#8f794d;font:600 8px/1 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}
+  .zg-dice-abils-title.modes{margin:11px 0 7px;padding-top:10px;border-top:1px solid #3b2c17}
+  .zg-dice-abils-grid{position:relative;width:100%;display:grid;grid-template-columns:1fr 1fr;gap:5px}
+  .zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{position:static;width:100%;height:30px;padding:0 9px;border:1px solid #554321;border-radius:8px;background:#11100ded;color:#a99058;font:600 8px/1 'Cinzel',serif;text-align:left;white-space:nowrap;box-shadow:0 5px 13px #0009;pointer-events:auto}
+  .zg-dice-abils-grid button:first-child{grid-column:1/-1;text-align:center}
   .zg-dice-abils-grid button:hover,.zg-dice-abils-grid button.active{border-color:#dfb652;color:#ffe6a0;background:#2b1f0d;box-shadow:0 0 15px #d7a63755}
-  .zg-d20-modes{display:flex;flex-direction:column;gap:4px;margin-top:5px;pointer-events:auto}.zg-d20-modes button{height:24px;padding:0 9px;border:1px solid #4c3b20;border-radius:12px;background:#11100ded;color:#8d7950;font:600 8px 'Cinzel',serif;cursor:pointer;white-space:nowrap;text-align:left}.zg-d20-modes button:hover,.zg-d20-modes button.active{border-color:#d2a748;color:#ffe29a;background:#2a1d0b;box-shadow:0 0 12px #c891303c}
+  .zg-d20-modes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin:0;pointer-events:auto}.zg-d20-modes button{height:31px;padding:0 5px;border:1px solid #4c3b20;border-radius:8px;background:#11100ded;color:#8d7950;font:600 7px 'Cinzel',serif;cursor:pointer;white-space:nowrap;text-align:center}.zg-d20-modes button:hover,.zg-d20-modes button.active{border-color:#d2a748;color:#ffe29a;background:#2a1d0b;box-shadow:0 0 12px #c891303c}
   .zg-dice-drag{position:fixed;z-index:9999;left:0;top:0;width:210px;height:136px;display:none;align-items:center;justify-content:center;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 14px 13px #000c) drop-shadow(0 0 11px #d8aa434d);will-change:left,top,transform}
   .zg-dice-drag::before{content:'';position:absolute;left:50%;top:52%;width:145px;height:78px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(ellipse,#e5b84c24 0%,#bc812510 46%,transparent 74%);filter:blur(7px);opacity:.72;animation:zgHeldGlow 1.8s ease-in-out infinite alternate}
   .zg-dice-drag.show{display:flex;animation:zgHeldDie 1.7s ease-in-out infinite alternate}.zg-dice-drag-item{position:absolute;left:50%;top:50%;width:96px;height:96px;display:flex;align-items:center;justify-content:center;transform:translate(calc(-50% + var(--drag-item-x,0px) + var(--drag-live-x,0px)),calc(-50% + var(--drag-item-y,0px) + var(--drag-live-y,0px))) scale(var(--drag-item-scale,1));filter:drop-shadow(0 5px 7px #000b);transition:transform .09s linear;will-change:transform}.zg-dice-drag.show .zg-dice-drag-item{animation:zgDragFanIn .3s cubic-bezier(.18,.85,.3,1.15) var(--drag-item-delay,0ms) both}.zg-dice-drag-item img{position:absolute;width:96px;height:96px;object-fit:contain;transform:perspective(360px) rotateX(var(--die-tilt-x,0deg)) rotateY(var(--die-tilt-y,0deg)) rotateZ(calc(var(--die-base-r,0deg) + var(--die-spin,0deg) + var(--drag-impact-r,0deg)));transition:transform .08s linear;animation:zgDragDiceTouch 1.55s ease-in-out var(--drag-bump-delay,0s) infinite alternate;will-change:transform}.zg-dice-drag-item b{position:relative;z-index:2;color:#fff0b3;font:700 12px 'Cinzel',serif;text-shadow:0 2px 5px #000;transform:none}
@@ -17605,6 +17618,7 @@ window.zgImageStore = (function() {
         <button type="button" class="d20" data-die="20" onpointerdown="zgDiceDragStart(event,20)"><img src="images/vtt-dice/d20.png" alt=""><span>d20</span></button>
       </div>
       <div class="zg-dice-abils" id="zg-dice-abils">
+        <div class="zg-dice-abils-title">Характеристика</div>
         <div class="zg-dice-abils-grid">
           <button type="button" class="zg-d20-mod active" data-stat="plain" onclick="zgD20SelectStat(event,'plain')">Без бонуса</button>
           <button type="button" class="zg-d20-mod" data-stat="str" onclick="zgD20SelectStat(event,'str')">СИЛ</button>
@@ -17614,6 +17628,7 @@ window.zgImageStore = (function() {
           <button type="button" class="zg-d20-mod" data-stat="per" onclick="zgD20SelectStat(event,'per')">ВСП</button>
           <button type="button" class="zg-d20-mod" data-stat="con" onclick="zgD20SelectStat(event,'con')">ВЫН</button>
         </div>
+        <div class="zg-dice-abils-title modes">Режим броска</div>
         <div class="zg-d20-modes" aria-label="Режим броска d20"><button type="button" class="zg-d20-mode active" data-mode="normal" onclick="zgD20SelectMode(event,'normal')">Обычный</button><button type="button" class="zg-d20-mode" data-mode="advantage" onclick="zgD20SelectMode(event,'advantage')">Преимущество</button><button type="button" class="zg-d20-mode" data-mode="disadvantage" onclick="zgD20SelectMode(event,'disadvantage')">Помеха</button></div>
       </div>
       <div class="zg-dice-hint" id="zg-dice-hint">Клик добавляет кубик · перетащите для броска</div>
