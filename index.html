@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.1';
+var ZG_APP_VERSION = '2026-07-23.2';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.2', notes: 'Ряд кубиков центрируется по фактическим границам изображений точно над серединой нижней панели, включая коррекцию после анимации открытия.' },
   { v: '2026-07-23.1', notes: 'Новая GM-комната больше не восстанавливает старую сессию. Мастер остаётся на экране выбора героев, наблюдает за игроками и переходит к сцене только отдельной кнопкой.' },
   { v: '2026-07-22.29', notes: 'Все пять героев снова можно свободно листать и рассматривать: выбор другим игроком блокирует только окончательное подтверждение, но не карточку персонажа.' },
   { v: '2026-07-22.28', notes: 'Сессии разделены по вкладкам: создание защищено паролем 7777, создавшая вкладка автоматически становится GM, а новые вкладки работают как отдельные клиенты.' },
@@ -13181,9 +13182,17 @@ document.addEventListener('DOMContentLoaded', function(){
   function alignDicePanel(){
     var panel=el('zg-dice-pop'),dock=el('zg-player-dock');if(!panel||!dock||!panel.offsetParent)return;
     var dockRect=dock.getBoundingClientRect(),parentRect=panel.offsetParent.getBoundingClientRect(),scale=parentRect.width&&panel.offsetParent.offsetWidth?parentRect.width/panel.offsetParent.offsetWidth:1;
-    panel.style.left=((dockRect.left+dockRect.width/2-parentRect.left)/(scale||1))+'px';
+    var dockCenter=dockRect.left+dockRect.width/2;
+    var baseLeft=(dockCenter-parentRect.left)/(scale||1);
+    panel.style.left=baseLeft+'px';
+    var diceButtons=panel.querySelectorAll('.zg-dice-row button');
+    if(diceButtons.length){
+      var firstRect=diceButtons[0].getBoundingClientRect(),lastRect=diceButtons[diceButtons.length-1].getBoundingClientRect();
+      var diceCenter=(firstRect.left+lastRect.right)/2;
+      panel.style.left=(baseLeft+(dockCenter-diceCenter)/(scale||1))+'px';
+    }
   }
-  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();alignDicePanel();}p.classList.toggle('open',open);if(open)requestAnimationFrame(alignDicePanel);var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(open)selectStat('plain');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
+  w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation(); var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();alignDicePanel();}p.classList.toggle('open',open);if(open){requestAnimationFrame(alignDicePanel);setTimeout(alignDicePanel,320);}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(open)selectStat('plain');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
   w.addEventListener('resize',function(){var p=el('zg-dice-pop');if(p&&p.classList.contains('open'))alignDicePanel();});
   function selectStat(key){
