@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.15';
+var ZG_APP_VERSION = '2026-07-23.16';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-23.16', notes: 'Панель характеристик d20 сдвинута ещё правее и больше не касается изображения кубика.' },
   { v: '2026-07-23.15', notes: 'Запуск боя разделён на сбор инициативы и начало ходов: игроки бросают d20 драгом, мастер бросает за группы существ, портреты сортируются по результату, а бой начинается отдельной кнопкой.' },
   { v: '2026-07-23.14', notes: 'Брошенные драгом кубики вращаются, дважды отскакивают и перебирают грани до остановки; итог появляется после приземления точно над центром группы.' },
   { v: '2026-07-23.13', notes: 'Панель характеристик d20 стала меньше и сдвинута правее, чтобы не перекрывать сам кубик.' },
@@ -16960,7 +16961,7 @@ window.zgImageStore = (function() {
   .zg-dice-test input{width:82px;height:28px;border:1px solid #58431e;border-radius:5px;background:#100d08dd;color:#f0d58a;text-align:center;font:600 11px 'Cinzel',serif;outline:none}
   .zg-dice-test input:focus{border-color:#c4963d;box-shadow:0 0 12px #bd8a2f33}.zg-dice-test button{width:27px;height:27px;border:1px solid #463619;border-radius:50%;background:#151008;color:#977d4a;cursor:pointer}.zg-dice-test button:hover{color:#f0d58a;border-color:#a87d2e}
   .zg-dice-measure{right:0;top:34px;background:#151109cc;box-shadow:0 6px 16px #000a}
-  .zg-dice-abils{position:absolute;left:calc(100% + 48px);right:auto;bottom:2px;transform:none;width:194px;min-height:0;margin:0;padding:10px;border:1px solid #795b27;border-radius:12px;background:linear-gradient(155deg,rgba(25,18,9,.97),rgba(8,7,5,.98));box-shadow:0 18px 42px #000c,inset 0 1px 0 #e7c6651c;pointer-events:none}
+  .zg-dice-abils{position:absolute;left:calc(100% + 120px);right:auto;bottom:2px;transform:none;width:194px;min-height:0;margin:0;padding:10px;border:1px solid #795b27;border-radius:12px;background:linear-gradient(155deg,rgba(25,18,9,.97),rgba(8,7,5,.98));box-shadow:0 18px 42px #000c,inset 0 1px 0 #e7c6651c;pointer-events:none}
   .zg-dice-abils.open{display:block;animation:zgD20StatsIn .2s ease both}
   @keyframes zgD20StatsIn{from{opacity:0;transform:translateX(-10px) scale(.96)}to{opacity:1;transform:none}}
   .zg-dice-abils-title{text-align:left;margin:0 0 7px;color:#8f794d;font:600 8px/1 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}
