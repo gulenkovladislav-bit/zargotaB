@@ -1295,6 +1295,34 @@
       });
     },
 
+    requestApprovedAttackRoll: function (requestId) {
+      requestId = String(requestId || '').slice(0, 160);
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'player') throw roomError('Бросок выполняет игрок.', 'player-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var request=room.members&&room.members[user.uid]&&room.members[user.uid].actionRequest;
+          if(!request||request.id!==requestId||request.status!=='approved'||request.actionKind!=='combat-attack')throw roomError('Разрешённая атака не найдена.','request-missing');
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid+'/actionRequest'),{status:'roll-requested',rollRequestedAt:now()}).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['player-only','room-not-found','request-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
+    finishApprovedAttackRoll: function (requestUid, requestId, accepted, eventId, errorText) {
+      requestUid=String(requestUid||'').slice(0,128);requestId=String(requestId||'').slice(0,160);
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Завершить бросок может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var request=room.members&&room.members[requestUid]&&room.members[requestUid].actionRequest;
+          if(!request||request.id!==requestId)return api.getSnapshot();
+          var update={status:accepted?'resolved':'approved',resolvedAt:accepted?now():null,resultEventId:accepted?String(eventId||''):null,rollError:accepted?null:String(errorText||'Не удалось выполнить атаку').slice(0,180)};
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),update).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['master-only','room-not-found'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
     startCombat: function (sceneParticipants, heroOptions) {
       sceneParticipants = Array.isArray(sceneParticipants) ? sceneParticipants.slice(0, 40) : [];
       heroOptions = heroOptions && typeof heroOptions === 'object' ? heroOptions : {};

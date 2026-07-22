@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-22.4"></script>
+<script src="zargota-network.js?v=2026-07-22.5"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -9021,8 +9021,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-22.4';
+var ZG_APP_VERSION = '2026-07-22.5';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-22.5', notes: 'Плавное подтверждённое движение видно игроку, боевой курсор мастера не пропадает, одобренная атака безопасно разыгрывается через мастерский клиент.' },
   { v: '2026-07-22.4', notes: 'После выхода из сессии полностью закрываются игровые экраны и открывается главное меню.' },
   { v: '2026-07-22.3', notes: 'Устойчивое переподключение к сессии и постоянная синхронизация пяти героев кампании между локальными листами и Firebase.' },
   { v: '2026-07-22.2', notes: 'Атака через подтверждение экипированного оружия и заявку мастеру; после решения последовательно показываются бросок попадания и кубики урона.' },
@@ -11139,7 +11140,9 @@ document.addEventListener('DOMContentLoaded', function(){
       var layer=el('zg-move-layer'),mark=document.createElement('span');mark.className='zg-move-rejected';setPlayerColorVars(mark,session.uid,request.name);mark.style.left=clamp(request.toX,0,100)+'%';mark.style.top=clamp(request.toY,0,100)+'%';mark.innerHTML='<i></i><b>×</b>';if(layer)layer.appendChild(mark);setTimeout(function(){if(mark.parentNode)mark.remove();},2300);
     }
     if (w.ZargotaRooms && w.ZargotaRooms.acknowledgeMovement) {
-      setTimeout(function(){w.ZargotaRooms.acknowledgeMovement(request.id).catch(function(){});},request.status==='rejected'?1900:0);
+      var movement=roomSnapshot.room&&roomSnapshot.room.lastMovement;
+      var acknowledgeDelay=request.status==='rejected'?1900:(movement&&movement.id===request.id?Math.max(0,Number(movement.duration)||900)+180:1100);
+      setTimeout(function(){w.ZargotaRooms.acknowledgeMovement(request.id).catch(function(){});},acknowledgeDelay);
     }
   }
   function actionFeedback(){
@@ -11147,9 +11150,10 @@ document.addEventListener('DOMContentLoaded', function(){
     var request=session&&roomSnapshot.room&&roomSnapshot.room.members&&roomSnapshot.room.members[session.uid]&&roomSnapshot.room.members[session.uid].actionRequest;
     if(!request||request.status==='pending')return;
     var key=request.id+':'+request.status;if(key===lastActionFeedback)return;lastActionFeedback=key;
-    if(w.showToast)w.showToast(request.status==='approved'?'Мастер разрешил действие':'Мастер отклонил действие');
+    if(w.showToast&&request.status==='approved')w.showToast('Мастер разрешил действие');
+    if(w.showToast&&request.status==='rejected')w.showToast('Мастер отклонил действие');
     if(request.status==='rejected'&&request.details&&request.details.x!=null){var layer=el('zg-move-layer'),mark=document.createElement('span');mark.className='zg-action-rejected';setPlayerColorVars(mark,session.uid,request.name);mark.style.left=clamp(request.details.x,0,100)+'%';mark.style.top=clamp(request.details.y,0,100)+'%';mark.innerHTML='<i></i><b>×</b>';if(layer)layer.appendChild(mark);setTimeout(function(){if(mark.parentNode)mark.remove();},2500);}
-    var awaitsCombatRoll=request.status==='approved'&&request.actionKind==='combat-attack';
+    var awaitsCombatRoll=(request.status==='approved'||request.status==='roll-requested'||request.status==='resolved')&&request.actionKind==='combat-attack';
     if(!awaitsCombatRoll&&w.ZargotaRooms&&w.ZargotaRooms.acknowledgeAction)setTimeout(function(){w.ZargotaRooms.acknowledgeAction(request.id).catch(function(){});},request.status==='rejected'?2100:900);
   }
   function animateLastMovement(){
@@ -12181,6 +12185,10 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     applyScene();
   }
+  document.addEventListener('pointermove',function(ev){
+    var actionCursor=el('zg-action-cursor');
+    if(actionCursor&&(movementMode||actionToolKind||w.zgCombatAttackToolActive)){actionCursor.style.left=ev.clientX+'px';actionCursor.style.top=ev.clientY+'px';}
+  });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initScene);
   else initScene();
 })(window);
@@ -12203,6 +12211,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var renderedRollVisuals = {};
   var localRollVisuals = {};
   var lastCombatVisual = '';
+  var lastApprovedAttackResult = '';
 
   function el(id){ return document.getElementById(id); }
   function esc(value){
@@ -12574,6 +12583,8 @@ document.addEventListener('DOMContentLoaded', function(){
     renderJournal();
     renderDrawer();
     renderCombat();
+    processApprovedAttackRolls();
+    processOwnApprovedAttackResult();
     animateCombatVisual();
     requestAnimationFrame(renderRollAnimations);
   }
@@ -12610,6 +12621,14 @@ document.addEventListener('DOMContentLoaded', function(){
       var formula=String(event.damageFormula||'1d4').replace(/\s+/g,''),match=formula.match(/^\d+d(\d+)([+-]\d+)?$/i),sides=match?Number(match[1])||4:4,bonus=(match?Number(match[2])||0:0)+(Number(event.damageStatBonus)||0);
       return w.ZargotaRooms.beginRollBatch(damageRolls.map(function(value,index){return{sides:sides,value:Number(value)||1,total:(Number(value)||1)+(index===damageRolls.length-1?bonus:0),statLabel:index===damageRolls.length-1&&bonus?'Урон '+(bonus>=0?'+':'')+bonus:'Урон'};}),speakerUid||'');
     });
+  }
+  function processOwnApprovedAttackResult(){
+    var session=state&&state.session,member=session&&state&&state.room&&state.room.members&&state.room.members[session.uid],request=member&&member.actionRequest;
+    if(!session||session.role!=='player'||!request||request.status!=='resolved'||request.actionKind!=='combat-attack'||request.id===lastApprovedAttackResult)return;
+    lastApprovedAttackResult=request.id;
+    animateCombatAttackResult(state,session.uid).then(function(){return new Promise(function(resolve){setTimeout(resolve,900);});}).then(function(){
+      return w.ZargotaRooms&&w.ZargotaRooms.acknowledgeAction?w.ZargotaRooms.acknowledgeAction(request.id):null;
+    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось показать результат атаки');});
   }
 
   function renderCombat(){
@@ -12734,19 +12753,36 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   var approvedAttackBusy=false;
   w.zgCombatApprovedAttackRoll=function(){
-    if(approvedAttackBusy||!w.ZargotaRooms||!w.ZargotaRooms.resolveCombatAttack)return;
+    if(approvedAttackBusy||!w.ZargotaRooms||!w.ZargotaRooms.requestApprovedAttackRoll)return;
     var member=ownMember(),request=member&&member.actionRequest,details=request&&request.details;
     if(!request||request.status!=='approved'||request.actionKind!=='combat-attack'||!details)return;
     approvedAttackBusy=true;var prompt=el('zg-combat-roll-prompt');if(prompt)prompt.classList.add('busy');
-    w.ZargotaRooms.resolveCombatAttack(details.targetKey,details,'').then(function(snapshot){
+    w.ZargotaRooms.requestApprovedAttackRoll(request.id).then(function(snapshot){
       if(snapshot){state=snapshot;roomState(snapshot);renderCombat();}
-      return animateCombatAttackResult(snapshot,member.uid);
-    }).then(function(){return new Promise(function(resolve){setTimeout(resolve,1200);});}).then(function(){
-      return w.ZargotaRooms.acknowledgeAction?w.ZargotaRooms.acknowledgeAction(request.id):null;
-    }).then(function(snapshot){if(snapshot){state=snapshot;roomState(snapshot);renderCombat();}}).catch(function(error){
+      if(w.showToast)w.showToast('Кубики брошены · мастер применяет результат');
+    }).catch(function(error){
       if(w.showToast)w.showToast(error&&error.message||'Не удалось разыграть атаку');
     }).then(function(){approvedAttackBusy=false;if(prompt)prompt.classList.remove('busy');});
   };
+  var masterAttackRolls={};
+  function processApprovedAttackRolls(){
+    var session=state&&state.session,room=state&&state.room,combat=room&&room.combat;
+    if(!session||session.role!=='master'||!combat||!combat.active||!w.ZargotaRooms)return;
+    Object.keys(room.members||{}).forEach(function(uid){
+      var request=room.members[uid]&&room.members[uid].actionRequest;
+      if(!request||request.status!=='roll-requested'||request.actionKind!=='combat-attack'||!request.details||masterAttackRolls[request.id])return;
+      var attacker=(combat.order||[]).find(function(entry){return entry&&entry.uid===uid;});
+      if(!attacker)return;
+      masterAttackRolls[request.id]=true;
+      w.ZargotaRooms.resolveCombatAttack(request.details.targetKey,request.details,attacker.key).then(function(snapshot){
+        var event=snapshot&&snapshot.room&&snapshot.room.combatEvent;
+        return w.ZargotaRooms.finishApprovedAttackRoll(uid,request.id,true,event&&event.id||'');
+      }).catch(function(error){
+        delete masterAttackRolls[request.id];
+        return w.ZargotaRooms.finishApprovedAttackRoll(uid,request.id,false,'',error&&error.message||'Атака не выполнена');
+      });
+    });
+  }
   var combatSaveTargetKey='',combatSaveBusy=false;
   function combatSaveStat(entry,key){var value=entry&&entry.stats&&entry.stats[key]||{};return Number(typeof value==='number'?value:(value.cur!=null&&value.cur!==0?value.cur:value.base||0))||0;}
   function renderCombatSave(){
@@ -17079,7 +17115,7 @@ window.zgImageStore = (function() {
   /* Session combat polish: keep the active turn control clear of the dock. */
   .zg-combat-own-turn{left:auto;right:25px;bottom:24px;width:154px;height:154px;min-width:0;padding:22px;border-radius:50%;flex-direction:column;justify-content:center;gap:5px;text-align:center;z-index:28;transform:translateY(12px) scale(.92)}.zg-combat-own-turn.show{transform:none}.zg-combat-own-turn b{max-width:120px;overflow:hidden;text-overflow:ellipsis}.zg-combat-own-turn button{margin:4px 0 0;border-radius:15px}
   .zg-combat-participant,.zg-combat-participant.hero{grid-template-columns:22px 38px minmax(0,1fr) auto;cursor:pointer;opacity:1}.zg-combat-participant:not(:has(.zg-combat-participant-toggle:checked)){opacity:.48;filter:saturate(.35)}.zg-combat-participant:has(.zg-combat-participant-toggle:checked){border-color:#79602d;background:#191107}.zg-combat-participant.hero .zg-combat-participant-check{border-color:#57431f;background:#0b0906;color:transparent}.zg-combat-participant-toggle:checked+.zg-combat-participant-check{border-color:#b78c39;background:#3b2a0d;color:#f2d77f}.zg-combat-init-mode{height:27px;max-width:112px;padding:0 5px;border:1px solid #49361b;border-radius:4px;background:#090704;color:#e1c77f;font:9px Georgia,serif}
-  .zg-game-overlay.combat-targeting .zg-vtt-token{cursor:crosshair!important}.zg-game-overlay.combat-targeting .zg-vtt-token:hover{filter:brightness(1.2) drop-shadow(0 0 9px #e9b847);transform:translate(-50%,-50%) scale(1.06)}
+  .zg-game-overlay.combat-targeting .zg-vtt-token{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-token:hover{filter:brightness(1.2) drop-shadow(0 0 9px #e9b847);transform:translate(-50%,-50%) scale(1.06)}
   .zg-move-marker::after,.zg-action-marker::after{content:'?';position:absolute;right:-5px;top:-6px;width:17px;height:17px;border:1px solid var(--player-accent,#ddb34c);border-radius:50%;background:#0b0907;color:var(--player-accent,#ddb34c);font:700 11px/17px Arial;text-align:center;box-shadow:0 0 9px var(--player-soft,#ddb34c66)}
   @keyframes zgContestWinner{0%{transform:none}60%{transform:translateX(var(--contest-direction)) scale(1.08);filter:brightness(1.25) drop-shadow(0 0 22px #f0bc4f)}100%{transform:translateX(var(--contest-direction)) scale(1);filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 25px #e3b54f)}}@keyframes zgContestWinnerNumber{0%{transform:none}60%,100%{transform:translateX(var(--contest-direction)) scale(1.12)}}@keyframes zgContestLoser{0%{transform:none;opacity:1}55%{transform:translateX(var(--contest-direction)) scale(.76);opacity:.4}100%{transform:translateX(var(--contest-direction)) scale(.55);opacity:.08;filter:grayscale(.9)}}
   .zg-roll-total{position:absolute;z-index:23;margin-top:-210px;transform:translateX(-50%) scale(.72);min-width:150px;min-height:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;color:#f7dd92;text-align:center;text-shadow:0 2px 7px #000,0 0 13px #d49a35}
