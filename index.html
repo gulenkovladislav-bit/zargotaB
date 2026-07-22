@@ -11339,11 +11339,15 @@ document.addEventListener('DOMContentLoaded', function(){
       if (token.hidden && !viewerGm) return;                 // скрытый жетон: игрокам и в «виде игроков» не показываем
       var ownSession=roomSnapshot&&roomSnapshot.session,ownToken=!isMaster&&ownSession&&token.type==='hero'&&token.memberUid===ownSession.uid;
       if(!viewerGm&&!ownToken&&tokenInClosedFog(token))return;
+      var combatEntry=combatEntryForToken(token),combatState=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat;
+      var combatOrder=combatState&&Array.isArray(combatState.order)?combatState.order:[];
+      var combatTurn=combatState&&combatState.active?combatOrder[Number(combatState.turnIndex)||0]:null;
+      var gmCombatControlled=!!(viewerGm&&combatEntry&&combatTurn&&!combatTurn.uid&&combatEntry.key===combatTurn.key);
       var node = document.createElement('button');
       var marker = isMarkerType(token.type) || token.type === 'note';
       var isText = token.type === 'text';
       var isObj = token.type === 'object';
-      node.type = 'button'; node.className = 'zg-vtt-token' + (isText ? ' text' : (isObj ? ' obj' : ' disp-' + (token.disposition || 'neutral'))) + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.locked ? ' locked' : '') + (ownToken ? ' own' : '') + (token.id === selectedTokenId && isMaster && gmVision === 'gm' ? ' selected' : '') + (token.type === 'hero' && token.memberUid === possessedUid && isMaster && gmVision === 'players' ? ' controlled' : '') + (groupSel.indexOf(token.id) >= 0 ? ' gsel' : '');
+      node.type = 'button'; node.className = 'zg-vtt-token' + (isText ? ' text' : (isObj ? ' obj' : ' disp-' + (token.disposition || 'neutral'))) + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.locked ? ' locked' : '') + (ownToken ? ' own' : '') + (gmCombatControlled ? ' gm-combat-controlled' : '') + (token.id === selectedTokenId && isMaster && gmVision === 'gm' ? ' selected' : '') + (token.type === 'hero' && token.memberUid === possessedUid && isMaster && gmVision === 'players' ? ' controlled' : '') + (groupSel.indexOf(token.id) >= 0 ? ' gsel' : '');
       var incomingMove=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.lastMovement;
       var holdAtOrigin=incomingMove&&incomingMove.id&&incomingMove.id!==lastMovementSeen&&token.type==='hero'&&token.memberUid===incomingMove.uid;
       node.style.left = (holdAtOrigin?clamp(incomingMove.fromX,0,100):token.x) + '%'; node.style.top = (holdAtOrigin?clamp(incomingMove.fromY,0,100):token.y) + '%'; node.style.zIndex = String(token.z); node.style.opacity = (token.opacity==null?1:token.opacity);
@@ -11365,7 +11369,7 @@ document.addEventListener('DOMContentLoaded', function(){
         node.appendChild(vis);
         var label = document.createElement('span'); label.className = 'zg-vtt-token-name'; label.textContent = tokenName(token); node.appendChild(label);
         // В бою статусы видят все; HP существ — только мастер, HP героев — всегда.
-        var combatEntry=combatEntryForToken(token),combatActive=!!combatEntry;
+        var combatActive=!!combatEntry;
         if(combatActive)appendTokenCombatStatuses(node,token);
         var hpMax = combatEntry&&combatEntry.hpMax!=null?combatEntry.hpMax:(token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpMax; })() : token.hpMax);
         var hpCur = combatEntry&&combatEntry.hp!=null?combatEntry.hp:(token.type === 'hero' ? (function(){ var m = memberForToken(token); return m && m.character && m.character.hpCur; })() : token.hp);
@@ -11376,6 +11380,7 @@ document.addEventListener('DOMContentLoaded', function(){
           if (hpCur / hpMax <= .35) fill.className = 'low';
           bar.appendChild(fill); node.appendChild(bar);
         }
+        if(gmCombatControlled){var controlBadge=document.createElement('span');controlBadge.className='zg-vtt-gm-combat-badge';controlBadge.textContent='ТВОЙ NPC';node.appendChild(controlBadge);}
       }
       if (token.id === selectedTokenId && isMaster) {
         var frame = document.createElement('span'); frame.className = 'zg-vtt-token-frame'; node.appendChild(frame);
@@ -12126,6 +12131,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var abilityCardsByKey = {}, localPhysicalRolls = {};
   var abilityRequestBusy = false;
   var seenRollVisuals = {};
+  var renderedRollVisuals = {};
   var localRollVisuals = {};
   var lastCombatVisual = '';
 
@@ -12282,6 +12288,15 @@ document.addEventListener('DOMContentLoaded', function(){
     Object.keys(visualMembers).forEach(function(uid){
       var roll=visualMembers[uid]&&visualMembers[uid].activeRoll;
       if(!roll||!roll.id||Date.now()-Number(roll.ts||0)>8000)return;
+      var rollKey=String(roll.id),existingRollVisual=false;
+      host.querySelectorAll('[data-roll-id],[data-roll-total]').forEach(function(node){
+        var visualId=String(node.dataset.rollId||''),totalId=String(node.dataset.rollTotal||'');
+        if(visualId.indexOf(rollKey+'-')===0||totalId===rollKey)existingRollVisual=true;
+      });
+      /* activeRoll intentionally remains in the room for the log/reconnect flow.
+         Once its animation has finished, later combat renders must not replay it. */
+      if(renderedRollVisuals[rollKey]&&!existingRollVisual)return;
+      renderedRollVisuals[rollKey]=true;
       var ownerUid=String(uid),targetUid=String(roll.speakerUid||ownerUid);
       var token=overlay.querySelector('.zg-vtt-token[data-member-uid="'+targetUid.replace(/"/g,'')+'"]');
       var rollLeft=token&&token.style.left?token.style.left:'50%';
@@ -12528,7 +12543,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(combatChanged){bar.classList.remove('turn-changing');void bar.offsetWidth;bar.classList.add('turn-changing');}
     }
     var own=ownMember(),notice=el('zg-combat-own-turn');
-    if(notice){var masterTurn=!!(active&&session&&session.role==='master'),ownTurn=!!(active&&turn&&own&&turn.uid===own.uid),canAdvance=masterTurn||ownTurn;notice.classList.toggle('show',canAdvance);notice.innerHTML=canAdvance?'<span>✦</span><b>'+(masterTurn?'Ход: '+esc(turn&&turn.name||'—'):'Твой ход')+'</b><small>Раунд '+Number(combat.round||1)+'</small><button type="button" onclick="zgCombatAdvance()">'+(masterTurn?'Следующий':'Завершить ход')+'</button>':'';}
+    if(notice){var masterTurn=!!(active&&session&&session.role==='master'),masterNpcTurn=!!(masterTurn&&turn&&!turn.uid),ownTurn=!!(active&&turn&&own&&turn.uid===own.uid),canAdvance=masterTurn||ownTurn;notice.classList.toggle('show',canAdvance);notice.innerHTML=canAdvance?'<span>✦</span><b>'+(masterNpcTurn?'Ты управляешь: '+esc(turn&&turn.name||'NPC'):masterTurn?'Ход: '+esc(turn&&turn.name||'—'):'Твой ход')+'</b><small>Раунд '+Number(combat.round||1)+'</small><button type="button" onclick="zgCombatAdvance()">'+(masterTurn?'Следующий':'Завершить ход')+'</button>':'';}
     var economyHost=el('zg-combat-economy');
     var rollPrompt=el('zg-combat-roll-prompt'),ownRequest=own&&own.actionRequest,approvedAttack=ownRequest&&ownRequest.status==='approved'&&ownRequest.actionKind==='combat-attack'&&ownRequest.details;
     if(rollPrompt){
@@ -12867,6 +12882,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if(visualId.indexOf(String(roll.id)+'-')===0||totalId===String(roll.id))node.remove();
       });
       delete seenRollVisuals[roll.id];
+      delete renderedRollVisuals[String(roll.id)];
       localPhysicalRolls[String(roll.id)]=Date.now()+9000;
       localRollVisuals[String(detail.ownerUid||roll.speakerUid||state&&state.session&&state.session.uid||'local')]={roll:roll};
       requestAnimationFrame(renderRollAnimations);
