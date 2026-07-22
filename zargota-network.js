@@ -1373,9 +1373,8 @@
             return member.characterId && member.character && (!heroOptions[member.uid] || heroOptions[member.uid].selected !== false);
           }).map(function (member) {
             var option=heroOptions[member.uid]||{},bonus = Number(member.character.initiative || 0), mode=['advantage','disadvantage'].indexOf(option.mode)>=0?option.mode:'normal';
-            var first=Math.floor(Math.random()*20)+1,second=mode==='normal'?null:Math.floor(Math.random()*20)+1,roll=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
             var speed = Math.max(0, Number(member.character.speed) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:roll, rolls:second==null?[first]:[first,second], rollMode:mode, bonus:bonus, total:roll + bonus, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), tempHp:Math.max(0,Number(member.character.tempHp)||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:'hero:'+member.uid, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), tempHp:Math.max(0,Number(member.character.tempHp)||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -1387,8 +1386,7 @@
             if (!participant || !participant.tokenId) return;
             var name = String(participant.name || 'Существо').trim().slice(0, 80) || 'Существо';
             var bonus = Math.max(-20, Math.min(20, Number(participant.bonus) || 0));
-            var mode=['advantage','disadvantage'].indexOf(participant.mode)>=0?participant.mode:'normal',first=Math.floor(Math.random()*20)+1,second=mode==='normal'?null:Math.floor(Math.random()*20)+1;
-            var roll=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
+            var mode=['advantage','disadvantage'].indexOf(participant.mode)>=0?participant.mode:'normal';
             var portrait = String(participant.portrait || '');
             if (/^data:/i.test(portrait) && portrait.length > 16000) portrait = '';
             order.push({
@@ -1396,7 +1394,7 @@
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               sourceRef:participant.sourceRef&&['npc','beast'].indexOf(participant.sourceRef.type)>=0?{type:participant.sourceRef.type,id:String(participant.sourceRef.id||'').slice(0,120)}:null,
               level:Math.max(1,Math.min(99,Number(participant.level)||1)),
-              roll:roll, rolls:second==null?[first]:[first,second], rollMode:mode, bonus:bonus, total:roll + bonus, hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
+              roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:String(participant.group||participant.name||('group-'+index)).trim().slice(0,80), hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
               hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
               tempHp:Math.min(Math.floor(Math.max(0,Number(participant.hpMax)||0)*0.5),Math.max(0,Number(participant.tempHp)||0)),
               ac:Math.max(0,Number(participant.ac)||10),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
@@ -1412,19 +1410,10 @@
             entry.economy.reaction = restrictions.blocked.reaction ? 0 : 1;
             entry.economy.movement = combatTurnMovement(entry);
           });
-          order.sort(function (a, b) { return b.total - a.total || b.bonus - a.bonus || Number(a.orderHint || 0) - Number(b.orderHint || 0) || a.name.localeCompare(b.name, 'ru'); });
           if (!order.length) throw roomError('В комнате пока нет героев.', 'combat-empty');
-          var opening = order[0], openingTick = statusTurnTick(opening), stamp = now(), startUpdates = {};
-          opening.hp = openingTick.hp;
-          order[0] = opening;
-          startUpdates.combat={ active:true, round:1, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp };
-          startUpdates.combatEvent={ id:'combat-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Начинается бой. Инициатива определена. Ход: '+(opening.name||'участник')+'.'+(openingTick.changes.length?' '+openingTick.changes.join('; '):''), ts:stamp };
-          order.forEach(function(entry,index){
-            if(!entry.uid)return;
-            var dice=(entry.rolls||[entry.roll]).map(function(value){return{sides:20,value:value,total:value+(entry.roll===value?entry.bonus:0),outcome:value===20?'critical-success':value===1?'critical-fail':'',kept:entry.rolls&&entry.rolls.length>1?value===entry.roll:null,rollMode:entry.rollMode||'',statLabel:'Инициатива'};});
-            startUpdates['members/'+entry.uid+'/activeRoll']={id:'initiative-'+stamp+'-'+index,ts:stamp,duration:1450,rolls:dice,speakerUid:entry.uid,name:entry.name};
-          });
-          if(opening.uid)startUpdates['members/'+opening.uid+'/character/hpCur']=Number(opening.hp||0);
+          var stamp = now(), startUpdates = {};
+          startUpdates.combat={ active:false, phase:'initiative', round:0, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp };
+          startUpdates.combatEvent={ id:'initiative-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Бросьте инициативу!', ts:stamp };
           startUpdates.updatedAt=stamp;
           return firebase.update(roomRef(session.code), startUpdates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
@@ -1432,6 +1421,52 @@
         if (error && ['master-only','room-not-found','combat-active','combat-empty'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
+    },
+
+    rollInitiative: function (groupKey) {
+      return ensureReady().then(function (user) {
+        var session=readSession();if(!session)throw roomError('Сессия не найдена.','session-missing');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[];
+          if(!combat||combat.phase!=='initiative'||combat.active)throw roomError('Сбор инициативы уже завершён.','initiative-closed');
+          var targets=[];
+          if(session.role==='master'){
+            var requested=String(groupKey||'');
+            targets=order.map(function(entry,index){return{entry:entry,index:index};}).filter(function(row){return !row.entry.uid&&String(row.entry.initiativeGroup||row.entry.key)===requested;});
+          }else targets=order.map(function(entry,index){return{entry:entry,index:index};}).filter(function(row){return row.entry.uid===user.uid;});
+          if(!targets.length)throw roomError('Участник инициативы не найден.','initiative-missing');
+          if(targets.every(function(row){return row.entry.total!=null;}))return api.getSnapshot();
+          var mode=targets[0].entry.rollMode||'normal',first=Math.floor(Math.random()*20)+1,second=mode==='normal'?null:Math.floor(Math.random()*20)+1;
+          var kept=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),stamp=now(),updates={};
+          targets.forEach(function(row){
+            updates['combat/order/'+row.index+'/roll']=kept;
+            updates['combat/order/'+row.index+'/rolls']=second==null?[first]:[first,second];
+            updates['combat/order/'+row.index+'/total']=kept+Number(row.entry.bonus||0);
+            updates['combat/order/'+row.index+'/rolledAt']=stamp;
+          });
+          updates['combat/updatedAt']=stamp;updates.combatEvent={id:'initiative-roll-'+stamp,kind:'combat',name:targets[0].entry.name||'Участник',portrait:targets[0].entry.portrait||'',text:'Бросает инициативу.',ts:stamp};
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['session-missing','room-not-found','initiative-closed','initiative-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
+    beginCombatTurns: function () {
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Начать бой может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
+          if(!combat||combat.phase!=='initiative'||combat.active)throw roomError('Инициатива уже завершена.','initiative-closed');
+          if(!order.length||order.some(function(entry){return entry.total==null;}))throw roomError('Ещё не все участники бросили инициативу.','initiative-pending');
+          order.sort(function(a,b){return Number(b.total)-Number(a.total)||Number(b.bonus)-Number(a.bonus)||Number(a.orderHint||0)-Number(b.orderHint||0)||String(a.name||'').localeCompare(String(b.name||''),'ru');});
+          var opening=order[0],tick=statusTurnTick(opening),stamp=now();opening.hp=tick.hp;order[0]=opening;
+          var updates={combat:{active:true,phase:'active',round:1,turnIndex:0,order:order,startedAt:combat.startedAt||stamp,battleStartedAt:stamp,updatedAt:stamp},combatEvent:{id:'combat-start-'+stamp,kind:'combat',name:'Мир Зарготы',text:'Бой! Ход: '+(opening.name||'участник')+'.'+(tick.changes.length?' '+tick.changes.join('; '):''),ts:stamp},updatedAt:stamp};
+          if(opening.uid)updates['members/'+opening.uid+'/character/hpCur']=Number(opening.hp||0);
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['master-only','room-not-found','initiative-closed','initiative-pending'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
     advanceCombat: function () {
