@@ -10435,7 +10435,13 @@ document.addEventListener('DOMContentLoaded', function(){
   var movementMode = false;
   var actionToolKind = '';
   var actionToolLabels = {inspect:'Осмотреть',interact:'Взаимодействовать',take:'Взять',search:'Искать',speak:'Говорить',attack:'Атаковать'};
-  var actionToolIcons = {inspect:'⌕',interact:'✋',take:'◇',search:'✦',speak:'❝',attack:'⚔','combat-attack':'⚔',custom:'✦'};
+  var actionToolIcons = {
+    inspect:'images/vtt-actions/inspect.png',interact:'images/vtt-actions/interact.png',
+    take:'images/vtt-actions/take.png',search:'images/vtt-actions/search.png',
+    speak:'images/vtt-actions/speak.png',attack:'images/vtt-actions/attack.png',
+    'combat-attack':'images/vtt-actions/attack.png',custom:'images/vtt-actions/custom.png',
+    movement:'images/vtt-actions/movement.png'
+  };
   var movementActorUid = '';
   var movementPanelPinned = false;
   var possessedUid = '';
@@ -10949,6 +10955,7 @@ document.addEventListener('DOMContentLoaded', function(){
     movementMode = !!on;
     if (movementMode) setActionTool('');
     var scene = el('zg-vtt-scene'); if (scene) scene.classList.toggle('move-mode', movementMode);
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?'<img src="'+actionToolIcons.movement+'" alt="">':'';cursor.classList.toggle('open',movementMode);}
     preview = el('zg-move-preview'); if (preview && !movementMode) preview.style.display = '';
     return movementMode;
   }
@@ -10956,7 +10963,7 @@ document.addEventListener('DOMContentLoaded', function(){
     actionToolKind=String(kind||'');
     var scene=el('zg-vtt-scene');
     if(scene){scene.classList.toggle('action-tool',!!actionToolKind);scene.setAttribute('data-action-tool',actionToolKind);}
-    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.textContent=actionToolIcons[actionToolKind]||'';cursor.classList.toggle('open',!!actionToolKind);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionToolKind?'<img src="'+actionToolIcons[actionToolKind]+'" alt="">':'';cursor.classList.toggle('open',!!actionToolKind);}
     Array.prototype.forEach.call(document.querySelectorAll('#zg-action-menu [data-action-kind]'),function(button){button.classList.toggle('active',button.getAttribute('data-action-kind')===actionToolKind);});
   }
   w.zgSceneActionTool=function(kind){setMovementMode(false);setActionTool(kind);return actionToolKind;};
@@ -11956,7 +11963,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var scene = el('zg-vtt-scene');
     if (scene) {
       scene.addEventListener('pointermove', function(ev){
-        var actionCursor=el('zg-action-cursor');if(actionCursor&&(actionToolKind||w.zgCombatAttackToolActive)){actionCursor.style.left=ev.clientX+'px';actionCursor.style.top=ev.clientY+'px';}
+        var actionCursor=el('zg-action-cursor');if(actionCursor&&(movementMode||actionToolKind||w.zgCombatAttackToolActive)){actionCursor.style.left=ev.clientX+'px';actionCursor.style.top=ev.clientY+'px';}
         if(zoneDrawing&&zoneDrawing.points.length&&zoneDrawing.shape!=='polygon'){var zonePoint=regionPoint(ev);if(zonePoint){zoneDrawing.previewPoints=shapePoints(zoneDrawing.shape,zoneDrawing.points[0],zonePoint);renderRegions();}}
         if (!movementMode) return;
         var point = movementPoint(ev), preview = el('zg-move-preview');
@@ -12279,12 +12286,16 @@ document.addEventListener('DOMContentLoaded', function(){
           setTimeout(function(){var soundRoll=rolls.find(function(item){return item.kept===true;})||rolls.find(function(item){return item.outcome==='critical-success';})||rolls.find(function(item){return item.outcome==='critical-fail';})||rolls[0];try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(Number(soundRoll&&soundRoll.value)||2);}catch(e){}},Math.max(750,Number(roll.duration)||1250));
         }
       }
+      var contestRoll=rolls.find(function(item){return item.kept===true;}),isContest=!!contestRoll;
+      var hasCritical=rolls.some(function(item){return !!item.outcome;});
+      var rollLifetime=hasCritical?7000:(isContest?6000:5100);
       rolls.forEach(function(item,index){
         var visualId=roll.id+'-'+index;if(host.querySelector('[data-roll-id="'+visualId.replace(/"/g,'')+'"]'))return;
         var sides=[4,6,8,10,12,20].indexOf(Number(item.sides))>=0?Number(item.sides):20;
         var die=document.createElement('span');die.className='zg-token-roll world-roll'+(item.outcome?' long-result':'');die.dataset.rollId=visualId;
         var spacing=Math.max(42,Math.min(76,340/Math.max(1,rolls.length-1)));
         die.style.left=rollLeft;die.style.top=rollTop;die.style.setProperty('--roll-offset',((index-(rolls.length-1)/2)*spacing)+'px');
+        die.style.animationDuration=(rollLifetime/1000)+'s';
         die.innerHTML='<img src="images/vtt-dice/d'+sides+'.png" alt=""><b>1</b><em></em>';host.appendChild(die);
         var number=die.querySelector('b'),label=die.querySelector('em'),lastPreview=0;
         function nextPreview(){var next=Math.floor(Math.random()*sides)+1;if(sides>2&&next===lastPreview)next=next%sides+1;lastPreview=next;number.textContent=String(next);}
@@ -12299,9 +12310,8 @@ document.addEventListener('DOMContentLoaded', function(){
             die.style.setProperty('--contest-direction',item.kept?(-startOffset+'px'):(index===0?'-22px':'22px'));
           },620);
         },Math.max(750,Number(roll.duration)||1250));
-        setTimeout(function(){if(die.parentNode)die.remove();},item.outcome?5400:(item.rollMode?4600:3400));
+        setTimeout(function(){if(die.parentNode)die.remove();},rollLifetime);
       });
-      var contestRoll=rolls.find(function(item){return item.kept===true;}),isContest=!!contestRoll;
       var singleModifier=rolls.length===1?Number(rolls[0].total==null?rolls[0].value:rolls[0].total)-Number(rolls[0].value||0):0;
       var showTotal=isContest?Number(contestRoll.value)!==1:(rolls.length>1||Number(rolls[0].value)!==1);
       if(showTotal&&!host.querySelector('[data-roll-total="'+String(roll.id).replace(/"/g,'')+'"]')){
@@ -12318,7 +12328,7 @@ document.addEventListener('DOMContentLoaded', function(){
           if(isContest){valueNode.textContent=String(total);setTimeout(function(){totalNode.classList.add('ready');},180);}
           else{var calculator=setInterval(function(){running+=values[step]||0;valueNode.textContent=String(running);step++;if(step>=values.length){clearInterval(calculator);setTimeout(function(){valueNode.textContent=String(total);totalNode.classList.add('ready');},140);}},Math.max(150,460/values.length));}
         },isContest?2200:1450);
-        setTimeout(function(){if(totalNode.parentNode)totalNode.remove();},isContest?4600:3900);
+        setTimeout(function(){if(totalNode.parentNode)totalNode.remove();},rollLifetime);
       }
     });
   }
@@ -12435,7 +12445,8 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function renderDrawer(){
     if (!activePanel) return;
-    var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'); if (!body) return;
+    var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'), drawer=el('zg-vtt-drawer'); if (!body) return;
+    if(drawer)drawer.classList.toggle('inventory-skin',activePanel==='inventory');
     var labels = { group:'Группа', character:'Состояние героя', inventory:'Сумка героя', abilities:'Книга приёмов', journal:'Журнал', dice:'Кубики' };
     if (title) title.textContent = labels[activePanel] || 'Панель';
     document.querySelectorAll('.zg-bag-tabs button[onclick*="zgVttOpenPanel"]').forEach(function(button){
@@ -12558,7 +12569,7 @@ document.addEventListener('DOMContentLoaded', function(){
     w.ZargotaRooms.useCombatAction(type,turn&&turn.key||'').then(function(){if(w.ZargotaSound&&w.ZargotaSound.click)w.ZargotaSound.click();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Действие недоступно');}).then(function(){combatActionBusy=false;if(host)host.classList.remove('busy');});
   };
   var combatAttackTargetKey='',combatAttackBusy=false,combatAttackTool=false;
-  function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.textContent='⚔';cursor.classList.toggle('open',combatAttackTool);}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
+  function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=combatAttackTool?'<img src="images/vtt-actions/attack.png" alt="">':'';cursor.classList.toggle('open',combatAttackTool);}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
   function selectCombatMapTarget(entry,token,node){
     if(!entry)return;combatAttackTargetKey=entry.key;setCombatAttackTool(false);
     node.classList.add('combat-target');setTimeout(function(){node.classList.remove('combat-target');},1200);
@@ -12962,7 +12973,7 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('.zg-dice-row [data-die]').forEach(function(button){var count=Number(selectedDice[button.dataset.die]||0);button.classList.toggle('selected',count>0);button.setAttribute('data-count',count>0?String(count):'');});
     var hint=el('zg-dice-hint');if(hint){var total=Object.keys(selectedDice).reduce(function(sum,key){return sum+Number(selectedDice[key]||0);},0);hint.textContent=total?('Выбрано кубиков: '+total+' · перетащите любой на сцену'):'Клик добавляет кубик · перетащите для броска';}
   }
-  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();}
+  function addSelectedDie(sides){var key=String(sides),count=Number(selectedDice[key]||0);if(Number(sides)===20)selectedDice[key]=count?0:1;else selectedDice[key]=count>=4?0:count+1;if(!selectedDice[key])delete selectedDice[key];updateDiceSelection();var button=document.querySelector('.zg-dice-row button[data-sides="'+key+'"]');if(button){button.classList.remove('count-pop');void button.offsetWidth;button.classList.add('count-pop');}try{if(w.ZargotaSound&&w.ZargotaSound.diceRollSmall)w.ZargotaSound.diceRollSmall();}catch(e){}}
   function clearSelectedDice(){selectedDice={};updateDiceSelection();}
   function throwDiceBatch(sidesList){
     if(!sidesList.length)return;var c=ownChar(),labels=w.STAT_LABEL_RU||{},rolls=[],parts=[],forcedUsed=false;
@@ -16465,7 +16476,10 @@ window.zgImageStore = (function() {
   .zg-dice-row button{position:relative;height:88px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
   .zg-dice-row button:nth-child(2){animation-delay:.035s}.zg-dice-row button:nth-child(3){animation-delay:.07s}.zg-dice-row button:nth-child(4){animation-delay:.105s}.zg-dice-row button:nth-child(5){animation-delay:.14s}.zg-dice-row button:nth-child(6){animation-delay:.175s}
   @keyframes zgDieRise{from{opacity:0;transform:translateY(25px) scale(.65)}to{opacity:1;transform:none}}
+  .zg-dice-row button{transition:transform .26s cubic-bezier(.2,.85,.25,1),filter .26s ease,color .2s ease}
   .zg-dice-row button:hover{border:0;background:transparent;color:#ffe7a0;transform:translateY(-8px) scale(1.08);filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 15px #d7a63766)}
+  .zg-dice-row button.count-pop{animation:zgDiceCountPop .32s cubic-bezier(.2,1.5,.3,1)}
+  @keyframes zgDiceCountPop{45%{transform:translateY(-10px) scale(1.16)}100%{transform:translateY(0) scale(1)}}
   .zg-dice-row button.d20{border:0;background:transparent;color:#f1d17a}
   .zg-dice-row button.selected{color:#ffe59a;filter:drop-shadow(0 10px 10px #000c) drop-shadow(0 0 18px #e2b343aa)}
   .zg-dice-row button.selected::after{content:attr(data-count);position:absolute;right:5px;top:4px;min-width:18px;height:18px;padding:0 2px;border:1px solid #e0b64f;border-radius:10px;background:#24190b;color:#ffe7a0;font:700 10px/18px 'Cinzel',serif;box-shadow:0 0 12px #dca93988}
@@ -16506,12 +16520,16 @@ window.zgImageStore = (function() {
   .zg-measure-pick button:last-child{margin-bottom:0}
   .zg-measure-pick button:hover{border-color:#c8993c;color:#f0dca2;background:#211809}
   .zg-measure-pick button.active{border-color:#c8993c;background:#2a1d0b;color:#ffe9a8}
-  .zg-action-menu{position:absolute;left:calc(50% - 238px);bottom:128px;transform:translateX(-50%);z-index:11;width:274px;padding:12px;border:1px solid #8a6a2f;border-radius:8px;background:linear-gradient(180deg,#171108f7,#0b0805fa);box-shadow:0 18px 48px #000d;display:none}
+  .zg-action-menu{position:absolute;left:calc(50% - 375px);bottom:128px;transform:none;z-index:11;width:274px;padding:12px;border:1px solid #8a6a2f;border-radius:8px;background:linear-gradient(180deg,#171108f7,#0b0805fa);box-shadow:0 18px 48px #000d;display:none}
   .zg-action-menu.open{display:block;animation:zgPopIn .2s cubic-bezier(.2,.8,.3,1)}
   .zg-action-menu-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:#bda46f;font:600 11px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}
   .zg-action-menu-close{border:0;background:transparent;color:#806f4c;font-size:18px;line-height:1;cursor:pointer}.zg-action-menu-close:hover{color:#efd895}
-  .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:28px;height:28px;margin-right:7px;border:1px solid #6d5124;border-radius:50%;color:#e8c875;font:18px Georgia,serif}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
-  .zg-action-cursor{position:fixed;z-index:9999;display:none;transform:translate(-50%,-50%);width:34px;height:34px;border:1px solid #e1b84f;border-radius:50%;place-items:center;background:#100c07e8;color:#ffe49a;font:20px Georgia,serif;box-shadow:0 0 18px #d6a73f88;pointer-events:none}.zg-action-cursor.open{display:grid}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}
+  .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
+  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate(-50%,-50%);width:42px;height:42px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 7px #d6a73f99)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}
+
+  .zg-vtt-drawer.inventory-skin{width:min(650px,calc(100vw - 36px));border:0;background:url('images/vtt-ui/inventory-leather.png') center/100% 100% no-repeat;padding:34px 42px 42px;box-shadow:0 28px 80px #000e;overflow:hidden}
+  .zg-vtt-drawer.inventory-skin .zg-bag-tabs{border:0;background:transparent;padding:10px 38px 18px}
+  .zg-vtt-drawer.inventory-skin .zg-vtt-drawer-body{padding:8px 28px 34px;background:transparent}
   .zg-vtt-token.combat-target>img,.zg-vtt-token.combat-target .zg-vtt-token-ph{animation:zgCombatTargetLock .85s ease both}@keyframes zgCombatTargetLock{0%{filter:none}35%{filter:brightness(1.8) sepia(.6);box-shadow:0 0 0 4px #d44b43,0 0 28px #d44b43}100%{filter:none}}
   .zg-vtt-token.combat-hit{animation:zgCombatHit .48s ease 2}.zg-vtt-token.combat-miss{animation:zgCombatMiss .36s ease}@keyframes zgCombatHit{0%,100%{transform:translate(-50%,-50%)}35%{transform:translate(calc(-50% - 8px),calc(-50% + 3px)) rotate(-5deg);filter:brightness(1.65) sepia(.5)}}@keyframes zgCombatMiss{50%{transform:translate(calc(-50% + 7px),-50%)}}
   .zg-combat-impact{position:absolute;z-index:18;left:50%;bottom:calc(100% + 16px);transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border:1px solid #d55649;border-radius:12px;background:#170906ed;color:#ff9e8e;font:700 13px 'Cinzel',serif;box-shadow:0 0 22px #b72e26;animation:zgCombatImpact 1.75s ease both;pointer-events:none}.zg-combat-impact.miss{border-color:#8f7c58;background:#100e0ae8;color:#d9c596;box-shadow:0 0 16px #000}@keyframes zgCombatImpact{0%{opacity:0;transform:translate(-50%,14px) scale(.65)}18%,72%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-22px) scale(.9)}}
@@ -17311,12 +17329,12 @@ window.zgImageStore = (function() {
     <div class="zg-action-menu" id="zg-action-menu">
       <div class="zg-action-menu-title"><span>Заявить действие</span><button type="button" class="zg-action-menu-close" onclick="zgVttActionClose()" aria-label="Закрыть">×</button></div>
       <div class="zg-action-grid">
-        <button type="button" data-action-kind="inspect" onclick="zgVttActionRequest('inspect')"><b>⌕</b>Осмотреть<span>место или предмет</span></button>
-        <button type="button" data-action-kind="interact" onclick="zgVttActionRequest('interact')"><b>✋</b>Воздействовать<span>на объект сцены</span></button>
-        <button type="button" data-action-kind="search" onclick="zgVttActionRequest('search')"><b>✦</b>Искать<span>следы и тайники</span></button>
-        <button type="button" data-action-kind="speak" onclick="zgVttActionRequest('speak')"><b>❝</b>Говорить<span>с существом</span></button>
-        <button type="button" data-action-kind="take" onclick="zgVttActionRequest('take')"><b>◇</b>Взять<span>предмет рядом</span></button>
-        <button type="button" data-action-kind="attack" onclick="zgVttActionRequest('attack')"><b>⚔</b>Атаковать<span>вне режима боя</span></button>
+        <button type="button" data-action-kind="inspect" onclick="zgVttActionRequest('inspect')"><b><img src="images/vtt-actions/inspect.png" alt=""></b>Осмотреть<span>место или предмет</span></button>
+        <button type="button" data-action-kind="interact" onclick="zgVttActionRequest('interact')"><b><img src="images/vtt-actions/interact.png" alt=""></b>Воздействовать<span>на объект сцены</span></button>
+        <button type="button" data-action-kind="search" onclick="zgVttActionRequest('search')"><b><img src="images/vtt-actions/search.png" alt=""></b>Искать<span>следы и тайники</span></button>
+        <button type="button" data-action-kind="speak" onclick="zgVttActionRequest('speak')"><b><img src="images/vtt-actions/speak.png" alt=""></b>Говорить<span>с существом</span></button>
+        <button type="button" data-action-kind="take" onclick="zgVttActionRequest('take')"><b><img src="images/vtt-actions/take.png" alt=""></b>Взять<span>предмет рядом</span></button>
+        <button type="button" data-action-kind="attack" onclick="zgVttActionRequest('attack')"><b><img src="images/vtt-actions/attack.png" alt=""></b>Атаковать<span>вне режима боя</span></button>
       </div>
       <div class="zg-action-custom-row"><input id="zg-action-custom" maxlength="180" placeholder="Другое действие…" onkeydown="if(event.key==='Enter'){event.preventDefault();zgVttActionRequest('custom')}"><button type="button" onclick="zgVttActionRequest('custom')" title="Отправить">➤</button></div>
       <button type="button" class="zg-action-measure" onclick="zgVttActionMeasure()">Измерение расстояния и области</button>
