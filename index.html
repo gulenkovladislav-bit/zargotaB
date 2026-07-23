@@ -11967,7 +11967,7 @@ document.addEventListener('DOMContentLoaded', function(){
       startButton.textContent=launchBusy?'Запускаем…':'Запустить игроков';
     }
     if(publishButton) publishButton.style.display=snapshot.room.phase==='playing'?'':'none';
-    if(isMaster)syncControls();
+    if(isMaster){renderTokens();syncControls();}
     updateDirtyUi();
   }
 
