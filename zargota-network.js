@@ -537,9 +537,21 @@
     var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID);
     return firebase.get(target).then(function(snapshot){
       var campaign=snapshot.exists()?snapshot.val():null;
-      if(campaign&&campaign.masterUid&&campaign.masterUid!==user.uid)return campaign;
       var updates={masterUid:user.uid,updatedAt:now()},chars=Array.isArray(w.characters)?w.characters:[];
-      chars.forEach(function(character){var key=campaignKeyFor(character);if(key&&!(campaign&&campaign.heroes&&campaign.heroes[key]))updates['heroes/'+key]=campaignHeroPayload(character,'');});
+      chars.forEach(function(character){
+        var key=campaignKeyFor(character);
+        if(key) {
+           var localProf = campaignProfileSnapshot(character);
+           if (campaign && campaign.heroes && campaign.heroes[key]) {
+             var remoteProf = campaign.heroes[key].profile;
+             if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
+               updates['heroes/'+key+'/profile'] = localProf;
+             }
+           } else {
+             updates['heroes/'+key]=campaignHeroPayload(character,'');
+           }
+        }
+      });
       return firebase.update(target,updates).then(function(){watchCampaign();return true;});
     }).catch(function(){return null;});
   }
@@ -913,27 +925,25 @@
 
     syncCampaignHeroes: function(localCharacters) {
       return ensureReady().then(function(user) {
-        var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID);
+        var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes');
         return firebase.get(target).then(function(snapshot){
-          var campaign=snapshot.exists()?snapshot.val():null;
-          if(campaign && campaign.masterUid === user.uid) {
-            var updates={};
-            localCharacters.forEach(function(character){
-              var key=campaignKeyFor(character);
-              if(key) {
-                 var localProf = campaignProfileSnapshot(character);
-                 if (campaign.heroes && campaign.heroes[key]) {
-                   var remoteProf = campaign.heroes[key].profile;
-                   if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
-                     updates['heroes/'+key+'/profile'] = localProf;
-                   }
-                 } else {
-                   updates['heroes/'+key] = campaignHeroPayload(character, '');
+          var heroes=snapshot.exists()?snapshot.val():{};
+          var updates={};
+          localCharacters.forEach(function(character){
+            var key=campaignKeyFor(character);
+            if(key) {
+               var localProf = campaignProfileSnapshot(character);
+               if (heroes && heroes[key]) {
+                 var remoteProf = heroes[key].profile;
+                 if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
+                   updates[key+'/profile'] = localProf;
                  }
-              }
-            });
-            if(Object.keys(updates).length > 0) return firebase.update(target,updates);
-          }
+               } else {
+                 updates[key] = campaignHeroPayload(character, '');
+               }
+            }
+          });
+          if(Object.keys(updates).length > 0) return firebase.update(target,updates);
         });
       }).catch(function(){});
     },
