@@ -30067,6 +30067,7 @@ function saveChars(options) {
       var member=snap&&snap.session&&snap.room&&snap.room.members&&snap.room.members[snap.session.uid];
       var character=member&&characters.find(function(c){return String(c.id)===String(member.characterId);});
       if(character&&window.ZargotaRooms.syncCharacter)window.ZargotaRooms.syncCharacter(character);
+      if(window.ZargotaRooms&&window.ZargotaRooms.syncCampaignHeroes)window.ZargotaRooms.syncCampaignHeroes(characters);
     } catch(e) {}
   },700);}
 }
@@ -30081,8 +30082,29 @@ function zgMergeCampaignState(snapshot) {
       if(local){local.campaignKey=key;local.campaignLinked=true;if(!local.id)local.id='campaign-'+key;var runtime=remote.runtime||{};Object.keys(runtime).forEach(function(field){if(field!=='updatedAt')local[field]=runtime[field];});characters.push(local);changed=true;}
     }else if(local){
       if(!local.campaignLinked){local.campaignLinked=true;changed=true;}
-      if(snapshot.session&&snapshot.session.role==='master'&&remote.profile){window._zgCampaignProfileSig=window._zgCampaignProfileSig||{};var profileSig=JSON.stringify(remote.profile);if(window._zgCampaignProfileSig[key]!==profileSig){window._zgCampaignProfileSig[key]=profileSig;var keepId=local.id;Object.keys(remote.profile).forEach(function(field){if(field!=='id'&&field!=='campaignKey')local[field]=remote.profile[field];});local.id=keepId;local.campaignKey=key;changed=true;}}
-      if(snapshot.session&&(snapshot.session.role==='master'||remote.ownerUid===snapshot.session.uid)&&remote.runtime){window._zgCampaignOwnedRuntimeSig=window._zgCampaignOwnedRuntimeSig||{};var ownedSig=JSON.stringify(remote.runtime);if(window._zgCampaignOwnedRuntimeSig[key]!==ownedSig){window._zgCampaignOwnedRuntimeSig[key]=ownedSig;Object.keys(remote.runtime).forEach(function(field){if(field!=='updatedAt')local[field]=remote.runtime[field];});changed=true;}}
+      if(remote.profile) {
+        window._zgCampaignProfileSig=window._zgCampaignProfileSig||{};
+        var profileSig=JSON.stringify(remote.profile);
+        if(window._zgCampaignProfileSig[key]!==profileSig){
+          window._zgCampaignProfileSig[key]=profileSig;
+          if(snapshot.session&&snapshot.session.role==='master'){
+            var keepId=local.id;
+            Object.keys(remote.profile).forEach(function(field){if(field!=='id'&&field!=='campaignKey')local[field]=remote.profile[field];});
+            local.id=keepId;local.campaignKey=key;changed=true;
+          }
+        }
+      }
+      if(remote.runtime) {
+        window._zgCampaignOwnedRuntimeSig=window._zgCampaignOwnedRuntimeSig||{};
+        var ownedSig=JSON.stringify(remote.runtime);
+        if(window._zgCampaignOwnedRuntimeSig[key]!==ownedSig){
+          window._zgCampaignOwnedRuntimeSig[key]=ownedSig;
+          if(snapshot.session&&(snapshot.session.role==='master'||remote.ownerUid===snapshot.session.uid)){
+            Object.keys(remote.runtime).forEach(function(field){if(field!=='updatedAt')local[field]=remote.runtime[field];});
+            changed=true;
+          }
+        }
+      }
     }
   });
   var session=snapshot.session,member=session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[session.uid],roomCharacter=member&&member.character;

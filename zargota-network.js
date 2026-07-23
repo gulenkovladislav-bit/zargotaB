@@ -911,6 +911,33 @@
       return ensureReady().then(function(user){return writeCampaignCharacter(character,user,false);}).catch(function(){return null;});
     },
 
+    syncCampaignHeroes: function(localCharacters) {
+      return ensureReady().then(function(user) {
+        var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID);
+        return firebase.get(target).then(function(snapshot){
+          var campaign=snapshot.exists()?snapshot.val():null;
+          if(campaign && campaign.masterUid === user.uid) {
+            var updates={};
+            localCharacters.forEach(function(character){
+              var key=campaignKeyFor(character);
+              if(key) {
+                 var localProf = campaignProfileSnapshot(character);
+                 if (campaign.heroes && campaign.heroes[key]) {
+                   var remoteProf = campaign.heroes[key].profile;
+                   if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
+                     updates['heroes/'+key+'/profile'] = localProf;
+                   }
+                 } else {
+                   updates['heroes/'+key] = campaignHeroPayload(character, '');
+                 }
+              }
+            });
+            if(Object.keys(updates).length > 0) return firebase.update(target,updates);
+          }
+        });
+      }).catch(function(){});
+    },
+
     attachGameMaster: function () {
       return ensureReady().then(function (user) {
         var session = readSession();
