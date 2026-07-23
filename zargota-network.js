@@ -928,22 +928,31 @@
         var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes');
         return firebase.get(target).then(function(snapshot){
           var heroes=snapshot.exists()?snapshot.val():{};
-          var updates={};
+          var promises = [];
           localCharacters.forEach(function(character){
             var key=campaignKeyFor(character);
             if(key) {
                var localProf = campaignProfileSnapshot(character);
+               var localRuntime = campaignRuntimeSnapshot(character);
                if (heroes && heroes[key]) {
+                 var heroUpdates = {};
                  var remoteProf = heroes[key].profile;
+                 var remoteRuntime = heroes[key].runtime;
                  if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
-                   updates[key+'/profile'] = localProf;
+                   heroUpdates['profile'] = localProf;
+                 }
+                 if (JSON.stringify(remoteRuntime) !== JSON.stringify(localRuntime)) {
+                   heroUpdates['runtime'] = localRuntime;
+                 }
+                 if (Object.keys(heroUpdates).length > 0) {
+                   promises.push(firebase.update(firebase.ref(db, 'campaigns/'+CAMPAIGN_ID+'/heroes/'+key), heroUpdates));
                  }
                } else {
-                 updates[key] = campaignHeroPayload(character, '');
+                 promises.push(firebase.set(firebase.ref(db, 'campaigns/'+CAMPAIGN_ID+'/heroes/'+key), campaignHeroPayload(character, '')));
                }
             }
           });
-          if(Object.keys(updates).length > 0) return firebase.update(target,updates);
+          return Promise.all(promises);
         });
       }).catch(function(){});
     },
