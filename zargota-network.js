@@ -1422,7 +1422,21 @@
       }).catch(function(error){if(error&&['player-only','room-not-found','request-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
-    finishApprovedAttackRoll: function (requestUid, requestId, accepted, eventId, errorText) {
+    requestApprovedDamageRoll: function (requestId) {
+      requestId=String(requestId||'').slice(0,160);
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='player')throw roomError('Выполнять броски могут только игроки.','player-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          var request=room.members&&room.members[user.uid]&&room.members[user.uid].actionRequest;
+          if(!request||request.id!==requestId||request.status!=='damage-requested'||request.actionKind!=='combat-attack')throw roomError('Ожидание урона не найдено.','request-missing');
+          var nextRequest=Object.assign({},request,{status:'damage-roll-requested',rollRequestedAt:now(),rollError:null});
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),{actionRequest:nextRequest}).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['player-only','room-not-found','request-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
+    finishApprovedAttackRoll: function (requestUid, requestId, accepted, eventId, errorText, isHit, isCritical) {
       requestUid=String(requestUid||'').slice(0,128);requestId=String(requestId||'').slice(0,160);
       return ensureReady().then(function(user){
         var session=readSession();if(!session||session.role!=='master')throw roomError('Завершить бросок может только мастер.','master-only');
@@ -1430,7 +1444,9 @@
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
           var request=room.members&&room.members[requestUid]&&room.members[requestUid].actionRequest;
           if(!request||request.id!==requestId)return api.getSnapshot();
-          var update={status:accepted?'resolved':'approved',resolvedAt:accepted?now():null,resultEventId:accepted?String(eventId||''):null,rollError:accepted?null:String(errorText||'Не удалось выполнить атаку').slice(0,180)};
+          var newStatus=accepted?(isHit?'damage-requested':'resolved'):'approved';
+          var update={status:newStatus,resolvedAt:accepted?now():null,resultEventId:accepted?String(eventId||''):null,rollError:accepted?null:String(errorText||'Не удалось выполнить атаку').slice(0,180)};
+          if(accepted&&isHit)update['details/critical']=!!isCritical;
           return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),update).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['master-only','room-not-found'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
@@ -1726,21 +1742,11 @@
           if(forcedDisadvantage)mode='disadvantage';
           var first=rollDie(20),second=mode==='normal'?null:rollDie(20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
           var attackTotal=natural+statBonus+masteryBonus,targetAc=Math.max(0,Number(target.ac)||10),critical=natural===20,failed=natural===1,hit=!failed&&(critical||attackTotal>=targetAc);
-          var damageResult=hit?rollFormula(weapon.damageFormula||'1d4',critical):{total:0,rolls:[],formula:String(weapon.damageFormula||'1d4')};
-          var rawDamage=hit?Math.max(0,damageResult.total+statBonus):0,damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
-          if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
-          var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),tempBefore=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(tempBefore,damage),hpDamage=Math.max(0,damage-absorbed),after=Math.max(0,before-hpDamage),tempAfter=Math.max(0,tempBefore-absorbed),reachedZero=before>0&&after===0;
-          economy.long=0;if(restrictions.slowed)economy.short=0;attacker.economy=economy;target.hp=after;target.tempHp=tempAfter;if(reachedZero)target.zeroHp={pending:true,reachedAt:now(),source:attacker.key};order[attackerIndex]=attacker;order[targetIndex]=target;
+          economy.long=0;if(restrictions.slowed)economy.short=0;attacker.economy=economy;order[attackerIndex]=attacker;
           var stamp=now(),updates={},statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;
-          if(target.uid){updates['members/'+target.uid+'/character/hpCur']=after;updates['members/'+target.uid+'/character/tempHp']=tempAfter;}
-          if(target.tokenId){
-            (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=after;updates['scene/tokens/'+index+'/tempHp']=tempAfter;}});
-            Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=tempAfter;}});});
-          }
           var rollText=second==null?String(natural):(first+' / '+second+' → '+natural),resultText=failed?'автопромах':(critical?'КРИТ':(hit?'попадание':'промах'));
-          var damageNote=immune?' · иммунитет':(resisted&&!vulnerable?' · сопротивление':(vulnerable&&!resisted?' · уязвимость':(resisted&&vulnerable?' · сопротивление и уязвимость нейтрализованы':'')));
-          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+damageNote+').'+(absorbed?' Временные HP поглощают '+absorbed+(hpDamage?' — в здоровье проходит '+hpDamage+'.':'.'):''):'')+(reachedZero?' Цель достигает 0 HP — исход определяет мастер.':''),attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,targetAc:targetAc,hit:hit,critical:critical,damage:damage,damageRolls:damageResult.rolls||[],damageFormula:damageResult.formula||String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:tempAfter,rawDamage:rawDamage,damageType:damageType,distanceCells:distance,rangeCells:rangeCells,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
+          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Ожидание урона.':''),attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,targetAc:targetAc,hit:hit,critical:critical,damageFormula:String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageType:String(weapon.damageType||''),distanceCells:distance,rangeCells:rangeCells,targetKey:target.key,weapon:weapon.name||'Оружие',ts:stamp,revealAt:stamp+3200};
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
@@ -1748,6 +1754,60 @@
         if(error&&['room-required','room-not-found','combat-missing','combat-not-turn','combat-target-invalid','combat-target-range','combat-zero-hp','combat-status-blocked','combat-action-spent'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
+    },
+
+    resolveCombatDamage: function (targetKey, options, participantKey) {
+      options=options||{};targetKey=String(targetKey||'').slice(0,160);participantKey=String(participantKey||'').slice(0,160);
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session)throw roomError('Сначала войдите в комнату.','room-required');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
+          if(!combat||!combat.active||!order.length)throw roomError('Сейчас нет активного боя.','combat-missing');
+          var attackerIndex=participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey;}):-1;
+          if(attackerIndex<0)throw roomError('Участник не найден.','combat-participant-missing');
+          var targetIndex=order.findIndex(function(entry){return entry&&entry.key===targetKey;});
+          if(targetIndex<0||targetIndex===attackerIndex)throw roomError('Выберите другую цель.','combat-target-invalid');
+          var attacker=combatEntryWithRoomStatuses(room,Object.assign({},order[attackerIndex])),target=combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex]));
+          var profiles=Array.isArray(attacker.weaponProfiles)?attacker.weaponProfiles:[],weaponId=String(options.weaponId||''),weapon=profiles.filter(function(item){return item&&String(item.id)===weaponId;})[0]||profiles[0]||{id:'improvised',name:'Импровизированная атака',damageFormula:'1d4',damageType:'Дробящий'};
+          var statKey=['str','dex','int','cha','per','con'].indexOf(options.statKey)>=0?options.statKey:(weapon.stat||'str');
+          var statBonus=combatStat(attacker,statKey);
+          var critical=!!options.critical;
+          var damageResult=rollFormula(weapon.damageFormula||'1d4',critical);
+          var rawDamage=Math.max(0,damageResult.total+statBonus),damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
+          if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
+          var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),tempBefore=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(tempBefore,damage),hpDamage=Math.max(0,damage-absorbed),after=Math.max(0,before-hpDamage),tempAfter=Math.max(0,tempBefore-absorbed),reachedZero=before>0&&after===0;
+          target.hp=after;target.tempHp=tempAfter;if(reachedZero)target.zeroHp={pending:true,reachedAt:now(),source:attacker.key};order[targetIndex]=target;
+          var stamp=now(),updates={};
+          updates['combat/order']=order;updates['combat/updatedAt']=stamp;
+          if(target.uid){updates['members/'+target.uid+'/character/hpCur']=after;updates['members/'+target.uid+'/character/tempHp']=tempAfter;}
+          if(target.tokenId){
+            (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=after;updates['scene/tokens/'+index+'/tempHp']=tempAfter;}});
+            Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=tempAfter;}});});
+          }
+          var damageNote=immune?' · иммунитет':(resisted&&!vulnerable?' · сопротивление':(vulnerable&&!resisted?' · уязвимость':(resisted&&vulnerable?' · сопротивление и уязвимость нейтрализованы':'')));
+          updates.combatEvent={id:'combat-damage-'+stamp,kind:'combat-damage',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Наносит урон оружием «'+(weapon.name||'оружие')+'» цели '+(target.name||'цель')+'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+damageNote+').'+(absorbed?' Временные HP поглощают '+absorbed+(hpDamage?' — в здоровье проходит '+hpDamage+'.':'.'):'')+(reachedZero?' Цель достигает 0 HP — исход определяет мастер.':''),damage:damage,damageRolls:damageResult.rolls||[],damageFormula:damageResult.formula||String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:tempAfter,rawDamage:rawDamage,damageType:damageType,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
+          updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+        });
+      }).catch(function(error){
+        if(error&&['room-required','room-not-found','combat-missing','combat-participant-missing','combat-target-invalid'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    finishApprovedDamageRoll: function (requestUid, requestId, accepted, eventId, errorText) {
+      requestUid=String(requestUid||'').slice(0,128);requestId=String(requestId||'').slice(0,160);
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Завершить бросок может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var request=room.members&&room.members[requestUid]&&room.members[requestUid].actionRequest;
+          if(!request||request.id!==requestId)return api.getSnapshot();
+          var update={status:accepted?'resolved':'damage-requested',resolvedAt:accepted?now():null,resultEventId:accepted?String(eventId||''):null,rollError:accepted?null:String(errorText||'Не удалось нанести урон').slice(0,180)};
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),update).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['master-only','room-not-found'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
     resolveCombatSavingThrow: function (targetKey, options) {

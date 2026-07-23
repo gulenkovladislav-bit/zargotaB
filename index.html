@@ -12885,6 +12885,7 @@ document.addEventListener('DOMContentLoaded', function(){
     renderDrawer();
     renderCombat();
     processApprovedAttackRolls();
+    processApprovedDamageRolls();
     processOwnApprovedAttackResult();
     animateCombatVisual();
     requestAnimationFrame(renderRollAnimations);
@@ -12981,12 +12982,19 @@ document.addEventListener('DOMContentLoaded', function(){
     if(notice){var masterTurn=!!(active&&session&&session.role==='master'),masterNpcTurn=!!(masterTurn&&turn&&!turn.uid),ownTurn=!!(active&&turn&&own&&turn.uid===own.uid),canAdvance=masterTurn||ownTurn;notice.classList.toggle('show',canAdvance);notice.innerHTML=canAdvance?'<span>✦</span><b>'+(masterNpcTurn?'Ты управляешь: '+esc(turn&&turn.name||'NPC'):masterTurn?'Ход: '+esc(turn&&turn.name||'—'):'Твой ход')+'</b><small>Раунд '+Number(combat.round||1)+'</small><button type="button" onclick="zgCombatAdvance()">'+(masterTurn?'Следующий':'Завершить ход')+'</button>':'';}
     var economyHost=el('zg-combat-economy');
     var rollPrompt=el('zg-combat-roll-prompt'),ownRequest=own&&own.actionRequest,attackRequest=ownRequest&&ownRequest.actionKind==='combat-attack'&&ownRequest.details?ownRequest:null,approvedAttack=attackRequest&&attackRequest.status==='approved',pendingAttack=attackRequest&&attackRequest.status==='roll-requested';
+    var damageRequested=attackRequest&&attackRequest.status==='damage-requested',pendingDamage=attackRequest&&attackRequest.status==='damage-roll-requested';
     if(rollPrompt){
-      var showAttackRoll=!!(active&&session&&session.role==='player'&&(approvedAttack||pendingAttack)),attackMode=attackRequest&&attackRequest.details.mode||'normal',doubleDice=attackMode!=='normal';
-      rollPrompt.classList.toggle('open',showAttackRoll);rollPrompt.classList.toggle('waiting',!!pendingAttack);
+      var showAttackRoll=!!(active&&session&&session.role==='player'&&(approvedAttack||pendingAttack||damageRequested||pendingDamage));
+      var isDamage=damageRequested||pendingDamage;
+      var attackMode=attackRequest&&attackRequest.details.mode||'normal',doubleDice=!isDamage&&(attackMode!=='normal'),isPending=pendingAttack||pendingDamage;
+      rollPrompt.classList.toggle('open',showAttackRoll);rollPrompt.classList.toggle('waiting',!!isPending);
       var attackError=attackRequest&&attackRequest.rollError?String(attackRequest.rollError):'';
-      var attackHint=attackError||(attackMode==='advantage'?'Преимущество · останется лучший':attackMode==='disadvantage'?'Помеха · останется худший':'Обычный бросок');
-      rollPrompt.innerHTML=showAttackRoll?'<div class="zg-approved-attack"><small>'+(pendingAttack?'МАСТЕР ПРИМЕНЯЕТ БРОСОК':'МАСТЕР РАЗРЕШИЛ АТАКУ')+'</small><button type="button" class="zg-approved-attack-dice '+esc(attackMode)+(pendingAttack?' rolling':'')+'" id="zg-approved-attack-dice" '+(pendingAttack?'disabled':'onpointerdown="zgCombatAttackDragStart(event)"')+' aria-label="Перетащить d20 для броска"><span class="zg-approved-die first"><img src="images/vtt-dice/d20.png" alt=""><b>20</b></span>'+(doubleDice?'<span class="zg-approved-die second"><img src="images/vtt-dice/d20.png" alt=""><b>20</b></span>':'')+'</button><b>'+(pendingAttack?'Определяем результат…':'Перетащите '+(doubleDice?'кубики':'кубик')+' на поле')+'</b><em class="'+(attackError?'error':'')+'">'+esc(attackHint)+'</em></div>':'';
+      var attackHint=attackError||(isDamage?'Бросок урона':(attackMode==='advantage'?'Преимущество · останется лучший':attackMode==='disadvantage'?'Помеха · останется худший':'Обычный бросок'));
+      var titleText=isDamage?(pendingDamage?'МАСТЕР ПРИМЕНЯЕТ УРОН':'ПОПАДАНИЕ ПОДТВЕРЖДЕНО'):(pendingAttack?'МАСТЕР ПРИМЕНЯЕТ БРОСОК':'МАСТЕР РАЗРЕШИЛ АТАКУ');
+      var dragHandler=isDamage?'zgCombatDamageDragStart(event)':'zgCombatAttackDragStart(event)';
+      var diceHtml=isDamage?'<span class="zg-approved-die first" style="border-radius:10px;clip-path:none;background:#2b190f;border-color:#b94a28;color:#ff9e81;display:flex;align-items:center;justify-content:center"><b style="position:static;color:#ffd0bc!important;font-size:24px!important;transform:none!important;margin-top:0!important">У</b></span>':'<span class="zg-approved-die first"><img src="images/vtt-dice/d20.png" alt=""><b>20</b></span>'+(doubleDice?'<span class="zg-approved-die second"><img src="images/vtt-dice/d20.png" alt=""><b>20</b></span>':'');
+      var subText=isPending?'Определяем результат…':'Перетащите '+(doubleDice?'кубики':'кубик')+' на поле';
+      rollPrompt.innerHTML=showAttackRoll?'<div class="zg-approved-attack"><small>'+titleText+'</small><button type="button" class="zg-approved-attack-dice '+(!isDamage?esc(attackMode):'')+(isPending?' rolling':'')+'" id="zg-approved-attack-dice" '+(isPending?'disabled':'onpointerdown="'+dragHandler+'"')+' aria-label="Перетащить кубик для броска">'+diceHtml+'</button><b>'+subText+'</b><em class="'+(attackError?'error':'')+'">'+esc(attackHint)+'</em></div>':'';
     }
     if(economyHost){
       var controlled=null,canAct=false;
@@ -13118,7 +13126,14 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCombatAttackDragStart=function(ev){
     if(approvedAttackBusy||approvedAttackDrag||!ev||ev.button!==0)return;
     var member=ownMember(),request=member&&member.actionRequest;if(!request||request.status!=='approved'||request.actionKind!=='combat-attack')return;
-    ev.preventDefault();var node=ev.currentTarget;approvedAttackDrag={id:ev.pointerId,x:ev.clientX,y:ev.clientY,dx:0,dy:0,node:node};
+    ev.preventDefault();var node=ev.currentTarget;approvedAttackDrag={id:ev.pointerId,x:ev.clientX,y:ev.clientY,dx:0,dy:0,node:node,isDamage:false};
+    node.setPointerCapture(ev.pointerId);node.classList.add('dragging');
+    try{if(w.ZargotaSound&&w.ZargotaSound.dicePick)w.ZargotaSound.dicePick();}catch(ignore){}
+  };
+  w.zgCombatDamageDragStart=function(ev){
+    if(approvedAttackBusy||approvedAttackDrag||!ev||ev.button!==0)return;
+    var member=ownMember(),request=member&&member.actionRequest;if(!request||request.status!=='damage-requested'||request.actionKind!=='combat-attack')return;
+    ev.preventDefault();var node=ev.currentTarget;approvedAttackDrag={id:ev.pointerId,x:ev.clientX,y:ev.clientY,dx:0,dy:0,node:node,isDamage:true};
     node.setPointerCapture(ev.pointerId);node.classList.add('dragging');
     try{if(w.ZargotaSound&&w.ZargotaSound.dicePick)w.ZargotaSound.dicePick();}catch(ignore){}
   };
@@ -13132,7 +13147,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!approvedAttackDrag||ev.pointerId!==approvedAttackDrag.id)return;
     var drag=approvedAttackDrag,thrown=Math.hypot(drag.dx,drag.dy)>=36;approvedAttackDrag=null;
     drag.node.classList.remove('dragging');drag.node.style.transform='';drag.node.style.removeProperty('--attack-drag-rotate');
-    if(thrown)w.zgCombatApprovedAttackRoll();else drag.node.classList.add('returning');
+    if(thrown){if(drag.isDamage)w.zgCombatApprovedDamageRoll();else w.zgCombatApprovedAttackRoll();}else drag.node.classList.add('returning');
   }
   document.addEventListener('pointermove',moveApprovedAttackDie);document.addEventListener('pointerup',endApprovedAttackDie);document.addEventListener('pointercancel',endApprovedAttackDie);
   w.zgCombatApprovedAttackRoll=function(){
@@ -13159,10 +13174,30 @@ document.addEventListener('DOMContentLoaded', function(){
       masterAttackRolls[request.id]=true;
       w.ZargotaRooms.resolveCombatAttack(request.details.targetKey,request.details,attacker.key).then(function(snapshot){
         var event=snapshot&&snapshot.room&&snapshot.room.combatEvent;
-        return w.ZargotaRooms.finishApprovedAttackRoll(uid,request.id,true,event&&event.id||'');
+        var isHit=event&&event.hit;
+        return w.ZargotaRooms.finishApprovedAttackRoll(uid,request.id,true,event&&event.id||'',isHit);
       }).catch(function(error){
         delete masterAttackRolls[request.id];
         return w.ZargotaRooms.finishApprovedAttackRoll(uid,request.id,false,'',error&&error.message||'Атака не выполнена');
+      });
+    });
+  }
+  var masterDamageRolls={};
+  function processApprovedDamageRolls(){
+    var session=state&&state.session,room=state&&state.room,combat=room&&room.combat;
+    if(!session||session.role!=='master'||!combat||!combat.active||!w.ZargotaRooms)return;
+    Object.keys(room.members||{}).forEach(function(uid){
+      var request=room.members[uid]&&room.members[uid].actionRequest;
+      if(!request||request.status!=='damage-roll-requested'||request.actionKind!=='combat-attack'||!request.details||masterDamageRolls[request.id])return;
+      var attacker=(combat.order||[]).find(function(entry){return entry&&entry.uid===uid;});
+      if(!attacker)return;
+      masterDamageRolls[request.id]=true;
+      w.ZargotaRooms.resolveCombatDamage(request.details.targetKey,request.details,attacker.key).then(function(snapshot){
+        var event=snapshot&&snapshot.room&&snapshot.room.combatEvent;
+        return w.ZargotaRooms.finishApprovedDamageRoll(uid,request.id,true,event&&event.id||'');
+      }).catch(function(error){
+        delete masterDamageRolls[request.id];
+        return w.ZargotaRooms.finishApprovedDamageRoll(uid,request.id,false,'',error&&error.message||'Урон не нанесен');
       });
     });
   }
