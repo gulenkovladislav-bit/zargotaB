@@ -352,7 +352,7 @@
       id: String(character.id),
       campaignKey: campaignKeyFor(character),
       name: character.name || 'Без имени',
-      portrait: character.portrait || '',
+      portrait: /^data:/i.test(String(character.portrait || '')) ? '' : (character.portrait || ''),
       race: character.race || '',
       klasse: character.klasse || '',
       level: Number(character.level || 1),
@@ -584,7 +584,7 @@
   }
   function prepareSceneMedia(scene) {
     scene=scene||{};var copy=Object.assign({},scene),tokens=Array.isArray(scene.tokens)?scene.tokens:[];
-    var layerChars=(Array.isArray(scene.layers)?scene.layers:[]).reduce(function(sum,layer){return sum+String(layer&&layer.image||'').length;},0);
+    var layerChars=(Array.isArray(scene.layers)?scene.layers:[]).reduce(function(sum,layer){return sum+(/^data:image\//i.test(String(layer&&layer.image||''))?String(layer.image).length:0);},0);
     var imageCount=tokens.filter(function(token){return /^data:image\//i.test(String(token&&token.image||''));}).length;
     var tokenBudget=Math.max(10000,Math.min(28000,Math.floor(Math.max(600000,3200000-layerChars)/Math.max(1,imageCount))));
     return Promise.all(tokens.map(function(token){var next=Object.assign({},token);return compactSceneTokenImage(next.image,tokenBudget).then(function(image){next.image=image;return next;});})).then(function(prepared){copy.tokens=prepared;return copy;});
@@ -662,8 +662,8 @@
     Object.keys(view.statusVisibility||{}).slice(0,40).forEach(function(key){
       if(/^[a-z0-9_-]{1,40}$/.test(key))statusVisibility[key]=view.statusVisibility[key]!==false;
     });
-    var mediaSize = layers.reduce(function (sum, layer) { return sum + layer.image.length; }, 0) +
-      tokens.reduce(function (sum, token) { return sum + token.image.length; }, 0);
+    var mediaSize = layers.reduce(function (sum, layer) { return sum + (/^data:image\//i.test(String(layer.image)) ? layer.image.length : 0); }, 0) +
+      tokens.reduce(function (sum, token) { return sum + (/^data:image\//i.test(String(token.image)) ? token.image.length : 0); }, 0);
     if (mediaSize > 3400000) throw roomError('Изображения сцены слишком большие. Удалите слой или выберите более лёгкие изображения.', 'scene-too-large');
     return {
       layers: layers,
@@ -1416,7 +1416,8 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var request=room.members&&room.members[user.uid]&&room.members[user.uid].actionRequest;
           if(!request||request.id!==requestId||request.status!=='approved'||request.actionKind!=='combat-attack')throw roomError('Разрешённая атака не найдена.','request-missing');
-          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid+'/actionRequest'),{status:'roll-requested',rollRequestedAt:now()}).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+          var nextRequest=Object.assign({},request,{status:'roll-requested',rollRequestedAt:now(),rollError:null});
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),{actionRequest:nextRequest}).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['player-only','room-not-found','request-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
