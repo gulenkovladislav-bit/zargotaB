@@ -2275,9 +2275,9 @@
         session.uid = user.uid;
         saveSession(session);
         watchRoom(session.code);
-        watchCampaign();
         setPresence(session);
       }
+      watchCampaign();
       emit();
       return user;
     });
