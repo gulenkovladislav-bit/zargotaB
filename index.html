@@ -11014,6 +11014,7 @@ document.addEventListener('DOMContentLoaded', function(){
       opacity: clamp(token.opacity == null ? 1 : token.opacity, 0.15, 1),
       x:clamp(token.x == null ? 50 : token.x,0,100), y:clamp(token.y == null ? 50 : token.y,0,100),
       size:clamp(token.size || 64,24,240), visible:token.visible !== false, z:clamp(token.z || index + 1,0,99),
+      snap: token.snap !== false,
       light: token.light && typeof token.light === 'object' ? {
         enabled: !!token.light.enabled, type: String(token.light.type || 'campfire'),
         radius: clamp(token.light.radius || 120, 20, 1000), color: String(token.light.color || '#e8922a'),
@@ -11830,7 +11831,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var dispRow=el('zg-token-disp-row'); if(dispRow) dispRow.hidden=token.type==='hero'||marker||isText||isLight;
     var hiddenRow=el('zg-token-hidden-row'); if(hiddenRow) hiddenRow.hidden=token.type==='hero'||isLight;
     var reveal=el('zg-token-reveal'); if(reveal) reveal.hidden=!(token.type!=='hero'&&token.hidden);
-    var imgRow=el('zg-token-image-row'); if(imgRow) imgRow.hidden=token.type==='hero'||marker||isText;
+    var imgRow=el('zg-token-image-row'); if(imgRow) imgRow.hidden=token.type==='hero'||marker||isText||isLight;
     var snapCb=el('zg-token-snap'); if(snapCb) snapCb.checked=token.snap!==false;
     var colorRow=el('zg-token-color-row'); if(colorRow) colorRow.hidden=!isText;
     var col=el('zg-token-color'); if(col&&isText) col.value=(token.color||'#f0d896');
@@ -11840,6 +11841,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if(isPortal) renderPortalTargets(token);
     if(token.type==='note'){ if(hiddenRow)hiddenRow.hidden=true; var rv=el('zg-token-reveal'); if(rv)rv.hidden=true; }
     var lightRow=el('zg-token-light-row'); if(lightRow) lightRow.hidden = token.type === 'hero' || isText;
+    if(op && op.parentNode && op.parentNode.parentNode) op.parentNode.parentNode.hidden = isLight;
+    if(rot && rot.parentNode && rot.parentNode.parentNode) rot.parentNode.parentNode.hidden = isLight;
     var hasLight = !!(token.light && token.light.enabled);
     var lightCb=el('zg-token-light'); if(lightCb) lightCb.checked = hasLight;
     var lightSet=el('zg-token-light-settings'); if(lightSet) lightSet.hidden = !hasLight;

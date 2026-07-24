@@ -681,7 +681,16 @@
         y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
         size: Math.max(24, Math.min(240, Number(token.size) || 64)),
         visible: token.visible !== false,
-        z: Math.max(0, Math.min(99, Number(token.z) || index + 1))
+        snap: token.snap !== false,
+        z: Math.max(0, Math.min(99, Number(token.z) || index + 1)),
+        light: token.light && typeof token.light === 'object' ? {
+          enabled: !!token.light.enabled,
+          type: String(token.light.type || 'campfire').slice(0, 20),
+          radius: Math.max(20, Math.min(1000, Number(token.light.radius) || 120)),
+          color: String(token.light.color || '#e8922a').slice(0, 20),
+          intensity: Math.max(0, Math.min(1, Number(token.light.intensity) || 0.7)),
+          flicker: !!token.light.flicker
+        } : null
       };
     });
     var regions = (Array.isArray(scene.regions) ? scene.regions : []).slice(0, 60).map(function(region,index){
