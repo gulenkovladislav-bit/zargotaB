@@ -9024,8 +9024,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-23.36';
+var ZG_APP_VERSION = '2026-07-24.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-24.1', notes: 'При входе в сессию локальный лист героя теперь защищён от старого снимка Firebase: сначала локальные данные записываются в комнату, и только затем включается двусторонняя синхронизация.' },
   { v: '2026-07-23.36', notes: 'Исправлена повторно отклонявшаяся атака игрока: запрос броска d20 теперь проходит Firebase тем же разрешённым способом, что и исходная заявка.' },
   { v: '2026-07-23.35', notes: 'Боевой результат теперь появляется только после завершения анимаций кубиков; движение игроков и существ начинается локально сразу, без ожидания ответа Firebase.' },
   { v: '2026-07-23.34', notes: 'Панель раунда и текущего хода перенесена в левый верхний угол игрового поля.' },
@@ -30074,9 +30075,16 @@ function saveChars(options) {
 
 function zgMergeCampaignState(snapshot) {
   if(!snapshot)return;
-  var changed=false,campaign=snapshot.campaign||{},heroes=campaign.heroes||{};
+  var changed=false,campaign=snapshot.campaign||{},heroes=campaign.heroes||{},session=snapshot.session;
+  // attachCharacter() ещё не закончил первичную загрузку локального листа.
+  // В этот короткий момент старый снимок комнаты/кампании не имеет права
+  // попадать обратно в локальный лист выбранного героя.
+  function entryUploadProtected(character){
+    return !!(character&&window.ZargotaRooms&&window.ZargotaRooms.isCharacterEntryUpload&&window.ZargotaRooms.isCharacterEntryUpload(character));
+  }
   Object.keys(heroes).forEach(function(key){
     var remote=heroes[key]||{},local=characters.find(function(c){return c&&c.campaignKey===key;});
+    if(entryUploadProtected(local))return;
     if(!local&&remote.profile){
       try{local=JSON.parse(JSON.stringify(remote.profile));}catch(e){local=null;}
       if(local){local.campaignKey=key;local.campaignLinked=true;if(!local.id)local.id='campaign-'+key;var runtime=remote.runtime||{};Object.keys(runtime).forEach(function(field){if(field!=='updatedAt')local[field]=runtime[field];});characters.push(local);changed=true;}
@@ -30107,10 +30115,10 @@ function zgMergeCampaignState(snapshot) {
       }
     }
   });
-  var session=snapshot.session,member=session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[session.uid],roomCharacter=member&&member.character;
+  var member=session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[session.uid],roomCharacter=member&&member.character;
   if(roomCharacter){
     var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
-    if(localCharacter){
+    if(localCharacter&&!entryUploadProtected(localCharacter)){
       var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:roomCharacter.inventoryItems,equipItems:roomCharacter.equipItems};
       var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
       if(window._zgCampaignRuntimeSig[sigKey]!==signature){

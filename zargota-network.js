@@ -30,6 +30,9 @@
   var initError = null;
   var createRoomPromise = null;
   var campaignMirrorSignatures = {};
+  // Пока игрок прикрепляет героя к комнате, локальный лист является единственным
+  // источником истины. Это защищает свежие правки от старого снимка комнаты.
+  var characterEntryUpload = null;
 
   try {
     var navigationEntry=w.performance&&w.performance.getEntriesByType&&w.performance.getEntriesByType('navigation')[0];
@@ -37,6 +40,21 @@
   } catch(e) {}
 
   function now() { return Date.now(); }
+
+  function beginCharacterEntryUpload(session, user, character) {
+    characterEntryUpload = {
+      code: String(session && session.code || ''), uid: String(user && user.uid || ''),
+      characterId: String(character && character.id || ''), campaignKey: campaignKeyFor(character)
+    };
+  }
+
+  function isCharacterEntryUpload(session, character) {
+    if (!characterEntryUpload || !session) return false;
+    if (String(characterEntryUpload.code) !== String(session.code || '') || String(characterEntryUpload.uid) !== String(session.uid || '')) return false;
+    if (!character) return characterEntryUpload;
+    var key=campaignKeyFor(character);
+    return (key && String(key)===String(characterEntryUpload.campaignKey||'')) || String(character.id||'')===String(characterEntryUpload.characterId||'') ? characterEntryUpload : false;
+  }
 
   function pointInPolygon(x, y, points) {
     var inside = false;
@@ -885,6 +903,7 @@
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session) return api.getSnapshot();
+        beginCharacterEntryUpload(session,user,character);
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var member = room.members && room.members[user.uid];
@@ -896,10 +915,11 @@
               name:character.name||member.name,lastSeen:firebase.serverTimestamp(),online:true
             });
           }).then(function () {
-            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+            return refreshRoom(session.code).then(function () { characterEntryUpload=null; return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
+        characterEntryUpload=null;
         if (error && ['room-not-found','not-approved','hero-taken'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
@@ -2248,6 +2268,7 @@
           });
         }
         return operation.then(function () {
+          characterEntryUpload=null;
           saveSession(null);
           stopWatchingRoom();
           emit();
@@ -2271,6 +2292,10 @@
         pending: pendingOf(currentRoom),
         error: initError ? initError.message : ''
       };
+    },
+
+    isCharacterEntryUpload: function (character) {
+      return isCharacterEntryUpload(readSession(), character);
     },
 
     subscribe: function (listener) {
