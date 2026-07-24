@@ -11013,7 +11013,12 @@ document.addEventListener('DOMContentLoaded', function(){
       statusEffects: Array.isArray(token.statusEffects) ? token.statusEffects.slice(0,40) : [],
       opacity: clamp(token.opacity == null ? 1 : token.opacity, 0.15, 1),
       x:clamp(token.x == null ? 50 : token.x,0,100), y:clamp(token.y == null ? 50 : token.y,0,100),
-      size:clamp(token.size || 64,24,240), visible:token.visible !== false, z:clamp(token.z || index + 1,0,99)
+      size:clamp(token.size || 64,24,240), visible:token.visible !== false, z:clamp(token.z || index + 1,0,99),
+      light: token.light && typeof token.light === 'object' ? {
+        enabled: !!token.light.enabled, type: String(token.light.type || 'campfire'),
+        radius: clamp(token.light.radius || 120, 20, 1000), color: String(token.light.color || '#e8922a'),
+        intensity: clamp(token.light.intensity || 0.7, 0, 1), flicker: !!token.light.flicker
+      } : null
     };
   }
   function isMarkerType(t){ return t === 'spawn' || t === 'portal'; }
@@ -11710,6 +11715,16 @@ document.addEventListener('DOMContentLoaded', function(){
         if (portrait) { vis = document.createElement('img'); vis.src = portrait; vis.alt = ''; }
         else { vis = document.createElement('span'); vis.className = 'zg-vtt-token-ph'; vis.textContent = token.type === 'spawn' ? '⚑' : token.type === 'portal' ? '➜' : token.type === 'note' ? '✦' : token.type === 'hero' ? '♟' : '✦'; }
         if (rot) vis.style.transform = 'rotate(' + rot + 'deg)';
+        if (token.light && token.light.enabled) {
+          var lightNode = document.createElement('div');
+          lightNode.className = 'zg-vtt-token-light' + (token.light.flicker ? ' flicker' : '');
+          lightNode.style.width = (token.light.radius * 2) + 'px';
+          lightNode.style.height = (token.light.radius * 2) + 'px';
+          lightNode.style.setProperty('--light-col', token.light.color || '#ffffff');
+          lightNode.style.setProperty('--light-int', String(token.light.intensity || 0.5));
+          lightNode.style.background = 'radial-gradient(circle, color-mix(in srgb, var(--light-col) calc(var(--light-int) * 100%), transparent) 0%, transparent 70%)';
+          node.appendChild(lightNode);
+        }
         node.appendChild(vis);
         var label = document.createElement('span'); label.className = 'zg-vtt-token-name'; label.textContent = tokenName(token); node.appendChild(label);
         // Наложенные мастером статусы видны и в бою, и в свободном режиме.
@@ -11835,6 +11850,13 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     if(kind==='token'){var tokenFile=el('zg-token-file');if(tokenFile)tokenFile.click();return;}
     if(kind==='object'){var objectFile=el('zg-object-file');if(objectFile)objectFile.click();return;}
+    if(kind==='campfire'||kind==='lantern'){
+      var isCampfire=kind==='campfire';
+      var token=copyToken({id:makeId('obj'),type:'object',name:isCampfire?'Костёр':'Фонарь',x:50,y:50,size:isCampfire?80:48,z:5,
+        light: { enabled: true, type: kind, radius: isCampfire?220:120, color: isCampfire?'#f27d0c':'#f5c276', intensity: isCampfire?0.8:0.5, flicker: true }
+      },draft.tokens.length);
+      draft.tokens.push(token);selectedTokenId=token.id;markDirty(token.name+' добавлен');syncControls();return;
+    }
     if(kind==='text'){w.zgSceneAddText();return;}
     if(kind==='spawn'||kind==='portal'){w.zgSceneAddMarker(kind);return;}
     if(kind==='note')w.zgSceneAddNote();
@@ -11891,6 +11913,16 @@ document.addEventListener('DOMContentLoaded', function(){
     var portalGo=el('zg-token-portal-go'); if(portalGo) portalGo.hidden=!isPortal;
     if(isPortal) renderPortalTargets(token);
     if(token.type==='note'){ if(hiddenRow)hiddenRow.hidden=true; var rv=el('zg-token-reveal'); if(rv)rv.hidden=true; }
+    var lightRow=el('zg-token-light-row'); if(lightRow) lightRow.hidden = token.type === 'hero' || isText;
+    var hasLight = !!(token.light && token.light.enabled);
+    var lightCb=el('zg-token-light'); if(lightCb) lightCb.checked = hasLight;
+    var lightSet=el('zg-token-light-settings'); if(lightSet) lightSet.hidden = !hasLight;
+    if (hasLight) {
+      var lr=el('zg-token-light-rad'); if(lr) { lr.value = token.light.radius || 100; var lro=el('zg-token-light-rad-out'); if(lro) lro.textContent = lr.value + ' px'; }
+      var li=el('zg-token-light-int'); if(li) { li.value = token.light.intensity || 0.5; var lio=el('zg-token-light-int-out'); if(lio) lio.textContent = li.value; }
+      var lc=el('zg-token-light-col'); if(lc) lc.value = token.light.color || '#ffffff';
+      var lf=el('zg-token-light-flick'); if(lf) lf.checked = !!token.light.flicker;
+    }
     syncCtx();
   }
   function layerDisplayName(layer,index){
@@ -12188,6 +12220,20 @@ document.addEventListener('DOMContentLoaded', function(){
       var hpI=el('zg-token-hp'),hpMI=el('zg-token-hpmax');
       if(hpI)token.hp=(hpI.value===''?null:Math.max(0,Number(hpI.value)||0));
       if(hpMI)token.hpMax=(hpMI.value===''?null:Math.max(0,Number(hpMI.value)||0));
+    }
+    if(token.type!=='hero'){
+      var lCb = el('zg-token-light');
+      if (lCb && lCb.checked) {
+        token.light = token.light || { enabled: true, type: 'light', radius: 100, intensity: 0.5, color: '#ffffff', flicker: false };
+        token.light.enabled = true;
+        var lR = el('zg-token-light-rad'); if (lR) { token.light.radius = Math.max(10, Number(lR.value)||100); var lro=el('zg-token-light-rad-out'); if(lro) lro.textContent=token.light.radius+' px'; }
+        var lI = el('zg-token-light-int'); if (lI) { token.light.intensity = clamp(Number(lI.value)||0.5, 0.1, 1); var lio=el('zg-token-light-int-out'); if(lio) lio.textContent=token.light.intensity; }
+        var lC = el('zg-token-light-col'); if (lC) token.light.color = lC.value;
+        var lF = el('zg-token-light-flick'); if (lF) token.light.flicker = !!lF.checked;
+      } else if (lCb && !lCb.checked && token.light) {
+        token.light.enabled = false;
+      }
+      var lSet = el('zg-token-light-settings'); if (lSet) lSet.hidden = !(lCb && lCb.checked);
     }
     token.size=clamp(el('zg-token-size').value,24,240);var op=el('zg-token-opacity');if(op){token.opacity=clamp(op.value,0.15,1);var opo=el('zg-token-opacity-out');if(opo)opo.textContent=Math.round(token.opacity*100)+'%';}token.visible=el('zg-token-visible').checked;el('zg-token-size-out').textContent=Math.round(token.size)+' px';syncTokenSizePresets(token);markDirty('Черновик · жетон настроен');renderTokenList();renderTokens();};
   function tokenPresetSize(multiplier){return Math.round(clamp((draft.gridSize||64)*Number(multiplier||1),24,240));}
@@ -17589,6 +17635,9 @@ window.zgImageStore = (function() {
   .zg-vtt-token-statuses{position:absolute;z-index:6;left:calc(100% + 7px);top:50%;display:flex;flex-direction:column;gap:3px;transform:translateY(-50%);pointer-events:auto}
   .zg-vtt-token-status{position:relative;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent);cursor:pointer;pointer-events:auto;transition:transform .15s,filter .15s}.zg-vtt-token-status:hover{transform:scale(1.15);filter:brightness(1.25)}
   .zg-vtt-token-status em{position:absolute;right:-4px;bottom:-4px;min-width:12px;height:12px;padding:0 2px;border:1px solid #100d08;border-radius:7px;background:var(--status-color,#9b875c);color:#090704;font:700 8px/11px Arial,sans-serif;text-align:center}
+  .zg-vtt-token-light{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:-1;mix-blend-mode:screen;border-radius:50%}
+  .zg-vtt-token-light.flicker{animation:zgLightFlicker 2.5s infinite alternate ease-in-out}
+  @keyframes zgLightFlicker{0%{opacity:.85;transform:translate(-50%,-50%) scale(.96)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.03)}50%{opacity:.9;transform:translate(-50%,-50%) scale(.98)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}100%{opacity:.85;transform:translate(-50%,-50%) scale(.97)}}
   .zg-token-status-info{position:fixed;z-index:13050;inset:0;display:grid;place-items:center;padding:20px;background:#020201b8;backdrop-filter:blur(6px)}.zg-token-status-info article{position:relative;width:min(390px,calc(100vw - 34px));padding:23px 22px 20px;border:1px solid var(--status-color);border-radius:10px;background:radial-gradient(circle at 50% 0,color-mix(in srgb,var(--status-color) 18%,transparent),transparent 42%),linear-gradient(160deg,#1b130b,#090705 74%);box-shadow:0 28px 90px #000,0 0 25px color-mix(in srgb,var(--status-color) 25%,transparent);color:#a99672;text-align:center}.zg-token-status-info article>button{position:absolute;right:8px;top:7px;width:32px;height:32px;border:0;background:transparent;color:#9b835a;font-size:24px;cursor:pointer}.zg-token-status-info article>i{display:grid;place-items:center;width:60px;height:60px;margin:0 auto 10px;border:1px solid var(--status-color);border-radius:50%;background:#0b0805;color:#f3dfa9;box-shadow:0 0 20px color-mix(in srgb,var(--status-color) 38%,transparent);font:normal 29px Arial}.zg-token-status-info h3{margin:0 0 7px;color:var(--status-color);font:600 18px 'Cinzel',serif}.zg-token-status-info small{display:block;margin:3px 0;color:#b59b68;font:10px 'Cinzel',serif}.zg-token-status-info p{margin:15px 0 0;padding-top:13px;border-top:1px solid #3a2b1a;color:#b8a98d;font:13px/1.6 'Lora',serif;white-space:pre-wrap}
   .zg-vtt-token.disp-hero .zg-vtt-token-name{top:calc(100% + 11px)}
   /* панель сцен: флажки, меню, кнопки сохранения */
@@ -18304,6 +18353,13 @@ window.zgImageStore = (function() {
           <label class="zg-scene-row" id="zg-token-color-row" hidden><span>Цвет текста</span><input type="color" id="zg-token-color" onchange="zgSceneTokenControl()" style="width:44px;height:26px;border:1px solid #332815;border-radius:6px;background:#12100c;cursor:pointer"></label>
           <label class="zg-scene-row" id="zg-token-portal-row" hidden><span>Ведёт в зону</span><select id="zg-token-target" onchange="zgSceneTokenControl()"><option value="">— не задана —</option></select></label>
           <button type="button" class="zg-scene-ghost-btn" id="zg-token-portal-go" onclick="zgScenePortalGo()" hidden style="width:100%;margin:2px 0 4px;border-color:#7d6bd0;color:#cfc4f2">▶ Перейти — показать зону игрокам</button>
+          <label class="zg-scene-row" id="zg-token-light-row" hidden><span>💡 Источник света</span><input class="zg-scene-toggle" id="zg-token-light" type="checkbox" onchange="zgSceneTokenControl()"></label>
+          <div id="zg-token-light-settings" hidden>
+            <label class="zg-scene-row zg-scene-range-row"><span>Радиус (px)</span><span><input id="zg-token-light-rad" type="range" min="20" max="1000" step="10" oninput="zgSceneTokenControl()"><output id="zg-token-light-rad-out"></output></span></label>
+            <label class="zg-scene-row zg-scene-range-row"><span>Яркость</span><span><input id="zg-token-light-int" type="range" min="0.1" max="1" step="0.1" oninput="zgSceneTokenControl()"><output id="zg-token-light-int-out"></output></span></label>
+            <label class="zg-scene-row"><span>Цвет освещения</span><input type="color" id="zg-token-light-col" onchange="zgSceneTokenControl()" style="width:44px;height:26px;border:1px solid #332815;border-radius:6px;background:#12100c;cursor:pointer"></label>
+            <label class="zg-scene-row"><span>Мерцание</span><input class="zg-scene-toggle" id="zg-token-light-flick" type="checkbox" onchange="zgSceneTokenControl()"></label>
+          </div>
           <div class="zg-scene-row" id="zg-token-image-row"><span>Картинка</span><button type="button" class="zg-scene-ghost-btn" onclick="document.getElementById('zg-token-image-file').click()">Загрузить…</button></div>
           <div class="zg-scene-depth"><button type="button" onclick="zgSceneTokenDuplicate()">⧉ Дубль</button><button type="button" onclick="zgSceneTokenDepth(-1)">↓ Ниже</button><button type="button" onclick="zgSceneTokenDepth(1)">↑ Выше</button></div>
         </div>
@@ -18325,6 +18381,8 @@ window.zgImageStore = (function() {
           <button type="button" onclick="zgObjectAddChoose('enemy')"><span>⚔</span><b>Новый враг</b><small>Пустой жетон</small></button>
           <button type="button" onclick="zgObjectAddChoose('token')"><span>◉</span><b>Свой жетон</b><small>Загрузить картинку</small></button>
           <button type="button" onclick="zgObjectAddChoose('object')"><span>◆</span><b>Декорация</b><small>Объект с картинкой</small></button>
+          <button type="button" onclick="zgObjectAddChoose('campfire')"><span>🔥</span><b>Костёр</b><small>Светящийся огонь</small></button>
+          <button type="button" onclick="zgObjectAddChoose('lantern')"><span>🏮</span><b>Фонарь</b><small>Мягкое свечение</small></button>
           <div class="zg-object-add-divider"></div>
           <button type="button" class="compact" onclick="zgObjectAddChoose('text')"><span>𝐓</span><b>Текст</b></button>
           <button type="button" class="compact" onclick="zgObjectAddChoose('spawn')"><span>⚑</span><b>Появление</b></button>
