@@ -18712,6 +18712,7 @@ window.zgImageStore = (function() {
           <button class="char-tab" id="ctab-npc" onclick="switchCharTab(&#39;npc&#39;)" title="Открывает Мастерскую ГМ → Реестр НПС">👥 Реестр НПС →</button>
         </div>
         <div style="display:flex;justify-content:flex-end;gap:8px;margin:8px 0 12px">
+          <button class="btn btn-dim btn-sm" onclick="triggerGithubExport()" title="Скачать data.json и manifest.json для загрузки на GitHub Pages" style="color:#7bf09a; border-color:#55bd7055">📤 Обновить базу игроков (GitHub)</button>
           <button class="btn btn-dim btn-sm" onclick="document.getElementById('char-import-file').click()">⬆ Импорт персонажа</button>
           <input type="file" id="char-import-file" accept=".json" style="display:none" onchange="importCharacterBackup(event)">
         </div>
@@ -35528,6 +35529,19 @@ function charTransferMenu(e, id) {
   document.body.appendChild(menu);
   var close = function(ev){ if(!menu.contains(ev.target)){ menu.remove(); document.removeEventListener('mousedown', close); }};
   setTimeout(function(){ document.addEventListener('mousedown', close); }, 10);
+}
+
+function triggerGithubExport() {
+  if (typeof window.zgExportDataJson === 'function') {
+    showToast('⏳ Собираю ZIP-архив для GitHub Pages...');
+    window.zgExportDataJson(null, function(pct) {
+      if (pct === -1) showToast('⚠ Ошибка или отмена');
+      else if (pct === 100) showToast('✅ Архив скачан! Залейте файлы в репозиторий.');
+      else if (!pct) showToast('✅ Готово!');
+    });
+  } else {
+    showToast('⚠ Экспорт недоступен.');
+  }
 }
 
 function exportCharacterBackup(id) {
