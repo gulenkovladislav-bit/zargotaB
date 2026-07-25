@@ -9505,48 +9505,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // ═══ Атмосфера (эмбиент-дрон + ветер, набегает волнами) ═══
     ambientStart: function() {
-      var c = ensure();
-      if (!c || amb) return;
-      try {
-        amb = { nodes: [], g: c.createGain(), noise: null, timer: 0 };
-        amb.g.gain.setValueAtTime(0.0002, c.currentTime);
-        var lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 560; lp.Q.value = 0.6;
-        amb.g.connect(lp).connect(master);
-        [55, 82.4, 110, 164.8].forEach(function(f, i){
-          var o = c.createOscillator(); o.type = (i % 2) ? 'triangle' : 'sine';
-          o.frequency.value = f; o.detune.value = (i - 1) * 6;
-          var og = c.createGain(); og.gain.value = (i < 2) ? 0.5 : 0.22;
-          o.connect(og).connect(amb.g); o.start();
-          amb.nodes.push(o); amb.nodes.push(og);
-        });
-        // ветер — через общий g, чтобы нарастал и затухал вместе с дроном
-        var buf = c.createBuffer(1, Math.floor(c.sampleRate * 2), c.sampleRate);
-        var d = buf.getChannelData(0);
-        for (var j = 0; j < d.length; j++) d[j] = (Math.random() * 2 - 1) * 0.5;
-        var ns = c.createBufferSource(); ns.buffer = buf; ns.loop = true;
-        var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 440; bp.Q.value = 0.7;
-        var ng = c.createGain(); ng.gain.value = 0.4;
-        ns.connect(bp).connect(ng).connect(amb.g); ns.start();
-        amb.noise = ns; amb.nodes.push(ng);
-        // волна: набегает и затухает ~8.25 с, пауза ~12 с, снова (период ~20.25 с)
-        ambSwell();
-        amb.timer = setInterval(ambSwell, 20250);
-      } catch(e) { amb = null; }
+      // Отключено по просьбе
     },
     ambientStop: function() {
-      if (!amb || !ctx) { amb = null; return; }
-      var a = amb; amb = null;
-      try { if (a.timer) clearInterval(a.timer); } catch(e) {}
-      try {
-        var t = ctx.currentTime;
-        a.g.gain.cancelScheduledValues(t);
-        a.g.gain.setValueAtTime(Math.max(0.0001, a.g.gain.value), t);
-        a.g.gain.linearRampToValueAtTime(0.0001, t + 1.4);
-      } catch(e) {}
-      setTimeout(function(){
-        try { a.nodes.forEach(function(n){ try { n.stop && n.stop(); } catch(e){} try { n.disconnect(); } catch(e){} }); } catch(e){}
-        try { a.noise && a.noise.stop(); } catch(e){}
-      }, 1600);
+      // Отключено по просьбе
     },
 
     // ═══ Death/Life saves & Fame ═══
