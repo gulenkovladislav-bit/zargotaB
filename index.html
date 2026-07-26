@@ -7,9 +7,9 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="character-store.js?v=2026-07-26.3"></script>
-<script src="character-sync-outbox.js?v=2026-07-26.3"></script>
-<script src="zargota-network.js?v=2026-07-26.6"></script>
+<script src="character-store.js?v=2026-07-26.4"></script>
+<script src="character-sync-outbox.js?v=2026-07-26.4"></script>
+<script src="zargota-network.js?v=2026-07-26.7"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -30162,7 +30162,7 @@ function loadChars() {
             applyCharsMigrations(characters);
             // Перезаписываем LS свежим снимком, чтобы следующий старт читал актуальное
             try { localStorage.setItem('grimoire_chars', JSON.stringify(characters)); }
-            catch(e3) { try { localStorage.removeItem('grimoire_chars'); } catch(_){} }
+            catch(e3) { console.warn('Zargota character cache refresh failed; previous cache preserved.', e3); }
             if (typeof renderCharsPage === 'function') { try { renderCharsPage(); } catch(e4){} }
             if (typeof renderCharSheet === 'function' && typeof viewingCharId !== 'undefined' && viewingCharId) {
               try { renderCharSheet(); } catch(e5){}
@@ -30201,9 +30201,12 @@ function saveChars(options) {
   savePlan.changedIds.forEach(function(id){window._zgUnsyncedCharacterIds[String(id)]=true;});
   var storagePromise;
   if (window.ZargotaCharacterStore && window.ZargotaCharacterStore.persistCollection) {
-    storagePromise=options.bestEffort&&window.ZargotaCharacterStore.persistCollectionBestEffort
-      ? window.ZargotaCharacterStore.persistCollectionBestEffort(characters)
-      : window.ZargotaCharacterStore.persistCollection(characters);
+    var canSaveOne=!options.bestEffort&&savePlan.changedIds.length===1&&!(savePlan.removedIds&&savePlan.removedIds.length)&&window.ZargotaCharacterStore.saveCharacter;
+    storagePromise=canSaveOne
+      ? window.ZargotaCharacterStore.saveCharacter(savePlan.changedIds[0],characters.find(function(c){return String(c.id)===String(savePlan.changedIds[0]);}),characters)
+      : options.bestEffort&&window.ZargotaCharacterStore.persistCollectionBestEffort
+        ? window.ZargotaCharacterStore.persistCollectionBestEffort(characters)
+        : window.ZargotaCharacterStore.persistCollection(characters);
   } else {
     var json = JSON.stringify(characters);
     try { localStorage.setItem('grimoire_chars', json);storagePromise=Promise.resolve({ok:true,indexedDB:false,localStorage:true}); }
@@ -30214,6 +30217,7 @@ function saveChars(options) {
     var member=snap&&snap.session&&snap.room&&snap.room.members&&snap.room.members[snap.session.uid];
     var character=member&&characters.find(function(c){return String(c.id)===String(member.characterId);});
     if(!result||!result.ok){
+      if(window.ZargotaCharacterStore&&window.ZargotaCharacterStore.markCollectionSaveFailed)window.ZargotaCharacterStore.markCollectionSaveFailed(savePlan.changedIds);
       console.error('Zargota character save failed',result&&result.error||result);
       if(character&&window.ZargotaRooms&&window.ZargotaRooms.markLocalCharacterSaveFailed)window.ZargotaRooms.markLocalCharacterSaveFailed(character,result&&result.error||'storage-failed');
       return result||{ok:false};

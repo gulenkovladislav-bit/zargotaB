@@ -51,6 +51,10 @@ assert.strictEqual(revisionCharacters[0]._updatedAt, 100);
 assert.strictEqual(revisionCharacters[1].revision, 9);
 assert.strictEqual(revisionCharacters[1]._updatedAt, 20);
 assert.deepStrictEqual(store.prepareCollectionForSave(revisionCharacters, { now: 200 }).changedIds, []);
+revisionCharacters[0].name = 'Retry after failure';
+var failedPlan = store.prepareCollectionForSave(revisionCharacters, { now: 250 });
+store.markCollectionSaveFailed(failedPlan.changedIds);
+assert.deepStrictEqual(store.prepareCollectionForSave(revisionCharacters, { now: 260 }).changedIds, ['a']);
 revisionCharacters[0].name = 'Room value';
 revisionCharacters[0].revision = 12;
 var remotePlan = store.prepareCollectionForSave(revisionCharacters, { now: 300, preserveRevision: true });
@@ -190,6 +194,22 @@ function createIndexedDb() {
   confirmedPagehide.name = 'Изменение копии';
   assert.strictEqual((await store.readConfirmedCharacter('pagehide', '')).name, 'Сохранён синхронно');
   assert.strictEqual(await store.readConfirmedCharacter('missing', ''), null);
+
+  await store.persistCollection([
+    { id:'atomic-a', name:'A', hpCur:5, _updatedAt:5000 },
+    { id:'atomic-b', name:'B unchanged', hpCur:9, _updatedAt:5000 }
+  ]);
+  var atomicSave = await store.saveCharacter('atomic-a', {
+    id:'atomic-a', name:'A', hpCur:4, revision:2, _updatedAt:5100
+  }, [
+    { id:'atomic-a', name:'A', hpCur:4, revision:2, _updatedAt:5100 },
+    { id:'atomic-b', name:'B unchanged', hpCur:9, _updatedAt:5000 }
+  ]);
+  assert.strictEqual(atomicSave.ok, true);
+  assert.strictEqual(atomicSave.character.hpCur, 4);
+  var afterAtomic = JSON.parse(global.localStorage.getItem(store.config.collectionKey));
+  assert.strictEqual(afterAtomic.find(function(character) { return character.id === 'atomic-a'; }).hpCur, 4);
+  assert.strictEqual(afterAtomic.find(function(character) { return character.id === 'atomic-b'; }).name, 'B unchanged');
 
   console.log('character-store tests passed');
 })().catch(function(error) {

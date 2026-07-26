@@ -49,6 +49,8 @@ assert.ok(html.indexOf('character-sync-outbox.js') < html.indexOf('zargota-netwo
 assert.match(network, /queueCharacterSync/);
 assert.match(network, /flushCharacterOutbox/);
 assert.match(network, /Room character changed while local edits were queued/);
+assert.match(network, /store\.recordConflict\(entry,\s*member\.character\)/);
+assert.match(network, /conflicts:\s*syncOutbox\(\)/);
 assert.match(network, /store\.matchesApplied\(entry,\s*member\.character\)/);
 assert.match(network, /outbox-already-acked/);
 assert.match(network, /pending\s*&&\s*!\(store\.matchesApplied/);
@@ -59,6 +61,7 @@ assert.match(network, /outbox-remove-error/);
 assert.match(network, /outbox:\s*syncOutbox\(\)/);
 assert.match(network, /restoreCharacterInboundFromRoom/);
 assert.match(network, /enableCharacterInbound\(session,\s*\{\s*uid:session\.uid\s*\},\s*member\.character\)/);
+assert.strictEqual(network.indexOf("navigationEntry.type!=='reload'"), -1);
 
 var queueCall = html.indexOf('window.ZargotaRooms.queueCharacterSync(character');
 var localSavedCall = html.indexOf('window.ZargotaRooms.markLocalCharacterSaved(character');
@@ -84,5 +87,15 @@ assert.ok(
 );
 assert.match(journeyStartBlock, /journeyStartPromise/);
 assert.match(html, /Локальный лист изменился во время подготовки входа/);
+assert.match(html, /savePlan\.changedIds\.length===1/);
+assert.match(html, /savePlan\.removedIds&&savePlan\.removedIds\.length/);
+assert.match(html, /ZargotaCharacterStore\.saveCharacter\(savePlan\.changedIds\[0\]/);
+assert.match(html, /markCollectionSaveFailed\(savePlan\.changedIds\)/);
+assert.strictEqual(
+  /catch\(e3\)\s*\{\s*try\s*\{\s*localStorage\.removeItem\('grimoire_chars'\)/.test(html),
+  false,
+  'a failed cache refresh must not delete the previous character cache'
+);
+assert.match(html, /character cache refresh failed; previous cache preserved/);
 
 console.log('network character sync contract passed');

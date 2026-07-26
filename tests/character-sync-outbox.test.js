@@ -82,6 +82,26 @@ assert.strictEqual(outbox.peek({ roomCode:'ROOM1', uid:'user1', characterId:'her
 assert.strictEqual(outbox.rebase(first.entry.id, 'base-two', 4), true);
 assert.strictEqual(outbox.peek({ roomCode:'ROOM1', uid:'user1', characterId:'hero1' }).baseRoomSignature, 'base-two');
 
+assert.strictEqual(outbox.recordConflict(duplicate.entry, {
+  id:'hero1', hpCur:8, revision:4, portrait:'data:image/png;base64,room'
+}), true);
+var savedConflict = outbox.readConflicts()[0];
+assert.strictEqual(savedConflict.localSnapshot.hpCur, 9);
+assert.strictEqual(savedConflict.roomSnapshot.hpCur, 8);
+assert.strictEqual(savedConflict.roomSnapshot.portrait, '');
+assert.strictEqual(savedConflict.localRevision, 3);
+assert.strictEqual(savedConflict.roomRevision, 4);
+assert.strictEqual(outbox.recordConflict(duplicate.entry, {
+  id:'hero1', hpCur:8, revision:4, portrait:'data:image/png;base64,another-copy'
+}), true);
+assert.strictEqual(outbox.readConflicts().length, 1);
+for (var conflictIndex = 0; conflictIndex < 12; conflictIndex += 1) {
+  assert.strictEqual(outbox.recordConflict(duplicate.entry, {
+    id:'hero1', hpCur:conflictIndex, revision:5 + conflictIndex
+  }), true);
+}
+assert.strictEqual(outbox.readConflicts().length, outbox.config.maxConflicts);
+
 for (var i = 0; i < 25; i += 1) {
   outbox.enqueue({
     roomCode:'ROOM' + i,

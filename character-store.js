@@ -145,6 +145,7 @@
     options = options || {};
     var timestamp = Math.max(1, Number(options.now) || Date.now());
     var changedIds = [];
+    var removedIds = [];
     var seen = Object.create(null);
     (Array.isArray(characters) ? characters : []).forEach(function (character) {
       if (!character || character.id === undefined || character.id === null) return;
@@ -163,9 +164,18 @@
       savedSignatures[id] = signature;
     });
     Object.keys(savedSignatures).forEach(function (id) {
-      if (!seen[id]) delete savedSignatures[id];
+      if (!seen[id]) {
+        removedIds.push(id);
+        delete savedSignatures[id];
+      }
     });
-    return { changedIds: changedIds, timestamp: timestamp };
+    return { changedIds: changedIds, removedIds: removedIds, timestamp: timestamp };
+  }
+
+  function markCollectionSaveFailed(characterIds) {
+    (Array.isArray(characterIds) ? characterIds : []).forEach(function (id) {
+      delete savedSignatures[String(id)];
+    });
   }
 
   function mergeStoredCollections(localCharacters, idbCharacters) {
@@ -351,6 +361,95 @@
     return { ok: lsOk, indexedDB: 'pending', localStorage: lsOk };
   }
 
+  function upsertCharacter(collection, characterId, patch) {
+    var result = parseCollection(collection);
+    var id = String(characterId);
+    var update = clone(patch) || {};
+    var found = false;
+    result = result.map(function (character) {
+      if (!character || character.id === undefined || character.id === null || String(character.id) !== id) return character;
+      found = true;
+      return Object.assign({}, character, update, { id:character.id });
+    });
+    if (!found) {
+      if (update.id === undefined || update.id === null) update.id = characterId;
+      result.push(update);
+    }
+    return result;
+  }
+
+  function writeCharacterIdb(characterId, patch, fallbackCharacters, localRaw) {
+    return openDb().then(function (db) {
+      return new Promise(function (resolve) {
+        var settled = false;
+        var savedCharacters = null;
+        function finish(result) {
+          if (settled) return;
+          settled = true;
+          try { db.close(); } catch (error) {}
+          resolve(result);
+        }
+        try {
+          var transaction = db.transaction(STORE_NAME, 'readwrite');
+          var store = transaction.objectStore(STORE_NAME);
+          var request = store.get(COLLECTION_KEY);
+          request.onsuccess = function () {
+            var fallbackMerged = mergeStoredCollections(fallbackCharacters, localRaw);
+            var current = mergeStoredCollections(fallbackMerged, request.result);
+            savedCharacters = upsertCharacter(current, characterId, patch);
+            store.put(JSON.stringify(savedCharacters), COLLECTION_KEY);
+          };
+          request.onerror = function () {
+            try { transaction.abort(); } catch (error) {}
+            finish({ ok:false, error:request.error || new Error('IndexedDB character read failed') });
+          };
+          transaction.oncomplete = function () { finish({ ok:true, characters:savedCharacters }); };
+          transaction.onerror = function () { finish({ ok:false, error:transaction.error || new Error('IndexedDB character write failed') }); };
+          transaction.onabort = function () { finish({ ok:false, error:transaction.error || new Error('IndexedDB character write aborted') }); };
+        } catch (error) {
+          finish({ ok:false, error:error });
+        }
+      });
+    }).catch(function (error) {
+      return { ok:false, error:error };
+    });
+  }
+
+  function saveCharacter(characterId, patch, fallbackCharacters) {
+    if (characterId === undefined || characterId === null || !patch || typeof patch !== 'object') {
+      return Promise.resolve({ ok:false, indexedDB:false, localStorage:false, error:new Error('Invalid character update') });
+    }
+    var safePatch = clone(patch);
+    if (!safePatch) {
+      return Promise.resolve({ ok:false, indexedDB:false, localStorage:false, error:new Error('Character update is not serializable') });
+    }
+    writeQueue = writeQueue.catch(function () { return null; }).then(function () {
+      var localRaw = storageGet(COLLECTION_KEY);
+      return writeCharacterIdb(characterId, safePatch, fallbackCharacters, localRaw).then(function (idbResult) {
+        var characters = idbResult.ok
+          ? idbResult.characters
+          : upsertCharacter(mergeStoredCollections(fallbackCharacters, localRaw), characterId, safePatch);
+        var json;
+        try { json = JSON.stringify(characters); }
+        catch (error) {
+          return { ok:false, indexedDB:!!idbResult.ok, localStorage:false, error:error };
+        }
+        var lsOk = storageSet(COLLECTION_KEY, json);
+        return {
+          ok: !!idbResult.ok || lsOk,
+          indexedDB: !!idbResult.ok,
+          localStorage: lsOk,
+          character: clone(characters.filter(function (candidate) {
+            return candidate && candidate.id !== undefined && candidate.id !== null &&
+              String(candidate.id) === String(characterId);
+          })[0] || null),
+          error: idbResult.ok || lsOk ? null : idbResult.error || new Error('Character save failed')
+        };
+      });
+    });
+    return writeQueue;
+  }
+
   function readConfirmedCharacter(characterId, campaignKey) {
     var requestedId = characterId === undefined || characterId === null ? '' : String(characterId);
     var requestedKey = String(campaignKey || '');
@@ -445,6 +544,7 @@
     mergeStarterHeroes: mergeStarterHeroes,
     rememberCollection: rememberCollection,
     prepareCollectionForSave: prepareCollectionForSave,
+    markCollectionSaveFailed: markCollectionSaveFailed,
     ensureMigrationBackup: ensureMigrationBackup,
     getMigrationBackup: getMigrationBackup,
     restoreMigrationBackup: restoreMigrationBackup,
@@ -452,6 +552,7 @@
     markStarterHeroDeleted: markStarterHeroDeleted,
     persistCollection: persistCollection,
     persistCollectionBestEffort: persistCollectionBestEffort,
+    saveCharacter: saveCharacter,
     readConfirmedCharacter: readConfirmedCharacter
   };
 });

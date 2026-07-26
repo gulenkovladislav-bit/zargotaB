@@ -46,11 +46,6 @@
   var characterEntryUpload = null;
   var characterInboundSession = null;
 
-  try {
-    var navigationEntry=w.performance&&w.performance.getEntriesByType&&w.performance.getEntriesByType('navigation')[0];
-    if(!navigationEntry||navigationEntry.type!=='reload')sessionStorage.removeItem(SESSION_KEY);
-  } catch(e) {}
-
   function now() { return Date.now(); }
 
   function syncIdentity(character) {
@@ -178,8 +173,10 @@
       return Promise.resolve(api.getSnapshot());
     }
     if (entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature) {
+      var conflictArchived = !store.recordConflict || store.recordConflict(entry, member.character);
       setCharacterSync('conflict', entry.snapshot, 'local→room', entry.reason || 'edit', 'Room character changed while local edits were queued');
       appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'conflict', 'Room character changed while local edits were queued');
+      if (!conflictArchived) appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'conflict-archive-error', 'Both versions remain in room and outbox, but the extra conflict archive could not be saved');
       emit();
       return Promise.resolve(api.getSnapshot());
     }
@@ -2600,6 +2597,7 @@
         session: readSession(),
         online: connected,
         outbox: syncOutbox() ? syncOutbox().diagnostics() : [],
+        conflicts: syncOutbox() && syncOutbox().readConflicts ? syncOutbox().readConflicts() : [],
         events: log.slice(-100)
       };
     },

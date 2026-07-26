@@ -7,7 +7,9 @@
   'use strict';
 
   var STORAGE_KEY = 'zargota_character_sync_outbox_v1';
+  var CONFLICTS_KEY = 'zargota_character_sync_conflicts_v1';
   var MAX_ENTRIES = 20;
+  var MAX_CONFLICTS = 10;
 
   function clone(value) {
     try { return JSON.parse(JSON.stringify(value)); }
@@ -164,6 +166,51 @@
     return contentSignature(entry.snapshot) === contentSignature(roomCharacter);
   }
 
+  function readConflicts() {
+    try {
+      var rows = JSON.parse(root.localStorage && root.localStorage.getItem(CONFLICTS_KEY) || '[]');
+      return Array.isArray(rows) ? rows.filter(function (row) {
+        return row && row.id && row.localSnapshot && row.roomSnapshot;
+      }) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function recordConflict(entry, roomCharacter) {
+    if (!entry || !entry.snapshot || !roomCharacter) return false;
+    var timestamp = Date.now();
+    var fingerprint = [
+      scopeKey(entry),
+      String(entry.operationId || entry.snapshot.syncOperationId || ''),
+      contentSignature(stripHeavyData(roomCharacter))
+    ].join('|');
+    var record = {
+      id: scopeKey(entry) + ':' + timestamp,
+      fingerprint: fingerprint,
+      createdAt: timestamp,
+      roomCode: String(entry.roomCode || ''),
+      uid: String(entry.uid || ''),
+      characterId: String(entry.characterId || ''),
+      campaignKey: String(entry.campaignKey || ''),
+      reason: String(entry.reason || 'edit').slice(0, 30),
+      localRevision: Math.max(0, Number(entry.snapshot.revision) || 0),
+      roomRevision: Math.max(0, Number(roomCharacter.revision) || 0),
+      localSnapshot: stripHeavyData(entry.snapshot),
+      roomSnapshot: stripHeavyData(roomCharacter)
+    };
+    try {
+      if (!root.localStorage) return false;
+      var rows = readConflicts();
+      if (rows.some(function (row) { return String(row.fingerprint || '') === fingerprint; })) return true;
+      rows.push(record);
+      root.localStorage.setItem(CONFLICTS_KEY, JSON.stringify(rows.slice(-MAX_CONFLICTS)));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
   function diagnostics() {
     return read().map(function (row) {
       return {
@@ -183,7 +230,7 @@
   }
 
   return {
-    config: { storageKey:STORAGE_KEY, maxEntries:MAX_ENTRIES },
+    config: { storageKey:STORAGE_KEY, conflictsKey:CONFLICTS_KEY, maxEntries:MAX_ENTRIES, maxConflicts:MAX_CONFLICTS },
     contentSignature: contentSignature,
     stripHeavyData: stripHeavyData,
     read: read,
@@ -194,6 +241,8 @@
     rebase: rebase,
     clearScope: clearScope,
     matchesApplied: matchesApplied,
+    readConflicts: readConflicts,
+    recordConflict: recordConflict,
     diagnostics: diagnostics
   };
 });
