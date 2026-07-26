@@ -681,6 +681,38 @@
     return String(character.campaignKey || CAMPAIGN_HERO_KEYS[String(character.id)] || '').slice(0, 40);
   }
 
+  function normalizeInventoryOperationItem(item, fallbackId) {
+    item = item && typeof item === 'object' ? item : {};
+    var itemId = String(item.itemId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
+    if (!itemId) itemId = String(fallbackId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
+    return {
+      itemId:itemId,
+      name:String(item.name || '').trim().slice(0, 200),
+      qty:Math.max(1, Math.min(999, Math.floor(Number(item.qty) || 1))),
+      icon:String(item.icon || '📦').slice(0, 20),
+      description:String(item.description || '').slice(0, 4000),
+      equipped:false
+    };
+  }
+
+  function applyInventoryAddOperation(current, item, metadata) {
+    if (!current || typeof current !== 'object') return { ok:false, error:'character-missing' };
+    var inventory = Array.isArray(current.inventoryItems) ? current.inventoryItems.slice() : [];
+    if (inventory.some(function (entry) { return entry && String(entry.itemId || '') === String(item && item.itemId || ''); })) {
+      return { ok:true, duplicate:true, character:current };
+    }
+    if (inventory.length >= 80) return { ok:false, error:'inventory-full' };
+    var next = Object.assign({}, current);
+    inventory.push(Object.assign({}, item));
+    next.inventoryItems = inventory;
+    next.revision = Math.max(0, Number(current.revision) || 0) + 1;
+    next.updatedAt = Number(metadata && metadata.updatedAt) || Date.now();
+    next.updatedBy = String(metadata && metadata.updatedBy || '');
+    next.source = 'gm-inventory-add';
+    next.syncOperationId = String(metadata && metadata.operationId || '');
+    return { ok:true, duplicate:false, character:next };
+  }
+
   function emit() {
     var snapshot = api.getSnapshot();
     listeners.slice().forEach(function (listener) {
@@ -2003,6 +2035,50 @@
       });
     },
 
+    gmAddInventoryItem: function (memberUid, item) {
+      memberUid = String(memberUid || '').slice(0, 128);
+      var stamp = now();
+      var operationId = 'gm-inventory-add-' + stamp + '-' + Math.random().toString(36).slice(2, 9);
+      var normalizedItem = normalizeInventoryOperationItem(item, 'zg-item-' + operationId);
+      if (!memberUid) return Promise.reject(roomError('Герой для предмета не выбран.', 'member-required'));
+      if (!normalizedItem.name) return Promise.reject(roomError('Укажите название предмета.', 'inventory-item-invalid'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Добавлять предметы может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var member = room.members && room.members[memberUid];
+          if (!member || member.role !== 'player' || !member.character) throw roomError('Лист игрока пока недоступен.', 'character-missing');
+          var abortCode = '';
+          var characterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + memberUid + '/character');
+          return firebase.runTransaction(characterRef, function (current) {
+            var applied = applyInventoryAddOperation(current, normalizedItem, {
+              updatedAt:stamp,
+              updatedBy:user.uid,
+              operationId:operationId
+            });
+            if (!applied.ok) {
+              abortCode = applied.error;
+              return;
+            }
+            return applied.character;
+          }).then(function (result) {
+            if (!result || !result.committed) {
+              if (abortCode === 'inventory-full') throw roomError('В инвентаре уже 80 предметов.', 'inventory-full');
+              throw roomError('Лист игрока изменился или недоступен. Повторите попытку.', 'character-missing');
+            }
+            var appliedCharacter = result.snapshot && result.snapshot.val ? result.snapshot.val() : null;
+            appendSyncEvent(appliedCharacter || member.character, 'local→room', 'gm-inventory-add', 'ack');
+            return refreshRoom(session.code).catch(function () { return currentRoom; }).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['member-required','master-only','room-not-found','character-missing','inventory-item-invalid','inventory-full'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     gmAdjustEntity: function (targetRef, operation) {
       targetRef=targetRef||{};operation=operation||{};
       var tokenId=String(targetRef.tokenId||'').slice(0,120),memberUid=String(targetRef.memberUid||'').slice(0,128),kind=String(operation.kind||'');
@@ -2712,6 +2788,7 @@
       get: databaseModule.get,
       set: databaseModule.set,
       update: databaseModule.update,
+      runTransaction: databaseModule.runTransaction,
       remove: databaseModule.remove,
       onValue: databaseModule.onValue,
       onDisconnect: databaseModule.onDisconnect,

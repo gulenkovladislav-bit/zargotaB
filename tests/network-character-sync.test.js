@@ -56,6 +56,12 @@ assert.match(network, /'field-merge'/);
 assert.match(network, /changedFields:Array\.isArray\(entry\.changedFields\)/);
 assert.match(network, /memberUpdates\['character\/'\s*\+\s*field\]/);
 assert.match(network, /memberUpdates\['character\/syncOperationId'\]/);
+assert.match(network, /gmAddInventoryItem:\s*function/);
+assert.match(network, /firebase\.runTransaction\(characterRef/);
+assert.match(network, /applyInventoryAddOperation\(current,\s*normalizedItem/);
+assert.match(network, /next\.source\s*=\s*'gm-inventory-add'/);
+assert.match(network, /next\.inventoryItems\s*=\s*inventory/);
+assert.match(network, /runTransaction:\s*databaseModule\.runTransaction/);
 assert.match(network, /Room character changed while local edits were queued/);
 assert.match(network, /store\.recordConflict\(entry,\s*member\.character\)/);
 assert.match(network, /conflicts:\s*syncOutbox\(\)/);
@@ -158,6 +164,43 @@ assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) 
 assert.strictEqual(snapshotContext.result.biography, 'История');
 assert.strictEqual(snapshotContext.result.quote, 'Цитата');
 assert.strictEqual(snapshotContext.result.portrait, '');
+
+var inventoryHelperStart = network.indexOf('function normalizeInventoryOperationItem');
+var inventoryHelperEnd = network.indexOf('function emit', inventoryHelperStart);
+var inventoryHelperSource = network.slice(inventoryHelperStart, inventoryHelperEnd);
+var inventoryHelperContext = { result:null };
+vm.runInNewContext(
+  inventoryHelperSource +
+    '; var item=normalizeInventoryOperationItem({itemId:"safe id!",name:"  Дар мастера  ",qty:5000,description:"Описание"},"fallback");' +
+    'result=applyInventoryAddOperation({id:"hero",hpCur:7,statuses:["poison"],revision:4,inventoryItems:[]},item,{updatedAt:123,updatedBy:"gm",operationId:"op-1"});',
+  inventoryHelperContext
+);
+assert.strictEqual(inventoryHelperContext.result.ok, true);
+assert.strictEqual(inventoryHelperContext.result.character.inventoryItems[0].itemId, 'safeid');
+assert.strictEqual(inventoryHelperContext.result.character.inventoryItems[0].name, 'Дар мастера');
+assert.strictEqual(inventoryHelperContext.result.character.inventoryItems[0].qty, 999);
+assert.strictEqual(inventoryHelperContext.result.character.hpCur, 7);
+assert.strictEqual(inventoryHelperContext.result.character.statuses[0], 'poison');
+assert.strictEqual(inventoryHelperContext.result.character.revision, 5);
+assert.strictEqual(inventoryHelperContext.result.character.syncOperationId, 'op-1');
+
+var duplicateHelperContext = { result:null };
+vm.runInNewContext(
+  inventoryHelperSource +
+    '; var item=normalizeInventoryOperationItem({itemId:"same",name:"Дар"},"fallback");' +
+    'result=applyInventoryAddOperation({revision:2,inventoryItems:[{itemId:"same",name:"Дар"}]},item,{updatedAt:124,updatedBy:"gm",operationId:"op-2"});',
+  duplicateHelperContext
+);
+assert.strictEqual(duplicateHelperContext.result.ok, true);
+assert.strictEqual(duplicateHelperContext.result.duplicate, true);
+assert.strictEqual(duplicateHelperContext.result.character.inventoryItems.length, 1);
+var fallbackItemContext = { result:null };
+vm.runInNewContext(
+  inventoryHelperSource +
+    '; result=normalizeInventoryOperationItem({itemId:"!!!",name:"Дар"},"safe-fallback");',
+  fallbackItemContext
+);
+assert.strictEqual(fallbackItemContext.result.itemId, 'safe-fallback');
 var applyStart = html.indexOf('function zgApplySessionCharacterToLocal');
 var applyEnd = html.indexOf('window.zgPersistFinalSessionCharacter', applyStart);
 var applyBlock = html.slice(applyStart, applyEnd);

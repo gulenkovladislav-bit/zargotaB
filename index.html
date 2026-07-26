@@ -9,7 +9,7 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <script src="character-store.js?v=2026-07-27.1"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.1"></script>
-<script src="zargota-network.js?v=2026-07-27.1"></script>
+<script src="zargota-network.js?v=2026-07-27.2"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -13532,6 +13532,8 @@ document.addEventListener('DOMContentLoaded', function(){
 (function(w){
   var openedUid='';
   var sessionEditCharacterId='';
+  var gmInventoryBusy=false;
+  var sheetRefreshTimer=0;
   function el(id){return document.getElementById(id);}
   function esc(s){s=(s==null)?'':String(s);return (typeof w.escHTML==='function')?w.escHTML(s):s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function localCharFor(m){if(!m||!Array.isArray(w.characters))return null;return w.characters.find(function(c){return String(c.id)===String(m.characterId);})||null;}
@@ -13575,7 +13577,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!list.length)return '<div class="zg-sheet-empty">Нет</div>';
     return '<div class="zg-sheet-list">'+list.map(function(it){ if(typeof it==='string')return '<div class="zg-sheet-listrow">'+esc(it)+'</div>'; var d=it.description||it.desc||it.text||it.effect||''; return '<div class="zg-sheet-listrow"><b>'+esc(nameOf(it)||'—')+'</b>'+(d?'<br>'+esc(d):'')+'</div>'; }).join('')+'</div>';
   }
-  w.zgSheetOpen=function(uid){
+  w.zgSheetOpen=function(uid,options){
+    options=options||{};
     var sheet=el('zg-sheet'); if(!sheet)return;
     var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
     var m=(snap&&snap.room&&snap.room.members)?snap.room.members[uid]:null;
@@ -13590,7 +13593,7 @@ document.addEventListener('DOMContentLoaded', function(){
     el('zg-sheet-sub').textContent=[c.race,c.klasse,(c.level!=null?('ур. '+c.level):'')].filter(Boolean).join(' · ');
     var access=el('zg-sheet-access');
     if(access)access.innerHTML=isMaster
-      ?'<button type="button" onclick="zgSheetPossess()">Управлять героем</button><span>Лист из комнаты</span>'
+      ?'<button type="button" onclick="zgSheetPossess()">Управлять героем</button><button type="button" onclick="zgSheetGmAddItem()">＋ Предмет</button><span>Лист из комнаты</span>'
       :'<span>'+(isOwn?'Ваш локальный лист · синхронизация включена':'Только просмотр')+'</span>'
         +(canEditOwn?'<button type="button" onclick="zgSheetEditOwn()">Редактировать</button>':'');
     var statuses=uniqueList(asList(c.statuses||c.conditions).concat(asList(c.statusEffects)).concat(asList(c.tempEffects).filter(function(effect){return effect&&effect.type==='status';})));
@@ -13620,13 +13623,49 @@ document.addEventListener('DOMContentLoaded', function(){
       (c.quote?'<div class="zg-sheet-quote">«'+esc(c.quote)+'»</div>':'')+
       (extra.length?'<div class="zg-sheet-list">'+extra.map(function(r){return '<div class="zg-sheet-listrow"><b>'+esc(r[0])+':</b> '+esc(r[1])+'</div>';}).join('')+'</div>':'')+
       (bio?'<div class="zg-sheet-bio" style="margin-top:12px">'+esc(bio)+'</div>':'<div class="zg-sheet-empty" style="margin-top:12px">Биография не заполнена</div>');
-    w.zgSheetTab('list');
+    w.zgSheetTab(options.tab||'list');
     sheet.classList.add('open');
-    try{if(w.ZargotaSound)w.ZargotaSound.buttonTap();}catch(e){}
+    if(!options.silent)try{if(w.ZargotaSound)w.ZargotaSound.buttonTap();}catch(e){}
   };
   w.zgSheetPossess=function(){
     if(!openedUid||!w.zgPossessPlayer)return;
     if(w.zgPossessPlayer(openedUid))w.zgSheetClose();
+  };
+  w.zgSheetGmAddItem=function(){
+    if(gmInventoryBusy||!openedUid||!w.ZargotaRooms||!w.ZargotaRooms.gmAddInventoryItem)return false;
+    var snap=w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+    if(!snap||!snap.session||snap.session.role!=='master'){if(w.showToast)w.showToast('Добавлять предметы может только мастер');return false;}
+    var targetUid=openedUid;
+    var name=w.prompt('Название предмета:','');
+    if(name===null)return false;
+    name=String(name||'').trim();
+    if(!name){if(w.showToast)w.showToast('Укажи название предмета');return false;}
+    var qtyRaw=w.prompt('Количество:','1');
+    if(qtyRaw===null)return false;
+    var description=w.prompt('Описание предмета (необязательно):','');
+    if(description===null)return false;
+    var item={
+      itemId:'zg-item-gm-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),
+      name:name,
+      qty:Math.max(1,Math.min(999,parseInt(qtyRaw,10)||1)),
+      icon:'📦',
+      description:String(description||'')
+    };
+    gmInventoryBusy=true;
+    var access=el('zg-sheet-access');
+    if(access)Array.prototype.forEach.call(access.querySelectorAll('button'),function(button){button.disabled=true;});
+    if(w.showToast)w.showToast('Добавляем предмет…');
+    return Promise.resolve(w.ZargotaRooms.gmAddInventoryItem(targetUid,item)).then(function(){
+      gmInventoryBusy=false;
+      if(w.showToast)w.showToast('Предмет добавлен игроку');
+      if(openedUid===targetUid)w.zgSheetOpen(targetUid,{tab:'items',silent:true});
+      return true;
+    }).catch(function(error){
+      gmInventoryBusy=false;
+      if(w.showToast)w.showToast(error&&error.message||'Не удалось добавить предмет');
+      if(openedUid===targetUid)w.zgSheetOpen(targetUid);
+      return false;
+    });
   };
   w.zgSheetEditOwn=function(){
     var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
@@ -13662,6 +13701,16 @@ document.addEventListener('DOMContentLoaded', function(){
       if(pane)pane.classList.toggle('active',n===name);
     });
   };
+  w.addEventListener('zargota-room-state',function(){
+    var sheet=el('zg-sheet');
+    if(!openedUid||!sheet||!sheet.classList.contains('open'))return;
+    var active=sheet.querySelector('.zg-sheet-tab.active');
+    var tab=active&&String(active.id||'').replace('zg-sheet-tab-','')||'list';
+    clearTimeout(sheetRefreshTimer);
+    sheetRefreshTimer=setTimeout(function(){
+      if(openedUid&&sheet.classList.contains('open'))w.zgSheetOpen(openedUid,{tab:tab,silent:true});
+    },0);
+  });
   document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){ var s=el('zg-sheet'); if(s&&s.classList.contains('open')) w.zgSheetClose(); } });
 })(window);
 
