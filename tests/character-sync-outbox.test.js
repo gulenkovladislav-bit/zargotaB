@@ -173,6 +173,142 @@ var fullEditAfterInventory = outbox.enqueue({
 });
 assert.deepStrictEqual(fullEditAfterInventory.entry.changedFields, []);
 
+var itemBaseCharacter = {
+  id:'item-merge-hero',
+  hpCur:10,
+  revision:3,
+  inventoryItems:[{ itemId:'item-a', name:'Ключ', qty:1 }],
+  equipItems:[]
+};
+var itemLocalCharacter = Object.assign({}, itemBaseCharacter, {
+  revision:4,
+  inventoryItems:[
+    { itemId:'item-a', name:'Ключ', qty:2 },
+    { itemId:'item-c', name:'Факел', qty:1 }
+  ]
+});
+var itemOperations = outbox.createInventoryOperations(itemBaseCharacter, itemLocalCharacter, ['inventoryItems','equipItems']);
+assert.strictEqual(itemOperations.length, 2);
+assert.strictEqual(itemOperations.some(function(operation) { return operation.type === 'update' && operation.itemId === 'item-a'; }), true);
+assert.strictEqual(itemOperations.some(function(operation) { return operation.type === 'add' && operation.itemId === 'item-c'; }), true);
+var roomWithIndependentGmItem = Object.assign({}, itemBaseCharacter, {
+  hpCur:9,
+  revision:4,
+  inventoryItems:[
+    { itemId:'item-a', name:'Ключ', qty:1 },
+    { itemId:'item-b', name:'Дар мастера', qty:1 }
+  ]
+});
+var itemMergeResult = outbox.applyInventoryOperations(roomWithIndependentGmItem, itemOperations, {
+  revision:4,
+  updatedAt:300,
+  updatedBy:'player',
+  source:'inventory-update',
+  operationId:'inventory-op-1'
+});
+assert.strictEqual(itemMergeResult.ok, true);
+assert.strictEqual(itemMergeResult.character.hpCur, 9);
+assert.strictEqual(itemMergeResult.character.inventoryItems.length, 3);
+assert.strictEqual(itemMergeResult.character.inventoryItems.filter(function(item) { return item.itemId === 'item-a'; })[0].qty, 2);
+assert.strictEqual(itemMergeResult.character.inventoryItems.some(function(item) { return item.itemId === 'item-b'; }), true);
+assert.strictEqual(itemMergeResult.character.inventoryItems.some(function(item) { return item.itemId === 'item-c'; }), true);
+assert.strictEqual(itemMergeResult.character.syncOperationId, 'inventory-op-1');
+
+var itemOperationEntry = outbox.enqueue({
+  roomCode:'ITEMOPS',
+  uid:'item-user',
+  characterId:'item-merge-hero',
+  revision:4,
+  reason:'inventory-update',
+  baseRoomRevision:3,
+  baseRoomSignature:outbox.contentSignature(itemBaseCharacter),
+  changedFields:['inventoryItems','equipItems'],
+  baseFieldSignatures:{
+    inventoryItems:outbox.fieldSignature(itemBaseCharacter.inventoryItems),
+    equipItems:outbox.fieldSignature(itemBaseCharacter.equipItems)
+  },
+  baseFieldValues:{
+    inventoryItems:[{ itemId:'item-a', name:'Ключ', qty:1, image:'data:image/png;base64,heavy' }],
+    equipItems:[]
+  },
+  snapshot:itemLocalCharacter,
+  updatedAt:280
+});
+assert.strictEqual(Array.isArray(itemOperationEntry.entry.inventoryOperations), true);
+assert.strictEqual(itemOperationEntry.entry.inventoryOperations.length, 2);
+assert.strictEqual(itemOperationEntry.entry.baseFieldValues.inventoryItems[0].image, '');
+assert.strictEqual(outbox.diagnostics().some(function(row) {
+  return row.id === itemOperationEntry.entry.id && row.inventoryOperationCount === 2;
+}), true);
+var coalescedItemEntry = outbox.enqueue({
+  roomCode:'ITEMOPS',
+  uid:'item-user',
+  characterId:'item-merge-hero',
+  revision:5,
+  reason:'inventory-add',
+  changedFields:['inventoryItems','equipItems'],
+  baseFieldValues:{
+    inventoryItems:itemBaseCharacter.inventoryItems,
+    equipItems:[]
+  },
+  snapshot:Object.assign({}, itemLocalCharacter, {
+    revision:5,
+    inventoryItems:[
+      { itemId:'item-a', name:'Ключ', qty:3 },
+      { itemId:'item-c', name:'Факел', qty:1 },
+      { itemId:'item-d', name:'Верёвка', qty:1 }
+    ]
+  }),
+  updatedAt:290
+});
+assert.strictEqual(coalescedItemEntry.entry.inventoryOperations.length, 3);
+var acknowledgedRoomCharacter = Object.assign({}, itemBaseCharacter, {
+  revision:5,
+  inventoryItems:[
+    { itemId:'item-a', name:'Ключ', qty:2 },
+    { itemId:'item-c', name:'Факел', qty:1 }
+  ]
+});
+assert.strictEqual(outbox.rebase(
+  coalescedItemEntry.entry.id,
+  outbox.contentSignature(acknowledgedRoomCharacter),
+  5,
+  acknowledgedRoomCharacter
+), true);
+var rebasedItemEntry = outbox.peek({ roomCode:'ITEMOPS', uid:'item-user', characterId:'item-merge-hero' });
+assert.strictEqual(rebasedItemEntry.inventoryOperations.length, 2);
+assert.strictEqual(rebasedItemEntry.inventoryOperations.some(function(operation) {
+  return operation.type === 'add' && operation.itemId === 'item-c';
+}), false);
+assert.strictEqual(rebasedItemEntry.inventoryOperations.some(function(operation) {
+  return operation.type === 'add' && operation.itemId === 'item-d';
+}), true);
+
+var sameItemChangedResult = outbox.applyInventoryOperations(Object.assign({}, itemBaseCharacter, {
+  inventoryItems:[{ itemId:'item-a', name:'Ключ', qty:3 }]
+}), itemOperations, { operationId:'inventory-op-2' });
+assert.strictEqual(sameItemChangedResult.ok, false);
+assert.strictEqual(sameItemChangedResult.conflict, true);
+assert.strictEqual(sameItemChangedResult.itemId, 'item-a');
+
+var removeOperations = outbox.createInventoryOperations(itemBaseCharacter, Object.assign({}, itemBaseCharacter, {
+  inventoryItems:[]
+}), ['inventoryItems','equipItems']);
+var removeMergeResult = outbox.applyInventoryOperations(roomWithIndependentGmItem, removeOperations, {
+  operationId:'inventory-op-3'
+});
+assert.strictEqual(removeMergeResult.ok, true);
+assert.strictEqual(removeMergeResult.character.inventoryItems.length, 1);
+assert.strictEqual(removeMergeResult.character.inventoryItems[0].itemId, 'item-b');
+assert.strictEqual(
+  outbox.createInventoryOperations(
+    { inventoryItems:[{ name:'legacy without id' }], equipItems:[] },
+    { inventoryItems:[], equipItems:[] },
+    ['inventoryItems','equipItems']
+  ),
+  null
+);
+
 for (var conflictIndex = 0; conflictIndex < 12; conflictIndex += 1) {
   assert.strictEqual(outbox.recordConflict(duplicate.entry, {
     id:'hero1', hpCur:conflictIndex, revision:5 + conflictIndex

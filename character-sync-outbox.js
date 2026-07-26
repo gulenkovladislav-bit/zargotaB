@@ -52,6 +52,109 @@
     return JSON.stringify(stableValue(stripHeavyData(value == null ? null : value)));
   }
 
+  function createInventoryOperations(baseCharacter, nextCharacter, fields) {
+    fields = Array.isArray(fields) ? fields : [];
+    var operations = [];
+    for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex += 1) {
+      var field = String(fields[fieldIndex] || '');
+      if (field !== 'inventoryItems' && field !== 'equipItems') return null;
+      var baseList = Array.isArray(baseCharacter && baseCharacter[field]) ? baseCharacter[field] : [];
+      var nextList = Array.isArray(nextCharacter && nextCharacter[field]) ? nextCharacter[field] : [];
+      var baseById = {}, nextById = {}, invalid = false;
+      baseList.forEach(function (item) {
+        var id = item && typeof item === 'object' ? String(item.itemId || '') : '';
+        if (!id || baseById[id]) invalid = true;
+        else baseById[id] = item;
+      });
+      nextList.forEach(function (item) {
+        var id = item && typeof item === 'object' ? String(item.itemId || '') : '';
+        if (!id || nextById[id]) invalid = true;
+        else nextById[id] = item;
+      });
+      if (invalid) return null;
+      nextList.forEach(function (item) {
+        var id = String(item.itemId);
+        if (!baseById[id]) {
+          operations.push({ type:'add', field:field, itemId:id, item:stripHeavyData(clone(item)) });
+        } else if (fieldSignature(baseById[id]) !== fieldSignature(item)) {
+          operations.push({
+            type:'update',
+            field:field,
+            itemId:id,
+            baseSignature:fieldSignature(baseById[id]),
+            item:stripHeavyData(clone(item))
+          });
+        }
+      });
+      baseList.forEach(function (item) {
+        var id = String(item.itemId);
+        if (!nextById[id]) {
+          operations.push({ type:'remove', field:field, itemId:id, baseSignature:fieldSignature(item) });
+        }
+      });
+    }
+    return operations;
+  }
+
+  function applyInventoryOperations(roomCharacter, operations, metadata) {
+    if (!roomCharacter || typeof roomCharacter !== 'object') return { ok:false, error:'character-missing' };
+    if (!Array.isArray(operations)) return { ok:false, error:'operations-missing' };
+    var merged = clone(roomCharacter) || {};
+    for (var index = 0; index < operations.length; index += 1) {
+      var operation = operations[index] || {};
+      var field = String(operation.field || '');
+      var itemId = String(operation.itemId || '');
+      if ((field !== 'inventoryItems' && field !== 'equipItems') || !itemId) {
+        return { ok:false, error:'operation-invalid' };
+      }
+      var list = Array.isArray(merged[field]) ? merged[field].slice() : [];
+      var matches = [];
+      list.forEach(function (item, itemIndex) {
+        if (item && String(item.itemId || '') === itemId) matches.push(itemIndex);
+      });
+      if (matches.length > 1) return { ok:false, conflict:true, field:field, itemId:itemId };
+      var currentIndex = matches.length ? matches[0] : -1;
+      var currentItem = currentIndex >= 0 ? list[currentIndex] : null;
+      if (operation.type === 'add') {
+        if (currentItem) {
+          if (fieldSignature(currentItem) !== fieldSignature(operation.item)) {
+            return { ok:false, conflict:true, field:field, itemId:itemId };
+          }
+        } else {
+          list.push(stripHeavyData(clone(operation.item)));
+        }
+      } else if (operation.type === 'update') {
+        if (!currentItem) return { ok:false, conflict:true, field:field, itemId:itemId };
+        if (fieldSignature(currentItem) === fieldSignature(operation.item)) {
+          // The same operation was already applied before an acknowledgement was received.
+        } else if (fieldSignature(currentItem) === String(operation.baseSignature || '')) {
+          list[currentIndex] = stripHeavyData(clone(operation.item));
+        } else {
+          return { ok:false, conflict:true, field:field, itemId:itemId };
+        }
+      } else if (operation.type === 'remove') {
+        if (currentItem) {
+          if (fieldSignature(currentItem) !== String(operation.baseSignature || '')) {
+            return { ok:false, conflict:true, field:field, itemId:itemId };
+          }
+          list.splice(currentIndex, 1);
+        }
+      } else {
+        return { ok:false, error:'operation-invalid' };
+      }
+      merged[field] = list;
+    }
+    merged.revision = Math.max(
+      Math.max(0, Number(roomCharacter.revision) || 0) + 1,
+      Math.max(0, Number(metadata && metadata.revision) || 0)
+    );
+    merged.updatedAt = metadata && metadata.updatedAt != null ? metadata.updatedAt : Date.now();
+    merged.updatedBy = String(metadata && metadata.updatedBy || '');
+    merged.source = String(metadata && metadata.source || 'inventory-operation');
+    merged.syncOperationId = String(metadata && metadata.operationId || '');
+    return { ok:true, character:merged };
+  }
+
   function createOperationId(scope, timestamp, revision) {
     return scope + ':' + timestamp + ':' + Math.max(0, Number(revision) || 0) + ':' +
       Math.random().toString(36).slice(2, 10);
@@ -111,6 +214,9 @@
     var baseFieldSignatures = existing && existing.baseFieldSignatures
       ? clone(existing.baseFieldSignatures) || {}
       : clone(input.baseFieldSignatures) || {};
+    var baseFieldValues = existing && existing.baseFieldValues
+      ? stripHeavyData(clone(existing.baseFieldValues)) || {}
+      : stripHeavyData(clone(input.baseFieldValues)) || {};
     if (existing && existingFields.length && inputFields.length) {
       inputFields.forEach(function (field) {
         if (baseFieldSignatures[field] === undefined && input.baseFieldSignatures) {
@@ -134,6 +240,12 @@
       baseRoomSignature: existing ? String(existing.baseRoomSignature || '') : String(input.baseRoomSignature || ''),
       changedFields: changedFields,
       baseFieldSignatures: baseFieldSignatures,
+      baseFieldValues: baseFieldValues,
+      inventoryOperations: changedFields.length && changedFields.every(function (field) {
+        return Object.prototype.hasOwnProperty.call(baseFieldValues, field);
+      })
+        ? createInventoryOperations(baseFieldValues, snapshot, changedFields)
+        : null,
       snapshot: snapshot
     };
     if (existingIndex >= 0) rows.splice(existingIndex, 1);
@@ -164,12 +276,21 @@
     return next.length === rows.length || write(next);
   }
 
-  function rebase(id, baseRoomSignature, baseRoomRevision) {
+  function rebase(id, baseRoomSignature, baseRoomRevision, roomCharacter) {
     var rows = read(), changed = false;
     rows.forEach(function (row) {
       if (String(row.id) === String(id)) {
         row.baseRoomSignature = String(baseRoomSignature || '');
         row.baseRoomRevision = Math.max(0, Number(baseRoomRevision) || 0);
+        if (roomCharacter && Array.isArray(row.changedFields) && row.changedFields.length) {
+          row.baseFieldValues = {};
+          row.baseFieldSignatures = {};
+          row.changedFields.forEach(function (field) {
+            row.baseFieldValues[field] = stripHeavyData(clone(roomCharacter[field]));
+            row.baseFieldSignatures[field] = fieldSignature(roomCharacter[field]);
+          });
+          row.inventoryOperations = createInventoryOperations(row.baseFieldValues, row.snapshot, row.changedFields);
+        }
         changed = true;
       }
     });
@@ -285,7 +406,8 @@
         queuedAt: row.queuedAt,
         updatedAt: row.updatedAt,
         attempts: row.attempts,
-        changedFields: Array.isArray(row.changedFields) ? row.changedFields.slice() : []
+        changedFields: Array.isArray(row.changedFields) ? row.changedFields.slice() : [],
+        inventoryOperationCount: Array.isArray(row.inventoryOperations) ? row.inventoryOperations.length : 0
       };
     });
   }
@@ -294,6 +416,8 @@
     config: { storageKey:STORAGE_KEY, conflictsKey:CONFLICTS_KEY, maxEntries:MAX_ENTRIES, maxConflicts:MAX_CONFLICTS },
     contentSignature: contentSignature,
     fieldSignature: fieldSignature,
+    createInventoryOperations: createInventoryOperations,
+    applyInventoryOperations: applyInventoryOperations,
     stripHeavyData: stripHeavyData,
     read: read,
     enqueue: enqueue,

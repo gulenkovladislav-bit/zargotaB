@@ -127,8 +127,11 @@
     var syncReason = String(reason || 'edit');
     var changedFields = /^inventory-/.test(syncReason) ? ['inventoryItems','equipItems'] : [];
     var baseFieldSignatures = {};
+    var baseFieldValues = {};
     changedFields.forEach(function (field) {
-      baseFieldSignatures[field] = store.fieldSignature(member.character && member.character[field]);
+      var value = member.character && Array.isArray(member.character[field]) ? member.character[field] : [];
+      baseFieldSignatures[field] = store.fieldSignature(value);
+      baseFieldValues[field] = value;
     });
     var snapshot = characterSnapshot(character);
     snapshot.revision = Math.max(0, Number(character.revision) || 0);
@@ -143,6 +146,7 @@
       baseRoomSignature:store.contentSignature(member.character || {}),
       changedFields:changedFields,
       baseFieldSignatures:baseFieldSignatures,
+      baseFieldValues:baseFieldValues,
       snapshot:snapshot,
       updatedAt:now()
     });
@@ -180,7 +184,8 @@
       emit();
       return Promise.resolve(api.getSnapshot());
     }
-    if (entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature && entry.changedFields && entry.changedFields.length && store.mergeChangedFields) {
+    var hasItemOperations = !!(Array.isArray(entry.inventoryOperations) && store.applyInventoryOperations);
+    if (!hasItemOperations && entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature && entry.changedFields && entry.changedFields.length && store.mergeChangedFields) {
       var fieldMerge = store.mergeChangedFields(entry.id, member.character);
       if (fieldMerge && fieldMerge.ok) {
         entry = fieldMerge.entry;
@@ -193,7 +198,7 @@
         return Promise.resolve(api.getSnapshot());
       }
     }
-    if (entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature) {
+    if (!hasItemOperations && entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature) {
       var conflictArchived = !store.recordConflict || store.recordConflict(entry, member.character);
       setCharacterSync('conflict', entry.snapshot, 'local→room', entry.reason || 'edit', 'Room character changed while local edits were queued');
       appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'conflict', 'Room character changed while local edits were queued');
@@ -206,7 +211,9 @@
     outboxFlushPromise = api.syncCharacter(entry.snapshot, {
       prepared:true,
       reason:entry.reason || 'edit',
-      changedFields:Array.isArray(entry.changedFields) ? entry.changedFields.slice() : []
+      changedFields:Array.isArray(entry.changedFields) ? entry.changedFields.slice() : [],
+      inventoryOperations:hasItemOperations ? entry.inventoryOperations.slice() : null,
+      outboxEntry:entry
     }).then(function (snapshot) {
       var latest = store.peek(scope);
       var ackStored = true;
@@ -221,7 +228,12 @@
           }
         } else {
           var refreshedMember = currentRoom && currentRoom.members && currentRoom.members[session.uid];
-          store.rebase(entry.id, store.contentSignature(refreshedMember && refreshedMember.character || {}), Math.max(0, Number(refreshedMember && refreshedMember.character && refreshedMember.character.revision) || 0));
+          store.rebase(
+            entry.id,
+            store.contentSignature(refreshedMember && refreshedMember.character || {}),
+            Math.max(0, Number(refreshedMember && refreshedMember.character && refreshedMember.character.revision) || 0),
+            refreshedMember && refreshedMember.character
+          );
           shouldContinue = true;
         }
         if (ackStored) appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'outbox-ack');
@@ -602,6 +614,16 @@
     function displayList(value, limit) {
       return (Array.isArray(value) ? value : []).slice(0, limit || 40).map(displayEntry).filter(Boolean);
     }
+    function sessionItems(value, limit) {
+      return clean(Array.isArray(value) ? value : [], []).slice(0, limit).map(function (item) {
+        if (!item || typeof item !== 'object') return item;
+        var next = Object.assign({}, item);
+        if (/^(?:data|blob):/i.test(String(next.image || ''))) next.image = '';
+        delete next.heroArt;
+        delete next.cinematicArt;
+        return next;
+      });
+    }
     var directItems = [];
     (Array.isArray(character.equipItems) ? character.equipItems : []).forEach(function (item) {
       if (item) directItems.push(Object.assign({}, item, { _sessionEquipped:item.equipped !== false }));
@@ -662,8 +684,8 @@
       statuses: clean(character.statuses || character.conditions, []),
       statusEffects: clean((character.tempEffects || []).filter(function (effect) { return effect && effect.type === 'status'; }), []).slice(0, 40),
       abilityUsage: clean(abilityUsage, {}),
-      inventoryItems: clean(character.inventoryItems, []).slice(0, 80),
-      equipItems: clean(character.equipItems, []).slice(0, 40),
+      inventoryItems: sessionItems(character.inventoryItems, 80),
+      equipItems: sessionItems(character.equipItems, 40),
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
       notes: clean(character.notes || character.journal || character.quests, []),
       biography: cleanText(character.biography || character.bio, 12000),
@@ -1238,7 +1260,55 @@
         var scopedFields = Array.isArray(options.changedFields) ? options.changedFields.filter(function (field) {
           return field === 'inventoryItems' || field === 'equipItems';
         }) : [];
-        if (scopedFields.length) {
+        var store = syncOutbox();
+        var itemOperations = Array.isArray(options.inventoryOperations) ? options.inventoryOperations : null;
+        var roomWrite;
+        if (itemOperations && store && store.applyInventoryOperations) {
+          var operationConflict = null;
+          var operationConflictField = '';
+          var operationConflictItemId = '';
+          var operationFailure = '';
+          var operationId = String(options.outboxEntry && options.outboxEntry.operationId || liveSnapshot.syncOperationId || '');
+          var characterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid + '/character');
+          roomWrite = firebase.runTransaction(characterRef, function (current) {
+            operationConflict = null;
+            operationConflictField = '';
+            operationConflictItemId = '';
+            operationFailure = '';
+            var applied = store.applyInventoryOperations(current, itemOperations, {
+              revision:liveSnapshot.revision,
+              updatedAt:now(),
+              updatedBy:user.uid,
+              source:syncReason,
+              operationId:operationId
+            });
+            if (!applied.ok) {
+              operationFailure = applied.error || 'inventory-operation-conflict';
+              if (applied.conflict) {
+                operationConflict = JSON.parse(JSON.stringify(current || {}));
+                operationConflictField = applied.field;
+                operationConflictItemId = applied.itemId;
+              }
+              return;
+            }
+            return applied.character;
+          }).then(function (result) {
+            if (!result || !result.committed) {
+              if (operationConflict) {
+                var conflictArchived = !store.recordConflict || store.recordConflict(options.outboxEntry, operationConflict);
+                var conflictMessage = 'Inventory item changed in room: ' + String(operationConflictItemId || 'unknown') + ' (' + String(operationConflictField || 'inventory') + ')';
+                setCharacterSync('conflict', character, 'local→room', syncReason, conflictMessage);
+                appendSyncEvent(character, 'local→room', syncReason, 'conflict', conflictMessage);
+                if (!conflictArchived) appendSyncEvent(character, 'local→room', syncReason, 'conflict-archive-error', 'Both versions remain in room and outbox');
+                emit();
+                return { inventoryConflict:true };
+              }
+              throw roomError('Не удалось применить операцию инвентаря: ' + operationFailure, 'inventory-operation-failed');
+            }
+            liveSnapshot = result.snapshot && result.snapshot.val ? result.snapshot.val() : liveSnapshot;
+            return { inventoryConflict:false };
+          });
+        } else if (scopedFields.length) {
           scopedFields.forEach(function (field) {
             memberUpdates['character/' + field] = liveSnapshot[field] == null ? [] : liveSnapshot[field];
           });
@@ -1247,15 +1317,19 @@
           memberUpdates['character/updatedBy'] = liveSnapshot.updatedBy;
           memberUpdates['character/source'] = liveSnapshot.source;
           memberUpdates['character/syncOperationId'] = liveSnapshot.syncOperationId || '';
+          roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
         } else {
           memberUpdates.character = liveSnapshot;
+          roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
         }
-        var roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
-        return roomWrite.then(function () {
+        return roomWrite.then(function (writeResult) {
+          if (writeResult && writeResult.inventoryConflict) {
+            return refreshRoom(session.code).catch(function () { return currentRoom; }).then(function () { return api.getSnapshot(); });
+          }
           setCharacterSync('synced', liveSnapshot, 'local→room', syncReason);
           appendSyncEvent(liveSnapshot, 'local→room', syncReason, 'ack');
-          return refreshRoom(session.code);
-        }).then(function () { return api.getSnapshot(); });
+          return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+        });
       }).catch(function (error) {
         setCharacterSync(connected ? 'conflict' : 'offline', character, 'local→room', options.reason || 'edit', error);
         appendSyncEvent(character, 'local→room', options.reason || 'edit', 'error', error);

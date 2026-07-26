@@ -8,8 +8,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
 <script src="character-store.js?v=2026-07-27.1"></script>
-<script src="character-sync-outbox.js?v=2026-07-27.1"></script>
-<script src="zargota-network.js?v=2026-07-27.2"></script>
+<script src="character-sync-outbox.js?v=2026-07-27.2"></script>
+<script src="zargota-network.js?v=2026-07-27.3"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -30371,6 +30371,20 @@ function saveChars(options) {
   });
 }
 
+function zgMergeSessionInventoryItems(localItems,roomItems) {
+  if(!Array.isArray(roomItems))return roomItems;
+  var localById={};
+  (Array.isArray(localItems)?localItems:[]).forEach(function(item){
+    if(item&&typeof item==='object'&&item.itemId)localById[String(item.itemId)]=item;
+  });
+  return roomItems.map(function(item){
+    if(!item||typeof item!=='object')return item;
+    var next=Object.assign({},item),local=localById[String(item.itemId||'')];
+    if(local&&!next.image&&local.image)next.image=local.image;
+    return next;
+  });
+}
+
 function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
   options=options||{};if(!roomCharacter||!member)return Promise.resolve({ok:true,skipped:true});
   var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
@@ -30381,7 +30395,7 @@ function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
   }
   var incomingRevision=Math.max(0,Number(roomCharacter.revision)||0),localRevision=Math.max(0,Number(localCharacter.revision)||0);
   if(!options.force&&incomingRevision&&localRevision&&incomingRevision<localRevision)return Promise.resolve({ok:true,skipped:true});
-  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:roomCharacter.inventoryItems,equipItems:roomCharacter.equipItems,arenaEquipSlots:roomCharacter.arenaEquipSlots,notes:roomCharacter.notes,revision:incomingRevision};
+  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:zgMergeSessionInventoryItems(localCharacter.inventoryItems,roomCharacter.inventoryItems),equipItems:zgMergeSessionInventoryItems(localCharacter.equipItems,roomCharacter.equipItems),arenaEquipSlots:roomCharacter.arenaEquipSlots,notes:roomCharacter.notes,revision:incomingRevision};
   var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
   if(!options.force&&window._zgCampaignRuntimeSig[sigKey]===signature)return Promise.resolve({ok:true,skipped:true});
   window._zgCampaignRuntimeSig[sigKey]=signature;Object.keys(runtime).forEach(function(field){if(runtime[field]!==undefined)localCharacter[field]=runtime[field];});

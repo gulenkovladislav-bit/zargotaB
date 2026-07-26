@@ -51,9 +51,14 @@ assert.match(network, /queueCharacterSync/);
 assert.match(network, /flushCharacterOutbox/);
 assert.match(network, /changedFields\s*=\s*\/\^inventory-/);
 assert.match(network, /baseFieldSignatures\[field\]\s*=\s*store\.fieldSignature/);
+assert.match(network, /baseFieldValues\[field\]\s*=\s*value/);
 assert.match(network, /store\.mergeChangedFields\(entry\.id,\s*member\.character\)/);
 assert.match(network, /'field-merge'/);
 assert.match(network, /changedFields:Array\.isArray\(entry\.changedFields\)/);
+assert.match(network, /inventoryOperations:hasItemOperations/);
+assert.match(network, /store\.applyInventoryOperations\(current,\s*itemOperations/);
+assert.match(network, /firebase\.runTransaction\(characterRef/);
+assert.match(network, /store\.recordConflict\(options\.outboxEntry,\s*operationConflict\)/);
 assert.match(network, /memberUpdates\['character\/'\s*\+\s*field\]/);
 assert.match(network, /memberUpdates\['character\/syncOperationId'\]/);
 assert.match(network, /gmAddInventoryItem:\s*function/);
@@ -134,7 +139,7 @@ var snapshotContext = {
     name: 'Герой',
     hpMax: 12,
     inventoryItems: [
-      { itemId:'zg-item-7-i-stable', name:'Ключ', qty:2 },
+      { itemId:'zg-item-7-i-stable', name:'Ключ', qty:2, image:'data:image/png;base64,item' },
       { itemId:'backpack-sword', name:'Меч в рюкзаке', category:'weapon', damageFormula:'9d9' },
       { itemId:'equipped-sword', name:'Надетый меч', category:'weapon', damageFormula:'1d8', equipped:true, slot:'weapon' }
     ],
@@ -159,6 +164,7 @@ assert.strictEqual(snapshotContext.result.skills[0].description, 'Описани
 assert.strictEqual(snapshotContext.result.skills[0].image, undefined);
 assert.strictEqual(snapshotContext.result.inventoryItems[0].itemId, 'zg-item-7-i-stable');
 assert.strictEqual(snapshotContext.result.inventoryItems[0].qty, 2);
+assert.strictEqual(snapshotContext.result.inventoryItems[0].image, '');
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'backpack-sword'; }), false);
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'equipped-sword'; }), true);
 assert.strictEqual(snapshotContext.result.biography, 'История');
@@ -206,5 +212,18 @@ var applyEnd = html.indexOf('window.zgPersistFinalSessionCharacter', applyStart)
 var applyBlock = html.slice(applyStart, applyEnd);
 assert.strictEqual(applyBlock.indexOf('skills:roomCharacter.skills') >= 0, false);
 assert.strictEqual(applyBlock.indexOf('biography:roomCharacter.biography') >= 0, false);
+
+var inventoryMergeStart = html.indexOf('function zgMergeSessionInventoryItems');
+var inventoryMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', inventoryMergeStart);
+var inventoryMergeContext = { result:null };
+vm.runInNewContext(
+  html.slice(inventoryMergeStart, inventoryMergeEnd) +
+    '; result=zgMergeSessionInventoryItems([{itemId:"a",name:"Ключ",image:"data:image/png;base64,local"},{itemId:"deleted",image:"keep-only-local"}],[{itemId:"a",name:"Ключ",image:""},{itemId:"b",name:"Дар мастера"}]);',
+  inventoryMergeContext
+);
+assert.strictEqual(inventoryMergeContext.result.length, 2);
+assert.strictEqual(inventoryMergeContext.result[0].image, 'data:image/png;base64,local');
+assert.strictEqual(inventoryMergeContext.result[1].name, 'Дар мастера');
+assert.strictEqual(inventoryMergeContext.result.some(function(item) { return item.itemId === 'deleted'; }), false);
 
 console.log('network character sync contract passed');
