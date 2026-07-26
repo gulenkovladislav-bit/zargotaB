@@ -30,6 +30,7 @@ assert.match(sheetBlock, /inventoryItems/);
 assert.match(sheetBlock, /equipItems/);
 assert.match(sheetBlock, /spellRefs/);
 assert.match(sheetBlock, /c\.notes\|\|c\.journal\|\|c\.quests/);
+assert.match(sheetBlock, /Текущая цель/);
 ['abilities', 'items', 'journal', 'bio'].forEach(function (pane) {
   assert.ok(html.indexOf('id="zg-sheet-pane-' + pane + '"') >= 0, 'missing session sheet pane: ' + pane);
 });

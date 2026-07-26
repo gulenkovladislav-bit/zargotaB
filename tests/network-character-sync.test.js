@@ -3,6 +3,7 @@
 var assert = require('assert');
 var fs = require('fs');
 var path = require('path');
+var vm = require('vm');
 
 var root = path.resolve(__dirname, '..');
 var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
@@ -97,5 +98,41 @@ assert.strictEqual(
   'a failed cache refresh must not delete the previous character cache'
 );
 assert.match(html, /character cache refresh failed; previous cache preserved/);
+
+var snapshotStart = network.indexOf('function characterSnapshot');
+var snapshotEnd = network.indexOf('function campaignKeyFor', snapshotStart);
+var snapshotSource = network.slice(snapshotStart, snapshotEnd);
+var snapshotContext = {
+  input: {
+    id: 7,
+    name: 'Герой',
+    hpMax: 12,
+    skills: [{ name:'Приём', description:'Описание', image:'data:image/png;base64,heavy' }],
+    traits: ['Черта'],
+    spellRefs: [101, '202', { bad:true }],
+    biography: 'История',
+    quote: 'Цитата',
+    portrait: 'data:image/png;base64,portrait'
+  },
+  result: null
+};
+vm.runInNewContext(
+  'var w={}; function campaignKeyFor(){return "hero-key";}' +
+    snapshotSource +
+    '; result=characterSnapshot(input);',
+  snapshotContext
+);
+assert.deepStrictEqual(Array.from(snapshotContext.result.spellRefs), [101, '202']);
+assert.strictEqual(snapshotContext.result.skills[0].name, 'Приём');
+assert.strictEqual(snapshotContext.result.skills[0].description, 'Описание');
+assert.strictEqual(snapshotContext.result.skills[0].image, undefined);
+assert.strictEqual(snapshotContext.result.biography, 'История');
+assert.strictEqual(snapshotContext.result.quote, 'Цитата');
+assert.strictEqual(snapshotContext.result.portrait, '');
+var applyStart = html.indexOf('function zgApplySessionCharacterToLocal');
+var applyEnd = html.indexOf('window.zgPersistFinalSessionCharacter', applyStart);
+var applyBlock = html.slice(applyStart, applyEnd);
+assert.strictEqual(applyBlock.indexOf('skills:roomCharacter.skills') >= 0, false);
+assert.strictEqual(applyBlock.indexOf('biography:roomCharacter.biography') >= 0, false);
 
 console.log('network character sync contract passed');

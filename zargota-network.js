@@ -560,6 +560,23 @@
       try { return JSON.parse(JSON.stringify(value == null ? fallback : value)); }
       catch (e) { return fallback; }
     }
+    function cleanText(value, limit) {
+      var text = String(value == null ? '' : value);
+      if (/^(?:data|blob):/i.test(text)) return '';
+      return text.slice(0, limit || 2000);
+    }
+    function displayEntry(value) {
+      if (typeof value === 'string') return cleanText(value, 2000);
+      if (!value || typeof value !== 'object') return null;
+      var entry = {};
+      ['id','name','title','label','type','icon','description','desc','effect','text','usages','cd'].forEach(function (key) {
+        if (value[key] != null) entry[key] = cleanText(value[key], key === 'description' || key === 'desc' || key === 'effect' || key === 'text' ? 4000 : 500);
+      });
+      return Object.keys(entry).length ? entry : null;
+    }
+    function displayList(value, limit) {
+      return (Array.isArray(value) ? value : []).slice(0, limit || 40).map(displayEntry).filter(Boolean);
+    }
     var directItems = [].concat(Array.isArray(character.equipItems) ? character.equipItems : [], Array.isArray(character.inventoryItems) ? character.inventoryItems : []);
     var armoryItems = [];
     try { if (typeof w.loadArmoryItems === 'function') armoryItems = w.loadArmoryItems() || []; } catch (e) {}
@@ -604,6 +621,9 @@
       speed: Number(character.speed || 0),
       stats: clean(character.stats, {}),
       mastery: clean(Array.isArray(character.mastery) ? character.mastery : [], []).slice(0, 40),
+      skills: displayList(character.skills || character.abilities, 40),
+      traits: displayList(character.traits, 40),
+      spellRefs: (Array.isArray(character.spellRefs) ? character.spellRefs : []).slice(0, 80).filter(function (id) { return typeof id === 'string' || typeof id === 'number'; }),
       weaponProfiles: clean(weaponProfiles, []).slice(0, 12),
       resistances: clean(character.resistances || character.damageResistances, []),
       vulnerabilities: clean(character.vulnerabilities || character.damageVulnerabilities, []),
@@ -614,7 +634,14 @@
       inventoryItems: clean(character.inventoryItems, []).slice(0, 80),
       equipItems: clean(character.equipItems, []).slice(0, 40),
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
-      notes: clean(character.notes || character.journal || character.quests, [])
+      notes: clean(character.notes || character.journal || character.quests, []),
+      biography: cleanText(character.biography || character.bio, 12000),
+      quote: cleanText(character.quote, 1000),
+      origin: cleanText(character.origin, 500),
+      symbol: cleanText(character.symbol, 500),
+      god: cleanText(character.god, 500),
+      age: cleanText(character.age, 100),
+      currentGoal: cleanText(character.currentGoal, 2000)
     };
   }
 
