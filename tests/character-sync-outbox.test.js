@@ -95,6 +95,84 @@ assert.strictEqual(outbox.recordConflict(duplicate.entry, {
   id:'hero1', hpCur:8, revision:4, portrait:'data:image/png;base64,another-copy'
 }), true);
 assert.strictEqual(outbox.readConflicts().length, 1);
+
+var inventoryBase = {
+  id:'inventory-hero',
+  hpCur:10,
+  revision:4,
+  inventoryItems:[{ itemId:'item-1', name:'Ключ', qty:1 }],
+  equipItems:[]
+};
+var inventoryQueued = outbox.enqueue({
+  roomCode:'INVROOM',
+  uid:'inventory-user',
+  characterId:'inventory-hero',
+  revision:5,
+  reason:'inventory-quantity',
+  baseRoomRevision:4,
+  baseRoomSignature:outbox.contentSignature(inventoryBase),
+  changedFields:['inventoryItems','equipItems'],
+  baseFieldSignatures:{
+    inventoryItems:outbox.fieldSignature(inventoryBase.inventoryItems),
+    equipItems:outbox.fieldSignature(inventoryBase.equipItems)
+  },
+  snapshot:Object.assign({}, inventoryBase, {
+    revision:5,
+    inventoryItems:[{ itemId:'item-1', name:'Ключ', qty:2 }]
+  }),
+  updatedAt:250
+});
+assert.deepStrictEqual(inventoryQueued.entry.changedFields, ['inventoryItems','equipItems']);
+var hpChangedInRoom = Object.assign({}, inventoryBase, { hpCur:9, revision:5 });
+var inventoryMerge = outbox.mergeChangedFields(inventoryQueued.entry.id, hpChangedInRoom);
+assert.strictEqual(inventoryMerge.ok, true);
+assert.strictEqual(inventoryMerge.entry.snapshot.hpCur, 9);
+assert.strictEqual(inventoryMerge.entry.snapshot.inventoryItems[0].qty, 2);
+assert.strictEqual(inventoryMerge.entry.baseRoomSignature, outbox.contentSignature(hpChangedInRoom));
+
+var inventoryConflictBase = Object.assign({}, inventoryBase, { id:'inventory-conflict' });
+var inventoryConflict = outbox.enqueue({
+  roomCode:'INVROOM2',
+  uid:'inventory-user',
+  characterId:'inventory-conflict',
+  revision:5,
+  reason:'inventory-update',
+  baseRoomSignature:outbox.contentSignature(inventoryConflictBase),
+  changedFields:['inventoryItems','equipItems'],
+  baseFieldSignatures:{
+    inventoryItems:outbox.fieldSignature(inventoryConflictBase.inventoryItems),
+    equipItems:outbox.fieldSignature(inventoryConflictBase.equipItems)
+  },
+  snapshot:Object.assign({}, inventoryConflictBase, {
+    inventoryItems:[{ itemId:'item-1', name:'Ключ', qty:2 }]
+  }),
+  updatedAt:260
+});
+var sameFieldChangedInRoom = Object.assign({}, inventoryConflictBase, {
+  revision:5,
+  inventoryItems:[{ itemId:'item-1', name:'Ключ', qty:3 }]
+});
+var refusedMerge = outbox.mergeChangedFields(inventoryConflict.entry.id, sameFieldChangedInRoom);
+assert.strictEqual(refusedMerge.ok, false);
+assert.strictEqual(refusedMerge.conflict, true);
+assert.strictEqual(refusedMerge.field, 'inventoryItems');
+assert.strictEqual(
+  outbox.peek({ roomCode:'INVROOM2', uid:'inventory-user', characterId:'inventory-conflict' }).snapshot.inventoryItems[0].qty,
+  2
+);
+
+var fullEditAfterInventory = outbox.enqueue({
+  roomCode:'INVROOM2',
+  uid:'inventory-user',
+  characterId:'inventory-conflict',
+  revision:6,
+  reason:'edit',
+  changedFields:[],
+  snapshot:Object.assign({}, inventoryConflictBase, { hpCur:8, revision:6 }),
+  updatedAt:270
+});
+assert.deepStrictEqual(fullEditAfterInventory.entry.changedFields, []);
+
 for (var conflictIndex = 0; conflictIndex < 12; conflictIndex += 1) {
   assert.strictEqual(outbox.recordConflict(duplicate.entry, {
     id:'hero1', hpCur:conflictIndex, revision:5 + conflictIndex

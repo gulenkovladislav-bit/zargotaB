@@ -48,6 +48,10 @@
     return JSON.stringify(stableValue(value));
   }
 
+  function fieldSignature(value) {
+    return JSON.stringify(stableValue(stripHeavyData(value == null ? null : value)));
+  }
+
   function createOperationId(scope, timestamp, revision) {
     return scope + ':' + timestamp + ':' + Math.max(0, Number(revision) || 0) + ':' +
       Math.random().toString(36).slice(2, 10);
@@ -91,12 +95,29 @@
     var timestamp = Math.max(1, Number(input.updatedAt) || Date.now());
     var snapshot = stripHeavyData(input.snapshot);
     var sameContent = !!(existing && contentSignature(existing.snapshot) === contentSignature(snapshot));
+    var inputFields = Array.isArray(input.changedFields) ? input.changedFields.map(String).filter(Boolean) : [];
+    var existingFields = existing && Array.isArray(existing.changedFields) ? existing.changedFields : [];
+    var changedFields = existing
+      ? (existingFields.length && inputFields.length
+        ? existingFields.concat(inputFields).filter(function (field, index, list) { return list.indexOf(field) === index; })
+        : [])
+      : inputFields;
     var operationId = String(
       input.operationId ||
       sameContent && existing.operationId ||
       createOperationId(scope, timestamp, input.revision)
     );
     snapshot.syncOperationId = operationId;
+    var baseFieldSignatures = existing && existing.baseFieldSignatures
+      ? clone(existing.baseFieldSignatures) || {}
+      : clone(input.baseFieldSignatures) || {};
+    if (existing && existingFields.length && inputFields.length) {
+      inputFields.forEach(function (field) {
+        if (baseFieldSignatures[field] === undefined && input.baseFieldSignatures) {
+          baseFieldSignatures[field] = String(input.baseFieldSignatures[field] || '');
+        }
+      });
+    }
     var entry = {
       id: existing && existing.id || scope + ':' + timestamp,
       operationId: operationId,
@@ -111,6 +132,8 @@
       attempts: Math.max(0, Number(existing && existing.attempts) || 0),
       baseRoomRevision: existing ? Math.max(0, Number(existing.baseRoomRevision) || 0) : Math.max(0, Number(input.baseRoomRevision) || 0),
       baseRoomSignature: existing ? String(existing.baseRoomSignature || '') : String(input.baseRoomSignature || ''),
+      changedFields: changedFields,
+      baseFieldSignatures: baseFieldSignatures,
       snapshot: snapshot
     };
     if (existingIndex >= 0) rows.splice(existingIndex, 1);
@@ -151,6 +174,43 @@
       }
     });
     return !changed || write(rows);
+  }
+
+  function mergeChangedFields(id, roomCharacter) {
+    var rows = read(), mergedEntry = null, conflictField = '';
+    rows.forEach(function (row) {
+      if (String(row.id) !== String(id) || !Array.isArray(row.changedFields) || !row.changedFields.length) return;
+      var baseFields = row.baseFieldSignatures || {};
+      row.changedFields.some(function (field) {
+        if (String(baseFields[field] || '') !== fieldSignature(roomCharacter && roomCharacter[field])) {
+          conflictField = field;
+          return true;
+        }
+        return false;
+      });
+      if (conflictField) return;
+      var merged = clone(roomCharacter) || {};
+      row.changedFields.forEach(function (field) {
+        merged[field] = stripHeavyData(clone(row.snapshot && row.snapshot[field]));
+      });
+      merged.revision = Math.max(
+        Math.max(0, Number(roomCharacter && roomCharacter.revision) || 0) + 1,
+        Math.max(0, Number(row.snapshot && row.snapshot.revision) || 0)
+      );
+      merged.syncOperationId = row.operationId || row.snapshot && row.snapshot.syncOperationId || '';
+      row.snapshot = merged;
+      row.revision = merged.revision;
+      row.baseRoomRevision = Math.max(0, Number(roomCharacter && roomCharacter.revision) || 0);
+      row.baseRoomSignature = contentSignature(roomCharacter || {});
+      row.baseFieldSignatures = {};
+      row.changedFields.forEach(function (field) {
+        row.baseFieldSignatures[field] = fieldSignature(roomCharacter && roomCharacter[field]);
+      });
+      mergedEntry = row;
+    });
+    if (conflictField) return { ok:false, conflict:true, field:conflictField };
+    if (!mergedEntry) return { ok:false, error:'entry-not-mergeable' };
+    return { ok:write(rows), entry:mergedEntry };
   }
 
   function clearScope(scope) {
@@ -224,7 +284,8 @@
         reason: row.reason,
         queuedAt: row.queuedAt,
         updatedAt: row.updatedAt,
-        attempts: row.attempts
+        attempts: row.attempts,
+        changedFields: Array.isArray(row.changedFields) ? row.changedFields.slice() : []
       };
     });
   }
@@ -232,6 +293,7 @@
   return {
     config: { storageKey:STORAGE_KEY, conflictsKey:CONFLICTS_KEY, maxEntries:MAX_ENTRIES, maxConflicts:MAX_CONFLICTS },
     contentSignature: contentSignature,
+    fieldSignature: fieldSignature,
     stripHeavyData: stripHeavyData,
     read: read,
     enqueue: enqueue,
@@ -239,6 +301,7 @@
     markAttempt: markAttempt,
     remove: remove,
     rebase: rebase,
+    mergeChangedFields: mergeChangedFields,
     clearScope: clearScope,
     matchesApplied: matchesApplied,
     readConflicts: readConflicts,

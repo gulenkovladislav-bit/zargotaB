@@ -36,6 +36,8 @@ assert.match(sheetBlock, /tempHp/);
 assert.match(sheetBlock, /statusEffects/);
 assert.match(sheetBlock, /inventoryItems/);
 assert.match(sheetBlock, /equipItems/);
+assert.match(sheetBlock, /item&&item\.equipped===true/);
+assert.match(sheetBlock, /item\.equipped!==true/);
 assert.match(sheetBlock, /spellRefs/);
 assert.match(sheetBlock, /c\.notes\|\|c\.journal\|\|c\.quests/);
 assert.match(sheetBlock, /Текущая цель/);

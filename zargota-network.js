@@ -124,6 +124,12 @@
     if (!store || !session || session.role !== 'player' || !character || character.id == null) return { ok:false, skipped:true };
     var member = currentRoom && currentRoom.members && currentRoom.members[session.uid];
     if (!member || String(member.characterId || '') !== String(character.id)) return { ok:false, skipped:true };
+    var syncReason = String(reason || 'edit');
+    var changedFields = /^inventory-/.test(syncReason) ? ['inventoryItems','equipItems'] : [];
+    var baseFieldSignatures = {};
+    changedFields.forEach(function (field) {
+      baseFieldSignatures[field] = store.fieldSignature(member.character && member.character[field]);
+    });
     var snapshot = characterSnapshot(character);
     snapshot.revision = Math.max(0, Number(character.revision) || 0);
     var queued = store.enqueue({
@@ -132,9 +138,11 @@
       characterId:String(character.id),
       campaignKey:campaignKeyFor(character),
       revision:snapshot.revision,
-      reason:reason || 'edit',
+      reason:syncReason,
       baseRoomRevision:Math.max(0, Number(member.character && member.character.revision) || 0),
       baseRoomSignature:store.contentSignature(member.character || {}),
+      changedFields:changedFields,
+      baseFieldSignatures:baseFieldSignatures,
       snapshot:snapshot,
       updatedAt:now()
     });
@@ -172,6 +180,19 @@
       emit();
       return Promise.resolve(api.getSnapshot());
     }
+    if (entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature && entry.changedFields && entry.changedFields.length && store.mergeChangedFields) {
+      var fieldMerge = store.mergeChangedFields(entry.id, member.character);
+      if (fieldMerge && fieldMerge.ok) {
+        entry = fieldMerge.entry;
+        currentSignature = store.contentSignature(member.character);
+        appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'field-merge');
+      } else if (fieldMerge && !fieldMerge.conflict) {
+        setCharacterSync('storage-error', entry.snapshot, 'local→room', entry.reason || 'edit', fieldMerge.error || 'Outbox field merge could not be persisted');
+        appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'outbox-merge-error', fieldMerge.error || 'Outbox field merge could not be persisted');
+        emit();
+        return Promise.resolve(api.getSnapshot());
+      }
+    }
     if (entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature) {
       var conflictArchived = !store.recordConflict || store.recordConflict(entry, member.character);
       setCharacterSync('conflict', entry.snapshot, 'local→room', entry.reason || 'edit', 'Room character changed while local edits were queued');
@@ -182,7 +203,11 @@
     }
     store.markAttempt(entry.id);
     var shouldContinue = false;
-    outboxFlushPromise = api.syncCharacter(entry.snapshot, { prepared:true, reason:entry.reason || 'edit' }).then(function (snapshot) {
+    outboxFlushPromise = api.syncCharacter(entry.snapshot, {
+      prepared:true,
+      reason:entry.reason || 'edit',
+      changedFields:Array.isArray(entry.changedFields) ? entry.changedFields.slice() : []
+    }).then(function (snapshot) {
       var latest = store.peek(scope);
       var ackStored = true;
       if (snapshot && snapshot.characterSync && snapshot.characterSync.status === 'synced') {
@@ -1174,9 +1199,26 @@
         setCharacterSync('sending', liveSnapshot, 'local→room', syncReason);
         appendSyncEvent(liveSnapshot, 'local→room', syncReason, 'sending');
         emit();
-        var roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-          character: liveSnapshot, name: character.name || member.name, lastSeen: firebase.serverTimestamp()
-        });
+        var memberUpdates = {
+          name:character.name || member.name,
+          lastSeen:firebase.serverTimestamp()
+        };
+        var scopedFields = Array.isArray(options.changedFields) ? options.changedFields.filter(function (field) {
+          return field === 'inventoryItems' || field === 'equipItems';
+        }) : [];
+        if (scopedFields.length) {
+          scopedFields.forEach(function (field) {
+            memberUpdates['character/' + field] = liveSnapshot[field] == null ? [] : liveSnapshot[field];
+          });
+          memberUpdates['character/revision'] = liveSnapshot.revision;
+          memberUpdates['character/updatedAt'] = liveSnapshot.updatedAt;
+          memberUpdates['character/updatedBy'] = liveSnapshot.updatedBy;
+          memberUpdates['character/source'] = liveSnapshot.source;
+          memberUpdates['character/syncOperationId'] = liveSnapshot.syncOperationId || '';
+        } else {
+          memberUpdates.character = liveSnapshot;
+        }
+        var roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
         return roomWrite.then(function () {
           setCharacterSync('synced', liveSnapshot, 'local→room', syncReason);
           appendSyncEvent(liveSnapshot, 'local→room', syncReason, 'ack');

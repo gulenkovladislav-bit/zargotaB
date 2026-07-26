@@ -107,9 +107,16 @@
     character.equipItems = normalizedEquipment.filter(function (equipment) {
       var source = character.inventoryItems.filter(function (item) {
         return item && equipment && item.itemId === equipment.itemId;
-      })[0] || (equipment && equipment._sourceInventoryIndex != null
-        ? character.inventoryItems[Number(equipment._sourceInventoryIndex)]
-        : null);
+      })[0] || null;
+      if (!source && equipment && equipment._sourceInventoryIndex != null) {
+        var indexedSource = character.inventoryItems[Number(equipment._sourceInventoryIndex)];
+        var sameLegacyItem = indexedSource && (
+          String(indexedSource.name || indexedSource.text || '').trim() === String(equipment.name || equipment.text || '').trim() ||
+          (!!indexedSource.image && indexedSource.image === equipment.image) ||
+          (!!indexedSource.description && indexedSource.description === equipment.description)
+        );
+        if (sameLegacyItem) source = indexedSource;
+      }
       if (!source) return true;
       ['name','icon','description','image','type','category','rarity','damage','damageFormula','damageType','acBonus','weight'].forEach(function (field) {
         if ((source[field] == null || source[field] === '') && equipment[field] != null) source[field] = equipment[field];

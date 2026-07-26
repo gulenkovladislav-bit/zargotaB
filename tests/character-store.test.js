@@ -123,6 +123,16 @@ assert.strictEqual(duplicatedEquipmentCharacter.inventoryItems[0].description, '
 assert.strictEqual(duplicatedEquipmentCharacter.inventoryItems[0].image, 'images/sword.png');
 assert.strictEqual(store.normalizeCharacterInventory(duplicatedEquipmentCharacter).collapsedEquipmentCopies, 0);
 
+var staleIndexCharacter = {
+  id:'stale-index',
+  inventoryItems:[{ name:'Совсем другой предмет' }],
+  equipItems:[{ name:'Старый меч', equipped:true, _sourceInventoryIndex:0 }]
+};
+var staleIndexMigration = store.normalizeCharacterInventory(staleIndexCharacter);
+assert.strictEqual(staleIndexMigration.collapsedEquipmentCopies, 0);
+assert.strictEqual(staleIndexCharacter.inventoryItems[0].name, 'Совсем другой предмет');
+assert.strictEqual(staleIndexCharacter.equipItems[0].name, 'Старый меч');
+
 function createLocalStorage() {
   var values = new Map();
   return {
