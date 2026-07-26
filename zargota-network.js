@@ -2,7 +2,7 @@
   'use strict';
 
   var SESSION_KEY = 'zargota_vtt_session_v4';
-  var CAMPAIGN_ID = 'zargota-main';
+  var SYNC_LOG_KEY = 'zargota_sync_events_v1';
   var CAMPAIGN_HERO_KEYS = {
     '1776627463516':'evan','1776626039651':'melissa','1776463717210':'esteros','1778221131899':'vrotik','1778221143711':'lin-yin'
   };
@@ -25,14 +25,26 @@
   var currentRoom = null;
   var currentCampaign = null;
   var roomUnsubscribe = null;
-  var campaignUnsubscribe = null;
   var connected = false;
   var initError = null;
   var createRoomPromise = null;
-  var campaignMirrorSignatures = {};
+  var leaveRoomPromise = null;
+  var outboxFlushPromise = null;
+  var characterSync = {
+    status: 'local',
+    direction: '',
+    reason: '',
+    revision: 0,
+    characterId: '',
+    lastLocalAt: 0,
+    lastAttemptAt: 0,
+    lastAckAt: 0,
+    error: ''
+  };
   // Пока игрок прикрепляет героя к комнате, локальный лист является единственным
   // источником истины. Это защищает свежие правки от старого снимка комнаты.
   var characterEntryUpload = null;
+  var characterInboundSession = null;
 
   try {
     var navigationEntry=w.performance&&w.performance.getEntriesByType&&w.performance.getEntriesByType('navigation')[0];
@@ -41,11 +53,194 @@
 
   function now() { return Date.now(); }
 
+  function syncIdentity(character) {
+    return {
+      characterId: String(character && character.id || ''),
+      campaignKey: campaignKeyFor(character),
+      revision: Math.max(0, Number(character && character.revision) || 0)
+    };
+  }
+
+  function appendSyncEvent(character, direction, reason, result, error) {
+    var session = readSession(), identity = syncIdentity(character);
+    var event = {
+      time: now(),
+      uid: String(session && session.uid || auth && auth.currentUser && auth.currentUser.uid || ''),
+      roomCode: String(session && session.code || ''),
+      characterId: identity.characterId,
+      campaignKey: identity.campaignKey,
+      direction: direction || '',
+      reason: reason || '',
+      revision: identity.revision,
+      result: result || '',
+      error: error ? String(error.message || error).slice(0, 300) : ''
+    };
+    try {
+      var rows = JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]');
+      if (!Array.isArray(rows)) rows = [];
+      rows.push(event);
+      localStorage.setItem(SYNC_LOG_KEY, JSON.stringify(rows.slice(-100)));
+    } catch (e) {}
+    return event;
+  }
+
+  function setCharacterSync(status, character, direction, reason, error) {
+    var identity = syncIdentity(character), timestamp = now();
+    characterSync.status = status;
+    characterSync.direction = direction || characterSync.direction || '';
+    characterSync.reason = reason || characterSync.reason || '';
+    characterSync.revision = identity.revision || characterSync.revision || 0;
+    characterSync.characterId = identity.characterId || characterSync.characterId || '';
+    characterSync.error = error ? String(error.message || error).slice(0, 300) : '';
+    if (status === 'local') characterSync.lastLocalAt = timestamp;
+    if (status === 'sending') characterSync.lastAttemptAt = timestamp;
+    if (status === 'synced') characterSync.lastAckAt = timestamp;
+  }
+
+  function cloneCharacterSync() {
+    return JSON.parse(JSON.stringify(characterSync));
+  }
+
+  function syncOutbox() {
+    return w.ZargotaSyncOutbox || null;
+  }
+
+  function outboxScope(session, characterId) {
+    return {
+      roomCode:String(session && session.code || ''),
+      uid:String(session && session.uid || auth && auth.currentUser && auth.currentUser.uid || ''),
+      characterId:String(characterId || '')
+    };
+  }
+
+  function clearCharacterOutbox(session, characterId) {
+    var store = syncOutbox();
+    if (!store || !session || characterId == null) return false;
+    return store.clearScope(outboxScope(session, characterId));
+  }
+
+  function clearLocalUnsynced(characterId) {
+    if (!w._zgUnsyncedCharacterIds || characterId == null) return;
+    delete w._zgUnsyncedCharacterIds[String(characterId)];
+  }
+
+  function queueCharacterSync(character, reason) {
+    var store = syncOutbox(), session = readSession();
+    if (!store || !session || session.role !== 'player' || !character || character.id == null) return { ok:false, skipped:true };
+    var member = currentRoom && currentRoom.members && currentRoom.members[session.uid];
+    if (!member || String(member.characterId || '') !== String(character.id)) return { ok:false, skipped:true };
+    var snapshot = characterSnapshot(character);
+    snapshot.revision = Math.max(0, Number(character.revision) || 0);
+    var queued = store.enqueue({
+      roomCode:session.code,
+      uid:session.uid,
+      characterId:String(character.id),
+      campaignKey:campaignKeyFor(character),
+      revision:snapshot.revision,
+      reason:reason || 'edit',
+      baseRoomRevision:Math.max(0, Number(member.character && member.character.revision) || 0),
+      baseRoomSignature:store.contentSignature(member.character || {}),
+      snapshot:snapshot,
+      updatedAt:now()
+    });
+    if (queued.ok) {
+      setCharacterSync(connected ? 'local' : 'offline', character, 'local→room', reason || 'edit');
+      appendSyncEvent(character, 'local→room', reason || 'edit', 'queued');
+      emit();
+    }
+    return queued;
+  }
+
+  function flushCharacterOutbox() {
+    if (outboxFlushPromise) return outboxFlushPromise;
+    var store = syncOutbox(), session = readSession();
+    if (!store || !connected || !session || session.role !== 'player' || !auth || !auth.currentUser || !currentRoom) {
+      return Promise.resolve(api.getSnapshot());
+    }
+    var member = currentRoom.members && currentRoom.members[session.uid];
+    if (!member || !member.characterId || !member.character) return Promise.resolve(api.getSnapshot());
+    var scope = outboxScope(session, member.characterId);
+    var entry = store.peek(scope);
+    if (!entry) return Promise.resolve(api.getSnapshot());
+    if (!canApplyIncomingCharacter(session, member.character, { allowQueued:true })) return Promise.resolve(api.getSnapshot());
+    var currentSignature = store.contentSignature(member.character);
+    if (store.matchesApplied && store.matchesApplied(entry, member.character)) {
+      if (!store.remove(entry.id)) {
+        setCharacterSync('storage-error', entry.snapshot, 'local→room', entry.reason || 'edit', 'Outbox ack could not be persisted');
+        appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'outbox-remove-error', 'Outbox ack could not be persisted');
+        emit();
+        return Promise.resolve(api.getSnapshot());
+      }
+      clearLocalUnsynced(entry.characterId);
+      setCharacterSync('synced', member.character, 'local→room', entry.reason || 'edit');
+      appendSyncEvent(member.character, 'local→room', entry.reason || 'edit', 'outbox-already-acked');
+      emit();
+      return Promise.resolve(api.getSnapshot());
+    }
+    if (entry.baseRoomSignature && currentSignature !== entry.baseRoomSignature) {
+      setCharacterSync('conflict', entry.snapshot, 'local→room', entry.reason || 'edit', 'Room character changed while local edits were queued');
+      appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'conflict', 'Room character changed while local edits were queued');
+      emit();
+      return Promise.resolve(api.getSnapshot());
+    }
+    store.markAttempt(entry.id);
+    var shouldContinue = false;
+    outboxFlushPromise = api.syncCharacter(entry.snapshot, { prepared:true, reason:entry.reason || 'edit' }).then(function (snapshot) {
+      var latest = store.peek(scope);
+      var ackStored = true;
+      if (snapshot && snapshot.characterSync && snapshot.characterSync.status === 'synced') {
+        if (!latest || String(latest.id) !== String(entry.id) || Number(latest.updatedAt) <= Number(entry.updatedAt)) {
+          if (store.remove(entry.id)) {
+            clearLocalUnsynced(entry.characterId);
+          } else {
+            ackStored = false;
+            setCharacterSync('storage-error', entry.snapshot, 'local→room', entry.reason || 'edit', 'Outbox ack could not be persisted');
+            appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'outbox-remove-error', 'Outbox ack could not be persisted');
+          }
+        } else {
+          var refreshedMember = currentRoom && currentRoom.members && currentRoom.members[session.uid];
+          store.rebase(entry.id, store.contentSignature(refreshedMember && refreshedMember.character || {}), Math.max(0, Number(refreshedMember && refreshedMember.character && refreshedMember.character.revision) || 0));
+          shouldContinue = true;
+        }
+        if (ackStored) appendSyncEvent(entry.snapshot, 'local→room', entry.reason || 'edit', 'outbox-ack');
+      }
+      return snapshot;
+    }).then(function (result) {
+      outboxFlushPromise = null;
+      var remaining = store.peek(scope);
+      if (remaining && connected && shouldContinue) return flushCharacterOutbox();
+      return result;
+    }, function (error) {
+      outboxFlushPromise = null;
+      return api.getSnapshot();
+    });
+    return outboxFlushPromise;
+  }
+
   function beginCharacterEntryUpload(session, user, character) {
+    characterInboundSession = null;
     characterEntryUpload = {
       code: String(session && session.code || ''), uid: String(user && user.uid || ''),
       characterId: String(character && character.id || ''), campaignKey: campaignKeyFor(character)
     };
+  }
+
+  function enableCharacterInbound(session, user, character) {
+    characterInboundSession = {
+      code: String(session && session.code || ''),
+      uid: String(user && user.uid || ''),
+      characterId: String(character && character.id || ''),
+      campaignKey: campaignKeyFor(character)
+    };
+  }
+
+  function matchesCharacterIdentity(identity, character) {
+    if (!identity || !character) return false;
+    var key = campaignKeyFor(character);
+    return !!(
+      (key && String(key) === String(identity.campaignKey || '')) ||
+      String(character.id || '') === String(identity.characterId || '')
+    );
   }
 
   function isCharacterEntryUpload(session, character) {
@@ -54,6 +249,36 @@
     if (!character) return characterEntryUpload;
     var key=campaignKeyFor(character);
     return (key && String(key)===String(characterEntryUpload.campaignKey||'')) || String(character.id||'')===String(characterEntryUpload.characterId||'') ? characterEntryUpload : false;
+  }
+
+  function canApplyIncomingCharacter(session, character, options) {
+    options = options || {};
+    if (!session || !character || isCharacterEntryUpload(session, character)) return false;
+    if (!currentRoom || String(currentRoom.code || '') !== String(session.code || '')) return false;
+    var member = currentRoom.members && currentRoom.members[session.uid];
+    if (!member || !member.character || String(member.characterId || '') !== String(character.id || '')) return false;
+    if (!options.allowQueued) {
+      var store = syncOutbox();
+      var pending = store && store.peek(outboxScope(session, member.characterId));
+      var localUnsynced = !!(w._zgUnsyncedCharacterIds && w._zgUnsyncedCharacterIds[String(member.characterId)]);
+      if (localUnsynced || pending && !(store.matchesApplied && store.matchesApplied(pending, member.character))) return false;
+    }
+    if (currentRoom.phase !== 'pairing' && currentRoom.phase !== 'character-select') return true;
+    if (!characterInboundSession) return false;
+    return String(characterInboundSession.code) === String(session.code || '') &&
+      String(characterInboundSession.uid) === String(session.uid || '') &&
+      matchesCharacterIdentity(characterInboundSession, character);
+  }
+
+  function nextCharacterSnapshot(character, member, user, source, prepared) {
+    var snapshot = prepared ? JSON.parse(JSON.stringify(character || {})) : characterSnapshot(character);
+    var localRevision = Math.max(0, Number(character && character.revision) || 0);
+    var roomRevision = Math.max(0, Number(member && member.character && member.character.revision) || 0);
+    snapshot.revision = Math.max(localRevision, roomRevision) + 1;
+    snapshot.updatedAt = firebase.serverTimestamp();
+    snapshot.updatedBy = String(user && user.uid || '');
+    snapshot.source = source || 'edit';
+    return snapshot;
   }
 
   function pointInPolygon(x, y, points) {
@@ -401,26 +626,6 @@
     return String(character.campaignKey || CAMPAIGN_HERO_KEYS[String(character.id)] || '').slice(0, 40);
   }
 
-  function campaignProfileSnapshot(character) {
-    var copy;
-    try { copy=JSON.parse(JSON.stringify(character||{})); } catch(e) { copy={}; }
-    var runtimeKeys=['hpCur','hpMax','tempHp','statuses','tempEffects','statusEffects','abilityUsage','inventoryItems','equipItems','deathSaves','combatRound','battleEcho'];
-    runtimeKeys.forEach(function(key){delete copy[key];});
-    delete copy.heroArt;
-    if(/^data:/i.test(String(copy.portrait||'')))copy.portrait='';
-    copy.id=String(copy.id||'');copy.campaignKey=campaignKeyFor(character);
-    return copy;
-  }
-
-  function campaignRuntimeSnapshot(character) {
-    var snap=characterSnapshot(character);
-    return {hpCur:snap.hpCur,hpMax:snap.hpMax,tempHp:snap.tempHp,statuses:snap.statuses,statusEffects:snap.statusEffects,abilityUsage:snap.abilityUsage,inventoryItems:snap.inventoryItems,equipItems:snap.equipItems,updatedAt:now()};
-  }
-
-  function campaignHeroPayload(character,ownerUid) {
-    return {campaignKey:campaignKeyFor(character),ownerUid:String(ownerUid||''),profile:campaignProfileSnapshot(character),runtime:campaignRuntimeSnapshot(character),updatedAt:now()};
-  }
-
   function emit() {
     var snapshot = api.getSnapshot();
     listeners.slice().forEach(function (listener) {
@@ -435,12 +640,7 @@
       roomUnsubscribe = null;
     }
     currentRoom = null;
-  }
-
-  function watchCampaign() {
-    if(campaignUnsubscribe){try{campaignUnsubscribe();}catch(e){}campaignUnsubscribe=null;}
-    if(!firebase||!db)return;
-    campaignUnsubscribe=firebase.onValue(firebase.ref(db,'campaigns/'+CAMPAIGN_ID),function(snapshot){currentCampaign=snapshot.exists()?snapshot.val():null;emit();},function(){currentCampaign=null;emit();});
+    characterInboundSession = null;
   }
 
   function syncSessionRole(room) {
@@ -465,6 +665,15 @@
     }
   }
 
+  function restoreCharacterInboundFromRoom(room) {
+    var session = readSession();
+    if (!session || session.role !== 'player' || !room || isCharacterEntryUpload(session)) return;
+    var member = room.members && room.members[session.uid];
+    if (!member || !member.character || member.characterId == null) return;
+    if (String(member.characterId) !== String(member.character.id || '')) return;
+    enableCharacterInbound(session, { uid:session.uid }, member.character);
+  }
+
   function watchRoom(code) {
     stopWatchingRoom();
     if (!code || !firebase || !db) return;
@@ -475,20 +684,12 @@
         if(missingSession&&missingSession.code===code)saveSession(null);
       }
       syncSessionRole(currentRoom);
-      mirrorRoomCampaign(currentRoom);
+      restoreCharacterInboundFromRoom(currentRoom);
       emit();
+      if (connected) flushCharacterOutbox();
     }, function (error) {
       console.error('Zargota room listener:', error);
       emit();
-    });
-  }
-
-  function mirrorRoomCampaign(room) {
-    var session=readSession();if(!room||!session||session.role!=='master'||!auth||!auth.currentUser||room.masterUid!==auth.currentUser.uid)return;
-    Object.keys(room.members||{}).forEach(function(uid){
-      var member=room.members[uid],character=member&&member.character,key=campaignKeyFor(character);if(!character||!key)return;
-      var signature=JSON.stringify(character);if(campaignMirrorSignatures[key]===signature)return;campaignMirrorSignatures[key]=signature;
-      firebase.update(firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes/'+key),{runtime:campaignRuntimeSnapshot(character),updatedAt:now()}).catch(function(){});
     });
   }
 
@@ -497,8 +698,15 @@
     var uid = auth.currentUser.uid;
     if (session.role === 'master') {
       var masterMemberRef=firebase.ref(db,'rooms/'+session.code+'/members/'+uid);
-      return firebase.update(masterMemberRef,{online:true,lastSeen:firebase.serverTimestamp()}).then(function(){
-        return firebase.onDisconnect(roomRef(session.code)).remove();
+      var masterRoomRef=roomRef(session.code);
+      return Promise.all([
+        firebase.update(masterMemberRef,{online:true,lastSeen:firebase.serverTimestamp()}),
+        firebase.update(masterRoomRef,{masterOnline:true,masterLastSeen:firebase.serverTimestamp()})
+      ]).then(function(){
+        return Promise.all([
+          firebase.onDisconnect(masterMemberRef).update({online:false,lastSeen:firebase.serverTimestamp()}),
+          firebase.onDisconnect(masterRoomRef).update({masterOnline:false,masterLastSeen:firebase.serverTimestamp()})
+        ]);
       }).catch(function(){});
     }
     var target = session.role === 'pending' && session.playerCode
@@ -549,39 +757,6 @@
       });
     }
     return next();
-  }
-
-  function ensureCampaign(user) {
-    var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID);
-    return firebase.get(target).then(function(snapshot){
-      var campaign=snapshot.exists()?snapshot.val():null;
-      var updates={masterUid:user.uid,updatedAt:now()},chars=Array.isArray(w.characters)?w.characters:[];
-      chars.forEach(function(character){
-        var key=campaignKeyFor(character);
-        if(key) {
-           var localProf = campaignProfileSnapshot(character);
-           if (campaign && campaign.heroes && campaign.heroes[key]) {
-             var remoteProf = campaign.heroes[key].profile;
-             if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
-               updates['heroes/'+key+'/profile'] = localProf;
-             }
-           } else {
-             updates['heroes/'+key]=campaignHeroPayload(character,'');
-           }
-        }
-      });
-      return firebase.update(target,updates).then(function(){watchCampaign();return true;});
-    }).catch(function(){return null;});
-  }
-
-  function writeCampaignCharacter(character,user,allowClaim) {
-    var key=campaignKeyFor(character);if(!key)return Promise.resolve(null);
-    var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes/'+key);
-    return firebase.get(target).then(function(snapshot){
-      var existing=snapshot.exists()?snapshot.val():null,owner=existing&&existing.ownerUid||'';
-      var payload=campaignHeroPayload(character,allowClaim?user.uid:(owner||user.uid));
-      return firebase.set(target,payload).then(function(){return payload;});
-    }).catch(function(){return null;});
   }
 
   var compactSceneImageCache = Object.create(null);
@@ -753,6 +928,8 @@
             phase: 'pairing',
             maxPlayers: MAX_PLAYERS,
             masterUid: user.uid,
+            masterOnline: true,
+            masterLastSeen: now(),
             createdAt: now(),
             updatedAt: now(),
             members: {},
@@ -772,7 +949,6 @@
             saveSession(session);
             currentRoom = room;
             watchRoom(code);
-            ensureCampaign(user);
             setPresence(session);
             emit();
             return api.getSnapshot();
@@ -913,77 +1089,85 @@
         var session = readSession();
         if (!session) return api.getSnapshot();
         beginCharacterEntryUpload(session,user,character);
+        setCharacterSync('sending', character, 'local→room', 'entry');
+        appendSyncEvent(character, 'local→room', 'entry', 'sending');
+        emit();
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var member = room.members && room.members[user.uid];
           if (!member) throw roomError('Мастер ещё не подтвердил подключение.', 'not-approved');
-          return writeCampaignCharacter(character,user,true).then(function(campaignResult){
-            if(campaignKeyFor(character)&&!campaignResult)throw roomError('Этот герой уже закреплён за другим игроком.','hero-taken');
-            return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-              characterId: String(character.id),character:characterSnapshot(character),campaignKey:campaignKeyFor(character),gmReady:false,
-              name:character.name||member.name,lastSeen:firebase.serverTimestamp(),online:true
-            });
+          var characterKey = campaignKeyFor(character);
+          var heroTaken = Object.keys(room.members || {}).some(function(uid) {
+            if (String(uid) === String(user.uid)) return false;
+            var other = room.members[uid];
+            if (!other || other.characterId == null) return false;
+            var otherKey = other.campaignKey || other.character && campaignKeyFor(other.character);
+            return characterKey
+              ? String(otherKey || '') === String(characterKey)
+              : String(other.characterId || '') === String(character.id);
+          });
+          if (heroTaken) throw roomError('Этот герой уже выбран другим игроком.', 'hero-taken');
+          var entrySnapshot = nextCharacterSnapshot(character, member, user, 'entry');
+          return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+            characterId: String(character.id),character:entrySnapshot,campaignKey:characterKey,gmReady:false,
+            name:character.name||member.name,lastSeen:firebase.serverTimestamp(),online:true
           }).then(function () {
+            enableCharacterInbound(session, user, entrySnapshot);
+            clearCharacterOutbox(session, character.id);
+            clearLocalUnsynced(character.id);
+            setCharacterSync('synced', entrySnapshot, 'local→room', 'entry');
+            appendSyncEvent(entrySnapshot, 'local→room', 'entry', 'ack');
             return refreshRoom(session.code).then(function () { characterEntryUpload=null; return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
         characterEntryUpload=null;
+        setCharacterSync(connected ? 'conflict' : 'offline', character, 'local→room', 'entry', error);
+        appendSyncEvent(character, 'local→room', 'entry', 'error', error);
+        emit();
         if (error && ['room-not-found','not-approved','hero-taken'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
 
-    syncCharacter: function (character) {
+    syncCharacter: function (character, options) {
+      options = options || {};
       if (!character || character.id == null) return Promise.resolve(api.getSnapshot());
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || !firebase || !db) return api.getSnapshot();
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         if (!member || String(member.characterId || '') !== String(character.id)) return api.getSnapshot();
+        if (!canApplyIncomingCharacter(session, member.character, { allowQueued:true })) return api.getSnapshot();
+        var syncReason = options.reason || 'edit';
+        var liveSnapshot = nextCharacterSnapshot(character, member, user, syncReason, !!options.prepared);
+        setCharacterSync('sending', liveSnapshot, 'local→room', syncReason);
+        appendSyncEvent(liveSnapshot, 'local→room', syncReason, 'sending');
+        emit();
         var roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-          character: characterSnapshot(character), name: character.name || member.name, lastSeen: firebase.serverTimestamp()
+          character: liveSnapshot, name: character.name || member.name, lastSeen: firebase.serverTimestamp()
         });
-        return Promise.all([roomWrite,writeCampaignCharacter(character,user,false)]).then(function () { return refreshRoom(session.code); }).then(function () { return api.getSnapshot(); });
-      }).catch(function () { return api.getSnapshot(); });
+        return roomWrite.then(function () {
+          setCharacterSync('synced', liveSnapshot, 'local→room', syncReason);
+          appendSyncEvent(liveSnapshot, 'local→room', syncReason, 'ack');
+          return refreshRoom(session.code);
+        }).then(function () { return api.getSnapshot(); });
+      }).catch(function (error) {
+        setCharacterSync(connected ? 'conflict' : 'offline', character, 'local→room', options.reason || 'edit', error);
+        appendSyncEvent(character, 'local→room', options.reason || 'edit', 'error', error);
+        emit();
+        return api.getSnapshot();
+      });
     },
 
     persistCampaignCharacter: function(character) {
-      return ensureReady().then(function(user){return writeCampaignCharacter(character,user,false);}).catch(function(){return null;});
+      // Legacy no-op facade. Shared campaign snapshots are read-only history.
+      return Promise.resolve(null);
     },
 
     syncCampaignHeroes: function(localCharacters) {
-      return ensureReady().then(function(user) {
-        var target=firebase.ref(db,'campaigns/'+CAMPAIGN_ID+'/heroes');
-        return firebase.get(target).then(function(snapshot){
-          var heroes=snapshot.exists()?snapshot.val():{};
-          var promises = [];
-          localCharacters.forEach(function(character){
-            var key=campaignKeyFor(character);
-            if(key) {
-               var localProf = campaignProfileSnapshot(character);
-               var localRuntime = campaignRuntimeSnapshot(character);
-               if (heroes && heroes[key]) {
-                 var heroUpdates = {};
-                 var remoteProf = heroes[key].profile;
-                 var remoteRuntime = heroes[key].runtime;
-                 if (JSON.stringify(remoteProf) !== JSON.stringify(localProf)) {
-                   heroUpdates['profile'] = localProf;
-                 }
-                 if (JSON.stringify(remoteRuntime) !== JSON.stringify(localRuntime)) {
-                   heroUpdates['runtime'] = localRuntime;
-                 }
-                 if (Object.keys(heroUpdates).length > 0) {
-                   promises.push(firebase.update(firebase.ref(db, 'campaigns/'+CAMPAIGN_ID+'/heroes/'+key), heroUpdates));
-                 }
-               } else {
-                 promises.push(firebase.set(firebase.ref(db, 'campaigns/'+CAMPAIGN_ID+'/heroes/'+key), campaignHeroPayload(character, '')));
-               }
-            }
-          });
-          return Promise.all(promises);
-        });
-      }).catch(function(){});
+      // Legacy no-op facade. Only the active room character is synchronized.
+      return Promise.resolve(null);
     },
 
     attachGameMaster: function () {
@@ -2262,10 +2446,37 @@
     },
 
     leaveRoom: function () {
-      return ensureReady().then(function (user) {
+      if (leaveRoomPromise) return leaveRoomPromise;
+      leaveRoomPromise = ensureReady().then(function (user) {
         var session = readSession();
         if (!session) return;
-        var operation;
+        var finalPull = Promise.resolve();
+        if (session.role === 'player') {
+          var memberRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid);
+          finalPull = firebase.get(memberRef).then(function (snapshot) {
+            if (!snapshot.exists()) throw roomError('Участник комнаты больше не найден. Локальный лист не изменён.', 'player-not-found');
+            var member = snapshot.val(), roomCharacter = member && member.character;
+            if (!roomCharacter) return;
+            var expectedId = String(member.characterId || ''), actualId = String(roomCharacter.id || '');
+            var expectedKey = String(member.campaignKey || ''), actualKey = campaignKeyFor(roomCharacter);
+            if ((expectedId && actualId !== expectedId) || (expectedKey && actualKey && actualKey !== expectedKey)) {
+              throw roomError('Итоговый лист комнаты относится к другому герою. Выход остановлен, локальные данные сохранены.', 'character-mismatch');
+            }
+            setCharacterSync('sending', roomCharacter, 'room→local', 'exit');
+            appendSyncEvent(roomCharacter, 'room→local', 'exit', 'pulling');
+            emit();
+            if (typeof w.zgPersistFinalSessionCharacter !== 'function') {
+              throw roomError('Локальное хранилище героя недоступно. Выход остановлен.', 'storage-missing');
+            }
+            return Promise.resolve(w.zgPersistFinalSessionCharacter(roomCharacter, member)).then(function () {
+              clearCharacterOutbox(session, member.characterId);
+              setCharacterSync('synced', roomCharacter, 'room→local', 'exit');
+              appendSyncEvent(roomCharacter, 'room→local', 'exit', 'saved');
+            });
+          });
+        }
+        return finalPull.then(function () {
+          var operation;
         if (session.role === 'master') {
           operation = firebase.remove(roomRef(session.code));
         } else if (session.role === 'pending' && session.playerCode) {
@@ -2278,11 +2489,56 @@
         }
         return operation.then(function () {
           characterEntryUpload=null;
+          characterInboundSession=null;
           saveSession(null);
           stopWatchingRoom();
           emit();
         });
+        });
+      }).catch(function (error) {
+        var session = readSession();
+        var member = currentRoom && session && currentRoom.members && currentRoom.members[session.uid];
+        var character = member && member.character;
+        setCharacterSync(connected ? 'conflict' : 'offline', character, 'room→local', 'exit', error);
+        appendSyncEvent(character, 'room→local', 'exit', 'error', error);
+        emit();
+        throw error;
+      }).then(function (result) {
+        leaveRoomPromise = null;
+        return result;
+      }, function (error) {
+        leaveRoomPromise = null;
+        throw error;
       });
+      return leaveRoomPromise;
+    },
+
+    leaveRoomWithLocalCopy: function () {
+      var session = readSession();
+      if (!session) return Promise.resolve(api.getSnapshot());
+      if (session.role === 'master') {
+        return Promise.reject(roomError('Гейм-мастер не может завершить общую комнату только локально.', 'master-local-exit-forbidden'));
+      }
+      var member = currentRoom && currentRoom.members && currentRoom.members[session.uid];
+      var character = member && member.character;
+      if (member && member.characterId != null) clearCharacterOutbox(session, member.characterId);
+      appendSyncEvent(character, 'room→local', 'exit', 'local-copy');
+      setCharacterSync('local', character, 'room→local', 'exit');
+      if (firebase && db && auth && auth.currentUser && connected) {
+        var target = session.role === 'pending' && session.playerCode
+          ? firebase.ref(db, 'rooms/' + session.code + '/pending/' + session.playerCode)
+          : firebase.ref(db, 'rooms/' + session.code + '/members/' + auth.currentUser.uid);
+        var bestEffort = session.role === 'pending'
+          ? firebase.remove(target)
+          : firebase.update(target, { online:false, lastSeen:firebase.serverTimestamp() });
+        Promise.resolve(bestEffort).catch(function () {});
+      }
+      characterEntryUpload = null;
+      characterInboundSession = null;
+      saveSession(null);
+      stopWatchingRoom();
+      emit();
+      return Promise.resolve(api.getSnapshot());
     },
 
     getSnapshot: function () {
@@ -2299,12 +2555,61 @@
         campaign: currentCampaign,
         players: membersOf(currentRoom, 'player'),
         pending: pendingOf(currentRoom),
+        characterSync: cloneCharacterSync(),
         error: initError ? initError.message : ''
+      };
+    },
+
+    markLocalCharacterSaved: function (character, reason) {
+      setCharacterSync(connected ? 'local' : 'offline', character, 'local→room', reason || 'edit');
+      appendSyncEvent(character, 'local→room', reason || 'edit', connected ? 'saved-local' : 'saved-offline');
+      emit();
+      return cloneCharacterSync();
+    },
+
+    queueCharacterSync: function (character, reason) {
+      return queueCharacterSync(character, reason);
+    },
+
+    flushCharacterOutbox: function () {
+      return flushCharacterOutbox();
+    },
+
+    markLocalCharacterSaveFailed: function (character, error) {
+      setCharacterSync('storage-error', character, 'local', 'edit', error);
+      appendSyncEvent(character, 'local', 'edit', 'storage-error', error);
+      emit();
+      return cloneCharacterSync();
+    },
+
+    recordIncomingCharacter: function (character, reason) {
+      setCharacterSync('synced', character, 'room→local', reason || 'reconnect');
+      appendSyncEvent(character, 'room→local', reason || 'reconnect', 'saved');
+      return cloneCharacterSync();
+    },
+
+    getSyncDiagnostics: function () {
+      var log = [];
+      try {
+        log = JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]');
+        if (!Array.isArray(log)) log = [];
+      } catch (e) {}
+      return {
+        state: cloneCharacterSync(),
+        uid: String(auth && auth.currentUser && auth.currentUser.uid || ''),
+        session: readSession(),
+        online: connected,
+        outbox: syncOutbox() ? syncOutbox().diagnostics() : [],
+        events: log.slice(-100)
       };
     },
 
     isCharacterEntryUpload: function (character) {
       return isCharacterEntryUpload(readSession(), character);
+    },
+
+    canApplyIncomingCharacter: function (character) {
+      return canApplyIncomingCharacter(readSession(), character);
     },
 
     subscribe: function (listener) {
@@ -2347,7 +2652,10 @@
     }).then(function (user) {
       firebase.onValue(firebase.ref(db, '.info/connected'), function (snapshot) {
         connected = snapshot.val() === true;
-        if (connected) setPresence(readSession());
+        if (connected) {
+          setPresence(readSession());
+          flushCharacterOutbox();
+        }
         emit();
       });
       var session = readSession();
@@ -2357,7 +2665,6 @@
         watchRoom(session.code);
         setPresence(session);
       }
-      watchCampaign();
       emit();
       return user;
     });

@@ -7,7 +7,9 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="zargota-network.js?v=2026-07-23.5"></script>
+<script src="character-store.js?v=2026-07-26.3"></script>
+<script src="character-sync-outbox.js?v=2026-07-26.3"></script>
+<script src="zargota-network.js?v=2026-07-26.6"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -191,6 +193,7 @@ window.addEventListener('load', function(){
     position: relative; top: -1px;
   }
   #nav { display: flex; gap: 7px; align-items: center; }
+  .zg-char-sync-state{height:36px;max-width:250px;display:flex;align-items:center;gap:7px;padding:0 11px;border:1px solid #4b402b;border-radius:6px;background:#0d0b07e8;color:#b9aa8b;font:600 9px 'Cinzel',serif;letter-spacing:.25px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;transition:.18s}.zg-char-sync-state[hidden]{display:none}.zg-char-sync-state-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#938465;box-shadow:0 0 7px #93846555}.zg-char-sync-state-text{overflow:hidden;text-overflow:ellipsis}.zg-char-sync-state.local{border-color:#655b3e;color:#c9bb92}.zg-char-sync-state.sending{border-color:#74612e;color:#e0c46f}.zg-char-sync-state.sending .zg-char-sync-state-dot{background:#e0b84f;box-shadow:0 0 8px #e0b84f;animation:pulse 1s infinite}.zg-char-sync-state.synced{border-color:#315d3b;color:#8dcea0}.zg-char-sync-state.synced .zg-char-sync-state-dot{background:#55c878;box-shadow:0 0 8px #55c878}.zg-char-sync-state.offline{border-color:#6c5328;color:#d4ad63}.zg-char-sync-state.offline .zg-char-sync-state-dot{background:#d79a3d;box-shadow:0 0 8px #d79a3d}.zg-char-sync-state.conflict,.zg-char-sync-state.storage-error{border-color:#733b35;color:#df8f84}.zg-char-sync-state.conflict .zg-char-sync-state-dot,.zg-char-sync-state.storage-error .zg-char-sync-state-dot{background:#dc5e55;box-shadow:0 0 8px #dc5e55}
   .zg-net-monitor{position:relative}
   .zg-net-monitor-btn{position:relative;width:42px;height:36px;display:grid;place-items:center;padding:0;border:1px solid #4a361b;border-radius:6px;background:radial-gradient(circle at 50% 35%,#21170b,#0b0805 72%);color:#c6a45b;font-size:19px;transition:.2s}.zg-net-monitor-btn:hover,.zg-net-monitor-btn.session{border-color:#a27a32;color:#f0cd75;box-shadow:0 0 18px #c18b2928}.zg-net-monitor-btn .gear{transition:transform .35s}.zg-net-monitor-btn:hover .gear,.zg-net-monitor-btn[aria-expanded="true"] .gear{transform:rotate(55deg)}
   .zg-net-monitor-dot{position:absolute;right:4px;top:4px;width:7px;height:7px;border:1px solid #0a0704;border-radius:50%;background:#706452;box-shadow:0 0 0 2px #70645218}.zg-net-monitor-btn.online .zg-net-monitor-dot{background:#55c878;box-shadow:0 0 7px #55c878}.zg-net-monitor-btn.problem .zg-net-monitor-dot{background:#dc5e55;box-shadow:0 0 7px #dc5e55}
@@ -666,6 +669,7 @@ window.addEventListener('load', function(){
     #logo { font-size: 14px; gap: 7px; }
     #logo span.sub { display: none; }
     #nav { gap: 5px; flex-wrap: nowrap; align-items: center; }
+    .zg-char-sync-state{max-width:138px;height:34px;padding:0 8px;font-size:8px}
     .zg-net-monitor-panel{right:8px;top:56px;width:min(390px,calc(100vw - 16px))}
     .zg-control-tools #publish-btn,.zg-control-tools #backup-menu-btn{padding:12px!important;min-width:0}
     #nav-ctx-catalog { gap: 5px !important; }
@@ -9731,18 +9735,59 @@ document.addEventListener('DOMContentLoaded', function(){
     } else try { prompt('Код:', value); } catch(e) {}
   };
 
+  function finishRoomLeaveUI(){
+    var recovery=el('zg-leave-recovery');if(recovery)recovery.remove();
+    if (w.zgLeaveConfirmCancel) w.zgLeaveConfirmCancel();
+    if (w.zgGameClose) w.zgGameClose(true);
+    if (w.zgJourneyClose) w.zgJourneyClose();
+    if (w.zgCharSelClose) w.zgCharSelClose();
+    if (w.zgJourneyCancel) w.zgJourneyCancel();
+    w.zgAdvClose();
+    try { if (typeof w.showPage === 'function') w.showPage('home'); } catch(e) {}
+  }
+  function selectedLocalSessionCharacter(){
+    var snapshot=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+    var member=snapshot&&snapshot.session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[snapshot.session.uid];
+    return member&&Array.isArray(w.characters)?w.characters.find(function(character){return character&&String(character.id)===String(member.characterId);}):null;
+  }
+  w.zgDownloadEmergencyCharacter=function(){
+    var character=selectedLocalSessionCharacter();
+    if(!character){if(w.showToast)w.showToast('⚠ Выбранный локальный герой не найден');return;}
+    var payload={kind:'zargota-emergency-character',exportedAt:new Date().toISOString(),room:(w.ZargotaRooms.getSnapshot().session||{}).code||'',character:character};
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='zargota_emergency_'+String(character.campaignKey||character.id||'hero')+'_'+Date.now()+'.json';document.body.appendChild(a);a.click();
+    setTimeout(function(){a.remove();URL.revokeObjectURL(url);},200);if(w.showToast)w.showToast('💾 Аварийная копия героя скачана');
+  };
+  function showLeaveRecovery(error){
+    var old=el('zg-leave-recovery');if(old)old.remove();
+    var overlay=document.createElement('div');overlay.id='zg-leave-recovery';overlay.className='zg-confirm-overlay zg-leave-confirm open';
+    overlay.innerHTML='<div class="zg-confirm-box" role="alertdialog" aria-modal="true"><div class="zg-confirm-emblem">⚠</div><div class="zg-confirm-title">Не удалось получить итог из Firebase</div><div class="zg-confirm-text" id="zg-leave-recovery-text"></div><div style="display:grid;grid-template-columns:1fr;gap:8px;margin-top:18px"><button type="button" id="zg-leave-retry">Повторить сохранение</button><button type="button" id="zg-leave-download">💾 Скачать аварийный JSON</button><button type="button" class="danger" id="zg-leave-local">Выйти с локальной копией</button><button type="button" id="zg-leave-stay">Остаться в сессии</button></div></div>';
+    document.body.appendChild(overlay);
+    el('zg-leave-recovery-text').textContent=(error&&error.message||'Firebase недоступен.')+' Локальный лист не изменён. Можно повторить, скачать копию или выйти без последнего Firebase-снимка.';
+    el('zg-leave-retry').onclick=function(){overlay.remove();performRoomLeave();};
+    el('zg-leave-download').onclick=w.zgDownloadEmergencyCharacter;
+    el('zg-leave-stay').onclick=function(){overlay.remove();};
+    el('zg-leave-local').onclick=function(){
+      if(w._zgRoomLeaveBusy)return;w._zgRoomLeaveBusy=true;
+      Promise.resolve(typeof w.saveChars==='function'?w.saveChars({sync:false,reason:'exit'}):{ok:false}).then(function(result){
+        if(!result||!result.ok)throw result&&result.error||new Error('Не удалось сохранить локальный лист');
+        if(!w.ZargotaRooms||!w.ZargotaRooms.leaveRoomWithLocalCopy)throw new Error('Безопасный локальный выход недоступен');
+        return w.ZargotaRooms.leaveRoomWithLocalCopy();
+      }).then(function(){w._zgRoomLeaveBusy=false;finishRoomLeaveUI();},function(localError){w._zgRoomLeaveBusy=false;if(w.showToast)w.showToast(localError&&localError.message||'Локальный выход остановлен');});
+    };
+  }
   function performRoomLeave(){
+    if(w._zgRoomLeaveBusy)return;
+    w._zgRoomLeaveBusy=true;
+    if(w.showToast)w.showToast('Сохраняем итог игры…');
     var leave = w.ZargotaRooms ? w.ZargotaRooms.leaveRoom() : Promise.resolve();
     Promise.resolve(leave).then(function(){
-      if (w.zgLeaveConfirmCancel) w.zgLeaveConfirmCancel();
-      if (w.zgGameClose) w.zgGameClose(true);
-      if (w.zgJourneyClose) w.zgJourneyClose();
-      if (w.zgCharSelClose) w.zgCharSelClose();
-      if (w.zgJourneyCancel) w.zgJourneyCancel();
-      w.zgAdvClose();
-      try { if (typeof w.showPage === 'function') w.showPage('home'); } catch(e) {}
-    }).catch(function(err){
-      if (w.showToast) w.showToast(err && err.message ? err.message : 'Не удалось покинуть сессию.');
+      w._zgRoomLeaveBusy=false;finishRoomLeaveUI();
+    },function(err){
+      w._zgRoomLeaveBusy=false;
+      var snapshot=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+      if(snapshot&&snapshot.session&&snapshot.session.role==='player')showLeaveRecovery(err);
+      else if(w.showToast)w.showToast(err&&err.message?err.message:'Не удалось покинуть сессию.');
     });
   }
   w.zgLeaveRoom = function(confirmed){
@@ -10264,6 +10309,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var journeyReleased = false;
   var gmSetupOpened = false;
   var gmSetupTimer = null;
+  var journeyStartPromise = null;
   function el(id){ return document.getElementById(id); }
   function esc(s){
     s = (s === null || s === undefined) ? '' : String(s);
@@ -10291,6 +10337,33 @@ document.addEventListener('DOMContentLoaded', function(){
   function setJourneyStatus(text){
     var node = document.querySelector('.zg-journey-loadtxt');
     if (node) node.textContent = text || 'Загрузка…';
+  }
+  function setJourneyConfirmBusy(busy, label){
+    var buttons = document.querySelectorAll('#zg-confirm-overlay .zg-confirm-btns button');
+    for (var i = 0; i < buttons.length; i++) buttons[i].disabled = !!busy;
+    var confirmButton = document.querySelector('#zg-confirm-overlay .zg-confirm-yes');
+    if (confirmButton) confirmButton.textContent = busy ? (label || 'Проверяем локальный лист…') : 'Да, в путь';
+  }
+  function confirmLocalCharacterForEntry(character){
+    var save = typeof w.saveChars === 'function'
+      ? w.saveChars({ sync:false, reason:'entry' })
+      : Promise.resolve({ ok:true });
+    return Promise.resolve(save).then(function(result){
+      if (!result || !result.ok) throw new Error('Не удалось сохранить локальный лист перед входом.');
+      var store = w.ZargotaCharacterStore;
+      if (!store || typeof store.readConfirmedCharacter !== 'function') return character;
+      return store.readConfirmedCharacter(character.id, character.campaignKey).then(function(confirmed){
+        if (!confirmed) throw new Error('Сохранённый локальный лист не найден.');
+        if (typeof store.characterContentSignature === 'function' &&
+            store.characterContentSignature(confirmed) !== store.characterContentSignature(character)) {
+          throw new Error('Локальный лист изменился во время подготовки входа. Повторите попытку.');
+        }
+        if (Math.max(0, Number(confirmed.revision) || 0) !== Math.max(0, Number(character.revision) || 0)) {
+          throw new Error('Не удалось подтвердить версию локального листа.');
+        }
+        return confirmed;
+      });
+    });
   }
   function beginJourney(c, waitsForParty){
     // портрет берём тот же, что показан при выборе (крупный арт из #zg-cs-portrait)
@@ -10403,16 +10476,28 @@ document.addEventListener('DOMContentLoaded', function(){
   // «Да» — закрепляем локальный лист за игроком и открываем экран пути.
   w.zgJourneyStart = function(){
     var c = pending;
-    if (!c) return;
+    if (!c || journeyStartPromise) return;
     try { if (w.ZargotaSound && w.ZargotaSound.journeyAccept) w.ZargotaSound.journeyAccept(); } catch(e) {}
-    var attach = w.ZargotaRooms ? w.ZargotaRooms.attachCharacter(c) : Promise.resolve();
-    Promise.resolve(attach).then(function(snapshot){
+    setJourneyConfirmBusy(true, 'Проверяем локальный лист…');
+    journeyStartPromise = confirmLocalCharacterForEntry(c).then(function(confirmedCharacter){
+      setJourneyConfirmBusy(true, 'Отправляем в сессию…');
+      if (!w.ZargotaRooms) return { snapshot:null, character:confirmedCharacter };
+      return w.ZargotaRooms.attachCharacter(confirmedCharacter).then(function(snapshot){
+        return { snapshot:snapshot, character:confirmedCharacter };
+      });
+    }).then(function(result){
+      var snapshot = result.snapshot, confirmedCharacter = result.character;
       var networked = !!(snapshot && snapshot.room && snapshot.session);
-      beginJourney(c, networked);
+      beginJourney(confirmedCharacter, networked);
       if (networked) syncJourney(snapshot);
+      journeyStartPromise = null;
+      setJourneyConfirmBusy(false);
     }).catch(function(err){
+      journeyStartPromise = null;
+      setJourneyConfirmBusy(false);
       if (w.showToast) w.showToast(err.message || 'Не удалось выбрать персонажа.');
     });
+    return journeyStartPromise;
   };
   w.zgEnterAsGameMaster = function(){
     if (!w.ZargotaRooms || !w.ZargotaRooms.attachGameMaster) return;
@@ -14301,10 +14386,10 @@ window.zgData = (function() {
       if (data.statusMechanics) writeJsonLs('zargota_status_mechanics_v1', data.statusMechanics);
       if (data.arena) writeJsonLs('zargota_arena_state_v1', data.arena);
 
-      if (data.characters) {
-        writeJsonLs('grimoire_chars', data.characters);
-        queueIdbWrite('zargota_chars', 'data', 'grimoire_chars', JSON.stringify(data.characters), 'chars to IDB');
-      }
+      // Персонажи принадлежат локальному character-store. Обновление общего
+      // data.json больше не имеет права заменять пользовательские листы.
+      // Пять стартовых героев выдаются отдельно из campaign-heroes.v1.json.
+      if (data.characters) log('published characters kept out of local character store');
 
       if (data.armoryItems) {
         writeJsonLs('zargota_armory_v1', data.armoryItems);
@@ -16616,6 +16701,10 @@ window.zgImageStore = (function() {
       title="Нажми чтобы посмотреть версию и историю изменений">v…</span>
   </div>
   <div id="nav">
+    <div id="zg-char-sync-state" class="zg-char-sync-state" role="status" aria-live="polite" hidden>
+      <span class="zg-char-sync-state-dot" aria-hidden="true"></span>
+      <span class="zg-char-sync-state-text">Сохранено на устройстве</span>
+    </div>
     <div class="zg-net-monitor">
       <button type="button" id="zg-net-monitor-btn" class="zg-net-monitor-btn" onclick="zgSessionMonitorToggle(event)" title="Центр управления" aria-label="Центр управления" aria-expanded="false"><span class="gear">⚙</span><span class="zg-net-monitor-dot"></span><span id="zg-net-monitor-label" hidden>Firebase…</span></button>
       <div id="zg-net-monitor-panel" class="zg-net-monitor-panel">
@@ -16624,6 +16713,7 @@ window.zgImageStore = (function() {
         <div class="zg-net-monitor-row"><span>Комната</span><b id="zg-net-room-state">Нет</b></div>
         <div class="zg-net-monitor-row"><span>Роль и этап</span><b id="zg-net-role-state">—</b></div>
         <div class="zg-net-monitor-row"><span>Участники онлайн</span><b id="zg-net-members-state">0</b></div>
+        <div class="zg-net-monitor-row" id="zg-net-character-sync-row" hidden><span>Герой</span><b id="zg-net-character-sync-state">—</b></div>
         <div class="zg-net-monitor-note" id="zg-net-monitor-note">Firebase может быть подключён для синхронизации героев даже без активной игровой комнаты.</div>
         <div class="zg-net-monitor-actions"><button type="button" id="zg-net-return" onclick="zgSessionMonitorReturn()" hidden>Вернуться</button><button type="button" id="zg-net-leave" class="danger" onclick="zgSessionMonitorLeave()" hidden>Завершить</button></div>
         <div class="zg-control-tools">
@@ -16657,22 +16747,32 @@ window.zgImageStore = (function() {
   var latest=null;
   function el(id){return document.getElementById(id);}
   function phaseLabel(phase){return {pairing:'Подключение', 'character-select':'Выбор героев',journey:'Подготовка сцены',playing:'Игра идёт'}[phase]||phase||'—';}
+  var syncLabels={local:'Сохранено на устройстве',sending:'Отправляем в сессию…',synced:'Синхронизировано',offline:'Нет связи — сохранено локально',conflict:'Конфликт изменений','storage-error':'Ошибка хранения — скачать резерв'};
   function render(snapshot){
     var hadRoom=!!(latest&&latest.room);latest=snapshot||null;
-    var button=el('zg-net-monitor-btn'),label=el('zg-net-monitor-label'),firebaseState=el('zg-net-firebase-state'),roomState=el('zg-net-room-state'),roleState=el('zg-net-role-state'),membersState=el('zg-net-members-state'),note=el('zg-net-monitor-note'),returnButton=el('zg-net-return'),leaveButton=el('zg-net-leave');
+    var button=el('zg-net-monitor-btn'),label=el('zg-net-monitor-label'),firebaseState=el('zg-net-firebase-state'),roomState=el('zg-net-room-state'),roleState=el('zg-net-role-state'),membersState=el('zg-net-members-state'),note=el('zg-net-monitor-note'),returnButton=el('zg-net-return'),leaveButton=el('zg-net-leave'),syncBadge=el('zg-char-sync-state'),syncText=syncBadge&&syncBadge.querySelector('.zg-char-sync-state-text'),syncRow=el('zg-net-character-sync-row'),syncRowState=el('zg-net-character-sync-state');
     if(!button)return;
     var ready=!!(snapshot&&snapshot.networkReady),online=!!(snapshot&&snapshot.online),session=snapshot&&snapshot.session,room=snapshot&&snapshot.room;
     var members=room&&room.members||{},onlineMembers=Object.keys(members).filter(function(uid){return members[uid]&&members[uid].online!==false;}).length;
+    var member=session&&members[session.uid],characterSync=snapshot&&snapshot.characterSync||{},syncStatus=syncLabels[characterSync.status]?characterSync.status:'local',showCharacterSync=!!(session&&session.role==='player'&&member&&member.characterId);
     button.classList.toggle('online',online);button.classList.toggle('session',!!room);button.classList.toggle('problem',!!session&&!room&&ready);
     if(firebaseState)firebaseState.textContent=!ready?'Инициализация':online?'Подключён':'Нет связи';
     if(roomState)roomState.textContent=room?'Активна · '+String(room.code||session&&session.code||'—'):(session?'Не найдена · '+String(session.code||'—'):'Нет активной сессии');
     if(roleState)roleState.textContent=room?((session&&session.role==='master'?'Гейм-мастер':session&&session.role==='player'?'Игрок':'Ожидание')+' · '+phaseLabel(room.phase)):'—';
     if(membersState)membersState.textContent=room?String(onlineMembers)+' / '+String(Object.keys(members).length):'0';
     if(label)label.textContent=room?'Сессия '+String(room.code||''):session?'След сессии':online?'Firebase':'Нет связи';
-    if(note)note.textContent=room?'Комната существует в Firebase, пока открыта вкладка гейм-мастера. Для ручного завершения используй кнопку ниже.':session?'В браузере сохранён код комнаты, но комната не найдена. Можно безопасно очистить этот след.':'Активной игровой комнаты нет. Firebase используется только для постоянной синхронизации героев.';
+    if(note)note.textContent=room?'Краткий разрыв связи гейм-мастера больше не удаляет комнату. Для явного завершения сессии используй кнопку ниже.':session?'В браузере сохранён код комнаты, но комната не найдена. Можно безопасно очистить этот след.':'Активной игровой комнаты нет. Firebase используется только для синхронизации выбранного героя в комнате.';
+    if(syncBadge){
+      syncBadge.hidden=!showCharacterSync;
+      syncBadge.className='zg-char-sync-state '+syncStatus;
+      if(syncText)syncText.textContent=syncLabels[syncStatus];
+      syncBadge.title=(member&&member.name||'Выбранный герой')+' · '+syncLabels[syncStatus]+(characterSync.error?' · '+characterSync.error:'');
+    }
+    if(syncRow)syncRow.hidden=!showCharacterSync;
+    if(syncRowState)syncRowState.textContent=showCharacterSync?syncLabels[syncStatus]:'—';
     if(returnButton)returnButton.hidden=!room;
     if(leaveButton){leaveButton.hidden=!session;leaveButton.textContent=room&&session&&session.role==='master'?'Завершить сессию':room?'Покинуть сессию':'Очистить след';}
-    if(hadRoom&&!room){w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');if(w.showToast)w.showToast('Сессия завершена: вкладка гейм-мастера закрыта.');}
+    if(hadRoom&&!room){w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');if(w.showToast)w.showToast('Сессия завершена или больше недоступна.');}
   }
   w.zgSessionMonitorToggle=function(ev,force){if(ev){ev.preventDefault();ev.stopPropagation();}var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel){panel.classList.toggle('open',typeof force==='boolean'?force:!panel.classList.contains('open'));if(button)button.setAttribute('aria-expanded',panel.classList.contains('open')?'true':'false');}};
   w.zgSessionMonitorReturn=function(){w.zgSessionMonitorToggle(null,false);if(w.zgAdvOpen)w.zgAdvOpen();};
@@ -16680,10 +16780,8 @@ window.zgImageStore = (function() {
     var session=latest&&latest.session,room=latest&&latest.room;if(!session||!w.ZargotaRooms)return;
     var text=room&&session.role==='master'?'Завершить комнату '+String(room.code||session.code)+' для всех игроков?':room?'Покинуть комнату '+String(room.code||session.code)+'?':'Удалить сохранённый след комнаты '+String(session.code||'')+'?';
     if(!w.confirm(text))return;
-    var leaveButton=el('zg-net-leave');if(leaveButton)leaveButton.disabled=true;
-    w.ZargotaRooms.leaveRoom().then(function(){
-      w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');
-    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось завершить сессию');}).then(function(){if(leaveButton)leaveButton.disabled=false;});
+    w.zgSessionMonitorToggle(null,false);
+    if(typeof w.zgLeaveRoom==='function')w.zgLeaveRoom(true);
   };
   document.addEventListener('click',function(ev){var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel&&panel.classList.contains('open')&&!panel.contains(ev.target)&&!(button&&button.contains(ev.target))){panel.classList.remove('open');if(button)button.setAttribute('aria-expanded','false');}});
   function init(){if(w.ZargotaRooms&&w.ZargotaRooms.subscribe)w.ZargotaRooms.subscribe(render);else render(null);}
@@ -29982,6 +30080,37 @@ function loadChars() {
   }
   characters = Array.isArray(lsChars) ? lsChars : [];
   applyCharsMigrations(characters);
+  if (window.ZargotaCharacterStore && window.ZargotaCharacterStore.rememberCollection) {
+    window.ZargotaCharacterStore.rememberCollection(characters);
+  }
+
+  // Новый безопасный путь: character-store сначала сверяет обе локальные
+  // копии и создаёт migration-backup, затем добавляет только отсутствующие
+  // стартовые campaignKey. Синхронный LS-снимок остаётся доступен для
+  // первичного рендера, пока завершается IndexedDB.
+  if (window.ZargotaCharacterStore && window.ZargotaCharacterStore.loadAndSeed) {
+    window.ZargotaCharacterStore.loadAndSeed(characters).then(function(result) {
+      if (!result || !Array.isArray(result.characters)) return;
+      characters = window.ZargotaCharacterStore.mergeStoredCollections(result.characters, characters);
+      applyCharsMigrations(characters);
+      window.ZargotaCharacterStore.rememberCollection(characters);
+      if (typeof renderCharsPage === 'function') {
+        try { renderCharsPage(); } catch(e) {}
+      }
+      if (typeof renderCharSheet === 'function' && typeof viewingCharId !== 'undefined' && viewingCharId) {
+        try { renderCharSheet(); } catch(e2) {}
+      }
+      if (result.added && result.added.length && typeof showToast === 'function') {
+        showToast('Добавлены отсутствующие герои: ' + result.added.length);
+      }
+      if (result.error === 'migration-backup-failed') {
+        console.error('Zargota character migration stopped: backup failed');
+      }
+    }).catch(function(error) {
+      console.error('Zargota character store:', error);
+    });
+    return;
+  }
 
   // 2) Всегда проверяем IndexedDB — там лежит резерв/основная копия на случай quota iOS.
   //    Если IDB содержит больше персонажей или персонажа, которого нет в LS, — используем IDB
@@ -30055,9 +30184,6 @@ function saveChars(options) {
       return typeof s === 'string' && bad.indexOf(s) < 0 && s.trim() !== '';
     });
   }
-  // Метка "последнего изменения" — пишется в каждое сохранение.
-  // Используется в Бэкапе и Диагностике чтобы пользователь видел свежесть.
-  var nowTs = Date.now();
   characters.forEach(function(c) {
     ensureCharacterEquipBases(c);
     applyCharacterEquipmentBonuses(c);
@@ -30067,105 +30193,84 @@ function saveChars(options) {
     if (c.notes === undefined) c.notes = '';
     if (c.currentGoal === undefined) c.currentGoal = '';
     if (c.biography === undefined) c.biography = '';
-    c._updatedAt = nowTs;
   });
-  var json = JSON.stringify(characters);
-
-  // 1) Сначала IndexedDB — это основной сторедж для больших данных (base64-портреты).
-  //    На iOS квота LS всего ~5 МБ, поэтому IDB должен писаться ВСЕГДА, а не только как резерв.
-  try {
-    var r = indexedDB.open('zargota_chars', 1);
-    r.onupgradeneeded = function(e) {
-      var db = e.target.result;
-      if (!db.objectStoreNames.contains('data')) db.createObjectStore('data');
-    };
-    r.onsuccess = function(e) {
-      var db = e.target.result;
-      try {
-        var tx = db.transaction('data', 'readwrite');
-        tx.objectStore('data').put(json, 'grimoire_chars');
-        tx.oncomplete = function() { db.close(); };
-        tx.onerror = function() { try { db.close(); } catch(_){} };
-      } catch(ex) { try { db.close(); } catch(_){} }
-    };
-  } catch(e) {}
-
-  // 2) Затем LS — как быстрый синхронный кэш. Если не влезло — УДАЛЯЕМ ключ,
-  //    иначе при старте loadChars прочитает устаревшую версию и не заглянет в IDB.
-  try {
-    localStorage.setItem('grimoire_chars', json);
-  } catch(e) {
-    try { localStorage.removeItem('grimoire_chars'); } catch(e2) {}
+  var savePlan = window.ZargotaCharacterStore && window.ZargotaCharacterStore.prepareCollectionForSave
+    ? window.ZargotaCharacterStore.prepareCollectionForSave(characters, { preserveRevision: !!options.preserveRevision })
+    : { changedIds: characters.map(function(c){ return String(c.id); }) };
+  window._zgUnsyncedCharacterIds=window._zgUnsyncedCharacterIds||{};
+  savePlan.changedIds.forEach(function(id){window._zgUnsyncedCharacterIds[String(id)]=true;});
+  var storagePromise;
+  if (window.ZargotaCharacterStore && window.ZargotaCharacterStore.persistCollection) {
+    storagePromise=options.bestEffort&&window.ZargotaCharacterStore.persistCollectionBestEffort
+      ? window.ZargotaCharacterStore.persistCollectionBestEffort(characters)
+      : window.ZargotaCharacterStore.persistCollection(characters);
+  } else {
+    var json = JSON.stringify(characters);
+    try { localStorage.setItem('grimoire_chars', json);storagePromise=Promise.resolve({ok:true,indexedDB:false,localStorage:true}); }
+    catch(e) { storagePromise=Promise.resolve({ok:false,indexedDB:false,localStorage:false,error:e}); }
   }
-  if(options.sync!==false){clearTimeout(window._zgCharacterSyncTimer);
-  window._zgCharacterSyncTimer = setTimeout(function(){
-    try {
-      var snap=window.ZargotaRooms&&window.ZargotaRooms.getSnapshot&&window.ZargotaRooms.getSnapshot();
-      var member=snap&&snap.session&&snap.room&&snap.room.members&&snap.room.members[snap.session.uid];
-      var character=member&&characters.find(function(c){return String(c.id)===String(member.characterId);});
-      if(character&&window.ZargotaRooms.syncCharacter)window.ZargotaRooms.syncCharacter(character);
-      if(window.ZargotaRooms&&window.ZargotaRooms.syncCampaignHeroes)window.ZargotaRooms.syncCampaignHeroes(characters);
-    } catch(e) {}
-  },700);}
+  return Promise.resolve(storagePromise).then(function(result){
+    var snap=window.ZargotaRooms&&window.ZargotaRooms.getSnapshot&&window.ZargotaRooms.getSnapshot();
+    var member=snap&&snap.session&&snap.room&&snap.room.members&&snap.room.members[snap.session.uid];
+    var character=member&&characters.find(function(c){return String(c.id)===String(member.characterId);});
+    if(!result||!result.ok){
+      console.error('Zargota character save failed',result&&result.error||result);
+      if(character&&window.ZargotaRooms&&window.ZargotaRooms.markLocalCharacterSaveFailed)window.ZargotaRooms.markLocalCharacterSaveFailed(character,result&&result.error||'storage-failed');
+      return result||{ok:false};
+    }
+    if(options.sync!==false&&character&&window._zgUnsyncedCharacterIds[String(character.id)]&&window.ZargotaRooms){
+      var queued=window.ZargotaRooms.queueCharacterSync?window.ZargotaRooms.queueCharacterSync(character,options.reason||'edit'):{ok:false,error:'outbox-unavailable'};
+      if(queued&&queued.ok){
+        if(window.ZargotaRooms.markLocalCharacterSaved)window.ZargotaRooms.markLocalCharacterSaved(character,options.reason||'edit');
+      }else if(window.ZargotaRooms.markLocalCharacterSaveFailed){
+        window.ZargotaRooms.markLocalCharacterSaveFailed(character,queued&&queued.error||'outbox-write-failed');
+      }
+      clearTimeout(window._zgCharacterSyncTimer);
+      window._zgCharacterSyncTimer=setTimeout(function(){
+        var send=window.ZargotaRooms.flushCharacterOutbox
+          ? window.ZargotaRooms.flushCharacterOutbox()
+          : window.ZargotaRooms.syncCharacter
+            ? window.ZargotaRooms.syncCharacter(character)
+            : Promise.resolve(null);
+        Promise.resolve(send).then(function(syncSnapshot){
+          if(syncSnapshot&&syncSnapshot.characterSync&&syncSnapshot.characterSync.status==='synced')delete window._zgUnsyncedCharacterIds[String(character.id)];
+        });
+      },700);
+    }
+    return result;
+  });
 }
+
+function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
+  options=options||{};if(!roomCharacter||!member)return Promise.resolve({ok:true,skipped:true});
+  var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
+  if(!localCharacter)return Promise.reject(new Error('Локальный герой для итогового сохранения не найден.'));
+  if(!options.force){
+    var incomingAllowed=!!(window.ZargotaRooms&&window.ZargotaRooms.canApplyIncomingCharacter&&window.ZargotaRooms.canApplyIncomingCharacter(roomCharacter));
+    if(!incomingAllowed)return Promise.resolve({ok:true,skipped:true});
+  }
+  var incomingRevision=Math.max(0,Number(roomCharacter.revision)||0),localRevision=Math.max(0,Number(localCharacter.revision)||0);
+  if(!options.force&&incomingRevision&&localRevision&&incomingRevision<localRevision)return Promise.resolve({ok:true,skipped:true});
+  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:roomCharacter.inventoryItems,equipItems:roomCharacter.equipItems,arenaEquipSlots:roomCharacter.arenaEquipSlots,notes:roomCharacter.notes,revision:incomingRevision};
+  var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
+  if(!options.force&&window._zgCampaignRuntimeSig[sigKey]===signature)return Promise.resolve({ok:true,skipped:true});
+  window._zgCampaignRuntimeSig[sigKey]=signature;Object.keys(runtime).forEach(function(field){if(runtime[field]!==undefined)localCharacter[field]=runtime[field];});
+  if(Array.isArray(roomCharacter.statusEffects)){localCharacter.tempEffects=(localCharacter.tempEffects||[]).filter(function(effect){return !effect||effect.type!=='status';}).concat(roomCharacter.statusEffects);}
+  applyCharsMigrations(characters);
+  return Promise.resolve(saveChars({sync:false,preserveRevision:true,reason:options.reason||'reconnect'})).then(function(result){
+    if(!result||!result.ok)throw result&&result.error||new Error('Не удалось сохранить итоговый лист.');
+    delete window._zgUnsyncedCharacterIds[String(localCharacter.id)];
+    if(window.ZargotaRooms&&window.ZargotaRooms.recordIncomingCharacter)window.ZargotaRooms.recordIncomingCharacter(roomCharacter,options.reason||'reconnect');
+    if(typeof renderCharsPage==='function'&&document.getElementById('page-characters')&&document.getElementById('page-characters').classList.contains('active'))renderCharsPage();
+    return result;
+  });
+}
+window.zgPersistFinalSessionCharacter=function(roomCharacter,member){return zgApplySessionCharacterToLocal(roomCharacter,member,{force:true,reason:'exit'});};
 
 function zgMergeCampaignState(snapshot) {
   if(!snapshot)return;
-  var changed=false,campaign=snapshot.campaign||{},heroes=campaign.heroes||{},session=snapshot.session;
-  // attachCharacter() ещё не закончил первичную загрузку локального листа.
-  // В этот короткий момент старый снимок комнаты/кампании не имеет права
-  // попадать обратно в локальный лист выбранного героя.
-  function entryUploadProtected(character){
-    return !!(character&&window.ZargotaRooms&&window.ZargotaRooms.isCharacterEntryUpload&&window.ZargotaRooms.isCharacterEntryUpload(character));
-  }
-  Object.keys(heroes).forEach(function(key){
-    var remote=heroes[key]||{},local=characters.find(function(c){return c&&c.campaignKey===key;});
-    if(entryUploadProtected(local))return;
-    if(!local&&remote.profile){
-      try{local=JSON.parse(JSON.stringify(remote.profile));}catch(e){local=null;}
-      if(local){local.campaignKey=key;local.campaignLinked=true;if(!local.id)local.id='campaign-'+key;var runtime=remote.runtime||{};Object.keys(runtime).forEach(function(field){if(field!=='updatedAt')local[field]=runtime[field];});characters.push(local);changed=true;}
-    }else if(local){
-      if(!local.campaignLinked){local.campaignLinked=true;changed=true;}
-      if(remote.profile) {
-        window._zgCampaignProfileSig=window._zgCampaignProfileSig||{};
-        var profileSig=JSON.stringify(remote.profile);
-        if(window._zgCampaignProfileSig[key]!==profileSig){
-          window._zgCampaignProfileSig[key]=profileSig;
-          if(snapshot.session&&snapshot.session.role==='master'){
-            var keepId=local.id;
-            Object.keys(remote.profile).forEach(function(field){if(field!=='id'&&field!=='campaignKey')local[field]=remote.profile[field];});
-            local.id=keepId;local.campaignKey=key;changed=true;
-          }
-        }
-      }
-      if(remote.runtime) {
-        window._zgCampaignOwnedRuntimeSig=window._zgCampaignOwnedRuntimeSig||{};
-        var ownedSig=JSON.stringify(remote.runtime);
-        if(window._zgCampaignOwnedRuntimeSig[key]!==ownedSig){
-          window._zgCampaignOwnedRuntimeSig[key]=ownedSig;
-          if(snapshot.session&&(snapshot.session.role==='master'||remote.ownerUid===snapshot.session.uid)){
-            Object.keys(remote.runtime).forEach(function(field){if(field!=='updatedAt')local[field]=remote.runtime[field];});
-            changed=true;
-          }
-        }
-      }
-    }
-  });
-  var member=session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[session.uid],roomCharacter=member&&member.character;
-  if(roomCharacter){
-    var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
-    if(localCharacter&&!entryUploadProtected(localCharacter)){
-      var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:roomCharacter.inventoryItems,equipItems:roomCharacter.equipItems};
-      var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
-      if(window._zgCampaignRuntimeSig[sigKey]!==signature){
-        window._zgCampaignRuntimeSig[sigKey]=signature;Object.keys(runtime).forEach(function(field){if(runtime[field]!==undefined)localCharacter[field]=runtime[field];});
-        if(Array.isArray(roomCharacter.statusEffects)){localCharacter.tempEffects=(localCharacter.tempEffects||[]).filter(function(effect){return !effect||effect.type!=='status';}).concat(roomCharacter.statusEffects);}
-        changed=true;
-        if(window.ZargotaRooms&&window.ZargotaRooms.persistCampaignCharacter)window.ZargotaRooms.persistCampaignCharacter(localCharacter);
-      }
-    }
-  }
-  if(changed){applyCharsMigrations(characters);saveChars({sync:false});if(typeof renderCharsPage==='function'&&document.getElementById('page-characters')&&document.getElementById('page-characters').classList.contains('active'))renderCharsPage();}
+  var session=snapshot.session,member=session&&snapshot.room&&snapshot.room.members&&snapshot.room.members[session.uid],roomCharacter=member&&member.character;
+  if(roomCharacter)zgApplySessionCharacterToLocal(roomCharacter,member,{reason:'reconnect'}).catch(function(error){console.error('Zargota incoming character save failed',error);});
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -30390,6 +30495,36 @@ function zgDownloadFullDump() {
   });
 }
 
+function zgCopySyncDiagnostics() {
+  var diagnostics=window.ZargotaRooms&&window.ZargotaRooms.getSyncDiagnostics?window.ZargotaRooms.getSyncDiagnostics():{state:{status:'unavailable'},events:[]};
+  var text=JSON.stringify(diagnostics,null,2);
+  function done(){if(typeof showToast==='function')showToast('✓ Sync-диагностика скопирована');}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(function(){try{prompt('Sync-диагностика:',text);}catch(e){}});
+  }else{try{prompt('Sync-диагностика:',text);done();}catch(e){}}
+}
+
+function zgRestoreBeforeRefactor() {
+  var store=window.ZargotaCharacterStore;
+  if(!store||!store.getMigrationBackup||!store.restoreMigrationBackup){
+    if(typeof showToast==='function')showToast('⚠ Migration-backup недоступен');
+    return;
+  }
+  store.getMigrationBackup().then(function(backup){
+    if(!backup.exists){if(typeof showToast==='function')showToast('⚠ Резерв до рефакторинга не найден');return;}
+    var date=backup.createdAt?zgFormatDate(backup.createdAt):'без даты';
+    if(!confirm('Восстановить '+backup.characters.length+' персонаж. из резерва до рефакторинга ('+date+')?\\n\\nТекущее состояние сначала будет сохранено в отдельный страховочный резерв.'))return;
+    return store.restoreMigrationBackup().then(function(result){
+      if(!result.ok)throw result.error||new Error('Не удалось восстановить резерв');
+      characters=result.characters;
+      if(typeof showToast==='function')showToast('✓ Резерв восстановлен. Перезагружаем…');
+      setTimeout(function(){location.reload();},700);
+    });
+  }).catch(function(error){
+    if(typeof showToast==='function')showToast('⚠ '+(error&&error.message||'Не удалось восстановить резерв'));
+  });
+}
+
 // Восстановить chars из IDB в LS (если IDB новее, но LS перезатёрся)
 function zgRestoreLsFromIdb() {
   if (!confirm('Восстановить localStorage из IndexedDB?\n\nПодходит, если в LS нет данных, а в IDB есть.')) return;
@@ -30495,6 +30630,23 @@ function openStorageDiagnostics() {
       '</div>';
     }
 
+    var syncDiag=window.ZargotaRooms&&window.ZargotaRooms.getSyncDiagnostics?window.ZargotaRooms.getSyncDiagnostics():null;
+    if(syncDiag){
+      var syncState=syncDiag.state||{},syncSession=syncDiag.session||{};
+      var syncLabels={local:'Сохранено на устройстве',sending:'Отправляем в сессию…',synced:'Синхронизировано',offline:'Нет связи — сохранено локально',conflict:'Конфликт изменений', 'storage-error':'Ошибка хранения — скачать резерв'};
+      var ackAge=syncState.lastAckAt?Math.max(0,Math.round((Date.now()-syncState.lastAckAt)/1000))+' сек. назад':'—';
+      html+='<div style="background:#080c12;border:1px solid #29445e;border-radius:6px;padding:12px 14px;margin-bottom:10px">'+
+        '<div style="font-family:\'Cinzel\',serif;font-size:10px;color:#8dbde0;letter-spacing:1.5px;margin-bottom:8px">☁ СИНХРОНИЗАЦИЯ ГЕРОЯ</div>'+
+        row('Статус',escHTML(syncLabels[syncState.status]||syncState.status||'—'))+
+        row('Комната / роль',escHTML((syncSession.code||'—')+' / '+(syncSession.role||'—')))+
+        row('UID',escHTML(syncDiag.uid||'—'))+
+        row('Герой / revision',escHTML((syncState.characterId||'—')+' / '+String(syncState.revision||0)))+
+        row('Outbox',String((syncDiag.outbox||[]).length)+' ожидает')+
+        row('Последний Firebase ack',ackAge)+
+        (syncState.error?'<div style="margin-top:8px;color:#d98272;font-size:10px;word-break:break-word">'+escHTML(syncState.error)+'</div>':'')+
+      '</div>';
+    }
+
     // localStorage
     html += '<div style="background:#080604;border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:10px">' +
       '<div style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--gold2);letter-spacing:1.5px;margin-bottom:8px">⚡ LOCAL STORAGE (быстрый кэш)</div>';
@@ -30555,6 +30707,8 @@ function openStorageDiagnostics() {
     // Действия
     html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
       '<button onclick="zgDownloadFullDump()" style="flex:1;min-width:160px;padding:11px;border:2px solid #c4a84b;background:#c4a84b18;color:#c4a84b;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">💾 Скачать всё одним JSON</button>' +
+      '<button onclick="zgCopySyncDiagnostics()" style="flex:1;min-width:160px;padding:11px;border:1px solid #4b83a8;background:#4b83a818;color:#8dc7e8;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">☁ Скопировать sync-диагностику</button>' +
+      '<button onclick="zgRestoreBeforeRefactor()" style="flex:1;min-width:190px;padding:11px;border:1px solid #b17b45;background:#b17b4518;color:#d8aa73;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">↺ Восстановить до рефакторинга</button>' +
       '<button onclick="document.getElementById(\'storage-diag-overlay\').remove()" style="padding:11px 20px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">Закрыть</button>' +
     '</div>' +
     '<div style="margin-top:10px;font-size:10px;color:var(--dim);font-style:italic;line-height:1.5">💡 Скачанный файл можно отправить разработчику если что-то поломалось — там вся структура данных без личной информации сверх той что ты ввёл сам.</div>';
@@ -35697,6 +35851,10 @@ function cancelCharEdit() {
 
 function deleteChar(id) {
   if (!confirm('Удалить персонажа?')) return;
+  var deletedCharacter = characters.find(function(c){ return c && c.id === id; });
+  if (deletedCharacter && window.ZargotaCharacterStore && window.ZargotaCharacterStore.markStarterHeroDeleted) {
+    window.ZargotaCharacterStore.markStarterHeroDeleted(deletedCharacter);
+  }
   characters = characters.filter(function(c){ return c.id !== id; });
   saveChars();
   showToast('Удалено');
@@ -36783,6 +36941,7 @@ try { load(); } catch(e) {}
 try { window.entries = entries; } catch(e) {}
 try { loadChars(); } catch(e) {}
 window.addEventListener('zargota-room-state',function(event){try{zgMergeCampaignState(event&&event.detail);}catch(e){}});
+window.addEventListener('pagehide',function(){try{if(typeof saveChars==='function')saveChars({sync:false,bestEffort:true,reason:'pagehide'});}catch(e){}});
 try { if(window.ZargotaRooms)zgMergeCampaignState(window.ZargotaRooms.getSnapshot()); } catch(e) {}
 try { initFilterPills(); } catch(e) {}
 try { initFormPills(); } catch(e) {}
