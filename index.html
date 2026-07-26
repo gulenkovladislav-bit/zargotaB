@@ -12661,7 +12661,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var member=entry.uid&&members.find(function(item){return item.uid===entry.uid;}),c=member&&member.character||entry||{};
         var isOwn=!!(session&&member&&member.uid===session.uid),possessed=!!(session&&session.role==='master'&&member&&w.zgPossessedPlayerUid===member.uid),current=index===(Number(combat.turnIndex)||0);
         var portrait=combatEntryPortrait(entry),hpMax=member?Number(c.hpMax||0):Number(entry.hpMax||0),hpCur=Number(entry.hp==null?(member?c.hpCur:hpMax):entry.hp),tempHp=Math.max(0,Number(entry.tempHp==null?(member?c.tempHp:0):entry.tempHp)||0),hp=hpMax>0?Math.max(0,Math.min(100,hpCur/hpMax*100)):100;
-        var click=member?' onclick="zgVttPartyClick('+JSON.stringify(member.uid)+')"':'';
+        var click=member?' onclick="zgVttPartyClick('+esc(JSON.stringify(member.uid))+')"':'';
         return '<button type="button" class="zg-party-card combatant '+esc(entry.kind||'hero')+(isOwn?' own':'')+(possessed?' possessed':'')+(current?' current-turn':'')+(member&&!member.online?' offline':'')+'"'+click+' title="'+esc(entry.name||'Участник')+'">'+
           '<span class="zg-party-init" title="Инициатива: d20 '+Number(entry.roll||0)+(Number(entry.bonus||0)>=0?' + ':' − ')+Math.abs(Number(entry.bonus||0))+'">'+Number(entry.total||0)+'</span>'+
           (portrait?'<img src="'+esc(portrait)+'" alt="">':'<span class="zg-party-ph">'+(entry.kind==='enemy'?'☠':'✦')+'</span>')+
@@ -12676,7 +12676,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var isOwn = session && member.uid === session.uid;
       var possessed = session && session.role === 'master' && w.zgPossessedPlayerUid === member.uid;
       var initiative=order.find(function(entry){return entry.uid===member.uid;}), current=initiative&&order[Number(combat.turnIndex)||0]&&order[Number(combat.turnIndex)||0].uid===member.uid;
-      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (possessed ? ' possessed' : '') + (current ? ' current-turn' : '') + (member.online ? '' : ' offline') + '" onclick="zgVttPartyClick(' + JSON.stringify(member.uid) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn || possessed ? ' aria-current="true"' : '') + '>' +
+      return '<button type="button" class="zg-party-card' + (isOwn ? ' own' : '') + (possessed ? ' possessed' : '') + (current ? ' current-turn' : '') + (member.online ? '' : ' offline') + '" onclick="zgVttPartyClick(' + esc(JSON.stringify(member.uid)) + ')" title="' + esc(c.name || member.name || 'Герой') + '"' + (isOwn || possessed ? ' aria-current="true"' : '') + '>' +
         (initiative?'<span class="zg-party-init" title="Инициатива: d20 '+initiative.roll+(initiative.bonus>=0?' + ':' − ')+Math.abs(initiative.bonus)+'">'+initiative.total+'</span>':'')+
         avatar(c, c.portrait ? '' : 'zg-party-ph') +
         '<span class="zg-party-name">' + esc(c.name || member.name || 'Герой') + '</span>' +
@@ -12686,12 +12686,6 @@ document.addEventListener('DOMContentLoaded', function(){
     }).join('');
   }
   w.zgVttPartyClick = function(uid){
-    var session = state && state.session;
-    var overlay = el('zg-game-overlay');
-    if (session && session.role === 'master' && overlay && !overlay.classList.contains('gm-vision') && w.zgPossessPlayer) {
-      if (w.zgPossessPlayer(uid)) renderParty();
-      return;
-    }
     if (w.zgSheetOpen) w.zgSheetOpen(uid);
   };
   function renderJournal(){
@@ -13532,16 +13526,34 @@ document.addEventListener('DOMContentLoaded', function(){
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
-//   ЛИСТ ПЕРСОНАЖА — поп-ап справа по клику на портрет (Лист / Биография)
+//   ЛИСТ ПЕРСОНАЖА — полный обзор сессии по клику на портрет
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
+  var openedUid='';
   function el(id){return document.getElementById(id);}
   function esc(s){s=(s==null)?'':String(s);return (typeof w.escHTML==='function')?w.escHTML(s):s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-  function charFor(m){ if(!m)return null; if(Array.isArray(w.characters)){var f=w.characters.find(function(c){return String(c.id)===String(m.characterId);});if(f)return f;} return m.character||null; }
+  function localCharFor(m){if(!m||!Array.isArray(w.characters))return null;return w.characters.find(function(c){return String(c.id)===String(m.characterId);})||null;}
+  function charFor(m,snap,uid){
+    if(!m)return null;
+    var session=snap&&snap.session,own=!!(session&&session.role==='player'&&String(session.uid)===String(uid));
+    return own?(localCharFor(m)||m.character||null):(m.character||null);
+  }
   function statVal(b){b=b||{};return (b.cur!=null&&b.cur!==0)?b.cur:(b.base||0);}
   function sign(n){n=Number(n)||0;return (n>=0?'+':'')+n;}
   function asList(v){ if(!v)return []; if(Array.isArray(v))return v; if(typeof v==='object')return Object.keys(v).map(function(k){return v[k];}); return [v]; }
   function nameOf(it){ if(it==null)return ''; if(typeof it==='string')return it; return it.name||it.title||it.label||''; }
+  function uniqueList(list){
+    var seen={};
+    return list.filter(function(item){
+      var key=String(typeof item==='string'?item:(item&&item.key||item&&item.statusKey||nameOf(item)||JSON.stringify(item))).toLowerCase();
+      if(!key||seen[key])return false;seen[key]=true;return true;
+    });
+  }
+  function spellName(id){
+    var list=Array.isArray(w.entries)?w.entries:(typeof entries!=='undefined'&&Array.isArray(entries)?entries:[]);
+    var spell=list.find(function(item){return item&&String(item.id)===String(id);});
+    return spell?spell.name:('Заклинание '+id);
+  }
   function renderStats(c){
     var labels=w.STAT_LABEL_RU||{str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
     var icons=w.STAT_ICON_EM||{}, keys=['str','dex','int','cha','per','con'], stats=c.stats||{};
@@ -13565,23 +13577,36 @@ document.addEventListener('DOMContentLoaded', function(){
     var sheet=el('zg-sheet'); if(!sheet)return;
     var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
     var m=(snap&&snap.room&&snap.room.members)?snap.room.members[uid]:null;
-    var c=charFor(m)||{};
+    if(!m||!m.character){if(w.showToast)w.showToast('Лист этого героя пока недоступен');return;}
+    openedUid=String(uid||'');
+    var c=charFor(m,snap,uid)||{},session=snap&&snap.session;
+    var isMaster=!!(session&&session.role==='master'),isOwn=!!(session&&String(session.uid)===String(uid));
     var portrait=c.portrait?'<img class="zg-sheet-portrait" src="'+esc(c.portrait)+'" alt="">':'<div class="zg-sheet-portrait" style="display:flex;align-items:center;justify-content:center;font-size:28px;color:#5a4c33">🧙</div>';
     el('zg-sheet-portrait-host').innerHTML=portrait;
     el('zg-sheet-name').textContent=c.name||(m&&m.name)||'Герой';
     el('zg-sheet-sub').textContent=[c.race,c.klasse,(c.level!=null?('ур. '+c.level):'')].filter(Boolean).join(' · ');
-    var statuses=asList(c.statuses||c.conditions), inv=asList(c.inventoryItems), traits=asList(c.traits), spells=asList(c.spells||c.spellList);
+    var access=el('zg-sheet-access');
+    if(access)access.innerHTML=isMaster
+      ?'<button type="button" onclick="zgSheetPossess()">Управлять героем</button><span>Лист из комнаты</span>'
+      :'<span>'+(isOwn?'Ваш локальный лист · синхронизация включена':'Только просмотр')+'</span>';
+    var statuses=uniqueList(asList(c.statuses||c.conditions).concat(asList(c.statusEffects)).concat(asList(c.tempEffects).filter(function(effect){return effect&&effect.type==='status';})));
+    var inv=asList(c.inventoryItems),equipment=asList(c.equipItems).filter(function(item){return !item||item.equipped!==false;});
+    var traits=asList(c.traits),abilities=asList(c.mastery).concat(asList(c.skills||c.abilities)).concat(asList(c.weaponProfiles));
+    asList(c.spellRefs).forEach(function(id){abilities.push({name:spellName(id),description:''});});
+    var notes=asList(c.notes||c.journal||c.quests);
     el('zg-sheet-pane-list').innerHTML=
       '<div class="zg-sheet-vitals">'+
         '<div class="zg-sheet-vital"><b>'+esc(c.hpCur!=null?c.hpCur:'—')+'/'+esc(c.hpMax!=null?c.hpMax:'—')+'</b><span>HP</span></div>'+
+        '<div class="zg-sheet-vital"><b>'+esc(c.tempHp!=null?c.tempHp:'0')+'</b><span>ВРЕМ. HP</span></div>'+
         '<div class="zg-sheet-vital"><b>'+esc(c.ac!=null&&c.ac!==''?c.ac:'—')+'</b><span>БРОНЯ</span></div>'+
         '<div class="zg-sheet-vital"><b>'+esc(c.speed?c.speed:'—')+'</b><span>СКОР.</span></div>'+
       '</div>'+
       '<div class="zg-sheet-h">Характеристики</div>'+renderStats(c)+
-      '<div class="zg-sheet-h">Статусы</div>'+renderChips(statuses)+
-      '<div class="zg-sheet-h">Инвентарь</div>'+renderItems(inv)+
-      '<div class="zg-sheet-h">Черты</div>'+renderList(traits)+
-      (spells.length?('<div class="zg-sheet-h">Заклинания</div>'+renderList(spells)):'');
+      '<div class="zg-sheet-h">Статусы и эффекты</div>'+renderChips(statuses)+
+      (traits.length?'<div class="zg-sheet-h">Черты</div>'+renderList(traits):'');
+    el('zg-sheet-pane-abilities').innerHTML='<div class="zg-sheet-h">Способности и приёмы</div>'+renderList(abilities);
+    el('zg-sheet-pane-items').innerHTML='<div class="zg-sheet-h">Экипировка</div>'+renderItems(equipment)+'<div class="zg-sheet-h">Инвентарь</div>'+renderItems(inv);
+    el('zg-sheet-pane-journal').innerHTML='<div class="zg-sheet-h">Журнал и заметки</div>'+renderList(notes);
     var bio=c.biography||c.bio||'';
     var extra=[['Происхождение',c.origin],['Символ',c.symbol],['Бог',c.god],['Возраст',c.age]].filter(function(r){return r[1];});
     el('zg-sheet-pane-bio').innerHTML=
@@ -13592,9 +13617,13 @@ document.addEventListener('DOMContentLoaded', function(){
     sheet.classList.add('open');
     try{if(w.ZargotaSound)w.ZargotaSound.buttonTap();}catch(e){}
   };
-  w.zgSheetClose=function(){ var s=el('zg-sheet'); if(s)s.classList.remove('open'); };
+  w.zgSheetPossess=function(){
+    if(!openedUid||!w.zgPossessPlayer)return;
+    if(w.zgPossessPlayer(openedUid))w.zgSheetClose();
+  };
+  w.zgSheetClose=function(){ var s=el('zg-sheet'); if(s)s.classList.remove('open');openedUid=''; };
   w.zgSheetTab=function(name){
-    ['list','bio'].forEach(function(n){
+    ['list','abilities','items','journal','bio'].forEach(function(n){
       var tab=el('zg-sheet-tab-'+n), pane=el('zg-sheet-pane-'+n);
       if(tab)tab.classList.toggle('active',n===name);
       if(pane)pane.classList.toggle('active',n===name);
@@ -17228,7 +17257,7 @@ window.zgImageStore = (function() {
   .zg-vtt-loading-spin{width:34px;height:34px;border-radius:50%;border:2px solid rgba(232,192,96,.2);border-top-color:var(--gold);animation:zgSpin .9s linear infinite}
   .zg-vtt-loading-txt{font-size:13px;letter-spacing:2px}
   /* лист персонажа (поп-ап справа) */
-  .zg-sheet{position:absolute;top:0;right:0;bottom:0;z-index:8;width:min(372px,92vw);display:none;flex-direction:column;background:linear-gradient(180deg,#151009f2,#0b0806f6);border-left:1px solid #3b2d18;box-shadow:-18px 0 50px #000a;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .zg-sheet{position:absolute;top:0;right:0;bottom:0;z-index:8;width:min(430px,96vw);display:none;flex-direction:column;background:linear-gradient(180deg,#151009f2,#0b0806f6);border-left:1px solid #3b2d18;box-shadow:-18px 0 50px #000a;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
   .zg-sheet.open{display:flex;animation:zgSheetIn .28s cubic-bezier(.2,.8,.3,1)}
   @keyframes zgSheetIn{0%{opacity:0;transform:translateX(34px)}100%{opacity:1;transform:none}}
   .zg-sheet-head{position:relative;display:flex;gap:12px;align-items:center;padding:16px 16px 14px;border-bottom:1px solid #2b2114}
@@ -17236,6 +17265,9 @@ window.zgImageStore = (function() {
   .zg-sheet-hd-txt{min-width:0}
   .zg-sheet-name{font-family:'Cinzel',serif;font-size:19px;color:#f0d896;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .zg-sheet-sub{font-size:12px;color:#9e8e70;margin-top:3px}
+  .zg-sheet-access{display:flex;align-items:center;gap:7px;margin-top:7px;color:#776b55;font-size:10px}
+  .zg-sheet-access button{padding:4px 8px;border:1px solid #80632d;border-radius:6px;background:#211809;color:#e8cf8b;font:700 9px 'Cinzel',serif;cursor:pointer}
+  .zg-sheet-access button:hover{border-color:#c8993c;color:#fff0bd}
   .zg-sheet-close{position:absolute;top:10px;right:10px;width:28px;height:28px;border:0;background:transparent;color:#8d7955;font-size:18px;cursor:pointer}
   .zg-sheet-close:hover{color:var(--gold)}
   .zg-sheet-tabs{display:flex;gap:4px;padding:10px 14px 0}
@@ -17244,7 +17276,7 @@ window.zgImageStore = (function() {
   .zg-sheet-body{flex:1;overflow-y:auto;padding:14px 16px 26px}
   .zg-sheet-pane{display:none}
   .zg-sheet-pane.active{display:block}
-  .zg-sheet-vitals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .zg-sheet-vitals{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .zg-sheet-vital{padding:10px 6px;border:1px solid #302515;border-radius:8px;background:#12100c;text-align:center}
   .zg-sheet-vital b{display:block;font-family:'Cinzel',serif;font-size:17px;color:#f0e0b8}
   .zg-sheet-vital span{font-size:9px;color:#8d7c5c;letter-spacing:1px}
@@ -18171,15 +18203,21 @@ window.zgImageStore = (function() {
     <div class="zg-sheet" id="zg-sheet" aria-label="Лист персонажа">
       <div class="zg-sheet-head">
         <span id="zg-sheet-portrait-host"></span>
-        <div class="zg-sheet-hd-txt"><div class="zg-sheet-name" id="zg-sheet-name"></div><div class="zg-sheet-sub" id="zg-sheet-sub"></div></div>
+        <div class="zg-sheet-hd-txt"><div class="zg-sheet-name" id="zg-sheet-name"></div><div class="zg-sheet-sub" id="zg-sheet-sub"></div><div class="zg-sheet-access" id="zg-sheet-access"></div></div>
         <button type="button" class="zg-sheet-close" onclick="zgSheetClose()" aria-label="Закрыть лист">×</button>
       </div>
       <div class="zg-sheet-tabs">
-        <button type="button" class="zg-sheet-tab active" id="zg-sheet-tab-list" onclick="zgSheetTab('list')">Лист</button>
-        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-bio" onclick="zgSheetTab('bio')">Биография</button>
+        <button type="button" class="zg-sheet-tab active" id="zg-sheet-tab-list" onclick="zgSheetTab('list')" title="Обзор">Лист</button>
+        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-abilities" onclick="zgSheetTab('abilities')" title="Способности">Умения</button>
+        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-items" onclick="zgSheetTab('items')" title="Экипировка и инвентарь">Вещи</button>
+        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-journal" onclick="zgSheetTab('journal')" title="Журнал и заметки">Записи</button>
+        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-bio" onclick="zgSheetTab('bio')" title="Биография">Лор</button>
       </div>
       <div class="zg-sheet-body">
         <div class="zg-sheet-pane active" id="zg-sheet-pane-list"></div>
+        <div class="zg-sheet-pane" id="zg-sheet-pane-abilities"></div>
+        <div class="zg-sheet-pane" id="zg-sheet-pane-items"></div>
+        <div class="zg-sheet-pane" id="zg-sheet-pane-journal"></div>
         <div class="zg-sheet-pane" id="zg-sheet-pane-bio"></div>
       </div>
     </div>
