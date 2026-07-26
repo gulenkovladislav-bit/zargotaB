@@ -24,6 +24,14 @@ var sheetBlock = html.slice(sheetStart, sheetEnd);
 assert.match(sheetBlock, /session\.role==='player'/);
 assert.match(sheetBlock, /return own\?\(localCharFor\(m\)\|\|m\.character\|\|null\):\(m\.character\|\|null\)/);
 assert.match(sheetBlock, /zgSheetPossess/);
+assert.match(sheetBlock, /session\.role==='player'&&isOwn&&localCharFor\(m\)/);
+assert.match(sheetBlock, /zgSheetEditOwn/);
+assert.match(sheetBlock, /String\(openedUid\)===String\(session\.uid\)/);
+assert.match(sheetBlock, /String\(m\.characterId\)===sessionEditCharacterId/);
+assert.match(sheetBlock, /zgGameClose\(true\)/);
+assert.match(sheetBlock, /showPage\('characters'\)/);
+assert.match(sheetBlock, /openCharSheet\(local\.id\)/);
+assert.match(sheetBlock, /zgGameOpen\(false\)/);
 assert.match(sheetBlock, /tempHp/);
 assert.match(sheetBlock, /statusEffects/);
 assert.match(sheetBlock, /inventoryItems/);
@@ -34,5 +42,12 @@ assert.match(sheetBlock, /Текущая цель/);
 ['abilities', 'items', 'journal', 'bio'].forEach(function (pane) {
   assert.ok(html.indexOf('id="zg-sheet-pane-' + pane + '"') >= 0, 'missing session sheet pane: ' + pane);
 });
+
+assert.match(html, /id="chars-btn-back" onclick="zgCharBack\(\)"/);
+assert.match(html, /Вернуться в сессию/);
+assert.match(html, /function openCharSheet\(id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
+assert.match(html, /function openCharEditor\(id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
+assert.match(html, /function deleteChar\(id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
+assert.match(html, /function charTransferMenu\(e, id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
 
 console.log('session character sheet contract passed');

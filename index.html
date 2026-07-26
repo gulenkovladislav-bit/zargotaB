@@ -13530,6 +13530,7 @@ document.addEventListener('DOMContentLoaded', function(){
 // ═══════════════════════════════════════════════════════════════════
 (function(w){
   var openedUid='';
+  var sessionEditCharacterId='';
   function el(id){return document.getElementById(id);}
   function esc(s){s=(s==null)?'':String(s);return (typeof w.escHTML==='function')?w.escHTML(s):s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function localCharFor(m){if(!m||!Array.isArray(w.characters))return null;return w.characters.find(function(c){return String(c.id)===String(m.characterId);})||null;}
@@ -13581,6 +13582,7 @@ document.addEventListener('DOMContentLoaded', function(){
     openedUid=String(uid||'');
     var c=charFor(m,snap,uid)||{},session=snap&&snap.session;
     var isMaster=!!(session&&session.role==='master'),isOwn=!!(session&&String(session.uid)===String(uid));
+    var canEditOwn=!!(session&&session.role==='player'&&isOwn&&localCharFor(m));
     var portrait=c.portrait?'<img class="zg-sheet-portrait" src="'+esc(c.portrait)+'" alt="">':'<div class="zg-sheet-portrait" style="display:flex;align-items:center;justify-content:center;font-size:28px;color:#5a4c33">🧙</div>';
     el('zg-sheet-portrait-host').innerHTML=portrait;
     el('zg-sheet-name').textContent=c.name||(m&&m.name)||'Герой';
@@ -13588,7 +13590,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var access=el('zg-sheet-access');
     if(access)access.innerHTML=isMaster
       ?'<button type="button" onclick="zgSheetPossess()">Управлять героем</button><span>Лист из комнаты</span>'
-      :'<span>'+(isOwn?'Ваш локальный лист · синхронизация включена':'Только просмотр')+'</span>';
+      :'<span>'+(isOwn?'Ваш локальный лист · синхронизация включена':'Только просмотр')+'</span>'
+        +(canEditOwn?'<button type="button" onclick="zgSheetEditOwn()">Редактировать</button>':'');
     var statuses=uniqueList(asList(c.statuses||c.conditions).concat(asList(c.statusEffects)).concat(asList(c.tempEffects).filter(function(effect){return effect&&effect.type==='status';})));
     var inv=asList(c.inventoryItems),equipment=asList(c.equipItems).filter(function(item){return !item||item.equipped!==false;});
     var traits=asList(c.traits),abilities=asList(c.mastery).concat(asList(c.skills||c.abilities)).concat(asList(c.weaponProfiles));
@@ -13621,6 +13624,32 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgSheetPossess=function(){
     if(!openedUid||!w.zgPossessPlayer)return;
     if(w.zgPossessPlayer(openedUid))w.zgSheetClose();
+  };
+  w.zgSheetEditOwn=function(){
+    var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
+    var session=snap&&snap.session,m=session&&snap.room&&snap.room.members&&snap.room.members[session.uid];
+    var local=session&&session.role==='player'&&String(openedUid)===String(session.uid)?localCharFor(m):null;
+    if(!local){if(w.showToast)w.showToast('Редактировать можно только своего выбранного героя');return false;}
+    sessionEditCharacterId=String(local.id);
+    w.zgSheetClose();
+    if(w.zgGameClose)w.zgGameClose(true);
+    if(typeof w.showPage==='function')w.showPage('characters');
+    if(typeof w.openCharSheet==='function')w.openCharSheet(local.id);
+    return true;
+  };
+  w.zgSessionCharacterEditActive=function(characterId){
+    if(!sessionEditCharacterId)return false;
+    var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
+    var session=snap&&snap.session,m=session&&snap.room&&snap.room.members&&snap.room.members[session.uid];
+    var valid=!!(session&&session.role==='player'&&m&&String(m.characterId)===sessionEditCharacterId&&localCharFor(m));
+    if(!valid){sessionEditCharacterId='';return false;}
+    return characterId==null||String(characterId)===sessionEditCharacterId;
+  };
+  w.zgSessionCharacterEditReturn=function(){
+    if(!w.zgSessionCharacterEditActive())return false;
+    sessionEditCharacterId='';
+    if(w.zgGameOpen)w.zgGameOpen(false);
+    return true;
   };
   w.zgSheetClose=function(){ var s=el('zg-sheet'); if(s)s.classList.remove('open');openedUid=''; };
   w.zgSheetTab=function(name){
@@ -18798,7 +18827,7 @@ window.zgImageStore = (function() {
   <div class="page" id="page-characters">
     <div class="page-back-bar" id="chars-back-bar">
       <button class="back-to-home" id="chars-btn-home" onclick="showPage(&#39;home&#39;)">← На Главную</button>
-      <button class="back-to-home" id="chars-btn-back" onclick="showCharView(&#39;list&#39;)" style="display:none">← Назад</button>
+      <button class="back-to-home" id="chars-btn-back" onclick="zgCharBack()" style="display:none">← Назад</button>
       <span class="page-back-title" id="chars-back-title">Персонажи</span>
     </div>
     <div class="page-inner">
@@ -31431,6 +31460,11 @@ function switchCharTab(tab) {
 }
 
 function showCharView(v) {
+  var sessionEditActive = !!(window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive());
+  if (v === 'list' && sessionEditActive) {
+    window.zgSessionCharacterEditReturn();
+    return;
+  }
   charView = v;
   document.getElementById('char-list-view').style.display   = v === 'list'   ? 'block' : 'none';
   document.getElementById('char-sheet-view').style.display  = v === 'sheet'  ? 'block' : 'none';
@@ -31448,6 +31482,7 @@ function showCharView(v) {
   } else {
     if (btnHome) btnHome.style.display = 'none';
     if (btnBack) btnBack.style.display = '';
+    if (btnBack) btnBack.textContent = sessionEditActive ? '← Вернуться в сессию' : '← Назад';
     if (titleEl) {
       if (v === 'sheet') {
         var c = characters.find(function(x){ return x.id === viewingCharId; });
@@ -31532,8 +31567,17 @@ function renderCharList() {
   }
 }
 
+function zgCharBack() {
+  if (window.zgSessionCharacterEditReturn && window.zgSessionCharacterEditReturn()) return;
+  showCharView('list');
+}
+
 // ── Open sheet ──
 function openCharSheet(id) {
+  if (window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive() && !window.zgSessionCharacterEditActive(id)) {
+    showToast('В сессии можно редактировать только выбранного героя');
+    return;
+  }
   viewingCharId = id;
   showCharView('sheet');
 }
@@ -35545,6 +35589,10 @@ function handleSheetPortrait(id, event) {
 
 // ── Editor ──
 function openCharEditor(id) {
+  if (window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive() && (!id || !window.zgSessionCharacterEditActive(id))) {
+    showToast('В сессии можно редактировать только выбранного героя');
+    return;
+  }
   if (id) {
     var c = characters.find(function(x){ return x.id === id; });
     if (!c) return;
@@ -35672,6 +35720,10 @@ function buildCharacterBackupPayload(character) {
 }
 
 function charTransferMenu(e, id) {
+  if (window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive(id)) {
+    showToast('Импорт недоступен во время редактирования героя сессии');
+    return;
+  }
   e.stopPropagation();
   var existing = document.getElementById('char-transfer-menu');
   if (existing) { existing.remove(); return; }
@@ -35893,6 +35945,10 @@ function cancelCharEdit() {
 }
 
 function deleteChar(id) {
+  if (window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive(id)) {
+    showToast('Нельзя удалить выбранного героя во время сессии');
+    return;
+  }
   if (!confirm('Удалить персонажа?')) return;
   var deletedCharacter = characters.find(function(c){ return c && c.id === id; });
   if (deletedCharacter && window.ZargotaCharacterStore && window.ZargotaCharacterStore.markStarterHeroDeleted) {
