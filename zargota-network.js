@@ -577,19 +577,25 @@
     function displayList(value, limit) {
       return (Array.isArray(value) ? value : []).slice(0, limit || 40).map(displayEntry).filter(Boolean);
     }
-    var directItems = [].concat(Array.isArray(character.equipItems) ? character.equipItems : [], Array.isArray(character.inventoryItems) ? character.inventoryItems : []);
+    var directItems = [];
+    (Array.isArray(character.equipItems) ? character.equipItems : []).forEach(function (item) {
+      if (item) directItems.push(Object.assign({}, item, { _sessionEquipped:item.equipped !== false }));
+    });
+    (Array.isArray(character.inventoryItems) ? character.inventoryItems : []).forEach(function (item) {
+      if (item) directItems.push(Object.assign({}, item, { _sessionEquipped:item.equipped === true }));
+    });
     var armoryItems = [];
     try { if (typeof w.loadArmoryItems === 'function') armoryItems = w.loadArmoryItems() || []; } catch (e) {}
     Object.keys(character.arenaEquipSlots || {}).forEach(function (slot) {
       var id = character.arenaEquipSlots[slot], item = armoryItems.filter(function (candidate) { return candidate && String(candidate.id) === String(id); })[0];
-      if (item) directItems.push(Object.assign({}, item, { equipped:true, slot:slot }));
+      if (item) directItems.push(Object.assign({}, item, { equipped:true, _sessionEquipped:true, slot:slot }));
     });
     var weaponProfiles = [], weaponSeen = {};
     directItems.forEach(function (item) {
-      if (!item || item.equipped === false || String(item.category || item.cat || '').toLowerCase() !== 'weapon') return;
+      if (!item || !item._sessionEquipped || String(item.category || item.cat || '').toLowerCase() !== 'weapon') return;
       var formula = String(item.damageFormula || item.damage || '').match(/\d+d\d+(?:\s*[+-]\s*\d+)?/i);
       if (!formula) return;
-      var key = String(item.id || item.name || formula[0]); if (weaponSeen[key]) return; weaponSeen[key] = true;
+      var key = String(item.itemId || item.id || item.name || formula[0]); if (weaponSeen[key]) return; weaponSeen[key] = true;
       weaponProfiles.push({ id:key, name:item.name || 'Оружие', damageFormula:formula[0].replace(/\s+/g,''), damageType:item.damageType || '', range:item.range || '1 клетка', stat:item.attackStat || item.stat || '' });
     });
     if (!weaponProfiles.length) weaponProfiles.push({ id:'improvised', name:'Импровизированная атака', damageFormula:'1d4', damageType:'Дробящий', range:'1 клетка', stat:'str' });

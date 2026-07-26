@@ -32,6 +32,99 @@
     catch (error) { return null; }
   }
 
+  function stableTextHash(value) {
+    var text = String(value == null ? '' : value);
+    var hash = 2166136261;
+    for (var index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
+  function stableInventoryItemId(characterId, kind, index, item) {
+    if (item && item.itemId != null && String(item.itemId).trim()) return String(item.itemId).trim();
+    var characterPart = String(characterId == null ? 'character' : characterId).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 36) || 'character';
+    var source = clone(item) || item || '';
+    if (source && typeof source === 'object') delete source.itemId;
+    try { source = JSON.stringify(source); } catch (error) { source = String(source); }
+    return 'zg-item-' + characterPart + '-' + (kind === 'equip' ? 'e' : 'i') + '-' + stableTextHash(String(index) + '|' + source);
+  }
+
+  function collectionValues(value) {
+    if (Array.isArray(value)) return value.slice();
+    if (value && typeof value === 'object') return Object.keys(value).map(function (key) { return value[key]; });
+    if (typeof value === 'string' && value.trim()) return [value];
+    return [];
+  }
+
+  function legacyInventoryItems(value) {
+    return String(value == null ? '' : value).split(/\r?\n|;/).map(function (row) {
+      var text = row.replace(/^\s*(?:[-*•·]|\d+[.)])\s*/, '').trim();
+      if (!text) return null;
+      var quantity = 1;
+      var leading = text.match(/^(\d+)\s*[xх×]\s*(.+)$/i);
+      var trailing = text.match(/^(.+?)\s*[xх×]\s*(\d+)$/i);
+      if (leading) {
+        quantity = Math.max(1, Number(leading[1]) || 1);
+        text = leading[2].trim();
+      } else if (trailing) {
+        quantity = Math.max(1, Number(trailing[2]) || 1);
+        text = trailing[1].trim();
+      }
+      return text ? { name:text, qty:quantity, icon:'📦', description:'', migratedFrom:'inventory-text' } : null;
+    }).filter(Boolean);
+  }
+
+  function normalizeInventoryList(characterId, kind, value) {
+    return collectionValues(value).map(function (entry, index) {
+      var item;
+      if (typeof entry === 'string') item = { name:entry.trim(), icon:kind === 'equip' ? '🗃️' : '📦', description:'' };
+      else item = entry && typeof entry === 'object' ? entry : { name:String(entry == null ? '' : entry) };
+      if (!item.name && item.text) item.name = String(item.text);
+      if (!item.icon) item.icon = kind === 'equip' ? '🗃️' : '📦';
+      if (item.description === undefined) item.description = '';
+      if (kind === 'inventory') item.qty = Math.max(1, Number(item.qty) || 1);
+      item.itemId = stableInventoryItemId(characterId, kind, index, item);
+      return item;
+    }).filter(function (item) { return !!(item.name || item.description || item.image || item.icon); });
+  }
+
+  function normalizeCharacterInventory(character) {
+    if (!character || typeof character !== 'object') return { changed:false, migratedLegacyText:false };
+    var before;
+    try { before = JSON.stringify({ inventoryItems:character.inventoryItems, equipItems:character.equipItems }); }
+    catch (error) { before = ''; }
+    var inventory = collectionValues(character.inventoryItems);
+    var migratedLegacyText = false;
+    if (!inventory.length && typeof character.inventory === 'string' && character.inventory.trim()) {
+      inventory = legacyInventoryItems(character.inventory);
+      migratedLegacyText = inventory.length > 0;
+    }
+    character.inventoryItems = normalizeInventoryList(character.id, 'inventory', inventory);
+    var normalizedEquipment = normalizeInventoryList(character.id, 'equip', character.equipItems);
+    var collapsedEquipmentCopies = 0;
+    character.equipItems = normalizedEquipment.filter(function (equipment) {
+      var source = character.inventoryItems.filter(function (item) {
+        return item && equipment && item.itemId === equipment.itemId;
+      })[0] || (equipment && equipment._sourceInventoryIndex != null
+        ? character.inventoryItems[Number(equipment._sourceInventoryIndex)]
+        : null);
+      if (!source) return true;
+      ['name','icon','description','image','type','category','rarity','damage','damageFormula','damageType','acBonus','weight'].forEach(function (field) {
+        if ((source[field] == null || source[field] === '') && equipment[field] != null) source[field] = equipment[field];
+      });
+      source.equipped = equipment.equipped !== false;
+      if (equipment.slot) source.slot = equipment.slot;
+      collapsedEquipmentCopies += 1;
+      return false;
+    });
+    var after;
+    try { after = JSON.stringify({ inventoryItems:character.inventoryItems, equipItems:character.equipItems }); }
+    catch (error2) { after = before; }
+    return { changed:before !== after, migratedLegacyText:migratedLegacyText, collapsedEquipmentCopies:collapsedEquipmentCopies };
+  }
+
   function parseCollection(value) {
     if (Array.isArray(value)) return clone(value) || [];
     if (!value) return [];
@@ -539,6 +632,8 @@
       templateUrl: TEMPLATE_URL
     },
     campaignKeyFor: campaignKeyFor,
+    stableInventoryItemId: stableInventoryItemId,
+    normalizeCharacterInventory: normalizeCharacterInventory,
     characterContentSignature: characterContentSignature,
     mergeStoredCollections: mergeStoredCollections,
     mergeStarterHeroes: mergeStarterHeroes,

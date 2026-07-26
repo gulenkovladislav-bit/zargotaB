@@ -98,6 +98,8 @@ assert.strictEqual(
   'a failed cache refresh must not delete the previous character cache'
 );
 assert.match(html, /character cache refresh failed; previous cache preserved/);
+assert.match(html, /function applyCharsMigrations[\s\S]*normalizeCharacterInventory\(c\)/);
+assert.match(html, /function saveChars\(options\)[\s\S]*normalizeCharacterInventory\(c\)/);
 
 var snapshotStart = network.indexOf('function characterSnapshot');
 var snapshotEnd = network.indexOf('function campaignKeyFor', snapshotStart);
@@ -107,6 +109,11 @@ var snapshotContext = {
     id: 7,
     name: 'Герой',
     hpMax: 12,
+    inventoryItems: [
+      { itemId:'zg-item-7-i-stable', name:'Ключ', qty:2 },
+      { itemId:'backpack-sword', name:'Меч в рюкзаке', category:'weapon', damageFormula:'9d9' },
+      { itemId:'equipped-sword', name:'Надетый меч', category:'weapon', damageFormula:'1d8', equipped:true, slot:'weapon' }
+    ],
     skills: [{ name:'Приём', description:'Описание', image:'data:image/png;base64,heavy' }],
     traits: ['Черта'],
     spellRefs: [101, '202', { bad:true }],
@@ -126,6 +133,10 @@ assert.deepStrictEqual(Array.from(snapshotContext.result.spellRefs), [101, '202'
 assert.strictEqual(snapshotContext.result.skills[0].name, 'Приём');
 assert.strictEqual(snapshotContext.result.skills[0].description, 'Описание');
 assert.strictEqual(snapshotContext.result.skills[0].image, undefined);
+assert.strictEqual(snapshotContext.result.inventoryItems[0].itemId, 'zg-item-7-i-stable');
+assert.strictEqual(snapshotContext.result.inventoryItems[0].qty, 2);
+assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'backpack-sword'; }), false);
+assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'equipped-sword'; }), true);
 assert.strictEqual(snapshotContext.result.biography, 'История');
 assert.strictEqual(snapshotContext.result.quote, 'Цитата');
 assert.strictEqual(snapshotContext.result.portrait, '');

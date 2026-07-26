@@ -61,6 +61,68 @@ var remotePlan = store.prepareCollectionForSave(revisionCharacters, { now: 300, 
 assert.deepStrictEqual(remotePlan.changedIds, ['a']);
 assert.strictEqual(revisionCharacters[0].revision, 12);
 
+var legacyInventoryCharacter = {
+  id: 'legacy-inventory',
+  inventory: '- 2x Зелье лечения\n• Старый ключ; Факел x3',
+  equipItems: ['Старый меч']
+};
+var inventoryMigration = store.normalizeCharacterInventory(legacyInventoryCharacter);
+assert.strictEqual(inventoryMigration.changed, true);
+assert.strictEqual(inventoryMigration.migratedLegacyText, true);
+assert.strictEqual(legacyInventoryCharacter.inventory, '- 2x Зелье лечения\n• Старый ключ; Факел x3');
+assert.deepStrictEqual(legacyInventoryCharacter.inventoryItems.map(function(item) {
+  return [item.name, item.qty];
+}), [['Зелье лечения', 2], ['Старый ключ', 1], ['Факел', 3]]);
+assert.strictEqual(legacyInventoryCharacter.equipItems[0].name, 'Старый меч');
+legacyInventoryCharacter.inventoryItems.concat(legacyInventoryCharacter.equipItems).forEach(function(item) {
+  assert.match(item.itemId, /^zg-item-legacy-inventory-[ie]-/);
+});
+var migratedItemIds = legacyInventoryCharacter.inventoryItems.map(function(item) { return item.itemId; });
+assert.strictEqual(store.normalizeCharacterInventory(legacyInventoryCharacter).changed, false);
+assert.deepStrictEqual(legacyInventoryCharacter.inventoryItems.map(function(item) { return item.itemId; }), migratedItemIds);
+legacyInventoryCharacter.inventoryItems[0].name = 'Переименованное зелье';
+store.normalizeCharacterInventory(legacyInventoryCharacter);
+assert.strictEqual(legacyInventoryCharacter.inventoryItems[0].itemId, migratedItemIds[0]);
+
+var existingStructuredInventory = {
+  id: 'structured',
+  inventory: 'Этот старый текст не должен создать дубликат',
+  inventoryItems: [{ name:'Карта', qty:0, itemId:'kept-item-id' }]
+};
+var structuredMigration = store.normalizeCharacterInventory(existingStructuredInventory);
+assert.strictEqual(structuredMigration.migratedLegacyText, false);
+assert.strictEqual(existingStructuredInventory.inventoryItems.length, 1);
+assert.strictEqual(existingStructuredInventory.inventoryItems[0].itemId, 'kept-item-id');
+assert.strictEqual(existingStructuredInventory.inventoryItems[0].qty, 1);
+
+var duplicatedEquipmentCharacter = {
+  id: 'equipped-copy',
+  inventoryItems: [{
+    itemId:'shared-sword',
+    name:'Меч',
+    description:'Полное описание',
+    image:'images/sword.png',
+    qty:1
+  }],
+  equipItems: [{
+    itemId:'shared-sword',
+    name:'Меч',
+    description:'Полное описание',
+    image:'images/sword.png',
+    equipped:true,
+    slot:'weapon',
+    _sourceInventoryIndex:0
+  }]
+};
+var equipmentMigration = store.normalizeCharacterInventory(duplicatedEquipmentCharacter);
+assert.strictEqual(equipmentMigration.collapsedEquipmentCopies, 1);
+assert.strictEqual(duplicatedEquipmentCharacter.equipItems.length, 0);
+assert.strictEqual(duplicatedEquipmentCharacter.inventoryItems[0].equipped, true);
+assert.strictEqual(duplicatedEquipmentCharacter.inventoryItems[0].slot, 'weapon');
+assert.strictEqual(duplicatedEquipmentCharacter.inventoryItems[0].description, 'Полное описание');
+assert.strictEqual(duplicatedEquipmentCharacter.inventoryItems[0].image, 'images/sword.png');
+assert.strictEqual(store.normalizeCharacterInventory(duplicatedEquipmentCharacter).collapsedEquipmentCopies, 0);
+
 function createLocalStorage() {
   var values = new Map();
   return {
