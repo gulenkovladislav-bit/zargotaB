@@ -211,6 +211,11 @@ assert.match(network, /memberUpdates\['character\/syncOperationId'\]/);
 assert.match(network, /gmAddInventoryItem:\s*function/);
 assert.match(network, /gmAddJournalEntry:\s*function/);
 assert.match(network, /gmAdjustAbilityUsage:\s*function/);
+assert.match(network, /adjustOwnAbilityUsage:\s*function/);
+assert.match(network, /current\.source='player-ability-resource'/);
+assert.match(network, /request\.actionKind === 'ability'[^]*applyAbilityUsageDomainOperation\(character\.abilityUsage/);
+assert.match(network, /actionKind==='spell-learning'/);
+assert.match(network, /character\.source='spell-learning-approved'/);
 assert.match(network, /firebase\.runTransaction\(firebase\.ref\(db,'rooms\/'\+session\.code\+'\/members\/'\+memberUid\+'\/character'\)/);
 assert.match(network, /current\.abilityUsage=usageResult\.usage/);
 assert.match(network, /current\.source='gm-ability-resource'/);
@@ -245,6 +250,9 @@ assert.match(html, /@media\(max-width:700px\)\{\.zg-gm-intervention/);
 assert.match(html, /function animateGmAdjustmentVisual/);
 assert.match(html, /state&&state\.room&&state\.room\.manualEvent/);
 assert.match(html, /event\.statusEnabled\?'gm-status-add':'gm-status-remove'/);
+assert.match(html, /className='zg-gm-particles '/);
+assert.match(html, /@keyframes zgGmDamageAvatar/);
+assert.match(html, /@keyframes zgGmHealAvatar/);
 assert.match(html, /zgDiceSetFreeMode/);
 assert.match(html, /data-dice-free-mode="free"/);
 assert.match(html, /План Б · свободный бросок без расхода действия/);
@@ -414,7 +422,20 @@ var combatRenderEnd = html.indexOf('function combatBusy', combatRenderStart);
 var combatRenderBlock = html.slice(combatRenderStart, combatRenderEnd);
 assert.match(combatRenderBlock, /zg-combat-inventory-button[^]*zgPlayerDockSelect\(\\'inventory\\'\)/);
 assert.strictEqual(combatRenderBlock.indexOf('zgVttCloseDrawer') >= 0, false, 'combat rerenders must not close the canonical drawer');
-assert.match(html, /onclick="zgVttOpenPanel\('abilities'\)" title="Книга приёмов и заклинаний"/);
+assert.match(html, /onclick="zgVttOpenPanel\('character'\)" aria-label="Состояние Героя"/);
+assert.match(html, /onclick="zgVttOpenPanel\('inventory'\)" aria-label="Вещи"/);
+assert.match(html, /onclick="zgVttOpenPanel\('abilities'\)" aria-label="Магия"/);
+assert.match(html, /onclick="zgVttOpenPanel\('journal'\)" aria-label="Личный журнал"/);
+assert.match(html, /w\.zgSelectedHeroMemberUid=token\.type==='hero'/);
+assert.match(html, /selectedInventoryUid=state&&state\.session&&state\.session\.role==='master'/);
+assert.match(drawerOpenBlock, /zg-gm-intervention/);
+assert.match(html, /var backpackPanels=\{character:'hero',inventory:'items',abilities:'magic',journal:'journal'\}/);
+assert.match(html, /backpack-hero-status\.png/);
+assert.match(html, /backpack-items\.png/);
+assert.match(html, /backpack-magic\.png/);
+assert.match(html, /backpack-journal\.png/);
+assert.match(html, /width:min\(520px,calc\(100vw - 22px\)\)/);
+assert.match(html, /background-color:transparent/);
 
 var abilitiesStart = html.indexOf('function abilitiesPanel()');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
@@ -434,6 +455,11 @@ assert.match(abilitiesBlock, /Исчерпано/);
 assert.match(html, /Статус изучения не передан/);
 assert.match(html, /aria-label="Доступно /);
 assert.match(html, /Кулдаун:/);
+assert.match(html, /function abilityDetailSections\(card\)/);
+assert.match(html, /class="zg-ability-detail-section"/);
+assert.match(html, /w\.zgVttOwnAbilityUsage=function/);
+assert.match(html, /w\.zgVttRequestLearning=function/);
+assert.match(html, /function zgMergeSessionSpellsLearned/);
 
 var snapshotStart = network.indexOf('function characterSnapshot');
 var snapshotEnd = network.indexOf('function campaignKeyFor', snapshotStart);
@@ -629,6 +655,18 @@ assert.strictEqual(abilityMergeContext.result['101'].note, 'keep');
 assert.strictEqual(abilityMergeContext.result['202'].used, 1);
 assert.strictEqual(abilityMergeContext.result['202'].max, 2);
 assert.match(applyBlock, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage\)/);
+assert.match(applyBlock, /spellsLearned:zgMergeSessionSpellsLearned\(localCharacter,roomCharacter\.spellsLearned\)/);
+var learnedMergeStart = html.indexOf('function zgMergeSessionSpellsLearned');
+var learnedMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', learnedMergeStart);
+var learnedMergeContext = { result:null };
+vm.runInNewContext(
+  html.slice(learnedMergeStart, learnedMergeEnd) +
+    '; result=zgMergeSessionSpellsLearned({spellRefs:[101,202],spellsLearned:{101:true,202:false}},{"101":false,"202":true,"999":true});',
+  learnedMergeContext
+);
+assert.strictEqual(learnedMergeContext.result['101'], true, 'stale room false must not forget a locally learned spell');
+assert.strictEqual(learnedMergeContext.result['202'], true, 'approved room learning must merge into the local sheet');
+assert.strictEqual(learnedMergeContext.result['999'], undefined, 'room learning outside local spellRefs must be ignored');
 assert.match(html, /zgSheetTabAction\('journal'\)/);
 assert.match(html, /zgVttJournalMasterAdd/);
 

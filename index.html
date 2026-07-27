@@ -9,7 +9,7 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <script src="character-store.js?v=2026-07-27.2"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
-<script src="zargota-network.js?v=2026-07-27.11"></script>
+<script src="zargota-network.js?v=2026-07-27.12"></script>
 <script>
 (function(w){
   var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
@@ -12406,6 +12406,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ev.shiftKey){ toggleGroupSel(token); return; }         // Shift+клик — добавить/убрать из выделения
     if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
     selectedTokenId = token.id;
+    w.zgSelectedHeroMemberUid=token.type==='hero'&&token.memberUid?String(token.memberUid):'';
     var sceneEditor=el('zg-scene-settings');
     if(sceneEditor&&sceneEditor.classList.contains('open')&&w.zgSceneTab)w.zgSceneTab('objects');
     var intervention=el('zg-gm-intervention');if(intervention){gmInterventionTokenId=token.id;intervention.classList.add('open');renderGmIntervention();}
@@ -13999,7 +14000,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var learned=localCharacter?!!(c.spellsLearned&&c.spellsLearned[id])
         :(c.spellsLearned&&Object.prototype.hasOwnProperty.call(c.spellsLearned,id)?c.spellsLearned[id]===true:null);
       var profile=vttAbilityProfile(key,spell,true);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;
-      cards.push({key:key,group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.effect||spell.battle||spell.description||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
+      cards.push({key:key,spellId:String(id),group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.description||spell.effect||spell.battle||'',manifestation:spell.manifestation||spell.visual||'',effect:spell.effect||'',battle:spell.battle||'',extra:spell.extra||spell.additional||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
     });
     abilityCardsByKey={};cards.forEach(function(card){abilityCardsByKey[card.key]=card;});
     var shown=abilitiesFilter==='all'?cards:cards.filter(function(card){return card.group===abilitiesFilter;});
@@ -14011,7 +14012,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return '<article class="zg-ability-card '+card.group+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+'"><button type="button" class="zg-ability-summary" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-ability-glyph">'+esc(card.icon)+'</i><span class="zg-ability-copy"><span class="zg-ability-eyebrow"><small>'+esc(card.kind)+'</small>'+learning+'</span><b>'+esc(card.name)+'</b><q>'+esc(card.description||'Описание пока не заполнено')+'</q>'+(card.limit&&cooldown?cooldown:'')+'</span><div class="zg-ability-resource">'+resource+(exhausted?'<small>Исчерпано</small>':card.limit?'<small>Доступно</small>':'')+'</div><strong>›</strong></button></article>';
     }
     var skillCount=cards.filter(function(card){return card.group==='skills';}).length,spellCount=cards.length-skillCount;
-    return '<div class="zg-abilities-panel"><header><div><small>'+esc(c.name||member&&member.character&&member.character.name||'Герой')+'</small><b>Книга приёмов</b><em>'+skillCount+' навыков · '+spellCount+' заклинаний</em></div><span>'+cards.length+'</span></header><nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все <small>'+cards.length+'</small></button><button class="'+(abilitiesFilter==='skills'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'skills\')">Навыки <small>'+skillCount+'</small></button><button class="'+(abilitiesFilter==='spells'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'spells\')">Заклинания <small>'+spellCount+'</small></button></nav><div class="zg-ability-list">'+(shown.length?shown.map(cardHtml).join(''):'<div class="zg-vtt-empty">В этой категории пока ничего нет</div>')+'</div><footer>Открой карточку, чтобы увидеть стоимость действия, дальность, ограничения и отправить применение мастеру.</footer></div>';
+    return '<div class="zg-abilities-panel"><header><div><small>'+esc(c.name||member&&member.character&&member.character.name||'Герой')+'</small><b>Магия</b><em>'+skillCount+' навыков · '+spellCount+' заклинаний</em></div><span>'+cards.length+'</span></header><nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все <small>'+cards.length+'</small></button><button class="'+(abilitiesFilter==='skills'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'skills\')">Навыки <small>'+skillCount+'</small></button><button class="'+(abilitiesFilter==='spells'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'spells\')">Заклинания <small>'+spellCount+'</small></button></nav><div class="zg-ability-list">'+(shown.length?shown.map(cardHtml).join(''):'<div class="zg-vtt-empty">В этой категории пока ничего нет</div>')+'</div><footer>Открой карточку, чтобы увидеть стоимость действия, дальность, ограничения и отправить применение мастеру.</footer></div>';
   }
   function dicePanel(){
     return '<div class="zg-vtt-dice">' + [4,6,8,10,12,20].map(function(sides){
@@ -14037,8 +14038,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if(window.ZargotaPerformance)window.ZargotaPerformance.mark('renderDrawer');
     var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'), drawer=el('zg-vtt-drawer'); if (!body) return;
     var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember);
-    if(drawer)drawer.classList.toggle('inventory-skin',activePanel==='inventory');
-    var labels = { group:'Группа', character:'Состояние героя', inventory:'Сумка героя', abilities:'Книга приёмов', journal:'Журнал', dice:'Кубики' };
+    var backpackPanels={character:'hero',inventory:'items',abilities:'magic',journal:'journal'};
+    if(drawer){
+      drawer.classList.remove('inventory-skin');
+      drawer.classList.toggle('backpack-skin',!!backpackPanels[activePanel]);
+      if(backpackPanels[activePanel])drawer.dataset.backpackSkin=backpackPanels[activePanel];
+      else delete drawer.dataset.backpackSkin;
+    }
+    var labels = { group:'Группа', character:'Состояние Героя', inventory:'Вещи', abilities:'Магия', journal:'Личный журнал', dice:'Кубики' };
     if (title) title.textContent = (labels[activePanel] || 'Панель')+(viewOnly&&viewedMember?' · '+String(viewedMember.character&&viewedMember.character.name||viewedMember.name||'Герой'):'');
     document.querySelectorAll('.zg-bag-tabs button[onclick*="zgVttOpenPanel"]').forEach(function(button){
       button.classList.toggle('active',button.getAttribute('onclick').indexOf("'"+activePanel+"'")>=0);
@@ -14077,9 +14084,20 @@ document.addEventListener('DOMContentLoaded', function(){
     var kind=String(event.kind||''),visualClass=kind==='gm-damage'?'gm-adjust-damage':kind==='gm-heal'?'gm-adjust-heal':kind==='gm-temp-hp'?'gm-adjust-temp':event.statusEnabled?'gm-status-add':'gm-status-remove';
     var burst=document.createElement('span');burst.className='zg-gm-adjustment '+visualClass;
     burst.textContent=kind==='gm-damage'?'−'+Math.max(0,Number(event.amount)||0):kind==='gm-heal'? '＋'+Math.max(0,Number(event.amount)||0):kind==='gm-temp-hp'?'⬡ '+Math.max(0,Number(event.tempHp)||0):(event.statusEnabled?'✦ ＋ ':'◇ − ')+String(event.statusLabel||event.statusKey||'Статус');
-    target.classList.add(visualClass);target.appendChild(burst);
+    var particles=null;
+    if(kind==='gm-damage'||kind==='gm-heal'||kind==='gm-temp-hp'){
+      particles=document.createElement('span');particles.className='zg-gm-particles '+visualClass;
+      for(var particleIndex=0;particleIndex<12;particleIndex++){
+        var particle=document.createElement('i'),angle=(Math.PI*2*particleIndex/12)+(particleIndex%2?0.12:-0.08);
+        particle.style.setProperty('--particle-x',Math.round(Math.cos(angle)*(30+particleIndex%3*8))+'px');
+        particle.style.setProperty('--particle-y',Math.round(Math.sin(angle)*(30+particleIndex%3*8))+'px');
+        particle.style.setProperty('--particle-delay',(particleIndex%4*28)+'ms');
+        particles.appendChild(particle);
+      }
+    }
+    target.classList.add(visualClass);target.appendChild(burst);if(particles)target.appendChild(particles);
     try{if(w.ZargotaSound){if(kind==='gm-damage'&&w.ZargotaSound.damage)w.ZargotaSound.damage();else if((kind==='gm-heal'||kind==='gm-temp-hp')&&w.ZargotaSound.heal)w.ZargotaSound.heal();else if(kind==='gm-status'&&w.ZargotaSound.status)w.ZargotaSound.status();}}catch(ignore){}
-    setTimeout(function(){target.classList.remove(visualClass);if(burst.parentNode)burst.remove();},1850);
+    setTimeout(function(){target.classList.remove(visualClass);if(burst.parentNode)burst.remove();if(particles&&particles.parentNode)particles.remove();},1850);
   }
 
   function combatStatusSummary(entry){
@@ -14457,7 +14475,12 @@ document.addEventListener('DOMContentLoaded', function(){
     var turningOn = playerDockAction !== action;
     if(w.zgVttDeactivateTools)w.zgVttDeactivateTools(action);
     if (action === 'movement' && w.zgMovementToggle) turningOn = !!w.zgMovementToggle(turningOn);
-    if(action==='inventory') { w.zgVttOpenPanel('inventory',{resetMember:true}); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
+    if(action==='inventory') {
+      var selectedInventoryUid=state&&state.session&&state.session.role==='master'&&w.zgSelectedHeroMemberUid||'';
+      if(selectedInventoryUid)w.zgVttOpenPanelForMember('inventory',selectedInventoryUid);
+      else w.zgVttOpenPanel('inventory',{resetMember:true});
+      turningOn=el('zg-vtt-drawer').classList.contains('open');
+    }
     if(action==='actions' && w.zgVttActionToggle)turningOn=!!w.zgVttActionToggle(turningOn);
     if(action==='abilities') { w.zgVttOpenPanel('abilities',{resetMember:true}); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
     w.zgPlayerDockSet(action, turningOn);
@@ -14575,19 +14598,40 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','skills','spells'].indexOf(filter)>=0?filter:'all';expandedAbilityKey='';renderDrawer();};
   w.zgVttAbilityClose=function(){var modal=el('zg-vtt-ability-detail');if(modal)modal.remove();expandedAbilityKey='';};
+  function abilityDetailSection(icon,title,text,open){
+    text=String(text||'').trim();if(!text)return'';
+    return '<details class="zg-ability-detail-section" '+(open?'open':'')+'><summary><i>'+esc(icon)+'</i><b>'+esc(title)+'</b><span>⌄</span></summary><div>'+esc(text)+'</div></details>';
+  }
+  function abilityDetailSections(card){
+    if(card.group!=='spells')return abilityDetailSection('✦','Описание',card.description||'Описание пока не заполнено в листе персонажа.',true);
+    var sections='',description=card.description||(!card.manifestation&&!card.effect&&!card.battle?'Описание пока не заполнено в каталоге.':'');
+    sections+=abilityDetailSection('📜','Описание',description,true);
+    sections+=abilityDetailSection('✨','Проявление',card.manifestation,false);
+    sections+=abilityDetailSection('🌀','Эффект',card.effect,false);
+    sections+=abilityDetailSection('⚔','В бою',card.battle,false);
+    sections+=abilityDetailSection('💡','Дополнительное применение',card.extra,false);
+    sections+=abilityDetailSection('⚠','Ограничения',card.restriction,false);
+    sections+=abilityDetailSection('🎓','Ритуал обучения',card.learnText,false);
+    return '<div class="zg-ability-detail-sections">'+sections+'</div>';
+  }
   w.zgVttAbilityOpen=function(key){
     var card=abilityCardsByKey[String(key||'')];if(!card)return;
     w.zgVttAbilityClose();expandedAbilityKey=card.key;
     var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember),disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
     var gmCanAdjust=!!(state&&state.session&&state.session.role==='master'&&viewedMember&&viewedMember.uid&&card.limit&&card.profile&&card.profile.resourceKey);
+    var playerCanAdjust=!!(state&&state.session&&state.session.role==='player'&&!viewOnly&&viewedMember&&String(viewedMember.uid)===String(state.session.uid)&&card.limit&&card.profile&&card.profile.resourceKey);
     var resource=card.limit?'Заряды '+Math.max(0,card.limit-card.used)+' / '+card.limit:(card.usage||'Без ограничения');
     var learnLabels={train:'Тренировка',study:'Изучение',ritual:'Ритуал обучения'};
     var spellState=card.group==='spells'
       ?'<div class="zg-ability-spell-state '+(unknown?'unknown':disabled?'locked':'learned')+'"><b>'+(unknown?'Статус изучения не передан':disabled?'Заклинание не изучено':'Заклинание изучено')+'</b>'+(card.usage?'<span>Кулдаун: '+esc(card.usage)+'</span>':'')+abilityChargePips(card,'modal')+(card.learnText?'<small><strong>'+esc(learnLabels[card.learnType]||'Способ изучения')+':</strong> '+esc(card.learnText)+'</small>':'')+'</div>'
       :'';
     var gmResource=gmCanAdjust?'<section class="zg-ability-gm-resource"><div><small>Пульт мастера</small><b>Использовано '+card.used+' из '+card.limit+'</b><span>Изменение сохраняется в Firebase и локальный лист героя.</span></div><button type="button" onclick="zgVttGmAbilityUsage(\''+card.key+'\',-1)" '+((abilityRequestBusy||card.used<=0)?'disabled':'')+'>− Вернуть</button><button type="button" onclick="zgVttGmAbilityUsage(\''+card.key+'\',1)" '+((abilityRequestBusy||card.used>=card.limit)?'disabled':'')+'>＋ Потратить</button></section>':'';
+    var ownResource=playerCanAdjust?'<section class="zg-ability-gm-resource player"><div><small>Кулдаун героя</small><b>Использовано '+card.used+' из '+card.limit+'</b><span>При одобренной мастером заявке заряд спишется автоматически.</span></div><button type="button" onclick="zgVttOwnAbilityUsage(\''+card.key+'\',-1)" '+((abilityRequestBusy||card.used<=0)?'disabled':'')+'>↩ Вернуть</button><button type="button" onclick="zgVttOwnAbilityUsage(\''+card.key+'\',1)" '+((abilityRequestBusy||card.used>=card.limit)?'disabled':'')+'>⌛ В КД</button></section>':'';
+    var primaryAction=disabled&&!viewOnly?"zgVttRequestLearning('"+card.key+"');zgVttAbilityClose()":"zgVttRequestAbility('"+card.key+"');zgVttAbilityClose()";
+    var primaryDisabled=viewOnly||unknown||exhausted||abilityRequestBusy;
+    var primaryLabel=viewOnly?'Только просмотр':unknown?'Статус не передан':disabled?'Заявить изучение':exhausted?'Нет зарядов':card.passive?'Показать мастеру':'Заявить применение';
     var modal=document.createElement('div');modal.id='zg-vtt-ability-detail';modal.className='zg-ability-modal-backdrop';
-    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+esc(card.icon)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+abilityProfileBadges(card.profile)+gmResource+'<div class="zg-ability-modal-copy">'+esc(card.description||'Описание пока не заполнено в листе персонажа.')+'</div>'+(card.restriction?'<aside><b>Ограничения</b>'+esc(card.restriction)+'</aside>':'')+'<footer><button type="button" onclick="zgVttRequestAbility(\''+card.key+'\');zgVttAbilityClose()" '+((viewOnly||disabled||exhausted||abilityRequestBusy)?'disabled':'')+'>'+(viewOnly?'Только просмотр':disabled?'Не изучено':exhausted?'Нет зарядов':card.passive?'Показать мастеру':'Заявить применение')+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
+    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+esc(card.icon)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+abilityProfileBadges(card.profile)+gmResource+ownResource+abilityDetailSections(card)+'<footer><button type="button" onclick="'+primaryAction+'" '+(primaryDisabled?'disabled':'')+'>'+primaryLabel+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttAbilityClose();});document.body.appendChild(modal);
   };
   w.zgVttAbilityExpand=w.zgVttAbilityOpen;
@@ -14605,6 +14649,35 @@ document.addEventListener('DOMContentLoaded', function(){
       if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить ресурс способности');
       return false;
     });
+  };
+  w.zgVttOwnAbilityUsage=function(key,delta){
+    var card=abilityCardsByKey[String(key||'')],member=drawerMember(),session=state&&state.session;
+    if(abilityRequestBusy||!session||session.role!=='player'||!member||String(member.uid)!==String(session.uid)||!card||!card.limit||!card.profile||!w.ZargotaRooms||!w.ZargotaRooms.adjustOwnAbilityUsage){if(w.showToast)w.showToast('Собственный кулдаун сейчас недоступен');return false;}
+    abilityRequestBusy=true;w.zgVttAbilityOpen(card.key);
+    return Promise.resolve(w.ZargotaRooms.adjustOwnAbilityUsage({resourceKey:card.profile.resourceKey,delta:Number(delta)<0?-1:1,max:card.limit,name:card.name})).then(function(snapshot){
+      if(snapshot)state=snapshot;
+      abilityRequestBusy=false;renderDrawer();w.zgVttAbilityOpen(card.key);
+      if(w.showToast)w.showToast(Number(delta)<0?'Заряд возвращён':'Способность отправлена в кулдаун');
+      return true;
+    }).catch(function(error){
+      abilityRequestBusy=false;w.zgVttAbilityOpen(card.key);
+      if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить кулдаун');
+      return false;
+    });
+  };
+  w.zgVttRequestLearning=function(key){
+    if(abilityRequestBusy)return false;
+    var card=abilityCardsByKey[String(key||'')],member=ownMember(),session=state&&state.session;
+    if(!session||session.role!=='player'||!member||String(member.uid)!==String(session.uid)||!card||card.group!=='spells'||card.learned!==false||!w.ZargotaRooms||!w.ZargotaRooms.requestAction){if(w.showToast)w.showToast('Заявка на изучение сейчас недоступна');return false;}
+    abilityRequestBusy=true;renderDrawer();
+    return Promise.resolve(w.ZargotaRooms.requestAction('Хочет изучить «'+card.name+'»','spell-learning','',{spellId:card.spellId,name:card.name,learnType:card.learnType,learnText:card.learnText})).then(function(snapshot){
+      if(snapshot)state=snapshot;
+      if(w.showToast)w.showToast('Заявка на изучение отправлена мастеру');
+      return true;
+    }).catch(function(error){
+      if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку на изучение');
+      return false;
+    }).then(function(result){abilityRequestBusy=false;renderDrawer();return result;});
   };
   w.zgVttRequestAbility=function(key){
     if(abilityRequestBusy)return;
@@ -14676,6 +14749,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(w.zgDiceClose)w.zgDiceClose();
     if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();
     if(w.zgMovementToggle)w.zgMovementToggle(false);
+    var intervention=el('zg-gm-intervention');if(intervention)intervention.classList.remove('open');
     activePanel = panel;
     var scenePanel = el('zg-scene-settings'); if (scenePanel) scenePanel.classList.remove('open');
     var gamePanel = el('zg-game-settings'); if (gamePanel) gamePanel.classList.remove('open');
@@ -18729,14 +18803,53 @@ window.zgImageStore = (function() {
   .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
   .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate3d(-100px,-100px,0) translate(-18%,-18%);width:46px;height:46px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none;will-change:transform;contain:layout paint}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 6px #d6a73f80)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:crosshair!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:crosshair!important}
 
-  .zg-vtt-drawer.inventory-skin{width:min(650px,calc(100vw - 36px));border:0;background:url('images/vtt-ui/inventory-leather.png') center/100% 100% no-repeat;padding:34px 42px 42px;box-shadow:0 28px 80px #000e;overflow:hidden}
-  .zg-vtt-drawer.inventory-skin .zg-bag-tabs{border:0;background:transparent;padding:10px 38px 18px}
-  .zg-vtt-drawer.inventory-skin .zg-vtt-drawer-body{padding:8px 28px 34px;background:transparent}
+  .zg-vtt-drawer.backpack-skin{--backpack-panel:#24150ba8;right:0;top:50%;bottom:auto;width:min(520px,calc(100vw - 22px));height:min(690px,calc(100vh - 150px));box-sizing:border-box;transform:translateY(-50%);border:0;border-radius:0;background-color:transparent;background-position:center;background-size:100% 100%;background-repeat:no-repeat;padding:22px 38px 38px;box-shadow:none;backdrop-filter:none;overflow:hidden}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"]{--backpack-panel:#351714a3;--backpack-accent:#b57b58;background-image:url('images/vtt-ui/backpack-hero-status.png')}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"]{--backpack-panel:#321d0da8;--backpack-accent:#bd8749;background-image:url('images/vtt-ui/backpack-items.png')}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"]{--backpack-panel:#261529ad;--backpack-accent:#9871b8;background-image:url('images/vtt-ui/backpack-magic.png')}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"]{--backpack-panel:#5b351ca6;--backpack-accent:#c49559;background-image:url('images/vtt-ui/backpack-journal.png')}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs{position:relative;flex:0 0 92px;height:92px;display:grid;grid-template-columns:repeat(4,82px);align-items:start;justify-content:start;gap:0;padding:8px 0 0 42px;border:0;background:transparent;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){justify-self:center;width:62px;height:70px;display:grid;grid-template-rows:43px 13px;place-items:center;padding:5px 4px 3px;border:1px solid transparent;border-radius:9px 9px 14px 14px;background:transparent;color:#907759;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:38px;height:38px;object-fit:contain;filter:sepia(.28) saturate(.8) brightness(.82) drop-shadow(0 2px 3px #000)}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) span{display:block;max-width:56px;overflow:hidden;color:#8e7654;font:600 7px/1 'Cinzel',serif;letter-spacing:.25px;text-overflow:ellipsis;white-space:nowrap}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close),.zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):hover{border-color:var(--backpack-accent);background:linear-gradient(180deg,#c6994526,transparent);box-shadow:inset 0 0 16px #d2a14a1f,0 0 12px #0005}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close) img{filter:sepia(.12) saturate(1.08) brightness(1.16) drop-shadow(0 0 5px var(--backpack-accent))}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close) span{color:#e1c48e}
+  .zg-vtt-drawer.backpack-skin .zg-vtt-panel-close{position:absolute;z-index:2;top:7px;right:8px;width:28px;height:28px;border:1px solid #5a3d24;border-radius:50%;background:#160d08b8;color:#b99a6b}
+  .zg-bag-section-title{display:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-section-title{display:block;flex:0 0 22px;margin:0 31px 3px;color:#ddc28d;font:600 11px/22px 'Cinzel',serif;letter-spacing:.8px;text-align:center;text-shadow:0 2px 4px #000}
+  .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{padding:4px 27px 29px;background:transparent;scrollbar-color:#76522f transparent}
+  .zg-vtt-drawer.backpack-skin .zg-bag-columns{border:0;background:transparent;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-character-name{padding-left:10px;padding-right:10px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals>div,.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox{border:0;border-bottom:1px solid #8a584855;border-radius:0;background:transparent;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals>div{min-height:68px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-statuses{padding:8px 5px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-statuses span{border:0;background:#3d1c167d}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped{border-right:1px solid #9b653a44;background:transparent}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage{background:transparent}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot{border:0;border-bottom:1px solid #8c5f384d;border-radius:0;background:#1b0e0761;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item{border:0;background:#1b0e0766;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item:hover{background:#4a2a126e;box-shadow:0 0 0 1px #ba844f66}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item.empty{border:0;background:transparent;box-shadow:none;opacity:1}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item.empty::after{display:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-foot{border:0;border-top:1px solid #8c5f384d;background:transparent}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-card{border:0;border-bottom:1px solid #8568a547;border-radius:0;background:#21112659;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-card::before{top:14px;bottom:14px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-card:hover{border-color:#9a7ac166;background:#34203b70;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-summary b,.zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-summary q{white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-summary b{-webkit-line-clamp:2;line-height:1.28}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-summary q{-webkit-line-clamp:2;line-height:1.32}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-bag-notes{padding:4px 8px 28px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy article{padding:14px 6px;border:0;border-bottom:1px solid #5d38275e;background:transparent}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry b,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy b{color:#3a2014;text-shadow:0 1px #d6a87066}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry p,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy p{color:#4d3020}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry small{color:#79523a}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-add{border-color:#6e4428;background:#3b2115d4;color:#efd5a1}
   .zg-vtt-token.combat-target>img,.zg-vtt-token.combat-target .zg-vtt-token-ph{animation:zgCombatTargetLock .85s ease both}@keyframes zgCombatTargetLock{0%{filter:none}35%{filter:brightness(1.8) sepia(.6);box-shadow:0 0 0 4px #d44b43,0 0 28px #d44b43}100%{filter:none}}
   .zg-vtt-token.combat-hit{animation:zgCombatHit .48s ease 2}.zg-vtt-token.combat-miss{animation:zgCombatMiss .36s ease}@keyframes zgCombatHit{0%,100%{transform:translate(-50%,-50%)}35%{transform:translate(calc(-50% - 8px),calc(-50% + 3px)) rotate(-5deg);filter:brightness(1.65) sepia(.5)}}@keyframes zgCombatMiss{50%{transform:translate(calc(-50% + 7px),-50%)}}
   .zg-vtt-token.combat-heal{animation:zgCombatHeal .7s ease}@keyframes zgCombatHeal{0%{filter:none}40%{filter:brightness(1.5) hue-rotate(-30deg) saturate(1.6);box-shadow:0 0 24px 6px #4ddb6a88}100%{filter:none}}
   .zg-combat-impact{position:absolute;z-index:18;left:50%;bottom:calc(100% + 16px);transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border:1px solid #d55649;border-radius:12px;background:#170906ed;color:#ff9e8e;font:700 13px 'Cinzel',serif;box-shadow:0 0 22px #b72e26;animation:zgCombatImpact 1.75s ease both;pointer-events:none}.zg-combat-impact.miss{border-color:#8f7c58;background:#100e0ae8;color:#d9c596;box-shadow:0 0 16px #000}@keyframes zgCombatImpact{0%{opacity:0;transform:translate(-50%,14px) scale(.65)}18%,72%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-22px) scale(.9)}}
-  .zg-gm-adjustment{position:absolute;z-index:19;left:50%;bottom:calc(100% + 14px);min-width:48px;max-width:180px;transform:translateX(-50%);padding:6px 10px;border:1px solid currentColor;border-radius:14px;background:#0b0907f2;color:#d8c18a;font:700 13px 'Cinzel',serif;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;box-shadow:0 8px 24px #000d;animation:zgGmAdjustment 1.8s ease both}.zg-gm-adjustment.gm-adjust-damage{color:#ff8775;background:#210b08f2;box-shadow:0 0 24px #c63d30aa}.zg-gm-adjustment.gm-adjust-heal{color:#8ee5a2;background:#091a0df2;box-shadow:0 0 24px #35a55399}.zg-gm-adjustment.gm-adjust-temp{color:#8fdaf2;background:#081820f2;box-shadow:0 0 24px #398fac99}.zg-gm-adjustment.gm-status-add{color:#e4c86f;animation-name:zgGmStatusArrive}.zg-gm-adjustment.gm-status-remove{color:#9e927b;animation-name:zgGmStatusLeave}.zg-vtt-token.gm-adjust-damage>img,.zg-vtt-token.gm-adjust-damage>.zg-vtt-token-ph{animation:zgCombatHit .42s ease 2}.zg-vtt-token.gm-adjust-heal>img,.zg-vtt-token.gm-adjust-heal>.zg-vtt-token-ph,.zg-vtt-token.gm-adjust-temp>img,.zg-vtt-token.gm-adjust-temp>.zg-vtt-token-ph{animation:zgCombatHeal .72s ease}.zg-vtt-token.gm-status-add>img,.zg-vtt-token.gm-status-add>.zg-vtt-token-ph{animation:zgGmStatusToken 1s ease}.zg-vtt-token.gm-status-remove>img,.zg-vtt-token.gm-status-remove>.zg-vtt-token-ph{animation:zgGmStatusDissolve .9s ease}@keyframes zgGmAdjustment{0%{opacity:0;transform:translate(-50%,16px) scale(.65)}18%,72%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-25px) scale(.88)}}@keyframes zgGmStatusArrive{0%{opacity:0;transform:translate(-50%,-45px) scale(.45) rotate(-10deg)}25%,72%{opacity:1;transform:translate(-50%,0) scale(1) rotate(0)}100%{opacity:0;transform:translate(-50%,-16px) scale(.9)}}@keyframes zgGmStatusLeave{0%,20%{opacity:1;filter:none}100%{opacity:0;filter:blur(7px);transform:translate(-50%,-12px) scale(1.25)}}@keyframes zgGmStatusToken{40%{filter:brightness(1.45) saturate(1.6);box-shadow:0 0 24px #d6b94b99}}@keyframes zgGmStatusDissolve{45%{opacity:.35;filter:grayscale(1) blur(1px)}100%{opacity:1;filter:none}}
+  .zg-gm-adjustment{position:absolute;z-index:19;left:50%;bottom:calc(100% + 14px);min-width:48px;max-width:180px;transform:translateX(-50%);padding:6px 10px;border:1px solid currentColor;border-radius:14px;background:#0b0907f2;color:#d8c18a;font:700 13px 'Cinzel',serif;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;box-shadow:0 8px 24px #000d;animation:zgGmAdjustment 1.8s ease both}.zg-gm-adjustment.gm-adjust-damage{color:#ff8775;background:#210b08f2;box-shadow:0 0 24px #c63d30aa}.zg-gm-adjustment.gm-adjust-heal{color:#8ee5a2;background:#091a0df2;box-shadow:0 0 24px #35a55399}.zg-gm-adjustment.gm-adjust-temp{color:#8fdaf2;background:#081820f2;box-shadow:0 0 24px #398fac99}.zg-gm-adjustment.gm-status-add{color:#e4c86f;animation-name:zgGmStatusArrive}.zg-gm-adjustment.gm-status-remove{color:#9e927b;animation-name:zgGmStatusLeave}.zg-vtt-token.gm-adjust-damage>img,.zg-vtt-token.gm-adjust-damage>.zg-vtt-token-ph{animation:zgGmDamageAvatar 1.05s cubic-bezier(.2,.8,.2,1)}.zg-vtt-token.gm-adjust-heal>img,.zg-vtt-token.gm-adjust-heal>.zg-vtt-token-ph,.zg-vtt-token.gm-adjust-temp>img,.zg-vtt-token.gm-adjust-temp>.zg-vtt-token-ph{animation:zgGmHealAvatar 1.15s ease}.zg-vtt-token.gm-status-add>img,.zg-vtt-token.gm-status-add>.zg-vtt-token-ph{animation:zgGmStatusToken 1s ease}.zg-vtt-token.gm-status-remove>img,.zg-vtt-token.gm-status-remove>.zg-vtt-token-ph{animation:zgGmStatusDissolve .9s ease}.zg-gm-particles{position:absolute;z-index:18;left:50%;top:50%;width:1px;height:1px;pointer-events:none}.zg-gm-particles i{position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:2px;background:#e04432;box-shadow:0 0 9px #ff3d28;animation:zgGmParticle .75s var(--particle-delay) cubic-bezier(.15,.75,.2,1) both}.zg-gm-particles.gm-adjust-heal i{border-radius:50%;background:#77e08d;box-shadow:0 0 10px #54dc76}.zg-gm-particles.gm-adjust-temp i{transform:rotate(45deg);background:#76d6ee;box-shadow:0 0 10px #47b9d8}@keyframes zgGmParticle{0%{opacity:0;transform:translate(0,0) scale(.25)}18%{opacity:1}100%{opacity:0;transform:translate(var(--particle-x),var(--particle-y)) scale(.05)}}@keyframes zgGmDamageAvatar{0%,100%{transform:translateX(0);filter:none}12%{transform:translateX(-3px);filter:sepia(1) saturate(6) hue-rotate(320deg) brightness(.78)}27%{transform:translateX(3px);filter:sepia(.8) saturate(5) hue-rotate(320deg) brightness(1.2)}44%{transform:translateX(-2px);filter:sepia(1) saturate(5) hue-rotate(320deg) brightness(.7)}66%{transform:translateX(1px);filter:sepia(.55) saturate(3) hue-rotate(320deg) brightness(1.05)}}@keyframes zgGmHealAvatar{0%,100%{filter:none;box-shadow:none}25%{filter:brightness(1.38) saturate(1.3);box-shadow:0 0 7px #5ee37c}55%{filter:brightness(1.12) saturate(1.18);box-shadow:0 0 20px #5ee37cbb}78%{filter:brightness(1.3);box-shadow:0 0 10px #d6ed79aa}}@keyframes zgGmAdjustment{0%{opacity:0;transform:translate(-50%,16px) scale(.65)}18%,72%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-25px) scale(.88)}}@keyframes zgGmStatusArrive{0%{opacity:0;transform:translate(-50%,-45px) scale(.45) rotate(-10deg)}25%,72%{opacity:1;transform:translate(-50%,0) scale(1) rotate(0)}100%{opacity:0;transform:translate(-50%,-16px) scale(.9)}}@keyframes zgGmStatusLeave{0%,20%{opacity:1;filter:none}100%{opacity:0;filter:blur(7px);transform:translate(-50%,-12px) scale(1.25)}}@keyframes zgGmStatusToken{40%{filter:brightness(1.45) saturate(1.6);box-shadow:0 0 24px #d6b94b99}}@keyframes zgGmStatusDissolve{45%{opacity:.35;filter:grayscale(1) blur(1px)}100%{opacity:1;filter:none}}
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token{filter:drop-shadow(0 3px 5px #0009)}
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token.walking,
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token-light.flicker,
@@ -18757,7 +18870,9 @@ window.zgImageStore = (function() {
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token.gm-adjust-heal>.zg-vtt-token-ph,
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token.gm-adjust-temp>img,
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token.gm-adjust-temp>.zg-vtt-token-ph,
-  html.zg-reduced-effects .zg-game-overlay .zg-gm-adjustment{animation:none!important}
+  html.zg-reduced-effects .zg-game-overlay .zg-gm-adjustment,
+  html.zg-reduced-effects .zg-game-overlay .zg-gm-particles i{animation:none!important}
+  html.zg-reduced-effects .zg-game-overlay .zg-gm-particles{display:none!important}
   html.zg-reduced-effects .zg-game-overlay .zg-move-requests,
   html.zg-reduced-effects .zg-game-overlay .zg-move-requests-toggle,
   html.zg-reduced-effects .zg-game-overlay .zg-gm-intervention>.zg-overview-head,
@@ -19161,6 +19276,7 @@ window.zgImageStore = (function() {
   .zg-drawer-readonly{margin-bottom:10px;padding:8px 10px;border:1px solid #675c42;border-radius:4px;background:#18140d;color:#aa9b7a;font:8px 'Cinzel',serif;letter-spacing:.45px;text-align:center}
   .zg-bag-operation-state{margin-bottom:10px;padding:8px 10px;border:1px solid #4a3a23;border-radius:5px;background:#151108;color:#a99a7c;font-size:10px}.zg-bag-operation-state.loading{border-color:#82652e;color:#d5b66f}.zg-bag-operation-state.success{border-color:#416641;color:#8fc78f}.zg-bag-operation-state.error{border-color:#753f3f;color:#dc8989}
   .zg-ability-modal-backdrop{position:fixed;z-index:12200;inset:0;display:grid;place-items:center;padding:18px;background:#030201c7;backdrop-filter:blur(5px)}.zg-ability-modal{position:relative;width:min(720px,calc(100vw - 30px));max-height:min(82vh,760px);overflow:auto;padding:26px;border:1px solid #846229;border-radius:6px;background:radial-gradient(circle at 50% 0,#7b531924,transparent 38%),linear-gradient(145deg,#181109,#090705 74%);box-shadow:0 30px 100px #000;color:#a99979}.zg-ability-modal-close{position:absolute;right:10px;top:8px;width:35px;height:35px;border:0;background:transparent;color:#a58c5d;font-size:27px;cursor:pointer}.zg-ability-modal header{display:flex;gap:14px;align-items:center;padding-right:35px}.zg-ability-modal header>i{width:50px;height:50px;border:1px solid #65491f;border-radius:50%;display:grid;place-items:center;color:#e0bd62;font:normal 25px serif}.zg-ability-modal header div{min-width:0}.zg-ability-modal header small{color:#987c43;font:8px 'Cinzel',serif;letter-spacing:1.6px;text-transform:uppercase}.zg-ability-modal h3{margin:5px 0;color:#ecd69d;font:600 22px 'Cinzel',serif}.zg-ability-modal header em{color:#81704f;font:italic 10px Georgia,serif}.zg-ability-spell-state{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 8px;padding:10px 12px;border:1px solid #456b48;border-radius:4px;background:#101a11;color:#8fca93}.zg-ability-spell-state.locked{border-style:dashed;border-color:#655d50;background:#15120e;color:#9a9180}.zg-ability-spell-state.unknown{border-color:#5d553f;background:#17140d;color:#a39779}.zg-ability-spell-state b{width:100%;font:600 9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-spell-state span{padding:3px 7px;border:1px solid currentColor;border-radius:9px;font:8px 'Cinzel',serif}.zg-ability-spell-state small{width:100%;color:#a99b80;font:11px/1.45 Georgia,serif}.zg-ability-spell-state small strong{color:#cfb77e}.zg-ability-gm-resource{display:grid;grid-template-columns:minmax(0,1fr) 108px 108px;gap:7px;align-items:center;margin:12px 0;padding:11px 12px;border:1px solid #705528;border-radius:5px;background:linear-gradient(100deg,#211709,#110d07);box-shadow:inset 0 1px 0 #e5c66a12}.zg-ability-gm-resource div{display:flex;flex-direction:column;gap:3px}.zg-ability-gm-resource small{color:#94763d;font:700 7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-ability-gm-resource b{color:#e2c67d;font:600 11px 'Cinzel',serif}.zg-ability-gm-resource span{color:#776b52;font:9px Georgia,serif}.zg-ability-gm-resource button{height:35px;border:1px solid #6b5127;border-radius:4px;background:#1b1309;color:#d6b767;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-ability-gm-resource button:hover:not(:disabled){border-color:#c8973d;background:#2b1d0b;color:#ffe09a}.zg-ability-gm-resource button:disabled{opacity:.35;cursor:not-allowed}.zg-ability-modal-copy{margin-top:16px;padding:18px;border:1px solid #332817;border-radius:4px;background:#0b0906;color:#b6a889;font:15px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-modal aside{margin-top:12px;padding:12px 14px;border-left:3px solid #7c5527;background:#21130c;color:#a98468;font:12px/1.55 Georgia,serif;white-space:pre-line}.zg-ability-modal aside b{display:block;margin-bottom:5px;color:#d2ad72;font:9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-modal footer{display:grid;grid-template-columns:1fr 130px;gap:9px;margin-top:15px}.zg-ability-modal footer button{height:42px;border:1px solid #795925;border-radius:4px;background:#26190b;color:#e2c577;font:600 10px 'Cinzel',serif;cursor:pointer}.zg-ability-modal footer button:last-child{background:#0d0b08;color:#8f8064}.zg-ability-modal footer button:disabled{opacity:.4;cursor:not-allowed}@media(max-width:620px){.zg-ability-gm-resource{grid-template-columns:1fr 1fr}.zg-ability-gm-resource div{grid-column:1/-1}}
+  .zg-ability-detail-sections{margin-top:15px;border-top:1px solid #392b18}.zg-ability-detail-section{border-bottom:1px solid #302414;background:transparent}.zg-ability-detail-section summary{min-height:45px;display:grid;grid-template-columns:24px minmax(0,1fr) 18px;gap:8px;align-items:center;padding:0 7px;color:#b9a47a;cursor:pointer;list-style:none}.zg-ability-detail-section summary::-webkit-details-marker{display:none}.zg-ability-detail-section summary:hover{color:#ead49a;background:#a77a2810}.zg-ability-detail-section summary i{font-style:normal;text-align:center}.zg-ability-detail-section summary b{font:600 9px 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}.zg-ability-detail-section summary span{font-size:15px;transition:transform .18s ease}.zg-ability-detail-section[open] summary span{transform:rotate(180deg)}.zg-ability-detail-section>div{padding:3px 39px 17px;color:#b7a787;font:14px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-detail-section[open]{background:linear-gradient(90deg,#8e652314,transparent 70%)}@media(max-width:620px){.zg-ability-detail-section>div{padding-left:10px;padding-right:10px}.zg-ability-modal{padding:20px 16px}.zg-ability-modal footer{grid-template-columns:1fr}}
   .zg-region-draw-actions{position:absolute;z-index:24;left:50%;top:82px;transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:7px;border:1px solid #8d692b;border-radius:22px;background:#100c07f2;box-shadow:0 12px 35px #000c;color:#a99461;font:9px 'Cinzel',serif}.zg-vtt-scene.region-mode~.zg-region-draw-actions{display:flex}.zg-region-draw-actions span{padding:0 8px}.zg-region-draw-actions button{height:29px;padding:0 11px;border:1px solid #55401d;border-radius:15px;background:#1a1208;color:#d8ba70;font:9px 'Cinzel',serif;cursor:pointer}.zg-region-draw-actions button:hover{border-color:#c89a3d;color:#ffe2a0}
   .zg-bag-tabs{height:64px;display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #4b351b;background:linear-gradient(180deg,#2b1d10,#120d08);box-shadow:inset 0 -8px 18px #0007}
   .zg-bag-tabs>button:not(.zg-vtt-panel-close){width:46px;height:46px;padding:6px;border:1px solid #49351d;border-radius:6px;background:#17110b;color:#9d8658;cursor:pointer;box-shadow:inset 0 0 0 1px #090704}
@@ -19276,6 +19392,7 @@ window.zgImageStore = (function() {
     .zg-vtt-tool{border-bottom:0;border-right:1px solid #302515}
     .zg-vtt-tool:last-child{border-right:0}
     .zg-vtt-drawer{left:10px;right:10px;top:auto;bottom:64px;width:auto;max-height:56vh}
+    .zg-vtt-drawer.backpack-skin{left:auto;right:-8px;top:auto;bottom:70px;width:min(500px,calc(100vw - 8px));height:min(640px,calc(100vh - 150px));max-height:none;transform:none}
     .zg-move-requests{right:10px;top:116px;width:min(290px,calc(100vw - 20px))}.zg-move-requests-toggle{right:10px;top:68px}
     .zg-player-dock{bottom:10px;width:calc(100vw - 24px);min-width:0;height:82px;padding:5px 10px;border-radius:32px}
     .zg-player-action{grid-template-rows:32px 18px 11px;padding:4px 3px 2px}
@@ -19294,10 +19411,22 @@ window.zgImageStore = (function() {
     .zg-player-action{grid-template-rows:30px 18px;padding:3px 2px}
     .zg-player-action-icon{height:30px;font-size:21px}
     .zg-bag-tabs{padding:8px 42px 8px 8px}.zg-bag-tabs>span{display:none}.zg-bag-tabs button:not(.zg-vtt-panel-close){width:38px;height:38px}
+    .zg-vtt-drawer.backpack-skin{left:-4px;right:-4px;bottom:66px;width:auto;height:min(610px,calc(100vh - 78px));padding:15px 24px 25px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs{flex-basis:78px;height:78px;grid-template-columns:repeat(4,63px);gap:0;padding:4px 0 0 38px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){width:51px;height:61px;grid-template-rows:36px 11px;padding:4px 2px 2px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:33px;height:33px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) span{max-width:47px;font-size:6px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-section-title{margin:0 22px 2px;font-size:9px}
+    .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{padding:2px 17px 22px}
     .zg-vtt-drawer-body{padding:8px}.zg-bag-columns{grid-template-columns:118px minmax(0,1fr);min-height:370px}.zg-bag-equipped,.zg-bag-storage{padding:7px}.zg-bag-storage-head{align-items:flex-start;flex-direction:column}.zg-bag-storage-head h4{margin-bottom:0}.zg-bag-storage-tools{grid-template-columns:1fr}.zg-bag-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.zg-bag-equip-slot{min-height:58px}.zg-bag-equipped .zg-bag-item{height:58px}.zg-bag-item img,.zg-bag-item i{width:31px;height:31px;line-height:31px}.zg-bag-item span{font-size:7px}
     .zg-abilities-panel>nav{grid-template-columns:repeat(3,minmax(0,1fr))}.zg-ability-summary{grid-template-columns:32px minmax(0,1fr) auto 15px;padding:8px 7px}.zg-ability-summary i{width:30px;height:30px}.zg-ability-detail{padding:0 9px 10px 47px}
     .zg-player-action-label{font-size:8px}
     .zg-player-action-key{display:none}
+  }
+  @media(max-width:360px){
+    .zg-vtt-drawer.backpack-skin{padding-left:18px;padding-right:18px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs{grid-template-columns:repeat(4,59px);padding-left:21px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){width:48px}
   }
   @keyframes zgGameFade{0%{opacity:0}100%{opacity:1}}
   @keyframes zgGameFadeUp{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:none}}
@@ -19691,12 +19820,13 @@ window.zgImageStore = (function() {
     </div>
     <aside class="zg-vtt-drawer" id="zg-vtt-drawer">
       <div class="zg-bag-tabs">
-        <button type="button" onclick="zgVttOpenPanel('character')" title="Состояние героя"><img src="images/vtt-icons/health.png" alt=""></button>
-        <button type="button" class="active" onclick="zgVttOpenPanel('inventory')" title="Снаряжение и вещи"><img src="images/vtt-icons/inventory.png" alt=""></button>
-        <button type="button" onclick="zgVttOpenPanel('abilities')" title="Книга приёмов и заклинаний"><img src="images/vtt-icons/abilities.png" alt=""></button>
-        <button type="button" onclick="zgVttOpenPanel('journal')" title="Журнал"><img src="images/vtt-icons/journal.png" alt=""></button>
-        <span id="zg-vtt-drawer-title">Сумка героя</span><button type="button" class="zg-vtt-panel-close" onclick="zgVttCloseDrawer()" title="Закрыть" aria-label="Закрыть панель">×</button>
+        <button type="button" onclick="zgVttOpenPanel('character')" aria-label="Состояние Героя"><img src="images/vtt-icons/health.png" alt=""><span>Состояние</span></button>
+        <button type="button" class="active" onclick="zgVttOpenPanel('inventory')" aria-label="Вещи"><img src="images/vtt-icons/inventory.png" alt=""><span>Вещи</span></button>
+        <button type="button" onclick="zgVttOpenPanel('abilities')" aria-label="Магия"><img src="images/vtt-icons/abilities.png" alt=""><span>Магия</span></button>
+        <button type="button" onclick="zgVttOpenPanel('journal')" aria-label="Личный журнал"><img src="images/vtt-icons/journal.png" alt=""><span>Журнал</span></button>
+        <button type="button" class="zg-vtt-panel-close" onclick="zgVttCloseDrawer()" title="Закрыть" aria-label="Закрыть панель">×</button>
       </div>
+      <div class="zg-bag-section-title" id="zg-vtt-drawer-title">Вещи</div>
       <div class="zg-vtt-drawer-body" id="zg-vtt-drawer-body"></div>
     </aside>
     <nav class="zg-player-dock" id="zg-player-dock" aria-label="Действия персонажа">
@@ -31776,6 +31906,16 @@ function zgMergeSessionAbilityUsage(localCharacter,roomUsage) {
   return merged;
 }
 
+function zgMergeSessionSpellsLearned(localCharacter,roomLearned) {
+  var merged=Object.assign({},localCharacter&&localCharacter.spellsLearned||{}),allowed={};
+  (Array.isArray(localCharacter&&localCharacter.spellRefs)?localCharacter.spellRefs:[]).forEach(function(id){allowed[String(id)]=true;});
+  if(!roomLearned||typeof roomLearned!=='object')return merged;
+  Object.keys(roomLearned).forEach(function(id){
+    if(allowed[id]&&roomLearned[id]===true)merged[id]=true;
+  });
+  return merged;
+}
+
 function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
   options=options||{};if(!roomCharacter||!member)return Promise.resolve({ok:true,skipped:true});
   var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
@@ -31790,7 +31930,7 @@ function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
   // field-level timestamp or GM operation yet. Applying a forced exit snapshot
   // could therefore replace fresh local text with an older room mirror merely
   // because HP raised the shared character revision.
-  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,spellCD:zgMergeSessionAbilityUsage(localCharacter,roomCharacter.abilityUsage),inventoryItems:zgMergeSessionInventoryItems(localCharacter.inventoryItems,roomCharacter.inventoryItems),equipItems:zgMergeSessionInventoryItems(localCharacter.equipItems,roomCharacter.equipItems),arenaEquipSlots:roomCharacter.arenaEquipSlots,journalEntries:zgMergeSessionJournalEntries(localCharacter.journalEntries,roomCharacter.journalEntries),revision:incomingRevision};
+  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,spellCD:zgMergeSessionAbilityUsage(localCharacter,roomCharacter.abilityUsage),spellsLearned:zgMergeSessionSpellsLearned(localCharacter,roomCharacter.spellsLearned),inventoryItems:zgMergeSessionInventoryItems(localCharacter.inventoryItems,roomCharacter.inventoryItems),equipItems:zgMergeSessionInventoryItems(localCharacter.equipItems,roomCharacter.equipItems),arenaEquipSlots:roomCharacter.arenaEquipSlots,journalEntries:zgMergeSessionJournalEntries(localCharacter.journalEntries,roomCharacter.journalEntries),revision:incomingRevision};
   var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
   if(!options.force&&window._zgCampaignRuntimeSig[sigKey]===signature)return Promise.resolve({ok:true,skipped:true});
   window._zgCampaignRuntimeSig[sigKey]=signature;Object.keys(runtime).forEach(function(field){if(runtime[field]!==undefined)localCharacter[field]=runtime[field];});

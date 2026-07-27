@@ -2300,7 +2300,7 @@
             text: text, actionKind: actionKind, status: 'pending', createdAt: now(),
             testByMaster: session.role === 'master'
           };
-          if (details && actionKind !== 'ability') {
+          if (details && actionKind !== 'ability' && actionKind !== 'spell-learning') {
             request.details = {
               x: details.x == null ? null : Math.max(0, Math.min(100, Number(details.x) || 0)),
               y: details.y == null ? null : Math.max(0, Math.min(100, Number(details.y) || 0)),
@@ -2339,12 +2339,20 @@
             var usage=member.character&&member.character.abilityUsage&&member.character.abilityUsage[request.ability.resourceKey];
             if(request.ability.resourceMax&&usage&&Number(usage.used)>=request.ability.resourceMax)throw roomError('Заряды этой способности закончились.','ability-exhausted');
           }
+          if(details&&actionKind==='spell-learning'){
+            var spellId=String(details.spellId||'').slice(0,80);
+            if(!spellId||/[.#$\[\]\/\u0000-\u001F\u007F]/.test(spellId)||['__proto__','prototype','constructor'].indexOf(spellId)>=0)throw roomError('Некорректное заклинание для изучения.','spell-learning-invalid');
+            var spellRefs=member.character&&Array.isArray(member.character.spellRefs)?member.character.spellRefs:[];
+            if(!spellRefs.some(function(id){return String(id)===spellId;}))throw roomError('Заклинание отсутствует в книге героя.','spell-learning-invalid');
+            if(member.character.spellsLearned&&member.character.spellsLearned[spellId]===true)throw roomError('Это заклинание уже изучено.','spell-already-learned');
+            request.learning={spellId:spellId,name:String(details.name||'Заклинание').slice(0,120),learnType:String(details.learnType||'').slice(0,30),learnText:String(details.learnText||'').slice(0,500)};
+          }
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + targetUid), { actionRequest: request }).then(function () {
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
-        if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted'].indexOf(error.code) >= 0) throw error;
+        if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted','spell-learning-invalid','spell-already-learned'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -2362,6 +2370,64 @@
           var request = member && member.actionRequest;
           if (!request || request.status !== 'pending') throw roomError('Эта заявка уже обработана.', 'request-missing');
           var resolvedAt = now(), messageId = 'action-result-' + resolvedAt;
+          if(accepted&&request.actionKind==='spell-learning'&&request.learning&&request.learning.spellId){
+            var learnedId=String(request.learning.spellId).slice(0,80),learnOperationId='spell-learning-'+resolvedAt+'-'+Math.random().toString(36).slice(2,7),learnAbort='';
+            return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid),function(current){
+              var currentRequest=current&&current.actionRequest,character=current&&current.character;
+              if(!currentRequest||currentRequest.id!==request.id||currentRequest.status!=='pending'){learnAbort='request-missing';return;}
+              if(!character){learnAbort='character-missing';return;}
+              var refs=Array.isArray(character.spellRefs)?character.spellRefs:[];
+              if(!refs.some(function(id){return String(id)===learnedId;})){learnAbort='spell-learning-invalid';return;}
+              character.spellsLearned=Object.assign({},character.spellsLearned||{});character.spellsLearned[learnedId]=true;
+              character.revision=Math.max(0,Number(character.revision)||0)+1;
+              character.updatedAt=resolvedAt;character.updatedBy=user.uid;character.source='spell-learning-approved';character.syncOperationId=learnOperationId;
+              current.character=character;
+              current.actionRequest=Object.assign({},currentRequest,{status:'approved',resolvedAt:resolvedAt});
+              current.messages=Object.assign({},current.messages||{});
+              current.messages[messageId]={id:messageId,uid:requestUid,kind:'action-approved',name:request.name||current.name||'Герой',portrait:request.portrait||'',text:'Мастер разрешает изучение: '+String(request.learning.name||request.text||'заклинание'),ts:resolvedAt};
+              return current;
+            }).then(function(result){
+              if(!result||!result.committed){
+                if(learnAbort==='character-missing')throw roomError('Лист игрока недоступен.','character-missing');
+                if(learnAbort==='spell-learning-invalid')throw roomError('Заклинание больше не находится в книге героя.','spell-learning-invalid');
+                throw roomError('Эта заявка уже обработана.','request-missing');
+              }
+              return firebase.update(roomRef(session.code),{updatedAt:resolvedAt}).catch(function(){return null;}).then(function(){
+                appendSyncEvent(result.snapshot&&result.snapshot.val&&result.snapshot.val().character||member.character,'master→room','spell-learning-approved','ack');
+                return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+              });
+            });
+          }
+          if (accepted && request.actionKind === 'ability' && request.ability && request.ability.resourceKey && Number(request.ability.resourceMax) > 0) {
+            var abilityKey=String(request.ability.resourceKey).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+            var abilityMax=Math.max(1,Math.min(99,Math.floor(Number(request.ability.resourceMax)||1)));
+            var abortCode='',operationId='ability-approval-'+resolvedAt+'-'+Math.random().toString(36).slice(2,7);
+            return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid),function(current){
+              var currentRequest=current&&current.actionRequest;
+              if(!current||!currentRequest||currentRequest.id!==request.id||currentRequest.status!=='pending'){abortCode='request-missing';return;}
+              var character=current.character;if(!character){abortCode='character-missing';return;}
+              var usageResult=applyAbilityUsageDomainOperation(character.abilityUsage,abilityKey,{delta:1,max:abilityMax,updatedAt:resolvedAt,updatedBy:user.uid});
+              if(!usageResult.changed){abortCode='ability-exhausted';return;}
+              character.abilityUsage=usageResult.usage;
+              character.revision=Math.max(0,Number(character.revision)||0)+1;
+              character.updatedAt=resolvedAt;character.updatedBy=user.uid;character.source='ability-approved';character.syncOperationId=operationId;
+              current.character=character;
+              current.actionRequest=Object.assign({},currentRequest,{status:'approved',resolvedAt:resolvedAt});
+              current.messages=Object.assign({},current.messages||{});
+              current.messages[messageId]={id:messageId,uid:requestUid,kind:'action-approved',name:request.name||current.name||'Герой',portrait:request.portrait||'',text:'Мастер разрешает: '+request.text,ts:resolvedAt};
+              return current;
+            }).then(function(result){
+              if(!result||!result.committed){
+                if(abortCode==='ability-exhausted')throw roomError('Все заряды этой способности уже потрачены.','ability-exhausted');
+                if(abortCode==='character-missing')throw roomError('Лист игрока недоступен.','character-missing');
+                throw roomError('Эта заявка уже обработана.','request-missing');
+              }
+              return firebase.update(roomRef(session.code),{updatedAt:resolvedAt}).catch(function(){return null;}).then(function(){
+                appendSyncEvent(result.snapshot&&result.snapshot.val&&result.snapshot.val().character||member.character,'master→room','ability-approved','ack');
+                return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+              });
+            });
+          }
           var updates = {};
           updates['members/' + requestUid + '/actionRequest/status'] = accepted ? 'approved' : 'rejected';
           updates['members/' + requestUid + '/actionRequest/resolvedAt'] = resolvedAt;
@@ -2379,7 +2445,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','request-missing'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','request-missing','character-missing','ability-exhausted','spell-learning-invalid'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -2757,6 +2823,46 @@
         });
       }).catch(function (error) {
         if (error && ['member-required','master-only','room-not-found','character-missing','journal-entry-invalid','journal-full'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    adjustOwnAbilityUsage: function (operation) {
+      operation=operation||{};
+      var resourceKey=String(operation.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+      var delta=Number(operation.delta)<0?-1:1,name=String(operation.name||'способность').slice(0,120);
+      var requestedMax=Math.max(0,Math.min(99,Math.floor(Number(operation.max)||0)));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='player')throw roomError('Изменять собственный кулдаун может только игрок.','player-only');
+        if(!resourceKey||!requestedMax)throw roomError('У способности нет изменяемого ресурса.','ability-resource-invalid');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var member=room.members&&room.members[user.uid];if(!member||member.role!=='player'||!member.character)throw roomError('Лист игрока недоступен.','character-missing');
+          var operationId='player-ability-'+now()+'-'+Math.random().toString(36).slice(2,7),appliedUsed=0,appliedMax=requestedMax,atBoundary=false;
+          return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid+'/character'),function(current){
+            if(!current)return;
+            var usageResult=applyAbilityUsageDomainOperation(current.abilityUsage,resourceKey,{delta:delta,max:requestedMax,updatedAt:now(),updatedBy:user.uid});
+            atBoundary=!usageResult.changed;appliedMax=usageResult.max;appliedUsed=usageResult.used;
+            if(atBoundary)return;
+            current.abilityUsage=usageResult.usage;
+            current.revision=Math.max(0,Number(current.revision)||0)+1;
+            current.updatedAt=now();current.updatedBy=user.uid;current.source='player-ability-resource';current.syncOperationId=operationId;
+            return current;
+          }).then(function(result){
+            if(!result||!result.committed){
+              if(atBoundary)throw roomError(delta<0?'Все заряды уже доступны.':'Все заряды уже потрачены.','ability-resource-boundary');
+              throw roomError('Лист игрока изменился или недоступен. Повторите попытку.','character-missing');
+            }
+            var stamp=now(),messageId=operationId,text=(delta<0?'Возвращает заряд':'Отправляет в кулдаун')+' «'+name+'»: '+Math.max(0,appliedMax-appliedUsed)+' из '+appliedMax+' доступно.';
+            var updates={updatedAt:stamp};updates['members/'+user.uid+'/messages/'+messageId]={id:messageId,uid:user.uid,kind:'world',name:member.character.name||member.name||'Герой',portrait:member.character.portrait||'',text:text,ts:stamp};
+            return firebase.update(roomRef(session.code),updates).catch(function(){return null;}).then(function(){
+              appendSyncEvent(result.snapshot&&result.snapshot.val?result.snapshot.val():member.character,'local→room','player-ability-resource','ack');
+              return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+            });
+          });
+        });
+      }).catch(function(error){
+        if(error&&['player-only','room-not-found','character-missing','ability-resource-invalid','ability-resource-boundary'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
