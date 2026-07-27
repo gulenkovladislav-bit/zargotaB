@@ -12,7 +12,10 @@
   var COLLECTION_KEY = 'grimoire_chars';
   var BACKUP_KEY = 'grimoire_chars_migration_backup_v1';
   var BACKUP_MARKER_KEY = 'zargota_character_migration_backup_v1_created_at';
+  var EQUIPMENT_BACKUP_KEY = 'grimoire_chars_equipment_migration_backup_v2';
+  var EQUIPMENT_BACKUP_MARKER_KEY = 'zargota_character_equipment_migration_backup_v2_created_at';
   var RESTORE_SAFETY_KEY = 'grimoire_chars_before_migration_restore_v1';
+  var EQUIPMENT_RESTORE_SAFETY_KEY = 'grimoire_chars_before_equipment_restore_v2';
   var SEED_VERSION_KEY = 'zargota_starter_heroes_seed_version';
   var TOMBSTONES_KEY = 'zargota_starter_hero_tombstones_v1';
   var TEMPLATE_URL = 'data/campaign-heroes.v1.json';
@@ -90,8 +93,9 @@
     }).filter(function (item) { return !!(item.name || item.description || item.image || item.icon); });
   }
 
-  function normalizeCharacterInventory(character) {
+  function normalizeCharacterInventory(character, options) {
     if (!character || typeof character !== 'object') return { changed:false, migratedLegacyText:false };
+    options = options || {};
     var before;
     try { before = JSON.stringify({ inventoryItems:character.inventoryItems, equipItems:character.equipItems }); }
     catch (error) { before = ''; }
@@ -104,7 +108,7 @@
     character.inventoryItems = normalizeInventoryList(character.id, 'inventory', inventory);
     var normalizedEquipment = normalizeInventoryList(character.id, 'equip', character.equipItems);
     var collapsedEquipmentCopies = 0;
-    character.equipItems = normalizedEquipment.filter(function (equipment) {
+    var remainingEquipment = normalizedEquipment.filter(function (equipment) {
       var source = character.inventoryItems.filter(function (item) {
         return item && equipment && item.itemId === equipment.itemId;
       })[0] || null;
@@ -126,10 +130,41 @@
       collapsedEquipmentCopies += 1;
       return false;
     });
+    var migratedEquipmentItems = 0;
+    if (options.consolidateEquipment) {
+      var consolidatedIds = Object.create(null);
+      character.inventoryItems.forEach(function (item) {
+        if (item && item.itemId) consolidatedIds[String(item.itemId)] = true;
+      });
+      remainingEquipment.forEach(function (equipment, equipmentIndex) {
+        if (!equipment) return;
+        if (equipment.itemId && consolidatedIds[String(equipment.itemId)]) {
+          var duplicateItem = clone(equipment) || {};
+          var duplicateIndex = character.inventoryItems.length + equipmentIndex;
+          delete duplicateItem.itemId;
+          do {
+            equipment.itemId = stableInventoryItemId(character.id, 'equip', duplicateIndex, duplicateItem);
+            duplicateIndex += 1;
+          } while (consolidatedIds[String(equipment.itemId)]);
+        }
+        if (equipment.itemId) consolidatedIds[String(equipment.itemId)] = true;
+        equipment.qty = Math.max(1, Number(equipment.qty) || 1);
+        character.inventoryItems.push(equipment);
+        migratedEquipmentItems += 1;
+      });
+      character.equipItems = [];
+    } else {
+      character.equipItems = remainingEquipment;
+    }
     var after;
     try { after = JSON.stringify({ inventoryItems:character.inventoryItems, equipItems:character.equipItems }); }
     catch (error2) { after = before; }
-    return { changed:before !== after, migratedLegacyText:migratedLegacyText, collapsedEquipmentCopies:collapsedEquipmentCopies };
+    return {
+      changed:before !== after,
+      migratedLegacyText:migratedLegacyText,
+      collapsedEquipmentCopies:collapsedEquipmentCopies,
+      migratedEquipmentItems:migratedEquipmentItems
+    };
   }
 
   function parseCollection(value) {
@@ -385,8 +420,28 @@
     });
   }
 
-  function getMigrationBackup() {
-    return Promise.all([readIdb(BACKUP_KEY), Promise.resolve(storageGet(BACKUP_KEY))]).then(function (stored) {
+  function ensureEquipmentMigrationBackup(localRaw, idbRaw) {
+    return Promise.all([readIdb(EQUIPMENT_BACKUP_KEY), Promise.resolve(storageGet(EQUIPMENT_BACKUP_KEY))]).then(function (existing) {
+      if (existing[0] || existing[1]) return { ok:true, existing:true };
+      var hasData = !!localRaw || !!idbRaw;
+      var createdAt = Date.now();
+      var payload = {
+        schemaVersion: 2,
+        createdAt: createdAt,
+        localStorage: localRaw || null,
+        indexedDB: idbRaw || null
+      };
+      var lsOk = localRaw ? storageSet(EQUIPMENT_BACKUP_KEY, localRaw) : true;
+      return writeIdb(EQUIPMENT_BACKUP_KEY, payload).then(function (idbOk) {
+        var ok = !hasData || idbOk || lsOk;
+        if (ok) storageSet(EQUIPMENT_BACKUP_MARKER_KEY, String(createdAt));
+        return { ok:ok, existing:false, localStorage:lsOk, indexedDB:idbOk, createdAt:createdAt };
+      });
+    });
+  }
+
+  function getStoredBackup(backupKey, markerKey) {
+    return Promise.all([readIdb(backupKey), Promise.resolve(storageGet(backupKey))]).then(function (stored) {
       var idbBackup = stored[0], localBackup = stored[1];
       var payload = idbBackup && typeof idbBackup === 'object' && !Array.isArray(idbBackup) ? idbBackup : {};
       var localCharacters = parseCollection(payload.localStorage || localBackup);
@@ -394,15 +449,23 @@
       var characters = mergeStoredCollections(localCharacters, idbCharacters);
       return {
         exists: !!characters.length,
-        createdAt: Math.max(0, Number(payload.createdAt) || Number(storageGet(BACKUP_MARKER_KEY)) || 0),
+        createdAt: Math.max(0, Number(payload.createdAt) || Number(storageGet(markerKey)) || 0),
         characters: characters,
         sources: { localStorage: !!(payload.localStorage || localBackup), indexedDB: !!(payload.indexedDB || idbBackup) }
       };
     });
   }
 
-  function restoreMigrationBackup() {
-    return getMigrationBackup().then(function (backup) {
+  function getMigrationBackup() {
+    return getStoredBackup(BACKUP_KEY, BACKUP_MARKER_KEY);
+  }
+
+  function getEquipmentMigrationBackup() {
+    return getStoredBackup(EQUIPMENT_BACKUP_KEY, EQUIPMENT_BACKUP_MARKER_KEY);
+  }
+
+  function restoreStoredBackup(getter, safetyKey) {
+    return getter().then(function (backup) {
       if (!backup.exists) return { ok: false, error: new Error('Migration backup not found') };
       var currentLocalRaw = storageGet(COLLECTION_KEY);
       return readIdb(COLLECTION_KEY).then(function (currentIdbRaw) {
@@ -413,9 +476,9 @@
           localStorage: currentLocalRaw || null,
           indexedDB: currentIdbRaw || null
         };
-        return Promise.all([readIdb(RESTORE_SAFETY_KEY), Promise.resolve(storageGet(RESTORE_SAFETY_KEY))]).then(function (existingSafety) {
-          var safetyLocalOk = existingSafety[1] ? true : (currentLocalRaw ? storageSet(RESTORE_SAFETY_KEY, currentLocalRaw) : true);
-          var safetyWrite = existingSafety[0] ? Promise.resolve(true) : writeIdb(RESTORE_SAFETY_KEY, safetyPayload);
+        return Promise.all([readIdb(safetyKey), Promise.resolve(storageGet(safetyKey))]).then(function (existingSafety) {
+          var safetyLocalOk = existingSafety[1] ? true : (currentLocalRaw ? storageSet(safetyKey, currentLocalRaw) : true);
+          var safetyWrite = existingSafety[0] ? Promise.resolve(true) : writeIdb(safetyKey, safetyPayload);
           return safetyWrite.then(function (safetyIdbOk) {
           if ((currentLocalRaw || currentIdbRaw) && !safetyLocalOk && !safetyIdbOk) {
             return { ok: false, error: new Error('Could not back up current characters before restore') };
@@ -427,7 +490,7 @@
               ok: true,
               characters: clone(backup.characters) || [],
               restoredFrom: backup.createdAt,
-              safetyBackupKey: RESTORE_SAFETY_KEY,
+              safetyBackupKey: safetyKey,
               storage: saved
             };
           });
@@ -435,6 +498,14 @@
         });
       });
     });
+  }
+
+  function restoreMigrationBackup() {
+    return restoreStoredBackup(getMigrationBackup, RESTORE_SAFETY_KEY);
+  }
+
+  function restoreEquipmentMigrationBackup() {
+    return restoreStoredBackup(getEquipmentMigrationBackup, EQUIPMENT_RESTORE_SAFETY_KEY);
   }
 
   function persistCollection(characters) {
@@ -590,24 +661,30 @@
         if (!backup.ok) {
           return { characters: merged, added: [], changed: false, backup: backup, error: 'migration-backup-failed' };
         }
-        return loadTemplateBundle(options.fetch).then(function (bundle) {
-          var seeded = mergeStarterHeroes(merged, bundle, tombstones, options.now || Date.now());
-          storageSet(SEED_VERSION_KEY, seeded.templateVersion);
-          if (!seeded.added.length && !storesNeedReconcile) {
-            return { characters: seeded.characters, added: [], changed: false, backup: backup, templateVersion: seeded.templateVersion };
+        return ensureEquipmentMigrationBackup(localRaw, idbRaw).then(function (equipmentBackup) {
+          if (!equipmentBackup.ok) {
+            return { characters: merged, added: [], changed:false, backup:backup, equipmentBackup:equipmentBackup, error:'equipment-migration-backup-failed' };
           }
-          return persistCollection(seeded.characters).then(function (saved) {
-            return {
-              characters: seeded.characters,
-              added: seeded.added,
-              changed: true,
-              backup: backup,
-              storage: saved,
-              templateVersion: seeded.templateVersion
-            };
+          return loadTemplateBundle(options.fetch).then(function (bundle) {
+            var seeded = mergeStarterHeroes(merged, bundle, tombstones, options.now || Date.now());
+            storageSet(SEED_VERSION_KEY, seeded.templateVersion);
+            if (!seeded.added.length && !storesNeedReconcile) {
+              return { characters:seeded.characters, added:[], changed:false, backup:backup, equipmentBackup:equipmentBackup, templateVersion:seeded.templateVersion };
+            }
+            return persistCollection(seeded.characters).then(function (saved) {
+              return {
+                characters: seeded.characters,
+                added: seeded.added,
+                changed: true,
+                backup: backup,
+                equipmentBackup: equipmentBackup,
+                storage: saved,
+                templateVersion: seeded.templateVersion
+              };
+            });
+          }).catch(function (error) {
+            return { characters:merged, added:[], changed:false, backup:backup, equipmentBackup:equipmentBackup, error:error && error.message || 'starter-load-failed' };
           });
-        }).catch(function (error) {
-          return { characters: merged, added: [], changed: false, backup: backup, error: error && error.message || 'starter-load-failed' };
         });
       });
     });
@@ -633,7 +710,9 @@
     config: {
       collectionKey: COLLECTION_KEY,
       backupKey: BACKUP_KEY,
+      equipmentBackupKey: EQUIPMENT_BACKUP_KEY,
       restoreSafetyKey: RESTORE_SAFETY_KEY,
+      equipmentRestoreSafetyKey: EQUIPMENT_RESTORE_SAFETY_KEY,
       seedVersionKey: SEED_VERSION_KEY,
       tombstonesKey: TOMBSTONES_KEY,
       templateUrl: TEMPLATE_URL
@@ -648,8 +727,11 @@
     prepareCollectionForSave: prepareCollectionForSave,
     markCollectionSaveFailed: markCollectionSaveFailed,
     ensureMigrationBackup: ensureMigrationBackup,
+    ensureEquipmentMigrationBackup: ensureEquipmentMigrationBackup,
     getMigrationBackup: getMigrationBackup,
+    getEquipmentMigrationBackup: getEquipmentMigrationBackup,
     restoreMigrationBackup: restoreMigrationBackup,
+    restoreEquipmentMigrationBackup: restoreEquipmentMigrationBackup,
     loadAndSeed: loadAndSeed,
     markStarterHeroDeleted: markStarterHeroDeleted,
     persistCollection: persistCollection,

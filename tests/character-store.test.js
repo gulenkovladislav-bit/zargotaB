@@ -132,6 +132,48 @@ var staleIndexMigration = store.normalizeCharacterInventory(staleIndexCharacter)
 assert.strictEqual(staleIndexMigration.collapsedEquipmentCopies, 0);
 assert.strictEqual(staleIndexCharacter.inventoryItems[0].name, 'Совсем другой предмет');
 assert.strictEqual(staleIndexCharacter.equipItems[0].name, 'Старый меч');
+var consolidatedEquipmentCharacter = {
+  id:'consolidated-equipment',
+  inventoryItems:[{ itemId:'bag-item', name:'Ключ', qty:1 }],
+  equipItems:[
+    { itemId:'legacy-sword', name:'Старый меч', description:'Не потерять', equipped:true, slot:'weapon' },
+    { itemId:'legacy-cloak', name:'Запасной плащ', equipped:false }
+  ]
+};
+var consolidatedEquipmentMigration = store.normalizeCharacterInventory(
+  consolidatedEquipmentCharacter,
+  { consolidateEquipment:true }
+);
+assert.strictEqual(consolidatedEquipmentMigration.migratedEquipmentItems, 2);
+assert.strictEqual(consolidatedEquipmentCharacter.equipItems.length, 0);
+assert.deepStrictEqual(consolidatedEquipmentCharacter.inventoryItems.map(function(item) {
+  return [item.itemId,item.name,item.equipped,item.slot||'',item.qty];
+}), [
+  ['bag-item','Ключ',undefined,'',1],
+  ['legacy-sword','Старый меч',true,'weapon',1],
+  ['legacy-cloak','Запасной плащ',false,'',1]
+]);
+assert.strictEqual(consolidatedEquipmentCharacter.inventoryItems[1].description, 'Не потерять');
+assert.strictEqual(
+  store.normalizeCharacterInventory(consolidatedEquipmentCharacter,{consolidateEquipment:true}).migratedEquipmentItems,
+  0
+);
+var duplicateEquipmentIdsCharacter = {
+  id:'duplicate-equipment-ids',
+  inventoryItems:[],
+  equipItems:[
+    { itemId:'duplicate-id', name:'Первый предмет', equipped:true },
+    { itemId:'duplicate-id', name:'Второй предмет', equipped:true }
+  ]
+};
+store.normalizeCharacterInventory(duplicateEquipmentIdsCharacter,{consolidateEquipment:true});
+assert.strictEqual(duplicateEquipmentIdsCharacter.inventoryItems.length, 2);
+assert.strictEqual(new Set(duplicateEquipmentIdsCharacter.inventoryItems.map(function(item) {
+  return item.itemId;
+})).size, 2);
+assert.deepStrictEqual(duplicateEquipmentIdsCharacter.inventoryItems.map(function(item) {
+  return item.name;
+}), ['Первый предмет','Второй предмет']);
 
 function createLocalStorage() {
   var values = new Map();
@@ -219,6 +261,11 @@ function createIndexedDb() {
   var backupFromIndexedDb = global.indexedDB.values.get(store.config.backupKey);
   assert.strictEqual(backupFromLocalStorage[0].name, 'Мой Еван');
   assert.strictEqual(JSON.parse(backupFromIndexedDb.indexedDB)[0].name, 'Мой Еван');
+  assert.strictEqual(firstLoad.equipmentBackup.ok, true);
+  var equipmentBackupFromLocalStorage = JSON.parse(global.localStorage.getItem(store.config.equipmentBackupKey));
+  var equipmentBackupFromIndexedDb = global.indexedDB.values.get(store.config.equipmentBackupKey);
+  assert.strictEqual(equipmentBackupFromLocalStorage[0].name, 'Мой Еван');
+  assert.strictEqual(JSON.parse(equipmentBackupFromIndexedDb.indexedDB)[0].name, 'Мой Еван');
 
   var evan = firstLoad.characters.find(function(character) { return character.campaignKey === 'evan'; });
   evan.hpCur = 2;
@@ -245,6 +292,10 @@ function createIndexedDb() {
   assert.strictEqual(availableBackup.exists, true);
   assert.strictEqual(availableBackup.characters.length, 1);
   assert.strictEqual(availableBackup.characters[0].name, 'Мой Еван');
+  var availableEquipmentBackup = await store.getEquipmentMigrationBackup();
+  assert.strictEqual(availableEquipmentBackup.exists, true);
+  assert.strictEqual(availableEquipmentBackup.characters.length, 1);
+  assert.strictEqual(availableEquipmentBackup.characters[0].name, 'Мой Еван');
 
   var restored = await store.restoreMigrationBackup();
   assert.strictEqual(restored.ok, true);
@@ -257,6 +308,14 @@ function createIndexedDb() {
   await store.persistCollection([{ id: 'later', name: 'Более позднее состояние' }]);
   assert.strictEqual((await store.restoreMigrationBackup()).ok, true);
   assert.strictEqual(global.localStorage.getItem(store.config.restoreSafetyKey), firstRestoreSafety);
+  await store.persistCollection([{ id:'after-equipment-migration', name:'Состояние после миграции' }]);
+  var restoredEquipment = await store.restoreEquipmentMigrationBackup();
+  assert.strictEqual(restoredEquipment.ok, true);
+  assert.strictEqual(restoredEquipment.characters.length, 1);
+  assert.strictEqual(restoredEquipment.characters[0].name, 'Мой Еван');
+  assert.strictEqual(global.localStorage.getItem(store.config.restoreSafetyKey), firstRestoreSafety);
+  assert.ok(global.localStorage.getItem(store.config.equipmentRestoreSafetyKey));
+  assert.ok(global.indexedDB.values.get(store.config.equipmentRestoreSafetyKey));
 
   var pagehideSave = store.persistCollectionBestEffort([{ id: 'pagehide', name: 'Сохранён синхронно' }]);
   assert.strictEqual(pagehideSave.ok, true);

@@ -116,8 +116,25 @@ assert.strictEqual(
   'a failed cache refresh must not delete the previous character cache'
 );
 assert.match(html, /character cache refresh failed; previous cache preserved/);
-assert.match(html, /function applyCharsMigrations[\s\S]*normalizeCharacterInventory\(c\)/);
-assert.match(html, /function saveChars\(options\)[\s\S]*normalizeCharacterInventory\(c\)/);
+assert.match(html, /function applyCharsMigrations[\s\S]*normalizeCharacterInventory\(c,/);
+assert.match(html, /function saveChars\(options\)[\s\S]*normalizeCharacterInventory\(c,/);
+assert.match(html, /applyCharsMigrations\(characters,\{consolidateEquipment:false\}\)/);
+assert.match(html, /characterEquipmentMigrationReady=!!\(result\.equipmentBackup&&result\.equipmentBackup\.ok\)/);
+assert.match(html, /normalizeCharacterInventory\(c,\{consolidateEquipment:characterEquipmentMigrationReady\}\)/);
+assert.match(html, /function zgRestoreBeforeEquipmentMigration\(\)/);
+assert.match(html, /store\.restoreEquipmentMigrationBackup\(\)/);
+assert.match(html, /До объединения снаряжения/);
+var addEquipmentStart = html.indexOf('function addEquipItem(id)');
+var addEquipmentEnd = html.indexOf('function removeEquipItem', addEquipmentStart);
+var addEquipmentBlock = html.slice(addEquipmentStart, addEquipmentEnd);
+assert.match(addEquipmentBlock, /c\.inventoryItems\.push/);
+assert.strictEqual(addEquipmentBlock.indexOf('c.equipItems.push') >= 0, false, 'new equipment must use canonical inventoryItems');
+assert.match(addEquipmentBlock, /openItemConstructor\(id, 'inventory-equip', newIdx\)/);
+var arenaEquipmentStart = html.indexOf('function syncArmoryToCharacter');
+var arenaEquipmentEnd = html.indexOf('function openArmoryEditor', arenaEquipmentStart);
+var arenaEquipmentBlock = html.slice(arenaEquipmentStart, arenaEquipmentEnd);
+assert.match(arenaEquipmentBlock, /character\.inventoryItems\.push/);
+assert.strictEqual(arenaEquipmentBlock.indexOf('character.equipItems') >= 0, false, 'Arena equipment bridge must not recreate equipItems');
 var inventoryDropStart = html.indexOf('w.zgVttInventoryDrop=function');
 var inventoryDropEnd = html.indexOf('w.zgVttInventoryOpenItem=function', inventoryDropStart);
 var inventoryDropBlock = html.slice(inventoryDropStart, inventoryDropEnd);

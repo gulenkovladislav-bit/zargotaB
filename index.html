@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
-<script src="character-store.js?v=2026-07-27.1"></script>
+<script src="character-store.js?v=2026-07-27.2"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
 <script src="zargota-network.js?v=2026-07-27.4"></script>
 <script>
@@ -30230,7 +30230,10 @@ function readTempHpTotal(c) {
 
 // ── Load/Save ──
 // Общие миграции/нормализации персонажей
-function applyCharsMigrations(arr) {
+var characterEquipmentMigrationReady = false;
+function applyCharsMigrations(arr, options) {
+  options=options||{};
+  var consolidateEquipment=options.consolidateEquipment===true;
   var campaignKeys={'1776627463516':'evan','1776626039651':'melissa','1776463717210':'esteros','1778221131899':'vrotik','1778221143711':'lin-yin'};
   (arr || []).forEach(function(c){
     if (!c) return;
@@ -30250,7 +30253,7 @@ function applyCharsMigrations(arr) {
     if(c.combatRound === undefined) c.combatRound = 0;
     if(!c.globalTime) c.globalTime = {minutes:0,hours:0,days:0};
     if(window.ZargotaCharacterStore&&window.ZargotaCharacterStore.normalizeCharacterInventory){
-      window.ZargotaCharacterStore.normalizeCharacterInventory(c);
+      window.ZargotaCharacterStore.normalizeCharacterInventory(c,{consolidateEquipment:consolidateEquipment});
     }
   });
   (arr || []).forEach(function(c) {
@@ -30269,7 +30272,7 @@ function loadChars() {
     try { lsChars = JSON.parse(lsRaw) || []; } catch(e) { lsChars = []; }
   }
   characters = Array.isArray(lsChars) ? lsChars : [];
-  applyCharsMigrations(characters);
+  applyCharsMigrations(characters,{consolidateEquipment:false});
   if (window.ZargotaCharacterStore && window.ZargotaCharacterStore.rememberCollection) {
     window.ZargotaCharacterStore.rememberCollection(characters);
   }
@@ -30282,8 +30285,25 @@ function loadChars() {
     window.ZargotaCharacterStore.loadAndSeed(characters).then(function(result) {
       if (!result || !Array.isArray(result.characters)) return;
       characters = window.ZargotaCharacterStore.mergeStoredCollections(result.characters, characters);
-      applyCharsMigrations(characters);
-      window.ZargotaCharacterStore.rememberCollection(characters);
+      characterEquipmentMigrationReady=!!(result.equipmentBackup&&result.equipmentBackup.ok);
+      var equipmentBefore='';
+      try { equipmentBefore=JSON.stringify(characters.map(function(c){return{inventoryItems:c&&c.inventoryItems,equipItems:c&&c.equipItems};})); } catch(e0) {}
+      applyCharsMigrations(characters,{consolidateEquipment:characterEquipmentMigrationReady});
+      var equipmentAfter='';
+      try { equipmentAfter=JSON.stringify(characters.map(function(c){return{inventoryItems:c&&c.inventoryItems,equipItems:c&&c.equipItems};})); } catch(e1) {}
+      if(characterEquipmentMigrationReady&&equipmentBefore!==equipmentAfter&&window.ZargotaCharacterStore.persistCollection){
+        window.ZargotaCharacterStore.persistCollection(characters).then(function(saved){
+          if(!saved||!saved.ok){
+            characterEquipmentMigrationReady=false;
+            console.error('Zargota equipment migration was not persisted; backup preserved.',saved&&saved.error);
+            if(typeof showToast==='function')showToast('⚠ Миграция снаряжения не сохранена — резерв сохранён');
+          }else{
+            window.ZargotaCharacterStore.rememberCollection(characters);
+          }
+        });
+      }else{
+        window.ZargotaCharacterStore.rememberCollection(characters);
+      }
       if (typeof renderCharsPage === 'function') {
         try { renderCharsPage(); } catch(e) {}
       }
@@ -30295,6 +30315,11 @@ function loadChars() {
       }
       if (result.error === 'migration-backup-failed') {
         console.error('Zargota character migration stopped: backup failed');
+      }
+      if (result.error === 'equipment-migration-backup-failed') {
+        characterEquipmentMigrationReady=false;
+        console.error('Zargota equipment migration stopped: backup failed');
+        if(typeof showToast==='function')showToast('⚠ Миграция снаряжения остановлена: резерв не создан');
       }
     }).catch(function(error) {
       console.error('Zargota character store:', error);
@@ -30349,7 +30374,7 @@ function loadChars() {
           }
           if (changed) {
             characters = merged;
-            applyCharsMigrations(characters);
+            applyCharsMigrations(characters,{consolidateEquipment:characterEquipmentMigrationReady});
             // Перезаписываем LS свежим снимком, чтобы следующий старт читал актуальное
             try { localStorage.setItem('grimoire_chars', JSON.stringify(characters)); }
             catch(e3) { console.warn('Zargota character cache refresh failed; previous cache preserved.', e3); }
@@ -30376,7 +30401,7 @@ function saveChars(options) {
   }
   characters.forEach(function(c) {
     if(window.ZargotaCharacterStore&&window.ZargotaCharacterStore.normalizeCharacterInventory){
-      window.ZargotaCharacterStore.normalizeCharacterInventory(c);
+      window.ZargotaCharacterStore.normalizeCharacterInventory(c,{consolidateEquipment:characterEquipmentMigrationReady});
     }
     ensureCharacterEquipBases(c);
     applyCharacterEquipmentBonuses(c);
@@ -30736,6 +30761,27 @@ function zgRestoreBeforeRefactor() {
   });
 }
 
+function zgRestoreBeforeEquipmentMigration() {
+  var store=window.ZargotaCharacterStore;
+  if(!store||!store.getEquipmentMigrationBackup||!store.restoreEquipmentMigrationBackup){
+    if(typeof showToast==='function')showToast('⚠ Резерв снаряжения недоступен');
+    return;
+  }
+  store.getEquipmentMigrationBackup().then(function(backup){
+    if(!backup.exists){if(typeof showToast==='function')showToast('⚠ Резерв до объединения снаряжения не найден');return;}
+    var date=backup.createdAt?zgFormatDate(backup.createdAt):'без даты';
+    if(!confirm('Восстановить '+backup.characters.length+' персонаж. из резерва до объединения снаряжения ('+date+')?\\n\\nТекущее состояние сначала будет сохранено в отдельный страховочный резерв.'))return;
+    return store.restoreEquipmentMigrationBackup().then(function(result){
+      if(!result.ok)throw result.error||new Error('Не удалось восстановить резерв снаряжения');
+      characters=result.characters;
+      if(typeof showToast==='function')showToast('✓ Резерв снаряжения восстановлен. Перезагружаем…');
+      setTimeout(function(){location.reload();},700);
+    });
+  }).catch(function(error){
+    if(typeof showToast==='function')showToast('⚠ '+(error&&error.message||'Не удалось восстановить резерв снаряжения'));
+  });
+}
+
 // Восстановить chars из IDB в LS (если IDB новее, но LS перезатёрся)
 function zgRestoreLsFromIdb() {
   if (!confirm('Восстановить localStorage из IndexedDB?\n\nПодходит, если в LS нет данных, а в IDB есть.')) return;
@@ -30920,6 +30966,7 @@ function openStorageDiagnostics() {
       '<button onclick="zgDownloadFullDump()" style="flex:1;min-width:160px;padding:11px;border:2px solid #c4a84b;background:#c4a84b18;color:#c4a84b;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">💾 Скачать всё одним JSON</button>' +
       '<button onclick="zgCopySyncDiagnostics()" style="flex:1;min-width:160px;padding:11px;border:1px solid #4b83a8;background:#4b83a818;color:#8dc7e8;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">☁ Скопировать sync-диагностику</button>' +
       '<button onclick="zgRestoreBeforeRefactor()" style="flex:1;min-width:190px;padding:11px;border:1px solid #b17b45;background:#b17b4518;color:#d8aa73;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">↺ Восстановить до рефакторинга</button>' +
+      '<button onclick="zgRestoreBeforeEquipmentMigration()" style="flex:1;min-width:190px;padding:11px;border:1px solid #826534;background:#82653418;color:#d4b26f;font-family:\'Cinzel\',serif;font-size:11px;font-weight:600;cursor:pointer;border-radius:4px;letter-spacing:.5px">↺ До объединения снаряжения</button>' +
       '<button onclick="document.getElementById(\'storage-diag-overlay\').remove()" style="padding:11px 20px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:4px">Закрыть</button>' +
     '</div>' +
     '<div style="margin-top:10px;font-size:10px;color:var(--dim);font-style:italic;line-height:1.5">💡 Скачанный файл можно отправить разработчику если что-то поломалось — там вся структура данных без личной информации сверх той что ты ввёл сам.</div>';
@@ -32352,17 +32399,17 @@ function addMasteryRow(id) { addListItem(id, 'mastery'); }
 function addEquipItem(id) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
-  if (!c.equipItems) c.equipItems = [];
-  // Новые предметы создаём сразу в "конструктор"-модели (name + icon + description),
-  // чтобы клик по карточке открывал попап. text оставляем для совместимости.
-  c.equipItems.push({ name:'', text:'', icon:'🗃️', description:'', equipped:false });
-  var newIdx = c.equipItems.length - 1;
+  if (!c.inventoryItems) c.inventoryItems = [];
+  // Новое снаряжение хранится в единственном каноническом массиве инвентаря.
+  // equipItems остаётся только временным read/write fallback до окончания backup-gated миграции.
+  c.inventoryItems.push({ name:'', text:'', icon:'🗃️', description:'', qty:1, equipped:true });
+  var newIdx = c.inventoryItems.length - 1;
   saveChars({reason:'inventory-add'});
   renderCharSheet();
   charRefreshInventoryPanel(id);
   charRefreshInventoryLaunch(id);
   // Автоматически открываем конструктор на свежедобавленном — это ожидание пользователя
-  setTimeout(function(){ openItemConstructor(id, 'equip', newIdx); }, 80);
+  setTimeout(function(){ openItemConstructor(id, 'inventory-equip', newIdx); }, 80);
 }
 
 function removeEquipItem(id, idx) {
@@ -33481,30 +33528,30 @@ function openInventoryEmojiPicker(charId, itemIdx, event) {
   });
 }
 
-// ───── Универсальный конструктор предмета (inventory + equip) ─────
-// type: 'inventory' | 'equip'
-// idx: индекс в соответствующем массиве c.inventoryItems или c.equipItems
-// Хранит: name, icon, description (+ qty для inventory, equipped для equip).
+// ───── Универсальный конструктор предмета ─────
+// type: 'inventory' | 'inventory-equip'; legacy 'equip' читается только до backup-gated миграции.
+// Новые предметы всегда хранятся в c.inventoryItems.
 // Нажатие по предмету на листе → сюда. Здесь мини-форма: эмодзи (большой picker),
 // название, описание (с абзацами), сохранение.
 function openItemConstructor(charId, type, idx) {
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
+  var equipmentMode=type==='equip'||type==='inventory-equip';
   var arrKey = type === 'equip' ? 'equipItems' : 'inventoryItems';
   if (!c[arrKey]) c[arrKey] = [];
   var item = c[arrKey][idx];
   if (!item) return;
   // Миграция: legacy-строка / чистый text → объект
   if (typeof item === 'string') {
-    item = { name: item, icon: type === 'equip' ? '🗃️' : '📦', description: '', qty: 1 };
+    item = { name: item, icon: equipmentMode ? '🗃️' : '📦', description: '', qty: 1 };
     c[arrKey][idx] = item;
   }
-  if (type === 'equip' && !item.name && item.text) {
+  if (equipmentMode && !item.name && item.text) {
     // Если ранее был введён только text (legacy), используем его как имя
     item.name = item.text;
     if (!item.icon) item.icon = '🗃️';
   }
-  if (!item.icon) item.icon = (type === 'equip' ? '🗃️' : '📦');
+  if (!item.icon) item.icon = (equipmentMode ? '🗃️' : '📦');
   if (item.description === undefined) item.description = '';
 
   var old = document.getElementById('item-constructor'); if (old) old.remove();
@@ -33521,8 +33568,8 @@ function openItemConstructor(charId, type, idx) {
       : 'align-items:center;padding:20px');
   backdrop.addEventListener('click', function(e){ if (e.target === backdrop) closeIt(); });
 
-  var accent = type === 'equip' ? '#c4a84b' : '#d4a84b';
-  var title = type === 'equip' ? '⚔ Снаряжение' : '📦 Предмет';
+  var accent = equipmentMode ? '#c4a84b' : '#d4a84b';
+  var title = equipmentMode ? '⚔ Снаряжение' : '📦 Предмет';
 
   var panel = document.createElement('div');
   panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + accent + ';border-radius:10px;width:100%;max-width:460px;' +
@@ -33547,7 +33594,7 @@ function openItemConstructor(charId, type, idx) {
     '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">ОПИСАНИЕ</div>' +
     '<textarea id="ic-desc" placeholder="Эффект, откуда взялось, особенности. Можно несколько абзацев." rows="6" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;line-height:1.6;resize:vertical;box-sizing:border-box;min-height:130px;margin-bottom:14px">' + escHTML(item.description || '') + '</textarea>' +
 
-    (type === 'inventory'
+    (!equipmentMode
       ? '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">' +
           '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px">КОЛИЧЕСТВО</div>' +
           '<button id="ic-qty-minus" style="width:30px;height:30px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">−</button>' +
@@ -33605,7 +33652,7 @@ function openItemConstructor(charId, type, idx) {
     };
   });
 
-  if (type === 'inventory') {
+  if (!equipmentMode) {
     document.getElementById('ic-qty-minus').onclick = function() {
       var el = document.getElementById('ic-qty');
       el.value = Math.max(1, (parseInt(el.value,10) || 1) - 1);
@@ -33633,14 +33680,14 @@ function openItemConstructor(charId, type, idx) {
     item.icon = currentEmoji;
     item.name = newName;
     item.description = newDesc;
-    if (type === 'inventory') {
+    if (!equipmentMode) {
       item.qty = Math.max(1, parseInt(document.getElementById('ic-qty').value, 10) || 1);
     } else {
       item.equipped = !!document.getElementById('ic-equipped').checked;
       // Для equip синхронизируем legacy-поле text (используется в вёрстках сражений)
       item.text = newName;
     }
-    saveChars({reason:type === 'inventory' ? 'inventory-update' : 'inventory-equip'});
+    saveChars({reason:equipmentMode ? 'inventory-equip' : 'inventory-update'});
     closeIt();
     renderCharSheet();
     charRefreshInventoryPanel(charId);
@@ -45187,13 +45234,29 @@ function importBeasts(e) {
     sourceId = combatant.sourceRef.id;
     character = (global.characters || []).find(function(entry) { return entry.id === sourceId; }) || null;
     if (!character) return;
-    if (!character.equipItems) character.equipItems = [];
+    if (!character.inventoryItems) character.inventoryItems = [];
     slotPrefix = slot ? (slotLabel(slot) + ':') : '';
-    existingIndex = slotPrefix ? character.equipItems.findIndex(function(item) {
-      return item && String(item.text || '').indexOf(slotPrefix) === 0;
+    existingIndex = slotPrefix ? character.inventoryItems.findIndex(function(item) {
+      return item && item.migratedFrom === 'arena-armory' && String(item.slot || '') === String(slot || '');
     }) : -1;
-    if (existingIndex >= 0) character.equipItems[existingIndex] = { text: itemText, equipped: true };
-    else character.equipItems.push({ text: itemText, equipped: true });
+    var inventoryItem = {
+      name:itemText,
+      text:itemText,
+      icon:weaponName?'⚔️':'🛡️',
+      qty:1,
+      equipped:true,
+      slot:slot||'',
+      migratedFrom:'arena-armory'
+    };
+    if (existingIndex >= 0) {
+      inventoryItem=Object.assign({},character.inventoryItems[existingIndex],inventoryItem,{
+        itemId:character.inventoryItems[existingIndex].itemId
+      });
+      character.inventoryItems[existingIndex]=inventoryItem;
+    } else {
+      inventoryItem.description='';
+      character.inventoryItems.push(inventoryItem);
+    }
     if (weaponName) character.weapons = weaponName;
     if (armorText) character.armor = armorText;
     if (typeof global.saveChars === 'function') global.saveChars();
@@ -52223,17 +52286,17 @@ global.getStatusCombatMods = function(combatant) {
     disposeTestChar(c); restoreDomFns();
   });
 
-  // ── Кастомное снаряжение equipItems ──
-  zgTest('addEquipItem: добавляет пустой объект и открывает конструктор', function() {
+  // ── Снаряжение в каноническом inventoryItems ──
+  zgTest('addEquipItem: добавляет экипированный предмет в inventoryItems', function() {
     stubDomFns();
     var c = makeTestChar();
-    var lenBefore = c.equipItems.length;
+    var lenBefore = c.inventoryItems.length;
     addEquipItem(c.id);
-    zgAssertEq(c.equipItems.length, lenBefore + 1);
-    var added = c.equipItems[c.equipItems.length - 1];
+    zgAssertEq(c.inventoryItems.length, lenBefore + 1);
+    var added = c.inventoryItems[c.inventoryItems.length - 1];
     // Объектная модель: должны быть поля name/icon/equipped
     zgAssertEq(added.name, '');
-    zgAssertEq(added.equipped, false);
+    zgAssertEq(added.equipped, true);
     // Удалим попап если он успел открыться
     var pop = document.getElementById('item-constructor'); if (pop) pop.remove();
     disposeTestChar(c); restoreDomFns();
