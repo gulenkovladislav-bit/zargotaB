@@ -11266,7 +11266,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var commit=function(){
         w.ZargotaLib.put(rec,function(saved){
           if(!saved){sceneNotice('Не удалось сохранить сцену в браузере','error');setStatus('Ошибка сохранения · изменения остались');return;}
-          libCache[rec.id]=rec;activeSceneId=rec.id;activeSceneRevision=rec.revision;dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name+' · v'+rec.revision);renderScenes();pruneSceneVersions(rec.id);if(typeof done==='function')done(rec);
+          draft.revision=rec.revision;libCache[rec.id]=rec;activeSceneId=rec.id;activeSceneRevision=rec.revision;dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name+' · v'+rec.revision);renderScenes();pruneSceneVersions(rec.id);if(typeof done==='function')done(rec);
         });
       };
       if(!previous){commit();return;}
