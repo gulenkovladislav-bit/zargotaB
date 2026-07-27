@@ -44,6 +44,8 @@
   var tabChannel = null;
   var tabPeers = Object.create(null);
   var tabHeartbeatTimer = 0;
+  var tabWasSecondary = false;
+  var presenceDisconnectHandles = [];
   var characterSync = {
     status: 'local',
     direction: '',
@@ -80,6 +82,7 @@
   function trackedFirebaseWrite(kind, fn, valueIndex) {
     if(valueIndex==null)valueIndex=1;
     return function () {
+      if (!tabCanWrite()) return Promise.reject(roomError('Эта сессия управляется другой вкладкой. Перехватите управление перед изменением данных.', 'tab-read-only'));
       recordFirebaseWrite(kind,valueIndex>=0&&arguments.length>valueIndex?arguments[valueIndex]:null,valueIndex>=0);
       return fn.apply(null, arguments);
     };
@@ -179,6 +182,7 @@
   function queueCharacterSync(character, reason) {
     var store = syncOutbox(), session = readSession();
     if (!store || !session || session.role !== 'player' || !character || character.id == null) return { ok:false, skipped:true };
+    if (!tabCanWrite()) return { ok:false, skipped:true, readOnly:true };
     var member = currentRoom && currentRoom.members && currentRoom.members[session.uid];
     if (!member || String(member.characterId || '') !== String(character.id)) return { ok:false, skipped:true };
     var syncReason = String(reason || 'edit');
@@ -223,7 +227,7 @@
   function flushCharacterOutbox() {
     if (outboxFlushPromise) return outboxFlushPromise;
     var store = syncOutbox(), session = readSession();
-    if (!store || !connected || !session || session.role !== 'player' || !auth || !auth.currentUser || !currentRoom) {
+    if (!store || !connected || !session || session.role !== 'player' || !auth || !auth.currentUser || !currentRoom || !tabCanWrite()) {
       return Promise.resolve(api.getSnapshot());
     }
     var member = currentRoom.members && currentRoom.members[session.uid];
@@ -684,14 +688,19 @@
         tabId:sessionTabId(),
         startedAt:sessionTabStartedAt(),
         roomCode:String(session.code || ''),
+        uid:String(session.uid || ''),
         role:String(session.role || ''),
+        claimedAt:Math.max(0, Number(session.tabClaimedAt) || 0),
         time:now()
       });
     } catch (error) {}
   }
 
   function pruneTabPeers() {
-    var cutoff = now() - 12000, changed = false;
+    // Background tabs may throttle timers to roughly one callback per minute.
+    // A longer lease avoids accidental dual ownership; explicit release and
+    // takeover remain immediate.
+    var cutoff = now() - 120000, changed = false;
     Object.keys(tabPeers).forEach(function (tabId) {
       if (!tabPeers[tabId] || Number(tabPeers[tabId].time) < cutoff) {
         delete tabPeers[tabId];
@@ -703,12 +712,21 @@
 
   function tabCoordinationState() {
     pruneTabPeers();
-    var session = readSession(), ownId = sessionTabId(), roomCode = String(session && session.code || '');
-    var peers = Object.keys(tabPeers).map(function (tabId) { return tabPeers[tabId]; }).filter(function (peer) {
+    var session = readSession(), ownId = sessionTabId(), roomCode = String(session && session.code || ''), uid = String(session && session.uid || '');
+    var roomPeers = Object.keys(tabPeers).map(function (tabId) { return tabPeers[tabId]; }).filter(function (peer) {
       return roomCode && peer && String(peer.roomCode || '') === roomCode && String(peer.tabId || '') !== ownId;
     });
-    var candidates = session ? peers.concat([{tabId:ownId,startedAt:sessionTabStartedAt()}]) : [];
+    var peers = roomPeers.filter(function (peer) {
+      return uid && String(peer.uid || '') === uid;
+    });
+    var candidates = session && uid ? peers.concat([{
+      tabId:ownId,
+      startedAt:sessionTabStartedAt(),
+      claimedAt:Math.max(0, Number(session.tabClaimedAt) || 0)
+    }]) : [];
     candidates.sort(function (a, b) {
+      var claimDifference = Number(b.claimedAt || 0) - Number(a.claimedAt || 0);
+      if (claimDifference) return claimDifference;
       return Number(a.startedAt || 0) - Number(b.startedAt || 0) || String(a.tabId || '').localeCompare(String(b.tabId || ''));
     });
     var owner = candidates[0] || null;
@@ -717,13 +735,26 @@
       tabId:ownId,
       roomCode:roomCode,
       active:session ? peers.length + 1 : 0,
+      roomActive:session ? roomPeers.length + 1 : 0,
       isSecondary:!!(session && owner && String(owner.tabId || '') !== ownId),
-      ownerTabId:String(owner && owner.tabId || '')
+      ownerTabId:String(owner && owner.tabId || ''),
+      canTakeover:!!(session && uid && owner && String(owner.tabId || '') !== ownId)
     };
   }
 
+  function tabCanWrite() {
+    var session = readSession();
+    return !session || !tabCoordinationState().isSecondary;
+  }
+
   function notifyTabCoordination() {
-    if (typeof api !== 'undefined' && api && api.getSnapshot) emit();
+    if (typeof api !== 'undefined' && api && api.getSnapshot) {
+      var state = tabCoordinationState(), wasSecondary = tabWasSecondary;
+      tabWasSecondary = !!state.isSecondary;
+      if (tabWasSecondary) clearPresenceDisconnectHandles();
+      else if (wasSecondary && connected) setPresence(readSession());
+      emit();
+    }
   }
 
   function initTabCoordination() {
@@ -734,15 +765,24 @@
         var data = event && event.data || {}, ownId = sessionTabId();
         if (!data.tabId || String(data.tabId) === ownId) return;
         if (data.type === 'release') {
-          if (tabPeers[data.tabId]) { delete tabPeers[data.tabId]; notifyTabCoordination(); }
+          if (tabPeers[data.tabId]) {
+            var releasedPeer=tabPeers[data.tabId], session=readSession();
+            var reassertPresence=typeof api!=='undefined'&&api&&connected&&!tabWasSecondary&&session&&
+              String(releasedPeer.roomCode||'')===String(session.code||'')&&String(releasedPeer.uid||'')===String(session.uid||'');
+            delete tabPeers[data.tabId];
+            notifyTabCoordination();
+            if(reassertPresence&&tabCanWrite())setPresence(session);
+          }
           return;
         }
-        if (data.type !== 'heartbeat' && data.type !== 'probe') return;
+        if (data.type !== 'heartbeat' && data.type !== 'probe' && data.type !== 'takeover') return;
         tabPeers[data.tabId] = {
           tabId:String(data.tabId),
           startedAt:Math.max(0, Number(data.startedAt) || 0),
           roomCode:String(data.roomCode || ''),
+          uid:String(data.uid || ''),
           role:String(data.role || ''),
+          claimedAt:Math.max(0, Number(data.claimedAt) || 0),
           time:now()
         };
         if (data.type === 'probe') tabCoordinationMessage('heartbeat');
@@ -757,6 +797,7 @@
       }, 4000);
       w.addEventListener('pagehide', function () {
         tabCoordinationMessage('release');
+        if (!tabCanWrite()) clearPresenceDisconnectHandles();
         clearInterval(tabHeartbeatTimer);
         tabHeartbeatTimer = 0;
         try { tabChannel.close(); } catch (error) {}
@@ -796,6 +837,23 @@
     } catch (e) {}
   }
 
+  function takeOverTab() {
+    var session = readSession(), state = tabCoordinationState();
+    if (!session || !state.isSecondary || !state.canTakeover) {
+      return Promise.reject(roomError('Другая вкладка с этой игровой идентичностью не найдена.', 'tab-takeover-unavailable'));
+    }
+    var latestClaim = Object.keys(tabPeers).reduce(function (maximum, tabId) {
+      var peer = tabPeers[tabId];
+      if (!peer || String(peer.roomCode || '') !== String(session.code || '') || String(peer.uid || '') !== String(session.uid || '')) return maximum;
+      return Math.max(maximum, Math.max(0, Number(peer.claimedAt) || 0));
+    }, Math.max(0, Number(session.tabClaimedAt) || 0));
+    session.tabClaimedAt = Math.max(now(), latestClaim + 1);
+    saveSession(session);
+    tabCoordinationMessage('takeover', session);
+    notifyTabCoordination();
+    return Promise.resolve(api.getSnapshot());
+  }
+
   function generatedCode(length, used) {
     var alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     for (var attempt = 0; attempt < 50; attempt++) {
@@ -818,6 +876,7 @@
 
   function friendlyFirebaseError(error) {
     var code = error && error.code || '';
+    if (code === 'tab-read-only') return error;
     if (code.indexOf('permission-denied') >= 0) return roomError('Firebase отклонил действие. Обновите страницу и попробуйте снова.', code, error);
     if (code.indexOf('network-request-failed') >= 0) return roomError('Нет связи с Firebase. Проверьте интернет.', code, error);
     return roomError('Сетевая комната временно недоступна.', code || 'firebase-error', error);
@@ -1115,29 +1174,54 @@
     });
   }
 
+  function clearPresenceDisconnectHandles() {
+    var handles = presenceDisconnectHandles.slice();
+    presenceDisconnectHandles = [];
+    return Promise.all(handles.map(function (handle) {
+      try {
+        return handle && typeof handle.cancel === 'function'
+          ? Promise.resolve(handle.cancel()).catch(function () {})
+          : Promise.resolve();
+      } catch (error) {
+        return Promise.resolve();
+      }
+    }));
+  }
+
   function setPresence(session) {
     if (!session || !auth || !auth.currentUser || !firebase || !db) return Promise.resolve();
+    if (!tabCanWrite()) return clearPresenceDisconnectHandles();
     var uid = auth.currentUser.uid;
-    if (session.role === 'master') {
-      var masterMemberRef=firebase.ref(db,'rooms/'+session.code+'/members/'+uid);
-      var masterRoomRef=roomRef(session.code);
-      return Promise.all([
-        firebase.update(masterMemberRef,{online:true,lastSeen:firebase.serverTimestamp()}),
-        firebase.update(masterRoomRef,{masterOnline:true,masterLastSeen:firebase.serverTimestamp()})
-      ]).then(function(){
+    return clearPresenceDisconnectHandles().then(function () {
+      if (!tabCanWrite()) return;
+      if (session.role === 'master') {
+        var masterMemberRef=firebase.ref(db,'rooms/'+session.code+'/members/'+uid);
+        var masterRoomRef=roomRef(session.code);
         return Promise.all([
-          firebase.onDisconnect(masterMemberRef).update({online:false,lastSeen:firebase.serverTimestamp()}),
-          firebase.onDisconnect(masterRoomRef).update({masterOnline:false,masterLastSeen:firebase.serverTimestamp()})
-        ]);
-      }).catch(function(){});
-    }
-    var target = session.role === 'pending' && session.playerCode
-      ? 'rooms/' + session.code + '/pending/' + session.playerCode
-      : 'rooms/' + session.code + '/members/' + uid;
-    var targetRef = firebase.ref(db, target);
-    var values = { online: true, lastSeen: firebase.serverTimestamp() };
-    return firebase.update(targetRef, values).then(function () {
-      return firebase.onDisconnect(targetRef).update({ online: false, lastSeen: firebase.serverTimestamp() });
+          firebase.update(masterMemberRef,{online:true,lastSeen:firebase.serverTimestamp()}),
+          firebase.update(masterRoomRef,{masterOnline:true,masterLastSeen:firebase.serverTimestamp()})
+        ]).then(function(){
+          if (!tabCanWrite()) return;
+          var memberDisconnect=firebase.onDisconnect(masterMemberRef);
+          var roomDisconnect=firebase.onDisconnect(masterRoomRef);
+          presenceDisconnectHandles.push(memberDisconnect,roomDisconnect);
+          return Promise.all([
+            memberDisconnect.update({online:false,lastSeen:firebase.serverTimestamp()}),
+            roomDisconnect.update({masterOnline:false,masterLastSeen:firebase.serverTimestamp()})
+          ]);
+        });
+      }
+      var target = session.role === 'pending' && session.playerCode
+        ? 'rooms/' + session.code + '/pending/' + session.playerCode
+        : 'rooms/' + session.code + '/members/' + uid;
+      var targetRef = firebase.ref(db, target);
+      var values = { online: true, lastSeen: firebase.serverTimestamp() };
+      return firebase.update(targetRef, values).then(function () {
+        if (!tabCanWrite()) return;
+        var targetDisconnect=firebase.onDisconnect(targetRef);
+        presenceDisconnectHandles.push(targetDisconnect);
+        return targetDisconnect.update({ online: false, lastSeen: firebase.serverTimestamp() });
+      });
     }).catch(function () {});
   }
 
@@ -3210,24 +3294,30 @@
           });
         }
         return finalPull.then(function () {
-          var operation;
-        if (session.role === 'master') {
-          operation = firebase.remove(roomRef(session.code));
-        } else if (session.role === 'pending' && session.playerCode) {
-          operation = firebase.remove(firebase.ref(db, 'rooms/' + session.code + '/pending/' + session.playerCode));
-        } else {
-          operation = firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
-            online: false,
-            lastSeen: firebase.serverTimestamp()
+          var secondary = !tabCanWrite();
+          return clearPresenceDisconnectHandles().then(function () {
+            var operation;
+            if (secondary) {
+              operation = Promise.resolve();
+            } else if (session.role === 'master') {
+              operation = firebase.remove(roomRef(session.code));
+            } else if (session.role === 'pending' && session.playerCode) {
+              operation = firebase.remove(firebase.ref(db, 'rooms/' + session.code + '/pending/' + session.playerCode));
+            } else {
+              operation = firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
+                online: false,
+                lastSeen: firebase.serverTimestamp()
+              });
+            }
+            return operation.then(function () {
+              characterEntryUpload=null;
+              characterInboundSession=null;
+              saveSession(null);
+              stopWatchingRoom();
+              tabWasSecondary=false;
+              emit();
+            });
           });
-        }
-        return operation.then(function () {
-          characterEntryUpload=null;
-          characterInboundSession=null;
-          saveSession(null);
-          stopWatchingRoom();
-          emit();
-        });
         });
       }).catch(function (error) {
         var session = readSession();
@@ -3235,6 +3325,7 @@
         var character = member && member.character;
         setCharacterSync(connected ? 'conflict' : 'offline', character, 'room→local', 'exit', error);
         appendSyncEvent(character, 'room→local', 'exit', 'error', error);
+        if (session && tabCanWrite()) setPresence(session);
         emit();
         throw error;
       }).then(function (result) {
@@ -3258,7 +3349,7 @@
       if (member && member.characterId != null) clearCharacterOutbox(session, member.characterId);
       appendSyncEvent(character, 'room→local', 'exit', 'local-copy');
       setCharacterSync('local', character, 'room→local', 'exit');
-      if (firebase && db && auth && auth.currentUser && connected) {
+      if (firebase && db && auth && auth.currentUser && connected && tabCanWrite()) {
         var target = session.role === 'pending' && session.playerCode
           ? firebase.ref(db, 'rooms/' + session.code + '/pending/' + session.playerCode)
           : firebase.ref(db, 'rooms/' + session.code + '/members/' + auth.currentUser.uid);
@@ -3269,10 +3360,16 @@
       }
       characterEntryUpload = null;
       characterInboundSession = null;
+      clearPresenceDisconnectHandles();
       saveSession(null);
       stopWatchingRoom();
+      tabWasSecondary = false;
       emit();
       return Promise.resolve(api.getSnapshot());
+    },
+
+    takeOverTab: function () {
+      return takeOverTab();
     },
 
     getSnapshot: function () {

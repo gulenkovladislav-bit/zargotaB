@@ -81,6 +81,7 @@ var perfStart = network.indexOf('  function jsonBytes(value)');
 var perfEnd = network.indexOf('  function syncIdentity(character)', perfStart);
 var networkContext = {
   Blob:Blob,Date:Date,Object:Object,
+  tabCanWrite:function(){return true;},
   networkPerformance:{
     writes:[],writeBytes:0,writeKinds:{},roomSnapshots:[],
     roomSnapshotBytes:0,roomSnapshotMaxBytes:0,roomWatchStarts:0,roomWatchStops:0,

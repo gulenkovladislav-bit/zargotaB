@@ -221,7 +221,7 @@ window.addEventListener('load', function(){
   .zg-net-monitor-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:11px;border-bottom:1px solid #342511}.zg-net-monitor-head b{font:600 13px 'Cinzel',serif;color:#edcf82}.zg-net-monitor-head button{border:0;background:transparent;color:#806c4a;font-size:18px}
   .zg-net-monitor-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #24190d;font-size:12px}.zg-net-monitor-row span{color:#766548}.zg-net-monitor-row b{color:#d6bf8c;text-align:right;font-weight:600}.zg-net-monitor-note{padding:10px 0 2px;color:#796b53;font-size:10px;line-height:1.45}
   .zg-net-monitor-actions{display:flex;gap:8px;margin-top:12px}.zg-net-monitor-actions button{flex:1;padding:9px 8px;border:1px solid #6a5026;border-radius:5px;background:#1b1208;color:#ddc17d;font:9px 'Cinzel',serif}.zg-net-monitor-actions button.danger{border-color:#763a35;color:#d99086;background:#1d0c0a}.zg-net-monitor-actions button[hidden]{display:none}
-  .zg-tab-session-warning{position:fixed;z-index:15100;left:50%;top:62px;width:min(560px,calc(100vw - 24px));transform:translateX(-50%);padding:10px 14px;border:1px solid #b36f36;border-radius:7px;background:#211006f5;color:#efc080;font:600 10px/1.45 'Cinzel',serif;text-align:center;box-shadow:0 12px 38px #000d;cursor:pointer}.zg-tab-session-warning[hidden]{display:none}
+  .zg-tab-session-warning{position:fixed;z-index:15100;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:62px 12px 12px;background:#08040199;backdrop-filter:blur(2px);pointer-events:auto}.zg-tab-session-warning[hidden]{display:none}.zg-tab-session-warning-card{width:min(580px,100%);padding:15px 16px;border:1px solid #b36f36;border-radius:8px;background:#211006f5;color:#efc080;font:600 10px/1.5 'Cinzel',serif;text-align:center;box-shadow:0 12px 38px #000d}.zg-tab-session-warning-card b{display:block;margin-bottom:4px;color:#ffd39b;font-size:12px}.zg-tab-session-warning-actions{display:flex;justify-content:center;gap:8px;margin-top:11px}.zg-tab-session-warning-actions button{padding:7px 12px;border:1px solid #a96835;border-radius:5px;background:#3b1c0c;color:#f3c18e;font:700 9px 'Cinzel',serif;cursor:pointer}.zg-tab-session-warning-actions button.primary{background:#7a3618;color:#fff0d8}
   .zg-control-tools{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:15px;padding-top:15px;border-top:1px solid #3b2a14}.zg-control-tool{min-height:82px;display:grid;grid-template-columns:42px 1fr;align-items:center;gap:10px;padding:12px;border:1px solid #493519;border-radius:8px;background:linear-gradient(145deg,#1b1208,#0d0905);color:#cdb681;text-align:left;transition:.2s}.zg-control-tool:hover{border-color:#9a7330;background:linear-gradient(145deg,#281a0a,#100b06);box-shadow:0 8px 20px #0008}.zg-control-tool>i{width:40px;height:40px;display:grid;place-items:center;border:1px solid #674c22;border-radius:9px;background:#0b0805;font-style:normal;font-size:21px}.zg-control-tool b{display:block;font:600 11px 'Cinzel',serif;color:#e5ca88}.zg-control-tool small{display:block;margin-top:4px;color:#76674d;font-size:9px;line-height:1.35}
 
   /* ── BUTTONS ── */
@@ -18022,7 +18022,13 @@ window.zgImageStore = (function() {
         </div>
       </div>
     </div>
-    <button type="button" id="zg-tab-session-warning" class="zg-tab-session-warning" onclick="zgSessionMonitorToggle(event,true)" hidden>Сессия уже открыта в другой вкладке. Пока не изменяйте героя одновременно.</button>
+    <div id="zg-tab-session-warning" class="zg-tab-session-warning" role="alertdialog" aria-modal="true" aria-labelledby="zg-tab-session-warning-title" hidden>
+      <div class="zg-tab-session-warning-card">
+        <b id="zg-tab-session-warning-title">Сессия уже открыта в другой вкладке</b>
+        Эта вкладка защищена от изменений. Наблюдение за комнатой продолжается, но Firebase-записи и локальное редактирование заблокированы.
+        <div class="zg-tab-session-warning-actions"><button type="button" class="primary" id="zg-tab-session-takeover" onclick="zgSessionTakeOver(event)">Перехватить управление</button></div>
+      </div>
+    </div>
 
     <!-- Контекстный nav — показывается в зависимости от страницы -->
     <div id="nav-ctx-catalog" style="display:none;gap:7px;align-items:center" class="nav-ctx">
@@ -18051,7 +18057,7 @@ window.zgImageStore = (function() {
   var syncLabels={local:'Сохранено на устройстве',sending:'Отправляем в сессию…',synced:'Синхронизировано',offline:'Нет связи — сохранено локально',conflict:'Конфликт изменений','storage-error':'Ошибка хранения — скачать резерв'};
   function render(snapshot){
     var hadRoom=!!(latest&&latest.room);latest=snapshot||null;
-    var button=el('zg-net-monitor-btn'),label=el('zg-net-monitor-label'),firebaseState=el('zg-net-firebase-state'),roomState=el('zg-net-room-state'),roleState=el('zg-net-role-state'),membersState=el('zg-net-members-state'),note=el('zg-net-monitor-note'),returnButton=el('zg-net-return'),leaveButton=el('zg-net-leave'),syncBadge=el('zg-char-sync-state'),syncText=syncBadge&&syncBadge.querySelector('.zg-char-sync-state-text'),syncRow=el('zg-net-character-sync-row'),syncRowState=el('zg-net-character-sync-state'),tabWarning=el('zg-tab-session-warning');
+    var button=el('zg-net-monitor-btn'),label=el('zg-net-monitor-label'),firebaseState=el('zg-net-firebase-state'),roomState=el('zg-net-room-state'),roleState=el('zg-net-role-state'),membersState=el('zg-net-members-state'),note=el('zg-net-monitor-note'),returnButton=el('zg-net-return'),leaveButton=el('zg-net-leave'),syncBadge=el('zg-char-sync-state'),syncText=syncBadge&&syncBadge.querySelector('.zg-char-sync-state-text'),syncRow=el('zg-net-character-sync-row'),syncRowState=el('zg-net-character-sync-state'),tabWarning=el('zg-tab-session-warning'),takeoverButton=el('zg-tab-session-takeover');
     if(!button)return;
     var ready=!!(snapshot&&snapshot.networkReady),online=!!(snapshot&&snapshot.online),session=snapshot&&snapshot.session,room=snapshot&&snapshot.room;
     var members=room&&room.members||{},onlineMembers=Object.keys(members).filter(function(uid){return members[uid]&&members[uid].online!==false;}).length;
@@ -18073,12 +18079,19 @@ window.zgImageStore = (function() {
     if(syncRow)syncRow.hidden=!showCharacterSync;
     if(syncRowState)syncRowState.textContent=showCharacterSync?syncLabels[syncStatus]:'—';
     if(tabWarning)tabWarning.hidden=!secondaryTab;
+    if(takeoverButton)takeoverButton.disabled=!tabCoordination.canTakeover;
     if(returnButton)returnButton.hidden=!room;
     if(leaveButton){leaveButton.hidden=!session;leaveButton.textContent=room&&session&&session.role==='master'?'Завершить сессию':room?'Покинуть сессию':'Очистить след';}
     if(hadRoom&&!room){w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');if(w.showToast)w.showToast('Сессия завершена или больше недоступна.');}
   }
   w.zgSessionMonitorToggle=function(ev,force){if(ev){ev.preventDefault();ev.stopPropagation();}var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel){panel.classList.toggle('open',typeof force==='boolean'?force:!panel.classList.contains('open'));if(button)button.setAttribute('aria-expanded',panel.classList.contains('open')?'true':'false');}};
   w.zgSessionMonitorReturn=function(){w.zgSessionMonitorToggle(null,false);if(w.zgAdvOpen)w.zgAdvOpen();};
+  w.zgSessionTakeOver=function(ev){
+    if(ev){ev.preventDefault();ev.stopPropagation();}
+    if(!latest||!latest.tabCoordination||!latest.tabCoordination.canTakeover||!w.ZargotaRooms||typeof w.ZargotaRooms.takeOverTab!=='function')return;
+    var takeoverButton=el('zg-tab-session-takeover');if(takeoverButton)takeoverButton.disabled=true;
+    w.ZargotaRooms.takeOverTab().then(function(){if(w.showToast)w.showToast('Управление передано этой вкладке.');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось перехватить управление.');}).then(function(){if(takeoverButton)takeoverButton.disabled=false;});
+  };
   w.zgSessionMonitorLeave=function(){
     var session=latest&&latest.session,room=latest&&latest.room;if(!session||!w.ZargotaRooms)return;
     var text=room&&session.role==='master'?'Завершить комнату '+String(room.code||session.code)+' для всех игроков?':room?'Покинуть комнату '+String(room.code||session.code)+'?':'Удалить сохранённый след комнаты '+String(session.code||'')+'?';

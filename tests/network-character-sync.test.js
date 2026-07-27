@@ -32,10 +32,16 @@ var tabCoordinationBlock = network.slice(tabCoordinationStart, tabCoordinationEn
 assert.match(tabCoordinationBlock, /new w\.BroadcastChannel\(TAB_CHANNEL_NAME\)/);
 assert.match(tabCoordinationBlock, /data\.type === 'release'/);
 assert.match(tabCoordinationBlock, /data\.type !== 'heartbeat' && data\.type !== 'probe'/);
+assert.match(tabCoordinationBlock, /data\.type !== 'takeover'/);
+assert.match(tabCoordinationBlock, /String\(peer\.uid \|\| ''\) === uid/);
 assert.match(tabCoordinationBlock, /isSecondary:/);
+assert.match(network, /if \(!tabCanWrite\(\)\) return Promise\.reject\(roomError\(/);
+assert.match(network, /clearPresenceDisconnectHandles/);
 assert.strictEqual(tabCoordinationBlock.indexOf('stopWatchingRoom') >= 0, false, 'detection must not stop an active room');
 assert.strictEqual(tabCoordinationBlock.indexOf('firebase.') >= 0, false, 'detection must remain local');
 assert.match(html, /id="zg-tab-session-warning"/);
+assert.match(html, /id="zg-tab-session-takeover"/);
+assert.match(html, /ZargotaRooms\.takeOverTab\(\)/);
 assert.match(html, /tabCoordination\.isSecondary/);
 
 var sessionHelpersStart = network.indexOf('  function sessionTabId()');
@@ -79,7 +85,7 @@ FakeSessionChannel.prototype.postMessage=function(data){
   });
 };
 FakeSessionChannel.prototype.close=function(){var own=this;tabChannels=tabChannels.filter(function(channel){return channel!==own;});};
-function coordinatedTab(tabId,startedAt){
+function coordinatedTab(tabId,startedAt,uid){
   var values={
     'test-tab':tabId,
     'test-tab-started':String(startedAt)
@@ -97,9 +103,14 @@ function coordinatedTab(tabId,startedAt){
     tabChannel:null,
     tabPeers:{},
     tabHeartbeatTimer:0,
+    tabWasSecondary:false,
+    connected:false,
     Math:Math,Date:Date,JSON:JSON,Uint32Array:Uint32Array,Array:Array,
     now:function(){return Date.now();},
     w:tabWindow,
+    clearPresenceDisconnectHandles:function(){return Promise.resolve();},
+    setPresence:function(){return Promise.resolve();},
+    emit:function(){},
     setInterval:function(){return 1;},
     clearInterval:function(){},
     sessionStorage:{
@@ -108,19 +119,30 @@ function coordinatedTab(tabId,startedAt){
       removeItem:function(key){delete values[key];}
     }
   };
+  context.api={getSnapshot:function(){return {tabCoordination:context.tabCoordinationState()};}};
   vm.runInNewContext(network.slice(sessionHelpersStart,sessionHelpersEnd),context);
-  context.saveSession({code:'ROOM',uid:'user-'+tabId,role:'player'});
+  context.saveSession({code:'ROOM',uid:uid||'same-user',role:'player'});
   context.initTabCoordination();
   return context;
 }
-var firstSessionTab=coordinatedTab('tab-first-tab',1000);
-var secondSessionTab=coordinatedTab('tab-second-tab',2000);
+var firstSessionTab=coordinatedTab('tab-first-tab',1000,'same-user');
+var secondSessionTab=coordinatedTab('tab-second-tab',2000,'same-user');
 assert.strictEqual(firstSessionTab.tabCoordinationState().active,2);
 assert.strictEqual(firstSessionTab.tabCoordinationState().isSecondary,false);
 assert.strictEqual(secondSessionTab.tabCoordinationState().active,2);
 assert.strictEqual(secondSessionTab.tabCoordinationState().isSecondary,true,'newer tab must show the duplicate-session warning');
+secondSessionTab.takeOverTab();
+assert.strictEqual(secondSessionTab.tabCoordinationState().isSecondary,false,'explicit takeover must give the newer tab ownership');
+assert.strictEqual(firstSessionTab.tabCoordinationState().isSecondary,true,'previous owner must become read-only');
+assert.strictEqual(firstSessionTab.tabCanWrite(),false,'previous owner must reject Firebase writes after takeover');
+assert.strictEqual(secondSessionTab.tabCanWrite(),true);
 secondSessionTab.saveSession(null);
 assert.strictEqual(firstSessionTab.tabCoordinationState().active,1,'release must remove the duplicate immediately');
+assert.strictEqual(firstSessionTab.tabCoordinationState().isSecondary,false,'remaining tab must regain ownership after release');
+var differentIdentityTab=coordinatedTab('tab-different-user',3000,'different-user');
+assert.strictEqual(firstSessionTab.tabCoordinationState().active,1,'a different uid in the same room is not a duplicate identity');
+assert.strictEqual(differentIdentityTab.tabCoordinationState().active,1);
+assert.strictEqual(differentIdentityTab.tabCoordinationState().isSecondary,false);
 
 var attachStart = network.indexOf('attachCharacter: function');
 var syncStart = network.indexOf('syncCharacter: function');
