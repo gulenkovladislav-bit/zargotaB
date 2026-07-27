@@ -921,8 +921,11 @@
       if (typeof value === 'string') return cleanText(value, 2000);
       if (!value || typeof value !== 'object') return null;
       var entry = {};
-      ['id','name','title','label','type','icon','description','desc','effect','text','usages','cd'].forEach(function (key) {
+      ['id','skillId','name','title','label','type','icon','description','desc','effect','text','usages','cd'].forEach(function (key) {
         if (value[key] != null) entry[key] = cleanText(value[key], key === 'description' || key === 'desc' || key === 'effect' || key === 'text' ? 4000 : 500);
+      });
+      ['cdMax','cdUsed'].forEach(function (key) {
+        if (value[key] != null) entry[key] = Math.max(0, Math.min(99, Math.floor(Number(value[key]) || 0)));
       });
       return Object.keys(entry).length ? entry : null;
     }
@@ -958,6 +961,50 @@
           deletedAt:Math.max(0, Number(raw.deletedAt) || 0)
         };
       }).filter(Boolean);
+    }
+    function sessionProgressionPlan(value) {
+      if (!value || typeof value !== 'object') return null;
+      var levels = {}, rawLevels = value.levels && typeof value.levels === 'object' ? value.levels : {};
+      Object.keys(rawLevels).slice(0, 11).forEach(function (rawLevel) {
+        var level = Math.max(1, Math.min(11, Math.floor(Number(rawLevel) || 0)));
+        if (!level || String(level) !== String(rawLevel)) return;
+        var entry = rawLevels[rawLevel] && typeof rawLevels[rawLevel] === 'object' ? rawLevels[rawLevel] : {};
+        var stats = {};
+        ['str','dex','int','cha','per','con'].forEach(function (key) {
+          stats[key] = Math.max(0, Math.min(20, Math.floor(Number(entry.stats && entry.stats[key]) || 0)));
+        });
+        levels[String(level)] = {
+          stats:stats,
+          spellIds:(Array.isArray(entry.spellIds) ? entry.spellIds : []).slice(0, 30).filter(function (id) {
+            return typeof id === 'string' || typeof id === 'number';
+          }),
+          items:(Array.isArray(entry.items) ? entry.items : []).slice(0, 30).map(function (item) {
+            if (!item || typeof item !== 'object') return null;
+            return {
+              id:cleanText(item.id, 120),
+              name:cleanText(item.name, 200),
+              icon:cleanText(item.icon, 20),
+              qty:Math.max(1, Math.min(999, Math.floor(Number(item.qty) || 1)))
+            };
+          }).filter(Boolean),
+          gold:(Array.isArray(entry.gold) ? entry.gold : []).slice(0, 20).map(function (gold) {
+            return {
+              amount:Math.max(-1000000, Math.min(1000000, Number(gold && gold.amount) || 0)),
+              note:cleanText(gold && gold.note, 300)
+            };
+          }).filter(function (gold) { return gold.amount; }),
+          notes:(Array.isArray(entry.notes) ? entry.notes : []).slice(0, 20).map(function (note) {
+            return cleanText(note, 1000);
+          }).filter(Boolean),
+          appliedAt:Math.max(0, Number(entry.appliedAt) || 0)
+        };
+      });
+      return {
+        version:Math.max(1, Math.min(10, Math.floor(Number(value.version) || 1))),
+        baselineLevel:Math.max(1, Math.min(11, Math.floor(Number(value.baselineLevel) || 1))),
+        selectedLevel:Math.max(1, Math.min(11, Math.floor(Number(value.selectedLevel) || 1))),
+        levels:levels
+      };
     }
     var directItems = [];
     (Array.isArray(character.equipItems) ? character.equipItems : []).forEach(function (item) {
@@ -1041,13 +1088,57 @@
       symbol: cleanText(character.symbol, 500),
       god: cleanText(character.god, 500),
       age: cleanText(character.age, 100),
-      currentGoal: cleanText(character.currentGoal, 2000)
+      currentGoal: cleanText(character.currentGoal, 2000),
+      progressionPlan: sessionProgressionPlan(character.progressionPlan)
     };
   }
 
   function campaignKeyFor(character) {
     if (!character) return '';
     return String(character.campaignKey || CAMPAIGN_HERO_KEYS[String(character.id)] || '').slice(0, 40);
+  }
+
+  function normalizeSkillUpdateValue(value) {
+    if (typeof value === 'string') value = { name:value };
+    value = value && typeof value === 'object' ? value : {};
+    return {
+      name:String(value.name || value.title || '').trim().slice(0, 200),
+      type:String(value.type || '').trim().slice(0, 80),
+      icon:String(value.icon || '').trim().slice(0, 20),
+      description:String(value.description || value.desc || value.effect || value.text || '').slice(0, 4000),
+      usages:String(value.usages || value.cd || '').slice(0, 500),
+      cdMax:Math.max(0, Math.min(99, Math.floor(Number(value.cdMax) || 0)))
+    };
+  }
+
+  function skillUpdateSignature(value) {
+    return JSON.stringify(normalizeSkillUpdateValue(value));
+  }
+
+  function stableSkillId(value, index) {
+    var existing = value && typeof value === 'object' && (value.skillId || value.id);
+    if (existing) return String(existing).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
+    var text = normalizeSkillUpdateValue(value).name.toLocaleLowerCase('ru'), hash = 2166136261;
+    for (var i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return 'skill-' + (hash >>> 0).toString(36) + '-' + Math.max(0, Math.floor(Number(index) || 0));
+  }
+
+  function applySkillUpdatePatch(currentSkill, patch, skillId) {
+    var normalized = normalizeSkillUpdateValue(patch), next = typeof currentSkill === 'string'
+      ? { name:currentSkill }
+      : Object.assign({}, currentSkill || {});
+    next.skillId = String(skillId || next.skillId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
+    next.name = normalized.name;
+    next.type = normalized.type;
+    next.icon = normalized.icon;
+    next.description = normalized.description;
+    next.usages = normalized.usages;
+    next.cdMax = normalized.cdMax;
+    if (next.cdUsed != null) next.cdUsed = Math.max(0, Math.min(normalized.cdMax || 99, Math.floor(Number(next.cdUsed) || 0)));
+    return next;
   }
 
   function normalizeInventoryOperationItem(item, fallbackId) {
@@ -2823,6 +2914,137 @@
         });
       }).catch(function (error) {
         if (error && ['member-required','master-only','room-not-found','character-missing','journal-entry-invalid','journal-full'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    gmProposeSkillUpdate: function (memberUid, operation) {
+      memberUid=String(memberUid||'').slice(0,128);operation=operation||{};
+      var skillIndex=Math.max(0,Math.min(39,Math.floor(Number(operation.skillIndex)||0)));
+      var patch=normalizeSkillUpdateValue(operation.patch),reason=String(operation.reason||'').trim().slice(0,1000);
+      if(!memberUid)return Promise.reject(roomError('Сначала выберите героя.','member-required'));
+      if(!patch.name)return Promise.reject(roomError('У навыка должно быть название.','skill-update-invalid'));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Предлагать улучшения может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var member=room.members&&room.members[memberUid];
+          if(!member||member.role!=='player'||!member.character)throw roomError('Лист игрока пока недоступен.','character-missing');
+          var proposalId='skill-update-'+now()+'-'+Math.random().toString(36).slice(2,8),abortCode='',stamp=now();
+          return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+memberUid),function(current){
+            var character=current&&current.character,skills=character&&Array.isArray(character.skills)?character.skills:null;
+            if(!current||current.role!=='player'||!skills||!skills[skillIndex]){abortCode='skill-missing';return;}
+            var existing=current.characterUpdateProposal;
+            if(existing&&['pending','approved'].indexOf(existing.status)>=0){abortCode='proposal-pending';return;}
+            var baseSkill=normalizeSkillUpdateValue(skills[skillIndex]),skillId=stableSkillId(skills[skillIndex],skillIndex);
+            current.characterUpdateProposal={
+              id:proposalId,
+              kind:'skill-update',
+              status:'pending',
+              skillId:skillId,
+              skillIndex:skillIndex,
+              baseRevision:Math.max(0,Number(character.revision)||0),
+              baseSignature:skillUpdateSignature(baseSkill),
+              baseSkill:baseSkill,
+              patch:patch,
+              reason:reason,
+              createdAt:stamp,
+              createdBy:user.uid
+            };
+            current.messages=Object.assign({},current.messages||{});
+            current.messages[proposalId]={
+              id:proposalId,uid:memberUid,kind:'character-update',name:'Мир Зарготы',
+              portrait:'',text:'Мастер предлагает улучшить навык «'+patch.name+'».',ts:stamp
+            };
+            return current;
+          }).then(function(result){
+            if(!result||!result.committed){
+              if(abortCode==='skill-missing')throw roomError('Навык больше не найден в листе игрока.','skill-missing');
+              if(abortCode==='proposal-pending')throw roomError('Предыдущее улучшение ещё ждёт решения игрока.','proposal-pending');
+              throw roomError('Лист игрока изменился или недоступен.','character-missing');
+            }
+            return firebase.update(roomRef(session.code),{updatedAt:stamp}).catch(function(){return null;}).then(function(){
+              return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+            });
+          });
+        });
+      }).catch(function(error){
+        if(error&&['member-required','master-only','room-not-found','character-missing','skill-missing','proposal-pending','skill-update-invalid'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveSkillUpdateProposal: function (accepted) {
+      accepted=accepted===true;
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='player')throw roomError('Решить судьбу улучшения может только владелец героя.','player-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var member=room.members&&room.members[user.uid],proposal=member&&member.characterUpdateProposal;
+          if(!member||member.role!=='player'||!member.character)throw roomError('Лист игрока недоступен.','character-missing');
+          if(!proposal||proposal.kind!=='skill-update'||proposal.status!=='pending')throw roomError('Предложение уже обработано.','proposal-missing');
+          var stamp=now(),resolution='',appliedCharacter=null;
+          return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),function(current){
+            var live=current&&current.characterUpdateProposal,character=current&&current.character;
+            if(!live||live.id!==proposal.id||live.status!=='pending'){resolution='missing';return;}
+            if(!accepted){
+              current.characterUpdateProposal=Object.assign({},live,{status:'rejected',resolvedAt:stamp,resolvedBy:user.uid});
+              resolution='rejected';return current;
+            }
+            var skills=character&&Array.isArray(character.skills)?character.skills:null,index=Math.max(0,Math.min(39,Math.floor(Number(live.skillIndex)||0)));
+            if(!skills||!skills[index]){
+              current.characterUpdateProposal=Object.assign({},live,{status:'conflict',resolvedAt:stamp,resolvedBy:user.uid,conflictReason:'skill-missing'});
+              resolution='conflict';return current;
+            }
+            var currentSkill=skills[index];
+            if(stableSkillId(currentSkill,index)!==String(live.skillId||'')||skillUpdateSignature(currentSkill)!==String(live.baseSignature||'')){
+              current.characterUpdateProposal=Object.assign({},live,{status:'conflict',resolvedAt:stamp,resolvedBy:user.uid,conflictReason:'skill-changed'});
+              resolution='conflict';return current;
+            }
+            var nextSkills=skills.slice(),nextSkill=applySkillUpdatePatch(currentSkill,live.patch,live.skillId);
+            nextSkills[index]=nextSkill;character.skills=nextSkills;
+            character.revision=Math.max(0,Number(character.revision)||0)+1;
+            character.updatedAt=stamp;character.updatedBy=user.uid;character.source='gm-skill-update-approved';character.syncOperationId=live.id;
+            current.character=character;
+            current.characterUpdateProposal=Object.assign({},live,{status:'approved',resolvedAt:stamp,resolvedBy:user.uid,appliedCharacterRevision:character.revision});
+            current.messages=Object.assign({},current.messages||{});
+            current.messages[live.id+'-approved']={id:live.id+'-approved',uid:user.uid,kind:'character-update-approved',name:character.name||current.name||'Герой',portrait:character.portrait||'',text:'Принимает улучшение навыка «'+String(live.patch&&live.patch.name||'Навык')+'».',ts:stamp};
+            resolution='approved';appliedCharacter=character;return current;
+          }).then(function(result){
+            if(!result||!result.committed)throw roomError('Предложение уже обработано.','proposal-missing');
+            return firebase.update(roomRef(session.code),{updatedAt:stamp}).catch(function(){return null;}).then(function(){
+              return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){
+                var snapshot=api.getSnapshot();snapshot.skillUpdateResolution=resolution;snapshot.skillUpdateCharacter=appliedCharacter;return snapshot;
+              });
+            });
+          });
+        });
+      }).catch(function(error){
+        if(error&&['player-only','room-not-found','character-missing','proposal-missing'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    acknowledgeSkillUpdateProposal: function (proposalId, localStatus) {
+      proposalId=String(proposalId||'').slice(0,160);
+      localStatus=localStatus==='conflict'?'conflict':'saved';
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='player')return api.getSnapshot();
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var proposal=room.members&&room.members[user.uid]&&room.members[user.uid].characterUpdateProposal;
+          if(!proposal||proposal.id!==proposalId||proposal.status!=='approved')return api.getSnapshot();
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid+'/characterUpdateProposal'),{
+            status:localStatus==='saved'?'saved':'conflict',
+            localStatus:localStatus,
+            localSavedAt:now()
+          }).then(function(){
+            return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&error.code==='room-not-found')throw error;
         throw friendlyFirebaseError(error);
       });
     },

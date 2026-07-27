@@ -19,6 +19,21 @@ assert.match(network, /characterId:\s*String\(character\.id\),character:entrySna
 assert.match(network, /snapshot\.source\s*=\s*source\s*\|\|\s*'edit'/);
 assert.match(network, /snapshot\.revision\s*=\s*Math\.max\(localRevision,\s*roomRevision\)\s*\+\s*1/);
 assert.match(network, /snapshot\.updatedBy\s*=\s*String\(user\s*&&\s*user\.uid/);
+assert.match(network, /function sessionProgressionPlan\(value\)/);
+assert.match(network, /progressionPlan:\s*sessionProgressionPlan\(character\.progressionPlan\)/);
+assert.match(html, /GM_SHEET_SEEN_KEY='zargota_gm_sheet_seen_v1'/);
+assert.match(html, /function gmSheetIsUnread\(member\)/);
+assert.match(html, /РОАДМАПА ИГРОКА/);
+assert.match(html, /Только просмотр — план ещё не применён к листу/);
+assert.match(network, /gmProposeSkillUpdate:\s*function/);
+assert.match(network, /resolveSkillUpdateProposal:\s*function/);
+assert.match(network, /acknowledgeSkillUpdateProposal:\s*function/);
+assert.match(network, /skillUpdateSignature\(currentSkill\)!==String\(live\.baseSignature/);
+assert.match(html, /function zgApplyApprovedSkillUpdate\(localCharacter,member\)/);
+assert.match(html, /zgSkillUpdateSignature\(current\)!==zgSkillUpdateSignature\(base\)/);
+assert.match(html, /Сначала дождитесь статуса «Синхронизировано»/);
+assert.match(html, /Предложить улучшение/);
+assert.match(html, /ПРЕДЛОЖЕНИЕ МАСТЕРА/);
 assert.match(network, /if\s*\(!canApplyIncomingCharacter\(session,\s*member\.character,\s*\{\s*allowQueued:true\s*\}\)\)\s*return/);
 assert.match(network, /String\(member\.characterId\s*\|\|\s*''\)\s*!==\s*String\(character\.id\)/);
 assert.match(network, /if\s*\(heroTaken\)\s*throw roomError/);
@@ -84,6 +99,41 @@ assert.match(storedTabId,/^tab-/);
 assert.strictEqual(sessionContext.readSession().tabId,storedTabId,'reload in the same tab must keep tabId');
 sessionContext.saveSession(null);
 assert.strictEqual(sessionContext.sessionTabId(),storedTabId,'leaving a room must not change the tab identity');
+
+var skillHelpersStart = network.indexOf('  function normalizeSkillUpdateValue(');
+var skillHelpersEnd = network.indexOf('  function normalizeInventoryOperationItem(', skillHelpersStart);
+var skillContext = { Math:Math, Number:Number, String:String, JSON:JSON };
+vm.runInNewContext(network.slice(skillHelpersStart, skillHelpersEnd), skillContext);
+var baseSkill = { name:'Навык', type:'Активный', description:'Старая версия', usages:'1 раз', cdMax:1, cdUsed:1, custom:'keep' };
+var sameIdentity = { name:'Навык', type:'Активный', description:'Новая версия', usages:'2 раза', cdMax:2 };
+assert.strictEqual(skillContext.stableSkillId(baseSkill,2),skillContext.stableSkillId(sameIdentity,2),'generated skill id must survive description changes');
+var patchedSkill = skillContext.applySkillUpdatePatch(baseSkill,sameIdentity,skillContext.stableSkillId(baseSkill,2));
+assert.strictEqual(patchedSkill.description,'Новая версия');
+assert.strictEqual(patchedSkill.cdMax,2);
+assert.strictEqual(patchedSkill.cdUsed,1);
+assert.strictEqual(patchedSkill.custom,'keep','skill patch must preserve unrelated fields');
+assert.notStrictEqual(skillContext.skillUpdateSignature(baseSkill),skillContext.skillUpdateSignature(sameIdentity));
+
+var localSkillHelpersStart = html.indexOf('function zgNormalizeSkillUpdateValue(');
+var localSkillHelpersEnd = html.indexOf('function zgApplySessionCharacterToLocal(', localSkillHelpersStart);
+var localSkillContext = { Math:Math, Number:Number, String:String, JSON:JSON, Array:Array, Object:Object };
+vm.runInNewContext(html.slice(localSkillHelpersStart, localSkillHelpersEnd), localSkillContext);
+var localHero = { skills:[Object.assign({},baseSkill)] };
+var approvedMember = { characterUpdateProposal:{
+  id:'skill-update-test',kind:'skill-update',status:'approved',skillId:'skill-test',skillIndex:0,
+  baseSkill:skillContext.normalizeSkillUpdateValue(baseSkill),
+  patch:skillContext.normalizeSkillUpdateValue(sameIdentity)
+} };
+var firstLocalApply = localSkillContext.zgApplyApprovedSkillUpdate(localHero,approvedMember);
+assert.strictEqual(firstLocalApply.changed,true);
+assert.strictEqual(localHero.skills[0].description,'Новая версия');
+assert.deepStrictEqual(Array.from(localHero._appliedCharacterUpdateIds),['skill-update-test']);
+var repeatedLocalApply = localSkillContext.zgApplyApprovedSkillUpdate(localHero,approvedMember);
+assert.strictEqual(repeatedLocalApply.already,true,'accepted operation must be idempotent locally');
+var changedLocalHero = { skills:[Object.assign({},baseSkill,{description:'Локальная новая правка'})] };
+var conflictingLocalApply = localSkillContext.zgApplyApprovedSkillUpdate(changedLocalHero,approvedMember);
+assert.strictEqual(conflictingLocalApply.conflict,true);
+assert.strictEqual(changedLocalHero.skills[0].description,'Локальная новая правка','conflict must preserve fresh local skill');
 
 var tabChannels=[];
 function FakeSessionChannel(name){this.name=name;this.onmessage=null;tabChannels.push(this);}
