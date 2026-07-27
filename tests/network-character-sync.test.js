@@ -8,6 +8,7 @@ var vm = require('vm');
 var root = path.resolve(__dirname, '..');
 var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+var outbox = require(path.join(root, 'character-sync-outbox.js'));
 
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
@@ -65,17 +66,20 @@ assert.match(network, /gmAddInventoryItem:\s*function/);
 assert.match(network, /gmAddJournalEntry:\s*function/);
 assert.match(network, /gmAdjustAbilityUsage:\s*function/);
 assert.match(network, /firebase\.runTransaction\(firebase\.ref\(db,'rooms\/'\+session\.code\+'\/members\/'\+memberUid\+'\/character'\)/);
-assert.match(network, /current\.abilityUsage=usage/);
+assert.match(network, /current\.abilityUsage=usageResult\.usage/);
 assert.match(network, /current\.source='gm-ability-resource'/);
 assert.match(network, /current\.revision=Math\.max\(0,Number\(current\.revision\)\|\|0\)\+1/);
-assert.match(network, /if\(appliedUsed===previousUsed\)\{atBoundary=true;return;\}/);
-assert.match(network, /applyJournalAddOperation\(current,\s*normalizedEntry/);
-assert.match(network, /next\.source\s*=\s*'gm-journal-add'/);
+assert.match(network, /atBoundary=!usageResult\.changed/);
+assert.match(network, /applyJournalDomainOperation\(current,\s*\{type:'add',entry:normalizedEntry\}/);
+assert.match(network, /source:'gm-journal-add'/);
+assert.match(network, /applyJournalDomainOperation\(current,\{type:'replace',entries:liveSnapshot\.journalEntries\}/);
 assert.match(network, /journalBaseSignature/);
 assert.match(network, /store\.fieldSignature\(current\.journalEntries\)\s*!==\s*journalBaseSignature/);
 assert.match(network, /Journal changed in room while local edits were queued/);
 assert.match(network, /gmAdjustEntity:\s*function/);
 assert.match(network, /kind==='temp-hp'/);
+assert.match(network, /applyVitalsDomainOperation\(\{hp:hp,hpMax:hpMax,tempHp:tempHp\},\{damage:amount\}\)/);
+assert.match(network, /applyStatusDomainOperation\(\{statuses:statuses,statusEffects:statusEffects\}/);
 assert.match(network, /character\/revision'\]\s*=\s*firebase\.increment\(1\)/);
 assert.match(network, /character\/syncOperationId'\]\s*=\s*eventId/);
 assert.match(network, /kind==='temp-hp'\?'gm-temp-hp'/);
@@ -104,9 +108,8 @@ assert.match(html, /ZargotaSound\.heal/);
 assert.match(html, /@keyframes zgGmStatusArrive/);
 assert.match(html, /@keyframes zgGmStatusLeave/);
 assert.match(network, /firebase\.runTransaction\(characterRef/);
-assert.match(network, /applyInventoryAddOperation\(current,\s*normalizedItem/);
-assert.match(network, /next\.source\s*=\s*'gm-inventory-add'/);
-assert.match(network, /next\.inventoryItems\s*=\s*inventory/);
+assert.match(network, /store\.applyInventoryOperations\(current,\s*\[\{type:'add',field:'inventoryItems',itemId:normalizedItem\.itemId,item:normalizedItem\}\]/);
+assert.match(network, /source:'gm-inventory-add'/);
 assert.match(network, /runTransaction:\s*databaseModule\.runTransaction/);
 assert.match(network, /Room character changed while local edits were queued/);
 assert.match(network, /store\.recordConflict\(entry,\s*member\.character\)/);
@@ -117,6 +120,46 @@ assert.match(network, /pending\s*&&\s*!\(store\.matchesApplied/);
 assert.match(network, /localUnsynced\s*\|\|\s*pending/);
 assert.match(network, /canApplyIncomingCharacter\(session,\s*member\.character,\s*\{\s*allowQueued:true\s*\}\)/);
 assert.match(network, /clearLocalUnsynced\(entry\.characterId\)/);
+
+var domainStart = network.indexOf('function applyVitalsDomainOperation');
+var domainEnd = network.indexOf('function combatHeroEntry', domainStart);
+var domainContext = { result:null };
+vm.runInNewContext(
+  network.slice(domainStart, domainEnd) +
+    '; result={' +
+      'damage:applyVitalsDomainOperation({hp:12,hpMax:20,tempHp:4},{damage:7}),' +
+      'heal:applyVitalsDomainOperation({hp:18,hpMax:20,tempHp:0},{heal:7}),' +
+      'temp:applyVitalsDomainOperation({hp:10,hpMax:20,tempHp:0},{setTempHp:50}),' +
+      'statusAdd:applyStatusDomainOperation({statuses:[],statusEffects:[]},{statusKey:"burn",enable:true,effect:{type:"status",sourceId:"spell-1"}}),' +
+      'statusRemove:applyStatusDomainOperation({statuses:["burn"],statusEffects:[{statusKey:"burn"}]},{statusKey:"burn",enable:false}),' +
+      'usage:applyAbilityUsageDomainOperation({"spell-1":{used:1,max:3}},"spell-1",{delta:1,max:3}),' +
+      'authoritativeUsage:applyAbilityUsageDomainOperation({"spell-2":{used:2,max:5}},"spell-2",{delta:1,max:3,preserveExistingMax:false})' +
+    '};',
+  domainContext
+);
+assert.strictEqual(domainContext.result.damage.hp, 9);
+assert.strictEqual(domainContext.result.damage.tempHp, 0);
+assert.strictEqual(domainContext.result.damage.absorbed, 4);
+assert.strictEqual(domainContext.result.heal.hp, 20);
+assert.strictEqual(domainContext.result.temp.tempHp, 10);
+assert.deepStrictEqual(Array.from(domainContext.result.statusAdd.statuses), ['burn']);
+assert.strictEqual(domainContext.result.statusAdd.statusEffects[0].sourceId, 'spell-1');
+assert.strictEqual(domainContext.result.statusRemove.statuses.length, 0);
+assert.strictEqual(domainContext.result.statusRemove.statusEffects.length, 0);
+assert.strictEqual(domainContext.result.usage.used, 2);
+assert.strictEqual(domainContext.result.usage.changed, true);
+assert.strictEqual(domainContext.result.authoritativeUsage.used, 3);
+assert.strictEqual(domainContext.result.authoritativeUsage.max, 3);
+
+var combatDamageStart = network.indexOf('resolveCombatDamage: function');
+var combatDamageEnd = network.indexOf('finishApprovedDamageRoll: function', combatDamageStart);
+assert.match(network.slice(combatDamageStart, combatDamageEnd), /applyVitalsDomainOperation\(target,\{damage:damage\}\)/);
+var combatAbilityStart = network.indexOf('resolveCombatAbility: function');
+var combatAbilityEnd = network.indexOf('prepareCombatReaction: function', combatAbilityStart);
+assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyVitalsDomainOperation\(target,\{damage:damage,heal:heal,preserveOverMax:true\}\)/);
+assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyStatusDomainOperation\(target,/);
+assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyAbilityUsageDomainOperation\(member\.character&&member\.character\.abilityUsage[^;]+preserveExistingMax:false/);
+assert.match(network, /statusTurnTick[\s\S]+applyVitalsDomainOperation\(\{hp:hp,hpMax:hpMax,tempHp:tempHp\}/);
 assert.match(network, /outbox-remove-error/);
 assert.match(network, /outbox:\s*syncOutbox\(\)/);
 assert.match(network, /restoreCharacterInboundFromRoom/);
@@ -314,28 +357,23 @@ var inventoryHelperContext = { result:null };
 vm.runInNewContext(
   inventoryHelperSource +
     '; var item=normalizeInventoryOperationItem({itemId:"safe id!",name:"  Дар мастера  ",qty:5000,description:"Описание"},"fallback");' +
-    'result=applyInventoryAddOperation({id:"hero",hpCur:7,statuses:["poison"],revision:4,inventoryItems:[]},item,{updatedAt:123,updatedBy:"gm",operationId:"op-1"});',
+    'result=item;',
   inventoryHelperContext
 );
-assert.strictEqual(inventoryHelperContext.result.ok, true);
-assert.strictEqual(inventoryHelperContext.result.character.inventoryItems[0].itemId, 'safeid');
-assert.strictEqual(inventoryHelperContext.result.character.inventoryItems[0].name, 'Дар мастера');
-assert.strictEqual(inventoryHelperContext.result.character.inventoryItems[0].qty, 999);
-assert.strictEqual(inventoryHelperContext.result.character.hpCur, 7);
-assert.strictEqual(inventoryHelperContext.result.character.statuses[0], 'poison');
-assert.strictEqual(inventoryHelperContext.result.character.revision, 5);
-assert.strictEqual(inventoryHelperContext.result.character.syncOperationId, 'op-1');
-
-var duplicateHelperContext = { result:null };
-vm.runInNewContext(
-  inventoryHelperSource +
-    '; var item=normalizeInventoryOperationItem({itemId:"same",name:"Дар"},"fallback");' +
-    'result=applyInventoryAddOperation({revision:2,inventoryItems:[{itemId:"same",name:"Дар"}]},item,{updatedAt:124,updatedBy:"gm",operationId:"op-2"});',
-  duplicateHelperContext
+var gmInventoryResult = outbox.applyInventoryOperations(
+  {id:'hero',hpCur:7,statuses:['poison'],revision:4,inventoryItems:[]},
+  [{type:'add',field:'inventoryItems',itemId:inventoryHelperContext.result.itemId,item:inventoryHelperContext.result}],
+  {updatedAt:123,updatedBy:'gm',source:'gm-inventory-add',operationId:'op-1'}
 );
-assert.strictEqual(duplicateHelperContext.result.ok, true);
-assert.strictEqual(duplicateHelperContext.result.duplicate, true);
-assert.strictEqual(duplicateHelperContext.result.character.inventoryItems.length, 1);
+assert.strictEqual(gmInventoryResult.ok, true);
+assert.strictEqual(gmInventoryResult.character.inventoryItems[0].itemId, 'safeid');
+assert.strictEqual(gmInventoryResult.character.inventoryItems[0].name, 'Дар мастера');
+assert.strictEqual(gmInventoryResult.character.inventoryItems[0].qty, 999);
+assert.strictEqual(gmInventoryResult.character.hpCur, 7);
+assert.strictEqual(gmInventoryResult.character.statuses[0], 'poison');
+assert.strictEqual(gmInventoryResult.character.revision, 5);
+assert.strictEqual(gmInventoryResult.character.syncOperationId, 'op-1');
+
 var fallbackItemContext = { result:null };
 vm.runInNewContext(
   inventoryHelperSource +
@@ -348,7 +386,7 @@ var journalHelperContext = { result:null };
 vm.runInNewContext(
   inventoryHelperSource +
     '; var entry=normalizeJournalOperationEntry({journalId:"master-entry",title:"  След  ",text:"Описание"},"fallback",{updatedAt:500,updatedBy:"gm"});' +
-    'result=applyJournalAddOperation({id:"hero",hpCur:7,revision:4,journalEntries:[{journalId:"player-entry",title:"Игрок"}]},entry,{updatedAt:500,updatedBy:"gm",operationId:"journal-op-1"});',
+    'result=applyJournalDomainOperation({id:"hero",hpCur:7,revision:4,journalEntries:[{journalId:"player-entry",title:"Игрок"}]},{type:"add",entry:entry},{updatedAt:500,updatedBy:"gm",source:"gm-journal-add",operationId:"journal-op-1"});',
   journalHelperContext
 );
 assert.strictEqual(journalHelperContext.result.ok, true);
@@ -357,6 +395,17 @@ assert.strictEqual(journalHelperContext.result.character.journalEntries.length, 
 assert.strictEqual(journalHelperContext.result.character.journalEntries[1].title, 'След');
 assert.strictEqual(journalHelperContext.result.character.revision, 5);
 assert.strictEqual(journalHelperContext.result.character.syncOperationId, 'journal-op-1');
+var journalReplaceContext = { result:null };
+vm.runInNewContext(
+  inventoryHelperSource +
+    '; result=applyJournalDomainOperation({hpCur:9,revision:8,journalEntries:[{journalId:"old"}]},{type:"replace",entries:[{journalId:"new",title:"Игрок"}]},{revision:10,updatedAt:600,updatedBy:"player",source:"journal-update",operationId:"journal-op-2"});',
+  journalReplaceContext
+);
+assert.strictEqual(journalReplaceContext.result.ok, true);
+assert.strictEqual(journalReplaceContext.result.character.hpCur, 9);
+assert.strictEqual(journalReplaceContext.result.character.journalEntries[0].journalId, 'new');
+assert.strictEqual(journalReplaceContext.result.character.revision, 10);
+assert.strictEqual(journalReplaceContext.result.character.source, 'journal-update');
 
 var applyStart = html.indexOf('function zgApplySessionCharacterToLocal');
 var applyEnd = html.indexOf('window.zgPersistFinalSessionCharacter', applyStart);

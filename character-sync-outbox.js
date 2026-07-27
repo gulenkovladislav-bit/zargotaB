@@ -10,6 +10,7 @@
   var CONFLICTS_KEY = 'zargota_character_sync_conflicts_v1';
   var MAX_ENTRIES = 20;
   var MAX_CONFLICTS = 10;
+  var INVENTORY_LIMITS = { inventoryItems:80, equipItems:40 };
 
   function clone(value) {
     try { return JSON.parse(JSON.stringify(value)); }
@@ -121,6 +122,7 @@
             return { ok:false, conflict:true, field:field, itemId:itemId };
           }
         } else {
+          if (list.length >= INVENTORY_LIMITS[field]) return { ok:false, error:field === 'inventoryItems' ? 'inventory-full' : 'equipment-full', field:field, itemId:itemId };
           list.push(stripHeavyData(clone(operation.item)));
         }
       } else if (operation.type === 'update') {
@@ -415,7 +417,7 @@
   }
 
   return {
-    config: { storageKey:STORAGE_KEY, conflictsKey:CONFLICTS_KEY, maxEntries:MAX_ENTRIES, maxConflicts:MAX_CONFLICTS },
+    config: { storageKey:STORAGE_KEY, conflictsKey:CONFLICTS_KEY, maxEntries:MAX_ENTRIES, maxConflicts:MAX_CONFLICTS, inventoryLimits:INVENTORY_LIMITS },
     contentSignature: contentSignature,
     fieldSignature: fieldSignature,
     createInventoryOperations: createInventoryOperations,

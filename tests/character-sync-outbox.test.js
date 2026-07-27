@@ -232,6 +232,14 @@ assert.strictEqual(itemMergeResult.character.inventoryItems.some(function(item) 
 assert.strictEqual(itemMergeResult.character.inventoryItems.some(function(item) { return item.itemId === 'item-c'; }), true);
 assert.strictEqual(itemMergeResult.character.syncOperationId, 'inventory-op-1');
 
+var fullInventoryResult = outbox.applyInventoryOperations(
+  {revision:1,inventoryItems:Array.from({length:80},function(_,index){return{itemId:'full-'+index,name:'Предмет'};})},
+  [{type:'add',field:'inventoryItems',itemId:'overflow',item:{itemId:'overflow',name:'Лишний'}}],
+  {revision:2}
+);
+assert.strictEqual(fullInventoryResult.ok, false);
+assert.strictEqual(fullInventoryResult.error, 'inventory-full');
+
 var itemOperationEntry = outbox.enqueue({
   roomCode:'ITEMOPS',
   uid:'item-user',

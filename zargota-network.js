@@ -397,6 +397,56 @@
     return combatDamageTraits(list).some(function (item) { return item === needle || item.indexOf(needle) >= 0 || needle.indexOf(item) >= 0; });
   }
 
+  function applyVitalsDomainOperation(state, operation) {
+    state=state||{};operation=operation||{};
+    var hpMax=Math.max(0,Number(state.hpMax)||0),beforeHp=Math.max(0,Number(state.hp==null?state.hpCur:state.hp)||0),beforeTempHp=Math.max(0,Number(state.tempHp)||0);
+    var damage=Math.max(0,Number(operation.damage)||0),heal=Math.max(0,Number(operation.heal)||0),absorbed=Math.min(beforeTempHp,damage),hpDamage=Math.max(0,damage-absorbed);
+    var tempHp=Math.max(0,beforeTempHp-absorbed),afterDamage=Math.max(0,beforeHp-hpDamage),healCap=hpMax||afterDamage+heal;
+    if(operation.preserveOverMax)healCap=Math.max(beforeHp,healCap);
+    var hp=heal?Math.min(healCap,afterDamage+heal):afterDamage;
+    if(operation.setTempHp!=null){
+      var tempLimit=hpMax?Math.floor(hpMax*.5):9999;
+      tempHp=Math.min(tempLimit,Math.max(0,Number(operation.setTempHp)||0));
+    }
+    return{hp:hp,hpMax:hpMax,tempHp:tempHp,beforeHp:beforeHp,beforeTempHp:beforeTempHp,damage:damage,heal:heal,absorbed:absorbed,hpDamage:hpDamage,reachedZero:beforeHp>0&&hp===0,changed:hp!==beforeHp||tempHp!==beforeTempHp};
+  }
+
+  function applyStatusDomainOperation(state, operation) {
+    state=state||{};operation=operation||{};
+    var key=String(operation.statusKey||operation.key||'').toLowerCase(),enable=operation.enable!==false;
+    var statuses=Array.isArray(state.statuses)?state.statuses.slice():[],effects=Array.isArray(state.statusEffects)?state.statusEffects.slice():[];
+    function statusKey(value){return String(typeof value==='string'?value:value&&(value.statusKey||value.key||value.id)||'').toLowerCase();}
+    var active=statuses.some(function(status){return statusKey(status)===key;});
+    if(!enable){
+      statuses=statuses.filter(function(status){return statusKey(status)!==key;});
+      effects=effects.filter(function(effect){return statusKey(effect)!==key;});
+    }else{
+      if(!active)statuses.push(key);
+      if(operation.effect&&typeof operation.effect==='object'){
+        var sourceId=String(operation.effect.sourceId||'');
+        effects=effects.filter(function(effect){return !effect||statusKey(effect)!==key||(sourceId&&String(effect.sourceId||'')!==sourceId);});
+        effects.push(Object.assign({},operation.effect,{statusKey:key}));
+      }
+    }
+    return{statuses:statuses,statusEffects:effects,enabled:enable,changed:enable?!active||!!operation.effect:active};
+  }
+
+  function applyAbilityUsageDomainOperation(usage, resourceKey, operation) {
+    usage=usage&&typeof usage==='object'?Object.assign({},usage):{};operation=operation||{};
+    resourceKey=String(resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+    var previous=resourceKey&&usage[resourceKey]&&typeof usage[resourceKey]==='object'?usage[resourceKey]:{};
+    var previousMax=Math.max(0,Math.min(99,Number(previous.max)||0)),requestedMax=Math.max(0,Math.min(99,Number(operation.max)||0));
+    var max=operation.preserveExistingMax===false&&requestedMax?requestedMax:Math.max(previousMax,requestedMax);
+    var previousUsed=Math.max(Math.max(0,Number(previous.used)||0),Math.max(0,Number(operation.minimumUsed)||0));
+    previousUsed=Math.min(max||99,previousUsed);
+    var used=Math.max(0,Math.min(max||99,previousUsed+(Number(operation.delta)||0)));
+    var nextState=Object.assign({},previous,{used:used,max:max});
+    if(operation.updatedAt!=null)nextState.updatedAt=operation.updatedAt;
+    if(operation.updatedBy)nextState.updatedBy=String(operation.updatedBy);
+    if(resourceKey)usage[resourceKey]=nextState;
+    return{usage:usage,state:nextState,resourceKey:resourceKey,previousUsed:previousUsed,used:used,max:max,changed:!!resourceKey&&used!==previousUsed};
+  }
+
   function combatHeroEntry(room, uid) {
     var combat = room && room.combat, order = combat && Array.isArray(combat.order) ? combat.order : [];
     var index = order.findIndex(function (entry) { return entry && entry.uid === uid; });
@@ -503,13 +553,8 @@
       if (!delta && ['burn','poison','bleed'].indexOf(key) >= 0) delta = -rollDie(4);
       if (!delta && key === 'regen') delta = rollDie(4);
       if (!delta) return;
-      var before = hp, absorbed = 0;
-      if (delta < 0 && tempHp > 0) {
-        absorbed = Math.min(tempHp, Math.abs(delta));
-        tempHp -= absorbed;
-        delta += absorbed;
-      }
-      hp = delta > 0 ? Math.min(hpMax || hp + delta, hp + delta) : Math.max(0, hp + delta);
+      var before=hp,vitalsResult=applyVitalsDomainOperation({hp:hp,hpMax:hpMax,tempHp:tempHp},delta<0?{damage:Math.abs(delta)}:{heal:delta}),absorbed=vitalsResult.absorbed;
+      hp=vitalsResult.hp;tempHp=vitalsResult.tempHp;delta=hp-before;
       var labels = { burn:'Горит', poison:'Отравлен', bleed:'Кровотечение', regen:'Регенерация' };
       changes.push((labels[key] || effect && effect.value || key) + ': ' + (delta > 0 ? '+' : '') + delta + ' HP' + (absorbed ? ' (🛡 поглощено ' + absorbed + ')' : ''));
       if (before === hp && !absorbed) changes.pop();
@@ -754,24 +799,6 @@
     };
   }
 
-  function applyInventoryAddOperation(current, item, metadata) {
-    if (!current || typeof current !== 'object') return { ok:false, error:'character-missing' };
-    var inventory = Array.isArray(current.inventoryItems) ? current.inventoryItems.slice() : [];
-    if (inventory.some(function (entry) { return entry && String(entry.itemId || '') === String(item && item.itemId || ''); })) {
-      return { ok:true, duplicate:true, character:current };
-    }
-    if (inventory.length >= 80) return { ok:false, error:'inventory-full' };
-    var next = Object.assign({}, current);
-    inventory.push(Object.assign({}, item));
-    next.inventoryItems = inventory;
-    next.revision = Math.max(0, Number(current.revision) || 0) + 1;
-    next.updatedAt = Number(metadata && metadata.updatedAt) || Date.now();
-    next.updatedBy = String(metadata && metadata.updatedBy || '');
-    next.source = 'gm-inventory-add';
-    next.syncOperationId = String(metadata && metadata.operationId || '');
-    return { ok:true, duplicate:false, character:next };
-  }
-
   function normalizeJournalOperationEntry(entry, fallbackId, metadata) {
     entry = entry && typeof entry === 'object' ? entry : {};
     var journalId = String(entry.journalId || fallbackId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
@@ -787,20 +814,28 @@
     };
   }
 
-  function applyJournalAddOperation(current, entry, metadata) {
+  function applyJournalDomainOperation(current, operation, metadata) {
     if (!current || typeof current !== 'object') return { ok:false, error:'character-missing' };
+    operation=operation||{};
     var journal = Array.isArray(current.journalEntries) ? current.journalEntries.slice() : [];
-    if (journal.some(function (item) { return item && String(item.journalId || '') === String(entry && entry.journalId || ''); })) {
-      return { ok:true, duplicate:true, character:current };
+    if(operation.type==='add'){
+      var entry=operation.entry;
+      if (journal.some(function (item) { return item && String(item.journalId || '') === String(entry && entry.journalId || ''); })) {
+        return { ok:true, duplicate:true, character:current };
+      }
+      if (journal.length >= 80) return { ok:false, error:'journal-full' };
+      journal.push(Object.assign({}, entry));
+    }else if(operation.type==='replace'){
+      journal=(Array.isArray(operation.entries)?operation.entries:[]).slice(-80).map(function(entry){return entry&&typeof entry==='object'?Object.assign({},entry):entry;});
+    }else{
+      return {ok:false,error:'journal-operation-invalid'};
     }
-    if (journal.length >= 80) return { ok:false, error:'journal-full' };
     var next = Object.assign({}, current);
-    journal.push(Object.assign({}, entry));
     next.journalEntries = journal;
-    next.revision = Math.max(0, Number(current.revision) || 0) + 1;
+    next.revision = Math.max(Math.max(0, Number(current.revision) || 0) + 1,Math.max(0,Number(metadata&&metadata.revision)||0));
     next.updatedAt = Number(metadata && metadata.updatedAt) || now();
     next.updatedBy = String(metadata && metadata.updatedBy || '');
-    next.source = 'gm-journal-add';
+    next.source = String(metadata && metadata.source || 'journal-operation');
     next.syncOperationId = String(metadata && metadata.operationId || '');
     return { ok:true, duplicate:false, character:next };
   }
@@ -1346,14 +1381,10 @@
               journalConflict = JSON.parse(JSON.stringify(current));
               return;
             }
-            var next = Object.assign({}, current);
-            next.journalEntries = Array.isArray(liveSnapshot.journalEntries) ? liveSnapshot.journalEntries.slice(-80) : [];
-            next.revision = Math.max(Math.max(0, Number(current.revision) || 0) + 1, Math.max(0, Number(liveSnapshot.revision) || 0));
-            next.updatedAt = now();
-            next.updatedBy = user.uid;
-            next.source = syncReason;
-            next.syncOperationId = journalOperationId;
-            return next;
+            var applied=applyJournalDomainOperation(current,{type:'replace',entries:liveSnapshot.journalEntries},{
+              revision:liveSnapshot.revision,updatedAt:now(),updatedBy:user.uid,source:syncReason,operationId:journalOperationId
+            });
+            return applied.ok?applied.character:undefined;
           }).then(function (result) {
             if (!result || !result.committed) {
               if (journalConflict) {
@@ -2230,12 +2261,15 @@
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
           var member = room.members && room.members[memberUid];
           if (!member || member.role !== 'player' || !member.character) throw roomError('Лист игрока пока недоступен.', 'character-missing');
+          var store = syncOutbox();
+          if (!store || !store.applyInventoryOperations) throw roomError('Обработчик инвентаря недоступен. Обновите страницу.', 'inventory-operation-unavailable');
           var abortCode = '';
           var characterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + memberUid + '/character');
           return firebase.runTransaction(characterRef, function (current) {
-            var applied = applyInventoryAddOperation(current, normalizedItem, {
+            var applied = store.applyInventoryOperations(current, [{type:'add',field:'inventoryItems',itemId:normalizedItem.itemId,item:normalizedItem}], {
               updatedAt:stamp,
               updatedBy:user.uid,
+              source:'gm-inventory-add',
               operationId:operationId
             });
             if (!applied.ok) {
@@ -2254,7 +2288,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['member-required','master-only','room-not-found','character-missing','inventory-item-invalid','inventory-full'].indexOf(error.code) >= 0) throw error;
+        if (error && ['member-required','master-only','room-not-found','character-missing','inventory-item-invalid','inventory-full','inventory-operation-unavailable'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -2278,9 +2312,10 @@
           var abortCode = '';
           var characterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + memberUid + '/character');
           return firebase.runTransaction(characterRef, function (current) {
-            var applied = applyJournalAddOperation(current, normalizedEntry, {
+            var applied = applyJournalDomainOperation(current, {type:'add',entry:normalizedEntry}, {
               updatedAt:stamp,
               updatedBy:user.uid,
+              source:'gm-journal-add',
               operationId:operationId
             });
             if (!applied.ok) {
@@ -2320,15 +2355,10 @@
           var operationId='gm-ability-'+now()+'-'+Math.random().toString(36).slice(2,7),appliedUsed=0,appliedMax=requestedMax,atBoundary=false;
           return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+memberUid+'/character'),function(current){
             if(!current)return;
-            var usage=current.abilityUsage&&typeof current.abilityUsage==='object'?Object.assign({},current.abilityUsage):{};
-            var previous=usage[resourceKey]&&typeof usage[resourceKey]==='object'?usage[resourceKey]:{};
-            atBoundary=false;
-            appliedMax=Math.max(requestedMax,Math.max(0,Math.min(99,Number(previous.max)||0)));
-            var previousUsed=Math.max(0,Math.min(appliedMax,Number(previous.used)||0));
-            appliedUsed=Math.max(0,Math.min(appliedMax,previousUsed+delta));
-            if(appliedUsed===previousUsed){atBoundary=true;return;}
-            usage[resourceKey]={used:appliedUsed,max:appliedMax,updatedAt:now(),updatedBy:user.uid};
-            current.abilityUsage=usage;
+            var usageResult=applyAbilityUsageDomainOperation(current.abilityUsage,resourceKey,{delta:delta,max:requestedMax,updatedAt:now(),updatedBy:user.uid});
+            atBoundary=!usageResult.changed;appliedMax=usageResult.max;appliedUsed=usageResult.used;
+            if(atBoundary)return;
+            current.abilityUsage=usageResult.usage;
             current.revision=Math.max(0,Number(current.revision)||0)+1;
             current.updatedAt=now();current.updatedBy=user.uid;current.source='gm-ability-resource';current.syncOperationId=operationId;
             return current;
@@ -2364,24 +2394,22 @@
           var member=memberUid&&room.members&&room.members[memberUid],combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[],combatIndex=order.findIndex(function(entry){return entry&&((tokenId&&String(entry.tokenId)===tokenId)||(memberUid&&String(entry.uid)===memberUid));}),entry=combatIndex>=0?Object.assign({},order[combatIndex]):null;
           if(!sceneToken&&!member&&!entry)throw roomError('Сначала выберите жетон или героя на сцене.','entity-missing');
           var source=entry||(member&&member.character)||sceneToken||{},name=String(source.name||member&&member.character&&member.character.name||member&&member.name||'Цель').slice(0,80),hpMax=Math.max(0,Number(source.hpMax)||0),hp=Math.max(0,Number(source.hp==null?source.hpCur:source.hp)||0),tempHp=Math.max(0,Number(source.tempHp)||0),statuses=Array.isArray(source.statuses)?source.statuses.slice(0,23):[],statusEffects=Array.isArray(source.statusEffects)?source.statusEffects.slice(0,40):[];
-          var amount=Math.max(0,Math.min(9999,Math.floor(Number(operation.amount)||0))),text='',statusKey='',statusEnabled=null,statusLabel='';
+          var amount=Math.max(0,Math.min(9999,Math.floor(Number(operation.amount)||0))),text='',statusKey='',statusEnabled=null,statusLabel='',vitalsResult=null,statusResult=null;
           if(kind==='damage'){
             if(!amount)throw roomError('Укажите урон больше нуля.','adjust-invalid');
-            var absorbed=Math.min(tempHp,amount);tempHp-=absorbed;hp=Math.max(0,hp-(amount-absorbed));text='Мастер наносит '+name+' '+amount+' урона'+(absorbed?' ('+absorbed+' поглощено временными HP)':'')+'.';
+            vitalsResult=applyVitalsDomainOperation({hp:hp,hpMax:hpMax,tempHp:tempHp},{damage:amount});hp=vitalsResult.hp;tempHp=vitalsResult.tempHp;text='Мастер наносит '+name+' '+amount+' урона'+(vitalsResult.absorbed?' ('+vitalsResult.absorbed+' поглощено временными HP)':'')+'.';
           }else if(kind==='heal'){
             if(!amount)throw roomError('Укажите лечение больше нуля.','adjust-invalid');
-            hp=hpMax?Math.min(hpMax,hp+amount):hp+amount;text='Мастер восстанавливает '+name+' '+amount+' HP.';
+            vitalsResult=applyVitalsDomainOperation({hp:hp,hpMax:hpMax,tempHp:tempHp},{heal:amount});hp=vitalsResult.hp;tempHp=vitalsResult.tempHp;text='Мастер восстанавливает '+name+' '+amount+' HP.';
           }else if(kind==='temp-hp'){
-            var tempLimit=hpMax?Math.floor(hpMax*0.5):9999;
-            tempHp=Math.min(tempLimit,amount);text='Мастер устанавливает '+name+' временные HP: '+tempHp+'.';
+            vitalsResult=applyVitalsDomainOperation({hp:hp,hpMax:hpMax,tempHp:tempHp},{setTempHp:amount});hp=vitalsResult.hp;tempHp=vitalsResult.tempHp;text='Мастер устанавливает '+name+' временные HP: '+tempHp+'.';
           }else if(kind==='status'){
             statusKey=String(operation.statusKey||'').toLowerCase();if(!/^[a-z0-9_-]{1,40}$/.test(statusKey))throw roomError('Выберите корректный эффект.','adjust-invalid');
             var active=statuses.some(function(status){return String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase()===statusKey;});
             var enable=operation.enable==null?!active:!!operation.enable;
             statusEnabled=enable;statusLabel=String(operation.label||statusKey).slice(0,60);
-            statuses=statuses.filter(function(status){return String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase()!==statusKey;});
-            statusEffects=statusEffects.filter(function(effect){return String(effect&&(effect.statusKey||effect.key||effect.id)||'').toLowerCase()!==statusKey;});
-            if(enable){statuses.push(statusKey);text='Мастер назначает '+name+' эффект «'+statusLabel+'».';}else{text='Мастер снимает с '+name+' эффект «'+statusLabel+'».';}
+            statusResult=applyStatusDomainOperation({statuses:statuses,statusEffects:statusEffects},{statusKey:statusKey,enable:enable});statuses=statusResult.statuses;statusEffects=statusResult.statusEffects;
+            if(enable){text='Мастер назначает '+name+' эффект «'+statusLabel+'».';}else{text='Мастер снимает с '+name+' эффект «'+statusLabel+'».';}
           }else throw roomError('Неизвестное действие пульта.','adjust-invalid');
           var updates={},stamp=now();
           function writeToken(path){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;}else{updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}}
@@ -2466,7 +2494,7 @@
           var damageResult=rollFormula(weapon.damageFormula||'1d4',critical);
           var rawDamage=Math.max(0,damageResult.total+statBonus),damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
           if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
-          var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),tempBefore=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(tempBefore,damage),hpDamage=Math.max(0,damage-absorbed),after=Math.max(0,before-hpDamage),tempAfter=Math.max(0,tempBefore-absorbed),reachedZero=before>0&&after===0;
+          var vitalsResult=applyVitalsDomainOperation(target,{damage:damage}),before=vitalsResult.beforeHp,absorbed=vitalsResult.absorbed,hpDamage=vitalsResult.hpDamage,after=vitalsResult.hp,tempAfter=vitalsResult.tempHp,reachedZero=vitalsResult.reachedZero;
           target.hp=after;target.tempHp=tempAfter;if(reachedZero)target.zeroHp={pending:true,reachedAt:now(),source:attacker.key};order[targetIndex]=target;
           var stamp=now(),updates={};
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;
@@ -2577,7 +2605,7 @@
           var effect=Object.assign({},ability),allowedModes=['utility','attack','save'],baseStatuses=Array.isArray(effect.statuses)?effect.statuses:String(effect.statuses||'').split(',');effect.resolutionMode=allowedModes.indexOf(overrides.resolutionMode)>=0?overrides.resolutionMode:(allowedModes.indexOf(effect.resolutionMode)>=0?effect.resolutionMode:'utility');effect.attackStat=safeStat(overrides.attackStat,effect.attackStat||'int');effect.saveStat=safeStat(overrides.saveStat,effect.saveStat||'con');effect.saveDC=overrides.saveDC===''||overrides.saveDC==null?effect.saveDC:Math.max(1,Math.min(99,Number(overrides.saveDC)||10));effect.damageFormula=safeFormula(overrides.damageFormula==null?effect.damageFormula:overrides.damageFormula);effect.healFormula=safeFormula(overrides.healFormula==null?effect.healFormula:overrides.healFormula);effect.damageType=String(overrides.damageType==null?effect.damageType:overrides.damageType).trim().slice(0,32);effect.halfOnSave=overrides.halfOnSave==null?!!effect.halfOnSave:!!overrides.halfOnSave;effect.durationRounds=Math.max(0,Math.min(99,Number(overrides.durationRounds==null?effect.durationRounds:overrides.durationRounds)||0));effect.concentration=overrides.concentration==null?!!effect.concentration:!!overrides.concentration;effect.statuses=Array.isArray(overrides.statuses)?overrides.statuses:String(overrides.statuses==null?baseStatuses.join(','):overrides.statuses).split(',');effect.statuses=effect.statuses.map(function(key){return String(key||'').trim().slice(0,48);}).filter(Boolean).slice(0,12);effect.areaMode=['circle','line','cone'].indexOf(overrides.areaMode)>=0?overrides.areaMode:'manual';effect.areaRadius=Math.max(1,Math.min(30,Number(overrides.areaRadius)||Number(effect.aoeRadius)||1));effect.areaWidth=Math.max(1,Math.min(12,Number(overrides.areaWidth)||1));effect.areaAnchorKey=String(overrides.areaAnchorKey||'').slice(0,160);
           var areaAnchorIndex=-1;if(effect.areaMode!=='manual'){areaAnchorIndex=order.findIndex(function(entry){return entry&&entry.key===effect.areaAnchorKey;});if(areaAnchorIndex<0||!combatEntryToken(room,order[areaAnchorIndex]))throw roomError('Центр или направление области не найдено на карте.','combat-area-anchor');targetIndexes=order.map(function(entry,index){if(effect.areaMode!=='circle'&&index===actorIndex)return-1;return combatAreaContains(room,effect.areaMode,order[actorIndex],order[areaAnchorIndex],entry,effect.areaRadius,effect.areaWidth)?index:-1;}).filter(function(index){return index>=0;});targetKeys=targetIndexes.map(function(index){return order[index].key;});}
           if(!targetIndexes.length||targetIndexes.some(function(index){return index<0;}))throw roomError('Цели способности не найдены.','combat-participant-missing');
-          var resourceKey=String(effect.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),resourceMax=Math.max(0,Math.min(99,Number(effect.resourceMax)||0)),abilityUsage=member.character&&member.character.abilityUsage||{},resourceState=resourceKey&&abilityUsage[resourceKey]||{},resourceUsed=Math.max(Number(resourceState.used)||0,Number(effect.resourceUsed)||0);if(resourceMax&&resourceUsed>=resourceMax)throw roomError('Заряды этой способности закончились.','ability-exhausted');
+          var resourceKey=String(effect.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),resourceMax=Math.max(0,Math.min(99,Number(effect.resourceMax)||0)),resourceMutation=resourceKey&&resourceMax?applyAbilityUsageDomainOperation(member.character&&member.character.abilityUsage,resourceKey,{delta:1,max:resourceMax,minimumUsed:effect.resourceUsed,preserveExistingMax:false}):null;if(resourceMax&&(resourceKey?!resourceMutation||!resourceMutation.changed:Math.max(0,Number(effect.resourceUsed)||0)>=resourceMax))throw roomError('Заряды этой способности закончились.','ability-exhausted');
           var cost=['long','short','reaction','free'].indexOf(effect.actionCost)>=0?effect.actionCost:'long',turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0));
           if((cost==='long'||cost==='short')&&actorIndex!==turnIndex)throw roomError('Долгие и короткие способности применяются только в свой ход.','combat-not-turn');
           var economy=Object.assign({long:1,short:1,reaction:1},actor.economy||{}),restrictions=combatRestrictions(actor);
@@ -2593,13 +2621,13 @@
             if(mode==='save'){modifier=combatStat(target,effect.saveStat);natural=rollDie(20);rolls=[natural];dc=effect.saveDC==null?10+combatStat(actor,effect.attackStat):Math.max(1,Number(effect.saveDC)||10);total=natural+modifier;success=natural===20||(natural!==1&&total>=dc);}
             var damageRoll=effect.damageFormula?rollFormula(effect.damageFormula,natural===20&&mode==='attack'):{total:0,formula:''},healRoll=effect.healFormula?rollFormula(effect.healFormula,false):{total:0,formula:''},damage=Math.max(0,Number(damageRoll.total)||0);if(mode==='attack'&&!success)damage=0;if(mode==='save'&&success)damage=effect.halfOnSave?Math.floor(damage/2):0;
             var immune=combatHasDamageTrait(target.immunities,damageType),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType);if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
-            var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),tempBefore=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(tempBefore,damage),hpDamage=Math.max(0,damage-absorbed),heal=Math.max(0,Number(healRoll.total)||0),after=Math.min(Math.max(before,Number(target.hpMax)||before),Math.max(0,before-hpDamage+heal));target.hp=after;target.tempHp=Math.max(0,tempBefore-absorbed);
-            var applyStatuses=mode==='save'?!success:success;if(applyStatuses&&effect.statuses.length){target.statuses=Array.isArray(target.statuses)?target.statuses.slice():[];target.statusEffects=Array.isArray(target.statusEffects)?target.statusEffects.slice():[];effect.statuses.forEach(function(key){if(combatStatusKeys(target).indexOf(key)<0)target.statuses.push(key);if(effect.durationRounds||effect.concentration){target.statusEffects=target.statusEffects.filter(function(item){return !item||String(item.sourceId||'')!==effectSource||String(item.statusKey||item.key||'')!==key;});target.statusEffects.push({type:'status',statusKey:key,label:key,value:key,unit:effect.durationRounds?'rounds':'concentration',duration:effect.durationRounds||null,remaining:effect.durationRounds||null,sourceId:effectSource,sourceActorKey:actor.key,concentration:effect.concentration});}});}
+            var heal=Math.max(0,Number(healRoll.total)||0),vitalsResult=applyVitalsDomainOperation(target,{damage:damage,heal:heal,preserveOverMax:true}),absorbed=vitalsResult.absorbed,after=vitalsResult.hp;target.hp=after;target.tempHp=vitalsResult.tempHp;
+            var applyStatuses=mode==='save'?!success:success;if(applyStatuses&&effect.statuses.length){effect.statuses.forEach(function(key){var statusEffect=effect.durationRounds||effect.concentration?{type:'status',statusKey:key,label:key,value:key,unit:effect.durationRounds?'rounds':'concentration',duration:effect.durationRounds||null,remaining:effect.durationRounds||null,sourceId:effectSource,sourceActorKey:actor.key,concentration:effect.concentration}:null;var statusResult=applyStatusDomainOperation(target,{statusKey:key,enable:true,effect:statusEffect});target.statuses=statusResult.statuses;target.statusEffects=statusResult.statusEffects;});}
             order[targetIndex]=target;results.push({key:target.key,name:target.name||'Цель',roll:natural,rolls:rolls,modifier:modifier,total:total,dc:dc,success:success,damage:damage,heal:heal,absorbed:absorbed,hp:after,tempHp:target.tempHp,statuses:applyStatuses?effect.statuses:[]});
           });
           if(cost!=='free')economy[cost]=Math.max(0,Number(economy[cost]||0)-1);if(restrictions.slowed&&(cost==='long'||cost==='short')){economy.long=0;economy.short=0;}order[actorIndex].economy=economy;if(effect.concentration)order[actorIndex].concentration={sourceId:effectSource,abilityKey:effect.key||'',name:effect.name||'Способность',startedAt:castStamp,durationRounds:effect.durationRounds||0};
           var stamp=now(),updates={};updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['members/'+requestUid+'/actionRequest/status']='approved';updates['members/'+requestUid+'/actionRequest/resolvedAt']=stamp;
-          if(resourceKey&&resourceMax){updates['members/'+requestUid+'/character/abilityUsage/'+resourceKey]={used:resourceUsed+1,max:resourceMax,updatedAt:stamp};}
+          if(resourceMutation&&resourceMutation.changed){updates['members/'+requestUid+'/character/abilityUsage/'+resourceKey]=Object.assign({},resourceMutation.state,{updatedAt:stamp});}
           targetIndexes.forEach(function(targetIndex,listIndex){var target=order[targetIndex],result=results[listIndex];if(target.uid){updates['members/'+target.uid+'/character/hpCur']=result.hp;updates['members/'+target.uid+'/character/tempHp']=result.tempHp;updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=result.hp;updates['scene/tokens/'+index+'/tempHp']=result.tempHp;updates['scene/tokens/'+index+'/statuses']=target.statuses||[];updates['scene/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=result.hp;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=result.tempHp;updates['zones/'+zoneId+'/tokens/'+index+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});});}});
           concentrationTouched.forEach(function(index){if(targetIndexes.indexOf(index)>=0)return;var target=order[index];if(target.uid){updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['scene/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});});}});
           var summaries=results.map(function(result){var outcome=mode==='save'?(result.success?'спасся':'провалил спасбросок'):mode==='attack'?(result.success?'попадание':'промах'):'эффект применён';return result.name+': '+outcome+(result.damage?' · урон '+result.damage:'')+(result.heal?' · лечение '+result.heal:'')+(result.statuses.length?' · '+result.statuses.join(', '):'');});var firstRoll=results.filter(function(result){return result.roll!=null;})[0]||{};
