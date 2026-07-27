@@ -419,6 +419,7 @@ window.__zgpScriptStarted = true;
     style.textContent +=
       '.zgp-modebar{display:flex;gap:4px;padding:0 18px;border-bottom:1px solid #33240f;background:#0a0805}' +
       '.zgp-modebtn{padding:11px 16px;border:0;border-bottom:2px solid transparent;background:transparent;color:#71644e;font:700 10px Cinzel,serif;letter-spacing:.6px;cursor:pointer}.zgp-modebtn.on{color:#e1c36f;border-bottom-color:#c39e45;background:#c39e450b}' +
+      '.zgp-help{align-self:center;margin-left:auto;width:30px;height:30px;border:1px solid #59431f;border-radius:50%;background:#151006;color:#d2b86f;font:700 14px Cinzel,serif;cursor:pointer}.zgp-help:hover{border-color:#a78338;color:#f0d27b;background:#201707}' +
       '.zgp-workspace{display:grid;grid-template-columns:220px minmax(0,1fr) 250px;gap:14px;min-height:0;flex:1}.zgp-workspace.builder{grid-template-columns:220px minmax(0,1fr)}' +
       '.zgp-forecast{border:1px solid #382b16;border-radius:10px;background:#0d0a06;overflow-y:auto;overflow-x:hidden;min-height:0}.zgp-portrait{height:205px;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 20%,#2a1e0d,#090704 72%);border-bottom:1px solid #382b16}.zgp-portrait img{width:100%;height:100%;object-fit:cover;object-position:center 22%;filter:saturate(.82) contrast(1.04)}.zgp-portrait:after{content:\"\";position:absolute;inset:0;background:linear-gradient(transparent 55%,#0d0a06)}.zgp-portrait-fallback{height:100%;display:flex;align-items:center;justify-content:center;font-size:58px;color:#9f8245}' +
       '.zgp-forecast-head{padding:0 13px 11px;margin-top:-28px;position:relative;z-index:1}.zgp-forecast-head strong{display:block;color:#ead59d;font:700 13px Cinzel,serif}.zgp-forecast-head span{font:9px Cinzel,serif;color:#806f52}' +
@@ -1061,7 +1062,10 @@ window.__zgpScriptStarted = true;
       '<button class="zgp-modebtn ' + (ui.mode === 'roadmap' ? 'on' : '') +
         '" onclick="zgProgressionMode(\'roadmap\')">✦ Роадмапа прокачки</button>' +
       '<button class="zgp-modebtn ' + (ui.mode === 'builder' ? 'on' : '') +
-        '" onclick="zgProgressionMode(\'builder\')">🧬 Быстрый конструктор</button></div>';
+        '" onclick="zgProgressionMode(\'builder\')">🧬 Быстрый конструктор</button>' +
+      (ui.mode === 'roadmap'
+        ? '<button class="zgp-help" onclick="zgProgressionRulesHelp()" title="Как характеристики влияют на героя" aria-label="Памятка по характеристикам">?</button>'
+        : '') + '</div>';
     var content = ui.mode === 'builder'
       ? '<main class="zgp-road-body"><div class="zgp-workspace builder">' +
           builderForecastHtml() + quickBuilderHtml() + '</div></main>'
@@ -1245,6 +1249,29 @@ window.__zgpScriptStarted = true;
     ]);
   }
 
+  function progressionRulesHelp() {
+    previewCard('Как характеристики влияют на героя', [
+      '❤ HP', '🛡 AC', '⚡ Инициатива'
+    ], [
+      {
+        label:'❤ ВЫНОСЛИВОСТЬ → HP',
+        text:'Каждое очко Выносливости даёт +2 к максимальному HP.\nИтог: расовое HP + прирост за уровни + Выносливость × 2.'
+      },
+      {
+        label:'🛡 ЛОВКОСТЬ → AC',
+        text:'Каждые полные 3 очка Ловкости дают +1 AC.\n0–2 = +0; 3–5 = +1; 6–8 = +2; 9–11 = +3.'
+      },
+      {
+        label:'⚡ ЛОВКОСТЬ И ВОСПРИЯТИЕ → ИНИЦИАТИВА',
+        text:'Базовый бонус = Ловкость + ⌊Восприятие / 2⌋.\nРасовые свойства, навыки и предметы прибавляются сверху.'
+      },
+      {
+        label:'✦ СТАРТОВОЕ РАСПРЕДЕЛЕНИЕ',
+        text:'Распредели 4 стартовых очка, но не больше +2 в одну характеристику. Расовый бонус считается отдельно.'
+      }
+    ]);
+  }
+
   function viewShopItem(id) {
     var item = shopItems().find(function(candidate) { return sameId(candidate.id, id); });
     if (!item) return;
@@ -1274,6 +1301,7 @@ window.__zgpScriptStarted = true;
   global.openProgressionPlanner = open;
   global.closeProgressionPlanner = close;
   global.zgProgressionClosePreview = closePreview;
+  global.zgProgressionRulesHelp = progressionRulesHelp;
   global.zgProgressionPreviewSpellId = function(id) { previewSpellById(id); };
   global.zgProgressionViewShopId = function(id, encoded) {
     viewShopItem(encoded ? decodeURIComponent(String(id)) : id);
