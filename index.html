@@ -34280,7 +34280,7 @@ function renderCharSheet() {
         // LVL badge — клик открывает попап менеджера уровня (с кнопками ↑ Повысить, ↓ Понизить и ✦ Распределить очки).
         // Это намного удобнее правого клика, который не работает на мобилках и часто промахивается на десктопе.
         '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">' +
-          '<div class="lvl-badge-wrap" style="display:flex;flex-direction:column;align-items:center;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:4px;padding:4px 10px;background:#0e0a04;min-width:48px;cursor:pointer;position:relative" onclick="openProgressionPlanner(' + c.id + ')" title="План прокачки">' +
+          '<div class="lvl-badge-wrap" style="display:flex;flex-direction:column;align-items:center;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:4px;padding:4px 10px;background:#0e0a04;min-width:48px;cursor:pointer;position:relative" onclick="openLevelManager(' + c.id + ')" title="Управление уровнем">' +
             ((c.level||1) >= 11
               ? '<span style="font-family:\'Cinzel Decorative\',serif;font-size:8px;color:#e8c060;letter-spacing:1.5px;font-weight:700">АБСОЛЮТ</span><span style="font-family:\'Cinzel\',serif;font-size:22px;color:#e8c060;line-height:1">∞</span>'
               : '<span style="font-family:\'Cinzel\',serif;font-size:8px;color:var(--gold2);letter-spacing:2px">LVL</span><span style="font-family:\'Cinzel\',serif;font-size:20px;color:var(--gold);line-height:1">'+(c.level||1)+'</span>'
@@ -34482,7 +34482,7 @@ function renderCharSheet() {
           '<div style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:#f4e8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(c.name||'Персонаж')+'</div>' +
           '<div style="font-size:11px;color:var(--dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
             '<span>'+(c.race?escHTML(c.race):'')+(c.klasse?' · '+escHTML(c.klasse):'')+'</span>' +
-            '<span onclick="event.stopPropagation();openProgressionPlanner('+c.id+')" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:6px;background:#0e0a04;color:' + ((c.level||1)>=11?'#e8c060':'var(--gold)') + ';cursor:pointer;font-family:\'Cinzel\',serif;font-size:10px;font-weight:600">' +
+            '<span onclick="event.stopPropagation();openLevelManager('+c.id+')" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:6px;background:#0e0a04;color:' + ((c.level||1)>=11?'#e8c060':'var(--gold)') + ';cursor:pointer;font-family:\'Cinzel\',serif;font-size:10px;font-weight:600">' +
               ((c.level||1)>=11 ? '∞ АБСОЛЮТ' : 'Ур. ' + (c.level||1)) +
             '</span>' +
             ((c.unspentStatPoints||0) > 0
@@ -35381,13 +35381,34 @@ function applyCharacterEquipmentBonuses(c) {
 //   Расы, HP, очки характеристик, расовые бонусы 3/6/9, потолок 11 (Абсолют)
 // ═══════════════════════════════════════════════════════════════════
 var ZARGOTA_RACES = {
-  'Человек':    { hpStart: 10, hpPerLevel: 4, speed: 7, racialAt369: { kind: 'free' } },
-  'Эльф':       { hpStart: 9,  hpPerLevel: 4, speed: 7, racialAt369: { kind: 'none' } },
-  'Дворф':      { hpStart: 12, hpPerLevel: 5, speed: 7, racialAt369: { kind: 'stat', stat: 'con' } },
-  'Гоблин':     { hpStart: 8,  hpPerLevel: 3, speed: 8, racialAt369: { kind: 'stat+speed', stat: 'dex', speed: 2 } },
-  'Полурослик': { hpStart: 6,  hpPerLevel: 3, speed: 5, racialAt369: { kind: 'stat', stat: 'cha' } },
-  'Орк':        { hpStart: 14, hpPerLevel: 6, speed: 7, racialAt369: { kind: 'stat', stat: 'str' } },
-  'Уродец':     { hpStart: 10, hpPerLevel: 4, speed: 7, racialAt369: { kind: 'free' } }
+  'Человек':    { hpStart: 10, hpPerLevel: 4, speed: 7, acStart: 10, startingFree: 1, racialAt369: { kind: 'free' } },
+  'Эльф':       { hpStart: 9,  hpPerLevel: 4, speed: 7, acStart: 10, startingStats: { int:1 }, racialAt369: { kind: 'none' }, spellSlotsEveryLevels: 3 },
+  'Дворф':      { hpStart: 12, hpPerLevel: 5, speed: 7, acStart: 10, startingStats: { con:1 }, racialAt369: { kind: 'stat', stat: 'con' } },
+  'Гоблин':     { hpStart: 8,  hpPerLevel: 3, speed: 8, acStart: 10, startingStats: { dex:1 }, racialAt369: { kind: 'stat+speed', stat: 'dex', speed: 2 } },
+  'Полурослик': { hpStart: 6,  hpPerLevel: 3, speed: 5, acStart: 10, startingStats: { cha:1 }, racialAt369: { kind: 'stat', stat: 'cha' } },
+  'Орк':        { hpStart: 14, hpPerLevel: 6, speed: 7, acStart: 10, startingStats: { str:1 }, racialAt369: { kind: 'stat', stat: 'str' } },
+  'Фирболг': {
+    hpStart: 12, hpPerLevel: 5, speed: 7, acStart: 10,
+    racialAt369: { kind: 'none' },
+    racialByLevel: {
+      1: { kind:'ability', name:'Тихий Пульс' },
+      3: { kind:'ability', name:'Глубинный Резонанс' },
+      6: { kind:'ability', name:'Направление Искажения' },
+      9: { kind:'ability', name:'Всеприсутствующий Пульс' }
+    }
+  },
+  'Кенку': {
+    hpStart: 8, hpPerLevel: 3, speed: 8, acStart: 11,
+    startingStats: { dex:1 },
+    racialAt369: { kind: 'none' },
+    racialByLevel: {
+      1: { kind:'stat', stat:'dex', starting:true },
+      3: { kind:'stat', stat:'per' },
+      6: { kind:'stat', stat:'dex' },
+      9: { kind:'stat', stat:'per' }
+    }
+  },
+  'Уродец':     { hpStart: 10, hpPerLevel: 4, speed: 7, acStart: 10, racialAt369: { kind: 'free' } }
 };
 var ZARGOTA_RACE_ALIASES = {
   'человек':'Человек','челов':'Человек','human':'Человек',
@@ -35396,7 +35417,9 @@ var ZARGOTA_RACE_ALIASES = {
   'гоблин':'Гоблин','goblin':'Гоблин',
   'полурослик':'Полурослик','хоббит':'Полурослик','halfling':'Полурослик',
   'орк':'Орк','orc':'Орк',
-  'уродец':'Уродец','tiefling':'Уродец','драконорождённый':'Уродец','драконорожденный':'Уродец','кенку':'Уродец','tabaxi':'Уродец'
+  'фирболг':'Фирболг','firbolg':'Фирболг',
+  'кенку':'Кенку','kenku':'Кенку','уродець (кенку)':'Кенку',
+  'уродец':'Уродец','уродець':'Уродец','tiefling':'Уродец','драконорождённый':'Уродец','драконорожденный':'Уродец','tabaxi':'Уродец'
 };
 // Короткие ключи статов: совпадают с STATS на этом листе персонажа.
 var STAT_LABEL_RU = {
@@ -35417,6 +35440,47 @@ function getRaceKey(c) {
   return 'Уродец';
 }
 function getRaceData(c) { return ZARGOTA_RACES[getRaceKey(c)] || ZARGOTA_RACES['Уродец']; }
+function getRaceProgressionAtLevel(raceData, level) {
+  if (!raceData) return null;
+  if (raceData.racialByLevel && raceData.racialByLevel[level]) return raceData.racialByLevel[level];
+  if ((level === 3 || level === 6 || level === 9) && raceData.racialAt369) return raceData.racialAt369;
+  return null;
+}
+function getSpellTypeLimitForCharacter(c, spellType, level) {
+  var raceData = getRaceData(c);
+  var every = Number(raceData && raceData.spellSlotsEveryLevels) || 0;
+  var targetLevel = Math.max(1, Number(level != null ? level : c && c.level) || 1);
+  return 3 + (every > 0 ? Math.floor(targetLevel / every) : 0);
+}
+function getSpellTypeCountsForCharacter(c) {
+  var counts = { kodex:0, folio:0, obrad:0 };
+  var seen = {};
+  (c && c.spellRefs || []).forEach(function(id) {
+    var key = String(id);
+    if (seen[key]) return;
+    seen[key] = true;
+    var spell = entries.find(function(item){ return String(item.id) === key; });
+    if (spell && counts[spell.spellType] != null) counts[spell.spellType] += 1;
+  });
+  return counts;
+}
+function buildSpellTypeLimitsHtml(c) {
+  var counts = getSpellTypeCountsForCharacter(c);
+  var labels = {
+    kodex:['🥋','Кодексы'],
+    folio:['📖','Фолианты'],
+    obrad:['🩸','Ритуальники']
+  };
+  return '<div id="sp-picker-limits" style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:11px">' +
+    Object.keys(labels).map(function(type) {
+      var limit = getSpellTypeLimitForCharacter(c, type);
+      var count = counts[type] || 0;
+      return '<div style="padding:7px 5px;border:1px solid ' + (count >= limit ? '#7b3b35' : '#3a2b17') +
+        ';border-radius:6px;background:#0a0704;text-align:center;font:9px Cinzel,serif;color:' +
+        (count >= limit ? '#d57a70' : '#9b8966') + '">' + labels[type][0] + ' ' + labels[type][1] +
+        '<b style="display:block;margin-top:3px;color:#dcc071;font-size:11px">' + count + '/' + limit + '</b></div>';
+    }).join('') + '</div>';
+}
 
 // История изменений уровня — нужна для ОТКАТА (level-down) когда отдаём очки/HP/расовые бонусы.
 // При level-up пишем сюда что именно сделали; при level-down — откатываем по записи.
@@ -35454,11 +35518,12 @@ function openLevelManager(charId) {
   var nextLvl = lvl + 1;
   var isMilestone = (nextLvl === 3 || nextLvl === 6 || nextLvl === 9);
   var nextRacial = '';
-  if (isMilestone) {
-    var rb = raceData.racialAt369;
+  if (isMilestone || (raceData.racialByLevel && raceData.racialByLevel[nextLvl])) {
+    var rb = getRaceProgressionAtLevel(raceData, nextLvl);
     if (rb && rb.kind === 'stat') nextRacial = '+1 ' + STAT_LABEL_RU[rb.stat];
     else if (rb && rb.kind === 'stat+speed') nextRacial = '+1 ' + STAT_LABEL_RU[rb.stat] + ' и +' + (rb.speed||0) + 'м скор.';
     else if (rb && rb.kind === 'free') nextRacial = '+1 универсальное очко';
+    else if (rb && rb.kind === 'ability') nextRacial = '«Пульс Леса»: ' + rb.name;
   }
 
   pn.innerHTML =
@@ -35558,8 +35623,8 @@ function levelUpCharacter(charId, options) {
 
   // 3) Расовый бонус 3/6/9 — автомат
   var racialMessage = '';
-  if (newLevel === 3 || newLevel === 6 || newLevel === 9) {
-    var rb = raceData.racialAt369;
+  if (newLevel === 3 || newLevel === 6 || newLevel === 9 || (raceData.racialByLevel && raceData.racialByLevel[newLevel])) {
+    var rb = getRaceProgressionAtLevel(raceData, newLevel);
     if (rb && rb.kind === 'stat') {
       c.stats[rb.stat].base = (c.stats[rb.stat].base || 0) + 1;
       racialMessage = '+1 ' + STAT_LABEL_RU[rb.stat] + ' (раса)';
@@ -35575,6 +35640,9 @@ function levelUpCharacter(charId, options) {
       racialMessage = '+1 универсальный (раса)';
       hist.racial = { kind:'free' };
       hist.statPoints += 1;
+    } else if (rb && rb.kind === 'ability') {
+      racialMessage = '«Пульс Леса»: ' + rb.name;
+      hist.racial = { kind:'ability', name:rb.name };
     }
   }
 
@@ -35632,7 +35700,8 @@ function levelDownCharacter(charId) {
       return;
     }
     renderCharSheet();
-    if (typeof showToast === 'function') showToast('↓ Уровень ' + c.level + ' · возвращено ' + (refund + (hist.racial ? 1 : 0)) + ' очк.');
+    var racialPointRefund = hist.racial && ['stat','stat+speed','free'].indexOf(hist.racial.kind) >= 0 ? 1 : 0;
+    if (typeof showToast === 'function') showToast('↓ Уровень ' + c.level + ' · возвращено ' + (refund + racialPointRefund) + ' очк.');
     return;
   }
   // Без истории — просто понижаем уровень, пользователь сам исправляет статы
@@ -36309,7 +36378,7 @@ var RULES_QUICK_SECTIONS = [
   },
   {
     title: '3. Расы И Бонусы',
-    body: 'Человек: 10 HP на старте, 4 HP за уровень, +1 универсальная характеристика на старте и на 3/6/9 уровнях.\nЭльф: 9 HP, +1 Интеллект, бонус к урону магии и слотам от Интеллекта.\nДворф: 12 HP, +1 Выносливость, устойчивость к ядам и болезням.\nГоблин: 8 HP, +1 Ловкость, растущая скорость.\nПолурослик: 6 HP, +1 Харизма, бонусы к Восприятию.\nОрк: 14 HP, +1 Сила, усиление давления и запугивания.\nУродец: редкие расы с вариативными параметрами по согласованию с мастером.'
+    body: 'Человек: 10 HP на старте, 4 HP за уровень, +1 универсальная характеристика на старте и на 3/6/9 уровнях.\nЭльф: 9 HP, +4 HP за уровень, +1 слот каждого типа магии на 3/6/9 уровнях.\nДворф: 12 HP, +1 Выносливость, устойчивость к ядам и болезням.\nГоблин: 8 HP, +1 Ловкость, растущая скорость.\nПолурослик: 6 HP, +1 Харизма, бонусы к Восприятию.\nОрк: 14 HP, +1 Сила, усиление давления и запугивания.\nФирболг: 12 HP, +5 HP за уровень, развитие способности «Пульс Леса» на 1/3/6/9.\nКенку: 8 HP, +3 HP за уровень, AC 11, скорость 8 м; +1 Ловкость на старте, +1 Восприятие/Ловкость/Восприятие на 3/6/9.\nУродец: другие редкие расы с вариативными параметрами по согласованию с мастером.'
   },
   {
     title: '4. Биография И Сеттинг',
@@ -36321,7 +36390,7 @@ var RULES_QUICK_SECTIONS = [
   },
   {
     title: '6. Бой В Коротком Виде',
-    body: 'Инициатива: d20 + бонусы от Ловкости, расы, предметов, навыков.\nВ свой ход обычно доступны: одно долгое действие, одно короткое действие, передвижение и несколько бесплатных мелочей.\nДолгое действие: атака, заклинание, долгий навык, сложное усилие.\nКороткое действие: короткий навык, достать предмет, быстрый анализ, пинок, толчок.\nПередвижение: примерно 7 клеток / 7 метров, можно делить до и после действия.\nПопадание: d20 + модификатор + мастерство, если оружие знакомо.\nНатуральная 20 — крит, натуральная 1 — провал.\nПреимущество: 2d20, лучший.\nПомеха: 2d20, худший.\nОдна реакция за раунд.'
+    body: 'Инициатива: d20 + Ловкость +1 за каждые 2 полных очка Восприятия, затем расовые, предметные и навыковые бонусы.\nВ свой ход обычно доступны: одно долгое действие, одно короткое действие, передвижение и несколько бесплатных мелочей.\nДолгое действие: атака, заклинание, долгий навык, сложное усилие.\nКороткое действие: короткий навык, достать предмет, быстрый анализ, пинок, толчок.\nПередвижение: примерно 7 клеток / 7 метров, можно делить до и после действия.\nПопадание: d20 + модификатор + мастерство, если оружие знакомо.\nНатуральная 20 — крит, натуральная 1 — провал.\nПреимущество: 2d20, лучший.\nПомеха: 2d20, худший.\nОдна реакция за раунд.'
   },
   {
     title: '7. Кастомные Черты, Навыки И Предметы',
@@ -36329,7 +36398,7 @@ var RULES_QUICK_SECTIONS = [
   },
   {
     title: '8. Отдых, Путь И Магия',
-    body: 'Короткий отдых: 1–2 часа, частичное восстановление.\nДолгий отдых: ночёвка, полноценное восстановление и развитие.\nВо время отдыха доступны лечение, тренировка, чтение, ритуалы, ремесло.\nМагия делится на три типа:\nБоевые кодексы — практика и техника.\nФолианты — чтение, понимание и аккуратное применение.\nРитуальники — медленные, сильные, процедурные эффекты.\nОбычно есть лимит на изученные источники каждого типа.'
+    body: 'Короткий отдых: 1–2 часа, частичное восстановление.\nДолгий отдых: ночёвка, полноценное восстановление и развитие.\nВо время отдыха доступны лечение, тренировка, чтение, ритуалы, ремесло.\nМагия делится на три типа:\nБоевые кодексы — практика и техника.\nФолианты — чтение, понимание и аккуратное применение.\nРитуальники — медленные, сильные, процедурные эффекты.\nБазовый лимит: 3 Кодекса, 3 Фолианта и 3 Ритуальника — до 9 суммарно, но не более 3 одного типа.'
   },
   {
     title: '9. Ранения И Смерть',
@@ -38174,6 +38243,7 @@ function openSpellPicker(charId) {
 
   popup.innerHTML =
     '<div style="font-family:\'Cinzel Decorative\',serif;font-size:14px;color:var(--gold);text-align:center;margin-bottom:14px;padding-right:22px">📚 Привязать заклинание</div>' +
+    buildSpellTypeLimitsHtml(c) +
     spellListHtml +
     '<div style="text-align:center;margin-top:14px;position:sticky;bottom:-22px;padding:12px 0 4px;background:linear-gradient(180deg,transparent,#0e0a06 40%)">' +
       '<button onclick="var bd=document.getElementById(\'spell-picker-backdrop\');if(bd)bd.remove();" style="padding:10px 32px;border:1px solid var(--gold2);background:#1a1208;color:var(--gold);font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">Готово</button>' +
@@ -38244,6 +38314,17 @@ function pickSpell(charId, spellId, el) {
     el.querySelector('span:last-child').textContent = '＋';
     el.querySelector('span:last-child').style.color = 'var(--dim)';
   } else {
+    var spell = entries.find(function(item){ return String(item.id) === String(spellId); });
+    if (!spell) return;
+    var counts = getSpellTypeCountsForCharacter(c);
+    var limit = getSpellTypeLimitForCharacter(c, spell.spellType);
+    if ((counts[spell.spellType] || 0) >= limit) {
+      if (typeof showToast === 'function') {
+        var label = {kodex:'Кодексов',folio:'Фолиантов',obrad:'Ритуальников'}[spell.spellType] || 'заклинаний этого типа';
+        showToast('⚠ Лимит ' + label + ': ' + limit);
+      }
+      return;
+    }
     c.spellRefs.push(spellId);
     var col = el.style.borderLeftColor || '#e8c060';
     el.style.background = col + '12';
@@ -38251,6 +38332,8 @@ function pickSpell(charId, spellId, el) {
     el.querySelector('span:last-child').style.color = '#50a050';
   }
   saveChars();
+  var limits = document.getElementById('sp-picker-limits');
+  if (limits) limits.outerHTML = buildSpellTypeLimitsHtml(c);
   // Update the spell refs list in background
   var refsList = document.getElementById('spell-refs-' + charId);
   if (refsList) refsList.innerHTML = buildSpellRefsList(c);
@@ -49536,6 +49619,24 @@ function renderManualPage() {
   });
 
   SECTIONS.push({
+    id:'initiative', icon:'⚡', title:'Инициатива, Восприятие и Интеллект', color:'#d4a04a',
+    body:
+      '<h3 style="'+H3+'">Бросок инициативы</h3>'+
+      '<p style="'+P+'"><b>Инициатива = 1d20 + бонус инициативы.</b> Высокий результат ходит раньше.</p>'+
+      '<p style="'+P+'">Источники бонуса: <b>Ловкость, Восприятие, раса, навыки и предметы</b>. Базовый бонус проекта равен Ловкости +1 за каждые 2 полных очка Восприятия. В печатном мануале точного порога для Восприятия не было — это уточнение цифровой версии. Если два участника получили одинаковый итог, ГМ сравнивает Ловкость или определяет порядок по ситуации.</p>'+
+      '<h3 style="'+H3+'">Что делает Восприятие</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li>заметить засаду, скрытого врага или опасность;</li>'+
+        '<li>услышать движение, найти следы и распознать ложь или тревожный знак;</li>'+
+        '<li>не быть застигнутым врасплох при успешной проверке.</li>'+
+      '</ul>'+
+      '<p style="'+P+'"><b>Каждые 2 полных очка Восприятия дают +1 к инициативе.</b> Дополнительные расовые, предметные и навыковые бонусы считаются сверху.</p>'+
+      '<h3 style="'+H3+'">Что делает Интеллект</h3>'+
+      '<p style="'+P+'">Интеллект отвечает за анализ, знания, магию, ритуалы, шифры, алхимию и медицину. Он может быть характеристикой конкретного заклинания, но сам по себе не повышает инициативу.</p>'+
+      BX('Засада решается до очереди: успешное Восприятие помогает заметить угрозу, а затем инициатива определяет, кто действует раньше.', '#d4a04a')
+  });
+
+  SECTIONS.push({
     id:'magic', icon:'✨', title:'Магия — каст', color:'#a07fd4',
     body:
       '<h3 style="'+H3+'">Три формы магии</h3>'+
@@ -49555,7 +49656,8 @@ function renderManualPage() {
         '<li><b>Поддерживаемое</b> — длится, пока заклинатель его держит (см. след. раздел).</li>'+
       '</ul>'+
       '<h3 style="'+H3+'">Лимит изученных заклинаний</h3>'+
-      '<p style="'+P+'">По умолчанию — <b>3 заклинания всего</b> (любого типа, не каждого). Личные навыки и черты не считаются. Расы, предметы и особые состояния могут увеличить лимит.</p>'+
+      '<p style="'+P+'">По умолчанию лимит считается <b>отдельно для каждого типа</b>: до <b>3 Кодексов, 3 Фолиантов и 3 Ритуальников</b>. Итого персонаж может изучить до 9 источников магии, но нельзя занять свободный слот одного типа заклинанием другого типа.</p>'+
+      '<p style="'+P+'"><b>Эльф:</b> на уровнях 3, 6 и 9 получает ещё по +1 слоту каждого типа. Другие расовые, предметные или сюжетные бонусы действуют только тогда, когда прямо указаны.</p>'+
       BX('🎒 Спецспособности от расы или классовые навыки не занимают слоты заклинаний.', '#a07fd4')
   });
 
@@ -49759,6 +49861,37 @@ function renderManualPage() {
         '<div style="padding:6px 0;border-bottom:1px solid #1e1508"><b style="color:#c05050">Ур. 4 — Срыв.</b> Макс HP ÷ 2, нельзя кастовать заклинания.</div>'+
         '<div style="padding:6px 0"><b style="color:#a04040">Ур. 5 — Коллапс.</b> Без сознания. Попадаешь в сценарий 0 HP — борьба за жизнь.</div>'+
       '</div>'
+  });
+
+  SECTIONS.push({
+    id:'races', icon:'🧬', title:'Расы и расовое развитие', color:'#6fcb83',
+    body:
+      '<h3 style="'+H3+'">Базовые расы</h3>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>Человек:</b> 10 HP, +4 HP/ур., скорость 7 м; +1 свободное расовое очко на старте и на 3/6/9 уровнях.</li>'+
+        '<li><b>Эльф:</b> 9 HP, +4 HP/ур., скорость 7 м; +1 Интеллект на старте, +1 слот каждого типа магии на 3/6/9 уровнях.</li>'+
+        '<li><b>Дворф:</b> 12 HP, +5 HP/ур., скорость 7 м; +1 Выносливость на старте и на 3/6/9 уровнях.</li>'+
+        '<li><b>Гоблин:</b> 8 HP, +3 HP/ур., скорость 8 м; +1 Ловкость на старте, затем +1 Ловкость и +2 м скорости на 3/6/9 уровнях.</li>'+
+        '<li><b>Полурослик:</b> 6 HP, +3 HP/ур., скорость 5 м; +1 Харизма на старте и на 3/6/9 уровнях.</li>'+
+        '<li><b>Орк:</b> 14 HP, +6 HP/ур., скорость 7 м; +1 Сила на старте и на 3/6/9 уровнях.</li>'+
+      '</ul>'+
+      '<h3 style="'+H3+'">🌿 Фирболг</h3>'+
+      '<p style="'+P+'"><b>12 HP, +5 HP за уровень, AC 10, скорость 7 м.</b> Числовых расовых прибавок характеристик нет. Вместо них развивается способность «Пульс Леса».</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>1 — Тихий Пульс:</b> чувствует нарушение природы примерно в радиусе 100 м.</li>'+
+        '<li><b>3 — Глубинный Резонанс:</b> до 300 м, работает в садах, полях и парках; открывает ритуал связи с Эллирией 1/долгий отдых.</li>'+
+        '<li><b>6 — Направление Искажения:</b> до 1 км; определяет направление, движение и общий тип нарушения.</li>'+
+        '<li><b>9 — Всеприсутствующий Пульс:</b> чувствует крупные нарушения живого цикла на большом расстоянии и оценивает масштаб угрозы.</li>'+
+      '</ul>'+
+      BX('Пульс Леса сообщает о дисгармонии, но не выдаёт точные координаты, виновника или готовое решение.', '#6fcb83')+
+      '<h3 style="'+H3+'">🪶 Кенку</h3>'+
+      '<p style="'+P+'"><b>8 HP, +3 HP за уровень, AC 11, скорость 8 м.</b> На старте получает +1 Ловкость.</p>'+
+      '<ul style="'+UL+'">'+
+        '<li><b>3 уровень:</b> +1 Восприятие.</li>'+
+        '<li><b>6 уровень:</b> +1 Ловкость.</li>'+
+        '<li><b>9 уровень:</b> +1 Восприятие.</li>'+
+      '</ul>'+
+      '<p style="'+P+'">Кенку — подвид Уродцев. Его расовая механика полностью выражена скоростью, базовой бронёй и ростом Ловкости/Восприятия. Подражание голосам и остаток крыла сами по себе дополнительных числовых бонусов не дают.</p>'
   });
 
   SECTIONS.push({
@@ -52948,7 +53081,7 @@ global.getStatusCombatMods = function(combatant) {
 
 </script>
 
-<script src="zargota-progression.js?v=2026-07-27.2"></script>
+<script src="zargota-progression.js?v=2026-07-27.14"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -52983,7 +53116,8 @@ global.getStatusCombatMods = function(combatant) {
     'spell-detail-popup', 'level-manager', 'stat-points-spender',
     'stat-refund-dialog', 'storage-diag-overlay', 'zg-version-popup',
     'world-mobile-fullscreen', 'world-fs-tap-card', 'world-fs-close', 'world-fs-hint',
-    'level-up-modal', 'drama-popup-overlay', 'char-equip-modal-overlay'
+    'level-up-modal', 'drama-popup-overlay', 'char-equip-modal-overlay',
+    'zg-progression-overlay'
   ];
   function restoreSnapshot() {
     if (!SNAPSHOT) return;
@@ -53117,6 +53251,131 @@ global.getStatusCombatMods = function(combatant) {
     zgAssertEq(r.racialAt369.stat, 'con');
   });
 
+  // ─── Планировщик прокачки ───
+  zgTest('Прокачка: API загружен', function() {
+    zgAssert(typeof ZargotaProgression === 'object', 'ZargotaProgression не подключён');
+    zgAssertEq(typeof openProgressionPlanner, 'function');
+  });
+  zgTest('Прокачка: план хранится внутри героя', function() {
+    var c = { level:2 };
+    var plan = ZargotaProgression.ensurePlan(c);
+    zgAssert(c.progressionPlan === plan, 'план должен жить в объекте героя');
+    zgAssertEq(plan.baselineLevel, 2);
+    zgAssertEq(plan.selectedLevel, 3);
+  });
+  zgTest('Прокачка: человек получает 3 свободных очка на 3 уровне', function() {
+    zgAssertEq(ZargotaProgression.levelAllowance({ race:'Человек' }, 3), 3);
+    zgAssertEq(ZargotaProgression.levelAllowance({ race:'Человек' }, 4), 2);
+  });
+  zgTest('Прокачка: дворф получает 2 свободных очка на 3 уровне', function() {
+    zgAssertEq(ZargotaProgression.levelAllowance({ race:'Дворф' }, 3), 2);
+  });
+  zgTest('Прокачка: требования Каталога разбирают ИЛИ', function() {
+    var req = ZargotaProgression.extractRequirements({
+      restriction:'Совместимость: Интеллект 2+ или Харизма 3+'
+    });
+    zgAssertEq(req.mode, 'any');
+    zgAssertEq(req.stats.length, 2);
+    zgAssertEq(req.stats[0].key, 'int');
+    zgAssertEq(req.stats[0].min, 2);
+    zgAssertEq(req.stats[1].key, 'cha');
+    zgAssertEq(req.stats[1].min, 3);
+  });
+  zgTest('Прокачка: цена Товаров переводится в медь', function() {
+    zgAssertEq(ZargotaProgression.priceToCopper({ pl:1, zl:2, sr:3, md:4 }), 1234);
+  });
+  zgTest('Быстрый конструктор: учитывает расовые рубежи', function() {
+    var dwarf = ZargotaProgression.builderProjection('Дворф', 3);
+    zgAssertEq(dwarf.stats.con, 2);
+    zgAssertEq(dwarf.hp, 26);
+    var goblin = ZargotaProgression.builderProjection('Гоблин', 6);
+    zgAssertEq(goblin.stats.dex, 3);
+    zgAssertEq(goblin.speed, 12);
+    var human = ZargotaProgression.builderProjection('Человек', 3);
+    zgAssertEq(human.points, 10);
+  });
+  zgTest('Быстрый конструктор: учитывает стартовые бонусы всех базовых рас', function() {
+    zgAssertEq(ZargotaProgression.builderProjection('Человек', 1).points, 5);
+    zgAssertEq(ZargotaProgression.builderProjection('Эльф', 1).stats.int, 1);
+    zgAssertEq(ZargotaProgression.builderProjection('Дворф', 1).stats.con, 1);
+    zgAssertEq(ZargotaProgression.builderProjection('Гоблин', 1).stats.dex, 1);
+    zgAssertEq(ZargotaProgression.builderProjection('Полурослик', 1).stats.cha, 1);
+    zgAssertEq(ZargotaProgression.builderProjection('Орк', 1).stats.str, 1);
+  });
+  zgTest('Быстрый конструктор: инициатива учитывает Ловкость и Восприятие', function() {
+    zgAssertEq(ZargotaProgression.builderProjection('Гоблин', 1).initiative, 1);
+    zgAssertEq(ZargotaProgression.builderProjection('Орк', 1, { dex:2 }).initiative, 2);
+    zgAssertEq(ZargotaProgression.builderProjection('Орк', 1, { dex:1, per:2 }).initiative, 2);
+  });
+  zgTest('Новые расы: Фирболг и Кенку учитываются в расчётах', function() {
+    zgAssertEq(getRaceKey({ race:'Уродець (Кенку)' }), 'Кенку');
+    zgAssertEq(getRaceData({ race:'Фирболг' }).hpPerLevel, 5);
+    var kenku = ZargotaProgression.builderProjection('Кенку', 9);
+    zgAssertEq(kenku.stats.dex, 2);
+    zgAssertEq(kenku.stats.per, 2);
+    zgAssertEq(kenku.hp, 32);
+    zgAssertEq(kenku.ac, 11);
+  });
+  zgTest('Лимиты магии: 3 каждого типа, у Эльфа рост на 3/6/9', function() {
+    zgAssertEq(ZargotaProgression.spellTypeLimit({ race:'Человек' }, 'kodex', 9), 3);
+    zgAssertEq(ZargotaProgression.spellTypeLimit({ race:'Эльф' }, 'folio', 1), 3);
+    zgAssertEq(ZargotaProgression.spellTypeLimit({ race:'Эльф' }, 'folio', 3), 4);
+    zgAssertEq(ZargotaProgression.spellTypeLimit({ race:'Эльф' }, 'obrad', 9), 6);
+  });
+  zgTest('Планировщик блокирует четвёртое заклинание одного типа', function() {
+    var sameType = entries.filter(function(spell){ return spell.spellType === 'kodex'; }).slice(0, 4);
+    zgAssertEq(sameType.length, 4, 'в Каталоге нужны четыре Кодекса');
+    var c = {
+      level:1, race:'Человек',
+      stats:{str:{base:9},dex:{base:9},int:{base:9},cha:{base:9},per:{base:9},con:{base:9}},
+      spellRefs:sameType.slice(0, 3).map(function(spell){ return spell.id; })
+    };
+    var result = ZargotaProgression.toggleSpellAt(c, 2, sameType[3].id);
+    zgAssertEq(result.changed, false);
+    zgAssertEq(result.blocked, true);
+    zgAssertEq(ZargotaProgression.levelEntry(c, 2, false).spellIds.length, 0);
+  });
+  zgTest('Быстрый конструктор: распределяет очки и пересчитывает HP/AC', function() {
+    var human = ZargotaProgression.builderProjection('Человек', 3, { dex:3, con:2 });
+    zgAssertEq(human.used, 5);
+    zgAssertEq(human.free, 5);
+    zgAssertEq(human.hp, 22);
+    zgAssertEq(human.ac, 11);
+    zgAssertDeepEq(
+      ZargotaProgression.trimBuilderStats({ str:2, dex:2, int:2 }, 4),
+      { str:2, dex:2, int:0, cha:0, per:0, con:0 }
+    );
+  });
+  zgTest('Быстрый конструктор: стартовые очки ограничены +2 в один стат', function() {
+    zgAssertEq(ZargotaProgression.builderStatCap(1, 4), 2);
+    zgAssertEq(ZargotaProgression.builderProjection('Человек', 1).statCap, 2);
+    zgAssertEq(ZargotaProgression.builderStatCap(2, 6), 4);
+    zgAssertEq(ZargotaProgression.builderStatCap(3, 9), 7);
+    zgAssertDeepEq(
+      ZargotaProgression.trimBuilderStats({ str:0, dex:0, int:0, cha:0, per:0, con:4 }, 4, 2),
+      { str:0, dex:0, int:0, cha:0, per:0, con:2 }
+    );
+  });
+  zgTest('Прокачка: золото хранится только в плане', function() {
+    var c = { level:1, coins:{gold:7} };
+    var entry = ZargotaProgression.levelEntry(c, 2, true);
+    entry.gold.push({amount:5,note:'награда'});
+    zgAssertEq(ZargotaProgression.plannedGold(c, 2), 500);
+    zgAssertEq(c.coins.gold, 7);
+  });
+  zgTest('Прокачка: навык добавляется в план даже с предупреждением', function() {
+    var c = {
+      level:1,
+      stats:{str:{base:0},dex:{base:0},int:{base:0},cha:{base:0},per:{base:0},con:{base:0}},
+      spellRefs:[]
+    };
+    var spell = entries[0];
+    zgAssert(spell && spell.id != null, 'Каталог должен содержать навык');
+    var result = ZargotaProgression.toggleSpellAt(c, 2, spell.id);
+    zgAssertEq(result.changed, true);
+    zgAssertEq(result.added, true);
+    zgAssertEq(ZargotaProgression.levelEntry(c, 2, false).spellIds.length, 1);
+  });
   // ─── Миграции ───
   zgTest('applyCharsMigrations: создаёт tempEffects если нет', function() {
     var arr = [{ id: 1, name: 'X' }];
@@ -53300,7 +53559,20 @@ global.getStatusCombatMods = function(combatant) {
     zgAssertEq(sn, 10, 'скорость 8 + 2 = 10');
     var idx = characters.indexOf(c); if (idx >= 0) characters.splice(idx, 1);
   });
-  zgTest('levelUp: Эльф на 9 уровне НЕ даёт расовых бонусов', function() {
+  zgTest('levelUp: Кенку на 3 уровне получает +1 Восприятие', function() {
+    var c = {
+      id: 'tst-lu-kenku', name: 'Кенку', race: 'Уродець (Кенку)', level: 2,
+      baseHpMax: 11, hpMax: 11, hpCur: 11, baseAc: 11, baseInitiative: 0, baseSpeed: '8 м',
+      stats: { str:{base:0,cur:0,tmp:0}, dex:{base:1,cur:1,tmp:0}, int:{base:0,cur:0,tmp:0}, cha:{base:0,cur:0,tmp:0}, per:{base:0,cur:0,tmp:0}, con:{base:0,cur:0,tmp:0} },
+      unspentStatPoints: 0, levelHistory: []
+    };
+    characters.push(c);
+    levelUpCharacter('tst-lu-kenku');
+    zgAssertEq(c.stats.per.base, 1);
+    zgAssertEq(c.baseHpMax, 14);
+    var idx = characters.indexOf(c); if (idx >= 0) characters.splice(idx, 1);
+  });
+  zgTest('levelUp: Эльф на 9 уровне не получает автоматический стат', function() {
     var c = {
       id: 'tst-lu-elf', name: 'Эльф', race: 'Эльф', level: 8,
       baseHpMax: 41, hpMax: 41, hpCur: 41, baseAc: 10, baseInitiative: 0, baseSpeed: '7 м',
@@ -53440,11 +53712,13 @@ global.getStatusCombatMods = function(combatant) {
   });
 
   // ─── Целостность глобалов ───
-  zgTest('Глобал ZARGOTA_RACES имеет 7 рас', function() {
+  zgTest('Глобал ZARGOTA_RACES имеет 9 рас', function() {
     var keys = Object.keys(ZARGOTA_RACES);
-    zgAssertEq(keys.length, 7, 'ровно 7 рас');
+    zgAssertEq(keys.length, 9, 'ровно 9 рас');
     zgAssert(ZARGOTA_RACES['Человек'], 'есть Человек');
     zgAssert(ZARGOTA_RACES['Эльф'], 'есть Эльф');
+    zgAssert(ZARGOTA_RACES['Фирболг'], 'есть Фирболг');
+    zgAssert(ZARGOTA_RACES['Кенку'], 'есть Кенку');
     zgAssert(ZARGOTA_RACES['Уродец'], 'есть Уродец');
   });
   zgTest('Глобал STATS имеет 6 характеристик с правильными ключами', function() {
