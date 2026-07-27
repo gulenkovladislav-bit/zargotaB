@@ -2,6 +2,9 @@
   'use strict';
 
   var SESSION_KEY = 'zargota_vtt_session_v4';
+  var TAB_ID_KEY = 'zargota_vtt_tab_id_v1';
+  var TAB_STARTED_KEY = 'zargota_vtt_tab_started_v1';
+  var TAB_CHANNEL_NAME = 'zargota-session-tabs-v1';
   var SYNC_LOG_KEY = 'zargota_sync_events_v1';
   var CAMPAIGN_HERO_KEYS = {
     '1776627463516':'evan','1776626039651':'melissa','1776463717210':'esteros','1778221131899':'vrotik','1778221143711':'lin-yin'
@@ -38,6 +41,9 @@
   };
   var leaveRoomPromise = null;
   var outboxFlushPromise = null;
+  var tabChannel = null;
+  var tabPeers = Object.create(null);
+  var tabHeartbeatTimer = 0;
   var characterSync = {
     status: 'local',
     direction: '',
@@ -636,19 +642,155 @@
     return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4);
   }
 
+  function sessionTabId() {
+    try {
+      var existing = String(sessionStorage.getItem(TAB_ID_KEY) || '');
+      if (/^tab-[a-zA-Z0-9_-]{8,120}$/.test(existing)) return existing;
+      var suffix = '';
+      if (w.crypto && typeof w.crypto.randomUUID === 'function') suffix = w.crypto.randomUUID().replace(/-/g, '');
+      else if (w.crypto && typeof w.crypto.getRandomValues === 'function') {
+        var bytes = new Uint32Array(3);
+        w.crypto.getRandomValues(bytes);
+        suffix = Array.prototype.map.call(bytes, function (value) { return value.toString(36); }).join('');
+      }
+      if (!suffix) suffix = Date.now().toString(36) + Math.random().toString(36).slice(2);
+      var created = 'tab-' + suffix.slice(0, 120);
+      sessionStorage.setItem(TAB_ID_KEY, created);
+      return created;
+    } catch (error) {
+      return 'tab-memory-' + Math.random().toString(36).slice(2, 14);
+    }
+  }
+
+  function sessionTabStartedAt() {
+    try {
+      var existing = Math.max(0, Number(sessionStorage.getItem(TAB_STARTED_KEY)) || 0);
+      if (existing) return existing;
+      var created = now();
+      sessionStorage.setItem(TAB_STARTED_KEY, String(created));
+      return created;
+    } catch (error) {
+      return now();
+    }
+  }
+
+  function tabCoordinationMessage(type, session) {
+    if (!tabChannel) return;
+    session = session || readSession();
+    if (!session || !session.code) return;
+    try {
+      tabChannel.postMessage({
+        type:type || 'heartbeat',
+        tabId:sessionTabId(),
+        startedAt:sessionTabStartedAt(),
+        roomCode:String(session.code || ''),
+        role:String(session.role || ''),
+        time:now()
+      });
+    } catch (error) {}
+  }
+
+  function pruneTabPeers() {
+    var cutoff = now() - 12000, changed = false;
+    Object.keys(tabPeers).forEach(function (tabId) {
+      if (!tabPeers[tabId] || Number(tabPeers[tabId].time) < cutoff) {
+        delete tabPeers[tabId];
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  function tabCoordinationState() {
+    pruneTabPeers();
+    var session = readSession(), ownId = sessionTabId(), roomCode = String(session && session.code || '');
+    var peers = Object.keys(tabPeers).map(function (tabId) { return tabPeers[tabId]; }).filter(function (peer) {
+      return roomCode && peer && String(peer.roomCode || '') === roomCode && String(peer.tabId || '') !== ownId;
+    });
+    var candidates = session ? peers.concat([{tabId:ownId,startedAt:sessionTabStartedAt()}]) : [];
+    candidates.sort(function (a, b) {
+      return Number(a.startedAt || 0) - Number(b.startedAt || 0) || String(a.tabId || '').localeCompare(String(b.tabId || ''));
+    });
+    var owner = candidates[0] || null;
+    return {
+      available:!!tabChannel,
+      tabId:ownId,
+      roomCode:roomCode,
+      active:session ? peers.length + 1 : 0,
+      isSecondary:!!(session && owner && String(owner.tabId || '') !== ownId),
+      ownerTabId:String(owner && owner.tabId || '')
+    };
+  }
+
+  function notifyTabCoordination() {
+    if (typeof api !== 'undefined' && api && api.getSnapshot) emit();
+  }
+
+  function initTabCoordination() {
+    if (!w || typeof w.BroadcastChannel !== 'function' || tabChannel) return;
+    try {
+      tabChannel = new w.BroadcastChannel(TAB_CHANNEL_NAME);
+      tabChannel.onmessage = function (event) {
+        var data = event && event.data || {}, ownId = sessionTabId();
+        if (!data.tabId || String(data.tabId) === ownId) return;
+        if (data.type === 'release') {
+          if (tabPeers[data.tabId]) { delete tabPeers[data.tabId]; notifyTabCoordination(); }
+          return;
+        }
+        if (data.type !== 'heartbeat' && data.type !== 'probe') return;
+        tabPeers[data.tabId] = {
+          tabId:String(data.tabId),
+          startedAt:Math.max(0, Number(data.startedAt) || 0),
+          roomCode:String(data.roomCode || ''),
+          role:String(data.role || ''),
+          time:now()
+        };
+        if (data.type === 'probe') tabCoordinationMessage('heartbeat');
+        notifyTabCoordination();
+      };
+      tabChannel.postMessage({type:'probe',tabId:sessionTabId(),time:now()});
+      tabCoordinationMessage('heartbeat');
+      tabHeartbeatTimer = setInterval(function () {
+        var changed = pruneTabPeers();
+        tabCoordinationMessage('heartbeat');
+        if (changed) notifyTabCoordination();
+      }, 4000);
+      w.addEventListener('pagehide', function () {
+        tabCoordinationMessage('release');
+        clearInterval(tabHeartbeatTimer);
+        tabHeartbeatTimer = 0;
+        try { tabChannel.close(); } catch (error) {}
+        tabChannel = null;
+      }, {once:true});
+    } catch (error) {
+      tabChannel = null;
+    }
+  }
+
   function readSession() {
     try {
       var raw = sessionStorage.getItem(SESSION_KEY) || 'null';
       var parsed = JSON.parse(raw);
-      return parsed && parsed.code ? parsed : null;
+      if (!parsed || !parsed.code) return null;
+      if (!parsed.tabId) {
+        parsed.tabId = sessionTabId();
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(parsed));
+      }
+      return parsed;
     } catch (e) { return null; }
   }
 
   function saveSession(session) {
     try {
       if (session) {
+        session.tabId = sessionTabId();
         sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+        tabCoordinationMessage('heartbeat', session);
       } else {
+        var previousRaw = sessionStorage.getItem(SESSION_KEY);
+        var previous = null;
+        try { previous = previousRaw ? JSON.parse(previousRaw) : null; } catch (error) {}
+        tabCoordinationMessage('release', previous);
         sessionStorage.removeItem(SESSION_KEY);
       }
     } catch (e) {}
@@ -3147,6 +3289,7 @@
         campaign: currentCampaign,
         players: membersOf(currentRoom, 'player'),
         pending: pendingOf(currentRoom),
+        tabCoordination: tabCoordinationState(),
         characterSync: cloneCharacterSync(),
         error: initError ? initError.message : ''
       };
@@ -3222,6 +3365,8 @@
     normalizeCode: normalizeRoomCode,
     normalizePlayerCode: normalizePlayerCode
   };
+
+  initTabCoordination();
 
   var ready = Promise.all([
     import('https://www.gstatic.com/firebasejs/' + FIREBASE_VERSION + '/firebase-app.js'),

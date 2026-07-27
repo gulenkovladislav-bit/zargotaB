@@ -110,8 +110,10 @@ var importRunStart = html.indexOf('function runPreparedSceneImport');
 var importRunEnd = html.indexOf('function finishPreparedSceneImport', importRunStart);
 var importRunBlock = html.slice(importRunStart, importRunEnd);
 assert.match(importRunBlock, /mode==='replace'&&collision&&collision\.id!==activeSceneId/);
+assert.match(importRunBlock, /hydrateSceneRecordMedia\(collision\)/);
 assert.ok(importRunBlock.indexOf('putSceneImportRecord(backupRecord)') < importRunBlock.indexOf('putSceneImportRecord(replacement)'), 'backup must be confirmed before replacement');
 assert.match(importRunBlock, /if\(!backupSaved\)throw new Error/);
+assert.match(html.slice(html.indexOf('function putSceneImportRecord'), importRunStart), /saveLinkedSceneRecord\(record,record&&record\.updatedAt/);
 assert.match(html, /id="zg-scene-import-choice"/);
 assert.match(html, /zgSceneImportDecision\('copy'\)/);
 assert.match(html, /zgSceneImportDecision\('replace'\)/);
@@ -147,9 +149,9 @@ var sceneSaveBlock = html.slice(sceneSaveStart, sceneSaveEnd);
 assert.match(sceneSaveBlock, /currentRevision!==activeSceneRevision/);
 assert.match(sceneSaveBlock, /saveSceneVersion\(previous,stamp,function\(savedVersion\)/);
 assert.ok(sceneSaveBlock.indexOf('saveSceneVersion(previous') < sceneSaveBlock.lastIndexOf('commit();'), 'previous version must persist before current scene');
-assert.match(sceneSaveBlock, /activeSceneRevision=rec\.revision/);
+assert.match(sceneSaveBlock, /activeSceneRevision=saved\.revision/);
 assert.match(sceneSaveBlock, /updatedByDevice:sceneDeviceId\(\)/);
-assert.match(sceneSaveBlock, /pruneSceneVersions\(rec\.id\)/);
+assert.match(sceneSaveBlock, /pruneSceneVersions\(saved\.id\)/);
 assert.match(html, /\.slice\(5\)\.forEach/);
 assert.match(html, /function sceneMetaLine\(record\)/);
 assert.match(html, /Последнее устройство:/);
@@ -169,19 +171,29 @@ assert.match(versionRestoreBlock, /category!=='scene-version'/);
 assert.match(versionRestoreBlock, /hydrateSceneMedia\(version\.scene\)/);
 assert.match(versionRestoreBlock, /общий ассет не найден/);
 assert.match(versionRestoreBlock, /id:'a'\+stamp\.toString\(36\)/);
+assert.match(versionRestoreBlock, /saveLinkedSceneRecord\(rec,stamp/);
 assert.match(versionRestoreBlock, /Версия восстановлена отдельной сценой/);
 assert.strictEqual(versionRestoreBlock.indexOf('activeSceneId=') >= 0, false, 'restoring a version must not switch or overwrite the active scene');
+
+var duplicateStart = html.indexOf('w.zgSceneDuplicate=function');
+var duplicateEnd = html.indexOf('w.zgSceneLibDelete=function', duplicateStart);
+var duplicateBlock = html.slice(duplicateStart, duplicateEnd);
+assert.match(duplicateBlock, /hydrateSceneRecordMedia\(r\)/);
+assert.match(duplicateBlock, /saveLinkedSceneRecord\(copy,stamp/);
 
 var importHelpersStart = html.indexOf('function uniqueSceneImportName');
 var importHelpersEnd = html.indexOf('function sceneAssetToDataUrl', importHelpersStart);
 var importWrites = [];
+var hydratedImportIds = [];
 var importContext = {
   Promise:Promise,
   activeSceneId:'',
   libCache:{},
   sceneDeviceId:function(){return 'test-device';},
   sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));},
-  w:{ZargotaLib:{put:function(record,done){importWrites.push(JSON.parse(JSON.stringify(record)));done(record);}}}
+  hydrateSceneRecordMedia:function(record){hydratedImportIds.push(record.id);return Promise.resolve(Object.assign({},record,{scene:JSON.parse(JSON.stringify(record.scene))}));},
+  saveLinkedSceneRecord:function(record,stamp,done){importWrites.push(JSON.parse(JSON.stringify(record)));done(record);},
+  w:{ZargotaLib:{}}
 };
 vm.runInNewContext(
   html.slice(importHelpersStart, importHelpersEnd) +
@@ -198,6 +210,7 @@ importContext.result.then(function(result) {
   assert.strictEqual(importWrites[1].scene.layers[0].image, 'new');
   assert.strictEqual(result.replaced, 1);
   assert.strictEqual(result.backups, 1);
+  assert.deepStrictEqual(hydratedImportIds, ['old'], 'replacement must hydrate the existing scene before creating its backup');
 
   var activeWrites = [];
   var activeContext = {
@@ -206,7 +219,9 @@ importContext.result.then(function(result) {
     libCache:{},
     sceneDeviceId:function(){return 'test-device';},
     sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));},
-    w:{ZargotaLib:{put:function(record,done){activeWrites.push(record);done(record);}}}
+    hydrateSceneRecordMedia:function(record){return Promise.resolve(record);},
+    saveLinkedSceneRecord:function(record,stamp,done){activeWrites.push(record);done(record);},
+    w:{ZargotaLib:{}}
   };
   vm.runInNewContext(
     html.slice(importHelpersStart, importHelpersEnd) +
@@ -226,7 +241,9 @@ importContext.result.then(function(result) {
       libCache:{},
       sceneDeviceId:function(){return 'test-device';},
       sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));},
-      w:{ZargotaLib:{put:function(record,done){failedWrites.push(record);done(null);}}}
+      hydrateSceneRecordMedia:function(record){return Promise.resolve(record);},
+      saveLinkedSceneRecord:function(record,stamp,done){failedWrites.push(record);done(null);},
+      w:{ZargotaLib:{}}
     };
     vm.runInNewContext(
       html.slice(importHelpersStart, importHelpersEnd) +

@@ -22,6 +22,105 @@ assert.match(network, /snapshot\.updatedBy\s*=\s*String\(user\s*&&\s*user\.uid/)
 assert.match(network, /if\s*\(!canApplyIncomingCharacter\(session,\s*member\.character,\s*\{\s*allowQueued:true\s*\}\)\)\s*return/);
 assert.match(network, /String\(member\.characterId\s*\|\|\s*''\)\s*!==\s*String\(character\.id\)/);
 assert.match(network, /if\s*\(heroTaken\)\s*throw roomError/);
+assert.match(network, /var TAB_ID_KEY = 'zargota_vtt_tab_id_v1'/);
+assert.match(network, /var TAB_CHANNEL_NAME = 'zargota-session-tabs-v1'/);
+assert.match(network, /session\.tabId = sessionTabId\(\)/);
+assert.match(network, /tabCoordination:\s*tabCoordinationState\(\)/);
+var tabCoordinationStart = network.indexOf('  function tabCoordinationMessage(');
+var tabCoordinationEnd = network.indexOf('  function readSession()', tabCoordinationStart);
+var tabCoordinationBlock = network.slice(tabCoordinationStart, tabCoordinationEnd);
+assert.match(tabCoordinationBlock, /new w\.BroadcastChannel\(TAB_CHANNEL_NAME\)/);
+assert.match(tabCoordinationBlock, /data\.type === 'release'/);
+assert.match(tabCoordinationBlock, /data\.type !== 'heartbeat' && data\.type !== 'probe'/);
+assert.match(tabCoordinationBlock, /isSecondary:/);
+assert.strictEqual(tabCoordinationBlock.indexOf('stopWatchingRoom') >= 0, false, 'detection must not stop an active room');
+assert.strictEqual(tabCoordinationBlock.indexOf('firebase.') >= 0, false, 'detection must remain local');
+assert.match(html, /id="zg-tab-session-warning"/);
+assert.match(html, /tabCoordination\.isSecondary/);
+
+var sessionHelpersStart = network.indexOf('  function sessionTabId()');
+var sessionHelpersEnd = network.indexOf('  function generatedCode(', sessionHelpersStart);
+var sessionValues = {};
+var sessionContext = {
+  SESSION_KEY:'test-session',
+  TAB_ID_KEY:'test-tab',
+  TAB_STARTED_KEY:'test-tab-started',
+  TAB_CHANNEL_NAME:'test-channel',
+  tabChannel:null,
+  tabPeers:{},
+  tabHeartbeatTimer:0,
+  Math:Math,
+  Date:Date,
+  JSON:JSON,
+  Uint32Array:Uint32Array,
+  Array:Array,
+  now:function(){return Date.now();},
+  w:{crypto:{randomUUID:function(){return '12345678-1234-1234-1234-123456789abc';}}},
+  sessionStorage:{
+    getItem:function(key){return Object.prototype.hasOwnProperty.call(sessionValues,key)?sessionValues[key]:null;},
+    setItem:function(key,value){sessionValues[key]=String(value);},
+    removeItem:function(key){delete sessionValues[key];}
+  }
+};
+vm.runInNewContext(network.slice(sessionHelpersStart,sessionHelpersEnd),sessionContext);
+sessionContext.saveSession({code:'ROOM',uid:'user',role:'player'});
+var storedTabId=JSON.parse(sessionValues['test-session']).tabId;
+assert.match(storedTabId,/^tab-/);
+assert.strictEqual(sessionContext.readSession().tabId,storedTabId,'reload in the same tab must keep tabId');
+sessionContext.saveSession(null);
+assert.strictEqual(sessionContext.sessionTabId(),storedTabId,'leaving a room must not change the tab identity');
+
+var tabChannels=[];
+function FakeSessionChannel(name){this.name=name;this.onmessage=null;tabChannels.push(this);}
+FakeSessionChannel.prototype.postMessage=function(data){
+  var own=this;
+  tabChannels.slice().forEach(function(channel){
+    if(channel!==own&&channel.name===own.name&&channel.onmessage)channel.onmessage({data:data});
+  });
+};
+FakeSessionChannel.prototype.close=function(){var own=this;tabChannels=tabChannels.filter(function(channel){return channel!==own;});};
+function coordinatedTab(tabId,startedAt){
+  var values={
+    'test-tab':tabId,
+    'test-tab-started':String(startedAt)
+  };
+  var tabWindow={
+    crypto:{},
+    BroadcastChannel:FakeSessionChannel,
+    addEventListener:function(){}
+  };
+  var context={
+    SESSION_KEY:'test-session',
+    TAB_ID_KEY:'test-tab',
+    TAB_STARTED_KEY:'test-tab-started',
+    TAB_CHANNEL_NAME:'test-channel',
+    tabChannel:null,
+    tabPeers:{},
+    tabHeartbeatTimer:0,
+    Math:Math,Date:Date,JSON:JSON,Uint32Array:Uint32Array,Array:Array,
+    now:function(){return Date.now();},
+    w:tabWindow,
+    setInterval:function(){return 1;},
+    clearInterval:function(){},
+    sessionStorage:{
+      getItem:function(key){return Object.prototype.hasOwnProperty.call(values,key)?values[key]:null;},
+      setItem:function(key,value){values[key]=String(value);},
+      removeItem:function(key){delete values[key];}
+    }
+  };
+  vm.runInNewContext(network.slice(sessionHelpersStart,sessionHelpersEnd),context);
+  context.saveSession({code:'ROOM',uid:'user-'+tabId,role:'player'});
+  context.initTabCoordination();
+  return context;
+}
+var firstSessionTab=coordinatedTab('tab-first-tab',1000);
+var secondSessionTab=coordinatedTab('tab-second-tab',2000);
+assert.strictEqual(firstSessionTab.tabCoordinationState().active,2);
+assert.strictEqual(firstSessionTab.tabCoordinationState().isSecondary,false);
+assert.strictEqual(secondSessionTab.tabCoordinationState().active,2);
+assert.strictEqual(secondSessionTab.tabCoordinationState().isSecondary,true,'newer tab must show the duplicate-session warning');
+secondSessionTab.saveSession(null);
+assert.strictEqual(firstSessionTab.tabCoordinationState().active,1,'release must remove the duplicate immediately');
 
 var attachStart = network.indexOf('attachCharacter: function');
 var syncStart = network.indexOf('syncCharacter: function');
@@ -120,6 +219,10 @@ assert.match(network, /pending\s*&&\s*!\(store\.matchesApplied/);
 assert.match(network, /localUnsynced\s*\|\|\s*pending/);
 assert.match(network, /canApplyIncomingCharacter\(session,\s*member\.character,\s*\{\s*allowQueued:true\s*\}\)/);
 assert.match(network, /clearLocalUnsynced\(entry\.characterId\)/);
+assert.match(network, /firebase\.ref\(db,\s*'\.info\/connected'\)/);
+assert.match(network, /if\s*\(connected\)\s*\{\s*setPresence\(readSession\(\)\);\s*flushCharacterOutbox\(\);/);
+assert.match(network, /if\s*\(connected\)\s*flushCharacterOutbox\(\);/);
+assert.match(network, /if\s*\(remaining\s*&&\s*connected\s*&&\s*shouldContinue\)\s*return\s*flushCharacterOutbox\(\);/);
 
 var domainStart = network.indexOf('function applyVitalsDomainOperation');
 var domainEnd = network.indexOf('function combatHeroEntry', domainStart);
@@ -163,6 +266,16 @@ assert.match(network, /statusTurnTick[\s\S]+applyVitalsDomainOperation\(\{hp:hp,
 assert.match(network, /outbox-remove-error/);
 assert.match(network, /outbox:\s*syncOutbox\(\)/);
 assert.match(network, /restoreCharacterInboundFromRoom/);
+assert.match(network, /enableCharacterInbound\(session,\s*\{\s*uid:session\.uid\s*\},\s*member\.character\)/);
+var journeySyncStart = html.indexOf('  function localCharacter(snapshot)');
+var journeySyncEnd = html.indexOf('  // «Да» — закрепляем локальный лист', journeySyncStart);
+var journeySyncBlock = html.slice(journeySyncStart, journeySyncEnd);
+assert.match(journeySyncBlock, /var id = member && member\.characterId/);
+assert.match(journeySyncBlock, /String\(chars\[i\]\.id\) === String\(id\)/);
+assert.match(journeySyncBlock, /room\.phase === 'character-select'/);
+assert.match(journeySyncBlock, /room\.phase === 'journey' \|\| room\.phase === 'playing'/);
+assert.match(journeySyncBlock, /beginJourney\(c,\s*true\)/);
+assert.match(journeySyncBlock, /finishJourney\(\)/);
 assert.match(network, /enableCharacterInbound\(session,\s*\{\s*uid:session\.uid\s*\},\s*member\.character\)/);
 assert.strictEqual(network.indexOf("navigationEntry.type!=='reload'"), -1);
 

@@ -17,6 +17,8 @@ assert.match(html, /Firebase-записи \/ мин\./);
 assert.match(html, /Повторные subscribe\(\)/);
 assert.match(html, /Room watch start \/ stop/);
 assert.match(html, /Подписка соединения/);
+assert.match(html, /ID вкладки/);
+assert.match(html, /Сессия уже открыта в другой вкладке/);
 assert.match(html, /before_\.\*restore/);
 assert.match(html, /резерв перед импортом/);
 assert.match(html, /category==='scene-media'/);

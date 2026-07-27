@@ -19,6 +19,8 @@ var character = {
 var context = {
   activePanel:'inventory',
   inventoryFilter:'all',
+  inventorySearch:'',
+  inventorySort:'manual',
   inventoryOperationNotice:null,
   abilitiesFilter:'all',
   abilityRequestBusy:false,
@@ -36,6 +38,35 @@ assert.strictEqual(context.drawerRenderSignature(),initial,'token movement must 
 character.inventoryItems[0].qty=2;
 assert.notStrictEqual(context.drawerRenderSignature(),initial,'inventory change must invalidate inventory');
 assert.strictEqual(initial.indexOf('base64,heavy'),-1,'heavy image data must not enter render signature');
+context.inventorySearch='ключ';
+assert.notStrictEqual(context.drawerRenderSignature(),initial,'inventory search must invalidate only the drawer view');
+
+var inventoryHelpersStart=html.indexOf('  function inventoryItemCategory(item)');
+var inventoryHelpersEnd=html.indexOf('  function inventoryPanel()',inventoryHelpersStart);
+assert.ok(inventoryHelpersStart>=0&&inventoryHelpersEnd>inventoryHelpersStart,'inventory view helpers must exist');
+var inventoryContext={};
+vm.runInNewContext(html.slice(inventoryHelpersStart,inventoryHelpersEnd),inventoryContext);
+var inventorySource=[
+  {itemId:'potion',name:'Зелье света',description:'Лечебный настой',category:'potion',qty:2},
+  {itemId:'sword',name:'Меч',category:'weapon',qty:1},
+  {itemId:'equipped',name:'Щит',category:'armor',equipped:true,qty:1}
+];
+assert.deepStrictEqual(
+  Array.from(inventoryContext.inventoryRowsForView(inventorySource,'all','лечебный','manual')).map(function(row){return row.index;}),
+  [0],
+  'search must match item details without rewriting source indexes'
+);
+assert.deepStrictEqual(
+  Array.from(inventoryContext.inventoryRowsForView(inventorySource,'weapon','','manual')).map(function(row){return row.index;}),
+  [1],
+  'category filter must preserve the original item index'
+);
+assert.deepStrictEqual(
+  Array.from(inventoryContext.inventoryRowsForView(inventorySource,'all','','qty')).map(function(row){return row.index;}),
+  [0,1],
+  'quantity sort must affect only visible rows and exclude equipped items'
+);
+assert.deepStrictEqual(inventorySource.map(function(item){return item.itemId;}),['potion','sword','equipped'],'view sorting must not mutate inventoryItems');
 
 var drawerStart=html.indexOf('  function renderDrawer(force)');
 var drawerEnd=html.indexOf('  function render(snapshot)',drawerStart);
