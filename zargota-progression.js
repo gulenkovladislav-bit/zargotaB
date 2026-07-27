@@ -176,11 +176,9 @@ window.__zgpScriptStarted = true;
 
   function projectedInitiative(character, targetLevel) {
     var initiative = Number(character.initiative) || 0;
-    var nowDex = currentBaseStat(character, 'dex');
     var nowPer = currentBaseStat(character, 'per');
     var futureStats = projectedStats(character, targetLevel);
-    return initiative + futureStats.dex - nowDex +
-      Math.floor(futureStats.per / 2) - Math.floor(nowPer / 2);
+    return initiative + Math.floor(futureStats.per / 2) - Math.floor(nowPer / 2);
   }
 
   function catalogEntries() {
@@ -762,7 +760,7 @@ window.__zgpScriptStarted = true;
       allocated: allocated,
       hp: (Number(race.hpStart) || 10) + Math.max(0, level - 1) * (Number(race.hpPerLevel) || 4) + stats.con * 2,
       ac: (Number(race.acStart) || 10) + Math.floor(stats.dex / 3),
-      initiative: stats.dex + Math.floor(stats.per / 2),
+      initiative: Math.floor(stats.per / 2),
       speed: (Number(race.speed) || 7) + speedBonus,
       points: points,
       statCap: builderStatCap(level, points),
@@ -881,7 +879,7 @@ window.__zgpScriptStarted = true;
           return '<div class="zgp-gain"><span>' + gain.icon + '</span><span>' + esc(gain.text) +
             '</span><strong>' + esc(gain.value) + '</strong></div>';
         }).join('') + '</div>' +
-        '<div class="zgp-builder-note">На 1-м уровне из стартовых 4 очков нельзя вложить больше 2 в одну характеристику. Расовый бонус считается отдельно и может поднять итог выше +2. Очки следующих уровней могут развивать характеристику дальше. HP и AC пересчитываются сразу; инициатива = Ловкость +1 за каждые 2 очка Восприятия. Конструктор не изменяет героя и роадмапу.</div>' +
+        '<div class="zgp-builder-note">На 1-м уровне из стартовых 4 очков нельзя вложить больше 2 в одну характеристику. Расовый бонус считается отдельно и может поднять итог выше +2. Очки следующих уровней могут развивать характеристику дальше. HP и AC пересчитываются сразу; каждые 2 полных очка Восприятия дают +1 инициативы. Конструктор не изменяет героя и роадмапу.</div>' +
       '</div></div></section>';
   }
 
@@ -1262,8 +1260,8 @@ window.__zgpScriptStarted = true;
         text:'Каждые полные 3 очка Ловкости дают +1 AC.\n0–2 = +0; 3–5 = +1; 6–8 = +2; 9–11 = +3.'
       },
       {
-        label:'⚡ ЛОВКОСТЬ И ВОСПРИЯТИЕ → ИНИЦИАТИВА',
-        text:'Базовый бонус = Ловкость + ⌊Восприятие / 2⌋.\nРасовые свойства, навыки и предметы прибавляются сверху.'
+        label:'⚡ ВОСПРИЯТИЕ → ИНИЦИАТИВА',
+        text:'Каждые 2 полных очка Восприятия дают +1 инициативы.\nЛовкость инициативу не повышает. Расовые свойства, навыки и предметы прибавляются сверху.'
       },
       {
         label:'✦ СТАРТОВОЕ РАСПРЕДЕЛЕНИЕ',
