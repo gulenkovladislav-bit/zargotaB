@@ -10900,6 +10900,74 @@ document.addEventListener('DOMContentLoaded', function(){
       sourceDevice:String(record.updatedByDevice||''),created:stamp
     };
   }
+  function sceneMediaId(source){
+    source=String(source||'');var first=2166136261,second=5381;
+    for(var index=0;index<source.length;index++){
+      var code=source.charCodeAt(index);
+      first=Math.imul(first^code,16777619)>>>0;
+      second=((second<<5)+second^code)>>>0;
+    }
+    return 'sm-'+source.length.toString(36)+'-'+first.toString(36)+'-'+second.toString(36);
+  }
+  function ensureSceneMedia(source,kind){
+    return new Promise(function(resolve,reject){
+      source=String(source||'');
+      if(!/^data:image\//i.test(source)){resolve('');return;}
+      var baseId=sceneMediaId(source);
+      w.ZargotaLib.get(baseId,function(existing){
+        var same=!!(existing&&existing.category==='scene-media'&&existing.dataUrl===source),id=baseId;
+        if(existing&&!same)id=baseId+'-'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+        var kinds=Object.assign({},same&&existing.kinds||{});
+        kinds[kind==='token'?'token':'background']=true;
+        if(same&&existing.kinds&&existing.kinds[kind==='token'?'token':'background']){resolve(id);return;}
+        var record={id:id,category:'scene-media',dataUrl:source,bytes:source.length,kinds:kinds,created:existing&&existing.created||Date.now()};
+        w.ZargotaLib.put(record,function(saved){if(saved)resolve(id);else reject(new Error('Не удалось сохранить общий ассет версии сцены'));});
+      });
+    });
+  }
+  function externalizeSceneVersion(record,stamp){
+    var version=sceneVersionRecord(record,stamp),operations=[];
+    if(/^data:image\//i.test(String(version.thumb||''))){
+      operations.push(function(){return ensureSceneMedia(version.thumb,'background').then(function(assetId){version.thumb='';version.thumbAssetId=assetId;});});
+    }
+    (version.scene.layers||[]).forEach(function(layer){
+      if(!/^data:image\//i.test(String(layer&&layer.image||'')))return;
+      operations.push(function(){return ensureSceneMedia(layer.image,'background').then(function(assetId){
+        layer.image='';layer.imageAssetId=assetId;
+      });});
+    });
+    (version.scene.tokens||[]).forEach(function(token){
+      if(!/^data:image\//i.test(String(token&&token.image||'')))return;
+      operations.push(function(){return ensureSceneMedia(token.image,'token').then(function(assetId){token.image='';token.imageAssetId=assetId;});});
+    });
+    return operations.reduce(function(chain,operation){return chain.then(operation);},Promise.resolve()).then(function(){version.mediaSchema=1;return version;});
+  }
+  function hydrateSceneMedia(scene){
+    var raw=JSON.parse(JSON.stringify(scene||{})),targets=[],byId={};
+    (Array.isArray(raw.layers)?raw.layers:[]).forEach(function(layer){
+      if(layer&&layer.imageAssetId)targets.push({assetId:String(layer.imageAssetId),target:layer});
+    });
+    (Array.isArray(raw.tokens)?raw.tokens:[]).forEach(function(token){
+      if(token&&token.imageAssetId)targets.push({assetId:String(token.imageAssetId),target:token});
+    });
+    targets.forEach(function(target){byId[target.assetId]=null;});
+    return Promise.all(Object.keys(byId).map(function(assetId){
+      return new Promise(function(resolve,reject){
+        w.ZargotaLib.get(assetId,function(record){
+          if(!record||record.category!=='scene-media'||!/^data:image\//i.test(String(record.dataUrl||''))){reject(new Error('Общий ассет версии сцены не найден'));return;}
+          byId[assetId]=record.dataUrl;resolve();
+        });
+      });
+    })).then(function(){
+      targets.forEach(function(target){target.target.image=byId[target.assetId];});
+      return copyScene(raw);
+    });
+  }
+  function saveSceneVersion(record,stamp,done){
+    externalizeSceneVersion(record,stamp).then(function(version){
+      w.ZargotaLib.put(version,function(saved){done(saved||null);});
+    }).catch(function(error){console.error('Zargota scene version media backup failed',error);done(null);});
+  }
   function pruneSceneVersions(sceneId){
     if(!w.ZargotaLib)return;
     w.ZargotaLib.list('scene-version',function(items){
@@ -11308,12 +11376,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!isMaster||!w.ZargotaLib)return;
     w.ZargotaLib.get(versionId,function(version){
       if(!version||version.category!=='scene-version'||!version.scene){sceneNotice('Версия сцены не найдена','error');return;}
-      w.ZargotaLib.list('scene',function(items){
+      hydrateSceneMedia(version.scene).then(function(hydratedScene){
+        w.ZargotaLib.list('scene',function(items){
         var stamp=Date.now(),name=uniqueSceneImportName(String(version.name||'Сцена')+' (восстановлена v'+Math.max(0,Number(version.revision)||0)+')',items);
-        var stored=sceneForLibrary(version.scene);stored.revision=1;
+        var stored=sceneForLibrary(hydratedScene);stored.revision=1;
         var rec={
           id:'a'+stamp.toString(36)+Math.random().toString(36).slice(2,6),category:'scene',
-          name:name,folder:String(version.folder||'').slice(0,60),thumb:version.thumb||'',
+          name:name,folder:String(version.folder||'').slice(0,60),thumb:version.thumb||(stored.layers[0]&&stored.layers[0].image)||'',
           scene:stored,created:stamp,order:stamp,revision:1,updatedAt:stamp,updatedByDevice:sceneDeviceId()
         };
         w.ZargotaLib.put(rec,function(saved){
@@ -11322,6 +11391,7 @@ document.addEventListener('DOMContentLoaded', function(){
           sceneNotice('Версия восстановлена отдельной сценой «'+name+'»','success');
         });
       });
+      }).catch(function(error){console.error('Zargota scene version hydrate failed',error);sceneNotice('Версия неполна: общий ассет не найден. Исходные сцены не изменены.','error');});
     });
   };
   function migrateLoadedHeroes(scene){
@@ -11360,8 +11430,7 @@ document.addEventListener('DOMContentLoaded', function(){
         });
       };
       if(!previous){commit();return;}
-      var version=sceneVersionRecord(previous,stamp);
-      w.ZargotaLib.put(version,function(savedVersion){
+      saveSceneVersion(previous,stamp,function(savedVersion){
         if(!savedVersion){sceneNotice('Не удалось создать резерв предыдущей версии — сцена не перезаписана','error');setStatus('Ошибка резерва · изменения остались');return;}
         commit();
       });
@@ -31557,6 +31626,11 @@ function zgGetStorageDiagnostics(cb) {
       if(category==='scene'&&/резерв перед импортом/i.test(String(record.name||'')))diag.profile.backups+=bytes;
       if(category==='bg')diag.profile.backgrounds+=bytes;
       if(category==='npc')diag.profile.tokens+=bytes;
+      if(category==='scene-media'){
+        var mediaBytes=zgValueBytes(record.dataUrl||'');diag.profile.backups+=mediaBytes;
+        if(record.kinds&&record.kinds.background)diag.profile.backgrounds+=mediaBytes;
+        if(record.kinds&&record.kinds.token)diag.profile.tokens+=mediaBytes;
+      }
       var scene=record.scene;if(!scene)return;
       (Array.isArray(scene.layers)?scene.layers:[]).forEach(function(layer){diag.profile.backgrounds+=zgValueBytes(layer&&layer.image||'');});
       (Array.isArray(scene.tokens)?scene.tokens:[]).forEach(function(token){diag.profile.tokens+=zgValueBytes(token&&token.image||'');});

@@ -19,6 +19,7 @@ assert.match(html, /Room watch start \/ stop/);
 assert.match(html, /Подписка соединения/);
 assert.match(html, /before_\.\*restore/);
 assert.match(html, /резерв перед импортом/);
+assert.match(html, /category==='scene-media'/);
 ['characters','portraits','scenes','backgrounds','tokens','backups'].forEach(function(category){
   assert.match(html, new RegExp('profile\\.'+category), category+' storage size must be reported');
 });
