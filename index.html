@@ -1915,12 +1915,22 @@ window.addEventListener('load', function(){
     font-family: 'Cinzel', serif; font-size: 11px;
   }
   .char-card-lvl {
-    position: absolute; top: 8px; left: 8px;
+    position: absolute; top: 8px; left: 8px; z-index: 3;
     background: #000000aa; border: 1px solid var(--gold);
     color: var(--gold); font-family: 'Cinzel', serif;
     font-size: 10px; padding: 2px 7px; border-radius: 2px; letter-spacing: 1px;
   }
-  .char-campaign-sync{position:absolute;left:9px;top:9px;z-index:3;width:19px;height:19px;display:grid;place-items:center;border:1px solid #55bd70;border-radius:50%;background:#092012e8;color:#7bf09a;font-size:11px;box-shadow:0 0 12px #45d66a88}
+  .char-campaign-sync{
+    position:absolute;right:9px;top:9px;z-index:3;
+    width:23px;height:23px;display:grid;place-items:center;
+    border:1px solid #9f7b31;border-radius:50%;
+    background:#171006e8;color:#d7ae55;font-size:12px;
+    box-shadow:0 0 10px #8c682d55;
+  }
+  .char-campaign-sync.synced{border-color:#55bd70;background:#092012e8;color:#7bf09a;box-shadow:0 0 12px #45d66a88}
+  .char-campaign-sync.pending{border-color:#d0a347;background:#241a08e8;color:#ffd36b;box-shadow:0 0 12px #d5a43f66}
+  .char-campaign-sync.offline{border-color:#bd7943;background:#261408e8;color:#f0a062;box-shadow:0 0 12px #bd643f66}
+  .char-campaign-sync.problem{border-color:#bd5555;background:#260909e8;color:#ff7777;box-shadow:0 0 12px #d6454580}
   .char-card-type {
     position: absolute; top: 8px; right: 8px;
     background: #000000aa; font-size: 10px;
@@ -15184,15 +15194,9 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function syncFreeRollMode(){
     var p=el('zg-dice-pop');if(p)p.classList.toggle('plan-b',freeRollMode);
-    document.querySelectorAll('[data-dice-free-mode]').forEach(function(button){
-      var active=(button.dataset.diceFreeMode==='free')===freeRollMode;
-      button.classList.toggle('active',active);
-      button.setAttribute('aria-pressed',active?'true':'false');
-    });
     var hint=el('zg-dice-hint');
     if(hint)hint.textContent=freeRollMode?'План Б · свободный бросок без расхода действия':'Клик добавляет кубик · перетащите для броска';
   }
-  w.zgDiceSetFreeMode=function(ev,enabled){if(ev&&ev.stopPropagation)ev.stopPropagation();freeRollMode=!!enabled;syncFreeRollMode();};
   w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation();freeRollMode=false; var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';}p.classList.toggle('open',open);syncFreeRollMode();if(open){selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(e){}}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
   w.zgDicePlanB=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var p=el('zg-dice-pop');if(!p)return;freeRollMode=true;if(!p.classList.contains('open')){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';p.classList.add('open');selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(ignore){}}syncFreeRollMode();if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',true);};
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');freeRollMode=false;syncFreeRollMode();var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
@@ -18300,6 +18304,8 @@ window.zgImageStore = (function() {
     if(takeoverButton)takeoverButton.disabled=!tabCoordination.canTakeover;
     if(returnButton)returnButton.hidden=!room;
     if(leaveButton){leaveButton.hidden=!session;leaveButton.textContent=room&&session&&session.role==='master'?'Завершить сессию':room?'Покинуть сессию':'Очистить след';}
+    var charactersPage=el('page-characters');
+    if(charactersPage&&charactersPage.classList.contains('active')&&typeof w.renderCharList==='function')w.renderCharList();
     if(hadRoom&&!room){w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');if(w.showToast)w.showToast('Сессия завершена или больше недоступна.');}
   }
   w.zgSessionMonitorToggle=function(ev,force){if(ev){ev.preventDefault();ev.stopPropagation();}var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel){panel.classList.toggle('open',typeof force==='boolean'?force:!panel.classList.contains('open'));if(button)button.setAttribute('aria-expanded',panel.classList.contains('open')?'true':'false');}};
@@ -18842,10 +18848,6 @@ window.zgImageStore = (function() {
   /* Веер физических кубиков: без общей рамки, бросок выполняется перетаскиванием. */
   .zg-dice-pop{bottom:128px;width:min(650px,92vw);padding:0 42px 16px;background:transparent;border:0;border-radius:0;box-shadow:none;overflow:visible}
   .zg-dice-pop.open{display:block;animation:zgDiceFanIn .28s cubic-bezier(.18,.8,.25,1)}
-  .zg-dice-mode-switch{display:flex;width:max-content;max-width:100%;margin:0 auto 5px;padding:3px;border:1px solid rgba(143,111,51,.42);border-radius:18px;background:rgba(8,7,5,.84);box-shadow:0 5px 18px #0009}
-  .zg-dice-mode-switch button{min-width:118px;height:25px;padding:0 12px;border:0;border-radius:14px;background:transparent;color:#817252;font:600 8px/1 'Cinzel',serif;letter-spacing:.65px;cursor:pointer;transition:color .16s,background .16s,box-shadow .16s}
-  .zg-dice-mode-switch button:hover{color:#e6cf91}.zg-dice-mode-switch button.active{background:linear-gradient(180deg,#49361a,#261a0b);color:#ffe39a;box-shadow:inset 0 1px 0 #f0ce7040,0 2px 8px #0008}
-  .zg-dice-pop.plan-b .zg-dice-mode-switch{border-color:#b88a35;box-shadow:0 0 20px #c38d2928}
   @keyframes zgDiceFanIn{from{opacity:0;transform:translateX(-50%) translateY(24px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
   .zg-dice-row{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end}
   .zg-dice-row button{position:relative;height:122px;border:0;border-radius:50%;background:transparent;color:#d8b864;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:0;padding:0 3px 2px;cursor:grab;touch-action:none;filter:drop-shadow(0 8px 8px #000b);animation:zgDieRise .38s cubic-bezier(.2,.9,.25,1) both;user-select:none}
@@ -19517,7 +19519,6 @@ window.zgImageStore = (function() {
   @media(max-width:560px){
     .zg-scene-quick{top:68px;left:8px;right:8px;width:auto}.zg-scene-quick-title{display:none}.zg-scene-drawer{top:62px;width:calc(100vw - 18px);height:calc(100vh - 126px)}.zg-scene-drawer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-scene-exit-actions,.zg-scene-import-actions{grid-template-columns:1fr}.zg-new-scene-size{grid-template-columns:1fr}.zg-new-scene-field{grid-template-columns:1fr}
     .zg-dice-pop{bottom:98px;width:98vw;padding:0 26px 10px}
-    .zg-dice-mode-switch button{min-width:104px;padding:0 8px;font-size:7px}
     .zg-dice-row{gap:1px}.zg-dice-row button{height:101px}.zg-dice-row button img{width:74px;height:72px}.zg-dice-row button .zg-dice-stack-copy{width:74px;height:72px}.zg-dice-row button span{font-size:9px}
     .zg-dice-abils{left:auto;right:4px;bottom:34px;width:164px;min-height:210px;height:auto}.zg-dice-abils-grid button,.zg-dice-abils-grid button:first-child{padding:6px 7px;font-size:8px}
     .zg-dice-hint{font-size:8px}.zg-dice-measure{top:20px;width:29px;height:29px}
@@ -19830,10 +19831,6 @@ window.zgImageStore = (function() {
     </div>
     <div class="zg-vtt-party" id="zg-vtt-party" aria-label="Группа"></div>
     <div class="zg-dice-pop" id="zg-dice-pop">
-      <div class="zg-dice-mode-switch" role="group" aria-label="Тип броска">
-        <button type="button" class="active" data-dice-free-mode="normal" aria-pressed="true" onclick="zgDiceSetFreeMode(event,false)">Обычный бросок</button>
-        <button type="button" data-dice-free-mode="free" aria-pressed="false" onclick="zgDiceSetFreeMode(event,true)">✦ План Б</button>
-      </div>
       <div class="zg-dice-row">
         <button type="button" data-die="4" onpointerdown="zgDiceDragStart(event,4)"><img src="images/vtt-dice/d4.png" alt=""><span>d4</span></button>
         <button type="button" data-die="6" onpointerdown="zgDiceDragStart(event,6)"><img src="images/vtt-dice/d6.png" alt=""><span>d6</span></button>
@@ -33413,6 +33410,42 @@ function renderCharList() {
   var type = charTab === 'heroes' ? 'hero' : 'npc';
   var filtered = characters.filter(function(c){ return c.type === type; });
   var grid = document.getElementById('char-grid');
+  var networkSnapshot = window.ZargotaRooms && typeof window.ZargotaRooms.getSnapshot === 'function'
+    ? window.ZargotaRooms.getSnapshot()
+    : null;
+  var networkSession = networkSnapshot && networkSnapshot.session;
+  var networkMember = networkSnapshot && networkSnapshot.room && networkSession &&
+    networkSnapshot.room.members && networkSnapshot.room.members[networkSession.uid];
+  var characterSync = networkSnapshot && networkSnapshot.characterSync || {};
+
+  function campaignBadge(c) {
+    if (!c.campaignKey) return '';
+    var badgeClass = 'campaign';
+    var badgeMark = '◆';
+    var badgeTitle = 'Герой кампании';
+    var memberKey = networkMember && (networkMember.campaignKey ||
+      networkMember.character && networkMember.character.campaignKey);
+    var isSelectedPlayerHero = networkSession && networkSession.role === 'player' && networkMember &&
+      (String(networkMember.characterId || '') === String(c.id || '') ||
+       memberKey && String(memberKey) === String(c.campaignKey));
+    if (isSelectedPlayerHero) {
+      var status = characterSync.status || 'local';
+      if (status === 'synced') {
+        badgeClass = 'synced'; badgeMark = '✓'; badgeTitle = 'Синхронизировано с комнатой';
+      } else if (status === 'sending' || status === 'local') {
+        badgeClass = 'pending'; badgeMark = '↻';
+        badgeTitle = status === 'sending' ? 'Отправляем изменения в комнату' : 'Есть локальные изменения';
+      } else if (status === 'offline') {
+        badgeClass = 'offline'; badgeMark = '⌁'; badgeTitle = 'Нет связи — копия сохранена локально';
+      } else if (status === 'conflict' || status === 'storage-error') {
+        badgeClass = 'problem'; badgeMark = '!'; badgeTitle = status === 'conflict'
+          ? 'Конфликт изменений'
+          : 'Ошибка локального сохранения';
+      }
+    }
+    return '<span class="char-campaign-sync ' + badgeClass + '" title="' +
+      escHTML(badgeTitle) + '" aria-label="' + escHTML(badgeTitle) + '">' + badgeMark + '</span>';
+  }
 
   var html = filtered.map(function(c) {
     var portrait = c.portrait
@@ -33421,7 +33454,7 @@ function renderCharList() {
     var hpPct = c.hpMax > 0 ? Math.round(c.hpCur / c.hpMax * 100) : 0;
     var hpColor = hpPct > 60 ? '#50a050' : hpPct > 25 ? '#a0a020' : '#a03020';
     return '<div class="char-card" onclick="openCharSheet(' + c.id + ')">' +
-      (c.campaignKey?'<span class="char-campaign-sync" title="Герой кампании · синхронизация Firebase">◆</span>':'') +
+      campaignBadge(c) +
       '<div class="char-card-lvl">LVL ' + c.level + '</div>' +
       portrait +
       '<div class="char-card-body">' +
