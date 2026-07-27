@@ -63,11 +63,46 @@ assert.match(network, /memberUpdates\['character\/'\s*\+\s*field\]/);
 assert.match(network, /memberUpdates\['character\/syncOperationId'\]/);
 assert.match(network, /gmAddInventoryItem:\s*function/);
 assert.match(network, /gmAddJournalEntry:\s*function/);
+assert.match(network, /gmAdjustAbilityUsage:\s*function/);
+assert.match(network, /firebase\.runTransaction\(firebase\.ref\(db,'rooms\/'\+session\.code\+'\/members\/'\+memberUid\+'\/character'\)/);
+assert.match(network, /current\.abilityUsage=usage/);
+assert.match(network, /current\.source='gm-ability-resource'/);
+assert.match(network, /current\.revision=Math\.max\(0,Number\(current\.revision\)\|\|0\)\+1/);
+assert.match(network, /if\(appliedUsed===previousUsed\)\{atBoundary=true;return;\}/);
 assert.match(network, /applyJournalAddOperation\(current,\s*normalizedEntry/);
 assert.match(network, /next\.source\s*=\s*'gm-journal-add'/);
 assert.match(network, /journalBaseSignature/);
 assert.match(network, /store\.fieldSignature\(current\.journalEntries\)\s*!==\s*journalBaseSignature/);
 assert.match(network, /Journal changed in room while local edits were queued/);
+assert.match(network, /gmAdjustEntity:\s*function/);
+assert.match(network, /kind==='temp-hp'/);
+assert.match(network, /character\/revision'\]\s*=\s*firebase\.increment\(1\)/);
+assert.match(network, /character\/syncOperationId'\]\s*=\s*eventId/);
+assert.match(network, /kind==='temp-hp'\?'gm-temp-hp'/);
+assert.match(network, /updates\.manualEvent=event/);
+assert.match(network, /statusEnabled:statusEnabled/);
+assert.match(html, /zgGmInterventionApply\(\\'temp-hp\\'\)/);
+assert.match(html, /zgGmInterventionOpenHero\(\\'inventory\\'\)/);
+assert.match(html, /zgGmInterventionOpenHero\(\\'abilities\\'\)/);
+assert.match(html, /zgGmInterventionOpenHero\(\\'journal\\'\)/);
+assert.match(html, /intervention\.classList\.add\('open'\)/);
+assert.match(network, /increment:\s*databaseModule\.increment/);
+assert.match(html, /class="zg-gm-target-card"/);
+assert.match(html, /zgGmInterventionAmount\(10\)/);
+assert.match(html, /class="zg-gm-primary-actions"/);
+assert.match(html, /class="zg-gm-status-section"/);
+assert.match(html, /@media\(max-width:700px\)\{\.zg-gm-intervention/);
+assert.match(html, /function animateGmAdjustmentVisual/);
+assert.match(html, /state&&state\.room&&state\.room\.manualEvent/);
+assert.match(html, /event\.statusEnabled\?'gm-status-add':'gm-status-remove'/);
+assert.match(html, /zgDiceSetFreeMode/);
+assert.match(html, /data-dice-free-mode="free"/);
+assert.match(html, /План Б · свободный бросок без расхода действия/);
+assert.match(html, /zgVttGmAbilityUsage/);
+assert.match(html, /class="zg-ability-gm-resource"/);
+assert.match(html, /ZargotaSound\.heal/);
+assert.match(html, /@keyframes zgGmStatusArrive/);
+assert.match(html, /@keyframes zgGmStatusLeave/);
 assert.match(network, /firebase\.runTransaction\(characterRef/);
 assert.match(network, /applyInventoryAddOperation\(current,\s*normalizedItem/);
 assert.match(network, /next\.source\s*=\s*'gm-inventory-add'/);
@@ -357,6 +392,21 @@ assert.strictEqual(journalMergeContext.result.length, 3);
 assert.strictEqual(journalMergeContext.result[0].title, 'Локальная');
 assert.strictEqual(journalMergeContext.result[1].deletedAt, 30);
 assert.strictEqual(journalMergeContext.result[2].title, 'Запись мастера');
+
+var abilityMergeStart = html.indexOf('function zgMergeSessionAbilityUsage');
+var abilityMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', abilityMergeStart);
+var abilityMergeContext = { result:null };
+vm.runInNewContext(
+  html.slice(abilityMergeStart, abilityMergeEnd) +
+    '; result=zgMergeSessionAbilityUsage({spellRefs:[101,202],spellCD:{101:{used:0,max:3,note:"keep"},202:{used:1,max:2}}},{"spell-101":{used:2,max:3},"skill-0":{used:5,max:5}});',
+  abilityMergeContext
+);
+assert.strictEqual(abilityMergeContext.result['101'].used, 2);
+assert.strictEqual(abilityMergeContext.result['101'].max, 3);
+assert.strictEqual(abilityMergeContext.result['101'].note, 'keep');
+assert.strictEqual(abilityMergeContext.result['202'].used, 1);
+assert.strictEqual(abilityMergeContext.result['202'].max, 2);
+assert.match(applyBlock, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage\)/);
 assert.match(html, /zgSheetTabAction\('journal'\)/);
 assert.match(html, /zgVttJournalMasterAdd/);
 
