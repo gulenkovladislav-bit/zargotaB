@@ -9050,8 +9050,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-24.1';
+var ZG_APP_VERSION = '2026-07-27.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-07-27.1', notes: 'В лист персонажа добавлен планировщик прокачки: прогноз уровней, совместимость навыков из Каталога, предметы из Товаров и безопасное применение изменений в лист и Арену.' },
   { v: '2026-07-24.1', notes: 'При входе в сессию локальный лист героя теперь защищён от старого снимка Firebase: сначала локальные данные записываются в комнату, и только затем включается двусторонняя синхронизация.' },
   { v: '2026-07-23.36', notes: 'Исправлена повторно отклонявшаяся атака игрока: запрос броска d20 теперь проходит Firebase тем же разрешённым способом, что и исходная заявка.' },
   { v: '2026-07-23.35', notes: 'Боевой результат теперь появляется только после завершения анимаций кубиков; движение игроков и существ начинается локально сразу, без ожидания ответа Firebase.' },
@@ -34279,7 +34280,7 @@ function renderCharSheet() {
         // LVL badge — клик открывает попап менеджера уровня (с кнопками ↑ Повысить, ↓ Понизить и ✦ Распределить очки).
         // Это намного удобнее правого клика, который не работает на мобилках и часто промахивается на десктопе.
         '<div style="display:flex;flex-direction:column;align-items:center;gap:5px">' +
-          '<div class="lvl-badge-wrap" style="display:flex;flex-direction:column;align-items:center;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:4px;padding:4px 10px;background:#0e0a04;min-width:48px;cursor:pointer;position:relative" onclick="openLevelManager(' + c.id + ')" title="Управление уровнем">' +
+          '<div class="lvl-badge-wrap" style="display:flex;flex-direction:column;align-items:center;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:4px;padding:4px 10px;background:#0e0a04;min-width:48px;cursor:pointer;position:relative" onclick="openProgressionPlanner(' + c.id + ')" title="План прокачки">' +
             ((c.level||1) >= 11
               ? '<span style="font-family:\'Cinzel Decorative\',serif;font-size:8px;color:#e8c060;letter-spacing:1.5px;font-weight:700">АБСОЛЮТ</span><span style="font-family:\'Cinzel\',serif;font-size:22px;color:#e8c060;line-height:1">∞</span>'
               : '<span style="font-family:\'Cinzel\',serif;font-size:8px;color:var(--gold2);letter-spacing:2px">LVL</span><span style="font-family:\'Cinzel\',serif;font-size:20px;color:var(--gold);line-height:1">'+(c.level||1)+'</span>'
@@ -34445,6 +34446,7 @@ function renderCharSheet() {
         '<button class="btn btn-dim btn-sm" onclick="charTransferMenu(event,'+c.id+')">💾 Перенос</button>' +
       '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+        '<button class="btn btn-gold btn-sm" onclick="openProgressionPlanner('+c.id+')">✦ Прокачка</button>' +
         '<button class="btn btn-dim btn-sm" onclick="openRulesModal()">📜 Правила</button>' +
         '<button class="btn btn-red btn-sm" onclick="deleteChar('+c.id+')">🗑 Удалить</button>' +
       '</div>' +
@@ -34480,7 +34482,7 @@ function renderCharSheet() {
           '<div style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:#f4e8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(c.name||'Персонаж')+'</div>' +
           '<div style="font-size:11px;color:var(--dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
             '<span>'+(c.race?escHTML(c.race):'')+(c.klasse?' · '+escHTML(c.klasse):'')+'</span>' +
-            '<span onclick="event.stopPropagation();openLevelManager('+c.id+')" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:6px;background:#0e0a04;color:' + ((c.level||1)>=11?'#e8c060':'var(--gold)') + ';cursor:pointer;font-family:\'Cinzel\',serif;font-size:10px;font-weight:600">' +
+            '<span onclick="event.stopPropagation();openProgressionPlanner('+c.id+')" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:6px;background:#0e0a04;color:' + ((c.level||1)>=11?'#e8c060':'var(--gold)') + ';cursor:pointer;font-family:\'Cinzel\',serif;font-size:10px;font-weight:600">' +
               ((c.level||1)>=11 ? '∞ АБСОЛЮТ' : 'Ур. ' + (c.level||1)) +
             '</span>' +
             ((c.unspentStatPoints||0) > 0
@@ -35515,7 +35517,8 @@ function openLevelManager(charId) {
   };
 }
 
-function levelUpCharacter(charId) {
+function levelUpCharacter(charId, options) {
+  options = options || {};
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
   var oldLevel = c.level || 1;
@@ -35580,12 +35583,15 @@ function levelUpCharacter(charId) {
   applyCharacterEquipmentBonuses(c); // пересчитает hpMax, cur у статов
   // hpCur мог превысить новый hpMax — обрежем
   if (c.hpCur > c.hpMax) c.hpCur = c.hpMax;
-  saveChars();
-  renderCharSheet();
+  if (!options.deferSave) {
+    saveChars({ reason: options.reason || 'level-up' });
+    renderCharSheet();
+  }
 
   var msg = '⬆ Ур. ' + newLevel + ' · +' + hpGain + ' HP · +' + hist.statPoints + ' очк.';
   if (racialMessage) msg += ' · ' + racialMessage;
-  if (typeof showToast === 'function') showToast(msg);
+  if (!options.silent && typeof showToast === 'function') showToast(msg);
+  return { character:c, history:hist, message:msg };
 }
 
 function levelDownCharacter(charId) {
@@ -52941,6 +52947,8 @@ global.getStatusCombatMods = function(combatant) {
 })(window);
 
 </script>
+
+<script src="zargota-progression.js?v=2026-07-27.2"></script>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════
