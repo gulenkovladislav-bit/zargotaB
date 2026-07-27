@@ -427,8 +427,12 @@ assert.match(abilitiesBlock, /card\.learned==null/);
 assert.match(abilitiesBlock, /Статус не передан/);
 assert.match(abilitiesBlock, /learnType:spell\.learnType/);
 assert.match(abilitiesBlock, /learnText:spell\.learnText/);
+assert.match(html, /function abilityChargePips\(card, extraClass\)/);
+assert.match(abilitiesBlock, /abilityChargePips\(card,'compact'\)/);
+assert.match(abilitiesBlock, /class="zg-ability-eyebrow"/);
+assert.match(abilitiesBlock, /Исчерпано/);
 assert.match(html, /Статус изучения не передан/);
-assert.match(html, /Доступно зарядов:/);
+assert.match(html, /aria-label="Доступно /);
 assert.match(html, /Кулдаун:/);
 
 var snapshotStart = network.indexOf('function characterSnapshot');
