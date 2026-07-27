@@ -10636,7 +10636,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function store(mode,cb){ open(function(db){ if(!db){cb(null);return;} try{ cb(db.transaction(STORE,mode).objectStore(STORE)); }catch(e){ cb(null); } }); }
   function sceneMediaReferences(record,referenced){
-    if(!record||record.category!=='scene-version')return;
+    if(!record||['scene-version','scene'].indexOf(record.category)<0)return;
     if(record.thumbAssetId)referenced[String(record.thumbAssetId)]=true;
     var scene=record.scene||{};
     (Array.isArray(scene.layers)?scene.layers:[]).forEach(function(layer){if(layer&&layer.imageAssetId)referenced[String(layer.imageAssetId)]=true;});
@@ -11017,6 +11017,24 @@ document.addEventListener('DOMContentLoaded', function(){
       return copyScene(raw);
     });
   }
+  function hydrateSceneRecordMedia(record){
+    if(!record||!record.scene)return Promise.resolve(record||null);
+    var layers=Array.isArray(record.scene.layers)?record.scene.layers:[],tokens=Array.isArray(record.scene.tokens)?record.scene.tokens:[];
+    var hasReferences=!!record.thumbAssetId||layers.some(function(layer){return !!(layer&&layer.imageAssetId);})||tokens.some(function(token){return !!(token&&token.imageAssetId);});
+    if(!hasReferences)return Promise.resolve(record);
+    return hydrateSceneMedia(record.scene).then(function(scene){
+      var hydrated=Object.assign({},record,{scene:scene});
+      if(hydrated.thumb||!record.thumbAssetId)return hydrated;
+      var layerIndex=layers.findIndex(function(layer){return layer&&String(layer.imageAssetId||'')===String(record.thumbAssetId);});
+      if(layerIndex>=0&&scene.layers[layerIndex]&&scene.layers[layerIndex].image){hydrated.thumb=scene.layers[layerIndex].image;return hydrated;}
+      return new Promise(function(resolve,reject){
+        w.ZargotaLib.get(String(record.thumbAssetId),function(media){
+          if(!media||media.category!=='scene-media'||!/^data:image\//i.test(String(media.dataUrl||''))){reject(new Error('Миниатюра ссылочной сцены не найдена'));return;}
+          hydrated.thumb=media.dataUrl;resolve(hydrated);
+        });
+      });
+    });
+  }
   function saveSceneVersion(record,stamp,done){
     externalizeSceneVersion(record,stamp).then(function(version){
       w.ZargotaLib.put(version,function(saved){done(saved||null);});
@@ -11294,29 +11312,31 @@ document.addEventListener('DOMContentLoaded', function(){
   function prepareSceneRecordsForExport(records){
     var cache=Object.create(null);
     return Promise.all((records||[]).map(function(record){
-      var stored=sceneForLibrary(record.scene),targets=[];
-      (stored.layers||[]).forEach(function(layer){if(layer.image&&!/^data:/i.test(layer.image))targets.push(layer);});
-      (stored.tokens||[]).forEach(function(token){if((token.type==='custom'||token.type==='object')&&token.image&&!/^data:/i.test(token.image))targets.push(token);});
-      return Promise.all(targets.map(function(target){
-        var source=String(target.image||'');
-        if(!cache[source])cache[source]=sceneAssetToDataUrl(source);
-        return cache[source].then(function(dataUrl){target.image=dataUrl;},function(error){
-          var failed=new Error('Не удалось включить ассет '+source+': '+((error&&error.message)||'ошибка'));
-          failed.assetSource=source;throw failed;
+      return hydrateSceneRecordMedia(record).then(function(hydratedRecord){
+        var stored=sceneForLibrary(hydratedRecord.scene),targets=[];
+        (stored.layers||[]).forEach(function(layer){if(layer.image&&!/^data:/i.test(layer.image))targets.push(layer);});
+        (stored.tokens||[]).forEach(function(token){if((token.type==='custom'||token.type==='object')&&token.image&&!/^data:/i.test(token.image))targets.push(token);});
+        return Promise.all(targets.map(function(target){
+          var source=String(target.image||'');
+          if(!cache[source])cache[source]=sceneAssetToDataUrl(source);
+          return cache[source].then(function(dataUrl){target.image=dataUrl;},function(error){
+            var failed=new Error('Не удалось включить ассет '+source+': '+((error&&error.message)||'ошибка'));
+            failed.assetSource=source;throw failed;
+          });
+        })).then(function(){
+          return {
+            id:hydratedRecord.id,
+            category:'scene',
+            name:hydratedRecord.name,
+            folder:hydratedRecord.folder,
+            created:hydratedRecord.created,
+            order:hydratedRecord.order,
+            revision:hydratedRecord.revision,
+            updatedAt:hydratedRecord.updatedAt,
+            updatedByDevice:hydratedRecord.updatedByDevice,
+            scene:stored
+          };
         });
-      })).then(function(){
-        return {
-          id:record.id,
-          category:'scene',
-          name:record.name,
-          folder:record.folder,
-          created:record.created,
-          order:record.order,
-          revision:record.revision,
-          updatedAt:record.updatedAt,
-          updatedByDevice:record.updatedByDevice,
-          scene:stored
-        };
       });
     }));
   }
@@ -11489,14 +11509,22 @@ document.addEventListener('DOMContentLoaded', function(){
         commit();
       });
     };
-    if(existing)w.ZargotaLib.get(activeSceneId,persist);else persist(null);
+    if(existing)w.ZargotaLib.get(activeSceneId,function(previous){
+      hydrateSceneRecordMedia(previous).then(persist).catch(function(error){
+        console.error('Zargota linked scene hydrate failed before save',error);
+        sceneNotice('Сцена неполна: общий ассет не найден. Черновик не перезаписан.','error');
+        setStatus('Ошибка чтения сцены · изменения остались');
+      });
+    });else persist(null);
   };
   w.zgSceneLoad=function(id,done,skipDirtyCheck){
     if(!isMaster)return;
     if(!skipDirtyCheck&&dirty&&activeSceneId&&activeSceneId!==id){w.zgSceneExitPrompt(function(){w.zgSceneLoad(id,done,true);});return;}
     var apply=function(rec){
       if(!rec||!rec.scene){sceneNotice('Сцена не найдена в библиотеке','error');return;}
-      draft=migrateLoadedHeroes(rec.scene);activeSceneId=id;activeSceneRevision=Math.max(0,Number(rec.revision)||0);scenePublicationState=id===publishedSceneId?'published':'changed';updateScenePublicationUi();selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:'';selectedTokenId='';clearGroupSel();ensureHeroTokens(roomSnapshot);histReset();dirty=false;setStatus('Открыта: '+(rec.name||'')+' · v'+activeSceneRevision+' · игроки пока видят прежнюю');applyScene();syncControls();if(typeof done==='function')done(rec);
+      hydrateSceneRecordMedia(rec).then(function(hydrated){
+        draft=migrateLoadedHeroes(hydrated.scene);activeSceneId=id;activeSceneRevision=Math.max(0,Number(hydrated.revision)||0);scenePublicationState=id===publishedSceneId?'published':'changed';updateScenePublicationUi();selectedLayerId=draft.layers.length?draft.layers[draft.layers.length-1].id:'';selectedTokenId='';clearGroupSel();ensureHeroTokens(roomSnapshot);histReset();dirty=false;setStatus('Открыта: '+(hydrated.name||'')+' · v'+activeSceneRevision+' · игроки пока видят прежнюю');applyScene();syncControls();if(typeof done==='function')done(hydrated);
+      }).catch(function(error){console.error('Zargota linked scene hydrate failed',error);sceneNotice('Сцена неполна: общий ассет не найден. Текущий черновик сохранён.','error');});
     };
     var r=libCache[id]; if(r&&r.scene)apply(r); else w.ZargotaLib.get(id,function(rec){ if(rec)libCache[id]=rec; apply(rec); });
   };
@@ -11511,7 +11539,7 @@ document.addEventListener('DOMContentLoaded', function(){
     w.ZargotaLib.put(r,function(){ renderScenes(); });
   };
   w.zgSceneDuplicate=function(id){
-    var doDup=function(r){ if(!r||!w.ZargotaLib)return; var stamp=Date.now(),stored=sceneForLibrary(r.scene);stored.revision=1;var copy={id:'a'+stamp.toString(36)+Math.random().toString(36).slice(2,6),category:'scene',name:(r.name||'Сцена')+' (копия)',folder:r.folder||'',thumb:r.thumb||'',scene:stored,created:stamp,order:stamp,revision:1,updatedAt:stamp,updatedByDevice:sceneDeviceId()}; w.ZargotaLib.put(copy,function(){ libCache[copy.id]=copy; renderScenes(); }); };
+    var doDup=function(r){ if(!r||!w.ZargotaLib)return; hydrateSceneRecordMedia(r).then(function(hydrated){var stamp=Date.now(),stored=sceneForLibrary(hydrated.scene);stored.revision=1;var copy={id:'a'+stamp.toString(36)+Math.random().toString(36).slice(2,6),category:'scene',name:(hydrated.name||'Сцена')+' (копия)',folder:hydrated.folder||'',thumb:hydrated.thumb||'',scene:stored,created:stamp,order:stamp,revision:1,updatedAt:stamp,updatedByDevice:sceneDeviceId()}; w.ZargotaLib.put(copy,function(){ libCache[copy.id]=copy; renderScenes(); }); }).catch(function(error){console.error('Zargota linked scene duplicate failed',error);sceneNotice('Нельзя дублировать неполную ссылочную сцену','error');}); };
     var r=libCache[id]; if(r&&r.scene)doDup(r); else w.ZargotaLib.get(id,doDup);
   };
   w.zgSceneLibDelete=function(id){ if(!w.ZargotaLib)return; w.ZargotaLib.remove(id,function(){ delete libCache[id]; if(activeSceneId===id){activeSceneId='';activeSceneRevision=0;} if(publishedSceneId===id)publishedSceneId=''; renderScenes(); }); };

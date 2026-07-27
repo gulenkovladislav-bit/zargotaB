@@ -57,6 +57,12 @@ vm.runInNewContext(html.slice(helpersStart,helpersEnd),context);
   var hydrated=await context.hydrateSceneMedia(first.scene);
   assert.strictEqual(hydrated.layers[0].image,image);
   assert.strictEqual(hydrated.tokens[0].image,image);
+  var hydratedRecord=await context.hydrateSceneRecordMedia({
+    id:'scene-linked',category:'scene',thumb:'',thumbAssetId:first.thumbAssetId,scene:first.scene
+  });
+  assert.strictEqual(hydratedRecord.scene.layers[0].image,image);
+  assert.strictEqual(hydratedRecord.scene.tokens[0].image,image);
+  assert.strictEqual(hydratedRecord.thumb,image,'linked scene thumbnail must hydrate from shared media');
 
   records.delete(first.scene.layers[0].imageAssetId);
   await assert.rejects(context.hydrateSceneMedia(first.scene),/Общий ассет версии сцены не найден/);

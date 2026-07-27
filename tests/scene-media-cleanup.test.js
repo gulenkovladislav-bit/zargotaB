@@ -22,8 +22,9 @@ context.sceneMediaReferences({
   }
 },referenced);
 assert.deepStrictEqual(Object.keys(referenced).sort(),['media-background','media-thumb','media-token']);
-context.sceneMediaReferences({category:'scene',scene:{layers:[{imageAssetId:'not-a-version'}]}},referenced);
-assert.strictEqual(referenced['not-a-version'],undefined);
+context.sceneMediaReferences({category:'scene',thumbAssetId:'scene-thumb',scene:{layers:[{imageAssetId:'scene-background'}]}},referenced);
+assert.strictEqual(referenced['scene-thumb'],true);
+assert.strictEqual(referenced['scene-background'],true);
 
 var apiStart = html.indexOf('  w.ZargotaLib={', helperEnd);
 var apiEnd = html.indexOf('})(window);', apiStart);
