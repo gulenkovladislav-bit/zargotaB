@@ -653,10 +653,20 @@
     }, 0);
     var tempHp = Math.max(0, Number(character.tempHp == null ? effectTempHp : character.tempHp) || 0);
     tempHp = Math.min(Math.floor(hpMax * 0.5), tempHp);
-    var abilityUsage = {};
-    (Array.isArray(character.spellRefs) ? character.spellRefs : []).slice(0, 80).forEach(function (id) {
-      var state = character.spellCD && character.spellCD[id] || {}, key = 'spell-' + String(id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
-      abilityUsage[key] = { used:Math.max(0, Number(state.used) || 0), max:Math.max(0, Number(state.max) || 0) };
+    var spellRefs = (Array.isArray(character.spellRefs) ? character.spellRefs : []).slice(0, 80).filter(function (id) {
+      return typeof id === 'string' || typeof id === 'number';
+    });
+    var abilityUsage = {}, spellsLearned = {};
+    spellRefs.forEach(function (id) {
+      var resourceId = String(id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+      if (resourceId) {
+        var state = character.spellCD && character.spellCD[id] || {};
+        abilityUsage['spell-' + resourceId] = { used:Math.max(0, Number(state.used) || 0), max:Math.max(0, Number(state.max) || 0) };
+      }
+      var learnedKey = String(id).slice(0, 80);
+      if (learnedKey && !/[.#$\[\]\/\u0000-\u001F\u007F]/.test(learnedKey) && ['__proto__','prototype','constructor'].indexOf(learnedKey) < 0) {
+        spellsLearned[learnedKey] = !!(character.spellsLearned && character.spellsLearned[id] === true);
+      }
     });
     return {
       id: String(character.id),
@@ -676,7 +686,8 @@
       mastery: clean(Array.isArray(character.mastery) ? character.mastery : [], []).slice(0, 40),
       skills: displayList(character.skills || character.abilities, 40),
       traits: displayList(character.traits, 40),
-      spellRefs: (Array.isArray(character.spellRefs) ? character.spellRefs : []).slice(0, 80).filter(function (id) { return typeof id === 'string' || typeof id === 'number'; }),
+      spellRefs: spellRefs,
+      spellsLearned: clean(spellsLearned, {}),
       weaponProfiles: clean(weaponProfiles, []).slice(0, 12),
       resistances: clean(character.resistances || character.damageResistances, []),
       vulnerabilities: clean(character.vulnerabilities || character.damageVulnerabilities, []),

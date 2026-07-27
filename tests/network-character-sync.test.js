@@ -160,7 +160,8 @@ var snapshotContext = {
     ],
     skills: [{ name:'Приём', description:'Описание', image:'data:image/png;base64,heavy' }],
     traits: ['Черта'],
-    spellRefs: [101, '202', { bad:true }],
+    spellRefs: [101, '202', 'bad/key', { bad:true }],
+    spellsLearned: { 101:true, 202:false, 'bad/key':true },
     spellCD: { 101:{ used:2, max:3 } },
     biography: 'История',
     quote: 'Цитата',
@@ -174,9 +175,13 @@ vm.runInNewContext(
     '; result=characterSnapshot(input);',
   snapshotContext
 );
-assert.deepStrictEqual(Array.from(snapshotContext.result.spellRefs), [101, '202']);
+assert.deepStrictEqual(Array.from(snapshotContext.result.spellRefs), [101, '202', 'bad/key']);
+assert.strictEqual(snapshotContext.result.spellsLearned['101'], true);
+assert.strictEqual(snapshotContext.result.spellsLearned['202'], false);
+assert.deepStrictEqual(Object.keys(snapshotContext.result.spellsLearned).sort(), ['101', '202']);
 assert.strictEqual(snapshotContext.result.abilityUsage['spell-101'].used, 2);
 assert.strictEqual(snapshotContext.result.abilityUsage['spell-101'].max, 3);
+assert.strictEqual(snapshotContext.result.abilityUsage['spell-objectObject'], undefined);
 assert.strictEqual(snapshotContext.result.skills[0].name, 'Приём');
 assert.strictEqual(snapshotContext.result.skills[0].description, 'Описание');
 assert.strictEqual(snapshotContext.result.skills[0].image, undefined);
