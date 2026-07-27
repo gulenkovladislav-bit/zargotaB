@@ -7,6 +7,7 @@ var vm = require('vm');
 
 var root = path.resolve(__dirname, '..');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 var transferStart = html.indexOf("var SCENE_TRANSFER_FORMAT='zargota-scene'");
 var transferEnd = html.indexOf('w.zgSceneExport=function', transferStart);
 
@@ -154,6 +155,11 @@ assert.match(html, /function sceneMetaLine\(record\)/);
 assert.match(html, /Последнее устройство:/);
 assert.match(html, /onclick="zgSceneVersionsOpen\(&#39;'\+r\.id\+'&#39;\)"/);
 assert.match(html, /id="zg-scene-versions-list"/);
+assert.match(network, /function compactSceneTokenImage\(source,targetChars\)/);
+assert.match(network, /var maxSide=192/);
+assert.match(network, /function prepareSceneMedia\(scene\)/);
+assert.match(network, /prepareSceneMedia\(scene\)\.then\(function\(preparedScene\)/);
+assert.match(network, /var payload = sanitizeScene\(preparedScene\)/);
 var versionRestoreStart = html.indexOf('w.zgSceneVersionsOpen=function');
 var versionRestoreEnd = html.indexOf('function migrateLoadedHeroes', versionRestoreStart);
 var versionRestoreBlock = html.slice(versionRestoreStart, versionRestoreEnd);

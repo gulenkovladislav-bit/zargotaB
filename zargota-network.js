@@ -30,6 +30,12 @@
   var createRoomPromise = null;
   var lastPingWriteAt = 0;
   var lastPingTrailWriteAt = 0;
+  var networkPerformance = {
+    writes:[], writeBytes:0, roomSnapshots:[], roomSnapshotBytes:0, roomSnapshotMaxBytes:0,
+    writeKinds:{},
+    roomWatchStarts:0, roomWatchStops:0, activeRoomWatches:0, maxRoomWatches:0,
+    duplicateListenerAdds:0, maxApiListeners:0, connectionSubscriptions:0
+  };
   var leaveRoomPromise = null;
   var outboxFlushPromise = null;
   var characterSync = {
@@ -49,6 +55,49 @@
   var characterInboundSession = null;
 
   function now() { return Date.now(); }
+
+  function jsonBytes(value) {
+    try { return new Blob([JSON.stringify(value == null ? null : value)]).size; }
+    catch (error) { try { return JSON.stringify(value == null ? null : value).length; } catch (error2) { return 0; } }
+  }
+
+  function trimPerformanceRows(rows, cutoff) {
+    while (rows.length && rows[0].time < cutoff) rows.shift();
+  }
+
+  function recordFirebaseWrite(kind, value, payloadKnown) {
+    var time=now(),bytes=payloadKnown===false?0:jsonBytes(value);networkPerformance.writes.push({time:time,kind:kind,bytes:bytes});networkPerformance.writeBytes+=bytes;
+    networkPerformance.writeKinds[kind]=(networkPerformance.writeKinds[kind]||0)+1;
+    trimPerformanceRows(networkPerformance.writes,time-60000);
+  }
+
+  function trackedFirebaseWrite(kind, fn, valueIndex) {
+    if(valueIndex==null)valueIndex=1;
+    return function () {
+      recordFirebaseWrite(kind,valueIndex>=0&&arguments.length>valueIndex?arguments[valueIndex]:null,valueIndex>=0);
+      return fn.apply(null, arguments);
+    };
+  }
+
+  function performanceSnapshot() {
+    var time=now();trimPerformanceRows(networkPerformance.writes,time-60000);trimPerformanceRows(networkPerformance.roomSnapshots,time-60000);
+    return {
+      writesPerMinute:networkPerformance.writes.length,
+      writeBytesPerMinute:networkPerformance.writes.reduce(function(sum,row){return sum+row.bytes;},0),
+      writeBytesTotal:networkPerformance.writeBytes,
+      writeKinds:Object.assign({},networkPerformance.writeKinds),
+      roomSnapshotsPerMinute:networkPerformance.roomSnapshots.length,
+      roomSnapshotBytes:networkPerformance.roomSnapshotBytes,
+      roomSnapshotMaxBytes:networkPerformance.roomSnapshotMaxBytes,
+      subscriptions:{
+        roomStarts:networkPerformance.roomWatchStarts,roomStops:networkPerformance.roomWatchStops,
+        activeRoom:networkPerformance.activeRoomWatches,maxRoom:networkPerformance.maxRoomWatches,
+        apiListeners:listeners.length,maxApiListeners:networkPerformance.maxApiListeners,
+        duplicateListenerAdds:networkPerformance.duplicateListenerAdds,
+        connection:networkPerformance.connectionSubscriptions
+      }
+    };
+  }
 
   function syncIdentity(character) {
     return {
@@ -645,8 +694,19 @@
   }
 
   function characterSnapshot(character) {
+    function stripHeavy(value) {
+      if (typeof value === 'string') return /^(?:data|blob):/i.test(value) ? '' : value;
+      if (Array.isArray(value)) return value.map(stripHeavy);
+      if (!value || typeof value !== 'object') return value;
+      var result = {};
+      Object.keys(value).forEach(function (key) {
+        if (key === 'heroArt' || key === 'cinematicArt') return;
+        result[key] = stripHeavy(value[key]);
+      });
+      return result;
+    }
     function clean(value, fallback) {
-      try { return JSON.parse(JSON.stringify(value == null ? fallback : value)); }
+      try { return stripHeavy(JSON.parse(JSON.stringify(value == null ? fallback : value))); }
       catch (e) { return fallback; }
     }
     function cleanText(value, limit) {
@@ -744,7 +804,7 @@
       id: String(character.id),
       campaignKey: campaignKeyFor(character),
       name: character.name || 'Без имени',
-      portrait: /^data:/i.test(String(character.portrait || '')) ? '' : (character.portrait || ''),
+      portrait: /^(?:data|blob):/i.test(String(character.portrait || '')) ? '' : (character.portrait || ''),
       race: character.race || '',
       klasse: character.klasse || '',
       level: Number(character.level || 1),
@@ -854,6 +914,8 @@
     if (roomUnsubscribe) {
       try { roomUnsubscribe(); } catch (e) {}
       roomUnsubscribe = null;
+      networkPerformance.roomWatchStops++;
+      networkPerformance.activeRoomWatches=Math.max(0,networkPerformance.activeRoomWatches-1);
     }
     currentRoom = null;
     characterInboundSession = null;
@@ -893,8 +955,10 @@
   function watchRoom(code) {
     stopWatchingRoom();
     if (!code || !firebase || !db) return;
+    networkPerformance.roomWatchStarts++;networkPerformance.activeRoomWatches++;networkPerformance.maxRoomWatches=Math.max(networkPerformance.maxRoomWatches,networkPerformance.activeRoomWatches);
     roomUnsubscribe = firebase.onValue(firebase.ref(db, 'rooms/' + code), function (snapshot) {
       currentRoom = snapshot.exists() ? snapshot.val() : null;
+      var snapshotBytes=jsonBytes(currentRoom),snapshotTime=now();networkPerformance.roomSnapshotBytes=snapshotBytes;networkPerformance.roomSnapshotMaxBytes=Math.max(networkPerformance.roomSnapshotMaxBytes,snapshotBytes);networkPerformance.roomSnapshots.push({time:snapshotTime,bytes:snapshotBytes});trimPerformanceRows(networkPerformance.roomSnapshots,snapshotTime-60000);
       if (!currentRoom) {
         var missingSession=readSession();
         if(missingSession&&missingSession.code===code)saveSession(null);
@@ -3129,9 +3193,12 @@
         online: connected,
         outbox: syncOutbox() ? syncOutbox().diagnostics() : [],
         conflicts: syncOutbox() && syncOutbox().readConflicts ? syncOutbox().readConflicts() : [],
+        performance: performanceSnapshot(),
         events: log.slice(-100)
       };
     },
+
+    getPerformanceDiagnostics: performanceSnapshot,
 
     isCharacterEntryUpload: function (character) {
       return isCharacterEntryUpload(readSession(), character);
@@ -3143,7 +3210,9 @@
 
     subscribe: function (listener) {
       if (typeof listener !== 'function') return function () {};
+      if (listeners.indexOf(listener) >= 0) networkPerformance.duplicateListenerAdds++;
       listeners.push(listener);
+      networkPerformance.maxApiListeners=Math.max(networkPerformance.maxApiListeners,listeners.length);
       listener(api.getSnapshot());
       return function () {
         listeners = listeners.filter(function (item) { return item !== listener; });
@@ -3166,11 +3235,13 @@
     firebase = {
       ref: databaseModule.ref,
       get: databaseModule.get,
-      set: databaseModule.set,
-      update: databaseModule.update,
-      runTransaction: databaseModule.runTransaction,
+      set: trackedFirebaseWrite('set', databaseModule.set),
+      update: trackedFirebaseWrite('update', databaseModule.update),
+      // Firebase вычисляет итоговое значение транзакции внутри SDK и может
+      // повторно вызывать callback, поэтому считаем вызов, но не выдумываем байты.
+      runTransaction: trackedFirebaseWrite('transaction', databaseModule.runTransaction, -1),
       increment: databaseModule.increment,
-      remove: databaseModule.remove,
+      remove: trackedFirebaseWrite('remove', databaseModule.remove, -1),
       onValue: databaseModule.onValue,
       onDisconnect: databaseModule.onDisconnect,
       serverTimestamp: databaseModule.serverTimestamp
@@ -3181,6 +3252,7 @@
       if (auth.currentUser) return auth.currentUser;
       return authModule.signInAnonymously(auth).then(function (credential) { return credential.user; });
     }).then(function (user) {
+      networkPerformance.connectionSubscriptions++;
       firebase.onValue(firebase.ref(db, '.info/connected'), function (snapshot) {
         connected = snapshot.val() === true;
         if (connected) {

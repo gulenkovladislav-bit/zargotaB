@@ -1,0 +1,126 @@
+'use strict';
+
+var assert = require('assert');
+var fs = require('fs');
+var path = require('path');
+var vm = require('vm');
+
+var root = path.resolve(__dirname, '..');
+var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
+
+assert.match(html, /w\.ZargotaPerformance=\{/);
+assert.match(html, /BroadcastChannel\('zargota-performance-v1'\)/);
+assert.match(html, /ZargotaPerformance\.mark\('renderTokens'\)/);
+assert.match(html, /ZargotaPerformance\.mark\('renderDrawer'\)/);
+assert.match(html, /Firebase-записи \/ мин\./);
+assert.match(html, /Повторные subscribe\(\)/);
+assert.match(html, /Room watch start \/ stop/);
+assert.match(html, /Подписка соединения/);
+assert.match(html, /before_\.\*restore/);
+assert.match(html, /резерв перед импортом/);
+['characters','portraits','scenes','backgrounds','tokens','backups'].forEach(function(category){
+  assert.match(html, new RegExp('profile\\.'+category), category+' storage size must be reported');
+});
+
+assert.match(network, /function trackedFirebaseWrite\(kind, fn, valueIndex\)/);
+assert.match(network, /writesPerMinute:networkPerformance\.writes\.length/);
+assert.match(network, /writeKinds:Object\.assign/);
+assert.match(network, /snapshotBytes=jsonBytes\(currentRoom\)/);
+assert.match(network, /duplicateListenerAdds\+\+/);
+assert.match(network, /activeRoomWatches=Math\.max\(0,networkPerformance\.activeRoomWatches-1\)/);
+assert.match(network, /getPerformanceDiagnostics: performanceSnapshot/);
+assert.match(network, /set: trackedFirebaseWrite\('set'/);
+assert.match(network, /update: trackedFirebaseWrite\('update'/);
+assert.match(network, /runTransaction: trackedFirebaseWrite\('transaction', databaseModule\.runTransaction, -1\)/);
+assert.match(network, /remove: trackedFirebaseWrite\('remove', databaseModule\.remove, -1\)/);
+
+var start = html.indexOf('(function(w){\n  var startedAt=Date.now()');
+var end = html.indexOf('})(window);', start) + '})(window);'.length;
+var fakeWindow = {addEventListener:function(){}};
+var context = {
+  window:fakeWindow,
+  Date:Date,Math:Math,Object:Object,String:String,
+  BroadcastChannel:undefined
+};
+vm.runInNewContext(html.slice(start, end), context);
+for(var index=0;index<6;index++)fakeWindow.ZargotaPerformance.mark('renderTokens');
+var snapshot = fakeWindow.ZargotaPerformance.snapshot();
+assert.strictEqual(snapshot.renders.renderTokens.perMinute, 6);
+assert.strictEqual(snapshot.renders.renderTokens.perSecond, 1.2);
+assert.strictEqual(snapshot.tabs.active, 1);
+
+var profilerSource = html.slice(start,end);
+var channels = [];
+function FakeBroadcastChannel(name){this.name=name;this.onmessage=null;channels.push(this);}
+FakeBroadcastChannel.prototype.postMessage=function(data){
+  var own=this;
+  channels.forEach(function(channel){if(channel!==own&&channel.name===own.name&&channel.onmessage)channel.onmessage({data:data});});
+};
+FakeBroadcastChannel.prototype.close=function(){var own=this;channels=channels.filter(function(channel){return channel!==own;});};
+function profilerTab(){
+  var timers=[];
+  var tabWindow={addEventListener:function(){}};
+  vm.runInNewContext(profilerSource,{
+    window:tabWindow,Date:Date,Math:Math,Object:Object,String:String,
+    BroadcastChannel:FakeBroadcastChannel,
+    setInterval:function(callback){timers.push(callback);return timers.length;},
+    clearInterval:function(){}
+  });
+  return {window:tabWindow,timers:timers};
+}
+var firstTab=profilerTab(),secondTab=profilerTab();
+firstTab.timers[0]();
+assert.strictEqual(firstTab.window.ZargotaPerformance.snapshot().tabs.active,2);
+assert.strictEqual(secondTab.window.ZargotaPerformance.snapshot().tabs.active,2);
+
+var perfStart = network.indexOf('  function jsonBytes(value)');
+var perfEnd = network.indexOf('  function syncIdentity(character)', perfStart);
+var networkContext = {
+  Blob:Blob,Date:Date,Object:Object,
+  networkPerformance:{
+    writes:[],writeBytes:0,writeKinds:{},roomSnapshots:[],
+    roomSnapshotBytes:0,roomSnapshotMaxBytes:0,roomWatchStarts:0,roomWatchStops:0,
+    activeRoomWatches:0,maxRoomWatches:0,duplicateListenerAdds:0,
+    maxApiListeners:0,connectionSubscriptions:0
+  },
+  listeners:[]
+};
+vm.runInNewContext('function now(){return Date.now();}\n'+network.slice(perfStart,perfEnd),networkContext);
+var observedArgs = null;
+var update = networkContext.trackedFirebaseWrite('update',function(){observedArgs=[].slice.call(arguments);return 'ok';});
+assert.strictEqual(update('ref',{hp:7}),'ok');
+assert.deepStrictEqual(observedArgs,['ref',{hp:7}]);
+var transaction = networkContext.trackedFirebaseWrite('transaction',function(){return 'transaction-ok';},-1);
+assert.strictEqual(transaction('ref',function(){return {hp:8};}),'transaction-ok');
+var networkSnapshot = networkContext.performanceSnapshot();
+assert.strictEqual(networkSnapshot.writesPerMinute,2);
+assert.strictEqual(networkSnapshot.writeKinds.update,1);
+assert.strictEqual(networkSnapshot.writeKinds.transaction,1);
+assert.strictEqual(networkSnapshot.writeBytesPerMinute,new Blob([JSON.stringify({hp:7})]).size);
+
+var watcherStart=network.indexOf('  function stopWatchingRoom()');
+var watcherEnd=network.indexOf('  function setPresence(session)',watcherStart);
+var watcherContext={
+  roomUnsubscribe:null,currentRoom:null,characterInboundSession:'old',db:{},
+  connected:false,networkPerformance:networkContext.networkPerformance,
+  firebase:{
+    ref:function(db,path){return path;},
+    onValue:function(){return function(){watcherContext.unsubscribeCalls++;};}
+  },
+  unsubscribeCalls:0,
+  readSession:function(){return null;},saveSession:function(){},
+  syncOutbox:function(){return null;},emit:function(){}
+};
+vm.runInNewContext(network.slice(watcherStart,watcherEnd),watcherContext);
+watcherContext.watchRoom('ROOM1');
+assert.strictEqual(watcherContext.networkPerformance.activeRoomWatches,1);
+watcherContext.watchRoom('ROOM2');
+assert.strictEqual(watcherContext.unsubscribeCalls,1);
+assert.strictEqual(watcherContext.networkPerformance.activeRoomWatches,1);
+assert.strictEqual(watcherContext.networkPerformance.maxRoomWatches,1);
+watcherContext.stopWatchingRoom();
+assert.strictEqual(watcherContext.unsubscribeCalls,2);
+assert.strictEqual(watcherContext.networkPerformance.activeRoomWatches,0);
+
+console.log('performance diagnostics contract passed');

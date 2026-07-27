@@ -110,7 +110,7 @@ assert.match(html, /@keyframes zgGmStatusLeave/);
 assert.match(network, /firebase\.runTransaction\(characterRef/);
 assert.match(network, /store\.applyInventoryOperations\(current,\s*\[\{type:'add',field:'inventoryItems',itemId:normalizedItem\.itemId,item:normalizedItem\}\]/);
 assert.match(network, /source:'gm-inventory-add'/);
-assert.match(network, /runTransaction:\s*databaseModule\.runTransaction/);
+assert.match(network, /runTransaction:\s*trackedFirebaseWrite\('transaction',\s*databaseModule\.runTransaction,\s*-1\)/);
 assert.match(network, /Room character changed while local edits were queued/);
 assert.match(network, /store\.recordConflict\(entry,\s*member\.character\)/);
 assert.match(network, /conflicts:\s*syncOutbox\(\)/);
@@ -291,6 +291,7 @@ var snapshotContext = {
     spellCD: { 101:{ used:2, max:3 } },
     biography: 'История',
     quote: 'Цитата',
+    notes: [{ text:'Сохранить текст', attachment:'data:image/png;base64,nested' }],
     journalEntries: [
       { journalId:'journal-safe_1', title:'Запись', text:'Текст', createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
       { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', createdAt:300 },
@@ -323,7 +324,15 @@ assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) 
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'equipped-sword'; }), true);
 assert.strictEqual(snapshotContext.result.biography, 'История');
 assert.strictEqual(snapshotContext.result.quote, 'Цитата');
+assert.strictEqual(snapshotContext.result.notes[0].text, 'Сохранить текст');
+assert.strictEqual(snapshotContext.result.notes[0].attachment, '');
 assert.strictEqual(snapshotContext.result.portrait, '');
+snapshotContext.input.portrait = 'blob:https://zargota.example/local-only';
+vm.runInNewContext('result=characterSnapshot(input);', snapshotContext);
+assert.strictEqual(snapshotContext.result.portrait, '');
+snapshotContext.input.portrait = 'images/portraits/hero.webp';
+vm.runInNewContext('result=characterSnapshot(input);', snapshotContext);
+assert.strictEqual(snapshotContext.result.portrait, 'images/portraits/hero.webp');
 assert.strictEqual(snapshotContext.result.journalEntries.length, 3);
 assert.strictEqual(snapshotContext.result.journalEntries[0].journalId, 'journal-safe_1');
 assert.strictEqual(snapshotContext.result.journalEntries[0].text, 'Текст');

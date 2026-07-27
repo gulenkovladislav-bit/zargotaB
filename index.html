@@ -9,7 +9,27 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <script src="character-store.js?v=2026-07-27.2"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
-<script src="zargota-network.js?v=2026-07-27.10"></script>
+<script src="zargota-network.js?v=2026-07-27.11"></script>
+<script>
+(function(w){
+  var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
+  function trim(list,after){while(list.length&&list[0]<after)list.shift();}
+  function mark(name){name=String(name||'unknown');var list=marks[name]||(marks[name]=[]),time=Date.now();list.push(time);trim(list,time-60000);}
+  function rates(){
+    var now=Date.now(),out={};Object.keys(marks).forEach(function(name){var list=marks[name];trim(list,now-60000);out[name]={perSecond:list.filter(function(time){return time>=now-5000;}).length/5,perMinute:list.length};});return out;
+  }
+  function tabCount(){var now=Date.now();Object.keys(peers).forEach(function(id){if(now-peers[id]>15000)delete peers[id];});return 1+Object.keys(peers).filter(function(id){return id!==tabId;}).length;}
+  function announce(){if(channel)channel.postMessage({type:'heartbeat',tabId:tabId,time:Date.now()});}
+  if(typeof BroadcastChannel==='function'){
+    try{channel=new BroadcastChannel('zargota-performance-v1');channel.onmessage=function(event){var data=event&&event.data;if(data&&data.type==='heartbeat'&&data.tabId!==tabId)peers[data.tabId]=Date.now();};announce();heartbeat=setInterval(announce,5000);w.addEventListener('pagehide',function(){clearInterval(heartbeat);try{channel.close();}catch(error){}},{once:true});}catch(error){}
+  }
+  w.ZargotaPerformance={
+    mark:mark,
+    setNetworkProvider:function(provider){networkProvider=typeof provider==='function'?provider:null;},
+    snapshot:function(){var provider=networkProvider||(w.ZargotaRooms&&w.ZargotaRooms.getPerformanceDiagnostics);return{startedAt:startedAt,uptimeMs:Date.now()-startedAt,renders:rates(),tabs:{active:tabCount(),channelAvailable:!!channel},network:provider?provider():null};}
+  };
+})(window);
+</script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -12155,6 +12175,7 @@ document.addEventListener('DOMContentLoaded', function(){
     sizeDrag = null; markDirty('Размер изменён');
   }
   function renderTokens(){
+    if(w.ZargotaPerformance)w.ZargotaPerformance.mark('renderTokens');
     var layer = el('zg-vtt-token-layer'); if (!layer) return;
     layer.innerHTML = '';
     var viewerGm = isMaster && gmVision === 'gm';
@@ -13634,6 +13655,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }).join('') + '</div><div class="zg-vtt-roll" id="zg-vtt-roll">' + esc(lastRoll) + '</div>';
   }
   function renderDrawer(){
+    if(window.ZargotaPerformance)window.ZargotaPerformance.mark('renderDrawer');
     if (!activePanel) return;
     var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'), drawer=el('zg-vtt-drawer'); if (!body) return;
     var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember);
@@ -17648,6 +17670,7 @@ window.zgImageStore = (function() {
         <div class="zg-control-tools">
           <button type="button" class="zg-control-tool" id="publish-btn" onclick="zgSessionMonitorToggle(event,false);(window.showPublishModal||function(){alert('Модуль публикации не загружен')})()"><i>📤</i><span><b>Опубликовать</b><small>Подготовить мир для GitHub</small></span></button>
           <button type="button" class="zg-control-tool" id="backup-menu-btn" onclick="zgSessionMonitorToggle(event,false);(window.showBackupModal||function(){alert('Модуль бэкапа не загружен')})()"><i>💾</i><span><b>Бэкап</b><small>Локальная копия и восстановление</small></span></button>
+          <button type="button" class="zg-control-tool" onclick="zgSessionMonitorToggle(event,false);openStorageDiagnostics()"><i>◴</i><span><b>Профиль</b><small>Размеры, Firebase и рендеры</small></span></button>
         </div>
       </div>
     </div>
@@ -31359,6 +31382,10 @@ function zgFormatBytes(n) {
   if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' КБ';
   return (n / 1024 / 1024).toFixed(2) + ' МБ';
 }
+function zgValueBytes(value) {
+  try { return new Blob([typeof value === 'string' ? value : JSON.stringify(value == null ? null : value)]).size; }
+  catch(e) { try { return String(value == null ? '' : value).length; } catch(e2) { return 0; } }
+}
 function zgFormatDate(ts) {
   if (!ts) return '—';
   var d = new Date(ts);
@@ -31374,6 +31401,7 @@ function zgGetStorageDiagnostics(cb) {
     armoryItems: { lsCount:null, idbCount:null },
     atlas: { size:0 },
     media: { count:0, size:0 },
+    profile: { characters:0, portraits:0, scenes:0, backgrounds:0, tokens:0, backups:0 },
     quotaEstimate: null,
     mismatch: false
   };
@@ -31422,6 +31450,7 @@ function zgGetStorageDiagnostics(cb) {
               db.close();
               var raw = ev.target.result || '';
               diag.idb.size = (raw && raw.length) || 0;
+              diag.profile.characters = zgValueBytes(raw);
               if (raw) {
                 diag.idb.exists = true;
                 try {
@@ -31429,6 +31458,7 @@ function zgGetStorageDiagnostics(cb) {
                   if (Array.isArray(arr)) {
                     diag.idb.count = arr.length;
                     diag.idb.ids = arr.map(function(c){ return { id: c.id, name: c.name || '—' }; });
+                    diag.profile.portraits = arr.reduce(function(sum,c){return sum+zgValueBytes(c&&c.portrait||'');},0);
                   }
                 } catch(e2) { diag.idb.error = 'JSON broken'; }
               }
@@ -31500,7 +31530,41 @@ function zgGetStorageDiagnostics(cb) {
     });
   }
 
-  Promise.all([loadIdbChars(), loadIdbArmory(), loadIdbMedia(), loadQuotaEstimate()]).then(function(){
+  function loadProfileStores() {
+    function scan(dbName,storeName,onRow) {
+      return new Promise(function(resolve){
+        try{
+          var request=indexedDB.open(dbName,1);
+          request.onsuccess=function(event){
+            var db=event.target.result;if(!db.objectStoreNames.contains(storeName)){db.close();resolve();return;}
+            try{
+              var cursor=db.transaction(storeName,'readonly').objectStore(storeName).openCursor();
+              cursor.onsuccess=function(cursorEvent){var row=cursorEvent.target.result;if(!row){db.close();resolve();return;}try{onRow(row.key,row.value);}catch(rowError){}row.continue();};
+              cursor.onerror=function(){db.close();resolve();};
+            }catch(error){try{db.close();}catch(closeError){}resolve();}
+          };
+          request.onerror=function(){resolve();};
+        }catch(error){resolve();}
+      });
+    }
+    var characterBackups=scan('zargota_chars','data',function(key,value){
+      if(/backup|before_.*restore/i.test(String(key)))diag.profile.backups+=zgValueBytes(value);
+    });
+    var sceneLibrary=scan('zargota-lib','assets',function(key,record){
+      if(!record)return;var category=String(record.category||''),bytes=zgValueBytes(record);
+      if(category==='scene')diag.profile.scenes+=bytes;
+      if(category==='scene-version')diag.profile.backups+=bytes;
+      if(category==='scene'&&/резерв перед импортом/i.test(String(record.name||'')))diag.profile.backups+=bytes;
+      if(category==='bg')diag.profile.backgrounds+=bytes;
+      if(category==='npc')diag.profile.tokens+=bytes;
+      var scene=record.scene;if(!scene)return;
+      (Array.isArray(scene.layers)?scene.layers:[]).forEach(function(layer){diag.profile.backgrounds+=zgValueBytes(layer&&layer.image||'');});
+      (Array.isArray(scene.tokens)?scene.tokens:[]).forEach(function(token){diag.profile.tokens+=zgValueBytes(token&&token.image||'');});
+    });
+    return Promise.all([characterBackups,sceneLibrary]);
+  }
+
+  Promise.all([loadIdbChars(), loadIdbArmory(), loadIdbMedia(), loadQuotaEstimate(),loadProfileStores()]).then(function(){
     diag.mismatch = (diag.ls.exists !== diag.idb.exists) || (diag.ls.count !== diag.idb.count);
     cb(diag);
   });
@@ -31743,6 +31807,29 @@ function openStorageDiagnostics() {
         (syncState.error?'<div style="margin-top:8px;color:#d98272;font-size:10px;word-break:break-word">'+escHTML(syncState.error)+'</div>':'')+
       '</div>';
     }
+
+    var runtime=window.ZargotaPerformance&&window.ZargotaPerformance.snapshot?window.ZargotaPerformance.snapshot():null,networkPerf=runtime&&runtime.network||{},subscriptions=networkPerf.subscriptions||{},renderPerf=runtime&&runtime.renders||{};
+    html+='<div style="background:#0b0a11;border:1px solid #4a3763;border-radius:6px;padding:12px 14px;margin-bottom:10px">'+
+      '<div style="font-family:\'Cinzel\',serif;font-size:10px;color:#b999dd;letter-spacing:1.5px;margin-bottom:8px">◴ ПРОФИЛЬ M1 · ЛОКАЛЬНО</div>'+
+      row('Персонажи',zgFormatBytes(d.profile.characters))+
+      row('Портреты',zgFormatBytes(d.profile.portraits))+
+      row('Сцены',zgFormatBytes(d.profile.scenes))+
+      row('Фоны внутри сцен/библиотеки',zgFormatBytes(d.profile.backgrounds))+
+      row('Токены внутри сцен/библиотеки',zgFormatBytes(d.profile.tokens))+
+      row('Резервные копии',zgFormatBytes(d.profile.backups))+
+      (runtime?row('Firebase room snapshot',zgFormatBytes(networkPerf.roomSnapshotBytes||0),'макс. '+zgFormatBytes(networkPerf.roomSnapshotMaxBytes||0))+
+      row('Firebase-записи / мин.',String(networkPerf.writesPerMinute||0),zgFormatBytes(networkPerf.writeBytesPerMinute||0)+' известных данных')+
+      row('Транзакции / remove',String((networkPerf.writeKinds&&networkPerf.writeKinds.transaction)||0)+' / '+String((networkPerf.writeKinds&&networkPerf.writeKinds.remove)||0),'байты не оцениваются')+
+      row('Room snapshots / мин.',String(networkPerf.roomSnapshotsPerMinute||0))+
+      row('renderTokens / сек.',String(((renderPerf.renderTokens||{}).perSecond||0).toFixed(1)),String((renderPerf.renderTokens||{}).perMinute||0)+' / мин.')+
+      row('renderDrawer / сек.',String(((renderPerf.renderDrawer||{}).perSecond||0).toFixed(1)),String((renderPerf.renderDrawer||{}).perMinute||0)+' / мин.')+
+      row('Подписки room / API',String(subscriptions.activeRoom||0)+' / '+String(subscriptions.apiListeners||0),'макс. '+String(subscriptions.maxRoom||0)+' / '+String(subscriptions.maxApiListeners||0))+
+      row('Room watch start / stop',String(subscriptions.roomStarts||0)+' / '+String(subscriptions.roomStops||0),'баланс '+String((subscriptions.roomStarts||0)-(subscriptions.roomStops||0)))+
+      row('Подписка соединения',String(subscriptions.connection||0),'должна быть 1')+
+      row('Повторные subscribe()',String(subscriptions.duplicateListenerAdds||0))+
+      row('Открытые вкладки',String(runtime.tabs&&runtime.tabs.active||1),runtime.tabs&&runtime.tabs.channelAvailable?'BroadcastChannel':'без межвкладочной проверки'):'')+
+      '<div style="margin-top:8px;color:#77678b;font-size:10px;line-height:1.4">Категории могут пересекаться: портреты входят в персонажей, а изображения — в сцены и их резервные версии. Счётчики живут только в этой вкладке, не отправляются наружу и сбрасываются после перезагрузки.</div>'+
+    '</div>';
 
     // localStorage
     html += '<div style="background:#080604;border:1px solid var(--border);border-radius:6px;padding:12px 14px;margin-bottom:10px">' +
