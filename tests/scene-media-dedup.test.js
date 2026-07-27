@@ -43,6 +43,7 @@ vm.runInNewContext(html.slice(helpersStart,helpersEnd),context);
   assert.strictEqual(first.thumbAssetId,first.scene.layers[0].imageAssetId);
   assert.strictEqual(media[0].kinds.background,true);
   assert.strictEqual(media[0].kinds.token,true);
+  assert.ok(media[0].lastUsed>0);
 
   var otherImage='data:image/png;base64,'+'B'.repeat(12000);
   var occupiedId=context.sceneMediaId(otherImage);
