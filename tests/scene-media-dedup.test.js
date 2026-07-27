@@ -45,6 +45,17 @@ vm.runInNewContext(html.slice(helpersStart,helpersEnd),context);
   assert.strictEqual(media[0].kinds.token,true);
   assert.ok(media[0].lastUsed>0);
 
+  var linkedScene=await context.externalizeSceneRecord({
+    id:'scene-linked',category:'scene',name:'Храм',thumb:image,
+    scene:{layers:[{id:'bg',image:image}],tokens:[{id:'npc',image:image}]}
+  },225);
+  assert.strictEqual(linkedScene.category,'scene');
+  assert.strictEqual(linkedScene.mediaSchema,1);
+  assert.strictEqual(linkedScene.thumb,'');
+  assert.strictEqual(linkedScene.scene.layers[0].image,'');
+  assert.strictEqual(linkedScene.scene.layers[0].imageAssetId,linkedScene.scene.tokens[0].imageAssetId);
+  assert.strictEqual(linkedScene.thumbAssetId,linkedScene.scene.layers[0].imageAssetId);
+
   var otherImage='data:image/png;base64,'+'B'.repeat(12000);
   var occupiedId=context.sceneMediaId(otherImage);
   records.set(occupiedId,{id:occupiedId,category:'scene',dataUrl:otherImage,name:'Не перезаписывать'});
@@ -73,6 +84,28 @@ vm.runInNewContext(html.slice(helpersStart,helpersEnd),context);
   });
   assert.strictEqual(writes[0],'scene-media','shared media must persist before the version');
   assert.strictEqual(writes[writes.length-1],'scene-version','version must persist only after its media');
+
+  records.clear();writes.length=0;
+  await new Promise(function(resolve,reject){
+    context.saveLinkedSceneRecord({
+      id:'scene-new',category:'scene',name:'Новая',thumb:image,
+      scene:{layers:[{id:'bg',image:image}],tokens:[]}
+    },400,function(saved){if(saved)resolve();else reject(new Error('linked scene was not saved'));});
+  });
+  assert.strictEqual(writes[0],'scene-media','shared media must persist before a linked scene');
+  assert.strictEqual(writes[writes.length-1],'scene','linked scene must persist only after its media');
+
+  assert.match(html,/data-scene-thumb-id/);
+  assert.match(html,/function hydrateSceneThumbs\(records\)/);
+  var saveStart=html.indexOf('  w.zgSceneSave=function(asNew,done)');
+  var saveEnd=html.indexOf('  w.zgSceneLoad=function',saveStart);
+  var saveBlock=html.slice(saveStart,saveEnd);
+  assert.match(saveBlock,/saveSceneVersion\(previous,stamp/);
+  assert.match(saveBlock,/saveSceneVersion\(previous,stamp,function\(savedVersion\)\{[\s\S]*if\(!savedVersion\)[\s\S]*commit\(\);/);
+  assert.match(saveBlock,/saveLinkedSceneRecord\(rec,stamp/);
+  var portalStart=html.indexOf('  w.zgPortalConfirm=function()');
+  var portalEnd=html.indexOf('  function makeId',portalStart);
+  assert.match(html.slice(portalStart,portalEnd),/hydrateSceneRecordMedia\(rec\).*publishZone/s);
 
   console.log('scene media dedup tests passed');
 })().catch(function(error){

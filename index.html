@@ -10975,7 +10975,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var kinds=Object.assign({},same&&existing.kinds||{});
         kinds[kind==='token'?'token':'background']=true;
         var record={id:id,category:'scene-media',dataUrl:source,bytes:source.length,kinds:kinds,created:same&&existing.created||Date.now(),lastUsed:Date.now()};
-        w.ZargotaLib.put(record,function(saved){if(saved)resolve(id);else reject(new Error('Не удалось сохранить общий ассет версии сцены'));});
+        w.ZargotaLib.put(record,function(saved){if(saved)resolve(id);else reject(new Error('Не удалось сохранить общий ассет сцены'));});
       });
     });
   }
@@ -10995,6 +10995,29 @@ document.addEventListener('DOMContentLoaded', function(){
       operations.push(function(){return ensureSceneMedia(token.image,'token').then(function(assetId){token.image='';token.imageAssetId=assetId;});});
     });
     return operations.reduce(function(chain,operation){return chain.then(operation);},Promise.resolve()).then(function(){version.mediaSchema=1;return version;});
+  }
+  function externalizeSceneRecord(record,stamp){
+    var linked=JSON.parse(JSON.stringify(record||{})),operations=[];
+    if(!linked||linked.category!=='scene'||!linked.scene)return Promise.reject(new Error('Некорректная запись сцены'));
+    if(/^data:image\//i.test(String(linked.thumb||''))){
+      operations.push(function(){return ensureSceneMedia(linked.thumb,'background').then(function(assetId){linked.thumb='';linked.thumbAssetId=assetId;});});
+    }
+    (Array.isArray(linked.scene.layers)?linked.scene.layers:[]).forEach(function(layer){
+      if(!/^data:image\//i.test(String(layer&&layer.image||'')))return;
+      operations.push(function(){return ensureSceneMedia(layer.image,'background').then(function(assetId){layer.image='';layer.imageAssetId=assetId;});});
+    });
+    (Array.isArray(linked.scene.tokens)?linked.scene.tokens:[]).forEach(function(token){
+      if(!/^data:image\//i.test(String(token&&token.image||'')))return;
+      operations.push(function(){return ensureSceneMedia(token.image,'token').then(function(assetId){token.image='';token.imageAssetId=assetId;});});
+    });
+    return operations.reduce(function(chain,operation){return chain.then(operation);},Promise.resolve()).then(function(){
+      linked.mediaSchema=1;linked.mediaUpdatedAt=Math.max(0,Number(stamp)||Date.now());return linked;
+    });
+  }
+  function saveLinkedSceneRecord(record,stamp,done){
+    externalizeSceneRecord(record,stamp).then(function(linked){
+      w.ZargotaLib.put(linked,function(saved){done(saved||null);});
+    }).catch(function(error){console.error('Zargota linked scene save failed',error);done(null);});
   }
   function hydrateSceneMedia(scene){
     var raw=JSON.parse(JSON.stringify(scene||{})),targets=[],byId={};
@@ -11055,6 +11078,24 @@ document.addEventListener('DOMContentLoaded', function(){
     if(stamp){try{parts.push(new Date(stamp).toLocaleDateString('ru-RU'));}catch(error){}}
     return parts.join(' · ');
   }
+  var sceneThumbCache=Object.create(null);
+  function hydrateSceneThumbs(records){
+    (records||[]).forEach(function(record){
+      var assetId=record&&!record.thumb&&record.thumbAssetId?String(record.thumbAssetId):'';
+      if(!assetId)return;
+      var apply=function(source){
+        Array.prototype.forEach.call(document.querySelectorAll('[data-scene-thumb-id]'),function(node){
+          if(node.getAttribute('data-scene-thumb-id')!==String(record.id))return;
+          node.style.backgroundImage='url('+JSON.stringify(source)+')';node.textContent='';
+        });
+      };
+      if(sceneThumbCache[assetId]){apply(sceneThumbCache[assetId]);return;}
+      w.ZargotaLib.get(assetId,function(media){
+        if(!media||media.category!=='scene-media'||!/^data:image\//i.test(String(media.dataUrl||'')))return;
+        sceneThumbCache[assetId]=media.dataUrl;apply(media.dataUrl);
+      });
+    });
+  }
   function renderScenes(){
     var host=el('zg-scene-lib'); if(!host||!w.ZargotaLib)return;
     w.ZargotaLib.list('scene',function(items){
@@ -11063,7 +11104,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var thumbStyle=r.thumb?(' style="background-image:url('+r.thumb+')"'):'';
         var flags=(r.id===publishedSceneId?'<span class="zg-scene-flag live" title="Игроки видят эту сцену">🟢</span>':'')+(r.id===activeSceneId?'<span class="zg-scene-flag edit" title="Открыта в редакторе">✏️</span>':'');
         return '<div class="zg-scene-lib-item'+(r.id===activeSceneId?' active':'')+'">'+
-          '<button type="button" class="zg-scene-lib-card" onclick="zgSceneLoad(&#39;'+r.id+'&#39;)" title="Открыть для редактирования"><span class="zg-scene-lib-thumb"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><span class="zg-scene-lib-name">'+flags+esc(r.name)+'</span></button>'+
+          '<button type="button" class="zg-scene-lib-card" onclick="zgSceneLoad(&#39;'+r.id+'&#39;)" title="Открыть для редактирования"><span class="zg-scene-lib-thumb" data-scene-thumb-id="'+esc(r.id)+'"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><span class="zg-scene-lib-name">'+flags+esc(r.name)+'</span></button>'+
           '<div class="zg-scene-lib-menu">'+
             '<button type="button" title="Показать игрокам" onclick="zgSceneShow(&#39;'+r.id+'&#39;)">📡</button>'+
             '<button type="button" title="Экспортировать сохранённую сцену" onclick="zgSceneExport(&#39;'+r.id+'&#39;)">⇩</button>'+
@@ -11087,8 +11128,9 @@ document.addEventListener('DOMContentLoaded', function(){
       if(drawer) drawer.innerHTML=shown.length?shown.map(function(r){
         var thumbStyle=r.thumb?(' style="background-image:url('+r.thumb+')"'):'';
         var device=String(r.updatedByDevice||'');
-        return '<button type="button" class="zg-scene-drawer-card'+(r.id===activeSceneId?' active':'')+'" onclick="zgSceneDrawerPick(&#39;'+r.id+'&#39;)" title="'+esc(device?'Последнее устройство: '+device:'Локальная сцена без метки устройства')+'"><span class="zg-scene-drawer-thumb"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><strong>'+esc(r.name)+'</strong><small>'+esc(sceneMetaLine(r))+'</small></button>';
+        return '<button type="button" class="zg-scene-drawer-card'+(r.id===activeSceneId?' active':'')+'" onclick="zgSceneDrawerPick(&#39;'+r.id+'&#39;)" title="'+esc(device?'Последнее устройство: '+device:'Локальная сцена без метки устройства')+'"><span class="zg-scene-drawer-thumb" data-scene-thumb-id="'+esc(r.id)+'"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><strong>'+esc(r.name)+'</strong><small>'+esc(sceneMetaLine(r))+'</small></button>';
       }).join(''):'<div class="zg-scene-drawer-empty">Сцен ещё нет. Создайте фон и сохраните композицию как новую сцену.</div>';
+      hydrateSceneThumbs(items);
     });
   }
   w.zgSceneDrawerToggle=function(force){
@@ -11498,9 +11540,9 @@ document.addEventListener('DOMContentLoaded', function(){
         created:previous?previous.created:stamp,revision:revision,updatedAt:stamp,updatedByDevice:sceneDeviceId()
       };
       var commit=function(){
-        w.ZargotaLib.put(rec,function(saved){
+        saveLinkedSceneRecord(rec,stamp,function(saved){
           if(!saved){sceneNotice('Не удалось сохранить сцену в браузере','error');setStatus('Ошибка сохранения · изменения остались');return;}
-          draft.revision=rec.revision;libCache[rec.id]=rec;activeSceneId=rec.id;activeSceneRevision=rec.revision;dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name+' · v'+rec.revision);renderScenes();pruneSceneVersions(rec.id);if(typeof done==='function')done(rec);
+          draft.revision=saved.revision;libCache[saved.id]=saved;activeSceneId=saved.id;activeSceneRevision=saved.revision;dirty=false;lastSnap=snapDraft();setStatus('✓ Сохранено: '+name+' · v'+saved.revision);renderScenes();pruneSceneVersions(saved.id);if(typeof done==='function')done(saved);
         });
       };
       if(!previous){commit();return;}
@@ -11554,8 +11596,9 @@ document.addEventListener('DOMContentLoaded', function(){
       if(grid){
         grid.innerHTML=items.length?items.map(function(r){
           var thumbStyle=r.thumb?(' style="background-image:url('+r.thumb+')"'):'';
-          return '<div class="zg-scene-lib-item"><button type="button" class="zg-scene-lib-card" onclick="zgScenesPopupPick(&#39;'+r.id+'&#39;)"><span class="zg-scene-lib-thumb"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><span class="zg-scene-lib-name">'+esc(r.name)+'</span></button></div>';
+          return '<div class="zg-scene-lib-item"><button type="button" class="zg-scene-lib-card" onclick="zgScenesPopupPick(&#39;'+r.id+'&#39;)"><span class="zg-scene-lib-thumb" data-scene-thumb-id="'+esc(r.id)+'"'+thumbStyle+'>'+(r.thumb?'':'🗺')+'</span><span class="zg-scene-lib-name">'+esc(r.name)+'</span></button></div>';
         }).join(''):'<div class="zg-scene-hint">Сохранённых сцен нет — собери сцену в 🗺 настройке и сохрани её.</div>';
+        hydrateSceneThumbs(items);
       }
       var ov=el('zg-scenes-popup'); if(ov){ if(ov.parentNode!==document.body)document.body.appendChild(ov); ov.classList.add('open'); }
     });
@@ -11597,7 +11640,9 @@ document.addEventListener('DOMContentLoaded', function(){
     var rec=libCache[portalTarget];
     if(!rec||!rec.scene||!w.ZargotaRooms||!w.ZargotaRooms.publishZone){ return; }
     setStatus('Переход…');
-    w.ZargotaRooms.publishZone(portalTarget, rec.scene).then(function(){
+    hydrateSceneRecordMedia(rec).then(function(hydrated){
+      return w.ZargotaRooms.publishZone(portalTarget, hydrated.scene);
+    }).then(function(){
       return w.ZargotaRooms.sendToZone(portalTarget, uids);
     }).then(function(){ setStatus('Переведены в зону «'+(rec.name||'')+'»: '+uids.length); })
       .catch(function(e){ setStatus('Ошибка перехода: '+((e&&e.message)||'')); });
