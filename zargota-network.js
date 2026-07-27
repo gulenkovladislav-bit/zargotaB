@@ -1493,7 +1493,9 @@
             setPresence(existingSession);
             return api.getSnapshot();
           }
-          if (room.phase !== 'pairing') throw roomError('Мастер уже начал выбор героев.', 'room-started');
+          if (['pairing','character-select'].indexOf(String(room.phase || '')) < 0) {
+            throw roomError('Приключение уже началось. Переподключиться может только ранее подтверждённый игрок.', 'room-started');
+          }
           var ownPendingCode = '';
           Object.keys(room.pending || {}).some(function (key) {
             if (room.pending[key] && room.pending[key].uid === user.uid) { ownPendingCode = key; return true; }
@@ -1570,6 +1572,54 @@
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found','player-not-found','slot-busy'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    releasePlayer: function (memberUid) {
+      memberUid = String(memberUid || '');
+      if (!memberUid) return Promise.reject(roomError('Игрок для освобождения не найден.', 'player-not-found'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        var code = session && session.code || currentRoom && currentRoom.code;
+        if (!code) throw roomError('Активная комната не найдена.', 'room-not-found');
+        return readRoom(code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Освобождать места может только мастер комнаты.', 'master-only');
+          if (memberUid === room.masterUid) throw roomError('Место гейм-мастера нельзя освободить.', 'master-release-forbidden');
+          if (['pairing','character-select'].indexOf(String(room.phase || '')) < 0) {
+            throw roomError('Во время игры место сохраняется для безопасного переподключения игрока.', 'wrong-phase');
+          }
+          var member = room.members && room.members[memberUid];
+          var occupiedSlots = Object.keys(room.slots || {}).filter(function (slot) {
+            return room.slots[slot] && String(room.slots[slot].uid || '') === memberUid;
+          });
+          if (!member && !occupiedSlots.length) throw roomError('Игрок уже не занимает место.', 'player-not-found');
+          if (member && member.role !== 'player') throw roomError('Это место нельзя освободить.', 'player-not-found');
+          var lastSeen = Math.max(0, Number(member && member.lastSeen) || 0);
+          if (member && member.online !== false && (!lastSeen || now() - lastSeen < 120000)) {
+            throw roomError('Игрок ещё online. Освобождение доступно после отключения или двух минут без presence.', 'player-online');
+          }
+          var updates = {};
+          if (member) {
+            updates['releasedMembers/' + memberUid] = Object.assign({}, member, {
+              releasedAt:now(),
+              releasedBy:user.uid,
+              releaseReason:'master-free-slot'
+            });
+            updates['members/' + memberUid] = null;
+          }
+          occupiedSlots.forEach(function (slot) { updates['slots/' + slot] = null; });
+          Object.keys(room.pending || {}).forEach(function (playerCode) {
+            if (room.pending[playerCode] && String(room.pending[playerCode].uid || '') === memberUid) updates['pending/' + playerCode] = null;
+          });
+          updates.updatedAt = now();
+          return firebase.update(roomRef(code), updates).then(function () {
+            return refreshRoom(code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','master-release-forbidden','room-not-found','player-not-found','player-online','wrong-phase'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -3511,8 +3561,7 @@
       serverTimestamp: databaseModule.serverTimestamp
     };
     try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
-    return authModule.setPersistence(auth, authModule.browserSessionPersistence).then(function () {
-      if(!readSession()&&auth.currentUser)return authModule.signOut(auth).then(function(){return authModule.signInAnonymously(auth).then(function(credential){return credential.user;});});
+    return authModule.setPersistence(auth, authModule.browserLocalPersistence).then(function () {
       if (auth.currentUser) return auth.currentUser;
       return authModule.signInAnonymously(auth).then(function (credential) { return credential.user; });
     }).then(function (user) {

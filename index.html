@@ -9030,6 +9030,7 @@ window.addEventListener('load', function(){
   .zg-pair-accept { width:100%;min-height:31px;padding:6px;border:1px solid #947333;border-radius:6px;background:linear-gradient(180deg,#2c2210,#171006);color:#e8c060;font-family:'Cinzel',serif;font-size:10px;letter-spacing:.7px;cursor:pointer; }
   .zg-pair-accept:hover { border-color:#e8c060;box-shadow:0 0 14px #e8c06022; }
   .zg-pair-accept:disabled { opacity:.45;cursor:wait; }
+  .zg-pair-slot-state.releasable{flex-direction:column}.zg-pair-release{margin-top:5px;padding:4px 7px;border:1px solid #743d32;border-radius:5px;background:#2a100d;color:#c98272;font:700 8px 'Cinzel',serif;cursor:pointer}.zg-pair-release:hover{border-color:#b86654;color:#efad9e}.zg-pair-release:disabled{opacity:.42;cursor:wait}
   .zg-pair-count { text-align:center;color:var(--muted);font-size:12px;margin:0 0 16px; }
   .zg-pair-count b { color:#65cc89; }
   .zg-adv-submit:disabled { opacity:.38;cursor:not-allowed;transform:none;box-shadow:none; }
@@ -9737,6 +9738,19 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   };
 
+  w.zgReleasePairedPlayer = function(uid, button){
+    if (!uid || !w.ZargotaRooms || typeof w.ZargotaRooms.releasePlayer !== 'function') return;
+    if (!w.confirm('Освободить место отключившегося игрока? Снимок его room-листа останется в резерве комнаты.')) return;
+    var hint=el('zg-host-hint');if(hint)hint.textContent='Сохраняем резерв и освобождаем место…';
+    if(button)button.disabled=true;
+    w.ZargotaRooms.releasePlayer(uid).then(function(){
+      if(hint)hint.textContent='Место освобождено. Резерв игрока сохранён в комнате.';
+    }).catch(function(err){
+      if(hint)hint.textContent=err.message||'Не удалось освободить место.';
+      if(button)button.disabled=false;
+    });
+  };
+
   w.zgStartPairedAdventure = function(testMode){
     if (!w.ZargotaRooms) return;
     var hint = el('zg-host-hint'); if (hint) hint.textContent = 'Открываем выбор героев…';
@@ -9844,13 +9858,26 @@ document.addEventListener('DOMContentLoaded', function(){
       slots[i].classList.toggle('ok', !!approvedSlot);
       slots[i].classList.toggle('pending', !!waiting);
       if (!state) continue;
-      if (approvedSlot) state.textContent = 'Принят';
+      if (approvedSlot) {
+        var approvedMember=room.members&&room.members[approvedSlot.uid];
+        var lastSeen=Math.max(0,Number(approvedMember&&approvedMember.lastSeen)||0);
+        var canRelease=!!(snapshot.session.role==='master'&&(!approvedMember||approvedMember.online===false||lastSeen&&Date.now()-lastSeen>=120000)&&['pairing','character-select'].indexOf(String(room.phase||''))>=0);
+        state.classList.toggle('releasable',canRelease);
+        state.textContent=!approvedMember?'Зависшее место':approvedMember.online===false?'Отключён':'Принят';
+        if(canRelease){
+          var releaseButton=document.createElement('button');
+          releaseButton.type='button';releaseButton.className='zg-pair-release';releaseButton.textContent='Освободить';
+          releaseButton.addEventListener('click',(function(uid,btn){return function(){w.zgReleasePairedPlayer(uid,btn);};})(approvedSlot.uid,releaseButton));
+          state.appendChild(releaseButton);
+        }
+      }
       else if (waiting) {
+        state.classList.remove('releasable');
         state.innerHTML = '<button type="button" class="zg-pair-accept">Принять</button>';
         (function(slotIndex, code, btn){
           btn.addEventListener('click', function(){ w.zgApprovePendingPlayer(slotIndex, code, btn); });
         })(i, waiting.playerCode, state.firstChild);
-      } else state.textContent = 'Свободно';
+      } else {state.classList.remove('releasable');state.textContent = 'Свободно';}
     }
     var count = snapshot.players ? snapshot.players.length : 0;
     var countNode = el('zg-pair-count'); if (countNode) countNode.innerHTML = 'Подтверждено: <b>' + count + '</b> из 5';
