@@ -130,6 +130,21 @@ assert.match(html, /saveChars\(\{reason:'inventory-remove'\}\)/);
 assert.match(html, /saveChars\(\{reason:'inventory-quantity'\}\)/);
 assert.match(html, /saveChars\(\{reason:'inventory-equip'\}\)/);
 
+var abilitiesStart = html.indexOf('function abilitiesPanel()');
+var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
+var abilitiesBlock = html.slice(abilitiesStart, abilitiesEnd);
+assert.match(abilitiesBlock, /localCharacter=fullLocalCharacter\(member\)/);
+assert.match(abilitiesBlock, /Math\.max\(spellLimit\(spell\),Number\(sessionUsage&&sessionUsage\.max\)\|\|0\)/);
+assert.match(abilitiesBlock, /sessionUsage\?Number\(sessionUsage\.used\|\|0\)/);
+assert.match(abilitiesBlock, /card\.learned===false/);
+assert.match(abilitiesBlock, /card\.learned==null/);
+assert.match(abilitiesBlock, /Статус не передан/);
+assert.match(abilitiesBlock, /learnType:spell\.learnType/);
+assert.match(abilitiesBlock, /learnText:spell\.learnText/);
+assert.match(html, /Статус изучения не передан/);
+assert.match(html, /Доступно зарядов:/);
+assert.match(html, /Кулдаун:/);
+
 var snapshotStart = network.indexOf('function characterSnapshot');
 var snapshotEnd = network.indexOf('function campaignKeyFor', snapshotStart);
 var snapshotSource = network.slice(snapshotStart, snapshotEnd);
@@ -146,6 +161,7 @@ var snapshotContext = {
     skills: [{ name:'Приём', description:'Описание', image:'data:image/png;base64,heavy' }],
     traits: ['Черта'],
     spellRefs: [101, '202', { bad:true }],
+    spellCD: { 101:{ used:2, max:3 } },
     biography: 'История',
     quote: 'Цитата',
     portrait: 'data:image/png;base64,portrait'
@@ -159,6 +175,8 @@ vm.runInNewContext(
   snapshotContext
 );
 assert.deepStrictEqual(Array.from(snapshotContext.result.spellRefs), [101, '202']);
+assert.strictEqual(snapshotContext.result.abilityUsage['spell-101'].used, 2);
+assert.strictEqual(snapshotContext.result.abilityUsage['spell-101'].max, 3);
 assert.strictEqual(snapshotContext.result.skills[0].name, 'Приём');
 assert.strictEqual(snapshotContext.result.skills[0].description, 'Описание');
 assert.strictEqual(snapshotContext.result.skills[0].image, undefined);
