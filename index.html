@@ -9,7 +9,7 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <script src="character-store.js?v=2026-07-27.2"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
-<script src="zargota-network.js?v=2026-07-27.4"></script>
+<script src="zargota-network.js?v=2026-07-27.6"></script>
 <script>
 window.addEventListener('load', function(){
   var l = document.createElement('link');
@@ -12588,6 +12588,8 @@ document.addEventListener('DOMContentLoaded', function(){
   var inventoryDetail = null;
   var inventoryOperationNotice = null;
   var inventoryOperationNoticeTimer = 0;
+  var journalEditorState = null;
+  var journalSaveTimer = 0;
   var abilitiesFilter = 'all';
   var expandedAbilityKey = '';
   var abilityCardsByKey = {}, localPhysicalRolls = {}, localThrowMotions = {};
@@ -12938,9 +12940,18 @@ document.addEventListener('DOMContentLoaded', function(){
       '<div class="zg-bag-foot"><span>Вместимость <b>'+allItems.length+'</b> / 20</span><span class="zg-bag-coins">Монеты хранятся в листе героя</span>'+add+'</div>';
   }
   function journalPanel(){
-    var member=drawerMember(), c=fullLocalCharacter(member)||member&&member.character||{}, notes=c.notes||c.journal||c.quests||[];
+    var member=drawerMember(), localCharacter=fullLocalCharacter(member),c=localCharacter||member&&member.character||{},notes=c.notes||c.journal||c.quests||[];
     if(typeof notes==='string')notes=[notes];
-    return '<div class="zg-bag-notes">'+(notes.length?notes.map(function(note){return '<article><b>'+esc(note.title||note.name||'Запись')+'</b><p>'+esc(typeof note==='string'?note:(note.text||note.description||''))+'</p></article>';}).join(''):'<div class="zg-vtt-empty">В журнале пока нет записей</div>')+'</div>';
+    var entries=Array.isArray(c.journalEntries)?c.journalEntries.filter(function(entry){return entry&&typeof entry==='object'&&!entry.deletedAt;}):[];
+    function timeLabel(entry){var value=Number(entry.updatedAt||entry.createdAt||0);if(!value)return'Без времени';try{return new Date(value).toLocaleString('ru-RU');}catch(ignore){return'Без времени';}}
+    var session=state&&state.session,isMasterTarget=!!(session&&session.role==='master'&&member&&member.character);
+    var controls=localCharacter?'<button type="button" class="zg-journal-add" onclick="zgVttJournalOpen()">＋ Новая запись</button>':isMasterTarget?'<button type="button" class="zg-journal-add" data-member-uid="'+esc(member.uid||'')+'" onclick="zgVttJournalMasterAdd(this.dataset.memberUid)">＋ Запись мастера</button>':'';
+    var structured=entries.slice().sort(function(a,b){return Number(b.updatedAt||b.createdAt||0)-Number(a.updatedAt||a.createdAt||0);}).map(function(entry){
+      var journalId=esc(entry.journalId||'');
+      return '<article class="zg-journal-entry"><div><small>'+esc(timeLabel(entry))+'</small><b>'+esc(entry.title||'Без названия')+'</b></div><p>'+esc(entry.text||'')+'</p>'+(localCharacter?'<footer><button type="button" data-journal-id="'+journalId+'" onclick="zgVttJournalOpen(this.dataset.journalId)">Изменить</button><button type="button" class="danger" data-journal-id="'+journalId+'" onclick="zgVttJournalRemove(this.dataset.journalId)">Удалить</button></footer>':'')+'</article>';
+    }).join('');
+    var legacy=notes.length?'<section class="zg-journal-legacy"><h4>Старые заметки листа</h4>'+notes.map(function(note){return '<article><b>'+esc(note&&typeof note==='object'?(note.title||note.name||'Запись'):'Запись')+'</b><p>'+esc(typeof note==='string'?note:(note&&note.text||note&&note.description||''))+'</p></article>';}).join('')+'</section>':'';
+    return '<div class="zg-bag-notes">'+controls+structured+legacy+(!structured&&!legacy?'<div class="zg-vtt-empty">В журнале пока нет записей</div>':'')+'</div>';
   }
   function vttAbilityProfile(key,item,isSpell){
     item=item||{};var meta={};
@@ -13450,6 +13461,76 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttInventoryEditItem=function(){if(!inventoryDetail)return;var member=ownMember(),c=fullLocalCharacter(member);if(!c)return;var detail=inventoryDetail;w.zgVttInventoryCloseItem();if(typeof w.openItemConstructor==='function')w.openItemConstructor(c.id,detail.source,detail.index);};
   w.zgVttInventoryQuickEquip=function(index){var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];if(!item)return;var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),slot=/голов|шлем|капюш/.test(hay)?'head':/брон|доспех|одеж|ряса|плащ/.test(hay)?'body':/оруж|меч|кинжал|топор|лук|молот/.test(hay)?'weapon':/талис|кольц|амул|ожерел/.test(hay)?'accessory':'utility';var transfer={getData:function(){return String(index);}};w.zgVttInventoryDrop({preventDefault:function(){},dataTransfer:transfer},slot);w.zgVttInventoryCloseItem();};
   w.zgVttInventoryUnequip=function(source,index){if(index===undefined){index=source;source='equip';}var member=ownMember(),c=fullLocalCharacter(member),list=c&&(source==='inventory'?c.inventoryItems:c.equipItems),item=list&&list[index];if(!item)return;item.equipped=false;delete item.slot;if(typeof w.saveChars==='function')w.saveChars({reason:'inventory-unequip'});w.zgVttInventoryCloseItem();renderDrawer();if(w.showToast)w.showToast('Предмет снят');};
+  function journalEntryId(){
+    var suffix='';
+    try{if(w.crypto&&w.crypto.getRandomValues){var values=new Uint32Array(2);w.crypto.getRandomValues(values);suffix=values[0].toString(36)+values[1].toString(36);}}catch(ignore){}
+    if(!suffix)suffix=Math.random().toString(36).slice(2);
+    return('journal-'+Date.now().toString(36)+'-'+suffix).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,120);
+  }
+  function journalSave(reason,immediate){
+    clearTimeout(journalSaveTimer);
+    var run=function(){journalSaveTimer=0;if(typeof w.saveChars==='function')w.saveChars({reason:reason||'journal-update'});};
+    if(immediate)run();else journalSaveTimer=setTimeout(run,350);
+  }
+  function journalEditorValues(){
+    var title=el('zg-journal-editor-title'),text=el('zg-journal-editor-text');
+    return{title:String(title&&title.value||'').slice(0,200),text:String(text&&text.value||'').slice(0,12000)};
+  }
+  function journalApplyEditor(){
+    var editor=journalEditorState;if(!editor||!editor.character)return;
+    var values=journalEditorValues(),entries=Array.isArray(editor.character.journalEntries)?editor.character.journalEntries:(editor.character.journalEntries=[]),entry=editor.journalId?entries.find(function(item){return item&&String(item.journalId)===String(editor.journalId);}):null;
+    if(!entry&&!values.title.trim()&&!values.text.trim())return;
+    if(!entry){
+      var now=Date.now(),session=state&&state.session||{};
+      entry={journalId:journalEntryId(),title:'',text:'',createdAt:now,updatedAt:now,updatedBy:String(session.uid||'local').slice(0,120)};
+      entries.push(entry);editor.journalId=entry.journalId;editor.created=true;
+    }
+    entry.title=values.title;entry.text=values.text;entry.updatedAt=Date.now();entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);
+    journalSave(editor.created&&!editor.saved?'journal-add':'journal-update',false);editor.saved=true;
+  }
+  w.zgVttJournalOpen=function(journalId){
+    var member=ownMember(),c=fullLocalCharacter(member);
+    if(!c){if(w.showToast)w.showToast('Редактировать журнал может владелец героя');return;}
+    var entries=Array.isArray(c.journalEntries)?c.journalEntries:(c.journalEntries=[]),entry=journalId?entries.find(function(item){return item&&String(item.journalId)===String(journalId);}):null;
+    if(journalId&&!entry){if(w.showToast)w.showToast('Запись больше не найдена');renderDrawer();return;}
+    if(el('zg-journal-editor'))w.zgVttJournalClose(true);
+    journalEditorState={character:c,journalId:entry&&entry.journalId||'',created:false,saved:false};
+    var modal=document.createElement('div');modal.id='zg-journal-editor';modal.className='zg-journal-editor-backdrop';
+    modal.innerHTML='<section class="zg-journal-editor-card" role="dialog" aria-modal="true" aria-labelledby="zg-journal-editor-heading"><button type="button" class="zg-journal-editor-close" onclick="zgVttJournalClose(true)" aria-label="Закрыть">×</button><small>Личный журнал героя</small><h3 id="zg-journal-editor-heading">'+(entry?'Изменить запись':'Новая запись')+'</h3><label>Заголовок<input id="zg-journal-editor-title" maxlength="200" placeholder="Что произошло?"></label><label>Текст<textarea id="zg-journal-editor-text" maxlength="12000" rows="10" placeholder="Запиши важное для приключения…"></textarea></label><div class="zg-journal-editor-status">Сохраняется автоматически в локальный лист и зеркало комнаты</div><button type="button" class="zg-journal-editor-done" onclick="zgVttJournalClose(true)">Готово</button></section>';
+    modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttJournalClose(true);});
+    modal.addEventListener('keydown',function(ev){if(ev.key==='Escape'){ev.preventDefault();ev.stopPropagation();w.zgVttJournalClose(true);}});
+    modal.addEventListener('input',journalApplyEditor);
+    document.body.appendChild(modal);
+    var title=el('zg-journal-editor-title'),text=el('zg-journal-editor-text');if(title)title.value=entry&&entry.title||'';if(text)text.value=entry&&entry.text||'';if(title)title.focus();else if(text)text.focus();
+  };
+  w.zgVttJournalClose=function(flush){
+    if(flush&&journalEditorState){journalApplyEditor();if(journalEditorState.journalId)journalSave(journalEditorState.created?'journal-add':'journal-update',true);}
+    else clearTimeout(journalSaveTimer);
+    var modal=el('zg-journal-editor');if(modal)modal.remove();journalEditorState=null;
+    if(activePanel==='journal')renderDrawer();
+  };
+  w.zgVttJournalRemove=function(journalId){
+    var member=ownMember(),c=fullLocalCharacter(member),entries=c&&Array.isArray(c.journalEntries)?c.journalEntries:null;if(!entries)return;
+    var index=entries.findIndex(function(entry){return entry&&String(entry.journalId)===String(journalId);});if(index<0)return;
+    if(!w.confirm('Удалить эту запись из журнала?'))return;
+    var entry=entries[index],stamp=Date.now();entry.deletedAt=stamp;entry.updatedAt=stamp;entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);journalSave('journal-remove',true);renderDrawer();
+  };
+  w.zgVttJournalMasterAdd=function(memberUid){
+    var session=state&&state.session;
+    if(!session||session.role!=='master'||!memberUid||!w.ZargotaRooms||!w.ZargotaRooms.gmAddJournalEntry){if(w.showToast)w.showToast('Добавлять мастерские записи можно только в активной комнате');return false;}
+    var title=w.prompt('Заголовок записи:','Событие приключения');if(title===null)return false;
+    var text=w.prompt('Текст записи:','');if(text===null)return false;
+    title=String(title||'').trim();text=String(text||'');
+    if(!title&&!text.trim()){if(w.showToast)w.showToast('Заполни заголовок или текст записи');return false;}
+    if(w.showToast)w.showToast('Добавляем запись в журнал…');
+    return Promise.resolve(w.ZargotaRooms.gmAddJournalEntry(String(memberUid),{title:title,text:text})).then(function(){
+      if(w.showToast)w.showToast('Запись мастера добавлена');
+      return true;
+    }).catch(function(error){
+      if(w.showToast)w.showToast(error&&error.message||'Не удалось добавить запись');
+      return false;
+    });
+  };
   w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','skills','spells'].indexOf(filter)>=0?filter:'all';expandedAbilityKey='';renderDrawer();};
   w.zgVttAbilityClose=function(){var modal=el('zg-vtt-ability-detail');if(modal)modal.remove();expandedAbilityKey='';};
   w.zgVttAbilityOpen=function(key){
@@ -13679,7 +13760,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(w.zgPossessPlayer(openedUid))w.zgSheetClose();
   };
   w.zgSheetOpenCanonical=function(panel){
-    panel=panel==='abilities'?'abilities':'inventory';
+    panel=['abilities','journal'].indexOf(panel)>=0?panel:'inventory';
     var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
     var session=snap&&snap.session,targetUid=openedUid;
     var controlled=!!(session&&(
@@ -13701,6 +13782,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgSheetTabAction=function(name){
     if(name==='items'&&w.zgSheetOpenCanonical('inventory'))return;
     if(name==='abilities'&&w.zgSheetOpenCanonical('abilities'))return;
+    if(name==='journal'&&w.zgSheetOpenCanonical('journal'))return;
     w.zgSheetTab(name);
   };
   w.zgSheetGmAddItem=function(){
@@ -17951,6 +18033,7 @@ window.zgImageStore = (function() {
   .zg-item-detail-backdrop{position:fixed;z-index:12050;inset:0;display:grid;place-items:center;padding:20px;background:#020201b8;backdrop-filter:blur(6px)}.zg-item-detail-card{position:relative;width:min(430px,calc(100vw - 32px));padding:24px;border:1px solid #8d692d;border-radius:7px;background:radial-gradient(circle at 50% 0,#8c5d1c20,transparent 38%),linear-gradient(150deg,#21160d,#0c0907 72%);box-shadow:0 30px 90px #000,inset 0 0 0 2px #110c07;color:#a99672;text-align:center}.zg-item-detail-close{position:absolute;right:10px;top:9px;width:34px;height:34px;border:0;background:transparent;color:#9f875c;font-size:25px;cursor:pointer}.zg-item-detail-art{width:112px;height:112px;margin:0 auto 13px;border:1px solid #63451f;border-radius:6px;background:#0b0907;display:grid;place-items:center;box-shadow:inset 0 0 22px #000}.zg-item-detail-art img{width:92px;height:92px;object-fit:contain}.zg-item-detail-art i{font:normal 54px serif}.zg-item-detail-card>small{color:#806b46;font:8px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-item-detail-card h3{margin:7px 0;color:#ead39a;font:600 20px 'Cinzel',serif}.zg-item-detail-meta{display:inline-block;padding:4px 8px;border:1px solid #4b381e;border-radius:12px;color:#a98c53;font-size:9px}.zg-item-detail-card p{margin:16px 0;text-align:left;color:#afa082;font-size:12px;line-height:1.6;white-space:pre-line}.zg-item-detail-qty{display:block;color:#dfc47e;font-size:10px}.zg-item-detail-actions{display:flex;gap:8px;margin-top:17px}.zg-item-detail-actions button{flex:1;height:38px;border:1px solid #775622;border-radius:5px;background:#26190b;color:#e2c577;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-item-detail-actions button:hover{border-color:#c99b3e;background:#35230d}
   .zg-bag-vitals{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;margin-bottom:12px}.zg-bag-vitals>div{min-height:78px;border:1px solid #382c1b;border-radius:6px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center}.zg-bag-vitals img{width:36px;height:36px;object-fit:contain}.zg-bag-vitals b{color:#e8d19a;font:600 16px 'Cinzel',serif}.zg-bag-vitals span{color:#75684f;font-size:9px}.zg-bag-statuses{display:flex;gap:6px;flex-wrap:wrap}.zg-bag-statuses span{padding:5px 8px;border:1px solid #63452b;border-radius:12px;color:#c6a77d;font-size:10px}.zg-bag-statuses small{color:#6e624e}
   .zg-bag-notes{display:flex;flex-direction:column;gap:8px}.zg-bag-notes article{padding:11px;border-left:2px solid #8b6a2f;background:#151108}.zg-bag-notes b{color:#d9c083;font:600 11px 'Cinzel',serif}.zg-bag-notes p{margin:5px 0 0;color:#9b8b6c;font-size:11px;line-height:1.5}
+  .zg-journal-add{align-self:flex-end;padding:8px 12px;border:1px solid #806029;border-radius:4px;background:#25190c;color:#dfc57f;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-journal-entry>div{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.zg-journal-entry small{order:2;color:#6f6045;font-size:8px}.zg-journal-entry p,.zg-journal-legacy p{white-space:pre-wrap}.zg-journal-entry footer{display:flex;justify-content:flex-end;gap:6px;margin-top:8px}.zg-journal-entry footer button{padding:4px 7px;border:1px solid #4d3b21;border-radius:3px;background:#100c08;color:#a99160;font-size:8px;cursor:pointer}.zg-journal-entry footer button.danger{color:#b87d69}.zg-journal-legacy{display:flex;flex-direction:column;gap:8px;margin-top:8px;padding-top:12px;border-top:1px solid #3c2e1a}.zg-journal-legacy h4{margin:0;color:#766648;font:600 9px 'Cinzel',serif;letter-spacing:.5px}.zg-journal-editor-backdrop{position:fixed;z-index:12060;inset:0;display:grid;place-items:center;padding:20px;background:#020201c4;backdrop-filter:blur(7px)}.zg-journal-editor-card{position:relative;width:min(560px,calc(100vw - 32px));padding:25px;border:1px solid #8d692d;border-radius:7px;background:radial-gradient(circle at 50% 0,#8c5d1c20,transparent 38%),linear-gradient(150deg,#21160d,#0c0907 72%);box-shadow:0 30px 90px #000,inset 0 0 0 2px #110c07;color:#a99672}.zg-journal-editor-close{position:absolute;right:9px;top:8px;width:34px;height:34px;border:0;background:transparent;color:#9f875c;font-size:25px;cursor:pointer}.zg-journal-editor-card>small{color:#806b46;font:8px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-journal-editor-card h3{margin:6px 0 18px;color:#ead39a;font:600 20px 'Cinzel',serif}.zg-journal-editor-card label{display:block;margin:0 0 12px;color:#9d865a;font:600 8px 'Cinzel',serif;letter-spacing:.5px;text-transform:uppercase}.zg-journal-editor-card input,.zg-journal-editor-card textarea{box-sizing:border-box;width:100%;margin-top:6px;padding:10px;border:1px solid #4e3a20;border-radius:4px;background:#0c0907;color:#d5c49d;font:12px Georgia,serif;outline:none}.zg-journal-editor-card textarea{min-height:190px;resize:vertical;line-height:1.5}.zg-journal-editor-card input:focus,.zg-journal-editor-card textarea:focus{border-color:#a57b34;box-shadow:0 0 0 2px #a57b3422}.zg-journal-editor-status{color:#6d6049;font-size:9px}.zg-journal-editor-done{display:block;margin:15px 0 0 auto;padding:9px 18px;border:1px solid #89652a;border-radius:4px;background:#2a1c0d;color:#e3c77c;font:600 9px 'Cinzel',serif;cursor:pointer}
   /* Unified hero pack: stable equipment and inventory surfaces. */
   .zg-bag-character-name{display:flex;align-items:baseline;justify-content:space-between;padding:3px 4px 10px;color:#d7bd7f;font:600 12px 'Cinzel',serif}.zg-bag-character-name small{color:#6f6045;font:7px 'Cinzel',serif;letter-spacing:.7px;text-transform:uppercase}
   .zg-bag-columns{grid-template-columns:172px minmax(0,1fr);border-color:#4b351c;border-radius:7px 7px 0 0;background:radial-gradient(circle at 50% 18%,#69421514,transparent 36%),linear-gradient(145deg,#171008f2,#090705f7);box-shadow:inset 0 0 32px #0008,0 10px 30px #0006;overflow:hidden}
@@ -18361,7 +18444,7 @@ window.zgImageStore = (function() {
         <button type="button" class="zg-sheet-tab active" id="zg-sheet-tab-list" onclick="zgSheetTab('list')" title="Обзор">Лист</button>
         <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-abilities" onclick="zgSheetTabAction('abilities')" title="Способности">Умения</button>
         <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-items" onclick="zgSheetTabAction('items')" title="Экипировка и инвентарь">Вещи</button>
-        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-journal" onclick="zgSheetTab('journal')" title="Журнал и заметки">Записи</button>
+        <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-journal" onclick="zgSheetTabAction('journal')" title="Журнал и заметки">Записи</button>
         <button type="button" class="zg-sheet-tab" id="zg-sheet-tab-bio" onclick="zgSheetTab('bio')" title="Биография">Лор</button>
       </div>
       <div class="zg-sheet-body">
@@ -30477,6 +30560,16 @@ function zgMergeSessionInventoryItems(localItems,roomItems) {
   });
 }
 
+function zgMergeSessionJournalEntries(localEntries,roomEntries) {
+  var merged=Array.isArray(localEntries)?localEntries.map(function(entry){return entry&&typeof entry==='object'?Object.assign({},entry):entry;}):[],localIds={};
+  merged.forEach(function(entry){if(entry&&entry.journalId)localIds[String(entry.journalId)]=true;});
+  (Array.isArray(roomEntries)?roomEntries:[]).forEach(function(entry){
+    if(!entry||typeof entry!=='object'||!entry.journalId||localIds[String(entry.journalId)])return;
+    localIds[String(entry.journalId)]=true;merged.push(Object.assign({},entry));
+  });
+  return merged;
+}
+
 function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
   options=options||{};if(!roomCharacter||!member)return Promise.resolve({ok:true,skipped:true});
   var key=roomCharacter.campaignKey||member.campaignKey||'',localCharacter=characters.find(function(c){return c&&(key&&c.campaignKey===key||String(c.id)===String(member.characterId));});
@@ -30487,7 +30580,11 @@ function zgApplySessionCharacterToLocal(roomCharacter,member,options) {
   }
   var incomingRevision=Math.max(0,Number(roomCharacter.revision)||0),localRevision=Math.max(0,Number(localCharacter.revision)||0);
   if(!options.force&&incomingRevision&&localRevision&&incomingRevision<localRevision)return Promise.resolve({ok:true,skipped:true});
-  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:zgMergeSessionInventoryItems(localCharacter.inventoryItems,roomCharacter.inventoryItems),equipItems:zgMergeSessionInventoryItems(localCharacter.equipItems,roomCharacter.equipItems),arenaEquipSlots:roomCharacter.arenaEquipSlots,notes:roomCharacter.notes,revision:incomingRevision};
+  // Legacy notes are edited only in the local owner sheet and have no
+  // field-level timestamp or GM operation yet. Applying a forced exit snapshot
+  // could therefore replace fresh local text with an older room mirror merely
+  // because HP raised the shared character revision.
+  var runtime={hpCur:roomCharacter.hpCur,hpMax:roomCharacter.hpMax,tempHp:roomCharacter.tempHp,statuses:roomCharacter.statuses,abilityUsage:roomCharacter.abilityUsage,inventoryItems:zgMergeSessionInventoryItems(localCharacter.inventoryItems,roomCharacter.inventoryItems),equipItems:zgMergeSessionInventoryItems(localCharacter.equipItems,roomCharacter.equipItems),arenaEquipSlots:roomCharacter.arenaEquipSlots,journalEntries:zgMergeSessionJournalEntries(localCharacter.journalEntries,roomCharacter.journalEntries),revision:incomingRevision};
   var signature=JSON.stringify(runtime),sigKey=key||String(localCharacter.id);window._zgCampaignRuntimeSig=window._zgCampaignRuntimeSig||{};
   if(!options.force&&window._zgCampaignRuntimeSig[sigKey]===signature)return Promise.resolve({ok:true,skipped:true});
   window._zgCampaignRuntimeSig[sigKey]=signature;Object.keys(runtime).forEach(function(field){if(runtime[field]!==undefined)localCharacter[field]=runtime[field];});

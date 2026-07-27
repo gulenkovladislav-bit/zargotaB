@@ -242,6 +242,8 @@
       baseFieldSignatures: baseFieldSignatures,
       baseFieldValues: baseFieldValues,
       inventoryOperations: changedFields.length && changedFields.every(function (field) {
+        return field === 'inventoryItems' || field === 'equipItems';
+      }) && changedFields.every(function (field) {
         return Object.prototype.hasOwnProperty.call(baseFieldValues, field);
       })
         ? createInventoryOperations(baseFieldValues, snapshot, changedFields)

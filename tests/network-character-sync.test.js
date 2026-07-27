@@ -62,6 +62,12 @@ assert.match(network, /store\.recordConflict\(options\.outboxEntry,\s*operationC
 assert.match(network, /memberUpdates\['character\/'\s*\+\s*field\]/);
 assert.match(network, /memberUpdates\['character\/syncOperationId'\]/);
 assert.match(network, /gmAddInventoryItem:\s*function/);
+assert.match(network, /gmAddJournalEntry:\s*function/);
+assert.match(network, /applyJournalAddOperation\(current,\s*normalizedEntry/);
+assert.match(network, /next\.source\s*=\s*'gm-journal-add'/);
+assert.match(network, /journalBaseSignature/);
+assert.match(network, /store\.fieldSignature\(current\.journalEntries\)\s*!==\s*journalBaseSignature/);
+assert.match(network, /Journal changed in room while local edits were queued/);
 assert.match(network, /firebase\.runTransaction\(characterRef/);
 assert.match(network, /applyInventoryAddOperation\(current,\s*normalizedItem/);
 assert.match(network, /next\.source\s*=\s*'gm-inventory-add'/);
@@ -207,6 +213,11 @@ var snapshotContext = {
     spellCD: { 101:{ used:2, max:3 } },
     biography: 'История',
     quote: 'Цитата',
+    journalEntries: [
+      { journalId:'journal-safe_1', title:'Запись', text:'Текст', createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
+      { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', createdAt:300 },
+      { journalId:'journal-data', title:'data:text/plain,hidden', text:'blob:hidden', createdAt:-1, updatedAt:'oops', updatedBy:'data:text/plain,uid' }
+    ],
     portrait: 'data:image/png;base64,portrait'
   },
   result: null
@@ -235,6 +246,31 @@ assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) 
 assert.strictEqual(snapshotContext.result.biography, 'История');
 assert.strictEqual(snapshotContext.result.quote, 'Цитата');
 assert.strictEqual(snapshotContext.result.portrait, '');
+assert.strictEqual(snapshotContext.result.journalEntries.length, 3);
+assert.strictEqual(snapshotContext.result.journalEntries[0].journalId, 'journal-safe_1');
+assert.strictEqual(snapshotContext.result.journalEntries[0].text, 'Текст');
+assert.strictEqual(snapshotContext.result.journalEntries[0].deletedAt, 250);
+assert.strictEqual(snapshotContext.result.journalEntries[1].journalId, 'badkey');
+assert.strictEqual(snapshotContext.result.journalEntries[2].title, '');
+assert.strictEqual(snapshotContext.result.journalEntries[2].text, '');
+assert.strictEqual(snapshotContext.result.journalEntries[2].createdAt, 0);
+assert.strictEqual(snapshotContext.result.journalEntries[2].updatedBy, '');
+snapshotContext.input.journalEntries = Array.from({length:82}, function(_, index) {
+  return { journalId:'journal-'+index, title:'Запись '+index, text:'Текст '+index, createdAt:index };
+});
+vm.runInNewContext('result=characterSnapshot(input);', snapshotContext);
+assert.strictEqual(snapshotContext.result.journalEntries.length, 80);
+assert.strictEqual(snapshotContext.result.journalEntries[0].journalId, 'journal-2');
+assert.strictEqual(snapshotContext.result.journalEntries[79].journalId, 'journal-81');
+
+var journalPanelStart = html.indexOf('function journalPanel');
+var journalPanelEnd = html.indexOf('function vttAbilityProfile', journalPanelStart);
+var journalPanelBlock = html.slice(journalPanelStart, journalPanelEnd);
+assert.match(journalPanelBlock, /c\.journalEntries/);
+assert.match(journalPanelBlock, /fullLocalCharacter\(member\)/);
+assert.match(journalPanelBlock, /zgVttJournalOpen/);
+assert.match(html, /saveChars\(\{reason:reason\|\|'journal-update'\}\)/);
+assert.match(html, /journalSave\('journal-remove',true\)/);
 
 var inventoryHelperStart = network.indexOf('function normalizeInventoryOperationItem');
 var inventoryHelperEnd = network.indexOf('function emit', inventoryHelperStart);
@@ -272,11 +308,29 @@ vm.runInNewContext(
   fallbackItemContext
 );
 assert.strictEqual(fallbackItemContext.result.itemId, 'safe-fallback');
+
+var journalHelperContext = { result:null };
+vm.runInNewContext(
+  inventoryHelperSource +
+    '; var entry=normalizeJournalOperationEntry({journalId:"master-entry",title:"  След  ",text:"Описание"},"fallback",{updatedAt:500,updatedBy:"gm"});' +
+    'result=applyJournalAddOperation({id:"hero",hpCur:7,revision:4,journalEntries:[{journalId:"player-entry",title:"Игрок"}]},entry,{updatedAt:500,updatedBy:"gm",operationId:"journal-op-1"});',
+  journalHelperContext
+);
+assert.strictEqual(journalHelperContext.result.ok, true);
+assert.strictEqual(journalHelperContext.result.character.hpCur, 7);
+assert.strictEqual(journalHelperContext.result.character.journalEntries.length, 2);
+assert.strictEqual(journalHelperContext.result.character.journalEntries[1].title, 'След');
+assert.strictEqual(journalHelperContext.result.character.revision, 5);
+assert.strictEqual(journalHelperContext.result.character.syncOperationId, 'journal-op-1');
+
 var applyStart = html.indexOf('function zgApplySessionCharacterToLocal');
 var applyEnd = html.indexOf('window.zgPersistFinalSessionCharacter', applyStart);
 var applyBlock = html.slice(applyStart, applyEnd);
 assert.strictEqual(applyBlock.indexOf('skills:roomCharacter.skills') >= 0, false);
 assert.strictEqual(applyBlock.indexOf('biography:roomCharacter.biography') >= 0, false);
+assert.strictEqual(applyBlock.indexOf('notes:roomCharacter.notes') >= 0, false, 'legacy local notes must not be overwritten by a forced room snapshot');
+assert.match(applyBlock, /journalEntries:zgMergeSessionJournalEntries\(localCharacter\.journalEntries,roomCharacter\.journalEntries\)/);
+assert.match(snapshotSource, /notes:\s*clean\(character\.notes\s*\|\|\s*character\.journal\s*\|\|\s*character\.quests/);
 
 var inventoryMergeStart = html.indexOf('function zgMergeSessionInventoryItems');
 var inventoryMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', inventoryMergeStart);
@@ -290,5 +344,20 @@ assert.strictEqual(inventoryMergeContext.result.length, 2);
 assert.strictEqual(inventoryMergeContext.result[0].image, 'data:image/png;base64,local');
 assert.strictEqual(inventoryMergeContext.result[1].name, 'Дар мастера');
 assert.strictEqual(inventoryMergeContext.result.some(function(item) { return item.itemId === 'deleted'; }), false);
+
+var journalMergeStart = html.indexOf('function zgMergeSessionJournalEntries');
+var journalMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', journalMergeStart);
+var journalMergeContext = { result:null };
+vm.runInNewContext(
+  html.slice(journalMergeStart, journalMergeEnd) +
+    '; result=zgMergeSessionJournalEntries([{journalId:"same",title:"Локальная",updatedAt:20},{journalId:"deleted",title:"Удалённая",deletedAt:30}], [{journalId:"same",title:"Комната",updatedAt:40},{journalId:"master",title:"Запись мастера",updatedAt:50}]);',
+  journalMergeContext
+);
+assert.strictEqual(journalMergeContext.result.length, 3);
+assert.strictEqual(journalMergeContext.result[0].title, 'Локальная');
+assert.strictEqual(journalMergeContext.result[1].deletedAt, 30);
+assert.strictEqual(journalMergeContext.result[2].title, 'Запись мастера');
+assert.match(html, /zgSheetTabAction\('journal'\)/);
+assert.match(html, /zgVttJournalMasterAdd/);
 
 console.log('network character sync contract passed');

@@ -173,6 +173,24 @@ var fullEditAfterInventory = outbox.enqueue({
 });
 assert.deepStrictEqual(fullEditAfterInventory.entry.changedFields, []);
 
+var journalBase = [{ journalId:'journal-base', title:'До', text:'Старая запись', updatedAt:10 }];
+var journalQueued = outbox.enqueue({
+  roomCode:'JOURNAL',
+  uid:'journal-user',
+  characterId:'journal-hero',
+  revision:2,
+  reason:'journal-update',
+  baseRoomSignature:outbox.contentSignature({ journalEntries:journalBase }),
+  changedFields:['journalEntries'],
+  baseFieldSignatures:{ journalEntries:outbox.fieldSignature(journalBase) },
+  baseFieldValues:{ journalEntries:journalBase },
+  snapshot:{ id:'journal-hero', revision:2, journalEntries:[{ journalId:'journal-base', title:'После', text:'Новая запись', updatedAt:20 }] },
+  updatedAt:20
+});
+assert.strictEqual(journalQueued.ok, true);
+assert.deepStrictEqual(journalQueued.entry.changedFields, ['journalEntries']);
+assert.strictEqual(journalQueued.entry.inventoryOperations, null);
+
 var itemBaseCharacter = {
   id:'item-merge-hero',
   hpCur:10,

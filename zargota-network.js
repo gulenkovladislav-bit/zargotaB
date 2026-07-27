@@ -125,11 +125,16 @@
     var member = currentRoom && currentRoom.members && currentRoom.members[session.uid];
     if (!member || String(member.characterId || '') !== String(character.id)) return { ok:false, skipped:true };
     var syncReason = String(reason || 'edit');
-    var changedFields = /^inventory-/.test(syncReason) ? ['inventoryItems','equipItems'] : [];
+    var changedFields = /^inventory-/.test(syncReason)
+      ? ['inventoryItems','equipItems']
+      : /^journal-/.test(syncReason)
+        ? ['journalEntries']
+        : [];
     var baseFieldSignatures = {};
     var baseFieldValues = {};
     changedFields.forEach(function (field) {
-      var value = member.character && Array.isArray(member.character[field]) ? member.character[field] : [];
+      var roomValue = member.character && member.character[field];
+      var value = field === 'journalEntries' ? roomValue : (Array.isArray(roomValue) ? roomValue : []);
       baseFieldSignatures[field] = store.fieldSignature(value);
       baseFieldValues[field] = value;
     });
@@ -624,6 +629,26 @@
         return next;
       });
     }
+    function sessionJournalEntries(value) {
+      var seen = Object.create(null);
+      return (Array.isArray(value) ? value : []).slice().sort(function (a, b) {
+        return Number(a && (a.updatedAt || a.createdAt) || 0) - Number(b && (b.updatedAt || b.createdAt) || 0);
+      }).slice(-80).map(function (raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        var journalId = cleanText(raw.journalId, 120).replace(/[^a-zA-Z0-9_-]/g, '');
+        if (!journalId || seen[journalId]) return null;
+        seen[journalId] = true;
+        return {
+          journalId:journalId,
+          title:cleanText(raw.title, 200),
+          text:cleanText(raw.text, 12000),
+          createdAt:Math.max(0, Number(raw.createdAt) || 0),
+          updatedAt:Math.max(0, Number(raw.updatedAt) || 0),
+          updatedBy:cleanText(raw.updatedBy, 120),
+          deletedAt:Math.max(0, Number(raw.deletedAt) || 0)
+        };
+      }).filter(Boolean);
+    }
     var directItems = [];
     (Array.isArray(character.equipItems) ? character.equipItems : []).forEach(function (item) {
       if (item) directItems.push(Object.assign({}, item, { _sessionEquipped:item.equipped !== false }));
@@ -699,6 +724,7 @@
       equipItems: sessionItems(character.equipItems, 40),
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
       notes: clean(character.notes || character.journal || character.quests, []),
+      journalEntries: sessionJournalEntries(character.journalEntries),
       biography: cleanText(character.biography || character.bio, 12000),
       quote: cleanText(character.quote, 1000),
       origin: cleanText(character.origin, 500),
@@ -742,6 +768,39 @@
     next.updatedAt = Number(metadata && metadata.updatedAt) || Date.now();
     next.updatedBy = String(metadata && metadata.updatedBy || '');
     next.source = 'gm-inventory-add';
+    next.syncOperationId = String(metadata && metadata.operationId || '');
+    return { ok:true, duplicate:false, character:next };
+  }
+
+  function normalizeJournalOperationEntry(entry, fallbackId, metadata) {
+    entry = entry && typeof entry === 'object' ? entry : {};
+    var journalId = String(entry.journalId || fallbackId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
+    var stamp = Math.max(0, Number(metadata && metadata.updatedAt) || now());
+    return {
+      journalId:journalId,
+      title:String(entry.title || '').trim().slice(0, 200),
+      text:String(entry.text || '').slice(0, 12000),
+      createdAt:Math.max(0, Number(entry.createdAt) || stamp),
+      updatedAt:stamp,
+      updatedBy:String(metadata && metadata.updatedBy || entry.updatedBy || '').slice(0, 120),
+      deletedAt:Math.max(0, Number(entry.deletedAt) || 0)
+    };
+  }
+
+  function applyJournalAddOperation(current, entry, metadata) {
+    if (!current || typeof current !== 'object') return { ok:false, error:'character-missing' };
+    var journal = Array.isArray(current.journalEntries) ? current.journalEntries.slice() : [];
+    if (journal.some(function (item) { return item && String(item.journalId || '') === String(entry && entry.journalId || ''); })) {
+      return { ok:true, duplicate:true, character:current };
+    }
+    if (journal.length >= 80) return { ok:false, error:'journal-full' };
+    var next = Object.assign({}, current);
+    journal.push(Object.assign({}, entry));
+    next.journalEntries = journal;
+    next.revision = Math.max(0, Number(current.revision) || 0) + 1;
+    next.updatedAt = Number(metadata && metadata.updatedAt) || now();
+    next.updatedBy = String(metadata && metadata.updatedBy || '');
+    next.source = 'gm-journal-add';
     next.syncOperationId = String(metadata && metadata.operationId || '');
     return { ok:true, duplicate:false, character:next };
   }
@@ -1273,8 +1332,44 @@
         }) : [];
         var store = syncOutbox();
         var itemOperations = Array.isArray(options.inventoryOperations) ? options.inventoryOperations : null;
+        var journalOperation = /^journal-/.test(String(syncReason));
         var roomWrite;
-        if (itemOperations && store && store.applyInventoryOperations) {
+        if (journalOperation) {
+          var journalOperationId = String(options.outboxEntry && options.outboxEntry.operationId || liveSnapshot.syncOperationId || '');
+          var journalBaseSignature = String(options.outboxEntry && options.outboxEntry.baseFieldSignatures && options.outboxEntry.baseFieldSignatures.journalEntries || '');
+          var journalConflict = null;
+          var journalCharacterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid + '/character');
+          roomWrite = firebase.runTransaction(journalCharacterRef, function (current) {
+            if (!current || typeof current !== 'object') return;
+            journalConflict = null;
+            if (journalBaseSignature && store && store.fieldSignature(current.journalEntries) !== journalBaseSignature) {
+              journalConflict = JSON.parse(JSON.stringify(current));
+              return;
+            }
+            var next = Object.assign({}, current);
+            next.journalEntries = Array.isArray(liveSnapshot.journalEntries) ? liveSnapshot.journalEntries.slice(-80) : [];
+            next.revision = Math.max(Math.max(0, Number(current.revision) || 0) + 1, Math.max(0, Number(liveSnapshot.revision) || 0));
+            next.updatedAt = now();
+            next.updatedBy = user.uid;
+            next.source = syncReason;
+            next.syncOperationId = journalOperationId;
+            return next;
+          }).then(function (result) {
+            if (!result || !result.committed) {
+              if (journalConflict) {
+                var archived = !store || !store.recordConflict || store.recordConflict(options.outboxEntry, journalConflict);
+                setCharacterSync('conflict', character, 'local→room', syncReason, 'Journal changed in room while local edits were queued');
+                appendSyncEvent(character, 'local→room', syncReason, 'conflict', 'Journal changed in room while local edits were queued');
+                if (!archived) appendSyncEvent(character, 'local→room', syncReason, 'conflict-archive-error', 'Both journal versions remain in room and outbox');
+                emit();
+                return { journalConflict:true };
+              }
+              throw roomError('Журнал героя недоступен. Повторите попытку.', 'journal-operation-failed');
+            }
+            liveSnapshot = result.snapshot && result.snapshot.val ? result.snapshot.val() : liveSnapshot;
+            return { journalConflict:false };
+          });
+        } else if (itemOperations && store && store.applyInventoryOperations) {
           var operationConflict = null;
           var operationConflictField = '';
           var operationConflictItemId = '';
@@ -1334,7 +1429,7 @@
           roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
         }
         return roomWrite.then(function (writeResult) {
-          if (writeResult && writeResult.inventoryConflict) {
+          if (writeResult && (writeResult.inventoryConflict || writeResult.journalConflict)) {
             return refreshRoom(session.code).catch(function () { return currentRoom; }).then(function () { return api.getSnapshot(); });
           }
           setCharacterSync('synced', liveSnapshot, 'local→room', syncReason);
@@ -2160,6 +2255,51 @@
         });
       }).catch(function (error) {
         if (error && ['member-required','master-only','room-not-found','character-missing','inventory-item-invalid','inventory-full'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    gmAddJournalEntry: function (memberUid, entry) {
+      memberUid = String(memberUid || '').slice(0, 128);
+      var stamp = now();
+      var operationId = 'gm-journal-add-' + stamp + '-' + Math.random().toString(36).slice(2, 9);
+      var normalizedEntry = normalizeJournalOperationEntry(entry, operationId, { updatedAt:stamp });
+      if (!memberUid) return Promise.reject(roomError('Герой для записи не выбран.', 'member-required'));
+      if (!normalizedEntry.title && !normalizedEntry.text.trim()) return Promise.reject(roomError('Заполните заголовок или текст записи.', 'journal-entry-invalid'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Добавлять записи может только мастер.', 'master-only');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          var member = room.members && room.members[memberUid];
+          if (!member || member.role !== 'player' || !member.character) throw roomError('Лист игрока пока недоступен.', 'character-missing');
+          normalizedEntry.updatedBy = user.uid;
+          var abortCode = '';
+          var characterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + memberUid + '/character');
+          return firebase.runTransaction(characterRef, function (current) {
+            var applied = applyJournalAddOperation(current, normalizedEntry, {
+              updatedAt:stamp,
+              updatedBy:user.uid,
+              operationId:operationId
+            });
+            if (!applied.ok) {
+              abortCode = applied.error;
+              return;
+            }
+            return applied.character;
+          }).then(function (result) {
+            if (!result || !result.committed) {
+              if (abortCode === 'journal-full') throw roomError('В журнале комнаты уже 80 записей.', 'journal-full');
+              throw roomError('Лист игрока изменился или недоступен. Повторите попытку.', 'character-missing');
+            }
+            var appliedCharacter = result.snapshot && result.snapshot.val ? result.snapshot.val() : null;
+            appendSyncEvent(appliedCharacter || member.character, 'master→room', 'gm-journal-add', 'ack');
+            return refreshRoom(session.code).catch(function () { return currentRoom; }).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['member-required','master-only','room-not-found','character-missing','journal-entry-invalid','journal-full'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
