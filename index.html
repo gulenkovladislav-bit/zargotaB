@@ -9718,9 +9718,10 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     if (!w.ZargotaRooms) return;
     if (h) h.textContent = 'Ищем комнату…';
-    w.ZargotaRooms.prepareJoin(code).then(function(){
+    w.ZargotaRooms.prepareJoin(code).then(function(snapshot){
       if (h) h.textContent = '';
-      w.zgAdvShowPlayer();
+      if(snapshot&&snapshot.session&&snapshot.session.role==='master')w.zgAdvShowHost();
+      else w.zgAdvShowPlayer();
     }).catch(function(err){
       if (h) h.textContent = err.message || 'Не удалось подключиться к комнате.';
     });

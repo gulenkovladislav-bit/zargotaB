@@ -891,7 +891,9 @@
   function pendingOf(room) {
     return Object.keys((room && room.pending) || {}).map(function (code) {
       return room.pending[code];
-    }).filter(Boolean);
+    }).filter(function (pending) {
+      return pending && String(pending.uid || '') !== String(room && room.masterUid || '');
+    });
   }
 
   function characterSnapshot(character) {
@@ -1484,6 +1486,14 @@
       return ensureReady().then(function (user) {
         return readRoom(code).then(function (room) {
           if (!room) throw roomError('Комната с таким кодом не найдена.', 'room-not-found');
+          if (room.masterUid === user.uid) {
+            var masterSession = { code:code, role:'master', uid:user.uid };
+            saveSession(masterSession);
+            currentRoom = room;
+            watchRoom(code);
+            setPresence(masterSession);
+            return api.getSnapshot();
+          }
           var existing = room.members && room.members[user.uid];
           if (existing && existing.role === 'player') {
             var existingSession = { code: code, role: 'player', uid: user.uid, playerCode: existing.playerCode || '' };
@@ -1545,6 +1555,9 @@
           saveSession(session);
           var pending = room.pending && room.pending[playerCode];
           if (!pending) throw roomError('Игрок с таким кодом пока не подключался.', 'player-not-found');
+          if (pending.uid === room.masterUid || room.members && room.members[pending.uid] && room.members[pending.uid].role === 'master') {
+            throw roomError('Мастерская вкладка не может занимать место игрока. Откройте игрока в другом браузере или профиле.', 'identity-conflict');
+          }
           var slot = Math.max(0, Math.min(MAX_PLAYERS - 1, Number(slotIndex) || 0));
           if (room.slots && room.slots[slot] && room.slots[slot].uid !== pending.uid) {
             throw roomError('Эта ячейка уже занята.', 'slot-busy');
@@ -1571,7 +1584,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','player-not-found','slot-busy'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','player-not-found','slot-busy','identity-conflict'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },

@@ -47,6 +47,11 @@ assert.match(network, /setPersistence\(auth,\s*authModule\.browserLocalPersisten
 assert.strictEqual(network.indexOf('authModule.browserSessionPersistence') >= 0, false, 'anonymous uid must survive a closed tab');
 assert.strictEqual(network.indexOf('authModule.signOut(auth)') >= 0, false, 'missing tab-session must not rotate the reconnect identity');
 assert.match(network, /\['pairing','character-select'\]\.indexOf\(String\(room\.phase \|\| ''\)\)/);
+assert.match(network, /if \(room\.masterUid === user\.uid\)/);
+assert.match(network, /pending\.uid === room\.masterUid/);
+assert.match(network, /'identity-conflict'/);
+assert.match(network, /String\(pending\.uid \|\| ''\) !== String\(room && room\.masterUid \|\| ''\)/);
+assert.match(html, /snapshot\.session\.role==='master'\)w\.zgAdvShowHost\(\)/);
 
 var sessionHelpersStart = network.indexOf('  function sessionTabId()');
 var sessionHelpersEnd = network.indexOf('  function generatedCode(', sessionHelpersStart);
