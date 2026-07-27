@@ -12582,9 +12582,12 @@ document.addEventListener('DOMContentLoaded', function(){
   var state = null;
   var activePanel = '';
   var selectedMemberUid = '';
+  var drawerMemberUid = '';
   var lastRoll = '';
   var inventoryFilter = 'all';
   var inventoryDetail = null;
+  var inventoryOperationNotice = null;
+  var inventoryOperationNoticeTimer = 0;
   var abilitiesFilter = 'all';
   var expandedAbilityKey = '';
   var abilityCardsByKey = {}, localPhysicalRolls = {}, localThrowMotions = {};
@@ -12624,9 +12627,32 @@ document.addEventListener('DOMContentLoaded', function(){
     return roomMembers().find(function(member){ return session && member.uid === session.uid; }) || null;
   }
   function fullLocalCharacter(member){
-    if (!member || !member.characterId || !Array.isArray(w.characters)) return null;
+    var session=state&&state.session;
+    if (!member || !member.characterId || !session || session.role!=='player' || String(member.uid)!==String(session.uid) || !Array.isArray(w.characters)) return null;
     return w.characters.find(function(character){ return String(character.id) === String(member.characterId); }) || null;
   }
+  function drawerMember(){
+    var session=state&&state.session;
+    if(drawerMemberUid&&session&&session.role==='master'){
+      var viewed=roomMembers().find(function(member){return String(member.uid)===String(drawerMemberUid);});
+      if(viewed)return viewed;
+      drawerMemberUid='';
+    }
+    return ownMember();
+  }
+  function drawerReadOnly(member){
+    var session=state&&state.session;
+    return !!(session&&session.role==='master'&&member&&String(member.uid)!==String(w.zgPossessedPlayerUid||''));
+  }
+  w.zgVttSetInventoryNotice=function(uid,kind,text){
+    clearTimeout(inventoryOperationNoticeTimer);
+    inventoryOperationNotice={uid:String(uid||''),kind:String(kind||''),text:String(text||'')};
+    if(activePanel==='inventory')renderDrawer();
+    if(kind&&kind!=='loading')inventoryOperationNoticeTimer=setTimeout(function(){
+      inventoryOperationNotice=null;
+      if(activePanel==='inventory')renderDrawer();
+    },kind==='error'?9000:5000);
+  };
   function avatar(character, cls){
     return character && character.portrait
       ? '<img class="' + cls + '" src="' + esc(character.portrait) + '" alt="">'
@@ -12885,8 +12911,9 @@ document.addEventListener('DOMContentLoaded', function(){
       '<div class="zg-bag-statuses">'+((c.statuses||[]).map(function(s){return '<span>'+esc(typeof s==='string'?s:(s.name||s.label||'Статус'))+'</span>';}).join('')||'<small>Нет активных состояний</small>')+'</div>';
   }
   function inventoryPanel(){
-    var member=ownMember(), local = fullLocalCharacter(member) || member && member.character;
+    var member=drawerMember(), localCharacter=fullLocalCharacter(member),local = localCharacter || member && member.character;
     if(!local)return '<div class="zg-vtt-empty">Выберите героя</div>';
+    var canEdit=!!localCharacter;
     var allItems = Array.isArray(local.inventoryItems) ? local.inventoryItems : [];
     function category(item){var hay=String((item&&item.category||'')+' '+(item&&item.type||'')+' '+(item&&item.name||'')).toLowerCase();if(/оруж|меч|кинжал|топор|лук|weapon/.test(hay))return'weapon';if(/брон|доспех|щит|одеж|armor/.test(hay))return'armor';if(/зель|эликс|настой|potion/.test(hay))return'potion';return'other';}
     var itemRows=allItems.map(function(item,index){return{item:item,index:index};}).filter(function(entry){return !entry.item||entry.item.equipped!==true;});
@@ -12896,19 +12923,22 @@ document.addEventListener('DOMContentLoaded', function(){
     function art(item){var src=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item&&item.image||'');if(src)return '<img src="'+esc(src)+'" alt="">';return '<i>'+esc(item&&item.icon||'◈')+'</i>';}
     function slot(item,index,source){
       if (typeof item === 'string') item = { name:item };
-      var draggable=source==='inventory'?' draggable="true" ondragstart="zgVttInventoryDrag(event,'+index+')"':'';
+      var draggable=canEdit&&source==='inventory'?' draggable="true" ondragstart="zgVttInventoryDrag(event,'+index+')"':'';
       return '<button type="button" class="zg-bag-item"'+draggable+' onclick="zgVttInventoryOpenItem(\''+source+'\','+index+')" title="'+esc(item.name||'Предмет')+'">'+art(item)+'<span>'+esc(item.name||'Предмет')+'</span>'+(Number(item.qty||1)>1?'<small>'+Number(item.qty)+'</small>':'')+'</button>';
     }
-    var canEdit=fullLocalCharacter(member), add=canEdit?'<button type="button" class="zg-bag-add" onclick="zgVttAddInventoryItem()" title="Добавить предмет">＋</button>':'';
+    var add=canEdit?'<button type="button" class="zg-bag-add" onclick="zgVttAddInventoryItem()" title="Добавить предмет">＋</button>':'';
     var equipmentSlots=['head','body','weapon','accessory','utility'],slotLabels={head:'Голова',body:'Доспех',weapon:'Оружие',accessory:'Талисман',utility:'Пояс'},slotMarks={head:'ШЛ',body:'ДО',weapon:'ОР',accessory:'ТА',utility:'ПО'};
     var used={};function equippedFor(slotName){var found=-1;equipped.some(function(entry,index){if(used[index])return false;var item=entry.item,hay=String((item.slot||'')+' '+(item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),match=slotName==='head'?/голов|шлем|капюш|head/.test(hay):slotName==='body'?/брон|доспех|одеж|ряса|плащ|body|armor/.test(hay):slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):slotName==='accessory'?/талис|кольц|амул|ожерел|access/.test(hay):false;if(match){found=index;used[index]=true;return true;}return false;});if(found<0){found=equipped.findIndex(function(_,index){return!used[index];});if(found>=0)used[found]=true;}return found>=0?equipped[found]:null;}
-    var equipmentHtml=equipmentSlots.map(function(slotName){var entry=equippedFor(slotName);return '<div class="zg-bag-equip-slot'+(entry?' filled':'')+'" data-equip-slot="'+slotName+'" ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="zgVttInventoryDrop(event,\''+slotName+'\')"><small>'+slotLabels[slotName]+'</small>'+(entry?slot(entry.item,entry.index,entry.source):'<span class="zg-bag-slot-mark" aria-hidden="true">'+slotMarks[slotName]+'</span>')+'</div>';}).join('');
-    return '<div class="zg-bag-character-name">'+esc(local.name||member&&member.character&&member.character.name||'Герой')+'<small>Снаряжение и дорожные вещи</small></div><div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Снаряжение</h4><div class="zg-bag-silhouette" aria-hidden="true"></div><div class="zg-bag-equip-list">'+equipmentHtml+'</div></section>'+
+    var equipmentHtml=equipmentSlots.map(function(slotName){var entry=equippedFor(slotName),drop=canEdit?' ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="zgVttInventoryDrop(event,\''+slotName+'\')"':'';return '<div class="zg-bag-equip-slot'+(entry?' filled':'')+'" data-equip-slot="'+slotName+'"'+drop+'><small>'+slotLabels[slotName]+'</small>'+(entry?slot(entry.item,entry.index,entry.source):'<span class="zg-bag-slot-mark" aria-hidden="true">'+slotMarks[slotName]+'</span>')+'</div>';}).join('');
+    var notice=inventoryOperationNotice&&String(inventoryOperationNotice.uid)===String(member&&member.uid)
+      ?'<div class="zg-bag-operation-state '+esc(inventoryOperationNotice.kind)+'" role="status" aria-live="polite">'+esc(inventoryOperationNotice.text)+'</div>'
+      :'';
+    return notice+'<div class="zg-bag-character-name">'+esc(local.name||member&&member.character&&member.character.name||'Герой')+'<small>Снаряжение и дорожные вещи</small></div><div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Снаряжение</h4><div class="zg-bag-silhouette" aria-hidden="true"></div><div class="zg-bag-equip-list">'+equipmentHtml+'</div></section>'+
       '<section class="zg-bag-storage"><div class="zg-bag-storage-head"><h4>Рюкзак</h4><div class="zg-bag-filters"><button class="'+(inventoryFilter==='all'?'active':'')+'" onclick="zgVttInventoryFilter(\'all\')">Все</button><button class="'+(inventoryFilter==='weapon'?'active':'')+'" onclick="zgVttInventoryFilter(\'weapon\')" title="Оружие">⚔</button><button class="'+(inventoryFilter==='armor'?'active':'')+'" onclick="zgVttInventoryFilter(\'armor\')" title="Броня">◈</button><button class="'+(inventoryFilter==='potion'?'active':'')+'" onclick="zgVttInventoryFilter(\'potion\')" title="Зелья">⚗</button></div></div><div class="zg-bag-grid">'+items.map(function(row){return slot(row.item,row.index,'inventory');}).join('')+Array(Math.max(0,20-items.length)).fill('<span class="zg-bag-item empty"></span>').join('')+'</div></section></div>'+
       '<div class="zg-bag-foot"><span>Вместимость <b>'+allItems.length+'</b> / 20</span><span class="zg-bag-coins">Монеты хранятся в листе героя</span>'+add+'</div>';
   }
   function journalPanel(){
-    var member=ownMember(), c=fullLocalCharacter(member)||member&&member.character||{}, notes=c.notes||c.journal||c.quests||[];
+    var member=drawerMember(), c=fullLocalCharacter(member)||member&&member.character||{}, notes=c.notes||c.journal||c.quests||[];
     if(typeof notes==='string')notes=[notes];
     return '<div class="zg-bag-notes">'+(notes.length?notes.map(function(note){return '<article><b>'+esc(note.title||note.name||'Запись')+'</b><p>'+esc(typeof note==='string'?note:(note.text||note.description||''))+'</p></article>';}).join(''):'<div class="zg-vtt-empty">В журнале пока нет записей</div>')+'</div>';
   }
@@ -12935,7 +12965,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return '<div class="zg-ability-battle-tags">'+parts.map(function(part){return'<span>'+esc(part)+'</span>';}).join('')+'</div>';
   }
   function abilitiesPanel(){
-    var member=ownMember(),localCharacter=fullLocalCharacter(member),c=localCharacter||member&&member.character||{};
+    var member=drawerMember(),localCharacter=fullLocalCharacter(member),readOnly=drawerReadOnly(member),c=localCharacter||member&&member.character||{};
     var positions=c.positions||c.masteries||c.mastery||[],skills=c.skills||c.abilities||[];
     if(!Array.isArray(positions))positions=positions?[positions]:[];
     if(!Array.isArray(skills))skills=skills?[skills]:[];
@@ -12953,7 +12983,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var learned=localCharacter?!!(c.spellsLearned&&c.spellsLearned[id])
         :(c.spellsLearned&&Object.prototype.hasOwnProperty.call(c.spellsLearned,id)?c.spellsLearned[id]===true:null);
       var profile=vttAbilityProfile(key,spell,true);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;
-      cards.push({key:key,group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.effect||spell.battle||spell.description||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',passive:false,profile:profile});
+      cards.push({key:key,group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.effect||spell.battle||spell.description||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
     });
     abilityCardsByKey={};cards.forEach(function(card){abilityCardsByKey[card.key]=card;});
     var shown=abilitiesFilter==='all'?cards:cards.filter(function(card){return card.group===abilitiesFilter;});
@@ -12973,18 +13003,20 @@ document.addEventListener('DOMContentLoaded', function(){
   function renderDrawer(){
     if (!activePanel) return;
     var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'), drawer=el('zg-vtt-drawer'); if (!body) return;
+    var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember);
     if(drawer)drawer.classList.toggle('inventory-skin',activePanel==='inventory');
     var labels = { group:'Группа', character:'Состояние героя', inventory:'Сумка героя', abilities:'Книга приёмов', journal:'Журнал', dice:'Кубики' };
-    if (title) title.textContent = labels[activePanel] || 'Панель';
+    if (title) title.textContent = (labels[activePanel] || 'Панель')+(viewOnly&&viewedMember?' · '+String(viewedMember.character&&viewedMember.character.name||viewedMember.name||'Герой'):'');
     document.querySelectorAll('.zg-bag-tabs button[onclick*="zgVttOpenPanel"]').forEach(function(button){
       button.classList.toggle('active',button.getAttribute('onclick').indexOf("'"+activePanel+"'")>=0);
     });
     if (activePanel === 'group') body.innerHTML = heroMembers().map(memberRow).join('') || '<div class="zg-vtt-empty">Группа собирается</div>';
-    if (activePanel === 'character') body.innerHTML = characterStats(ownMember());
+    if (activePanel === 'character') body.innerHTML = characterStats(viewedMember);
     if (activePanel === 'inventory') body.innerHTML = inventoryPanel();
     if (activePanel === 'abilities') body.innerHTML = abilitiesPanel();
     if (activePanel === 'journal') body.innerHTML = journalPanel();
     if (activePanel === 'dice') body.innerHTML = dicePanel();
+    if(viewOnly&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0)body.insertAdjacentHTML('afterbegin','<div class="zg-drawer-readonly" role="status">Просмотр снимка комнаты · без редактирования и заявок</div>');
     document.querySelectorAll('[data-vtt-tool]').forEach(function(button){ button.classList.toggle('active', button.getAttribute('data-vtt-tool') === activePanel); });
   }
   function render(snapshot){
@@ -13377,9 +13409,9 @@ document.addEventListener('DOMContentLoaded', function(){
     var turningOn = playerDockAction !== action;
     if(w.zgVttDeactivateTools)w.zgVttDeactivateTools(action);
     if (action === 'movement' && w.zgMovementToggle) turningOn = !!w.zgMovementToggle(turningOn);
-    if(action==='inventory') { w.zgVttOpenPanel('inventory'); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
+    if(action==='inventory') { w.zgVttOpenPanel('inventory',{resetMember:true}); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
     if(action==='actions' && w.zgVttActionToggle)turningOn=!!w.zgVttActionToggle(turningOn);
-    if(action==='abilities') { w.zgVttOpenPanel('abilities'); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
+    if(action==='abilities') { w.zgVttOpenPanel('abilities',{resetMember:true}); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
     w.zgPlayerDockSet(action, turningOn);
     try { if (w.ZargotaSound && w.ZargotaSound.click) w.ZargotaSound.click(); } catch(e) {}
   };
@@ -13405,7 +13437,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(typeof w.saveChars==='function')w.saveChars({reason:'inventory-equip'});renderDrawer();if(w.showToast)w.showToast('Предмет экипирован');
   };
   w.zgVttInventoryOpenItem=function(source,index){
-    var member=ownMember(),c=fullLocalCharacter(member)||member&&member.character;if(!c)return;
+    var member=drawerMember(),c=fullLocalCharacter(member)||member&&member.character;if(!c)return;
     var list=source==='equip'?c.equipItems:c.inventoryItems,item=list&&list[index];if(!item)return;if(typeof item==='string')item={name:item};
     inventoryDetail={source:source,index:index};
     var old=el('zg-vtt-item-detail');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-vtt-item-detail';modal.className='zg-item-detail-backdrop';
@@ -13423,19 +13455,20 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttAbilityOpen=function(key){
     var card=abilityCardsByKey[String(key||'')];if(!card)return;
     w.zgVttAbilityClose();expandedAbilityKey=card.key;
-    var disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
+    var viewOnly=drawerReadOnly(drawerMember()),disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
     var resource=card.limit?'Заряды '+Math.max(0,card.limit-card.used)+' / '+card.limit:(card.usage||'Без ограничения');
     var learnLabels={train:'Тренировка',study:'Изучение',ritual:'Ритуал обучения'};
     var spellState=card.group==='spells'
       ?'<div class="zg-ability-spell-state '+(unknown?'unknown':disabled?'locked':'learned')+'"><b>'+(unknown?'Статус изучения не передан':disabled?'Заклинание не изучено':'Заклинание изучено')+'</b>'+(card.usage?'<span>Кулдаун: '+esc(card.usage)+'</span>':'')+(card.limit?'<span>Доступно зарядов: '+Math.max(0,card.limit-card.used)+' из '+card.limit+'</span>':'')+(card.learnText?'<small><strong>'+esc(learnLabels[card.learnType]||'Способ изучения')+':</strong> '+esc(card.learnText)+'</small>':'')+'</div>'
       :'';
     var modal=document.createElement('div');modal.id='zg-vtt-ability-detail';modal.className='zg-ability-modal-backdrop';
-    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+esc(card.icon)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+abilityProfileBadges(card.profile)+'<div class="zg-ability-modal-copy">'+esc(card.description||'Описание пока не заполнено в листе персонажа.')+'</div>'+(card.restriction?'<aside><b>Ограничения</b>'+esc(card.restriction)+'</aside>':'')+'<footer><button type="button" onclick="zgVttRequestAbility(\''+card.key+'\');zgVttAbilityClose()" '+((disabled||exhausted||abilityRequestBusy)?'disabled':'')+'>'+(disabled?'Не изучено':exhausted?'Нет зарядов':card.passive?'Показать мастеру':'Заявить применение')+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
+    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+esc(card.icon)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+abilityProfileBadges(card.profile)+'<div class="zg-ability-modal-copy">'+esc(card.description||'Описание пока не заполнено в листе персонажа.')+'</div>'+(card.restriction?'<aside><b>Ограничения</b>'+esc(card.restriction)+'</aside>':'')+'<footer><button type="button" onclick="zgVttRequestAbility(\''+card.key+'\');zgVttAbilityClose()" '+((viewOnly||disabled||exhausted||abilityRequestBusy)?'disabled':'')+'>'+(viewOnly?'Только просмотр':disabled?'Не изучено':exhausted?'Нет зарядов':card.passive?'Показать мастеру':'Заявить применение')+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttAbilityClose();});document.body.appendChild(modal);
   };
   w.zgVttAbilityExpand=w.zgVttAbilityOpen;
   w.zgVttRequestAbility=function(key){
     if(abilityRequestBusy)return;
+    if(drawerReadOnly(drawerMember())){if(w.showToast)w.showToast('Чужой герой открыт только для просмотра');return;}
     var member=ownMember(),c=fullLocalCharacter(member)||member&&member.character||{};
     var label='приём',source={},profile=null;
     if(/^mastery-/.test(key)){var mastery=(c.mastery||c.masteries||[])[Number(key.split('-')[1])];source=typeof mastery==='string'?{name:mastery}:mastery||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
@@ -13488,11 +13521,17 @@ document.addEventListener('DOMContentLoaded', function(){
 
   w.zgVttCloseDrawer = function(){
     activePanel = '';
+    drawerMemberUid = '';
     var drawer = el('zg-vtt-drawer'); if (drawer) drawer.classList.remove('open');
     document.querySelectorAll('[data-vtt-tool]').forEach(function(button){ button.classList.remove('active'); });
   };
   w.zgVttOpenPanel = function(panel,options){
     options=options||{};
+    if(options.resetMember)drawerMemberUid='';
+    if(options.memberUid!=null){
+      var session=state&&state.session,candidate=roomMembers().find(function(member){return String(member.uid)===String(options.memberUid)&&member.character;});
+      drawerMemberUid=session&&session.role==='master'&&candidate?String(candidate.uid):'';
+    }
     if (!options.forceOpen && activePanel === panel && el('zg-vtt-drawer') && el('zg-vtt-drawer').classList.contains('open')) { w.zgVttCloseDrawer(); return; }
     if(w.zgDiceClose)w.zgDiceClose();
     if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();
@@ -13502,6 +13541,14 @@ document.addEventListener('DOMContentLoaded', function(){
     var gamePanel = el('zg-game-settings'); if (gamePanel) gamePanel.classList.remove('open');
     var drawer = el('zg-vtt-drawer'); if (drawer) drawer.classList.add('open');
     renderDrawer();
+  };
+  w.zgVttOpenPanelForMember=function(panel,uid){
+    var session=state&&state.session;
+    if(!session||session.role!=='master')return false;
+    var member=roomMembers().find(function(candidate){return candidate&&candidate.character&&String(candidate.uid)===String(uid);});
+    if(!member)return false;
+    w.zgVttOpenPanel(panel,{forceOpen:true,memberUid:member.uid});
+    return true;
   };
   w.zgVttOpenMember = function(uid){ selectedMemberUid = uid || ''; w.zgVttOpenPanel('group'); };
   w.zgVttToggleJournal = function(force){
@@ -13549,9 +13596,6 @@ document.addEventListener('DOMContentLoaded', function(){
   var sessionEditCharacterId='';
   var gmInventoryBusy=false;
   var sheetRefreshTimer=0;
-  var sheetItemRefs={};
-  var openedItemKey='';
-  var inventoryNotice=null;
   function el(id){return document.getElementById(id);}
   function esc(s){s=(s==null)?'':String(s);return (typeof w.escHTML==='function')?w.escHTML(s):s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function localCharFor(m){if(!m||!Array.isArray(w.characters))return null;return w.characters.find(function(c){return String(c.id)===String(m.characterId);})||null;}
@@ -13571,11 +13615,6 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!key||seen[key])return false;seen[key]=true;return true;
     });
   }
-  function spellName(id){
-    var list=Array.isArray(w.entries)?w.entries:(typeof entries!=='undefined'&&Array.isArray(entries)?entries:[]);
-    var spell=list.find(function(item){return item&&String(item.id)===String(id);});
-    return spell?spell.name:('Заклинание '+id);
-  }
   function renderStats(c){
     var labels=w.STAT_LABEL_RU||{str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
     var icons=w.STAT_ICON_EM||{}, keys=['str','dex','int','cha','per','con'], stats=c.stats||{};
@@ -13586,20 +13625,6 @@ document.addEventListener('DOMContentLoaded', function(){
   function renderChips(list){
     if(!list.length)return '<div class="zg-sheet-empty">Нет</div>';
     return '<div class="zg-sheet-chips">'+list.map(function(it){ var ic=(it&&it.icon)?it.icon+' ':''; return '<span class="zg-sheet-chip">'+esc(ic)+esc(nameOf(it)||'—')+'</span>'; }).join('')+'</div>';
-  }
-  function renderItems(rows,emptyText){
-    if(!rows.length)return '<div class="zg-sheet-empty">'+esc(emptyText||'Предметов нет')+'</div>';
-    return '<div class="zg-sheet-items">'+rows.slice(0,24).map(function(row){
-      var it=row&&row.item!==undefined?row.item:row;
-      if(typeof it==='string')it={name:it};
-      var itemIdentity=it&&it.itemId
-        ?'id-'+String(it.itemId).replace(/[^a-zA-Z0-9_-]/g,'')
-        :'index-'+String(row&&row.index!=null?row.index:0);
-      var key=String(row&&row.source||'inventory')+':'+itemIdentity;
-      sheetItemRefs[key]=it;
-      var q=Number(it&&it.qty||1),name=it&&it.name||'Предмет';
-      return '<button type="button" class="zg-sheet-item" onclick="zgSheetItemOpen(\''+esc(key)+'\')" title="'+esc(name)+'" aria-label="Открыть описание: '+esc(name)+'"><i>'+esc(it&&it.icon||'◈')+'</i><span>'+esc(name)+'</span>'+(q>1?'<small>'+q+'</small>':'')+'</button>';
-    }).join('')+'</div>';
   }
   function renderList(list){
     if(!list.length)return '<div class="zg-sheet-empty">Нет</div>';
@@ -13612,7 +13637,6 @@ document.addEventListener('DOMContentLoaded', function(){
     var m=(snap&&snap.room&&snap.room.members)?snap.room.members[uid]:null;
     if(!m||!m.character){if(w.showToast)w.showToast('Лист этого героя пока недоступен');return;}
     openedUid=String(uid||'');
-    sheetItemRefs={};
     var c=charFor(m,snap,uid)||{},session=snap&&snap.session;
     var isMaster=!!(session&&session.role==='master'),isOwn=!!(session&&String(session.uid)===String(uid));
     var canEditOwn=!!(session&&session.role==='player'&&isOwn&&localCharFor(m));
@@ -13626,12 +13650,7 @@ document.addEventListener('DOMContentLoaded', function(){
       :'<span>'+(isOwn?'Ваш локальный лист · синхронизация включена':'Только просмотр')+'</span>'
         +(canEditOwn?'<button type="button" onclick="zgSheetEditOwn()">Редактировать</button>':'');
     var statuses=uniqueList(asList(c.statuses||c.conditions).concat(asList(c.statusEffects)).concat(asList(c.tempEffects).filter(function(effect){return effect&&effect.type==='status';})));
-    var allInventory=asList(c.inventoryItems);
-    var inv=allInventory.map(function(item,index){return{item:item,index:index,source:'inventory'};}).filter(function(row){return !row.item||row.item.equipped!==true;});
-    var equipment=allInventory.map(function(item,index){return{item:item,index:index,source:'inventory'};}).filter(function(row){return row.item&&row.item.equipped===true;})
-      .concat(asList(c.equipItems).map(function(item,index){return{item:item,index:index,source:'equip'};}).filter(function(row){return !row.item||row.item.equipped!==false;}));
-    var traits=asList(c.traits),abilities=asList(c.mastery).concat(asList(c.skills||c.abilities)).concat(asList(c.weaponProfiles));
-    asList(c.spellRefs).forEach(function(id){abilities.push({name:spellName(id),description:''});});
+    var traits=asList(c.traits);
     var notes=asList(c.notes||c.journal||c.quests);
     if(c.currentGoal)notes.unshift({name:'Текущая цель',text:c.currentGoal});
     el('zg-sheet-pane-list').innerHTML=
@@ -13644,11 +13663,6 @@ document.addEventListener('DOMContentLoaded', function(){
       '<div class="zg-sheet-h">Характеристики</div>'+renderStats(c)+
       '<div class="zg-sheet-h">Статусы и эффекты</div>'+renderChips(statuses)+
       (traits.length?'<div class="zg-sheet-h">Черты</div>'+renderList(traits):'');
-    el('zg-sheet-pane-abilities').innerHTML='<div class="zg-sheet-h">Способности и приёмы</div>'+renderList(abilities);
-    var notice=inventoryNotice&&inventoryNotice.uid===openedUid
-      ?'<div class="zg-sheet-inventory-state '+esc(inventoryNotice.kind||'')+'" role="status" aria-live="polite">'+esc(inventoryNotice.text||'')+'</div>'
-      :'';
-    el('zg-sheet-pane-items').innerHTML=notice+'<div class="zg-sheet-h">Экипировка</div>'+renderItems(equipment,'Снаряжение пока не надето')+'<div class="zg-sheet-h">Инвентарь</div>'+renderItems(inv,'Рюкзак пуст');
     el('zg-sheet-pane-journal').innerHTML='<div class="zg-sheet-h">Журнал и заметки</div>'+renderList(notes);
     var bio=c.biography||c.bio||'';
     var extra=[['Происхождение',c.origin],['Символ',c.symbol],['Бог',c.god],['Возраст',c.age]].filter(function(r){return r[1];});
@@ -13667,38 +13681,28 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgSheetOpenCanonical=function(panel){
     panel=panel==='abilities'?'abilities':'inventory';
     var snap=(w.ZargotaRooms&&w.ZargotaRooms.getSnapshot)?w.ZargotaRooms.getSnapshot():null;
-    var session=snap&&snap.session;
+    var session=snap&&snap.session,targetUid=openedUid;
     var controlled=!!(session&&(
-      (session.role==='player'&&String(session.uid)===String(openedUid))||
-      (session.role==='master'&&String(w.zgPossessedPlayerUid||'')===String(openedUid))
+      (session.role==='player'&&String(session.uid)===String(targetUid))||
+      (session.role==='master'&&String(w.zgPossessedPlayerUid||'')===String(targetUid))
     ));
-    if(!controlled||typeof w.zgVttOpenPanel!=='function')return false;
-    w.zgSheetClose();
-    w.zgVttOpenPanel(panel,{forceOpen:true});
-    if(typeof w.zgPlayerDockSet==='function')w.zgPlayerDockSet(panel,true);
-    return true;
+    if(controlled&&typeof w.zgVttOpenPanel==='function'){
+      w.zgSheetClose();
+      w.zgVttOpenPanel(panel,{forceOpen:true,resetMember:true});
+      if(typeof w.zgPlayerDockSet==='function')w.zgPlayerDockSet(panel,true);
+      return true;
+    }
+    if(session&&session.role==='master'&&typeof w.zgVttOpenPanelForMember==='function'){
+      w.zgSheetClose();
+      return !!w.zgVttOpenPanelForMember(panel,targetUid);
+    }
+    return false;
   };
   w.zgSheetTabAction=function(name){
     if(name==='items'&&w.zgSheetOpenCanonical('inventory'))return;
     if(name==='abilities'&&w.zgSheetOpenCanonical('abilities'))return;
     w.zgSheetTab(name);
   };
-  w.zgSheetItemOpen=function(key){
-    var item=sheetItemRefs[String(key||'')];if(!item)return false;
-    if(typeof item==='string')item={name:item};
-    openedItemKey=String(key||'');
-    var old=el('zg-sheet-item-detail');if(old)old.remove();
-    var modal=document.createElement('div');modal.id='zg-sheet-item-detail';modal.className='zg-item-detail-backdrop';
-    var src=item.image&&!/^(?:data|blob):/i.test(String(item.image))?String(item.image):'';
-    var art=src?'<img src="'+esc(src)+'" alt="">':'<i>'+esc(item.icon||'◈')+'</i>';
-    var meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · ');
-    var stats=[item.damage||item.damageFormula,item.acBonus?'Броня +'+item.acBonus:'',item.weight?'Вес '+item.weight:''].filter(Boolean);
-    modal.innerHTML='<section class="zg-item-detail-card" role="dialog" aria-modal="true" aria-label="'+esc(item.name||'Описание предмета')+'"><button type="button" class="zg-item-detail-close" onclick="zgSheetItemClose()" aria-label="Закрыть">×</button><div class="zg-item-detail-art">'+art+'</div><small>'+(item.equipped?'Снаряжение':'Предмет')+'</small><h3>'+esc(item.name||item.text||'Без названия')+'</h3>'+(meta?'<div class="zg-item-detail-meta">'+esc(meta)+'</div>':'')+(stats.length?'<div class="zg-item-detail-stats">'+stats.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+'<p>'+esc(item.description||item.effect||item.text||'Описание предмета пока не заполнено.')+'</p>'+(Number(item.qty||1)>1?'<b class="zg-item-detail-qty">Количество: '+Number(item.qty)+'</b>':'')+'</section>';
-    modal.addEventListener('click',function(event){if(event.target===modal)w.zgSheetItemClose();});
-    document.body.appendChild(modal);
-    return true;
-  };
-  w.zgSheetItemClose=function(){var modal=el('zg-sheet-item-detail');if(modal)modal.remove();openedItemKey='';};
   w.zgSheetGmAddItem=function(){
     if(gmInventoryBusy||!openedUid||!w.ZargotaRooms||!w.ZargotaRooms.gmAddInventoryItem)return false;
     var snap=w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
@@ -13720,20 +13724,18 @@ document.addEventListener('DOMContentLoaded', function(){
       description:String(description||'')
     };
     gmInventoryBusy=true;
-    inventoryNotice={uid:targetUid,kind:'loading',text:'Добавляем предмет игроку…'};
-    if(openedUid===targetUid)w.zgSheetOpen(targetUid,{tab:'items',silent:true});
+    if(w.zgVttSetInventoryNotice)w.zgVttSetInventoryNotice(targetUid,'loading','Добавляем предмет игроку…');
+    if(openedUid===targetUid)w.zgSheetOpenCanonical('inventory');
     if(w.showToast)w.showToast('Добавляем предмет…');
     return Promise.resolve(w.ZargotaRooms.gmAddInventoryItem(targetUid,item)).then(function(){
       gmInventoryBusy=false;
-      inventoryNotice={uid:targetUid,kind:'success',text:'Предмет добавлен и подтверждён Firebase.'};
+      if(w.zgVttSetInventoryNotice)w.zgVttSetInventoryNotice(targetUid,'success','Предмет добавлен и подтверждён Firebase.');
       if(w.showToast)w.showToast('Предмет добавлен игроку');
-      if(openedUid===targetUid)w.zgSheetOpen(targetUid,{tab:'items',silent:true});
       return true;
     }).catch(function(error){
       gmInventoryBusy=false;
-      inventoryNotice={uid:targetUid,kind:'error',text:error&&error.message||'Не удалось добавить предмет.'};
+      if(w.zgVttSetInventoryNotice)w.zgVttSetInventoryNotice(targetUid,'error',error&&error.message||'Не удалось добавить предмет.');
       if(w.showToast)w.showToast(error&&error.message||'Не удалось добавить предмет');
-      if(openedUid===targetUid)w.zgSheetOpen(targetUid,{tab:'items',silent:true});
       return false;
     });
   };
@@ -13763,9 +13765,9 @@ document.addEventListener('DOMContentLoaded', function(){
     if(w.zgGameOpen)w.zgGameOpen(false);
     return true;
   };
-  w.zgSheetClose=function(){ var s=el('zg-sheet'); if(s)s.classList.remove('open');w.zgSheetItemClose();openedUid=''; };
+  w.zgSheetClose=function(){ var s=el('zg-sheet'); if(s)s.classList.remove('open');openedUid=''; };
   w.zgSheetTab=function(name){
-    ['list','abilities','items','journal','bio'].forEach(function(n){
+    ['list','journal','bio'].forEach(function(n){
       var tab=el('zg-sheet-tab-'+n), pane=el('zg-sheet-pane-'+n);
       if(tab)tab.classList.toggle('active',n===name);
       if(pane)pane.classList.toggle('active',n===name);
@@ -13776,16 +13778,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!openedUid||!sheet||!sheet.classList.contains('open'))return;
     var active=sheet.querySelector('.zg-sheet-tab.active');
     var tab=active&&String(active.id||'').replace('zg-sheet-tab-','')||'list';
-    var itemKey=openedItemKey;
     clearTimeout(sheetRefreshTimer);
     sheetRefreshTimer=setTimeout(function(){
-      if(openedUid&&sheet.classList.contains('open')){
-        w.zgSheetOpen(openedUid,{tab:tab,silent:true});
-        if(itemKey&&!w.zgSheetItemOpen(itemKey))w.zgSheetItemClose();
-      }
+      if(openedUid&&sheet.classList.contains('open'))w.zgSheetOpen(openedUid,{tab:tab,silent:true});
     },0);
   });
-  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){if(el('zg-sheet-item-detail')){w.zgSheetItemClose();return;}var s=el('zg-sheet');if(s&&s.classList.contains('open'))w.zgSheetClose();} });
+  document.addEventListener('keydown',function(ev){ if(ev.key==='Escape'){var s=el('zg-sheet');if(s&&s.classList.contains('open'))w.zgSheetClose();} });
 })(window);
 
 // ═══════════════════════════════════════════════════════════════════
@@ -17444,16 +17442,6 @@ window.zgImageStore = (function() {
   .zg-sheet-stat .l{font-size:9px;color:#8d7c5c;margin-top:1px}
   .zg-sheet-chips{display:flex;flex-wrap:wrap;gap:6px}
   .zg-sheet-chip{padding:4px 10px;border:1px solid #4d3b20;border-radius:20px;background:#1a140b;color:#c9b483;font-size:11px}
-  .zg-sheet-items{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
-  .zg-sheet-item{width:100%;min-width:0;aspect-ratio:1;border:1px solid #302515;border-radius:7px;background:#12100c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#8e7e60;font-size:9px;text-align:center;padding:4px;position:relative;cursor:pointer}
-  .zg-sheet-item:hover,.zg-sheet-item:focus-visible{border-color:#9d7838;background:#1b150d;color:#d1b979;outline:none}
-  .zg-sheet-item i{font-size:15px;font-style:normal}
-  .zg-sheet-item span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  .zg-sheet-item small{position:absolute;right:3px;bottom:2px;color:#d8c492}
-  .zg-sheet-inventory-state{margin:0 0 10px;padding:8px 10px;border:1px solid #4a3a23;border-radius:6px;background:#151108;color:#a99a7c;font-size:11px}
-  .zg-sheet-inventory-state.loading{border-color:#82652e;color:#d5b66f}
-  .zg-sheet-inventory-state.success{border-color:#416641;color:#8fc78f}
-  .zg-sheet-inventory-state.error{border-color:#753f3f;color:#dc8989}
   .zg-sheet-list{display:flex;flex-direction:column;gap:6px}
   .zg-sheet-listrow{padding:8px 10px;border-left:2px solid #4d3b20;background:#15110880;color:#a99a7c;font-size:12px;line-height:1.4}
   .zg-sheet-listrow b{color:#e7d3a0}
@@ -17931,6 +17919,8 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.open{display:flex}
   .zg-vtt-drawer-body{flex:1;overflow-y:auto;padding:12px}
   .zg-abilities-panel{display:flex;flex-direction:column;gap:10px}.zg-abilities-panel>header{display:flex;align-items:center;justify-content:space-between;padding:3px 2px 9px;border-bottom:1px solid #352918}.zg-abilities-panel>header div{display:flex;flex-direction:column;gap:2px}.zg-abilities-panel>header small{color:#786947;font:8px 'Cinzel',serif;letter-spacing:.7px}.zg-abilities-panel>header b{color:#e5ce91;font:600 15px 'Cinzel',serif}.zg-abilities-panel>header>span{min-width:25px;height:25px;border:1px solid #55401f;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#c9a75b;font:700 9px 'Cinzel',serif}.zg-abilities-panel>nav{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.zg-abilities-panel>nav button{height:29px;border:1px solid #3b2e19;border-radius:4px;background:#110e09;color:#8d7b55;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-abilities-panel>nav button:hover,.zg-abilities-panel>nav button.active{border-color:#9f7730;background:#211708;color:#efd38b}.zg-ability-list{display:flex;flex-direction:column;gap:6px}.zg-ability-card{border:1px solid #302617;border-left:3px solid #b08a3f;border-radius:4px;background:#0e0c08;overflow:hidden}.zg-ability-card.locked{opacity:.62}.zg-ability-card.unknown{border-left-color:#69614f}.zg-ability-card.exhausted{border-left-color:#793b35}.zg-ability-summary{width:100%;min-height:48px;display:grid;grid-template-columns:30px minmax(0,1fr) auto 12px;gap:8px;align-items:center;padding:6px 8px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}.zg-ability-summary:hover{background:#1b140a}.zg-ability-summary i{font-style:normal;font-size:18px;text-align:center;color:#d4b45f}.zg-ability-summary span{min-width:0;display:flex;flex-direction:column;gap:2px}.zg-ability-summary small{color:#77694c;font:7px 'Cinzel',serif;letter-spacing:.7px;text-transform:uppercase}.zg-ability-summary b{color:#e4d09a;font:600 10px 'Cinzel',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zg-ability-summary q{color:#665b46;font:italic 8px Georgia,serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zg-ability-summary q::before,.zg-ability-summary q::after{content:''}.zg-ability-summary em{max-width:110px;padding:3px 6px;border:1px solid #41331d;border-radius:9px;color:#a88d54;font:normal 7px 'Cinzel',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zg-ability-summary strong{color:#9a804c;font-size:15px}.zg-ability-learn{align-self:flex-start;padding:2px 6px;border:1px solid #466d49;border-radius:8px;background:#142016;color:#8dcb92;font:600 6px 'Cinzel',serif;text-transform:uppercase}.zg-ability-learn.locked{border-style:dashed;border-color:#675f50;background:#15130f;color:#8d8575}.zg-ability-learn.unknown{border-color:#615944;background:#17140d;color:#9b9076}.zg-abilities-panel>footer{padding:3px 5px;color:#615741;font-size:8px;line-height:1.4;text-align:center}
+  .zg-drawer-readonly{margin-bottom:10px;padding:8px 10px;border:1px solid #675c42;border-radius:4px;background:#18140d;color:#aa9b7a;font:8px 'Cinzel',serif;letter-spacing:.45px;text-align:center}
+  .zg-bag-operation-state{margin-bottom:10px;padding:8px 10px;border:1px solid #4a3a23;border-radius:5px;background:#151108;color:#a99a7c;font-size:10px}.zg-bag-operation-state.loading{border-color:#82652e;color:#d5b66f}.zg-bag-operation-state.success{border-color:#416641;color:#8fc78f}.zg-bag-operation-state.error{border-color:#753f3f;color:#dc8989}
   .zg-ability-modal-backdrop{position:fixed;z-index:12200;inset:0;display:grid;place-items:center;padding:18px;background:#030201c7;backdrop-filter:blur(5px)}.zg-ability-modal{position:relative;width:min(720px,calc(100vw - 30px));max-height:min(82vh,760px);overflow:auto;padding:26px;border:1px solid #846229;border-radius:6px;background:radial-gradient(circle at 50% 0,#7b531924,transparent 38%),linear-gradient(145deg,#181109,#090705 74%);box-shadow:0 30px 100px #000;color:#a99979}.zg-ability-modal-close{position:absolute;right:10px;top:8px;width:35px;height:35px;border:0;background:transparent;color:#a58c5d;font-size:27px;cursor:pointer}.zg-ability-modal header{display:flex;gap:14px;align-items:center;padding-right:35px}.zg-ability-modal header>i{width:50px;height:50px;border:1px solid #65491f;border-radius:50%;display:grid;place-items:center;color:#e0bd62;font:normal 25px serif}.zg-ability-modal header div{min-width:0}.zg-ability-modal header small{color:#987c43;font:8px 'Cinzel',serif;letter-spacing:1.6px;text-transform:uppercase}.zg-ability-modal h3{margin:5px 0;color:#ecd69d;font:600 22px 'Cinzel',serif}.zg-ability-modal header em{color:#81704f;font:italic 10px Georgia,serif}.zg-ability-spell-state{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 8px;padding:10px 12px;border:1px solid #456b48;border-radius:4px;background:#101a11;color:#8fca93}.zg-ability-spell-state.locked{border-style:dashed;border-color:#655d50;background:#15120e;color:#9a9180}.zg-ability-spell-state.unknown{border-color:#5d553f;background:#17140d;color:#a39779}.zg-ability-spell-state b{width:100%;font:600 9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-spell-state span{padding:3px 7px;border:1px solid currentColor;border-radius:9px;font:8px 'Cinzel',serif}.zg-ability-spell-state small{width:100%;color:#a99b80;font:11px/1.45 Georgia,serif}.zg-ability-spell-state small strong{color:#cfb77e}.zg-ability-modal-copy{margin-top:16px;padding:18px;border:1px solid #332817;border-radius:4px;background:#0b0906;color:#b6a889;font:15px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-modal aside{margin-top:12px;padding:12px 14px;border-left:3px solid #7c5527;background:#21130c;color:#a98468;font:12px/1.55 Georgia,serif;white-space:pre-line}.zg-ability-modal aside b{display:block;margin-bottom:5px;color:#d2ad72;font:9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-modal footer{display:grid;grid-template-columns:1fr 130px;gap:9px;margin-top:15px}.zg-ability-modal footer button{height:42px;border:1px solid #795925;border-radius:4px;background:#26190b;color:#e2c577;font:600 10px 'Cinzel',serif;cursor:pointer}.zg-ability-modal footer button:last-child{background:#0d0b08;color:#8f8064}.zg-ability-modal footer button:disabled{opacity:.4;cursor:not-allowed}
   .zg-region-draw-actions{position:absolute;z-index:24;left:50%;top:82px;transform:translateX(-50%);display:none;align-items:center;gap:6px;padding:7px;border:1px solid #8d692b;border-radius:22px;background:#100c07f2;box-shadow:0 12px 35px #000c;color:#a99461;font:9px 'Cinzel',serif}.zg-vtt-scene.region-mode~.zg-region-draw-actions{display:flex}.zg-region-draw-actions span{padding:0 8px}.zg-region-draw-actions button{height:29px;padding:0 11px;border:1px solid #55401d;border-radius:15px;background:#1a1208;color:#d8ba70;font:9px 'Cinzel',serif;cursor:pointer}.zg-region-draw-actions button:hover{border-color:#c89a3d;color:#ffe2a0}
   .zg-bag-tabs{height:64px;display:flex;align-items:center;gap:6px;padding:8px 10px;border-bottom:1px solid #4b351b;background:linear-gradient(180deg,#2b1d10,#120d08);box-shadow:inset 0 -8px 18px #0007}
@@ -18376,8 +18366,6 @@ window.zgImageStore = (function() {
       </div>
       <div class="zg-sheet-body">
         <div class="zg-sheet-pane active" id="zg-sheet-pane-list"></div>
-        <div class="zg-sheet-pane" id="zg-sheet-pane-abilities"></div>
-        <div class="zg-sheet-pane" id="zg-sheet-pane-items"></div>
         <div class="zg-sheet-pane" id="zg-sheet-pane-journal"></div>
         <div class="zg-sheet-pane" id="zg-sheet-pane-bio"></div>
       </div>
