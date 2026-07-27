@@ -3268,6 +3268,17 @@
       leaveRoomPromise = ensureReady().then(function (user) {
         var session = readSession();
         if (!session) return;
+        if (!tabCanWrite()) {
+          return clearPresenceDisconnectHandles().then(function () {
+            characterEntryUpload=null;
+            characterInboundSession=null;
+            saveSession(null);
+            stopWatchingRoom();
+            tabWasSecondary=false;
+            emit();
+            return api.getSnapshot();
+          });
+        }
         var finalPull = Promise.resolve();
         if (session.role === 'player') {
           var memberRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid);
@@ -3286,6 +3297,7 @@
             if (typeof w.zgPersistFinalSessionCharacter !== 'function') {
               throw roomError('Локальное хранилище героя недоступно. Выход остановлен.', 'storage-missing');
             }
+            if (!tabCanWrite()) throw roomError('Управление передано другой вкладке. Выход из этой копии остановлен без изменения локального героя.', 'tab-read-only');
             return Promise.resolve(w.zgPersistFinalSessionCharacter(roomCharacter, member)).then(function () {
               clearCharacterOutbox(session, member.characterId);
               setCharacterSync('synced', roomCharacter, 'room→local', 'exit');
@@ -3341,6 +3353,16 @@
     leaveRoomWithLocalCopy: function () {
       var session = readSession();
       if (!session) return Promise.resolve(api.getSnapshot());
+      if (!tabCanWrite()) {
+        clearPresenceDisconnectHandles();
+        characterEntryUpload = null;
+        characterInboundSession = null;
+        saveSession(null);
+        stopWatchingRoom();
+        tabWasSecondary = false;
+        emit();
+        return Promise.resolve(api.getSnapshot());
+      }
       if (session.role === 'master') {
         return Promise.reject(roomError('Гейм-мастер не может завершить общую комнату только локально.', 'master-local-exit-forbidden'));
       }
