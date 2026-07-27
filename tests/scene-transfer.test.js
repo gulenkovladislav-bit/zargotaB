@@ -18,7 +18,7 @@ vm.runInNewContext(
   html.slice(transferStart, transferEnd) +
   ';result={' +
     'payload:buildSceneExportPackage({' +
-      'id:"local-only-id",name:"Храм / ночь",folder:"Глава 1",created:42,' +
+      'id:"local-only-id",name:"Храм / ночь",folder:"Глава 1",created:42,revision:3,updatedAt:84,updatedByDevice:"device-a",' +
       'scene:{layers:[{id:"bg-1",image:"data:image/png;base64,AAAA"},{id:"bg-2",image:"images/maps/temple.webp"}],tokens:[{id:"npc-1",type:"custom",image:"data:image/webp;base64,BBBB"}]}' +
     '},"2026-07-27T12:00:00.000Z"),' +
     'fileName:sceneExportFileName("Храм / ночь:*?"),' +
@@ -44,6 +44,9 @@ assert.strictEqual(context.result.payload.exportedAt, '2026-07-27T12:00:00.000Z'
 assert.strictEqual(context.result.payload.scene.name, 'Храм / ночь');
 assert.strictEqual(context.result.payload.scene.folder, 'Глава 1');
 assert.strictEqual(context.result.payload.scene.created, 42);
+assert.strictEqual(context.result.payload.scene.revision, 3);
+assert.strictEqual(context.result.payload.scene.updatedAt, 84);
+assert.strictEqual(context.result.payload.scene.updatedByDevice, 'device-a');
 assert.strictEqual(context.result.payload.scene.id, undefined, 'a local IndexedDB id must not become an import identity');
 assert.strictEqual(context.result.payload.assets.embeddedCount, 2);
 assert.strictEqual(context.result.payload.assets.externalCount, 1);
@@ -113,6 +116,54 @@ assert.match(html, /zgSceneImportDecision\('copy'\)/);
 assert.match(html, /zgSceneImportDecision\('replace'\)/);
 assert.match(html, /pendingSceneImport=\{prepared:prepared,items:items\}/);
 
+var versionHelpersStart = html.indexOf("var sceneDeviceIdCache = ''");
+var versionHelpersEnd = html.indexOf('function renderScenes()', versionHelpersStart);
+var versionContext = {
+  result:null,
+  localStorage:{
+    value:'',
+    getItem:function(){return this.value;},
+    setItem:function(key,value){this.value=value;}
+  },
+  w:{crypto:{randomUUID:function(){return 'test-uuid';}}},
+  sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));}
+};
+vm.runInNewContext(
+  html.slice(versionHelpersStart, versionHelpersEnd) +
+  ';result={device:sceneDeviceId(),version:sceneVersionRecord({id:"scene-1",name:"Храм",scene:{layers:[]},revision:4,updatedAt:50,updatedByDevice:"old-device"},100)};',
+  versionContext
+);
+assert.strictEqual(versionContext.result.device, 'device-test-uuid');
+assert.strictEqual(versionContext.result.version.category, 'scene-version');
+assert.strictEqual(versionContext.result.version.sceneId, 'scene-1');
+assert.strictEqual(versionContext.result.version.revision, 4);
+assert.strictEqual(versionContext.result.version.sourceUpdatedAt, 50);
+assert.strictEqual(versionContext.result.version.sourceDevice, 'old-device');
+
+var sceneSaveStart = html.indexOf('w.zgSceneSave=function');
+var sceneSaveEnd = html.indexOf('w.zgSceneLoad=function', sceneSaveStart);
+var sceneSaveBlock = html.slice(sceneSaveStart, sceneSaveEnd);
+assert.match(sceneSaveBlock, /currentRevision!==activeSceneRevision/);
+assert.match(sceneSaveBlock, /sceneVersionRecord\(previous,stamp\)/);
+assert.ok(sceneSaveBlock.indexOf('w.ZargotaLib.put(version') < sceneSaveBlock.lastIndexOf('commit();'), 'previous version must persist before current scene');
+assert.match(sceneSaveBlock, /activeSceneRevision=rec\.revision/);
+assert.match(sceneSaveBlock, /updatedByDevice:sceneDeviceId\(\)/);
+assert.match(sceneSaveBlock, /pruneSceneVersions\(rec\.id\)/);
+assert.match(html, /\.slice\(5\)\.forEach/);
+assert.match(html, /function sceneMetaLine\(record\)/);
+assert.match(html, /Последнее устройство:/);
+assert.match(html, /onclick="zgSceneVersionsOpen\(&#39;'\+r\.id\+'&#39;\)"/);
+assert.match(html, /id="zg-scene-versions-list"/);
+var versionRestoreStart = html.indexOf('w.zgSceneVersionsOpen=function');
+var versionRestoreEnd = html.indexOf('function migrateLoadedHeroes', versionRestoreStart);
+var versionRestoreBlock = html.slice(versionRestoreStart, versionRestoreEnd);
+assert.match(versionRestoreBlock, /ZargotaLib\.list\('scene-version'/);
+assert.match(versionRestoreBlock, /w\.zgSceneVersionRestore=function/);
+assert.match(versionRestoreBlock, /category!=='scene-version'/);
+assert.match(versionRestoreBlock, /id:'a'\+stamp\.toString\(36\)/);
+assert.match(versionRestoreBlock, /Версия восстановлена отдельной сценой/);
+assert.strictEqual(versionRestoreBlock.indexOf('activeSceneId=') >= 0, false, 'restoring a version must not switch or overwrite the active scene');
+
 var importHelpersStart = html.indexOf('function uniqueSceneImportName');
 var importHelpersEnd = html.indexOf('function sceneAssetToDataUrl', importHelpersStart);
 var importWrites = [];
@@ -120,6 +171,7 @@ var importContext = {
   Promise:Promise,
   activeSceneId:'',
   libCache:{},
+  sceneDeviceId:function(){return 'test-device';},
   sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));},
   w:{ZargotaLib:{put:function(record,done){importWrites.push(JSON.parse(JSON.stringify(record)));done(record);}}}
 };
@@ -144,6 +196,7 @@ importContext.result.then(function(result) {
     Promise:Promise,
     activeSceneId:'old',
     libCache:{},
+    sceneDeviceId:function(){return 'test-device';},
     sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));},
     w:{ZargotaLib:{put:function(record,done){activeWrites.push(record);done(record);}}}
   };
@@ -163,6 +216,7 @@ importContext.result.then(function(result) {
       Promise:Promise,
       activeSceneId:'',
       libCache:{},
+      sceneDeviceId:function(){return 'test-device';},
       sceneForLibrary:function(scene){return JSON.parse(JSON.stringify(scene));},
       w:{ZargotaLib:{put:function(record,done){failedWrites.push(record);done(null);}}}
     };

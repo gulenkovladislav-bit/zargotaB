@@ -22,6 +22,16 @@
         "combatEvent": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()"
         },
+        "ping": {
+          ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists() && newData.child('uid').val() === auth.uid",
+          ".validate": "!newData.exists() || (newData.hasChildren(['id', 'uid', 'x', 'y', 'focus', 'zoom', 'createdAt']) && newData.child('id').isString() && newData.child('id').val().length <= 80 && newData.child('uid').val() === auth.uid && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 100 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 100 && newData.child('focus').isBoolean() && (!newData.child('focus').val() || root.child('rooms').child($room).child('masterUid').val() === auth.uid) && newData.child('zoom').isNumber() && newData.child('zoom').val() >= 0.4 && newData.child('zoom').val() <= 3)"
+        },
+        "pingTrail": {
+          "$uid": {
+            ".write": "auth != null && $uid === auth.uid && root.child('rooms').child($room).child('members').child(auth.uid).exists() && newData.child('uid').val() === auth.uid",
+            ".validate": "!newData.exists() || (newData.hasChildren(['id', 'uid', 'sequence', 'x', 'y', 'createdAt']) && newData.child('id').isString() && newData.child('id').val().length <= 80 && newData.child('uid').val() === auth.uid && newData.child('sequence').isNumber() && newData.child('sequence').val() >= 0 && newData.child('sequence').val() <= 10000 && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 100 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 100)"
+          }
+        },
         "pending": {
           "$code": {
             ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && newData.child('playerCode').val() === $code) || (data.child('uid').val() === auth.uid && (!newData.exists() || newData.child('uid').val() === auth.uid)))"

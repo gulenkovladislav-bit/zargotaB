@@ -28,6 +28,8 @@
   var connected = false;
   var initError = null;
   var createRoomPromise = null;
+  var lastPingWriteAt = 0;
+  var lastPingTrailWriteAt = 0;
   var leaveRoomPromise = null;
   var outboxFlushPromise = null;
   var characterSync = {
@@ -1019,16 +1021,19 @@
         image: String(layer.image || ''),
         visible: layer.visible !== false,
         opacity: Math.max(0, Math.min(1, Number(layer.opacity == null ? 1 : layer.opacity))),
-        fit: ['cover','contain','stretch'].indexOf(layer.fit) >= 0 ? layer.fit : 'cover',
+        fit: ['cover','contain','stretch','custom'].indexOf(layer.fit) >= 0 ? layer.fit : 'cover',
         scale: Math.max(0.5, Math.min(3, Number(layer.scale) || 1)),
         x: Math.max(-100, Math.min(100, Number(layer.x) || 0)),
         y: Math.max(-100, Math.min(100, Number(layer.y) || 0)),
         brightness: Math.max(0.25, Math.min(2, Number(layer.brightness) || 1)),
-        saturation: Math.max(0, Math.min(2, Number(layer.saturation == null ? 1 : layer.saturation)))
+        contrast: Math.max(.5, Math.min(2, layer.contrast != null && isFinite(Number(layer.contrast)) ? Number(layer.contrast) : 1)),
+        saturation: Math.max(0, Math.min(2, Number(layer.saturation == null ? 1 : layer.saturation))),
+        darken: Math.max(0, Math.min(.85, layer.darken != null && isFinite(Number(layer.darken)) ? Number(layer.darken) : 0)),
+        locked: !!layer.locked
       };
     }).filter(function (layer) { return !!layer.image; });
     if (!layers.length && scene.background) {
-      layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, saturation:1 });
+      layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, contrast:1, saturation:1, darken:0, locked:false });
     }
     var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 60).map(function (token, index) {
       function safeList(value, limit) {
@@ -1103,6 +1108,14 @@
       boardWidth: Math.max(8, Math.min(80, Number(scene.boardWidth) || 32)),
       boardHeight: Math.max(8, Math.min(80, Number(scene.boardHeight) || 20)),
       gridAboveTokens: !!scene.gridAboveTokens,
+      gridColor: /^#[0-9a-f]{6}$/i.test(String(scene.gridColor || '')) ? String(scene.gridColor) : '#cab270',
+      gridOpacity: Math.max(.02, Math.min(.8, scene.gridOpacity != null && isFinite(Number(scene.gridOpacity)) ? Number(scene.gridOpacity) : .1)),
+      gridThickness: Math.max(.5, Math.min(4, scene.gridThickness != null && isFinite(Number(scene.gridThickness)) ? Number(scene.gridThickness) : 1)),
+      gridContrast: Math.max(.5, Math.min(2, scene.gridContrast != null && isFinite(Number(scene.gridContrast)) ? Number(scene.gridContrast) : 1)),
+      gridSaturation: Math.max(0, Math.min(2, scene.gridSaturation != null && isFinite(Number(scene.gridSaturation)) ? Number(scene.gridSaturation) : 1)),
+      snap: scene.snap !== false,
+      gridOx: Math.max(0, Math.min(160, Number(scene.gridOx) || 0)),
+      gridOy: Math.max(0, Math.min(160, Number(scene.gridOy) || 0)),
       x: Math.max(-2000, Math.min(2000, Number(scene.x) || 0)),
       y: Math.max(-2000, Math.min(2000, Number(scene.y) || 0)),
       zoom: Math.max(0.5, Math.min(2.5, Number(scene.zoom) || 1)),
@@ -1611,6 +1624,62 @@
         });
       }).catch(function (error) {
         if (error && ['master-only','room-not-found'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    sendPing: function (x, y, options) {
+      options = options || {};
+      x = Math.max(0, Math.min(100, Number(x) || 0));
+      y = Math.max(0, Math.min(100, Number(y) || 0));
+      if (now() - lastPingWriteAt < 600) return Promise.reject(roomError('Пинг можно отправлять не чаще двух раз в секунду.', 'ping-rate-limit'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (!room.members || !room.members[user.uid]) throw roomError('Участник больше не состоит в комнате.', 'member-required');
+          lastPingWriteAt = now();
+          var focus = !!options.focus && room.masterUid === user.uid;
+          return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/ping'), {
+            id: 'ping-' + lastPingWriteAt + '-' + Math.random().toString(36).slice(2, 7),
+            uid: user.uid,
+            x: x,
+            y: y,
+            focus: focus,
+            zoom: Math.max(.4, Math.min(3, Number(options.zoom) || 1)),
+            createdAt: firebase.serverTimestamp()
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['ping-rate-limit','room-required','room-not-found','member-required'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    sendPingTrail: function (x, y, trailId, sequence) {
+      x = Math.max(0, Math.min(100, Number(x) || 0));
+      y = Math.max(0, Math.min(100, Number(y) || 0));
+      trailId = String(trailId || '').slice(0, 80);
+      sequence = Math.max(0, Math.min(10000, Math.floor(Number(sequence) || 0)));
+      if (!trailId) return Promise.reject(roomError('Не задан идентификатор следа.', 'ping-trail-invalid'));
+      if (now() - lastPingTrailWriteAt < 170) return Promise.reject(roomError('След пинга отправляется слишком часто.', 'ping-trail-rate-limit'));
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
+        if (!currentRoom) throw roomError('Комната больше недоступна.', 'room-not-found');
+        if (!currentRoom.members || !currentRoom.members[user.uid]) throw roomError('Участник больше не состоит в комнате.', 'member-required');
+        lastPingTrailWriteAt = now();
+        return firebase.set(firebase.ref(db, 'rooms/' + session.code + '/pingTrail/' + user.uid), {
+          id: trailId,
+          uid: user.uid,
+          sequence: sequence,
+          x: x,
+          y: y,
+          createdAt: firebase.serverTimestamp()
+        });
+      }).catch(function (error) {
+        if (error && ['ping-trail-invalid','ping-trail-rate-limit','room-required','room-not-found','member-required'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
