@@ -1121,7 +1121,8 @@ window.addEventListener('load', function(){
     height: 100%;
     object-fit: contain;
     filter: drop-shadow(0 7px 8px #000c) drop-shadow(0 0 10px color-mix(in srgb,var(--card-accent,#e8c060) 22%,transparent));
-    transition: filter .25s ease;
+    transform: scale(1.18);
+    transition: transform .25s ease, filter .25s ease;
   }
   .home-card:hover .home-card-icon img {
     filter: brightness(1.12) saturate(1.08) drop-shadow(0 9px 10px #000d) drop-shadow(0 0 15px color-mix(in srgb,var(--card-accent,#e8c060) 48%,transparent));
@@ -2221,6 +2222,9 @@ window.addEventListener('load', function(){
   .char-inventory-arena-link{width:100%;height:29px;margin-bottom:7px;border:1px solid #3b2c18;border-radius:4px;background:#100c07;color:#927b4f;font:8px 'Cinzel',serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.char-inventory-arena-link:hover{border-color:#81632e;color:#d5b766}
   .char-inventory-inline-equip-list{max-height:220px;overflow-y:auto;padding-right:2px;scrollbar-width:thin;scrollbar-color:#513c1d transparent}.char-inventory-inline-empty{padding:35px 8px;text-align:center;color:var(--dim);font:italic 10px 'Lora',serif}
   .char-inventory-inline-grid{display:grid;grid-template-columns:repeat(5,minmax(42px,1fr));gap:6px}.char-inventory-inline-slot{position:relative;min-width:0;aspect-ratio:1;border:1px solid #362817;border-radius:4px;background:radial-gradient(circle at 50% 38%,#1c1309,#090604 75%);display:flex;align-items:center;justify-content:center;padding:5px;color:#d5c18c;cursor:pointer;overflow:hidden}.char-inventory-inline-slot:hover{border-color:#9b7634;background:radial-gradient(circle at 50% 38%,#2a1b0b,#0b0704 76%)}.char-inventory-inline-slot.empty{opacity:.55;cursor:default;background:#080604}.char-inventory-inline-slot>span{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:27px}.char-inventory-inline-slot img{width:100%;height:100%;object-fit:contain;display:block}.char-inventory-inline-slot b{position:absolute;right:3px;bottom:2px;min-width:16px;height:16px;padding:0 3px;border-radius:8px;background:#0a0704dd;color:#efd079;font:700 9px/16px 'Cinzel',serif;text-align:center}
+  .char-inventory-inline-slot img{transition:transform .2s cubic-bezier(.2,.8,.3,1.35),filter .2s ease}.char-inventory-inline-slot:hover img{transform:scale(1.22);filter:brightness(1.15) drop-shadow(0 4px 7px #000) drop-shadow(0 0 8px #c9943f66)}
+  .inv-emoji-btn img,.ic-emoji-cell img,#ic-emoji-btn img{transition:transform .2s cubic-bezier(.2,.8,.3,1.35),filter .2s ease}.inv-emoji-btn:hover img,.ic-emoji-cell:hover img,#ic-emoji-btn:hover img{transform:scale(1.22);filter:brightness(1.15) drop-shadow(0 4px 7px #000) drop-shadow(0 0 9px #d5a44377)}
+  .inv-emoji-btn.selected,.ic-emoji-cell.selected{border-color:#e3b958!important;background:radial-gradient(circle,#4b3018 0,#110b06 72%)!important;box-shadow:inset 0 0 0 1px #e3b95866,0 0 12px #d7a13e55}.inv-emoji-btn.selected img,.ic-emoji-cell.selected img{transform:scale(1.16);filter:brightness(1.18) drop-shadow(0 0 9px #e0ae4d88)}
   .char-inventory-panel {
     width: 100%; min-height: 560px; height: min(720px, calc(100vh - 150px)); overflow: hidden;
     display: flex; flex-direction: column;
@@ -13624,7 +13628,9 @@ document.addEventListener('DOMContentLoaded', function(){
 (function(w){
   var state = null;
   var activePanel = '';
+  var lastBackpackSkin = '';
   var lastDrawerRenderSignature = '';
+  var backpackCloseTimer = 0;
   var selectedMemberUid = '';
   var drawerMemberUid = '';
   var lastRoll = '';
@@ -13646,28 +13652,29 @@ document.addEventListener('DOMContentLoaded', function(){
   var lastCombatVisual = '';
   var lastGmAdjustmentVisual = '';
   var lastApprovedAttackResult = '';
-  var BAG_CAL_STORAGE_KEY='zargota_backpack_calibration_v1';
-  var bagCalSelected='status',bagCalDrag=null;
+  var BAG_CAL_STORAGE_KEY='zargota_backpack_calibration_v3';
+  var bagCalSelected='interface',bagCalDrag=null;
   var BAG_CAL_BACKGROUNDS={
-    status:'images/vtt-ui/backpack-hero-status.png',
-    items:'images/vtt-ui/backpack-items.png',
-    magic:'images/vtt-ui/backpack-magic.png',
-    journal:'images/vtt-ui/backpack-journal.png'
+    status:'images/vtt-ui/backpack-v2/open-status.webp',
+    items:'images/vtt-ui/backpack-v2/open-status.webp',
+    magic:'images/vtt-ui/backpack-v2/open-status.webp',
+    journal:'images/vtt-ui/backpack-v2/open-status.webp'
   };
   function bagCalDefaults(){
-    return{version:2,reference:'percent-by-parent',backgrounds:Object.assign({},BAG_CAL_BACKGROUNDS),ui:{grid:true,snap:true,gridStep:2.5},tabs:{
-      status:{x:10.5,y:8,w:14,h:76,iconScale:1,labelScale:1},
-      items:{x:29,y:8,w:14,h:76,iconScale:1,labelScale:1},
-      magic:{x:47.5,y:8,w:14,h:76,iconScale:1,labelScale:1},
-      journal:{x:66,y:8,w:14,h:76,iconScale:1,labelScale:1}
+    return{version:6,reference:'percent-by-parent',backgrounds:Object.assign({},BAG_CAL_BACKGROUNDS),ui:{grid:false,snap:false,gridStep:1.5},tabs:{
+      status:{x:6.513103284714811,y:28.71473354231975,w:22,h:92,iconScale:1.02,labelScale:1},
+      items:{x:6.513103284714811,y:0,w:22,h:92,iconScale:1,labelScale:1},
+      magic:{x:6.513103284714811,y:0.021943573667711824,w:22,h:92,iconScale:1,labelScale:1},
+      journal:{x:6.513103284714811,y:3,w:22,h:92,iconScale:1,labelScale:1}
     },layout:{
-      title:{x:15,y:16.5,w:70,h:4},
-      content:{x:12.5,y:21,w:75,h:72}
+      interface:{x:18.78976212686567,y:12.622782258064515,w:61.8,h:77.3,radius:31},
+      title:{x:19,y:22.2,w:62,h:3.2,radius:0},
+      content:{x:17.38689365671642,y:20.067607526881723,w:67,h:70.3,radius:48}
     }};
   }
   function bagCalClamp(value,min,max,fallback){value=Number(value);return Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback;}
   function bagCalNormalize(raw){
-    var base=bagCalDefaults(),source=raw&&raw.tabs||{},layout=raw&&raw.layout||{};
+    var base=bagCalDefaults(),source=raw&&raw.tabs||{},layout=raw&&raw.layout||{},rawVersion=Math.max(0,Number(raw&&raw.version)||0);
     Object.keys(base.tabs).forEach(function(key){
       var item=source[key]||{},fallback=base.tabs[key];
       base.tabs[key]={
@@ -13679,7 +13686,13 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     Object.keys(base.layout).forEach(function(key){
       var item=layout[key]||{},fallback=base.layout[key];
-      base.layout[key]={x:bagCalClamp(item.x,0,95,fallback.x),y:bagCalClamp(item.y,0,95,fallback.y),w:bagCalClamp(item.w,5,100,fallback.w),h:bagCalClamp(item.h,2,95,fallback.h)};
+      if(key==='content'&&rawVersion<5&&Math.abs(Number(item.x)-17.5)<.01&&Math.abs(Number(item.y)-25.5)<.01&&Math.abs(Number(item.w)-65)<.01&&Math.abs(Number(item.h)-66.5)<.01)item={};
+      if(key==='interface'&&rawVersion<6)item=Object.assign({},item,{radius:fallback.radius});
+      base.layout[key]={
+        x:bagCalClamp(item.x,0,95,fallback.x),y:bagCalClamp(item.y,0,95,fallback.y),
+        w:bagCalClamp(item.w,5,100,fallback.w),h:bagCalClamp(item.h,2,95,fallback.h),
+        radius:bagCalClamp(item.radius,0,180,fallback.radius)
+      };
     });
     var ui=raw&&raw.ui||{};base.ui={grid:ui.grid!==false,snap:ui.snap!==false,gridStep:bagCalClamp(ui.gridStep,.5,10,2.5)};
     return base;
@@ -13699,17 +13712,18 @@ document.addEventListener('DOMContentLoaded', function(){
       element.style.setProperty('--bag-cal-x',item.x);element.style.setProperty('--bag-cal-y',item.y);
       element.style.setProperty('--bag-cal-w',item.w);element.style.setProperty('--bag-cal-h',item.h);
       element.style.setProperty('--bag-cal-icon',item.iconScale==null?1:item.iconScale);element.style.setProperty('--bag-cal-label',item.labelScale==null?1:item.labelScale);
+      element.style.setProperty('--bag-cal-radius',item.radius==null?0:item.radius);
       element.classList.toggle('cal-selected',drawer.classList.contains('calibrating')&&key===bagCalSelected);
     });
   }
   function bagCalSyncControls(){
     var item=bagCalItem(bagCalSelected),select=el('zg-bag-cal-select'),isTab=!!bagCalConfig.tabs[bagCalSelected];if(select)select.value=bagCalSelected;if(!item)return;
     document.querySelectorAll('[data-bag-cal-prop]').forEach(function(input){
-      var prop=input.dataset.bagCalProp,isScale=prop==='iconScale'||prop==='labelScale';
+      var prop=input.dataset.bagCalProp,isScale=prop==='iconScale'||prop==='labelScale',isRadius=prop==='radius';
       if(prop==='x'||prop==='y'){input.min=0;input.max=isTab?(prop==='x'?90:60):95;}
       if(prop==='w'){input.min=isTab?7:5;input.max=isTab?30:100;}
       if(prop==='h'){input.min=isTab?35:2;input.max=isTab?100:95;}
-      input.disabled=isScale&&!isTab;input.value=item[prop]==null?1:item[prop];
+      input.disabled=(isScale&&!isTab)||(isRadius&&isTab);input.value=item[prop]==null?(isRadius?0:1):item[prop];
     });
     document.querySelectorAll('[data-bag-cal-out]').forEach(function(output){
       var prop=output.dataset.bagCalOut,value=item[prop];output.textContent=value==null?'—':(prop==='iconScale'||prop==='labelScale'?Number(value).toFixed(2):Number(value).toFixed(1));
@@ -13727,7 +13741,8 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgBagCalSelect=function(key){if(!bagCalItem(key))return;bagCalSelected=key;bagCalSyncControls();};
   w.zgBagCalSet=function(prop,value){
     var item=bagCalItem(bagCalSelected),isTab=!!bagCalConfig.tabs[bagCalSelected];if(!item||!Object.prototype.hasOwnProperty.call(item,prop))return;
-    var limits=isTab?{x:[0,90],y:[0,60],w:[7,30],h:[35,100],iconScale:[.4,1.8],labelScale:[.6,1.6]}[prop]:{x:[0,95],y:[0,95],w:[5,100],h:[2,95]}[prop];
+    var limits=isTab?{x:[0,90],y:[0,60],w:[7,30],h:[35,100],iconScale:[.4,1.8],labelScale:[.6,1.6]}[prop]:{x:[0,95],y:[0,95],w:[5,100],h:[2,95],radius:[0,180]}[prop];
+    if(!limits)return;
     var next=['x','y','w','h'].indexOf(prop)>=0?bagCalQuantize(value):value;
     item[prop]=bagCalClamp(next,limits[0],limits[1],item[prop]);bagCalSave();bagCalSyncControls();
   };
@@ -13752,6 +13767,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(text).then(done).catch(function(){w.prompt('Скопируй JSON:',text);});
     else w.prompt('Скопируй JSON:',text);
   };
+  w.zgBagCalDownload=function(){
+    var text=JSON.stringify(bagCalConfig,null,2),blob=new Blob([text],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download='zargota-backpack-layout.json';document.body.appendChild(link);link.click();link.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},1000);
+    if(w.showToast)w.showToast('JSON калибровки скачан');
+  };
   w.zgBagCalImport=function(){
     var text=w.prompt('Вставь JSON калибровки:');if(!text)return;
     try{bagCalConfig=bagCalNormalize(JSON.parse(text));bagCalSave();bagCalSyncControls();if(w.showToast)w.showToast('Калибровка применена');}
@@ -13764,6 +13785,7 @@ document.addEventListener('DOMContentLoaded', function(){
   document.addEventListener('pointerdown',function(ev){
     var drawer=el('zg-vtt-drawer'),button=ev.target&&ev.target.closest&&ev.target.closest('[data-bag-cal-key]');
     if(!drawer||!drawer.classList.contains('calibrating')||!button)return;
+    var whole=button.closest('.zg-bag-interface');if(whole){button=whole;bagCalSelected='interface';}
     var parent=bagCalConfig.tabs[button.dataset.bagCalKey]?button.parentElement:drawer,rect=parent.getBoundingClientRect(),key=button.dataset.bagCalKey,item=bagCalItem(key);if(!item||!rect.width||!rect.height)return;
     ev.preventDefault();ev.stopPropagation();bagCalSelected=key;bagCalDrag={id:ev.pointerId,key:key,startX:ev.clientX,startY:ev.clientY,x:item.x,y:item.y,width:rect.width,height:rect.height,moved:false};bagCalSyncControls();
   },true);
@@ -14123,7 +14145,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var remote=member.character,stamp=Number(remote.updatedAt)||0,date='';
       if(stamp){try{date=new Date(stamp).toLocaleString('ru-RU');}catch(ignore){}}
       var sourceLabels={'progression-plan':'роадмапа прокачки','edit':'лист героя','inventory-add':'вещи','inventory-edit':'вещи','inventory-remove':'вещи','journal-edit':'личный журнал','journal-remove':'личный журнал'};
-      remoteMeta='<div class="zg-sheet-sync-meta"><b>Версия листа '+Math.max(0,Number(remote.revision)||0)+'</b><span>'+(String(remote.updatedBy||'')===String(member.uid||'')?'Обновил игрок':'Обновлено в сессии')+(date?' · '+esc(date):'')+'</span>'+(remote.source?'<small>Источник: '+esc(sourceLabels[remote.source]||remote.source)+'</small>':'')+'</div>';
+      remoteMeta='<details class="zg-bag-state-disclosure"><summary>Версия листа '+Math.max(0,Number(remote.revision)||0)+'</summary><div><b>'+(String(remote.updatedBy||'')===String(member.uid||'')?'Обновил игрок':'Обновлено в сессии')+'</b>'+(date?'<span>'+esc(date)+'</span>':'')+(remote.source?'<small>Источник: '+esc(sourceLabels[remote.source]||remote.source)+'</small>':'')+'</div></details>';
     }
     var plan=c.progressionPlan&&typeof c.progressionPlan==='object'?c.progressionPlan:null,planHtml='';
     if(plan){
@@ -14131,13 +14153,42 @@ document.addEventListener('DOMContentLoaded', function(){
       if(plannedLevels.length){
         var target=Math.max.apply(Math,plannedLevels),summary={stats:0,spells:0,items:0,notes:0};
         plannedLevels.forEach(function(level){var entry=plan.levels[String(level)]||{};Object.keys(entry.stats||{}).forEach(function(key){summary.stats+=Number(entry.stats[key])||0;});summary.spells+=(entry.spellIds||[]).length;summary.items+=(entry.items||[]).length;summary.notes+=(entry.notes||[]).length;});
-        planHtml='<div class="zg-sheet-roadmap-summary"><div><small>РОАДМАПА ИГРОКА</small><b>План до '+(target===11?'Абсолюта':target+' уровня')+'</b></div><span>Характеристики +'+summary.stats+' · навыки '+summary.spells+' · вещи '+summary.items+(summary.notes?' · заметки '+summary.notes:'')+'</span><em>Только просмотр — план ещё не применён к листу</em></div>';
+        planHtml='<details class="zg-bag-state-disclosure roadmap"><summary>План до '+(target===11?'Абсолюта':target+' уровня')+'</summary><div><b>РОАДМАПА ИГРОКА</b><span>Характеристики +'+summary.stats+' · навыки '+summary.spells+' · вещи '+summary.items+(summary.notes?' · заметки '+summary.notes:'')+'</span><small>Только просмотр — план ещё не применён к листу</small></div></details>';
       }
     }
-    return remoteMeta+planHtml+'<div class="zg-bag-vitals"><div><img src="images/vtt-icons/health.png" alt=""><b>'+esc(c.hpCur)+' / '+esc(c.hpMax)+'</b><span>Здоровье</span></div>' +
-      '<div><b>'+esc(c.ac||10)+'</b><span>Броня</span></div><div><b>'+esc(c.speed||'—')+'</b><span>Скорость</span></div></div>' +
-      '<div class="zg-vtt-statgrid">' + Object.keys(labels).map(function(key){ return '<div class="zg-vtt-statbox">'+stat(key)+'<span>'+esc(labels[key])+'</span></div>'; }).join('') + '</div>' +
-      '<div class="zg-bag-statuses">'+((c.statuses||[]).map(function(s){return '<span>'+esc(typeof s==='string'?s:(s.name||s.label||'Статус'))+'</span>';}).join('')||'<small>Нет активных состояний</small>')+'</div>';
+    var heroMeta=[c.race,c.klasse||c.className,c.level?'Уровень '+c.level:''].filter(Boolean).join(' · ');
+    var heroPortrait=c.portrait
+      ? '<img src="'+esc(c.portrait)+'" alt="">'
+      : '<span>'+esc(String(c.name||'?').trim().charAt(0).toUpperCase()||'✦')+'</span>';
+    var activeStatuses=[].concat(Array.isArray(c.statuses)?c.statuses:[],Array.isArray(c.statusEffects)?c.statusEffects:[]);
+    var statuses=activeStatuses.map(function(status){
+      var item=typeof status==='string'?{name:status}:status||{};
+      return '<span class="zg-bag-status-card"><i>'+esc(item.icon||'✦')+'</i><b>'+esc(item.name||item.label||'Статус')+'</b>'+(item.duration?'<small>'+esc(item.duration)+'</small>':'')+'</span>';
+    }).join('');
+    var hpMax=Math.max(1,Number(c.hpMax)||1),hpCur=Math.max(0,Math.min(hpMax,Number(c.hpCur)||0)),hpPercent=Math.round(hpCur/hpMax*100),tempHp=Math.max(0,Number(c.tempHp)||0);
+    function fameRow(label,value){
+      value=Math.max(0,Math.min(8,Number(value)||0));
+      return '<div class="zg-state-fame-row"><header><b>'+label+'</b><span>'+value+' / 8</span></header><div>'+Array.from({length:8},function(_,index){return '<i class="'+(index<value?'filled':'')+'">✦</i>';}).join('')+'</div></div>';
+    }
+    function statParts(key){var value=stats[key]||{},base=value.cur!=null&&value.cur!==0?Number(value.cur)||0:Number(value.base)||0,temp=Number(value.tmp)||0;return{base:base,temp:temp};}
+    var effectsHtml=activeStatuses.map(function(status){var item=typeof status==='string'?{name:status}:status||{},description=item.description||item.effect||item.text||'',duration=item.duration||item.rounds||item.turns||'';return '<article class="zg-state-effect-row"><i>'+esc(item.icon||'✦')+'</i><span><b>'+esc(item.name||item.label||'Статус')+'</b>'+(description?'<small>'+esc(description)+'</small>':'')+'</span>'+(duration?'<em>⌛ '+esc(duration)+'</em>':'')+'</article>';}).join('');
+    var injurySource=Array.isArray(c.injuries)?c.injuries:Array.isArray(c.traumas)?c.traumas:Array.isArray(c.wounds)?c.wounds:[],injuries=[];
+    for(var injuryIndex=0;injuryIndex<4;injuryIndex++){var injury=injurySource[injuryIndex];injuries.push(injury?'<article class="zg-state-injury filled"><i>'+esc(typeof injury==='object'&&injury.icon||'✦')+'</i><b>'+esc(typeof injury==='string'?injury:injury.name||injury.label||'Травма')+'</b></article>':'<article class="zg-state-injury"><i>＋</i><b>Нет травм</b></article>');}
+    return '<div class="zg-bag-state-tools">'+remoteMeta+planHtml+'</div>'+
+      '<section class="zg-state-board">'+
+        '<div class="zg-state-main">'+
+          '<aside class="zg-state-left"><div class="zg-state-portrait">'+heroPortrait+'</div><h3>'+esc(c.name||member&&member.name||'Герой')+'</h3><p>'+esc(heroMeta||'Герой приключения')+'</p>'+
+            '<div class="zg-state-stat-list">'+Object.keys(labels).map(function(key){var part=statParts(key);return '<div data-stat="'+esc(key)+'">'+(typeof w.zgStatIcon==='function'?w.zgStatIcon(key,'zg-bag-stat-icon'):'')+'<b>'+esc(labels[key])+'</b><strong>'+(part.base>=0?'+':'')+part.base+'</strong><em class="'+(part.temp?'active':'')+'">'+(part.temp>=0?'+':'')+part.temp+'</em></div>';}).join('')+'</div>'+
+          '</aside>'+
+          '<div class="zg-state-right">'+
+            '<div class="zg-state-fame">'+fameRow('Мировой уровень славы',c.fameMundo)+fameRow('Уровень славы в Зарготе',c.fameZargoty)+'</div>'+
+            '<div class="zg-state-hp"><i>♥</i><span><small>Здоровье (HP)</small><b>'+hpCur+' / '+hpMax+'</b></span>'+(tempHp?'<em>+'+tempHp+'</em>':'')+'<u><i style="width:'+hpPercent+'%"></i></u></div>'+
+            '<div class="zg-state-combat-values"><div><small>Броня</small><i>⬡</i><b>'+esc(c.ac||10)+'</b></div><div><small>Скорость</small><i>➜</i><b>'+esc(c.speed||'—')+'</b></div><div><small>Инициатива</small><i>⚔</i><b>'+(Number(c.initiative||0)>=0?'+':'')+Number(c.initiative||0)+'</b></div></div>'+
+            '<section class="zg-state-effects"><h4>Состояния и эффекты</h4><div>'+(effectsHtml||'<p>Нет активных состояний</p>')+'</div></section>'+
+          '</div>'+
+        '</div>'+
+        '<section class="zg-state-injuries"><h4>Тяжёлые травмы</h4><div>'+injuries.join('')+'</div></section>'+
+      '</section>';
   }
   function inventoryItemCategory(item){
     var hay=String((item&&item.category||'')+' '+(item&&item.type||'')+' '+(item&&item.name||'')).toLowerCase();
@@ -14170,21 +14221,40 @@ document.addEventListener('DOMContentLoaded', function(){
     var equipped=allItems.map(function(item,index){return{item:item,index:index,source:'inventory'};}).filter(function(entry){return entry.item&&entry.item.equipped===true;})
       .concat((Array.isArray(local.equipItems)?local.equipItems:[]).map(function(item,index){return{item:item,index:index,source:'equip'};}).filter(function(entry){return entry.item&&entry.item.equipped!==false;}));
     function art(item){var src=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item&&item.image||'');if(src)return '<img src="'+esc(src)+'" alt="">';return '<i>'+esc(item&&item.icon||'◈')+'</i>';}
+    function itemSummary(item){
+      var text=item&&(item.effect||item.description||item.text||item.damage||item.damageFormula||item.type||item.category)||'Дорожный предмет';
+      return String(text).replace(/\s+/g,' ').trim();
+    }
+    function itemWeight(item){
+      var value=Number(item&&(item.weight!==undefined?item.weight:item.mass));
+      return Number.isFinite(value)&&value>0?value:0;
+    }
     function slot(item,index,source){
       if (typeof item === 'string') item = { name:item };
       var draggable=canEdit&&source==='inventory'?' draggable="true" ondragstart="zgVttInventoryDrag(event,'+index+')"':'';
-      return '<button type="button" class="zg-bag-item"'+draggable+' onclick="zgVttInventoryOpenItem(\''+source+'\','+index+')" title="'+esc(item.name||'Предмет')+'">'+art(item)+'<span>'+esc(item.name||'Предмет')+'</span>'+(Number(item.qty||1)>1?'<small>'+Number(item.qty)+'</small>':'')+'</button>';
+      var qty=Math.max(1,Number(item.qty)||1),weight=itemWeight(item);
+      return '<button type="button" class="zg-bag-item"'+draggable+' onclick="zgVttInventoryOpenItem(\''+source+'\','+index+')" title="'+esc(item.name||'Предмет')+'">'+
+        '<span class="zg-bag-item-art">'+art(item)+'</span>'+
+        '<span class="zg-bag-item-copy"><b>'+esc(item.name||'Предмет')+'</b><em>'+esc(itemSummary(item))+'</em></span>'+
+        '<span class="zg-bag-item-meta">'+(qty>1?'<b>x'+qty+'</b>':'')+(weight?'<small>⚖ '+weight+'</small>':'')+'</span>'+
+      '</button>';
     }
     var add=canEdit?'<button type="button" class="zg-bag-add" onclick="zgVttAddInventoryItem()" title="Добавить предмет">＋</button>':'';
     var equipmentSlots=['head','body','weapon','accessory','utility'],slotLabels={head:'Голова',body:'Доспех',weapon:'Оружие',accessory:'Талисман',utility:'Пояс'},slotMarks={head:'ШЛ',body:'ДО',weapon:'ОР',accessory:'ТА',utility:'ПО'};
     var used={};function equippedFor(slotName){var found=-1;equipped.some(function(entry,index){if(used[index])return false;var item=entry.item,hay=String((item.slot||'')+' '+(item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),match=slotName==='head'?/голов|шлем|капюш|head/.test(hay):slotName==='body'?/брон|доспех|одеж|ряса|плащ|body|armor/.test(hay):slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):slotName==='accessory'?/талис|кольц|амул|ожерел|access/.test(hay):false;if(match){found=index;used[index]=true;return true;}return false;});if(found<0){found=equipped.findIndex(function(_,index){return!used[index];});if(found>=0)used[found]=true;}return found>=0?equipped[found]:null;}
     var equipmentHtml=equipmentSlots.map(function(slotName){var entry=equippedFor(slotName),drop=canEdit?' ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="zgVttInventoryDrop(event,\''+slotName+'\')"':'';return '<div class="zg-bag-equip-slot'+(entry?' filled':'')+'" data-equip-slot="'+slotName+'"'+drop+'><small>'+slotLabels[slotName]+'</small>'+(entry?slot(entry.item,entry.index,entry.source):'<span class="zg-bag-slot-mark" aria-hidden="true">'+slotMarks[slotName]+'</span>')+'</div>';}).join('');
+    var totalWeight=allItems.reduce(function(sum,item){if(!item||typeof item==='string')return sum;return sum+itemWeight(item)*Math.max(1,Number(item.qty)||1);},0);
+    var quickItems=allItems.map(function(item,index){return{item:item,index:index};}).filter(function(row){return row.item&&typeof row.item==='object'&&(row.item.quick===true||Number.isFinite(Number(row.item.quickSlot)));}).sort(function(a,b){return(Number(a.item.quickSlot)||99)-(Number(b.item.quickSlot)||99);}).slice(0,4);
+    var quickHtml=Array.from({length:4},function(_,quickIndex){
+      var row=quickItems[quickIndex];
+      return row?slot(row.item,row.index,'inventory'):'<span class="zg-bag-quick-empty" aria-label="Пустой быстрый слот"></span>';
+    }).join('');
     var notice=inventoryOperationNotice&&String(inventoryOperationNotice.uid)===String(member&&member.uid)
       ?'<div class="zg-bag-operation-state '+esc(inventoryOperationNotice.kind)+'" role="status" aria-live="polite">'+esc(inventoryOperationNotice.text)+'</div>'
       :'';
-    return notice+'<div class="zg-bag-character-name">'+esc(local.name||member&&member.character&&member.character.name||'Герой')+'<small>Снаряжение и дорожные вещи</small></div><div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Снаряжение</h4><div class="zg-bag-silhouette" aria-hidden="true"></div><div class="zg-bag-equip-list">'+equipmentHtml+'</div></section>'+
-      '<section class="zg-bag-storage"><div class="zg-bag-storage-head"><h4>Рюкзак</h4><div class="zg-bag-filters"><button class="'+(inventoryFilter==='all'?'active':'')+'" onclick="zgVttInventoryFilter(\'all\')">Все</button><button class="'+(inventoryFilter==='weapon'?'active':'')+'" onclick="zgVttInventoryFilter(\'weapon\')" title="Оружие">⚔</button><button class="'+(inventoryFilter==='armor'?'active':'')+'" onclick="zgVttInventoryFilter(\'armor\')" title="Броня">◈</button><button class="'+(inventoryFilter==='potion'?'active':'')+'" onclick="zgVttInventoryFilter(\'potion\')" title="Зелья">⚗</button></div></div><div class="zg-bag-storage-tools"><input id="zg-bag-search" type="search" value="'+esc(inventorySearch)+'" oninput="zgVttInventorySearch(this.value)" placeholder="Найти предмет" aria-label="Поиск предметов"><select onchange="zgVttInventorySort(this.value)" aria-label="Сортировка предметов"><option value="manual"'+(inventorySort==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(inventorySort==='name'?' selected':'')+'>По названию</option><option value="qty"'+(inventorySort==='qty'?' selected':'')+'>По количеству</option></select></div><div class="zg-bag-grid">'+(items.length?items.map(function(row){return slot(row.item,row.index,'inventory');}).join(''):((inventorySearch||inventoryFilter!=='all')?'<div class="zg-bag-empty">Ничего не найдено</div>':''))+Array(Math.max(0,20-items.length)).fill('<span class="zg-bag-item empty"></span>').join('')+'</div></section></div>'+
-      '<div class="zg-bag-foot"><span>Вместимость <b>'+allItems.length+'</b> / 20</span><span class="zg-bag-coins">Монеты хранятся в листе героя</span>'+add+'</div>';
+    return notice+'<div class="zg-bag-character-name">'+esc(local.name||member&&member.character&&member.character.name||'Герой')+'<small>Снаряжение и дорожные вещи</small></div><div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Экипировано</h4><div class="zg-bag-equip-list">'+equipmentHtml+'</div></section>'+
+      '<section class="zg-bag-storage"><div class="zg-bag-storage-head"><h4>Инвентарь</h4><span class="zg-bag-capacity">'+(totalWeight?totalWeight.toFixed(1).replace(/\.0$/,'')+' / 40 кг · ':'')+allItems.length+' / 20</span></div><div class="zg-bag-filters"><button class="'+(inventoryFilter==='all'?'active':'')+'" onclick="zgVttInventoryFilter(\'all\')">Все</button><button class="'+(inventoryFilter==='weapon'?'active':'')+'" onclick="zgVttInventoryFilter(\'weapon\')" title="Оружие">⚔</button><button class="'+(inventoryFilter==='armor'?'active':'')+'" onclick="zgVttInventoryFilter(\'armor\')" title="Броня">◈</button><button class="'+(inventoryFilter==='potion'?'active':'')+'" onclick="zgVttInventoryFilter(\'potion\')" title="Зелья">⚗</button></div><div class="zg-bag-storage-tools"><input id="zg-bag-search" type="search" value="'+esc(inventorySearch)+'" oninput="zgVttInventorySearch(this.value)" placeholder="Найти предмет" aria-label="Поиск предметов"><select onchange="zgVttInventorySort(this.value)" aria-label="Сортировка предметов"><option value="manual"'+(inventorySort==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(inventorySort==='name'?' selected':'')+'>По названию</option><option value="qty"'+(inventorySort==='qty'?' selected':'')+'>По количеству</option></select></div><div class="zg-bag-grid">'+(items.length?items.map(function(row){return slot(row.item,row.index,'inventory');}).join(''):'<div class="zg-bag-empty">'+((inventorySearch||inventoryFilter!=='all')?'Ничего не найдено':'Рюкзак пока пуст')+'</div>')+'</div></section></div>'+
+      '<div class="zg-bag-foot zg-bag-quick"><strong>Быстрые предметы</strong><div class="zg-bag-quick-grid">'+quickHtml+'</div>'+add+'</div>';
   }
   function journalPanel(){
     var member=drawerMember(), localCharacter=fullLocalCharacter(member),c=localCharacter||member&&member.character||{},notes=c.notes||c.journal||c.quests||[];
@@ -14279,6 +14349,18 @@ document.addEventListener('DOMContentLoaded', function(){
     if(activePanel==='dice')payload.dice=lastRoll;
     try{return JSON.stringify(payload,function(key,value){return typeof value==='string'&&/^(?:data|blob):/i.test(value)?'':value;});}catch(error){return activePanel+'|'+Date.now();}
   }
+  function backpackArtSource(skin){
+    return 'images/vtt-ui/backpack-v2/open-status.webp';
+  }
+  function syncBackpackArt(drawer,skin){
+    var art=el('zg-backpack-art'),layerA=el('zg-backpack-open-a');
+    if(!drawer||!art||!layerA||!skin)return;
+    var source=backpackArtSource(skin);
+    if(!lastBackpackSkin){
+      layerA.src=source;layerA.classList.add('active');
+    }
+    lastBackpackSkin=skin;
+  }
   function renderDrawer(force){
     if (!activePanel) return;
     var signature=drawerRenderSignature();
@@ -14293,10 +14375,11 @@ document.addEventListener('DOMContentLoaded', function(){
       drawer.classList.toggle('backpack-skin',!!backpackPanels[activePanel]);
       if(backpackPanels[activePanel])drawer.dataset.backpackSkin=backpackPanels[activePanel];
       else delete drawer.dataset.backpackSkin;
-      if(backpackPanels[activePanel])bagCalApply();
+      if(backpackPanels[activePanel]){bagCalApply();syncBackpackArt(drawer,backpackPanels[activePanel]);}
+      else lastBackpackSkin='';
     }
     var labels = { group:'Группа', character:'Состояние Героя', inventory:'Вещи', abilities:'Магия', journal:'Личный журнал', dice:'Кубики' };
-    if (title) title.textContent = (labels[activePanel] || 'Панель')+(viewOnly&&viewedMember?' · '+String(viewedMember.character&&viewedMember.character.name||viewedMember.name||'Герой'):'');
+    if (title) title.textContent = labels[activePanel] || 'Панель';
     document.querySelectorAll('.zg-bag-tabs button[onclick*="zgVttOpenPanel"]').forEach(function(button){
       button.classList.toggle('active',button.getAttribute('onclick').indexOf("'"+activePanel+"'")>=0);
     });
@@ -14306,7 +14389,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (activePanel === 'abilities') body.innerHTML = abilitiesPanel();
     if (activePanel === 'journal') body.innerHTML = journalPanel();
     if (activePanel === 'dice') body.innerHTML = dicePanel();
-    if(viewOnly&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0)body.insertAdjacentHTML('afterbegin','<div class="zg-drawer-readonly" role="status">'+(activePanel==='abilities'?'Просмотр снимка комнаты · мастер может корректировать заряды в карточке способности':'Просмотр снимка комнаты · без редактирования и заявок')+'</div>');
+    if(viewOnly&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0)body.insertAdjacentHTML('afterbegin','<div class="zg-drawer-readonly" role="status" title="'+(activePanel==='abilities'?'Просмотр снимка комнаты · мастер может корректировать заряды в карточке способности':'Просмотр снимка комнаты · без редактирования и заявок')+'">◈ Снимок комнаты</div>');
     document.querySelectorAll('[data-vtt-tool]').forEach(function(button){ button.classList.toggle('active', button.getAttribute('data-vtt-tool') === activePanel); });
   }
   function render(snapshot){
@@ -14753,13 +14836,21 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgPlayerDockSelect = function(action){
     var turningOn = playerDockAction !== action;
+    if(action==='inventory'){
+      var inventoryDrawer=el('zg-vtt-drawer');
+      turningOn=!(inventoryDrawer&&inventoryDrawer.classList.contains('open')&&!inventoryDrawer.classList.contains('closing'));
+    }
     if(w.zgVttDeactivateTools)w.zgVttDeactivateTools(action);
     if (action === 'movement' && w.zgMovementToggle) turningOn = !!w.zgMovementToggle(turningOn);
     if(action==='inventory') {
-      var selectedInventoryUid=state&&state.session&&state.session.role==='master'&&w.zgSelectedHeroMemberUid||'';
-      if(selectedInventoryUid)w.zgVttOpenPanelForMember('inventory',selectedInventoryUid);
-      else w.zgVttOpenPanel('inventory',{resetMember:true});
-      turningOn=el('zg-vtt-drawer').classList.contains('open');
+      if(!turningOn){
+        if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();
+      }else{
+        var selectedInventoryUid=state&&state.session&&state.session.role==='master'&&w.zgSelectedHeroMemberUid||'';
+        if(selectedInventoryUid)w.zgVttOpenPanelForMember('inventory',selectedInventoryUid);
+        else w.zgVttOpenPanel('inventory',{resetMember:true});
+        turningOn=!!(el('zg-vtt-drawer')&&el('zg-vtt-drawer').classList.contains('open'));
+      }
     }
     if(action==='actions' && w.zgVttActionToggle)turningOn=!!w.zgVttActionToggle(turningOn);
     if(action==='abilities') { w.zgVttOpenPanel('abilities',{resetMember:true}); turningOn=el('zg-vtt-drawer').classList.contains('open'); }
@@ -15070,21 +15161,39 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgVttSendActionRequest=sendActionRequest;
 
-  w.zgVttCloseDrawer = function(){
+  w.zgVttCloseDrawer = function(options){
+    options=options||{};
+    if(backpackCloseTimer){clearTimeout(backpackCloseTimer);backpackCloseTimer=0;}
     activePanel = '';
+    lastBackpackSkin = '';
+    lastDrawerRenderSignature = '';
     drawerMemberUid = '';
-    var drawer = el('zg-vtt-drawer'); if (drawer) drawer.classList.remove('open','calibrating');
+    var drawer = el('zg-vtt-drawer');
+    var animate=drawer&&drawer.classList.contains('open')&&drawer.classList.contains('backpack-skin')&&!options.immediate&&!document.documentElement.classList.contains('zg-reduced-effects');
+    if(drawer){
+      drawer.classList.remove('calibrating');
+      if(animate){
+        drawer.classList.add('closing');
+        backpackCloseTimer=setTimeout(function(){
+          drawer.classList.remove('open','closing');
+          backpackCloseTimer=0;
+        },420);
+      }else drawer.classList.remove('open','closing');
+    }
     var calibrator=el('zg-bag-calibrator');if(calibrator)calibrator.classList.remove('open');
     document.querySelectorAll('[data-vtt-tool]').forEach(function(button){ button.classList.remove('active'); });
+    if(playerDockAction==='inventory'||playerDockAction==='abilities')w.zgPlayerDockSet(playerDockAction,false);
   };
   w.zgVttOpenPanel = function(panel,options){
     options=options||{};
+    if(backpackCloseTimer){clearTimeout(backpackCloseTimer);backpackCloseTimer=0;}
+    var drawer=el('zg-vtt-drawer');if(drawer)drawer.classList.remove('closing');
     if(options.resetMember)drawerMemberUid='';
     if(options.memberUid!=null){
       var session=state&&state.session,candidate=roomMembers().find(function(member){return String(member.uid)===String(options.memberUid)&&member.character;});
       drawerMemberUid=session&&session.role==='master'&&candidate?String(candidate.uid):'';
     }
-    if (!options.forceOpen && activePanel === panel && el('zg-vtt-drawer') && el('zg-vtt-drawer').classList.contains('open')) { w.zgVttCloseDrawer(); return; }
+    if (!options.forceOpen && activePanel === panel && el('zg-vtt-drawer') && el('zg-vtt-drawer').classList.contains('open')) return;
     if(w.zgDiceClose)w.zgDiceClose();
     if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();
     if(w.zgMovementToggle)w.zgMovementToggle(false);
@@ -15092,7 +15201,8 @@ document.addEventListener('DOMContentLoaded', function(){
     activePanel = panel;
     var scenePanel = el('zg-scene-settings'); if (scenePanel) scenePanel.classList.remove('open');
     var gamePanel = el('zg-game-settings'); if (gamePanel) gamePanel.classList.remove('open');
-    var drawer = el('zg-vtt-drawer'); if (drawer) drawer.classList.add('open');
+    if (drawer) drawer.classList.add('open');
+    if(['character','inventory','abilities','journal'].indexOf(panel)>=0&&w.zgPlayerDockSet)w.zgPlayerDockSet('inventory',true);
     renderDrawer();
   };
   w.zgVttOpenPanelForMember=function(panel,uid){
@@ -19136,27 +19246,45 @@ window.zgImageStore = (function() {
   .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
   .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;transform:translate3d(-100px,-100px,0) translate(-18%,-18%);width:46px;height:46px;border:0;border-radius:0;place-items:center;background:transparent;box-shadow:none;pointer-events:none;will-change:transform;contain:layout paint}.zg-action-cursor.open{display:grid}.zg-action-cursor img{display:block;width:46px;height:46px;object-fit:contain;filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 6px #d6a73f80)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:crosshair!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:crosshair!important}
 
-  .zg-vtt-drawer.backpack-skin{--backpack-panel:#24150ba8;right:0;top:50%;bottom:auto;width:min(520px,calc(100vw - 22px));height:min(690px,calc(100vh - 150px));box-sizing:border-box;transform:translateY(-50%);border:0;border-radius:0;background-color:transparent;background-position:center;background-size:100% 100%;background-repeat:no-repeat;padding:22px 38px 38px;box-shadow:none;backdrop-filter:none;overflow:hidden}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"]{--backpack-panel:#351714a3;--backpack-accent:#b57b58;background-image:url('images/vtt-ui/backpack-hero-status.png')}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"]{--backpack-panel:#321d0da8;--backpack-accent:#bd8749;background-image:url('images/vtt-ui/backpack-items.png')}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"]{--backpack-panel:#261529ad;--backpack-accent:#9871b8;background-image:url('images/vtt-ui/backpack-magic.png')}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"]{--backpack-panel:#5b351ca6;--backpack-accent:#c49559;background-image:url('images/vtt-ui/backpack-journal.png')}
-  .zg-vtt-drawer.backpack-skin .zg-bag-tabs{position:relative;flex:0 0 92px;height:92px;display:grid;grid-template-columns:repeat(4,82px);align-items:start;justify-content:start;gap:0;padding:8px 0 0 42px;border:0;background:transparent;box-shadow:none}
-  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){justify-self:center;width:62px;height:70px;display:grid;grid-template-rows:43px 13px;place-items:center;padding:5px 4px 3px;border:1px solid transparent;border-radius:9px 9px 14px 14px;background:transparent;color:#907759;box-shadow:none}
-  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:38px;height:38px;object-fit:contain;filter:sepia(.28) saturate(.8) brightness(.82) drop-shadow(0 2px 3px #000)}
-  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) span{display:block;max-width:56px;overflow:hidden;color:#8e7654;font:600 7px/1 'Cinzel',serif;letter-spacing:.25px;text-overflow:ellipsis;white-space:nowrap}
+  .zg-vtt-drawer.backpack-skin{--backpack-panel:#17110dcc;--backpack-accent:#b57b58;--bag-rest-transform:translate(20%,-50%);--bag-entry-transform:translate(82%,-50%) scale(.975);--bag-overshoot-transform:translate(15%,-50%) scale(1.006);right:clamp(4px,2vw,28px);top:50%;bottom:auto;width:min(670px,calc((100vh - 32px)*.72),calc(100vw - 18px));height:min(930px,calc(100vh - 32px),calc((100vw - 18px)*1.39));box-sizing:border-box;transform:var(--bag-rest-transform);isolation:isolate;border:0;border-radius:0;background:none;padding:0;box-shadow:none;backdrop-filter:none;overflow:hidden}
+  .zg-vtt-drawer.backpack-skin.open{animation:zgBagSlideIn .48s cubic-bezier(.18,.82,.24,1) both}
+  .zg-vtt-drawer.backpack-skin.open.closing{pointer-events:none;animation:zgBagSlideOut .42s cubic-bezier(.55,.05,.78,.32) both}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"]{--backpack-panel:#1d1110d6;--backpack-accent:#c97d61}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"]{--backpack-panel:#1b130bd8;--backpack-accent:#c7914e}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"]{--backpack-panel:#17101fdc;--backpack-accent:#a682d0}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"]{--backpack-panel:#1b140edb;--backpack-accent:#c99b61}
+  .zg-backpack-art{position:absolute;z-index:0;inset:0;pointer-events:none}
+  .zg-backpack-art img{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:fill;user-select:none}
+  .zg-backpack-open-frame{z-index:1;opacity:0}
+  .zg-backpack-open-frame.active{opacity:1}
+  @keyframes zgBagSlideIn{
+    0%{opacity:0;transform:var(--bag-entry-transform)}
+    72%{opacity:1;transform:var(--bag-overshoot-transform)}
+    100%{opacity:1;transform:var(--bag-rest-transform)}
+  }
+  @keyframes zgBagSlideOut{
+    0%{opacity:1;transform:var(--bag-rest-transform)}
+    20%{opacity:1;transform:var(--bag-overshoot-transform)}
+    100%{opacity:0;transform:var(--bag-entry-transform)}
+  }
+  html.zg-reduced-effects .zg-vtt-drawer.backpack-skin.open,
+  html.zg-reduced-effects .zg-vtt-drawer.backpack-skin.open.closing{animation:none!important}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs{position:absolute;z-index:3;left:20.5%;top:14.15%;width:59%;height:7.9%;display:block;padding:0;border:0;background:transparent;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){position:absolute;display:grid;grid-template-rows:minmax(0,1fr) 13px;place-items:center;padding:3px 2px 2px;border:1px solid transparent;border-radius:8px;background:transparent;color:#907759;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:36px;height:36px;object-fit:contain;filter:sepia(.28) saturate(.8) brightness(.82) drop-shadow(0 2px 3px #000)}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) span{display:block;max-width:100%;overflow:hidden;color:#aa8d63;font:600 7px/1 'Cinzel',serif;letter-spacing:.15px;text-overflow:ellipsis;white-space:nowrap}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close),.zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):hover{border-color:var(--backpack-accent);background:linear-gradient(180deg,#c6994526,transparent);box-shadow:inset 0 0 16px #d2a14a1f,0 0 12px #0005}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close) img{filter:sepia(.12) saturate(1.08) brightness(1.16) drop-shadow(0 0 5px var(--backpack-accent))}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close) span{color:#e1c48e}
-  .zg-vtt-drawer.backpack-skin .zg-vtt-panel-close{position:absolute;z-index:2;top:7px;right:8px;width:28px;height:28px;border:1px solid #5a3d24;border-radius:50%;background:#160d08b8;color:#b99a6b}
+  .zg-vtt-drawer.backpack-skin .zg-vtt-panel-close{position:absolute;z-index:5;top:-52%;right:0;width:32px;height:32px;border:1px solid #6e4b29;border-radius:50%;background:#160d08dc;color:#cfac77;box-shadow:0 4px 12px #000a}
   .zg-bag-cal-open{display:none}
-  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>.zg-bag-cal-open{display:grid!important;position:absolute;z-index:3;top:40px;right:8px;width:28px!important;height:28px!important;place-items:center;padding:0!important;border:1px solid #5a4829;border-radius:50%;background:#160f08d9;color:#c5a768;font:14px serif;cursor:pointer}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>.zg-bag-cal-open{display:grid!important;position:absolute;z-index:5;top:5%;right:-21%;width:28px!important;height:28px!important;place-items:center;padding:0!important;border:1px solid #5a4829;border-radius:50%;background:#160f08e8;color:#c5a768;font:14px serif;cursor:pointer}
   .zg-vtt-drawer.backpack-skin .zg-bag-cal-open:hover,.zg-vtt-drawer.backpack-skin.calibrating .zg-bag-cal-open{border-color:#e2b955;color:#ffe09a;box-shadow:0 0 12px #dca94266}
   .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key]{position:absolute;left:calc(var(--bag-cal-x)*1%);top:calc(var(--bag-cal-y)*1%);width:calc(var(--bag-cal-w)*1%);height:calc(var(--bag-cal-h)*1%);transform:none;justify-self:auto}
   .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key] img{transform:scale(var(--bag-cal-icon));transform-origin:center}
   .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key] span{transform:scale(var(--bag-cal-label));transform-origin:center}
-  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-section-title[data-bag-cal-key]{position:absolute;z-index:2;left:calc(var(--bag-cal-x)*1%);top:calc(var(--bag-cal-y)*1%);width:calc(var(--bag-cal-w)*1%);height:calc(var(--bag-cal-h)*1%);display:grid;place-items:center;margin:0;line-height:1.1;transform:none}
-  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-vtt-drawer-body[data-bag-cal-key]{position:absolute;z-index:1;left:calc(var(--bag-cal-x)*1%);top:calc(var(--bag-cal-y)*1%);width:calc(var(--bag-cal-w)*1%);height:calc(var(--bag-cal-h)*1%);padding:4px 27px 29px}
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-section-title[data-bag-cal-key]{position:absolute;z-index:4;left:calc(var(--bag-cal-x)*1%);top:calc(var(--bag-cal-y)*1%);width:calc(var(--bag-cal-w)*1%);height:calc(var(--bag-cal-h)*1%);display:grid;place-items:center;margin:0;line-height:1.1;transform:none}
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-vtt-drawer-body[data-bag-cal-key]{position:absolute;z-index:3;left:calc(var(--bag-cal-x)*1%);top:calc(var(--bag-cal-y)*1%);width:calc(var(--bag-cal-w)*1%);height:calc(var(--bag-cal-h)*1%);box-sizing:border-box;padding:8px 11px 18px}
   .zg-vtt-drawer.backpack-skin.calibrating .zg-bag-tabs>button[data-bag-cal-key]{outline:1px dashed #ffd36b;outline-offset:-2px;cursor:move}
   .zg-vtt-drawer.backpack-skin.calibrating .zg-bag-tabs>button[data-bag-cal-key].cal-selected{outline:2px solid #6ff0a0;background:#63d98a18;box-shadow:0 0 16px #54d38299}
   .zg-vtt-drawer.backpack-skin.calibrating [data-bag-cal-key="title"],.zg-vtt-drawer.backpack-skin.calibrating [data-bag-cal-key="content"]{outline:1px dashed #67b9ff;outline-offset:-2px;cursor:move}
@@ -19164,6 +19292,9 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin.calibrating.bag-cal-grid::before{content:'';position:absolute;z-index:20;inset:0;pointer-events:none;background-image:linear-gradient(to right,#68d6ff45 1px,transparent 1px),linear-gradient(to bottom,#68d6ff45 1px,transparent 1px);background-size:calc(var(--bag-grid-step)*1%) calc(var(--bag-grid-step)*1%);box-shadow:inset 0 0 0 1px #68d6ff70}
   .zg-bag-calibrator{position:fixed;z-index:2147483400;left:14px;top:72px;width:304px;max-height:calc(100vh - 88px);overflow:auto;display:none;padding:13px;border:1px solid #9b7734;border-radius:10px;background:#0d0a07f5;color:#cfb77c;box-shadow:0 18px 55px #000e;font:11px 'Cinzel',serif}
   .zg-bag-calibrator.open{display:block}
+  .zg-bag-cal-floating{position:fixed;z-index:2147483390;left:14px;top:72px;display:none;min-height:38px;padding:0 14px;border:1px solid #a77d34;border-radius:8px;background:#171008f2;color:#edcf86;font:700 10px 'Cinzel',serif;letter-spacing:.4px;box-shadow:0 8px 24px #000c;cursor:pointer}
+  .zg-vtt-drawer.open~.zg-bag-cal-floating{display:block}
+  .zg-bag-calibrator.open+.zg-bag-cal-floating{display:none}
   .zg-bag-calibrator header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.zg-bag-calibrator header b{color:#f0d48e;font-size:12px}.zg-bag-calibrator header button{border:0;background:transparent;color:#9c8358;font-size:18px;cursor:pointer}
   .zg-bag-calibrator select{width:100%;height:31px;margin-bottom:9px;border:1px solid #55401f;border-radius:5px;background:#171008;color:#e0c582;font:10px 'Cinzel',serif}
   .zg-bag-cal-field{display:grid;grid-template-columns:72px minmax(0,1fr) 42px;align-items:center;gap:7px;margin:6px 0}.zg-bag-cal-field input{width:100%;accent-color:#c7993f}.zg-bag-cal-field output{color:#f0d48e;text-align:right;font-family:monospace}
@@ -19172,8 +19303,9 @@ window.zgImageStore = (function() {
   .zg-bag-cal-grid-settings{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.zg-bag-cal-grid-settings label{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #40331f;border-radius:5px;background:#120e08;color:#9e895e;font:9px Georgia,serif}.zg-bag-cal-grid-settings input[type="number"]{width:45px;margin-left:auto;border:1px solid #4b391e;background:#080705;color:#e5c77f;text-align:center}
   .zg-bag-cal-align{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:8px 0}.zg-bag-cal-align button{min-height:27px;padding:3px;border:1px solid #47371e;border-radius:4px;background:#151008;color:#a8905e;font:8px 'Cinzel',serif;cursor:pointer}.zg-bag-cal-align button:hover{border-color:#be9137;color:#efd087}
   .zg-bag-section-title{display:none}
-  .zg-vtt-drawer.backpack-skin .zg-bag-section-title{display:block;flex:0 0 22px;margin:0 31px 3px;color:#ddc28d;font:600 11px/22px 'Cinzel',serif;letter-spacing:.8px;text-align:center;text-shadow:0 2px 4px #000}
-  .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{padding:4px 27px 29px;background:transparent;scrollbar-color:#76522f transparent}
+  .zg-vtt-drawer.backpack-skin .zg-bag-section-title{display:block;color:#f0d79d;font:600 11px/1 'Cinzel',serif;letter-spacing:.8px;text-align:center;text-shadow:0 2px 5px #000}
+  .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{color:#d7c196;background:transparent;scrollbar-color:#87613a transparent}
+  .zg-vtt-drawer.backpack-skin .zg-drawer-readonly{width:max-content;max-width:100%;margin:0 auto 8px;padding:5px 10px;border:1px solid #6d5332;border-radius:14px;background:#15100bd9;color:#bda879;font:600 8px/1.2 'Cinzel',serif;letter-spacing:.5px;box-shadow:0 4px 12px #0008}
   .zg-vtt-drawer.backpack-skin .zg-bag-columns{border:0;background:transparent;box-shadow:none}
   .zg-vtt-drawer.backpack-skin .zg-bag-character-name{padding-left:10px;padding-right:10px}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals>div,.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox{border:0;border-bottom:1px solid #8a584855;border-radius:0;background:transparent;box-shadow:none}
@@ -19196,9 +19328,9 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-ability-summary q{-webkit-line-clamp:2;line-height:1.32}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-bag-notes{padding:4px 8px 28px}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy article{padding:14px 6px;border:0;border-bottom:1px solid #5d38275e;background:transparent}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry b,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy b{color:#3a2014;text-shadow:0 1px #d6a87066}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry p,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy p{color:#4d3020}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry small{color:#79523a}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry b,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy b{color:#f0d69d;text-shadow:0 2px 4px #000}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry p,.zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy p{color:#cdb990}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry small{color:#987f5f}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-add{border-color:#6e4428;background:#3b2115d4;color:#efd5a1}
   .zg-vtt-token.combat-target>img,.zg-vtt-token.combat-target .zg-vtt-token-ph{animation:zgCombatTargetLock .85s ease both}@keyframes zgCombatTargetLock{0%{filter:none}35%{filter:brightness(1.8) sepia(.6);box-shadow:0 0 0 4px #d44b43,0 0 28px #d44b43}100%{filter:none}}
   .zg-vtt-token.combat-hit{animation:zgCombatHit .48s ease 2}.zg-vtt-token.combat-miss{animation:zgCombatMiss .36s ease}@keyframes zgCombatHit{0%,100%{transform:translate(-50%,-50%)}35%{transform:translate(calc(-50% - 8px),calc(-50% + 3px)) rotate(-5deg);filter:brightness(1.65) sepia(.5)}}@keyframes zgCombatMiss{50%{transform:translate(calc(-50% + 7px),-50%)}}
@@ -19226,7 +19358,13 @@ window.zgImageStore = (function() {
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token.gm-adjust-temp>img,
   html.zg-reduced-effects .zg-game-overlay .zg-vtt-token.gm-adjust-temp>.zg-vtt-token-ph,
   html.zg-reduced-effects .zg-game-overlay .zg-gm-adjustment,
-  html.zg-reduced-effects .zg-game-overlay .zg-gm-particles i{animation:none!important}
+  html.zg-reduced-effects .zg-game-overlay .zg-gm-particles i,
+  html.zg-reduced-effects .zg-game-overlay .zg-vtt-drawer.backpack-skin,
+  html.zg-reduced-effects .zg-game-overlay .zg-backpack-open-frame,
+  html.zg-reduced-effects .zg-game-overlay .zg-backpack-opening-frame,
+  html.zg-reduced-effects .zg-game-overlay .zg-vtt-drawer.backpack-skin .zg-bag-tabs,
+  html.zg-reduced-effects .zg-game-overlay .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body,
+  html.zg-reduced-effects .zg-game-overlay .zg-vtt-drawer.backpack-skin .zg-bag-section-title{animation:none!important;transition:none!important}
   html.zg-reduced-effects .zg-game-overlay .zg-gm-particles{display:none!important}
   html.zg-reduced-effects .zg-game-overlay .zg-move-requests,
   html.zg-reduced-effects .zg-game-overlay .zg-move-requests-toggle,
@@ -19607,6 +19745,7 @@ window.zgImageStore = (function() {
   .zg-vtt-tool:last-child{border-bottom:0}
   .zg-vtt-tool:hover,.zg-vtt-tool.active{background:#241b0d;color:#edcd79}
   .zg-player-dock{position:absolute;z-index:6;left:50%;bottom:22px;transform:translateX(-50%);width:min(780px,calc(100vw - 390px));min-width:620px;height:94px;padding:7px 18px;display:flex;align-items:stretch;border:1px solid #806126;border-radius:46px;background:linear-gradient(180deg,rgba(13,12,9,.97),rgba(7,8,7,.96));box-shadow:0 22px 55px #000d,inset 0 1px 0 #efd28324,0 0 0 1px #050403;backdrop-filter:blur(12px)}
+  .zg-vtt-drawer.open~.zg-player-dock{z-index:9}
   .zg-player-dock::before,.zg-player-dock::after{content:'◇';position:absolute;top:50%;transform:translateY(-50%);color:#a47b32;font-size:20px;text-shadow:0 0 8px #d3a74755}
   .zg-player-dock::before{left:-11px}.zg-player-dock::after{right:-11px}
   .zg-player-action{position:relative;flex:1;min-width:0;border:0;border-right:1px solid #3b2d18;background:transparent;color:#a78b58;cursor:pointer;display:grid;grid-template-rows:38px 20px 13px;place-items:center;padding:5px 8px 3px;font-family:'Cinzel',serif;transition:color .18s ease,background .18s ease,transform .18s ease}
@@ -19655,6 +19794,7 @@ window.zgImageStore = (function() {
   .zg-bag-item{position:relative;min-width:0;aspect-ratio:1;border:1px solid #49351d;border-radius:5px;background:linear-gradient(145deg,#21160d,#0d0b08);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:5px;color:#b6a078;font-size:8px;cursor:pointer;box-shadow:inset 0 0 16px #0008;transition:border-color .16s,transform .16s,background .16s}
   .zg-bag-item:hover{border-color:#b2863c;background:#291b0d;transform:translateY(-1px)}.zg-bag-item[draggable="true"]{cursor:grab}.zg-bag-item[draggable="true"]:active{cursor:grabbing}
   .zg-bag-item img,.zg-bag-item i{width:38px;height:38px;object-fit:contain;font:normal 25px/38px serif}.zg-bag-item span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zg-bag-item small{position:absolute;right:4px;bottom:3px;color:#ecd286;font-size:10px}.zg-bag-item.empty{opacity:.36;cursor:default}
+  .zg-bag-item img{transition:transform .2s cubic-bezier(.2,.8,.3,1.35),filter .2s ease}.zg-bag-item:not(.empty):hover img{transform:scale(1.24);filter:brightness(1.15) drop-shadow(0 4px 7px #000) drop-shadow(0 0 9px #d4a14966)}
   .zg-bag-equip-list{display:grid;grid-template-columns:1fr;gap:7px}.zg-bag-equip-slot{position:relative;min-height:70px;border:1px dashed #4c391f;border-radius:6px;background:#0d0a07b8;display:flex;align-items:center;justify-content:center;transition:.16s}.zg-bag-equip-slot>small{position:absolute;left:6px;top:5px;z-index:2;color:#715f43;font:7px 'Cinzel',serif;letter-spacing:.6px}.zg-bag-equip-slot.dragover{border-style:solid;border-color:#e0b756;background:#39240f;box-shadow:inset 0 0 18px #d49a322b}.zg-bag-slot-mark{color:#4e3b22;font-size:23px}.zg-bag-equipped .zg-bag-item{width:100%;height:70px;aspect-ratio:auto;border:0;background:transparent;box-shadow:none}.zg-bag-equipped .zg-bag-item:hover{transform:none;background:#24170b}.zg-bag-empty{padding:25px 5px;color:#625744;text-align:center;font-size:10px}
   .zg-bag-foot{height:50px;border-top:1px solid #3b2d18;display:flex;align-items:center;padding:0 13px;color:#817252;font:10px 'Cinzel',serif}.zg-bag-add{margin-left:auto;width:37px;height:37px;border-radius:50%;border:1px solid #9a7632;background:#2a1d0b;color:#efd181;font-size:23px;cursor:pointer}
   .zg-combat-group-name{display:block;width:min(170px,100%);height:22px;margin-top:4px;padding:0 7px;border:1px solid #42331d;border-radius:4px;background:#0b0906;color:#a88e59;font:8px 'Cinzel',serif}.zg-combat-group-name:focus{outline:0;border-color:#b98a35;color:#e4c77d}
@@ -19755,7 +19895,7 @@ window.zgImageStore = (function() {
     .zg-vtt-tool{border-bottom:0;border-right:1px solid #302515}
     .zg-vtt-tool:last-child{border-right:0}
     .zg-vtt-drawer{left:10px;right:10px;top:auto;bottom:64px;width:auto;max-height:56vh}
-    .zg-vtt-drawer.backpack-skin{left:auto;right:-8px;top:auto;bottom:70px;width:min(500px,calc(100vw - 8px));height:min(640px,calc(100vh - 150px));max-height:none;transform:none}
+    .zg-vtt-drawer.backpack-skin{--bag-rest-transform:translateX(20%);--bag-entry-transform:translateX(82%) scale(.975);--bag-overshoot-transform:translateX(15%) scale(1.006);left:auto;right:-6px;top:auto;bottom:70px;width:min(650px,calc((100vh - 108px)*.72),calc(100vw - 8px));height:min(900px,calc(100vh - 108px),calc((100vw - 8px)*1.39));max-height:none;transform:var(--bag-rest-transform)}
     .zg-move-requests{right:10px;top:116px;width:min(290px,calc(100vw - 20px))}.zg-move-requests-toggle{right:10px;top:68px}
     .zg-player-dock{bottom:10px;width:calc(100vw - 24px);min-width:0;height:82px;padding:5px 10px;border-radius:32px}
     .zg-player-action{grid-template-rows:32px 18px 11px;padding:4px 3px 2px}
@@ -19773,22 +19913,21 @@ window.zgImageStore = (function() {
     .zg-player-action{grid-template-rows:30px 18px;padding:3px 2px}
     .zg-player-action-icon{height:30px;font-size:21px}
     .zg-bag-tabs{padding:8px 42px 8px 8px}.zg-bag-tabs>span{display:none}.zg-bag-tabs button:not(.zg-vtt-panel-close){width:38px;height:38px}
-    .zg-vtt-drawer.backpack-skin{left:-4px;right:-4px;bottom:66px;width:auto;height:min(610px,calc(100vh - 78px));padding:15px 24px 25px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-tabs{flex-basis:78px;height:78px;grid-template-columns:repeat(4,63px);gap:0;padding:4px 0 0 38px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){width:51px;height:61px;grid-template-rows:36px 11px;padding:4px 2px 2px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:33px;height:33px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) span{max-width:47px;font-size:6px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-section-title{margin:0 22px 2px;font-size:9px}
-    .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{padding:2px 17px 22px}
+    .zg-vtt-drawer.backpack-skin{--bag-rest-transform:translateX(-30%);--bag-entry-transform:translateX(24%) scale(.975);--bag-overshoot-transform:translateX(-35%) scale(1.006);left:50%;right:auto;bottom:66px;width:min(calc(100vw + 8px),calc((100vh - 74px)*.72));height:min(calc((100vw + 8px)*1.39),calc(100vh - 74px));padding:0;transform:var(--bag-rest-transform)}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs{left:20.5%;top:14.15%;width:59%;height:7.9%;padding:0}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){grid-template-rows:minmax(0,1fr) 10px;padding:2px 1px 1px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:30px;height:30px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) span{font-size:5.5px}
+    .zg-vtt-drawer.backpack-skin .zg-bag-section-title{font-size:9px}
+    .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{padding:5px 7px 13px}
     .zg-vtt-drawer-body{padding:8px}.zg-bag-columns{grid-template-columns:118px minmax(0,1fr);min-height:370px}.zg-bag-equipped,.zg-bag-storage{padding:7px}.zg-bag-storage-head{align-items:flex-start;flex-direction:column}.zg-bag-storage-head h4{margin-bottom:0}.zg-bag-storage-tools{grid-template-columns:1fr}.zg-bag-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}.zg-bag-equip-slot{min-height:58px}.zg-bag-equipped .zg-bag-item{height:58px}.zg-bag-item img,.zg-bag-item i{width:31px;height:31px;line-height:31px}.zg-bag-item span{font-size:7px}
     .zg-abilities-panel>nav{grid-template-columns:repeat(3,minmax(0,1fr))}.zg-ability-summary{grid-template-columns:32px minmax(0,1fr) auto 15px;padding:8px 7px}.zg-ability-summary i{width:30px;height:30px}.zg-ability-detail{padding:0 9px 10px 47px}
     .zg-player-action-label{font-size:8px}
     .zg-player-action-key{display:none}
   }
   @media(max-width:360px){
-    .zg-vtt-drawer.backpack-skin{padding-left:18px;padding-right:18px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-tabs{grid-template-columns:repeat(4,59px);padding-left:21px}
-    .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){width:48px}
+    .zg-vtt-drawer.backpack-skin{padding:0}
+    .zg-vtt-drawer.backpack-skin .zg-bag-tabs{padding:0}
   }
   /* Backpack legibility pass: keep the illustrated skin, lift interactive content above it. */
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
@@ -19865,6 +20004,429 @@ window.zgImageStore = (function() {
     font-size:13px;
     text-shadow:0 2px 3px #000;
   }
+  .zg-bag-hero-profile{display:grid;grid-template-columns:86px minmax(0,1fr);align-items:center;gap:14px;margin:0 0 14px;padding:10px 12px;border:1px solid #80543d70;border-radius:12px;background:linear-gradient(105deg,#1a0d0ac7,#0d0806a8 68%);box-shadow:inset 0 1px #f2c18c12,0 8px 22px #0005}
+  .zg-bag-hero-portrait{width:86px;height:86px;padding:4px;border:1px solid #b57a55;border-radius:50%;background:radial-gradient(circle at 50% 35%,#5e3524,#120a07 72%);box-shadow:inset 0 0 0 3px #100806,0 0 18px #b56f3d30;overflow:hidden}.zg-bag-hero-portrait img{width:100%;height:100%;border-radius:50%;object-fit:cover}.zg-bag-hero-portrait>span{width:100%;height:100%;display:grid;place-items:center;color:#e6c488;font:700 31px 'Cinzel',serif}
+  .zg-bag-hero-profile>div:last-child{min-width:0;display:flex;flex-direction:column;gap:4px}.zg-bag-hero-profile small{color:#99795f;font:8px 'Cinzel',serif;letter-spacing:1.5px}.zg-bag-hero-profile b{overflow:hidden;color:#f1d69c;font:700 18px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}.zg-bag-hero-profile span{color:#b9a17d;font:11px 'Lora',serif}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox{position:relative;display:grid;grid-template-columns:38px 1fr;grid-template-rows:auto auto;align-items:center;column-gap:7px;padding:8px 9px;text-align:left}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox .zg-bag-stat-icon{grid-row:1/3;width:36px;height:36px;margin:0;filter:drop-shadow(0 4px 5px #000b)}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox>b{align-self:end;color:#f1d28d;font:700 18px/1 'Cinzel',serif}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox>span{align-self:start;margin-top:3px}
+  .zg-bag-status-section{margin-top:4px;padding-top:10px;border-top:1px solid #8b5e454d}.zg-bag-status-section>header{display:flex;align-items:center;gap:7px;margin-bottom:9px;color:#e8cb91}.zg-bag-status-section>header>span{color:#ce9659}.zg-bag-status-section>header>b{font:700 12px 'Cinzel',serif;letter-spacing:.4px}.zg-bag-status-section>header>small{display:grid;place-items:center;min-width:20px;height:20px;margin-left:auto;border:1px solid #835b3d;border-radius:50%;color:#d9b478;font:700 9px Arial}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-statuses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-status-card{display:grid;grid-template-columns:31px minmax(0,1fr);align-items:center;gap:7px;padding:8px;border:1px solid #80503b75;border-radius:8px;background:linear-gradient(110deg,#321712a8,#120a08b0);box-shadow:inset 0 1px #e7b27e0d}.zg-bag-status-card>i{grid-row:1/3;display:grid;place-items:center;width:31px;height:31px;border-radius:50%;background:#160b08;color:#e0aa69;font-style:normal}.zg-bag-status-card>b{overflow:hidden;color:#e5c695;font:700 10px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}.zg-bag-status-card>small{color:#a68c6e!important;font:8px 'Lora',serif!important}
+  .zg-bag-status-empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:10px;min-height:58px;border:1px dashed #7b5a3d80;border-radius:9px;background:#100a0780;color:#baa27d}.zg-bag-status-empty>i{font-style:normal;font-size:22px;color:#9b7651}.zg-bag-status-empty>span{display:flex;flex-direction:column;gap:2px}.zg-bag-status-empty b{color:#d9bd8b;font:600 10px 'Cinzel',serif}.zg-bag-status-empty small{color:#9e8b70!important;font:9px 'Lora',serif!important}
+  @media(max-width:620px){.zg-bag-hero-profile{grid-template-columns:68px minmax(0,1fr)}.zg-bag-hero-portrait{width:68px;height:68px}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox{grid-template-columns:30px 1fr;padding:7px 5px}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox .zg-bag-stat-icon{width:29px;height:29px}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-statuses{grid-template-columns:1fr}}
+
+  /* Внутренняя страница состояния: компактная игровая иерархия поверх кожи. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-drawer-body{padding:9px 13px 20px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-sheet-sync-meta,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-sheet-roadmap-summary{margin-bottom:8px;padding:7px 10px;border-radius:8px;background:#100b08bd;box-shadow:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-profile{grid-template-columns:76px minmax(0,1fr);min-height:76px;margin-bottom:9px;padding:8px 11px;border-color:#a06a485c;background:linear-gradient(105deg,#25120ddd,#110a07c7 72%)}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-portrait{position:relative;width:68px;height:68px;padding:3px;border-width:2px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-portrait em{position:absolute;right:-4px;bottom:-3px;display:grid;place-items:center;width:22px;height:22px;border:1px solid #d3a45d;border-radius:6px;background:#26170d;color:#ffe09c;font:700 10px 'Cinzel',serif;box-shadow:0 3px 8px #000b}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-profile b{font-size:16px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-profile span{font-size:10px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals{grid-template-columns:1.65fr .75fr .75fr;gap:6px;margin-bottom:9px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals>div{position:relative;min-height:68px;padding:7px;border:1px solid #8c5a4057;border-radius:9px;background:linear-gradient(145deg,#2a120ddb,#100907d4);box-shadow:inset 0 1px #efba8210,0 4px 12px #0004}
+  .zg-bag-health{display:grid!important;grid-template-columns:44px minmax(0,1fr);grid-template-rows:1fr 7px;align-items:center;text-align:left!important}
+  .zg-bag-vital-icon{grid-row:1;display:grid;place-items:center}.zg-bag-vital-icon img{width:39px!important;height:39px!important;filter:drop-shadow(0 4px 5px #000a)}
+  .zg-bag-vital-copy{grid-row:1;display:flex;min-width:0;flex-direction:column}.zg-bag-vital-copy small,.zg-bag-vitals>div>small{color:#aa8e6b;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-bag-vital-copy b{margin-top:2px;color:#f3d89d;font:700 16px 'Cinzel',serif}.zg-bag-vital-copy b i{color:#906e50;font-style:normal}.zg-bag-vital-copy em{color:#70b88b;font:8px 'Lora',serif}
+  .zg-bag-vital-bar{grid-column:1/-1;grid-row:2;align-self:end;height:5px;border:1px solid #48241f;border-radius:5px;background:#090605;overflow:hidden}.zg-bag-vital-bar>i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,#793225,#c05b43);box-shadow:0 0 8px #d65d475c}
+  .zg-bag-defense,.zg-bag-speed{display:grid!important;grid-template-rows:21px 12px 1fr;place-items:center}.zg-bag-vital-rune{color:#c18d5b;font-size:17px;line-height:1}.zg-bag-defense>b,.zg-bag-speed>b{color:#f3d89d!important;font:700 19px/1 'Cinzel',serif!important}
+  .zg-bag-stat-heading{display:flex;align-items:center;gap:9px;margin:3px 1px 6px;color:#ad8c67;font:600 8px 'Cinzel',serif;letter-spacing:1.4px;text-transform:uppercase}.zg-bag-stat-heading i{height:1px;flex:1;background:linear-gradient(90deg,#895c3e70,transparent)}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statgrid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox{grid-template-columns:32px minmax(0,1fr);min-height:54px;padding:5px 7px;border:1px solid #774a3854;border-radius:8px;background:#160b08a8}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox .zg-bag-stat-icon{width:30px;height:30px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox>b{font-size:15px}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox>span{margin-top:2px;font-size:8px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-status-section{margin-top:9px;padding-top:8px}
+  @media(max-width:560px){.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals{grid-template-columns:1.45fr .7fr .7fr}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-profile{grid-template-columns:63px minmax(0,1fr)}.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-hero-portrait{width:56px;height:56px}}
+
+  /* Новый планшет «Состояние»: самостоятельная композиция, не рестайлинг старых карточек. */
+  .zg-bag-state-tools{display:flex;justify-content:flex-end;gap:5px;margin:0 0 5px}
+  .zg-bag-state-disclosure{position:relative;color:#5b4633;font:600 7px 'Cinzel',serif}
+  .zg-bag-state-disclosure summary{list-style:none;padding:5px 8px;border:1px solid #765b3a80;border-radius:12px;background:#d4bd8fe8;color:#503a25;cursor:pointer;box-shadow:0 2px 5px #0004}.zg-bag-state-disclosure summary::-webkit-details-marker{display:none}
+  .zg-bag-state-disclosure[open]>div{position:absolute;z-index:8;right:0;top:calc(100% + 4px);width:220px;display:flex;flex-direction:column;gap:3px;padding:8px;border:1px solid #7e613d;border-radius:7px;background:#dac497;color:#49341f;box-shadow:0 8px 24px #000a}.zg-bag-state-disclosure[open]>div span,.zg-bag-state-disclosure[open]>div small{font:8px/1.35 'Lora',serif}.zg-bag-state-disclosure.roadmap[open]>div{right:0}
+  .zg-bag-state-sheet{position:relative;min-height:calc(100% - 27px);box-sizing:border-box;padding:13px 14px 12px;border:1px solid #8b704c;border-radius:10px;background:linear-gradient(#d7c49bdb,#cdb68add),radial-gradient(circle at 25% 10%,#fff5ce66,transparent 42%);color:#3f3023;box-shadow:inset 0 0 0 3px #735a3920,inset 0 0 28px #60421e30,0 8px 20px #0008;overflow:hidden}
+  .zg-bag-state-sheet::before{content:'';position:absolute;inset:7px;border:1px solid #795d392c;border-radius:6px;pointer-events:none}
+  .zg-bag-state-name{position:relative;z-index:1;margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid #6a50352e;text-align:center}.zg-bag-state-name small{display:block;color:#745a3e;font:7px 'Cinzel',serif;letter-spacing:1.7px}.zg-bag-state-name b{display:block;overflow:hidden;margin:2px auto;color:#33261c;font:700 15px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}.zg-bag-state-name span{color:#715a43;font:8px 'Lora',serif}
+  .zg-bag-state-overview{position:relative;z-index:1;display:grid;grid-template-columns:105px minmax(0,1fr);gap:12px;margin-bottom:11px}
+  .zg-bag-state-portrait{position:relative;width:103px;height:126px;box-sizing:border-box;padding:5px;border:1px solid #725536;border-radius:7px;background:#8f7754;box-shadow:inset 0 0 0 3px #d6c093,inset 0 0 13px #38261455}.zg-bag-state-portrait img{width:100%;height:100%;border-radius:3px;object-fit:cover;filter:saturate(.8) sepia(.12)}.zg-bag-state-portrait>span{width:100%;height:100%;display:grid;place-items:center;background:#75664f;color:#d5c49e;font:700 34px 'Cinzel',serif}.zg-bag-state-portrait em{position:absolute;left:50%;bottom:-9px;display:grid;place-items:center;width:25px;height:25px;transform:translateX(-50%) rotate(45deg);border:1px solid #795a34;background:#d1b983;color:#4c3721;box-shadow:0 2px 5px #0006;font:700 9px 'Cinzel',serif}.zg-bag-state-portrait em::first-line{transform:rotate(-45deg)}
+  .zg-bag-state-resources{display:grid;grid-template-rows:repeat(3,1fr);gap:6px}.zg-bag-state-resources>div{display:grid;grid-template-columns:25px minmax(0,1fr);align-items:center;gap:6px;padding:4px 7px;border-bottom:1px solid #71563a42}.zg-bag-state-resources>div>i{color:#714b35;font:normal 18px/1 Georgia,serif;text-align:center}.zg-bag-state-resources>div.health>i{color:#8f302c}.zg-bag-state-resources>div.speed>i{color:#7b5a16}.zg-bag-state-resources>div>span{display:grid;grid-template-columns:1fr auto;align-items:end;column-gap:5px}.zg-bag-state-resources b{color:#3c2c1e;font:700 13px 'Cinzel',serif}.zg-bag-state-resources small{color:#765e46;font:7px 'Lora',serif;text-align:right}.zg-bag-state-resources em{grid-column:1/-1;height:5px;margin-top:3px;border:1px solid #6c543a77;border-radius:5px;background:#aa9671;overflow:hidden}.zg-bag-state-resources u{display:block;height:100%;background:#8d3b31;text-decoration:none}.zg-bag-state-resources .armor u{background:#68645b}.zg-bag-state-resources .speed u{background:#997119}
+  .zg-bag-state-stats{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:11px}.zg-bag-state-stats>div{display:grid;grid-template-columns:33px minmax(0,1fr);align-items:center;min-height:46px;padding:4px 7px;border:1px solid #72593c4f;border-radius:6px;background:#f0dfba38;box-shadow:inset 0 1px #fff3d740}.zg-bag-state-stats img{width:30px;height:30px;object-fit:contain;filter:sepia(.25) saturate(.78) contrast(.92) drop-shadow(0 2px 2px #6a4e2c55)}.zg-bag-state-stats span{display:flex;min-width:0;flex-direction:column;align-items:center}.zg-bag-state-stats b{color:#3b2b1d;font:700 15px 'Cinzel',serif}.zg-bag-state-stats small{overflow:hidden;max-width:100%;color:#6c543e;font:6.5px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}
+  .zg-bag-state-effects{position:relative;z-index:1;padding-top:8px;border-top:1px solid #6c51352e}.zg-bag-state-effects>header{display:flex;align-items:center;margin-bottom:7px;color:#543d28}.zg-bag-state-effects>header>b{font:700 8px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-bag-state-effects>header>small{display:grid;place-items:center;width:18px;height:18px;margin-left:auto;border:1px solid #705337;border-radius:50%;font:700 8px Arial}.zg-bag-state-effects>div{display:flex;gap:8px;overflow-x:auto;padding:1px 1px 4px}.zg-bag-state-effect{flex:0 0 48px;display:grid;justify-items:center;gap:3px}.zg-bag-state-effect>i{display:grid;place-items:center;width:34px;height:34px;border:1px solid #705238;border-radius:50%;background:#bfa579;color:#4e3824;font-style:normal;box-shadow:inset 0 1px #f6e4bc,0 2px 5px #50381c45}.zg-bag-state-effect>small{overflow:hidden;width:48px;color:#604832;font:6px 'Lora',serif;text-align:center;text-overflow:ellipsis;white-space:nowrap}
+  @media(max-width:560px){.zg-bag-state-sheet{padding:10px 9px}.zg-bag-state-overview{grid-template-columns:82px minmax(0,1fr);gap:8px}.zg-bag-state-portrait{width:80px;height:104px}.zg-bag-state-resources>div{grid-template-columns:19px minmax(0,1fr);padding:3px 4px}.zg-bag-state-resources>div>i{font-size:14px}.zg-bag-state-resources b{font-size:11px}.zg-bag-state-resources small{font-size:6px}.zg-bag-state-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+  /* Тёмная встроенная страница состояния по новому концепту. */
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs::before{content:'';position:absolute;z-index:-1;inset:-5px -8px;border:1px solid #5a3d24;border-radius:8px;background:linear-gradient(180deg,#25180f,#130d09);box-shadow:inset 0 0 18px #000b,0 3px 8px #0008}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){grid-template-rows:23px 12px!important;padding:2px!important;border:0!important;border-right:1px solid #563a24!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open):last-of-type{border-right:0!important}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open) img{display:none!important}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>i{display:block;color:#aa8350;font:normal 19px/23px Georgia,serif;filter:drop-shadow(0 2px 2px #000)}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){background:linear-gradient(180deg,#6630159c,#2b160dbd)!important;box-shadow:inset 0 -2px #a96b32!important}.zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close)>i{color:#d3a25d}
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key]{top:0!important;width:25%!important;height:100%!important;transform:none!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="status"]{left:0!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="items"]{left:25%!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="magic"]{left:50%!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="journal"]{left:75%!important}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-drawer-body{overflow:auto;overscroll-behavior:contain;contain:paint;clip-path:inset(0 round 0 0 17px 17px);padding:7px 9px 17px;background:transparent}
+  .zg-state-board{min-height:100%;box-sizing:border-box;padding:7px;border:1px solid #5a3c25;border-radius:8px;background:linear-gradient(135deg,#21160f,#100b08 70%);color:#bda27a;box-shadow:inset 0 0 28px #000c,0 6px 16px #0008}
+  .zg-state-main{display:grid;grid-template-columns:42% minmax(0,1fr);gap:8px}.zg-state-left{min-width:0}.zg-state-portrait{height:172px;padding:4px;border:1px solid #7b512e;border-radius:5px;background:#0d0906;box-shadow:inset 0 0 0 2px #2b1a0e,0 4px 9px #0008;overflow:hidden}.zg-state-portrait img{width:100%;height:100%;object-fit:cover;filter:saturate(.82) contrast(1.07)}.zg-state-portrait>span{width:100%;height:100%;display:grid;place-items:center;color:#7c603d;font:700 35px 'Cinzel',serif}
+  .zg-state-left h3{overflow:hidden;margin:8px 2px 2px;color:#dcc395;font:700 12px/1.2 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}.zg-state-left>p{margin:0 2px 8px;color:#826c50;font:7px 'Lora',serif}
+  .zg-state-stat-list{border:1px solid #553921;border-radius:5px;overflow:hidden}.zg-state-stat-list>div{display:grid;grid-template-columns:31px minmax(0,1fr) 27px 20px;align-items:center;min-height:48px;padding:1px 6px;border-bottom:1px solid #49321f;background:#17100bd4}.zg-state-stat-list>div:last-child{border-bottom:0}.zg-state-stat-list img{width:29px;height:29px;object-fit:contain;filter:drop-shadow(0 2px 3px #000)}.zg-state-stat-list b{overflow:hidden;color:#b79a71;font:600 8px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}.zg-state-stat-list strong{color:#ead19b;font:700 14px 'Cinzel',serif;text-align:right}.zg-state-stat-list em{color:#426c3f;font:700 8px 'Cinzel',serif;text-align:right}.zg-state-stat-list em:not(.active){opacity:.48}
+  .zg-state-right{display:flex;min-width:0;flex-direction:column;gap:7px}.zg-state-fame{display:grid;gap:6px}.zg-state-fame-row{padding:7px;border:1px solid #4d3421;border-radius:5px;background:#17100b}.zg-state-fame-row header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}.zg-state-fame-row header b{color:#b69870;font:600 8px 'Cinzel',serif}.zg-state-fame-row header span{color:#d4b37c;font:700 9px 'Cinzel',serif}.zg-state-fame-row>div{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}.zg-state-fame-row>div i{display:grid;place-items:center;aspect-ratio:1;border:1px solid #48331f;border-radius:3px;background:#0c0907;color:#332819;font:normal 10px serif}.zg-state-fame-row>div i.filled{border-color:#84602d;color:#b88835;background:#291b0d;box-shadow:inset 0 0 7px #b57c242d}
+  .zg-state-hp{position:relative;display:grid;grid-template-columns:31px minmax(0,1fr) auto;align-items:center;gap:6px;padding:8px;border:1px solid #5a3925;border-radius:5px;background:#1a100c}.zg-state-hp>i{color:#9d4939;font:normal 27px Georgia,serif}.zg-state-hp>span{display:flex;flex-direction:column}.zg-state-hp small{color:#a98861;font:7px 'Cinzel',serif}.zg-state-hp b{color:#e0c394;font:700 15px 'Cinzel',serif}.zg-state-hp>em{color:#62824b;font:700 10px 'Cinzel',serif}.zg-state-hp>u{grid-column:1/-1;height:4px;border:1px solid #49261e;border-radius:4px;background:#090604;overflow:hidden}.zg-state-hp>u>i{display:block;height:100%;background:linear-gradient(90deg,#743024,#b4563d)}
+  .zg-state-combat-values{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid #4e3421;border-radius:5px;overflow:hidden}.zg-state-combat-values>div{display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:7px 4px;border-right:1px solid #49301e;background:#15100c;text-align:center}.zg-state-combat-values>div:last-child{border-right:0}.zg-state-combat-values small{grid-column:1/-1;color:#8d7457;font:7px 'Cinzel',serif}.zg-state-combat-values i{color:#8d673a;font-style:normal;font-size:13px}.zg-state-combat-values b{color:#d9bd87;font:700 14px 'Cinzel',serif}
+  .zg-state-effects{min-height:0;border:1px solid #4e3421;border-radius:5px;background:#120d09;overflow:hidden}.zg-state-effects h4,.zg-state-injuries h4{margin:0;padding:7px 8px;border-bottom:1px solid #49301e;color:#b69970;font:700 8px 'Cinzel',serif;letter-spacing:.6px;text-transform:uppercase}.zg-state-effects>div{max-height:207px;overflow:auto}.zg-state-effect-row{display:grid;grid-template-columns:31px minmax(0,1fr) auto;align-items:center;gap:6px;min-height:43px;padding:4px 7px;border-bottom:1px solid #3f2b1c}.zg-state-effect-row:last-child{border-bottom:0}.zg-state-effect-row>i{display:grid;place-items:center;width:27px;height:27px;border:1px solid #5f4328;border-radius:4px;background:#0a0705;color:#b28349;font-style:normal}.zg-state-effect-row>span{display:flex;min-width:0;flex-direction:column}.zg-state-effect-row b{overflow:hidden;color:#c2a77e;font:600 8px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap}.zg-state-effect-row small{display:-webkit-box;overflow:hidden;color:#796951;font:7px/1.25 'Lora',serif;-webkit-box-orient:vertical;-webkit-line-clamp:2}.zg-state-effect-row>em{color:#8c7658;font:7px 'Lora',serif;white-space:nowrap}.zg-state-effects>div>p{margin:0;padding:22px 8px;color:#705f49;font:8px 'Lora',serif;text-align:center}
+  .zg-state-injuries{margin-top:8px;border:1px solid #4e3421;border-radius:5px;background:#130e0a;overflow:hidden}.zg-state-injuries>div{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:7px}.zg-state-injury{display:grid;place-items:center;aspect-ratio:1;border:1px solid #513722;border-radius:5px;background:#100b08;color:#5e472f}.zg-state-injury i{font:normal 20px Georgia,serif}.zg-state-injury b{max-width:90%;overflow:hidden;color:#766247;font:600 6.5px 'Cinzel',serif;text-align:center;text-overflow:ellipsis;white-space:nowrap}.zg-state-injury.filled{border-color:#76502f;background:#20120d}.zg-state-injury.filled i{color:#a0503d}.zg-state-injury.filled b{color:#b7966e}
+  .zg-vtt-drawer.backpack-skin .zg-bag-section-title{display:none!important}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-state-tools{position:absolute;z-index:7;right:8px;top:5px;margin:0}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-drawer-readonly{position:absolute;z-index:7;left:8px;top:5px;width:22px;height:22px;margin:0;padding:0;border-radius:50%;font-size:0;overflow:hidden}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-drawer-readonly::before{content:'◈';font:700 9px/20px 'Cinzel',serif}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{padding-top:33px}
+  @media(max-width:560px){.zg-state-main{grid-template-columns:40% minmax(0,1fr)}.zg-state-portrait{height:137px}.zg-state-stat-list>div{grid-template-columns:25px minmax(0,1fr) 24px 17px;min-height:41px;padding:1px 3px}.zg-state-stat-list img{width:23px;height:23px}.zg-state-stat-list b{font-size:6px}.zg-state-stat-list strong{font-size:11px}.zg-state-fame-row{padding:5px}.zg-state-fame-row header b{font-size:6px}.zg-state-effect-row{grid-template-columns:26px minmax(0,1fr);min-height:38px;padding:3px 4px}.zg-state-effect-row>i{width:23px;height:23px}.zg-state-effect-row>em{display:none}}
+
+  /* Точная подгонка под финальный концепт: резкая типографика и плотная сетка. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-state-tools,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-drawer-readonly{display:none!important}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{padding:8px;text-shadow:none}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>i{font-size:22px;line-height:25px}
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>span{color:#c1a275;font-size:9px;line-height:12px;text-shadow:none}
+  .zg-state-main{grid-template-columns:41% minmax(0,1fr);gap:9px}
+  .zg-state-portrait{height:205px;padding:5px;border-color:#8a5b34;box-shadow:inset 0 0 0 2px #321d0f,0 4px 9px #0008}
+  .zg-state-portrait img{filter:none}
+  .zg-state-left h3{margin-top:9px;color:#e5c999;font-size:15px}
+  .zg-state-left>p{margin-top:3px;margin-bottom:10px;color:#a58a66;font-size:9px}
+  .zg-state-stat-list{border-color:#674529}
+  .zg-state-stat-list>div{grid-template-columns:38px minmax(0,1fr) 35px 25px;min-height:57px;padding:2px 8px;border-bottom-color:#5b3d25}
+  .zg-state-stat-list img{width:35px;height:35px;filter:drop-shadow(0 2px 2px #000)}
+  .zg-state-stat-list b{color:#c7aa80;font-size:10px}
+  .zg-state-stat-list strong{color:#f0d39d;font-size:19px}
+  .zg-state-stat-list em{font-size:10px}
+  .zg-state-fame{gap:8px}
+  .zg-state-fame-row{padding:9px;border-color:#634328}
+  .zg-state-fame-row header{margin-bottom:7px}
+  .zg-state-fame-row header b{color:#c3a47b;font-size:10px}
+  .zg-state-fame-row header span{font-size:12px}
+  .zg-state-fame-row>div{gap:3px}.zg-state-fame-row>div i{font-size:12px}
+  .zg-state-hp{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;padding:10px;border-color:#6b432a}
+  .zg-state-hp>i{font-size:32px}.zg-state-hp small{font-size:9px}.zg-state-hp b{font-size:20px}.zg-state-hp>em{font-size:12px}.zg-state-hp>u{height:6px}
+  .zg-state-combat-values>div{padding:9px 5px}.zg-state-combat-values small{font-size:9px}.zg-state-combat-values i{font-size:16px}.zg-state-combat-values b{font-size:18px}
+  .zg-state-effects h4,.zg-state-injuries h4{padding:9px 10px;color:#c4a57c;font-size:10px}
+  .zg-state-effects>div{max-height:275px}.zg-state-effect-row{grid-template-columns:38px minmax(0,1fr) auto;gap:8px;min-height:53px;padding:6px 9px}.zg-state-effect-row>i{width:33px;height:33px}.zg-state-effect-row b{font-size:10px}.zg-state-effect-row small{color:#9b8567;font-size:9px}.zg-state-effect-row>em{font-size:9px}
+  .zg-state-injuries{margin-top:9px}.zg-state-injuries>div{grid-template-columns:repeat(4,minmax(0,82px));justify-content:space-between;gap:7px;padding:9px}.zg-state-injury{width:100%;max-width:82px}.zg-state-injury i{font-size:23px}.zg-state-injury b{font-size:8px}
+  @media(max-width:560px){.zg-state-main{grid-template-columns:40% minmax(0,1fr);gap:6px}.zg-state-portrait{height:154px}.zg-state-left h3{font-size:11px}.zg-state-left>p{font-size:7px}.zg-state-stat-list>div{grid-template-columns:29px minmax(0,1fr) 28px 19px;min-height:47px;padding:1px 4px}.zg-state-stat-list img{width:27px;height:27px}.zg-state-stat-list b{font-size:7px}.zg-state-stat-list strong{font-size:14px}.zg-state-stat-list em{font-size:7px}.zg-state-fame-row{padding:6px}.zg-state-fame-row header b{font-size:7px}.zg-state-fame-row header span{font-size:9px}.zg-state-hp{grid-template-columns:27px minmax(0,1fr) auto;padding:7px}.zg-state-hp>i{font-size:23px}.zg-state-hp small{font-size:7px}.zg-state-hp b{font-size:15px}.zg-state-combat-values>div{padding:6px 2px}.zg-state-combat-values small{font-size:6px}.zg-state-combat-values b{font-size:13px}.zg-state-effects>div{max-height:220px}.zg-state-effect-row{grid-template-columns:27px minmax(0,1fr);min-height:43px;padding:4px 5px}.zg-state-effect-row>i{width:25px;height:25px}.zg-state-effect-row b{font-size:7px}.zg-state-effect-row small{font-size:7px}.zg-state-injuries>div{grid-template-columns:repeat(4,minmax(0,62px));gap:4px;padding:6px}}
+
+  /* Подгонка состояния по фактическому окну: компактная шапка и безопасный нижний край. */
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs{
+    height:6.7%;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>.zg-bag-cal-open{
+    top:-52%;
+    right:38px;
+    width:30px!important;
+    height:30px!important;
+    border-color:#8b6531;
+    background:#160f08f2;
+    color:#e1bd70;
+    box-shadow:0 4px 12px #000b;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    grid-template-rows:19px 10px!important;
+    padding:1px!important;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>i{
+    font-size:18px;
+    line-height:19px;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>img{
+    display:block!important;
+    width:18px;
+    height:18px;
+    object-fit:contain;
+    transform:scale(var(--bag-cal-icon,1));
+    filter:sepia(.18) saturate(.82) brightness(.9) drop-shadow(0 2px 2px #000);
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>img,
+  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open):hover>img{
+    filter:sepia(.05) saturate(1.02) brightness(1.12) drop-shadow(0 0 4px #c78b49aa);
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>span{
+    font-size:8px;
+    line-height:10px;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated[data-backpack-skin="hero"] .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    top:calc(var(--bag-cal-y)*1%);
+    height:calc(var(--bag-cal-h)*1%);
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    border-radius:calc(var(--bag-cal-radius,8)*1px);
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    clip-path:inset(0 round calc(var(--bag-cal-radius,8)*1px));
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{
+    min-height:0;
+    padding:7px 7px 13px;
+  }
+  .zg-state-main{
+    grid-template-columns:40% minmax(0,1fr);
+    align-items:start;
+    gap:8px;
+  }
+  .zg-state-portrait{
+    height:176px;
+    padding:4px;
+  }
+  .zg-state-left h3{
+    display:-webkit-box;
+    margin:7px 2px 2px;
+    overflow:hidden;
+    color:#e5c999;
+    font-size:13px;
+    line-height:1.2;
+    text-overflow:clip;
+    white-space:normal;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .zg-state-left>p{
+    margin:2px 2px 8px;
+    font-size:8px;
+  }
+  .zg-state-stat-list>div{
+    grid-template-columns:33px minmax(0,1fr) 31px 22px;
+    min-height:49px;
+    padding:1px 6px;
+  }
+  .zg-state-stat-list img{
+    width:31px;
+    height:31px;
+  }
+  .zg-state-stat-list b{font-size:9px}
+  .zg-state-stat-list strong{font-size:17px}
+  .zg-state-stat-list em{font-size:9px}
+  .zg-state-right{
+    align-self:start;
+    gap:7px;
+  }
+  .zg-state-fame{gap:7px}
+  .zg-state-fame-row{padding:7px}
+  .zg-state-fame-row header{margin-bottom:5px}
+  .zg-state-fame-row header b{font-size:9px}
+  .zg-state-fame-row header span{font-size:11px}
+  .zg-state-fame-row>div{gap:2px}
+  .zg-state-fame-row>div i{font-size:11px}
+  .zg-state-hp{
+    grid-template-columns:34px minmax(0,1fr) auto;
+    gap:7px;
+    padding:8px;
+  }
+  .zg-state-hp>i{font-size:28px}
+  .zg-state-hp small{font-size:8px}
+  .zg-state-hp b{font-size:18px}
+  .zg-state-hp>em{font-size:10px}
+  .zg-state-hp>u{height:5px}
+  .zg-state-combat-values>div{padding:7px 4px}
+  .zg-state-combat-values small{font-size:8px}
+  .zg-state-combat-values i{font-size:14px}
+  .zg-state-combat-values b{font-size:16px}
+  .zg-state-effects{
+    flex:0 0 auto;
+    align-self:stretch;
+    min-height:0;
+    height:auto;
+  }
+  .zg-state-effects h4,.zg-state-injuries h4{
+    padding:7px 9px;
+    font-size:9px;
+  }
+  .zg-state-effects>div{
+    height:auto;
+    max-height:220px;
+  }
+  .zg-state-effect-row{
+    grid-template-columns:33px minmax(0,1fr) auto;
+    gap:7px;
+    min-height:47px;
+    padding:5px 8px;
+  }
+  .zg-state-effect-row>i{width:29px;height:29px}
+  .zg-state-effect-row b{font-size:9px}
+  .zg-state-effect-row small,.zg-state-effect-row>em{font-size:8px}
+  .zg-state-effects>div>p{padding:18px 8px}
+  .zg-state-injuries{
+    margin-top:7px;
+  }
+  .zg-state-injuries>div{
+    grid-template-columns:repeat(4,minmax(0,76px));
+    gap:6px;
+    padding:7px;
+  }
+  .zg-state-injury{max-width:76px}
+  .zg-state-injury i{font-size:21px}
+  .zg-state-injury b{font-size:7px}
+  @media(max-width:560px){
+    .zg-vtt-drawer.backpack-skin.backpack-calibrated[data-backpack-skin="hero"] .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+      top:calc(var(--bag-cal-y)*1%);
+      height:calc(var(--bag-cal-h)*1%);
+    }
+    .zg-state-main{grid-template-columns:40% minmax(0,1fr);gap:6px}
+    .zg-state-portrait{height:145px}
+    .zg-state-left h3{font-size:10px}
+    .zg-state-stat-list>div{grid-template-columns:27px minmax(0,1fr) 26px 18px;min-height:43px;padding:1px 3px}
+    .zg-state-stat-list img{width:25px;height:25px}
+    .zg-state-stat-list b{font-size:7px}
+    .zg-state-stat-list strong{font-size:13px}
+    .zg-state-injuries>div{grid-template-columns:repeat(4,minmax(0,58px));gap:4px;padding:5px}
+  }
+
+  /* Единая рабочая поверхность, выставленная по внутреннему шву рюкзака. */
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-interface[data-bag-cal-key="interface"]{
+    position:absolute;
+    z-index:3;
+    left:calc(var(--bag-cal-x)*1%);
+    top:calc(var(--bag-cal-y)*1%);
+    width:calc(var(--bag-cal-w)*1%);
+    height:calc(var(--bag-cal-h)*1%);
+    box-sizing:border-box;
+    border:1px solid #785332;
+    border-radius:calc(var(--bag-cal-radius,24)*1px);
+    background:#100b08e8;
+    box-shadow:inset 0 0 0 1px #21150d, inset 0 0 24px #0009, 0 2px 8px #0008;
+    overflow:hidden;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-interface[data-bag-cal-key="interface"]::after{
+    content:'';
+    position:absolute;
+    z-index:20;
+    inset:0;
+    border:1px solid #a4774647;
+    border-radius:inherit;
+    box-shadow:inset 0 0 9px #d2a56a14;
+    pointer-events:none;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs{
+    left:3.125%;
+    top:1.35%;
+    width:92.1875%;
+    height:8.7%;
+    border-radius:0;
+    overflow:visible;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    --zg-tab-icon-size:21px;
+    grid-template-rows:23px 11px!important;
+    align-content:center;
+    justify-items:center;
+    row-gap:1px;
+    padding:1px 2px!important;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button[data-bag-cal-key="items"]:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    --zg-tab-icon-size:22px;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button[data-bag-cal-key="magic"]:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    --zg-tab-icon-size:27px;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button[data-bag-cal-key="journal"]:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    --zg-tab-icon-size:21px;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>img{
+    display:block!important;
+    width:var(--zg-tab-icon-size)!important;
+    height:var(--zg-tab-icon-size)!important;
+    align-self:center;
+    justify-self:center;
+    object-fit:contain;
+    transform:scale(var(--bag-cal-icon,1));
+    transform-origin:center;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>span{
+    align-self:center;
+    width:100%;
+    color:#c1a275;
+    font-size:8px;
+    line-height:10px;
+    text-align:center;
+    text-shadow:none;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-interface .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    left:0!important;
+    top:11.4%!important;
+    width:100%!important;
+    height:88.6%!important;
+    border-radius:0;
+    clip-path:none;
+  }
+  .zg-vtt-drawer.backpack-skin.calibrating .zg-bag-interface[data-bag-cal-key="interface"]{
+    border-color:#65f0a1;
+    box-shadow:inset 0 0 0 1px #bce8c6, inset 0 0 24px #154b2b55, 0 0 14px #54d38288;
+    cursor:move;
+  }
+  .zg-vtt-drawer.backpack-skin.calibrating .zg-bag-interface[data-bag-cal-key="interface"]::after{
+    border-color:#65f0a1;
+    box-shadow:inset 0 0 8px #65f0a155;
+  }
+  .zg-vtt-drawer.backpack-skin>.zg-vtt-panel-close{
+    top:11.25%;
+    right:9.5%;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-drawer-body{
+    overflow:hidden;
+    padding-bottom:0!important;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{
+    --zg-state-scale:.8;
+    width:calc(100% / var(--zg-state-scale));
+    height:calc(100% / var(--zg-state-scale));
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    box-shadow:none;
+    transform:scale(var(--zg-state-scale));
+    transform-origin:top left;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-main{
+    flex:1 1 auto;
+    min-height:0;
+    align-items:stretch;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-left{
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list{
+    flex:1 1 auto;
+    min-height:0;
+    display:grid;
+    grid-template-rows:repeat(6,minmax(0,1fr));
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list>div{
+    min-height:0;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-right{
+    min-height:0;
+    align-self:stretch;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-effects{
+    flex:1 1 auto;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-injuries{
+    flex:0 0 auto;
+    margin-top:9px;
+  }
+  @media(max-height:980px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{
+      --zg-state-scale:.75;
+    }
+  }
+  @media(max-height:800px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{
+      --zg-state-scale:.68;
+    }
+  }
+  @media(max-width:560px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{
+      --zg-state-scale:.68;
+    }
+  }
 
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped,
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage{
@@ -19899,6 +20461,234 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-foot{
     color:#cdb78d;
     font-size:10px;
+  }
+  /* Items tab v2: dense equipment rail + readable inventory rows. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-character-name{
+    display:none;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-columns{
+    grid-template-columns:minmax(0,41%) minmax(0,59%);
+    min-height:0;
+    border:1px solid #80562f;
+    border-radius:8px 8px 0 0;
+    overflow:visible;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-columns h4{
+    margin:0;
+    color:#d9c18c;
+    font-size:10px;
+    letter-spacing:.75px;
+    text-transform:uppercase;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage{
+    min-width:0;
+    padding:8px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped{
+    gap:7px;
+    border-right-color:#875b3280;
+    overflow:visible;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-list{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot{
+    min-height:57px;
+    border:1px solid #6e492a;
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot>small{
+    left:49px;
+    top:7px;
+    color:#9c7d53;
+    font-size:7px;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-slot-mark{
+    width:25px;
+    height:25px;
+    color:#71583a;
+    font-size:6px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage-head{
+    min-height:20px;
+    align-items:center;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-capacity{
+    margin-left:auto;
+    color:#a48d65;
+    font:7px 'Cinzel',serif;
+    white-space:nowrap;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-filters{
+    display:grid;
+    grid-template-columns:1.3fr repeat(3,1fr);
+    margin-top:6px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-filters button{
+    width:auto;
+    height:26px;
+    font-size:9px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage-tools{
+    grid-template-columns:minmax(0,1fr) minmax(78px,.8fr);
+    gap:4px;
+    margin-top:5px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage-tools input,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage-tools select{
+    height:27px;
+    font-size:7px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-grid{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    margin-top:6px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item{
+    box-sizing:border-box;
+    width:100%;
+    min-height:50px;
+    aspect-ratio:auto;
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr) auto;
+    grid-template-rows:1fr;
+    align-items:center;
+    gap:7px;
+    padding:5px 7px;
+    text-align:left;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item:hover{
+    transform:translateX(2px);
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-art{
+    width:40px;
+    height:40px;
+    border:1px solid #51371f;
+    border-radius:3px;
+    background:#090604b8;
+    display:grid;
+    place-items:center;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-art img,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-art i{
+    width:34px;
+    height:34px;
+    object-fit:contain;
+    font:normal 22px/34px serif;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy b,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy em{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy b{
+    color:#dec89a;
+    font:600 8px 'Cinzel',serif;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy em{
+    color:#8f7b5b;
+    font:normal 7px Georgia,serif;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-meta{
+    position:static;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:3px;
+    color:#bda46f;
+    font-size:7px;
+    white-space:nowrap;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-meta small{
+    position:static;
+    color:#76684e;
+    font-size:6px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item{
+    height:57px;
+    min-height:57px;
+    grid-template-columns:37px minmax(0,1fr);
+    gap:5px;
+    padding:15px 5px 4px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-art{
+    width:35px;
+    height:35px;
+    border:0;
+    background:transparent;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-art img,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-art i{
+    width:34px;
+    height:34px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-meta{
+    display:none;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-empty{
+    min-height:130px;
+    display:grid;
+    place-items:center;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick{
+    box-sizing:border-box;
+    height:66px;
+    gap:8px;
+    padding:7px 9px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick>strong{
+    width:82px;
+    color:#cbb27e;
+    font:600 8px/1.25 'Cinzel',serif;
+    letter-spacing:.6px;
+    text-transform:uppercase;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid{
+    flex:1;
+    min-width:0;
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:5px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid .zg-bag-item,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-empty{
+    box-sizing:border-box;
+    width:100%;
+    min-height:48px;
+    height:48px;
+    border:1px solid #53391f;
+    border-radius:4px;
+    background:#0a0705d9;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid .zg-bag-item{
+    display:grid;
+    grid-template-columns:1fr;
+    padding:3px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid .zg-bag-item-art{
+    width:100%;
+    height:40px;
+    border:0;
+    background:transparent;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid .zg-bag-item-copy,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid .zg-bag-item-meta{
+    display:none;
   }
 
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-abilities-panel>header,
@@ -20375,34 +21165,36 @@ window.zgImageStore = (function() {
       <button type="button" class="zg-action-measure" onclick="zgVttActionMeasure()">Измерение расстояния и области</button>
     </div>
     <aside class="zg-vtt-drawer" id="zg-vtt-drawer">
-      <div class="zg-bag-tabs">
-        <button type="button" data-bag-cal-key="status" onclick="zgVttOpenPanel('character')" aria-label="Состояние Героя"><img src="images/vtt-icons/health.png" alt=""><span>Состояние</span></button>
-        <button type="button" class="active" data-bag-cal-key="items" onclick="zgVttOpenPanel('inventory')" aria-label="Вещи"><img src="images/vtt-icons/inventory.png" alt=""><span>Вещи</span></button>
-        <button type="button" data-bag-cal-key="magic" onclick="zgVttOpenPanel('abilities')" aria-label="Магия"><img src="images/vtt-icons/abilities.png" alt=""><span>Магия</span></button>
-        <button type="button" data-bag-cal-key="journal" onclick="zgVttOpenPanel('journal')" aria-label="Личный журнал"><img src="images/vtt-icons/journal.png" alt=""><span>Журнал</span></button>
-        <button type="button" class="zg-bag-cal-open" onclick="zgBagCalToggle(event)" title="Калибровать вкладки" aria-label="Калибровать вкладки">⌖</button>
-        <button type="button" class="zg-vtt-panel-close" onclick="zgVttCloseDrawer()" title="Закрыть" aria-label="Закрыть панель">×</button>
+      <div class="zg-backpack-art" id="zg-backpack-art" aria-hidden="true">
+        <img class="zg-backpack-open-frame active" id="zg-backpack-open-a" src="images/vtt-ui/backpack-v2/open-status.webp" alt="">
       </div>
-      <div class="zg-bag-section-title" id="zg-vtt-drawer-title" data-bag-cal-key="title">Вещи</div>
-      <div class="zg-vtt-drawer-body" id="zg-vtt-drawer-body" data-bag-cal-key="content"></div>
+      <div class="zg-bag-interface" data-bag-cal-key="interface">
+        <div class="zg-bag-tabs">
+          <button type="button" data-bag-cal-key="status" onclick="zgVttOpenPanel('character')" aria-label="Состояние Героя"><img src="images/vtt-icons/health.png?v=20260728" alt=""><span>Состояние</span></button>
+          <button type="button" class="active" data-bag-cal-key="items" onclick="zgVttOpenPanel('inventory')" aria-label="Вещи"><img src="images/vtt-icons/inventory.png?v=20260728" alt=""><span>Вещи</span></button>
+          <button type="button" data-bag-cal-key="magic" onclick="zgVttOpenPanel('abilities')" aria-label="Магия"><img src="images/vtt-icons/abilities.png?v=20260728" alt=""><span>Магия</span></button>
+          <button type="button" data-bag-cal-key="journal" onclick="zgVttOpenPanel('journal')" aria-label="Личный журнал"><img src="images/vtt-icons/journal.png?v=20260728" alt=""><span>Журнал</span></button>
+        </div>
+        <div class="zg-bag-section-title" id="zg-vtt-drawer-title" data-bag-cal-key="title">Вещи</div>
+        <div class="zg-vtt-drawer-body" id="zg-vtt-drawer-body" data-bag-cal-key="content"></div>
+      </div>
+      <button type="button" class="zg-vtt-panel-close" onclick="zgVttCloseDrawer()" title="Закрыть" aria-label="Закрыть панель">×</button>
     </aside>
     <section class="zg-bag-calibrator" id="zg-bag-calibrator" aria-label="Калибровка вкладок сумки">
       <header><b>Калибровка сумки</b><button type="button" onclick="zgBagCalToggle(event,false)" aria-label="Закрыть">×</button></header>
       <select id="zg-bag-cal-select" onchange="zgBagCalSelect(this.value)">
-        <optgroup label="Верхние вкладки"><option value="status">Состояние</option><option value="items">Вещи</option><option value="magic">Магия</option><option value="journal">Журнал</option></optgroup>
-        <optgroup label="Области"><option value="title">Заголовок раздела</option><option value="content">Рабочая область</option></optgroup>
+        <option value="interface">Весь интерфейс по пунктиру</option>
       </select>
       <label class="zg-bag-cal-field"><span>X</span><input data-bag-cal-prop="x" type="range" min="0" max="90" step=".1" oninput="zgBagCalSet('x',this.value)"><output data-bag-cal-out="x"></output></label>
       <label class="zg-bag-cal-field"><span>Y</span><input data-bag-cal-prop="y" type="range" min="0" max="60" step=".1" oninput="zgBagCalSet('y',this.value)"><output data-bag-cal-out="y"></output></label>
       <label class="zg-bag-cal-field"><span>Ширина</span><input data-bag-cal-prop="w" type="range" min="7" max="30" step=".1" oninput="zgBagCalSet('w',this.value)"><output data-bag-cal-out="w"></output></label>
       <label class="zg-bag-cal-field"><span>Высота</span><input data-bag-cal-prop="h" type="range" min="35" max="100" step=".1" oninput="zgBagCalSet('h',this.value)"><output data-bag-cal-out="h"></output></label>
-      <label class="zg-bag-cal-field"><span>Иконка</span><input data-bag-cal-prop="iconScale" type="range" min=".4" max="1.8" step=".02" oninput="zgBagCalSet('iconScale',this.value)"><output data-bag-cal-out="iconScale"></output></label>
-      <label class="zg-bag-cal-field"><span>Текст</span><input data-bag-cal-prop="labelScale" type="range" min=".6" max="1.6" step=".02" oninput="zgBagCalSet('labelScale',this.value)"><output data-bag-cal-out="labelScale"></output></label>
+      <label class="zg-bag-cal-field"><span>Скругление видимой рамки</span><input data-bag-cal-prop="radius" type="range" min="0" max="180" step="1" oninput="zgBagCalSet('radius',this.value)"><output data-bag-cal-out="radius"></output></label>
       <div class="zg-bag-cal-grid-settings"><label><input id="zg-bag-cal-grid-toggle" type="checkbox" checked onchange="zgBagCalGrid(this.checked)"> Сетка</label><label>Шаг % <input id="zg-bag-cal-grid-step" type="number" min=".5" max="10" step=".5" value="2.5" onchange="zgBagCalGridStep(this.value)"></label><label><input id="zg-bag-cal-snap" type="checkbox" checked onchange="zgBagCalSnap(this.checked)"> Привязка</label></div>
-      <div class="zg-bag-cal-align"><button type="button" onclick="zgBagCalAlign('left')">← Лево</button><button type="button" onclick="zgBagCalAlign('center')">↔ Центр</button><button type="button" onclick="zgBagCalAlign('right')">Право →</button><button type="button" onclick="zgBagCalAlign('top')">↑ Верх</button><button type="button" onclick="zgBagCalAlign('middle')">↕ Середина</button><button type="button" onclick="zgBagCalAlign('bottom')">Низ ↓</button><button type="button" onclick="zgBagCalEqual('w')">= Ширина</button><button type="button" onclick="zgBagCalEqual('h')">= Высота</button><button type="button" onclick="zgBagCalDistribute()">⇥ Ровно</button></div>
-      <p class="zg-bag-cal-hint">Перетаскивай вкладки, заголовок и рабочую область прямо по сумке. Сетка и привязка помогают попадать в одинаковые координаты. Команды выравнивания применяются сразу ко всем четырём верхним вкладкам.</p>
-      <div class="zg-bag-cal-actions"><button type="button" class="primary" onclick="zgBagCalCopy()">Скопировать JSON</button><button type="button" onclick="zgBagCalImport()">Вставить JSON</button><button type="button" onclick="zgBagCalReset()">Сбросить</button></div>
+      <p class="zg-bag-cal-hint">Зелёная граница теперь является видимой рамкой всей панели: четыре вкладки, лист и травмы двигаются и скругляются вместе. Верхние ячейки автоматически остаются внутри неё. X/Y, ширина и высота измеряются относительно изображения рюкзака; исходное положение выставлено по внутреннему пунктирному шву.</p>
+      <div class="zg-bag-cal-actions"><button type="button" class="primary" onclick="zgBagCalDownload()">Скачать JSON</button><button type="button" onclick="zgBagCalCopy()">Копировать JSON</button><button type="button" onclick="zgBagCalImport()">Вставить JSON</button><button type="button" onclick="zgBagCalReset()">Сбросить</button></div>
     </section>
+    <button type="button" class="zg-bag-cal-floating" id="zg-bag-cal-floating" onclick="zgBagCalToggle(event,true)">⌖ Настроить сумку</button>
     <nav class="zg-player-dock" id="zg-player-dock" aria-label="Действия персонажа">
       <button type="button" class="zg-player-action" data-player-action="movement" onclick="zgPlayerDockSelect('movement')" title="Движение">
         <img class="zg-player-action-icon" src="images/vtt-icons/movement.png" alt=""><span class="zg-player-action-label">Движение</span><span class="zg-player-action-key">M</span>
@@ -35404,6 +36196,8 @@ var _charInventorySort = {};
 var _charInventoryOpen = {};
 
 function charInventoryImage(item) {
+  var iconPath = item && typeof zgItemIconPath === 'function' ? zgItemIconPath(item.icon) : '';
+  if (iconPath) return iconPath;
   if (item && item.image) return String(item.image);
   if (!item || !item.name || typeof loadShopItems !== 'function') return '';
   var target = String(item.name).trim().toLowerCase();
@@ -35702,10 +36496,50 @@ var INV_EMOJI_SET = [
   '🧿','☠️','💀','🕸️','🦇','🐍','🐉','🦂','🕷️','🦴','🪦','⚰️','🔥','❄️','⚡','💧','🌿','🌱','🍀','🪷','🌹','🍁','🪵'
 ];
 
+var INV_ART_ICON_SET = [
+  { key:'sword',      label:'Меч' },
+  { key:'axe',        label:'Топор' },
+  { key:'bow',        label:'Лук' },
+  { key:'shield',     label:'Щит' },
+  { key:'armor',      label:'Доспех' },
+  { key:'helmet',     label:'Шлем' },
+  { key:'boots',      label:'Сапоги' },
+  { key:'gloves',     label:'Перчатки' },
+  { key:'potion',     label:'Зелье' },
+  { key:'scroll',     label:'Свиток' },
+  { key:'spellbook',  label:'Книга магии' },
+  { key:'key',        label:'Ключ' },
+  { key:'coin-pouch', label:'Монеты' },
+  { key:'gemstone',   label:'Самоцвет' },
+  { key:'ring',       label:'Кольцо' },
+  { key:'amulet',     label:'Амулет' },
+  { key:'lantern',    label:'Фонарь' },
+  { key:'rope',       label:'Верёвка' },
+  { key:'rations',    label:'Провиант' },
+  { key:'toolkit',    label:'Инструменты' }
+];
+
+function zgItemIconPath(value) {
+  var match = /^art:([a-z0-9-]+)$/.exec(String(value || ''));
+  if (!match || !INV_ART_ICON_SET.some(function(icon) { return icon.key === match[1]; })) return '';
+  return 'images/ui/item-icons/' + match[1] + '.png';
+}
+
+function zgItemIconMarkup(value, fallback, extraStyle) {
+  var path = zgItemIconPath(value);
+  if (path) {
+    return '<img src="' + escHTML(path) + '" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;display:block;' + (extraStyle || '') + '">';
+  }
+  return escHTML(value || fallback || '📦');
+}
+
 function openInventoryEmojiPicker(charId, itemIdx, event) {
   if (event) event.stopPropagation();
   var old = document.getElementById('inv-emoji-backdrop');
   if (old) old.remove();
+  var pickerCharacter = characters.find(function(character){ return character.id === charId; });
+  var pickerItem = pickerCharacter && pickerCharacter.inventoryItems && pickerCharacter.inventoryItems[itemIdx];
+  var pickerValue = pickerItem && typeof pickerItem === 'object' ? String(pickerItem.icon || '') : '';
 
   var backdrop = document.createElement('div');
   backdrop.id = 'inv-emoji-backdrop';
@@ -35720,8 +36554,12 @@ function openInventoryEmojiPicker(charId, itemIdx, event) {
       '<button id="inv-emoji-close" style="background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;padding:0 4px">×</button>' +
     '</div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:4px">' +
+      INV_ART_ICON_SET.map(function(icon){
+        var value = 'art:' + icon.key;
+        return '<button class="inv-emoji-btn'+(pickerValue===value?' selected':'')+'" data-em="' + value + '" title="' + escHTML(icon.label) + '" style="width:100%;aspect-ratio:1;border:1px solid #4b371c;border-radius:5px;background:#0a0704;cursor:pointer;padding:5px;display:flex;align-items:center;justify-content:center">' + zgItemIconMarkup(value) + '</button>';
+      }).join('') +
       INV_EMOJI_SET.map(function(em){
-        return '<button class="inv-emoji-btn" data-em="' + em + '" style="width:100%;aspect-ratio:1;border:1px solid #2a1e10;border-radius:5px;background:#0a0704;font-size:22px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">' + em + '</button>';
+        return '<button class="inv-emoji-btn'+(pickerValue===em?' selected':'')+'" data-em="' + em + '" style="width:100%;aspect-ratio:1;border:1px solid #2a1e10;border-radius:5px;background:#0a0704;font-size:22px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">' + em + '</button>';
       }).join('') +
     '</div>';
   backdrop.appendChild(popup);
@@ -35793,7 +36631,7 @@ function openItemConstructor(charId, type, idx) {
     '</div>' +
 
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">' +
-      '<button id="ic-emoji-btn" style="width:66px;height:66px;flex-shrink:0;border:2px solid ' + accent + '55;border-radius:10px;background:#0a0704;color:var(--text);font-size:36px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center" title="Сменить иконку">' + (item.icon) + '</button>' +
+      '<button id="ic-emoji-btn" style="width:66px;height:66px;flex-shrink:0;border:2px solid ' + accent + '55;border-radius:10px;background:#0a0704;color:var(--text);font-size:36px;cursor:pointer;padding:7px;display:flex;align-items:center;justify-content:center" title="Сменить иконку">' + zgItemIconMarkup(item.icon, equipmentMode ? '🗃️' : '📦') + '</button>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">НАЗВАНИЕ</div>' +
         '<input id="ic-name" type="text" value="' + escHTML(item.name || '') + '" placeholder="Зелье исцеления, Кольцо ветров..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;box-sizing:border-box">' +
@@ -35819,8 +36657,12 @@ function openItemConstructor(charId, type, idx) {
     '<div id="ic-emoji-panel" style="display:none;margin-bottom:14px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#080604">' +
       '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:8px">ВЫБЕРИ ИКОНКУ</div>' +
       '<div id="ic-emoji-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:4px;max-height:220px;overflow-y:auto">' +
+        INV_ART_ICON_SET.map(function(icon){
+          var value = 'art:' + icon.key;
+          return '<button data-em="' + value + '" title="' + escHTML(icon.label) + '" class="ic-emoji-cell'+(item.icon===value?' selected':'')+'" style="width:100%;aspect-ratio:1;border:1px solid #4b371c;border-radius:4px;background:#0a0704;cursor:pointer;padding:5px;display:flex;align-items:center;justify-content:center">' + zgItemIconMarkup(value) + '</button>';
+        }).join('') +
         (typeof INV_EMOJI_SET !== 'undefined' ? INV_EMOJI_SET : ['📦']).map(function(em){
-          return '<button data-em="' + em + '" class="ic-emoji-cell" style="width:100%;aspect-ratio:1;border:1px solid #2a1e10;border-radius:4px;background:#0a0704;font-size:20px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">' + em + '</button>';
+          return '<button data-em="' + em + '" class="ic-emoji-cell'+(item.icon===em?' selected':'')+'" style="width:100%;aspect-ratio:1;border:1px solid #2a1e10;border-radius:4px;background:#0a0704;font-size:20px;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center">' + em + '</button>';
         }).join('') +
       '</div>' +
     '</div>' +
@@ -35856,8 +36698,8 @@ function openItemConstructor(charId, type, idx) {
   panel.querySelectorAll('.ic-emoji-cell').forEach(function(btn) {
     btn.onclick = function() {
       currentEmoji = btn.getAttribute('data-em');
-      document.getElementById('ic-emoji-btn').textContent = currentEmoji;
-      document.getElementById('ic-emoji-panel').style.display = 'none';
+      panel.querySelectorAll('.ic-emoji-cell').forEach(function(cell){ cell.classList.toggle('selected',cell===btn); });
+      document.getElementById('ic-emoji-btn').innerHTML = zgItemIconMarkup(currentEmoji, equipmentMode ? '🗃️' : '📦');
     };
   });
 
