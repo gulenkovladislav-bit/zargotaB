@@ -458,7 +458,20 @@ assert.match(html, /canEdit&&source==='inventory'/);
 assert.match(html, /w\.zgVttInventoryOpenItem=function\(source,index\)\{\s*var member=drawerMember\(\)/);
 assert.match(html, /w\.zgVttOpenPanelForMember=function\(panel,uid\)/);
 assert.match(html, /drawerMemberUid = ''/);
-assert.match(html, /Просмотр снимка комнаты · без редактирования и заявок/);
+assert.doesNotMatch(html, /Снимок комнаты|zg-drawer-readonly/);
+assert.match(html, /class="zg-inv2"/);
+assert.match(html, /var pageSize=12,pageCount=/);
+assert.match(html, /grid-template-rows:repeat\(8,minmax\(0,1fr\)\)/);
+assert.match(html, /grid-template-rows:repeat\(12,minmax\(0,1fr\)\)/);
+assert.match(html, /w\.zgVttInventoryPage=function\(delta\)/);
+assert.match(html, /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="items"\] \.zg-vtt-drawer-body\{\s*overflow:hidden!important/);
+var drawerRenderStart = html.indexOf('function renderDrawer(force)');
+var drawerRenderEnd = html.indexOf('function render(snapshot)', drawerRenderStart);
+var drawerRenderBlock = html.slice(drawerRenderStart, drawerRenderEnd);
+assert.ok(
+  drawerRenderBlock.lastIndexOf('bagCalApply()') > drawerRenderBlock.indexOf('body.innerHTML = inventoryPanel()'),
+  'saved backpack calibration must be applied after inventory markup is rendered'
+);
 assert.match(html, /w\.zgVttSetInventoryNotice=function\(uid,kind,text\)/);
 assert.match(html, /class="zg-bag-operation-state/);
 assert.match(html, /role="status" aria-live="polite"/);
@@ -529,6 +542,33 @@ assert.match(html, /function abilityChargePips\(card, extraClass\)/);
 assert.match(abilitiesBlock, /abilityChargePips\(card,'compact'\)/);
 assert.match(abilitiesBlock, /class="zg-ability-eyebrow"/);
 assert.match(abilitiesBlock, /Исчерпано/);
+assert.match(abilitiesBlock, /skills\.forEach\(function\(raw,index\).*innate:true/);
+assert.match(abilitiesBlock, /var catalogCards=spellCards\.filter/);
+assert.match(abilitiesBlock, /<header><h3>Врождённые навыки<\/h3>/);
+assert.match(abilitiesBlock, /<h3>Освоенные заклинания<\/h3>/);
+assert.doesNotMatch(abilitiesBlock, /<small>ПОЗИЦИИ И НАВЫКИ<\/small>|<small>ЛИМИТЫ ИЗ МАНУАЛА<\/small>/);
+assert.match(abilitiesBlock, /function compactInnateName\(card\)/);
+assert.match(abilitiesBlock, /function compactInnateType\(card\)/);
+var innateCardStart = abilitiesBlock.indexOf('function innateCardHtml(card)');
+var innateCardEnd = abilitiesBlock.indexOf('function pageButton', innateCardStart);
+var innateCardBlock = abilitiesBlock.slice(innateCardStart, innateCardEnd);
+assert.match(innateCardBlock, /compactInnateName\(card\)/);
+assert.match(innateCardBlock, /compactInnateType\(card\)/);
+assert.doesNotMatch(innateCardBlock, /card\.description|resourceHtml\(card\)|<p>/);
+assert.match(abilitiesBlock, /function spellTypeCapacity\(type\)/);
+assert.match(abilitiesBlock, /getSpellTypeLimitForCharacter\(c,type\)/);
+assert.match(abilitiesBlock, /spellTypeLimits&&Number\(c\.spellTypeLimits\[type\]\)/);
+assert.match(abilitiesBlock, /spellSlotBonuses&&Number\(c\.spellSlotBonuses\[type\]\)/);
+assert.match(abilitiesBlock, /label:'Боевые кодексы'/);
+assert.match(abilitiesBlock, /label:'Фолианты'/);
+assert.match(abilitiesBlock, /label:'Обрядники'/);
+assert.match(abilitiesBlock, /Math\.ceil\(maxSlotCount\/3\)/);
+assert.match(html, /grid-template-rows:repeat\(4,minmax\(0,1fr\)\)/);
+assert.match(html, /grid-template-rows:repeat\(8,minmax\(0,1fr\)\)/);
+assert.match(html, /grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(html, /data-backpack-skin="magic"\] \.zg-vtt-drawer-body\{\s*overflow:hidden!important/);
+assert.match(html, /data-backpack-skin="magic"\] \.zg-bag-interface \.zg-vtt-drawer-body\[data-bag-cal-key="content"\]\{\s*top:9\.4%!important;\s*height:90\.6%!important/);
+assert.match(html, /\.zg-magic3-slot-group>header\{[\s\S]*?min-height:0!important;[\s\S]*?background:transparent!important;/);
 assert.match(html, /Статус изучения не передан/);
 assert.match(html, /aria-label="Доступно /);
 assert.match(html, /Кулдаун:/);
@@ -623,6 +663,37 @@ var journalPanelBlock = html.slice(journalPanelStart, journalPanelEnd);
 assert.match(journalPanelBlock, /c\.journalEntries/);
 assert.match(journalPanelBlock, /fullLocalCharacter\(member\)/);
 assert.match(journalPanelBlock, /zgVttJournalOpen/);
+assert.match(journalPanelBlock, /<h3>Главные цели<\/h3>/);
+assert.match(journalPanelBlock, /<h3>Мои записи<\/h3>/);
+assert.match(journalPanelBlock, /zg-journal3-preview/);
+assert.match(journalPanelBlock, /zgVttJournalFilter/);
+assert.match(journalPanelBlock, /zgVttJournalSelect/);
+assert.doesNotMatch(journalPanelBlock, /<button[^>]*>\s*(?:Текст|Перо|Стереть|Закладка)/);
+assert.match(html, /journal:'images\/vtt-ui\/backpack-v2\/open-journal\.webp'/);
+assert.match(html, /data-backpack-skin="journal"\] \.zg-bag-interface \.zg-vtt-drawer-body\[data-bag-cal-key="content"\]\{\s*top:9\.4%!important;\s*height:90\.6%!important/);
+var journalPanelContext = {
+  result: '',
+  journalFilter: 'all',
+  journalPage: 0,
+  journalSelectedId: '',
+  state: { session:{ uid:'player-1', role:'player' } },
+  drawerMember:function(){ return {uid:'player-1',character:{
+    currentGoal:'Найти руины',
+    goals:[{title:'Вернуть печать',status:'Новая'}],
+    journalEntries:[
+      {journalId:'place-1',title:'Древние руины',text:'Следы старой цивилизации',createdAt:2},
+      {journalId:'note-1',title:'Символы',text:'Знак глаза',createdAt:1}
+    ]
+  }}; },
+  fullLocalCharacter:function(member){ return member.character; },
+  esc:function(value){ return String(value == null ? '' : value); }
+};
+vm.runInNewContext(journalPanelBlock + '; result=journalPanel();', journalPanelContext);
+assert.match(journalPanelContext.result, /Главные цели/);
+assert.match(journalPanelContext.result, /Древние руины/);
+assert.match(journalPanelContext.result, /Место/);
+assert.match(journalPanelContext.result, /zg-journal3-paper/);
+assert.strictEqual(journalPanelContext.journalSelectedId, 'place-1');
 assert.match(html, /saveChars\(\{reason:reason\|\|'journal-update'\}\)/);
 assert.match(html, /journalSave\('journal-remove',true\)/);
 

@@ -13635,6 +13635,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var drawerMemberUid = '';
   var lastRoll = '';
   var inventoryFilter = 'all';
+  var inventoryPage = 0;
   var inventorySearch = '';
   var inventorySort = 'manual';
   var inventoryDetail = null;
@@ -13642,7 +13643,13 @@ document.addEventListener('DOMContentLoaded', function(){
   var inventoryOperationNoticeTimer = 0;
   var journalEditorState = null;
   var journalSaveTimer = 0;
+  var journalFilter = 'all';
+  var journalPage = 0;
+  var journalSelectedId = '';
   var abilitiesFilter = 'all';
+  var abilitySearch = '';
+  var abilityCatalogPage = 0;
+  var innateAbilityPage = 0;
   var expandedAbilityKey = '';
   var abilityCardsByKey = {}, localPhysicalRolls = {}, localThrowMotions = {};
   var abilityRequestBusy = false;
@@ -13658,18 +13665,51 @@ document.addEventListener('DOMContentLoaded', function(){
     status:'images/vtt-ui/backpack-v2/open-status.webp',
     items:'images/vtt-ui/backpack-v2/open-status.webp',
     magic:'images/vtt-ui/backpack-v2/open-status.webp',
-    journal:'images/vtt-ui/backpack-v2/open-status.webp'
+    journal:'images/vtt-ui/backpack-v2/open-journal.webp'
+  };
+  var BAG_CAL_CORE_LABELS={
+    interface:'Основа · весь интерфейс',
+    tabbar:'Основа · облако вкладок',
+    status:'Вкладки · Состояние',
+    items:'Вкладки · Вещи',
+    magic:'Вкладки · Магия',
+    journal:'Вкладки · Журнал',
+    title:'Основа · заголовок раздела',
+    content:'Основа · область содержимого'
   };
   function bagCalDefaults(){
-    return{version:6,reference:'percent-by-parent',backgrounds:Object.assign({},BAG_CAL_BACKGROUNDS),ui:{grid:false,snap:false,gridStep:1.5},tabs:{
-      status:{x:6.513103284714811,y:28.71473354231975,w:22,h:92,iconScale:1.02,labelScale:1},
-      items:{x:6.513103284714811,y:0,w:22,h:92,iconScale:1,labelScale:1},
-      magic:{x:6.513103284714811,y:0.021943573667711824,w:22,h:92,iconScale:1,labelScale:1},
-      journal:{x:6.513103284714811,y:3,w:22,h:92,iconScale:1,labelScale:1}
+    return{version:10,reference:'percent-by-parent',backgrounds:Object.assign({},BAG_CAL_BACKGROUNDS),ui:{grid:true,snap:true,outlineAll:false,gridStep:.5},tabs:{
+      status:{x:0,y:0,w:25,h:100,iconScale:1.02,labelScale:1},
+      items:{x:25,y:0,w:25,h:100,iconScale:1,labelScale:1},
+      magic:{x:50,y:0,w:25,h:100,iconScale:1,labelScale:1},
+      journal:{x:75,y:0,w:25,h:100,iconScale:1,labelScale:1}
     },layout:{
-      interface:{x:18.78976212686567,y:12.622782258064515,w:61.8,h:77.3,radius:31},
+      interface:{x:18.57940764925373,y:12.551999327956988,w:62.5,h:77.2,radius:29},
+      tabbar:{x:4,y:1.5,w:91.5,h:7.5,radius:13},
       title:{x:19,y:22.2,w:62,h:3.2,radius:0},
-      content:{x:17.38689365671642,y:20.067607526881723,w:67,h:70.3,radius:48}
+      content:{x:22,y:31,w:67,h:70.3,radius:48}
+    },elements:{
+      'tabs.status.icon':{dx:0,dy:0,sx:1,sy:1,z:30,opacity:1,radius:-1},
+      'hero.portrait':{dx:0,dy:-2,sx:1.06,sy:1,z:0,opacity:1,radius:-1},
+      'hero.portrait-image':{dx:0,dy:0,sx:1.04,sy:1.05,z:0,opacity:1,radius:6},
+      'hero.name':{dx:.5,dy:-2.5,sx:1.08,sy:1.24,z:0,opacity:1,radius:-1},
+      'hero.meta':{dx:-1.5,dy:-3,sx:1,sy:1.4,z:0,opacity:1,radius:-1},
+      'hero.stats':{dx:0,dy:-2,sx:1.07,sy:1.05,z:0,opacity:1,radius:-1},
+      'hero.fame-row.1':{dx:1,dy:-2,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'hero.fame-row.2':{dx:1,dy:-2.5,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'hero.hp':{dx:1,dy:-3.5,sx:1,sy:.92,z:0,opacity:1,radius:-1},
+      'hero.combat':{dx:1,dy:-2,sx:1,sy:1.5,z:0,opacity:1,radius:-1},
+      'hero.effects':{dx:1,dy:-.5,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'hero.injuries':{dx:0,dy:-1,sx:1.02,sy:1,z:0,opacity:1,radius:15},
+      'items.columns':{dx:0,dy:10,sx:1,sy:1.6,z:0,opacity:1,radius:13},
+      'items.equipped':{dx:-3.5,dy:0,sx:.78,sy:1,z:0,opacity:1,radius:-1},
+      'items.equip-slot.1':{dx:-1,dy:0,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'items.equip-slot.2':{dx:-1,dy:0,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'items.equip-slot.3':{dx:-1,dy:0,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'items.equip-slot.4':{dx:-1,dy:0,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'items.equip-slot.5':{dx:-1,dy:0,sx:1,sy:1,z:0,opacity:1,radius:-1},
+      'items.storage':{dx:-3.5,dy:0,sx:1.14,sy:1,z:0,opacity:1,radius:-1},
+      'items.footer':{dx:-.5,dy:25,sx:1,sy:1,z:0,opacity:1,radius:17}
     }};
   }
   function bagCalClamp(value,min,max,fallback){value=Number(value);return Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback;}
@@ -13677,6 +13717,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var base=bagCalDefaults(),source=raw&&raw.tabs||{},layout=raw&&raw.layout||{},rawVersion=Math.max(0,Number(raw&&raw.version)||0);
     Object.keys(base.tabs).forEach(function(key){
       var item=source[key]||{},fallback=base.tabs[key];
+      if(rawVersion<8)item={};
       base.tabs[key]={
         x:bagCalClamp(item.x,0,90,fallback.x),y:bagCalClamp(item.y,0,60,fallback.y),
         w:bagCalClamp(item.w,7,30,fallback.w),h:bagCalClamp(item.h,35,100,fallback.h),
@@ -13686,6 +13727,16 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     Object.keys(base.layout).forEach(function(key){
       var item=layout[key]||{},fallback=base.layout[key];
+      if(rawVersion<10&&key==='interface'&&(
+        (Math.abs(Number(item.x)-18.78976212686567)<.02&&Math.abs(Number(item.w)-61.8)<.02)||
+        (Math.abs(Number(item.x)-14.5)<.02&&Math.abs(Number(item.w)-70.8)<.02)||
+        (Math.abs(Number(item.x)-17.6)<.02&&Math.abs(Number(item.w)-63.8)<.02)
+      ))item={};
+      if(rawVersion<10&&key==='tabbar'&&(
+        (Math.abs(Number(item.x)-3.125)<.02&&Math.abs(Number(item.y)-1.35)<.02&&Math.abs(Number(item.w)-92.1875)<.02&&Math.abs(Number(item.h)-8.7)<.02)||
+        (Math.abs(Number(item.x)-1.6)<.02&&Math.abs(Number(item.y)-1.1)<.02&&Math.abs(Number(item.w)-96.8)<.02&&Math.abs(Number(item.h)-7.7)<.02)||
+        (Math.abs(Number(item.x)-1.8)<.02&&Math.abs(Number(item.y)-1.8)<.02&&Math.abs(Number(item.w)-96.4)<.02&&Math.abs(Number(item.h)-7.4)<.02)
+      ))item={};
       if(key==='content'&&rawVersion<5&&Math.abs(Number(item.x)-17.5)<.01&&Math.abs(Number(item.y)-25.5)<.01&&Math.abs(Number(item.w)-65)<.01&&Math.abs(Number(item.h)-66.5)<.01)item={};
       if(key==='interface'&&rawVersion<6)item=Object.assign({},item,{radius:fallback.radius});
       base.layout[key]={
@@ -13694,19 +13745,161 @@ document.addEventListener('DOMContentLoaded', function(){
         radius:bagCalClamp(item.radius,0,180,fallback.radius)
       };
     });
-    var ui=raw&&raw.ui||{};base.ui={grid:ui.grid!==false,snap:ui.snap!==false,gridStep:bagCalClamp(ui.gridStep,.5,10,2.5)};
+    var elementSource=raw&&raw.elements||{};
+    Object.keys(elementSource).forEach(function(key){
+      var item=elementSource[key]||{};
+      base.elements[key]={
+        dx:bagCalClamp(item.dx,-100,100,0),dy:bagCalClamp(item.dy,-100,100,0),
+        sx:bagCalClamp(item.sx,.25,3,1),sy:bagCalClamp(item.sy,.25,3,1),
+        z:Math.round(bagCalClamp(item.z,-30,30,0)),opacity:bagCalClamp(item.opacity,.15,1,1),
+        radius:bagCalClamp(item.radius,-1,180,-1)
+      };
+    });
+    var ui=raw&&raw.ui||{};base.ui={
+      grid:typeof ui.grid==='boolean'?ui.grid:base.ui.grid,
+      snap:typeof ui.snap==='boolean'?ui.snap:base.ui.snap,
+      outlineAll:typeof ui.outlineAll==='boolean'?ui.outlineAll:base.ui.outlineAll,
+      gridStep:bagCalClamp(ui.gridStep,.5,10,base.ui.gridStep)
+    };
     return base;
   }
-  function bagCalItem(key){return bagCalConfig.tabs[key]||bagCalConfig.layout[key]||null;}
+  function bagCalElementDefault(){return{dx:0,dy:0,sx:1,sy:1,z:0,opacity:1,radius:-1};}
+  function bagCalEnsureElement(key){
+    if(!bagCalConfig.elements[key])bagCalConfig.elements[key]=bagCalElementDefault();
+    return bagCalConfig.elements[key];
+  }
+  function bagCalItem(key){return bagCalConfig.tabs[key]||bagCalConfig.layout[key]||bagCalConfig.elements[key]||null;}
   function bagCalQuantize(value){var step=bagCalConfig.ui.snap?bagCalConfig.ui.gridStep:0;return step?Math.round(value/step)*step:value;}
   function bagCalLoad(){
     try{return bagCalNormalize(JSON.parse(localStorage.getItem(BAG_CAL_STORAGE_KEY)||'null'));}catch(ignore){return bagCalDefaults();}
   }
   var bagCalConfig=bagCalLoad();
   function bagCalSave(){try{localStorage.setItem(BAG_CAL_STORAGE_KEY,JSON.stringify(bagCalConfig));}catch(ignore){}}
+  function bagCalElementNode(key){
+    var drawer=el('zg-vtt-drawer'),found=null;if(!drawer)return null;
+    drawer.querySelectorAll('[data-bag-element-key]').forEach(function(node){if(node.dataset.bagElementKey===key)found=node;});
+    return found;
+  }
+  function bagCalAnyNode(key){
+    var node=bagCalElementNode(key),drawer=el('zg-vtt-drawer');if(node||!drawer)return node;
+    drawer.querySelectorAll('[data-bag-cal-key]').forEach(function(candidate){if(candidate.dataset.bagCalKey===key)node=candidate;});
+    return node;
+  }
+  function bagCalDecorateElements(drawer){
+    var body=el('zg-vtt-drawer-body');if(!drawer||!body)return[];
+    var found=[],seen={};
+    function add(node,key,label,group){
+      if(!node||seen[key])return;
+      seen[key]=true;node.dataset.bagElementKey=key;node.dataset.bagElementLabel=label;node.dataset.bagElementGroup=group;
+      node.classList.add('bag-cal-element');
+      bagCalEnsureElement(key);found.push({key:key,label:label,group:group,node:node});
+    }
+    function one(selector,key,label,group){add(body.querySelector(selector),key,label,group);}
+    function many(selector,prefix,label,group){
+      body.querySelectorAll(selector).forEach(function(node,index){
+        var itemLabel=node.getAttribute('title')||node.querySelector('b')&&node.querySelector('b').textContent||node.querySelector('small')&&node.querySelector('small').textContent||'';
+        add(node,prefix+'.'+(index+1),label+' '+(index+1)+(itemLabel?' · '+String(itemLabel).trim().slice(0,34):''),group);
+      });
+    }
+    ['status','items','magic','journal'].forEach(function(key){
+      var tab=drawer.querySelector('.zg-bag-tabs>[data-bag-cal-key="'+key+'"]');
+      add(tab&&tab.querySelector('img'),'tabs.'+key+'.icon','Иконка «'+BAG_CAL_CORE_LABELS[key].split(' · ').pop()+'»','Вкладки · иконки');
+      add(tab&&tab.querySelector('span'),'tabs.'+key+'.label','Подпись «'+BAG_CAL_CORE_LABELS[key].split(' · ').pop()+'»','Вкладки · подписи');
+    });
+    add(drawer.querySelector('.zg-vtt-panel-close'),'base.close','Кнопка закрытия','Основа · управление');
+    one('.zg-state-main','hero.main','Основная сетка героя','Состояние · группы');
+    one('.zg-state-left','hero.left','Левая колонка','Состояние · группы');
+    one('.zg-state-portrait','hero.portrait','Портрет','Состояние · герой');
+    one('.zg-state-portrait>img','hero.portrait-image','Изображение портрета','Состояние · герой');
+    one('.zg-state-left h3','hero.name','Имя героя','Состояние · герой');
+    one('.zg-state-left>p','hero.meta','Раса, класс и уровень','Состояние · герой');
+    one('.zg-state-stat-list','hero.stats','Все характеристики','Состояние · характеристики');
+    body.querySelectorAll('.zg-state-stat-list>[data-stat]').forEach(function(node){
+      var key='hero.stat.'+node.dataset.stat,label=node.querySelector('b')&&node.querySelector('b').textContent||node.dataset.stat;
+      add(node,key,String(label).trim(),'Состояние · характеристики');
+    });
+    one('.zg-state-right','hero.right','Правая колонка','Состояние · группы');
+    one('.zg-state-fame','hero.fame','Обе шкалы славы','Состояние · показатели');
+    many('.zg-state-fame-row','hero.fame-row','Шкала славы','Состояние · показатели');
+    many('.zg-state-fame-row i','hero.fame-star','Ячейка славы','Состояние · показатели');
+    one('.zg-state-hp','hero.hp','Здоровье','Состояние · показатели');
+    one('.zg-state-hp>i','hero.hp-icon','Иконка здоровья','Состояние · показатели');
+    one('.zg-state-hp>span','hero.hp-copy','Значение здоровья','Состояние · показатели');
+    one('.zg-state-hp>u','hero.hp-bar','Шкала здоровья','Состояние · показатели');
+    one('.zg-state-combat-values','hero.combat','Боевые показатели','Состояние · показатели');
+    many('.zg-state-combat-values>div','hero.combat-value','Боевой показатель','Состояние · показатели');
+    one('.zg-state-effects','hero.effects','Состояния и эффекты','Состояние · статусы');
+    one('.zg-state-effects>h4','hero.effects-title','Заголовок статусов','Состояние · статусы');
+    one('.zg-state-effects>div','hero.effects-list','Список статусов','Состояние · статусы');
+    many('.zg-state-effect-row','hero.effect','Активный эффект','Состояние · статусы');
+    one('.zg-state-injuries','hero.injuries','Весь блок травм','Состояние · травмы');
+    one('.zg-state-injuries>h4','hero.injuries-title','Заголовок травм','Состояние · травмы');
+    many('.zg-state-injury','hero.injury','Ячейка травмы','Состояние · травмы');
+
+    one('.zg-bag-character-name','items.hero-name','Имя героя','Вещи · шапка');
+    one('.zg-bag-columns','items.columns','Обе колонки','Вещи · группы');
+    one('.zg-bag-equipped','items.equipped','Экипировано','Вещи · экипировка');
+    many('.zg-bag-equip-slot','items.equip-slot','Слот экипировки','Вещи · экипировка');
+    one('.zg-bag-storage','items.storage','Инвентарь','Вещи · инвентарь');
+    one('.zg-bag-storage-head','items.storage-head','Заголовок инвентаря','Вещи · инвентарь');
+    one('.zg-bag-filters','items.filters','Фильтры','Вещи · инвентарь');
+    one('.zg-bag-storage-tools','items.tools','Поиск и сортировка','Вещи · инвентарь');
+    one('.zg-bag-grid','items.grid','Список предметов','Вещи · инвентарь');
+    many('.zg-bag-storage .zg-bag-item','items.item','Предмет','Вещи · предметы');
+    many('.zg-bag-storage .zg-bag-item-art','items.item-art','Иконка предмета','Вещи · предметы');
+    many('.zg-bag-storage .zg-bag-item-copy','items.item-copy','Текст предмета','Вещи · предметы');
+    many('.zg-bag-storage .zg-bag-item-meta','items.item-meta','Количество и вес','Вещи · предметы');
+    one('.zg-bag-foot','items.footer','Быстрые предметы','Вещи · быстрый доступ');
+    many('.zg-bag-quick-grid>*','items.quick','Быстрый слот','Вещи · быстрый доступ');
+
+    one('.zg-abilities-panel','magic.panel','Вся страница магии','Магия · группы');
+    one('.zg-abilities-panel>header','magic.header','Шапка магии','Магия · группы');
+    one('.zg-abilities-panel>nav','magic.filters','Фильтры магии','Магия · группы');
+    one('.zg-ability-list','magic.list','Список магии','Магия · группы');
+    many('.zg-ability-card','magic.card','Карточка','Магия · карточки');
+    many('.zg-ability-card .zg-ability-glyph','magic.card-icon','Иконка карточки','Магия · карточки');
+    many('.zg-ability-card .zg-ability-copy','magic.card-copy','Текст карточки','Магия · карточки');
+    many('.zg-ability-card .zg-ability-resource','magic.card-resource','Заряды и кулдаун','Магия · карточки');
+    one('.zg-abilities-panel>footer','magic.footer','Подсказка внизу','Магия · группы');
+
+    one('.zg-journal3','journal.panel','Весь журнал','Журнал · группы');
+    one('.zg-journal3-goals','journal.goals','Главные цели','Журнал · цели');
+    many('.zg-journal3-goal','journal.goal','Главная цель','Журнал · цели');
+    one('.zg-journal3-index','journal.index','Индекс записей','Журнал · группы');
+    one('.zg-journal3-index>nav','journal.filters','Фильтры записей','Журнал · управление');
+    one('.zg-journal3-list','journal.list','Список записей','Журнал · записи');
+    many('.zg-journal3-entry','journal.entry','Запись','Журнал · записи');
+    one('.zg-journal3-add','journal.add','Кнопка новой записи','Журнал · управление');
+    one('.zg-journal3-preview','journal.preview','Открытая запись','Журнал · группы');
+    one('.zg-journal3-paper','journal.paper','Лист записи','Журнал · записи');
+    one('.zg-journal3-paper-text','journal.entry-text','Текст открытой записи','Журнал · записи');
+    return found;
+  }
+  function bagCalActiveElements(){
+    var drawer=el('zg-vtt-drawer');return drawer?bagCalDecorateElements(drawer):[];
+  }
+  function bagCalRebuildLayerControls(){
+    var select=el('zg-bag-cal-select'),target=el('zg-bag-cal-target'),previousTarget=target&&target.value,elements=bagCalActiveElements();if(!select)return;
+    var groups={Основа:['interface','tabbar','title','content'],Вкладки:['status','items','magic','journal']};
+    var html=Object.keys(groups).map(function(group){
+      return'<optgroup label="'+esc(group)+'">'+groups[group].map(function(key){return'<option value="'+key+'">'+esc(BAG_CAL_CORE_LABELS[key])+'</option>';}).join('')+'</optgroup>';
+    }).join('');
+    var elementGroups={};elements.forEach(function(item){(elementGroups[item.group]||(elementGroups[item.group]=[])).push(item);});
+    html+=Object.keys(elementGroups).map(function(group){return'<optgroup label="'+esc(group)+'">'+elementGroups[group].map(function(item){return'<option value="'+esc(item.key)+'">'+esc(item.label)+'</option>';}).join('')+'</optgroup>';}).join('');
+    select.innerHTML=html;
+    if(!bagCalItem(bagCalSelected)||!select.querySelector('option[value="'+bagCalSelected.replace(/"/g,'\\"')+'"]'))bagCalSelected='interface';
+    select.value=bagCalSelected;
+    if(target){
+      var coreTargets=['interface','tabbar','title','content','status','items','magic','journal'].filter(function(key){return key!==bagCalSelected&&bagCalAnyNode(key);}).map(function(key){return'<option value="'+key+'">'+esc(BAG_CAL_CORE_LABELS[key])+'</option>';}).join('');
+      target.innerHTML='<option value="">— выбери второй слой —</option>'+coreTargets+elements.filter(function(item){return item.key!==bagCalSelected;}).map(function(item){return'<option value="'+esc(item.key)+'">'+esc(item.group+' · '+item.label)+'</option>';}).join('');
+      if(previousTarget&&bagCalAnyNode(previousTarget))target.value=previousTarget;
+    }
+    var label=el('zg-bag-cal-current');
+    if(label){var selected=select.options[select.selectedIndex];label.textContent=selected?selected.textContent:'Слой не выбран';}
+  }
   function bagCalApply(){
     var drawer=el('zg-vtt-drawer');if(!drawer)return;
-    drawer.classList.add('backpack-calibrated');drawer.classList.toggle('bag-cal-grid',drawer.classList.contains('calibrating')&&bagCalConfig.ui.grid);drawer.style.setProperty('--bag-grid-step',bagCalConfig.ui.gridStep);
+    drawer.classList.add('backpack-calibrated');drawer.classList.toggle('bag-cal-grid',drawer.classList.contains('calibrating')&&bagCalConfig.ui.grid);drawer.classList.toggle('bag-cal-outline-all',drawer.classList.contains('calibrating')&&bagCalConfig.ui.outlineAll);drawer.style.setProperty('--bag-grid-step',bagCalConfig.ui.gridStep);
     drawer.querySelectorAll('[data-bag-cal-key]').forEach(function(element){
       var key=element.dataset.bagCalKey,item=bagCalItem(key);if(!item)return;
       element.style.setProperty('--bag-cal-x',item.x);element.style.setProperty('--bag-cal-y',item.y);
@@ -13715,9 +13908,31 @@ document.addEventListener('DOMContentLoaded', function(){
       element.style.setProperty('--bag-cal-radius',item.radius==null?0:item.radius);
       element.classList.toggle('cal-selected',drawer.classList.contains('calibrating')&&key===bagCalSelected);
     });
+    var elementFrame=drawer.querySelector('.zg-bag-interface'),elementBounds=elementFrame&&elementFrame.getBoundingClientRect();
+    bagCalDecorateElements(drawer).forEach(function(entry){
+      var element=entry.node,item=bagCalEnsureElement(entry.key),adjusted=Math.abs(item.dx)>.001||Math.abs(item.dy)>.001||Math.abs(item.sx-1)>.001||Math.abs(item.sy-1)>.001;
+      element.style.setProperty('--bag-element-dx',item.dx);
+      element.style.setProperty('--bag-element-dy',item.dy);
+      element.style.setProperty('--bag-element-dx-px',(elementBounds?item.dx*elementBounds.width/100:0)+'px');
+      element.style.setProperty('--bag-element-dy-px',(elementBounds?item.dy*elementBounds.height/100:0)+'px');
+      element.style.setProperty('--bag-element-sx',item.sx);
+      element.style.setProperty('--bag-element-sy',item.sy);
+      element.style.setProperty('--bag-element-inverse-sy',1/item.sy);
+      if(entry.key==='items.columns')element.style.setProperty('--bag-columns-inverse-sy',1/item.sy);
+      element.style.setProperty('--bag-element-opacity',item.opacity);
+      element.style.zIndex=item.z?String(item.z):'';
+      element.style.position=item.z?'relative':'';
+      element.style.borderRadius=item.radius>=0?item.radius+'px':'';
+      element.classList.toggle('bag-cal-adjusted',adjusted||item.opacity<.999);
+      element.classList.toggle('cal-selected',drawer.classList.contains('calibrating')&&entry.key===bagCalSelected);
+    });
   }
   function bagCalSyncControls(){
-    var item=bagCalItem(bagCalSelected),select=el('zg-bag-cal-select'),isTab=!!bagCalConfig.tabs[bagCalSelected];if(select)select.value=bagCalSelected;if(!item)return;
+    bagCalRebuildLayerControls();
+    var item=bagCalItem(bagCalSelected),select=el('zg-bag-cal-select'),isTab=!!bagCalConfig.tabs[bagCalSelected],isElement=!!bagCalConfig.elements[bagCalSelected];
+    if(select)select.value=bagCalSelected;if(!item)return;
+    var layoutFields=el('zg-bag-cal-layout-fields'),elementFields=el('zg-bag-cal-element-fields'),alignFields=el('zg-bag-cal-element-align');
+    if(layoutFields)layoutFields.hidden=isElement;if(elementFields)elementFields.hidden=!isElement;if(alignFields)alignFields.hidden=!isElement;
     document.querySelectorAll('[data-bag-cal-prop]').forEach(function(input){
       var prop=input.dataset.bagCalProp,isScale=prop==='iconScale'||prop==='labelScale',isRadius=prop==='radius';
       if(prop==='x'||prop==='y'){input.min=0;input.max=isTab?(prop==='x'?90:60):95;}
@@ -13728,7 +13943,13 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('[data-bag-cal-out]').forEach(function(output){
       var prop=output.dataset.bagCalOut,value=item[prop];output.textContent=value==null?'—':(prop==='iconScale'||prop==='labelScale'?Number(value).toFixed(2):Number(value).toFixed(1));
     });
-    var grid=el('zg-bag-cal-grid-toggle'),snap=el('zg-bag-cal-snap'),step=el('zg-bag-cal-grid-step');if(grid)grid.checked=bagCalConfig.ui.grid;if(snap)snap.checked=bagCalConfig.ui.snap;if(step)step.value=bagCalConfig.ui.gridStep;
+    document.querySelectorAll('[data-bag-element-prop]').forEach(function(input){
+      var prop=input.dataset.bagElementProp,value=item[prop];input.value=value==null?(prop==='sx'||prop==='sy'||prop==='opacity'?1:prop==='radius'?-1:0):value;
+    });
+    document.querySelectorAll('[data-bag-element-out]').forEach(function(output){
+      var prop=output.dataset.bagElementOut,value=item[prop];output.textContent=value==null?'—':(prop==='radius'&&value<0?'авто':prop==='z'?Math.round(value):Number(value).toFixed(2));
+    });
+    var grid=el('zg-bag-cal-grid-toggle'),snap=el('zg-bag-cal-snap'),outlines=el('zg-bag-cal-outlines'),step=el('zg-bag-cal-grid-step');if(grid)grid.checked=bagCalConfig.ui.grid;if(snap)snap.checked=bagCalConfig.ui.snap;if(outlines)outlines.checked=bagCalConfig.ui.outlineAll;if(step)step.value=bagCalConfig.ui.gridStep;
     bagCalApply();
   }
   w.zgBagCalToggle=function(ev,force){
@@ -13738,7 +13959,56 @@ document.addEventListener('DOMContentLoaded', function(){
     panel.classList.toggle('open',open);drawer.classList.toggle('calibrating',open);
     if(open)bagCalSyncControls();else bagCalApply();
   };
+  w.zgBagCalPanel=function(panel){
+    if(typeof w.zgVttOpenPanel==='function')w.zgVttOpenPanel(panel);
+    setTimeout(function(){bagCalSelected='interface';bagCalSyncControls();},0);
+  };
   w.zgBagCalSelect=function(key){if(!bagCalItem(key))return;bagCalSelected=key;bagCalSyncControls();};
+  w.zgBagElementSet=function(prop,value){
+    var item=bagCalConfig.elements[bagCalSelected];if(!item)return;
+    var limits={dx:[-100,100],dy:[-100,100],sx:[.25,3],sy:[.25,3],z:[-30,30],opacity:[.15,1],radius:[-1,180]}[prop];if(!limits)return;
+    var next=(prop==='dx'||prop==='dy')?bagCalQuantize(value):value;
+    item[prop]=bagCalClamp(next,limits[0],limits[1],item[prop]);if(prop==='z')item[prop]=Math.round(item[prop]);
+    bagCalSave();bagCalSyncControls();
+  };
+  w.zgBagCalNudge=function(x,y){
+    var item=bagCalConfig.elements[bagCalSelected];if(!item)return;
+    var step=bagCalConfig.ui.snap?bagCalConfig.ui.gridStep:.25;
+    item.dx=bagCalClamp(item.dx+Number(x||0)*step,-100,100,item.dx);
+    item.dy=bagCalClamp(item.dy+Number(y||0)*step,-100,100,item.dy);
+    bagCalSave();bagCalSyncControls();
+  };
+  w.zgBagCalLayer=function(mode){
+    var item=bagCalConfig.elements[bagCalSelected];if(!item)return;
+    item.z=mode==='front'?30:mode==='back'?-30:Math.max(-30,Math.min(30,item.z+Number(mode||0)));
+    bagCalSave();bagCalSyncControls();
+  };
+  w.zgBagCalResetSelected=function(){
+    if(bagCalConfig.elements[bagCalSelected])bagCalConfig.elements[bagCalSelected]=bagCalElementDefault();
+    else{
+      var defaults=bagCalDefaults(),source=defaults.tabs[bagCalSelected]||defaults.layout[bagCalSelected];
+      if(source){if(defaults.tabs[bagCalSelected])bagCalConfig.tabs[bagCalSelected]=Object.assign({},source);else bagCalConfig.layout[bagCalSelected]=Object.assign({},source);}
+    }
+    bagCalSave();bagCalSyncControls();
+  };
+  w.zgBagCalAlignElement=function(mode){
+    var targetSelect=el('zg-bag-cal-target'),targetKey=targetSelect&&targetSelect.value,item=bagCalConfig.elements[bagCalSelected];
+    var drawer=el('zg-vtt-drawer'),selectedNode=bagCalElementNode(bagCalSelected),targetNode=bagCalAnyNode(targetKey),frame=drawer&&drawer.querySelector('.zg-bag-interface');
+    if(!item||!selectedNode||!targetNode||!frame)return;
+    var selected=selectedNode.getBoundingClientRect(),target=targetNode.getBoundingClientRect(),bounds=frame.getBoundingClientRect(),dx=0,dy=0;
+    if(mode==='left')dx=target.left-selected.left;
+    if(mode==='center')dx=(target.left+target.width/2)-(selected.left+selected.width/2);
+    if(mode==='right')dx=target.right-selected.right;
+    if(mode==='top')dy=target.top-selected.top;
+    if(mode==='middle')dy=(target.top+target.height/2)-(selected.top+selected.height/2);
+    if(mode==='bottom')dy=target.bottom-selected.bottom;
+    if(mode==='width'&&selected.width)item.sx=bagCalClamp(item.sx*(target.width/selected.width),.25,3,item.sx);
+    if(mode==='height'&&selected.height)item.sy=bagCalClamp(item.sy*(target.height/selected.height),.25,3,item.sy);
+    if(mode==='size'&&selected.width&&selected.height){item.sx=bagCalClamp(item.sx*(target.width/selected.width),.25,3,item.sx);item.sy=bagCalClamp(item.sy*(target.height/selected.height),.25,3,item.sy);}
+    if(bounds.width)item.dx=bagCalClamp(item.dx+dx/bounds.width*100,-100,100,item.dx);
+    if(bounds.height)item.dy=bagCalClamp(item.dy+dy/bounds.height*100,-100,100,item.dy);
+    bagCalSave();bagCalSyncControls();
+  };
   w.zgBagCalSet=function(prop,value){
     var item=bagCalItem(bagCalSelected),isTab=!!bagCalConfig.tabs[bagCalSelected];if(!item||!Object.prototype.hasOwnProperty.call(item,prop))return;
     var limits=isTab?{x:[0,90],y:[0,60],w:[7,30],h:[35,100],iconScale:[.4,1.8],labelScale:[.6,1.6]}[prop]:{x:[0,95],y:[0,95],w:[5,100],h:[2,95],radius:[0,180]}[prop];
@@ -13747,6 +14017,7 @@ document.addEventListener('DOMContentLoaded', function(){
     item[prop]=bagCalClamp(next,limits[0],limits[1],item[prop]);bagCalSave();bagCalSyncControls();
   };
   w.zgBagCalGrid=function(enabled){bagCalConfig.ui.grid=!!enabled;bagCalSave();bagCalApply();};
+  w.zgBagCalOutlines=function(enabled){bagCalConfig.ui.outlineAll=!!enabled;bagCalSave();bagCalApply();};
   w.zgBagCalSnap=function(enabled){bagCalConfig.ui.snap=!!enabled;bagCalSave();bagCalSyncControls();};
   w.zgBagCalGridStep=function(value){bagCalConfig.ui.gridStep=bagCalClamp(value,.5,10,2.5);bagCalSave();bagCalSyncControls();};
   function bagCalTabRows(){return['status','items','magic','journal'].map(function(key){return bagCalConfig.tabs[key];});}
@@ -13783,23 +14054,40 @@ document.addEventListener('DOMContentLoaded', function(){
     bagCalConfig=bagCalDefaults();bagCalSave();bagCalSyncControls();
   };
   document.addEventListener('pointerdown',function(ev){
-    var drawer=el('zg-vtt-drawer'),button=ev.target&&ev.target.closest&&ev.target.closest('[data-bag-cal-key]');
-    if(!drawer||!drawer.classList.contains('calibrating')||!button)return;
-    var whole=button.closest('.zg-bag-interface');if(whole){button=whole;bagCalSelected='interface';}
-    var parent=bagCalConfig.tabs[button.dataset.bagCalKey]?button.parentElement:drawer,rect=parent.getBoundingClientRect(),key=button.dataset.bagCalKey,item=bagCalItem(key);if(!item||!rect.width||!rect.height)return;
-    ev.preventDefault();ev.stopPropagation();bagCalSelected=key;bagCalDrag={id:ev.pointerId,key:key,startX:ev.clientX,startY:ev.clientY,x:item.x,y:item.y,width:rect.width,height:rect.height,moved:false};bagCalSyncControls();
+    var drawer=el('zg-vtt-drawer'),elementNode=ev.target&&ev.target.closest&&ev.target.closest('[data-bag-element-key]');
+    if(!drawer||!drawer.classList.contains('calibrating'))return;
+    if(elementNode&&drawer.contains(elementNode)){
+      var elementKey=elementNode.dataset.bagElementKey,elementItem=bagCalEnsureElement(elementKey),interfaceNode=drawer.querySelector('.zg-bag-interface'),interfaceRect=interfaceNode&&interfaceNode.getBoundingClientRect();
+      if(!interfaceRect||!interfaceRect.width||!interfaceRect.height)return;
+      ev.preventDefault();ev.stopPropagation();bagCalSelected=elementKey;
+      bagCalDrag={id:ev.pointerId,key:elementKey,kind:'element',startX:ev.clientX,startY:ev.clientY,x:elementItem.dx,y:elementItem.dy,width:interfaceRect.width,height:interfaceRect.height,moved:false};
+      bagCalSyncControls();return;
+    }
+    var button=ev.target&&ev.target.closest&&ev.target.closest('[data-bag-cal-key]');if(!button)return;
+    if(button.classList.contains('zg-bag-interface'))bagCalSelected='interface';
+    var key=button.dataset.bagCalKey,parent=bagCalConfig.tabs[key]?button.parentElement:key!=='interface'&&bagCalConfig.layout[key]?button.closest('.zg-bag-interface'):drawer,rect=parent.getBoundingClientRect(),item=bagCalItem(key);if(!item||!rect.width||!rect.height)return;
+    ev.preventDefault();ev.stopPropagation();bagCalSelected=key;bagCalDrag={id:ev.pointerId,key:key,kind:'layout',startX:ev.clientX,startY:ev.clientY,x:item.x,y:item.y,width:rect.width,height:rect.height,moved:false};bagCalSyncControls();
   },true);
   document.addEventListener('pointermove',function(ev){
     if(!bagCalDrag||ev.pointerId!==bagCalDrag.id)return;
     var item=bagCalItem(bagCalDrag.key),dx=(ev.clientX-bagCalDrag.startX)/bagCalDrag.width*100,dy=(ev.clientY-bagCalDrag.startY)/bagCalDrag.height*100;
     if(Math.abs(dx)+Math.abs(dy)>.2)bagCalDrag.moved=true;
+    if(bagCalDrag.kind==='element'){
+      item.dx=bagCalClamp(bagCalQuantize(bagCalDrag.x+dx),-100,100,item.dx);
+      item.dy=bagCalClamp(bagCalQuantize(bagCalDrag.y+dy),-100,100,item.dy);
+      bagCalApply();
+      document.querySelectorAll('[data-bag-element-out]').forEach(function(output){var prop=output.dataset.bagElementOut,value=item[prop];output.textContent=prop==='radius'&&value<0?'авто':prop==='z'?Math.round(value):Number(value).toFixed(2);});
+      return;
+    }
     var isTab=!!bagCalConfig.tabs[bagCalDrag.key];
     item.x=bagCalClamp(bagCalQuantize(bagCalDrag.x+dx),0,isTab?90:95,item.x);item.y=bagCalClamp(bagCalQuantize(bagCalDrag.y+dy),0,isTab?60:95,item.y);bagCalSyncControls();
   },true);
   function bagCalDragEnd(ev){if(!bagCalDrag||ev&&ev.pointerId!==bagCalDrag.id)return;bagCalSave();bagCalDrag=null;}
   document.addEventListener('pointerup',bagCalDragEnd,true);document.addEventListener('pointercancel',bagCalDragEnd,true);
+  var bagCalResizeTimer=0;
+  w.addEventListener('resize',function(){clearTimeout(bagCalResizeTimer);bagCalResizeTimer=setTimeout(bagCalApply,80);});
   document.addEventListener('click',function(ev){
-    var drawer=el('zg-vtt-drawer'),button=ev.target&&ev.target.closest&&ev.target.closest('[data-bag-cal-key]');
+    var drawer=el('zg-vtt-drawer'),button=ev.target&&ev.target.closest&&ev.target.closest('[data-bag-cal-key],[data-bag-element-key]');
     if(drawer&&drawer.classList.contains('calibrating')&&button){ev.preventDefault();ev.stopImmediatePropagation();}
   },true);
 
@@ -14192,9 +14480,11 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function inventoryItemCategory(item){
     var hay=String((item&&item.category||'')+' '+(item&&item.type||'')+' '+(item&&item.name||'')).toLowerCase();
-    if(/оруж|меч|кинжал|топор|лук|weapon/.test(hay))return'weapon';
-    if(/брон|доспех|щит|одеж|armor/.test(hay))return'armor';
-    if(/зель|эликс|настой|potion/.test(hay))return'potion';
+    if(/зель|эликс|настой|еда|пищ|напит|мяс|potion|food|drink/.test(hay))return'consumable';
+    if(/трав|лист|корень|гриб|реагент|алхим|руда|материал|herb|material|reagent/.test(hay))return'material';
+    if(/ключ|отмыч|key|lockpick/.test(hay))return'key';
+    if(/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay))return'weapon';
+    if(/брон|доспех|щит|одеж|плащ|шлем|перчат|сапог|кольц|амул|талис|armor|cloak|access/.test(hay))return'armor';
     return'other';
   }
   function inventoryRowsForView(allItems,filter,search,sort){
@@ -14202,7 +14492,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var rows=(Array.isArray(allItems)?allItems:[]).map(function(item,index){return{item:item,index:index};}).filter(function(row){
       var item=typeof row.item==='string'?{name:row.item}:row.item;
       if(!item||item.equipped===true)return false;
-      if(filter&&filter!=='all'&&inventoryItemCategory(item)!==filter)return false;
+      var category=inventoryItemCategory(item);
+      if(filter&&filter!=='all'&&(filter==='equipment'?category!=='weapon'&&category!=='armor':category!==filter))return false;
       if(!query)return true;
       return [item.name,item.description,item.effect,item.text,item.type,item.category,item.rarity].some(function(value){
         return String(value||'').toLocaleLowerCase('ru').indexOf(query)>=0;
@@ -14229,46 +14520,165 @@ document.addEventListener('DOMContentLoaded', function(){
       var value=Number(item&&(item.weight!==undefined?item.weight:item.mass));
       return Number.isFinite(value)&&value>0?value:0;
     }
-    function slot(item,index,source){
+    function inventoryRow(item,index,source){
       if (typeof item === 'string') item = { name:item };
       var draggable=canEdit&&source==='inventory'?' draggable="true" ondragstart="zgVttInventoryDrag(event,'+index+')"':'';
       var qty=Math.max(1,Number(item.qty)||1),weight=itemWeight(item);
-      return '<button type="button" class="zg-bag-item"'+draggable+' onclick="zgVttInventoryOpenItem(\''+source+'\','+index+')" title="'+esc(item.name||'Предмет')+'">'+
-        '<span class="zg-bag-item-art">'+art(item)+'</span>'+
-        '<span class="zg-bag-item-copy"><b>'+esc(item.name||'Предмет')+'</b><em>'+esc(itemSummary(item))+'</em></span>'+
-        '<span class="zg-bag-item-meta">'+(qty>1?'<b>x'+qty+'</b>':'')+(weight?'<small>⚖ '+weight+'</small>':'')+'</span>'+
+      return '<button type="button" class="zg-inv2-item"'+draggable+' onclick="zgVttInventoryOpenItem(\''+source+'\','+index+')" title="'+esc(item.name||'Предмет')+'">'+
+        '<span class="zg-inv2-art">'+art(item)+'</span>'+
+        '<span class="zg-inv2-copy"><b>'+esc(item.name||'Предмет')+'</b><em>'+esc(itemSummary(item))+'</em></span>'+
+        '<span class="zg-inv2-meta"><b>x'+qty+'</b><small>⚖ '+(weight||'—')+'</small></span>'+
       '</button>';
     }
-    var add=canEdit?'<button type="button" class="zg-bag-add" onclick="zgVttAddInventoryItem()" title="Добавить предмет">＋</button>':'';
-    var equipmentSlots=['head','body','weapon','accessory','utility'],slotLabels={head:'Голова',body:'Доспех',weapon:'Оружие',accessory:'Талисман',utility:'Пояс'},slotMarks={head:'ШЛ',body:'ДО',weapon:'ОР',accessory:'ТА',utility:'ПО'};
-    var used={};function equippedFor(slotName){var found=-1;equipped.some(function(entry,index){if(used[index])return false;var item=entry.item,hay=String((item.slot||'')+' '+(item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),match=slotName==='head'?/голов|шлем|капюш|head/.test(hay):slotName==='body'?/брон|доспех|одеж|ряса|плащ|body|armor/.test(hay):slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):slotName==='accessory'?/талис|кольц|амул|ожерел|access/.test(hay):false;if(match){found=index;used[index]=true;return true;}return false;});if(found<0){found=equipped.findIndex(function(_,index){return!used[index];});if(found>=0)used[found]=true;}return found>=0?equipped[found]:null;}
-    var equipmentHtml=equipmentSlots.map(function(slotName){var entry=equippedFor(slotName),drop=canEdit?' ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="zgVttInventoryDrop(event,\''+slotName+'\')"':'';return '<div class="zg-bag-equip-slot'+(entry?' filled':'')+'" data-equip-slot="'+slotName+'"'+drop+'><small>'+slotLabels[slotName]+'</small>'+(entry?slot(entry.item,entry.index,entry.source):'<span class="zg-bag-slot-mark" aria-hidden="true">'+slotMarks[slotName]+'</span>')+'</div>';}).join('');
+    var equipmentSlots=[
+      {key:'weapon',label:'Оружие',mark:'⚔'},
+      {key:'head',label:'Голова',mark:'ШЛ'},
+      {key:'armor',label:'Броня',mark:'БР'},
+      {key:'cloak',label:'Плащ',mark:'ПЛ'},
+      {key:'accessory1',label:'Аксессуар 1',mark:'А1'},
+      {key:'accessory2',label:'Аксессуар 2',mark:'А2'},
+      {key:'hands',label:'Руки',mark:'РК'},
+      {key:'legs',label:'Ноги',mark:'НГ'}
+    ],assigned={};
+    function preferredEquipSlot(item){
+      var explicit=String(item&&item.slot||'').toLowerCase(),hay=String(explicit+' '+(item&&item.type||'')+' '+(item&&item.category||'')+' '+(item&&item.name||'')).toLowerCase();
+      if(explicit==='accessory2')return'accessory2';
+      if(explicit==='accessory'||explicit==='accessory1')return'accessory1';
+      if(explicit==='body')return/плащ|cloak/.test(hay)?'cloak':'armor';
+      if(['weapon','head','armor','cloak','hands','legs'].indexOf(explicit)>=0)return explicit;
+      if(/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay))return'weapon';
+      if(/голов|шлем|капюш|head/.test(hay))return'head';
+      if(/плащ|накид|cloak/.test(hay))return'cloak';
+      if(/брон|доспех|одеж|ряса|body|armor/.test(hay))return'armor';
+      if(/перчат|наруч|рукав|hands|glove/.test(hay))return'hands';
+      if(/сапог|ботин|обув|понож|legs|boot/.test(hay))return'legs';
+      if(/талис|кольц|амул|ожерел|access/.test(hay))return'accessory1';
+      return'';
+    }
+    equipped.forEach(function(entry){
+      var preferred=preferredEquipSlot(entry.item),candidates=preferred==='accessory1'?['accessory1','accessory2']:preferred?[preferred]:['accessory1','accessory2','cloak','hands','legs'];
+      var slotName=candidates.find(function(key){return!assigned[key];});
+      if(!slotName)slotName=equipmentSlots.map(function(slot){return slot.key;}).find(function(key){return!assigned[key];});
+      if(slotName)assigned[slotName]=entry;
+    });
+    function equipmentItem(entry){
+      var item=typeof entry.item==='string'?{name:entry.item}:entry.item||{};
+      return '<button type="button" class="zg-inv2-equipped-item" onclick="zgVttInventoryOpenItem(\''+entry.source+'\','+entry.index+')" title="'+esc(item.name||'Предмет')+'">'+
+        '<span class="zg-inv2-equipped-art">'+art(item)+'</span>'+
+        '<span class="zg-inv2-equipped-copy"><b>'+esc(item.name||'Предмет')+'</b><em>'+esc(itemSummary(item))+'</em></span>'+
+      '</button>';
+    }
+    var equipmentHtml=equipmentSlots.map(function(slot){
+      var entry=assigned[slot.key],drop=canEdit?' ondragover="event.preventDefault();this.classList.add(\'dragover\')" ondragleave="this.classList.remove(\'dragover\')" ondrop="zgVttInventoryDrop(event,\''+slot.key+'\')"':'';
+      return '<div class="zg-inv2-equip-slot'+(entry?' filled':'')+'" data-equip-slot="'+slot.key+'"'+drop+'>'+
+        (entry?equipmentItem(entry):'<span class="zg-inv2-slot-art">'+slot.mark+'</span><span class="zg-inv2-slot-copy"><b>'+slot.label+'</b><em>Пусто</em></span>')+
+        (entry?'<small>'+slot.label+'</small>':'')+
+      '</div>';
+    }).join('');
     var totalWeight=allItems.reduce(function(sum,item){if(!item||typeof item==='string')return sum;return sum+itemWeight(item)*Math.max(1,Number(item.qty)||1);},0);
     var quickItems=allItems.map(function(item,index){return{item:item,index:index};}).filter(function(row){return row.item&&typeof row.item==='object'&&(row.item.quick===true||Number.isFinite(Number(row.item.quickSlot)));}).sort(function(a,b){return(Number(a.item.quickSlot)||99)-(Number(b.item.quickSlot)||99);}).slice(0,4);
     var quickHtml=Array.from({length:4},function(_,quickIndex){
       var row=quickItems[quickIndex];
-      return row?slot(row.item,row.index,'inventory'):'<span class="zg-bag-quick-empty" aria-label="Пустой быстрый слот"></span>';
+      return row?'<button type="button" class="zg-inv2-quick-slot filled" onclick="zgVttInventoryOpenItem(\'inventory\','+row.index+')" title="'+esc(row.item.name||'Быстрый предмет')+'">'+art(row.item)+'</button>':'<span class="zg-inv2-quick-slot" aria-label="Пустой быстрый слот"></span>';
     }).join('');
+    var pageSize=12,pageCount=Math.max(1,Math.ceil(items.length/pageSize));inventoryPage=Math.max(0,Math.min(pageCount-1,Number(inventoryPage)||0));
+    var pageRows=items.slice(inventoryPage*pageSize,inventoryPage*pageSize+pageSize),placeholderCount=Math.max(0,pageSize-pageRows.length);
+    var listHtml=pageRows.map(function(row){return inventoryRow(row.item,row.index,'inventory');}).join('');
+    for(var placeholderIndex=0;placeholderIndex<placeholderCount;placeholderIndex++){
+      listHtml+='<span class="zg-inv2-item-placeholder">'+(!items.length&&placeholderIndex===0?'<b>Рюкзак пока пуст</b><small>Добавьте предмет в лист героя</small>':'')+'</span>';
+    }
     var notice=inventoryOperationNotice&&String(inventoryOperationNotice.uid)===String(member&&member.uid)
       ?'<div class="zg-bag-operation-state '+esc(inventoryOperationNotice.kind)+'" role="status" aria-live="polite">'+esc(inventoryOperationNotice.text)+'</div>'
       :'';
-    return notice+'<div class="zg-bag-character-name">'+esc(local.name||member&&member.character&&member.character.name||'Герой')+'<small>Снаряжение и дорожные вещи</small></div><div class="zg-bag-columns"><section class="zg-bag-equipped"><h4>Экипировано</h4><div class="zg-bag-equip-list">'+equipmentHtml+'</div></section>'+
-      '<section class="zg-bag-storage"><div class="zg-bag-storage-head"><h4>Инвентарь</h4><span class="zg-bag-capacity">'+(totalWeight?totalWeight.toFixed(1).replace(/\.0$/,'')+' / 40 кг · ':'')+allItems.length+' / 20</span></div><div class="zg-bag-filters"><button class="'+(inventoryFilter==='all'?'active':'')+'" onclick="zgVttInventoryFilter(\'all\')">Все</button><button class="'+(inventoryFilter==='weapon'?'active':'')+'" onclick="zgVttInventoryFilter(\'weapon\')" title="Оружие">⚔</button><button class="'+(inventoryFilter==='armor'?'active':'')+'" onclick="zgVttInventoryFilter(\'armor\')" title="Броня">◈</button><button class="'+(inventoryFilter==='potion'?'active':'')+'" onclick="zgVttInventoryFilter(\'potion\')" title="Зелья">⚗</button></div><div class="zg-bag-storage-tools"><input id="zg-bag-search" type="search" value="'+esc(inventorySearch)+'" oninput="zgVttInventorySearch(this.value)" placeholder="Найти предмет" aria-label="Поиск предметов"><select onchange="zgVttInventorySort(this.value)" aria-label="Сортировка предметов"><option value="manual"'+(inventorySort==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(inventorySort==='name'?' selected':'')+'>По названию</option><option value="qty"'+(inventorySort==='qty'?' selected':'')+'>По количеству</option></select></div><div class="zg-bag-grid">'+(items.length?items.map(function(row){return slot(row.item,row.index,'inventory');}).join(''):'<div class="zg-bag-empty">'+((inventorySearch||inventoryFilter!=='all')?'Ничего не найдено':'Рюкзак пока пуст')+'</div>')+'</div></section></div>'+
-      '<div class="zg-bag-foot zg-bag-quick"><strong>Быстрые предметы</strong><div class="zg-bag-quick-grid">'+quickHtml+'</div>'+add+'</div>';
+    var filters=[
+      {key:'all',label:'Все',icon:'Все'},
+      {key:'consumable',label:'Зелья и пища',icon:'⚗'},
+      {key:'material',label:'Материалы',icon:'❧'},
+      {key:'key',label:'Ключи',icon:'⚿'},
+      {key:'equipment',label:'Снаряжение',icon:'⚔'},
+      {key:'other',label:'Прочее',icon:'◇'}
+    ];
+    var filterHtml=filters.map(function(filter){return'<button type="button" class="'+(inventoryFilter===filter.key?'active':'')+'" onclick="zgVttInventoryFilter(\''+filter.key+'\')" title="'+filter.label+'">'+filter.icon+'</button>';}).join('');
+    var addControl=canEdit?'<button type="button" class="zg-inv2-add" onclick="zgVttAddInventoryItem()" title="Добавить предмет" aria-label="Добавить предмет">＋</button>':'<i class="zg-inv2-lock">▣</i>';
+    return notice+'<div class="zg-inv2">'+
+      '<section class="zg-inv2-equipped"><header><h4>Экипировано</h4></header><div class="zg-inv2-equip-list">'+equipmentHtml+'</div></section>'+
+      '<section class="zg-inv2-quick"><h4>Быстрые предметы</h4><div>'+quickHtml+'</div></section>'+
+      '<section class="zg-inv2-storage"><header><h4>Инвентарь</h4><span>'+totalWeight.toFixed(1).replace(/\.0$/,'')+' / 40</span>'+addControl+'</header>'+
+        '<nav class="zg-inv2-filters">'+filterHtml+'</nav>'+
+        '<div class="zg-inv2-list">'+listHtml+'</div>'+
+        '<footer class="zg-inv2-pages"><button type="button" onclick="zgVttInventoryPage(-1)" '+(inventoryPage<=0?'disabled':'')+' aria-label="Предыдущая страница">‹</button><span>'+(inventoryPage+1)+' / '+pageCount+'</span><button type="button" onclick="zgVttInventoryPage(1)" '+(inventoryPage>=pageCount-1?'disabled':'')+' aria-label="Следующая страница">›</button></footer>'+
+      '</section>'+
+    '</div>';
   }
   function journalPanel(){
-    var member=drawerMember(), localCharacter=fullLocalCharacter(member),c=localCharacter||member&&member.character||{},notes=c.notes||c.journal||c.quests||[];
-    if(typeof notes==='string')notes=[notes];
+    var member=drawerMember(),localCharacter=fullLocalCharacter(member),c=localCharacter||member&&member.character||{};
     var entries=Array.isArray(c.journalEntries)?c.journalEntries.filter(function(entry){return entry&&typeof entry==='object'&&!entry.deletedAt;}):[];
-    function timeLabel(entry){var value=Number(entry.updatedAt||entry.createdAt||0);if(!value)return'Без времени';try{return new Date(value).toLocaleString('ru-RU');}catch(ignore){return'Без времени';}}
-    var session=state&&state.session,isMasterTarget=!!(session&&session.role==='master'&&member&&member.character);
-    var controls=localCharacter?'<button type="button" class="zg-journal-add" onclick="zgVttJournalOpen()">＋ Новая запись</button>':isMasterTarget?'<button type="button" class="zg-journal-add" data-member-uid="'+esc(member.uid||'')+'" onclick="zgVttJournalMasterAdd(this.dataset.memberUid)">＋ Запись мастера</button>':'';
-    var structured=entries.slice().sort(function(a,b){return Number(b.updatedAt||b.createdAt||0)-Number(a.updatedAt||a.createdAt||0);}).map(function(entry){
-      var journalId=esc(entry.journalId||'');
-      return '<article class="zg-journal-entry"><div><small>'+esc(timeLabel(entry))+'</small><b>'+esc(entry.title||'Без названия')+'</b></div><p>'+esc(entry.text||'')+'</p>'+(localCharacter?'<footer><button type="button" data-journal-id="'+journalId+'" onclick="zgVttJournalOpen(this.dataset.journalId)">Изменить</button><button type="button" class="danger" data-journal-id="'+journalId+'" onclick="zgVttJournalRemove(this.dataset.journalId)">Удалить</button></footer>':'')+'</article>';
+    var legacyNotes=c.notes||c.journal||[];
+    if(typeof legacyNotes==='string')legacyNotes=legacyNotes.trim()?[legacyNotes]:[];
+    if(!Array.isArray(legacyNotes))legacyNotes=[legacyNotes];
+    function recordCategory(entry){
+      var hay=String((entry&&entry.category||'')+' '+(entry&&entry.type||'')+' '+(entry&&entry.kind||'')+' '+(entry&&entry.title||'')+' '+(entry&&entry.name||'')).toLowerCase();
+      return /place|location|мест|локац|карта|руин|лес|долин|дорог|тракт|путь|храм|святилищ|город|деревн|порт|замок|пещер/.test(hay)?'place':'note';
+    }
+    function recordIcon(category){return category==='place'?'⌖':'▤';}
+    function recordType(category){return category==='place'?'Место':'Заметка';}
+    function recordImage(value){
+      value=String(value||'').trim();
+      return /^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(value)?value:'';
+    }
+    var records=entries.slice().sort(function(a,b){return Number(b.updatedAt||b.createdAt||0)-Number(a.updatedAt||a.createdAt||0);}).map(function(entry){
+      var category=recordCategory(entry);
+      return{id:String(entry.journalId||''),title:entry.title||'Без названия',text:entry.text||'',category:category,icon:entry.icon||recordIcon(category),image:recordImage(entry.image||entry.art||entry.cover),editable:true};
+    });
+    legacyNotes.forEach(function(note,index){
+      if(note==null)return;
+      var item=typeof note==='object'?note:{text:String(note)},category=recordCategory(item);
+      records.push({id:'legacy-'+index,title:item.title||item.name||'Запись листа',text:item.text||item.description||'',category:category,icon:item.icon||recordIcon(category),image:recordImage(item.image||item.art),editable:false});
+    });
+    function pushGoal(target,value){
+      if(value==null||value==='')return;
+      if(Array.isArray(value)){value.forEach(function(item){pushGoal(target,item);});return;}
+      var item=typeof value==='object'?value:{title:String(value)},title=String(item.title||item.name||item.text||'').trim();
+      if(!title)return;
+      var key=title.toLowerCase();if(target.some(function(goal){return goal.key===key;}))return;
+      var status=String(item.status||item.state||'Активна'),statusHay=status.toLowerCase(),tone=/заверш|готов|done|complete/.test(statusHay)?'done':/нов|new/.test(statusHay)?'new':'active';
+      target.push({key:key,title:title,description:String(item.description||item.details||'').trim(),status:status,tone:tone,icon:item.icon||'✦'});
+    }
+    var goals=[];pushGoal(goals,c.currentGoal);pushGoal(goals,c.mainGoals);pushGoal(goals,c.goals);pushGoal(goals,c.quests);
+    goals=goals.slice(0,3);
+    var goalsHtml=goals.length?goals.map(function(goal){
+      return'<article class="zg-journal3-goal '+goal.tone+'"><i>'+esc(goal.icon)+'</i><span><b>'+esc(goal.title)+'</b>'+(goal.description?'<small>'+esc(goal.description)+'</small>':'')+'<em>'+esc(goal.status)+'</em></span></article>';
+    }).join(''):'<div class="zg-journal3-goals-empty"><i>◇</i><span><b>Главные цели ещё не записаны</b><small>Они появятся здесь из листа персонажа</small></span></div>';
+    var filtered=journalFilter==='all'?records:records.filter(function(record){return record.category===journalFilter;});
+    var pageSize=6,pageCount=Math.max(1,Math.ceil(filtered.length/pageSize));journalPage=Math.max(0,Math.min(pageCount-1,Number(journalPage)||0));
+    var pageRecords=filtered.slice(journalPage*pageSize,journalPage*pageSize+pageSize);
+    var selected=records.find(function(record){return record.id===journalSelectedId;});
+    if(!selected||journalFilter!=='all'&&selected.category!==journalFilter)selected=pageRecords[0]||records[0]||null;
+    journalSelectedId=selected&&selected.id||'';
+    var listHtml=pageRecords.map(function(record,index){
+      var selectedClass=selected&&selected.id===record.id?' active':'';
+      return'<button type="button" class="zg-journal3-entry'+selectedClass+'" data-journal-id="'+esc(record.id)+'" onclick="zgVttJournalSelect(this.dataset.journalId)"><i>'+esc(record.icon)+'</i><span><b>'+esc(record.title)+'</b><small>'+recordType(record.category)+'</small></span><em>'+String(journalPage*pageSize+index+1)+'</em></button>';
     }).join('');
-    var legacy=notes.length?'<section class="zg-journal-legacy"><h4>Старые заметки листа</h4>'+notes.map(function(note){return '<article><b>'+esc(note&&typeof note==='object'?(note.title||note.name||'Запись'):'Запись')+'</b><p>'+esc(typeof note==='string'?note:(note&&note.text||note&&note.description||''))+'</p></article>';}).join('')+'</section>':'';
-    return '<div class="zg-bag-notes">'+controls+structured+legacy+(!structured&&!legacy?'<div class="zg-vtt-empty">В журнале пока нет записей</div>':'')+'</div>';
+    if(!listHtml)listHtml='<div class="zg-journal3-list-empty"><i>◇</i><span>В этой категории пока нет записей</span></div>';
+    var canAdd=!!localCharacter,session=state&&state.session,isMasterTarget=!!(session&&session.role==='master'&&member&&member.character);
+    var addControl=canAdd?'<button type="button" class="zg-journal3-add" onclick="zgVttJournalOpen()">＋ <span>Добавить запись</span></button>':isMasterTarget?'<button type="button" class="zg-journal3-add" data-member-uid="'+esc(member.uid||'')+'" onclick="zgVttJournalMasterAdd(this.dataset.memberUid)">＋ <span>Добавить запись</span></button>':'';
+    var preview='';
+    if(selected){
+      var previewAction=selected.editable&&localCharacter?' ondblclick="zgVttJournalOpen(\''+esc(selected.id)+'\')" title="Двойной клик — изменить запись"':'';
+      var previewArt=selected.image?'<div class="zg-journal3-paper-art" style="background-image:url(&quot;'+esc(selected.image)+'&quot;)"></div>':'';
+      preview='<article class="zg-journal3-paper"'+previewAction+'><header><h3>'+esc(selected.title)+'</h3><i>◇</i><small>'+recordType(selected.category)+'</small></header>'+previewArt+'<div class="zg-journal3-paper-text">'+esc(selected.text||'Текст записи пока не заполнен.')+'</div></article>';
+    }else preview='<div class="zg-journal3-paper empty"><i>▤</i><b>Журнал пока пуст</b><span>Создайте первую запись, чтобы сохранить важное из приключения.</span></div>';
+    return'<div class="zg-bag-notes zg-journal3">'+
+      '<section class="zg-journal3-goals"><header><i>✦</i><h3>Главные цели</h3><i>✦</i></header><div>'+goalsHtml+'</div></section>'+
+      '<section class="zg-journal3-main">'+
+        '<aside class="zg-journal3-index"><header><i>❧</i><h3>Мои записи</h3></header>'+
+          '<nav><button type="button" class="'+(journalFilter==='all'?'active':'')+'" onclick="zgVttJournalFilter(\'all\')"><i>▤</i><span>Все</span></button><button type="button" class="'+(journalFilter==='note'?'active':'')+'" onclick="zgVttJournalFilter(\'note\')"><i>❧</i><span>Заметки</span></button><button type="button" class="'+(journalFilter==='place'?'active':'')+'" onclick="zgVttJournalFilter(\'place\')"><i>⌖</i><span>Места</span></button></nav>'+
+          '<div class="zg-journal3-list">'+listHtml+'</div>'+
+          '<footer class="zg-journal3-pages"><button type="button" onclick="zgVttJournalPage(-1)" '+(journalPage<=0?'disabled':'')+'>‹</button><span>'+(journalPage+1)+' / '+pageCount+'</span><button type="button" onclick="zgVttJournalPage(1)" '+(journalPage>=pageCount-1?'disabled':'')+'>›</button></footer>'+addControl+
+        '</aside>'+
+        '<div class="zg-journal3-preview">'+preview+'</div>'+
+      '</section>'+
+    '</div>';
   }
   function vttAbilityProfile(key,item,isSpell){
     item=item||{};var meta={};
@@ -14308,9 +14718,26 @@ document.addEventListener('DOMContentLoaded', function(){
     function objectItem(item){if(typeof item==='string')return{name:item};return item||{};}
     function spellById(id){return Array.isArray(w.entries)?w.entries.find(function(item){return String(item.id)===String(id);}):(typeof entries!=='undefined'&&Array.isArray(entries)?entries.find(function(item){return String(item.id)===String(id);}):null);}
     function spellLimit(spell){var match=String(spell&&spell.cd||'').match(/(\d+)\s*раз/i);return match?Math.max(1,Number(match[1])||1):0;}
+    function abilityTone(item){
+      var source=[item&&item.name,item&&item.school,item&&item.schoolCustom,item&&item.tip,item&&item.damageType].concat(item&&item.categories||[]).join(' ').toLowerCase();
+      if(/огн|плам|жар|fire/.test(source))return'fire';
+      if(/лед|холод|мороз|ice|cold/.test(source))return'ice';
+      if(/леч|свет|жизн|heal|holy/.test(source))return'life';
+      if(/молн|гроз|электр|воздух|lightning/.test(source))return'storm';
+      if(/защит|щит|брон|guard/.test(source))return'ward';
+      if(/тайн|пустот|тень|ментал|void|dark/.test(source))return'void';
+      return item&&item.spellType==='obrad'?'blood':item&&item.spellType==='folio'?'arcane':'gold';
+    }
+    function normalizedSpellType(spell){
+      var explicit=String(spell&&spell.spellType||'').toLowerCase(),hay=[spell&&spell.tip,spell&&spell.type,spell&&spell.name].join(' ').toLowerCase();
+      if(['kodex','folio','obrad'].indexOf(explicit)>=0)return explicit;
+      if(/фолиант|folio/.test(hay))return'folio';
+      if(/обряд|ритуал|ritual/.test(hay))return'obrad';
+      return'kodex';
+    }
     var cards=[];
-    positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',kind:'Позиция',icon:item.icon||'⚔',name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
-    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index;cards.push({key:key,skillIndex:index,raw:item,group:'skills',kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',cdMax:Math.max(0,Number(item.cdMax)||0),passive:/пассив/i.test(item.type||''),profile:vttAbilityProfile(key,item,false)});});
+    positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',innate:true,tone:abilityTone(item),kind:'Позиция',icon:item.icon||'⚔',name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
+    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index;cards.push({key:key,skillIndex:index,raw:item,group:'skills',innate:true,tone:abilityTone(item),kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',cdMax:Math.max(0,Number(item.cdMax)||0),passive:/пассив/i.test(item.type||''),profile:vttAbilityProfile(key,item,false)});});
     (c.spellRefs||[]).forEach(function(id){
       var spell=spellById(id);if(!spell)return;
       var key='spell-'+id,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key];
@@ -14319,19 +14746,87 @@ document.addEventListener('DOMContentLoaded', function(){
       var learned=localCharacter?!!(c.spellsLearned&&c.spellsLearned[id])
         :(c.spellsLearned&&Object.prototype.hasOwnProperty.call(c.spellsLearned,id)?c.spellsLearned[id]===true:null);
       var profile=vttAbilityProfile(key,spell,true);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;
-      cards.push({key:key,spellId:String(id),group:'spells',kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spell.spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spell.spellType]||'✦',name:spell.name||'Без названия',description:spell.description||spell.effect||spell.battle||'',manifestation:spell.manifestation||spell.visual||'',effect:spell.effect||'',battle:spell.battle||'',extra:spell.extra||spell.additional||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
+      var spellType=normalizedSpellType(spell);
+      cards.push({key:key,spellId:String(id),spellType:spellType,group:'spells',tone:abilityTone(spell),kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spellType]||'✦',name:spell.name||'Без названия',description:spell.description||spell.effect||spell.battle||'',manifestation:spell.manifestation||spell.visual||'',effect:spell.effect||'',battle:spell.battle||'',extra:spell.extra||spell.additional||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
     });
     abilityCardsByKey={};cards.forEach(function(card){abilityCardsByKey[card.key]=card;});
-    var shown=abilitiesFilter==='all'?cards:cards.filter(function(card){return card.group===abilitiesFilter;});
-    function cardHtml(card){
-      var disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
-      var learning=card.group==='spells'?'<mark class="zg-ability-learn '+(unknown?'unknown':disabled?'locked':'learned')+'">'+(unknown?'Статус не передан':disabled?'Не изучено':'Изучено')+'</mark>':'';
-      var cooldown=card.usage?'<em class="zg-ability-cooldown" title="'+esc(card.usage)+'">⏱ '+esc(card.usage)+'</em>':'';
-      var resource=card.limit?abilityChargePips(card,'compact'):cooldown;
-      return '<article class="zg-ability-card '+card.group+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+'"><button type="button" class="zg-ability-summary" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-ability-glyph">'+esc(card.icon)+'</i><span class="zg-ability-copy"><span class="zg-ability-eyebrow"><small>'+esc(card.kind)+'</small>'+learning+'</span><b>'+esc(card.name)+'</b><q>'+esc(card.description||'Описание пока не заполнено')+'</q>'+(card.limit&&cooldown?cooldown:'')+'</span><div class="zg-ability-resource">'+resource+(exhausted?'<small>Исчерпано</small>':card.limit?'<small>Доступно</small>':'')+'</div><strong>›</strong></button></article>';
+    function resourceHtml(card){
+      var exhausted=card.limit>0&&card.used>=card.limit;
+      if(card.limit)return abilityChargePips(card,'compact')+(exhausted?'<small>Исчерпано</small>':'');
+      return card.usage?'<em class="zg-ability-cooldown" title="'+esc(card.usage)+'">'+esc(card.usage)+'</em>':card.passive?'<em class="zg-ability-passive">Пассивно</em>':'';
     }
-    var skillCount=cards.filter(function(card){return card.group==='skills';}).length,spellCount=cards.length-skillCount;
-    return '<div class="zg-abilities-panel"><header><div><small>'+esc(c.name||member&&member.character&&member.character.name||'Герой')+'</small><b>Магия</b><em>'+skillCount+' навыков · '+spellCount+' заклинаний</em></div><span>'+cards.length+'</span></header><nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все <small>'+cards.length+'</small></button><button class="'+(abilitiesFilter==='skills'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'skills\')">Навыки <small>'+skillCount+'</small></button><button class="'+(abilitiesFilter==='spells'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'spells\')">Заклинания <small>'+spellCount+'</small></button></nav><div class="zg-ability-list">'+(shown.length?shown.map(cardHtml).join(''):'<div class="zg-vtt-empty">В этой категории пока ничего нет</div>')+'</div><footer>Открой карточку, чтобы увидеть стоимость действия, дальность, ограничения и отправить применение мастеру.</footer></div>';
+    function compactInnateName(card){
+      var name=String(card&&card.name||'Без названия').replace(/\s+/g,' ').trim(),quoted=name.match(/[«“"]([^»”"]+)[»”"]/);
+      if(quoted&&quoted[1])return quoted[1].trim();
+      return name.replace(/^[^\p{L}\p{N}]*/u,'').replace(/^(?:короткий|долгий|пассивный)\s+навык\s*[:—-]?\s*/i,'').trim()||'Без названия';
+    }
+    function compactInnateType(card){
+      var action=card&&card.profile&&card.profile.actionCost,hay=String((card&&card.kind||'')+' '+(card&&card.name||'')+' '+(card&&card.description||'')).toLowerCase();
+      if(card&&card.passive||/пассив/.test(hay))return'Пассивный';
+      if(action==='short'||/коротк/.test(hay))return'Короткий';
+      if(action==='long'||/долг/.test(hay))return'Долгий';
+      return'Долгий';
+    }
+    function catalogCardHtml(card){
+      var disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
+      var stateLabel=card.group==='spells'?(unknown?'Статус не передан':disabled?'Не изучено':'Изучено'):(card.passive?'Пассивно':'Готово');
+      var searchText=String(card.name+' '+card.kind+' '+card.description).toLowerCase();
+      return '<article class="zg-spell-catalog-card tone-'+card.tone+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+'" data-ability-search="'+esc(searchText)+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+esc(card.icon)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button></article>';
+    }
+    function innateCardHtml(card){
+      return '<article class="zg-spell-innate-card tone-'+card.tone+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+esc(card.icon)+'</i><div><b>'+esc(compactInnateName(card))+'</b><small class="zg-magic3-innate-type">'+esc(compactInnateType(card))+'</small></div></button></article>';
+    }
+    function pageButton(direction,current,total,handler,label){
+      return '<button type="button" onclick="'+handler+'('+direction+')" '+((direction<0?current<=0:current>=total-1)?'disabled':'')+' aria-label="'+label+'">'+(direction<0?'‹':'›')+'</button>';
+    }
+    function spellTypeCapacity(type){
+      var calculated=typeof w.getSpellTypeLimitForCharacter==='function'?Number(w.getSpellTypeLimitForCharacter(c,type)):3;
+      var explicit=c.spellTypeLimits&&Number(c.spellTypeLimits[type])||c.magicSlotLimits&&Number(c.magicSlotLimits[type])||0;
+      var bonus=c.spellSlotBonuses&&Number(c.spellSlotBonuses[type])||c.magicSlotBonuses&&Number(c.magicSlotBonuses[type])||0;
+      return Math.max(3,calculated||0,explicit)+Math.max(0,bonus);
+    }
+    function spellSlotHtml(card,index,type,capacity){
+      if(!card)return '<span class="zg-magic3-slot empty" title="Свободный слот '+(index+1)+'"><i>＋</i><small>'+(index+1)+'</small></span>';
+      var disabled=card.learned===false,exhausted=card.limit>0&&card.used>=card.limit;
+      return '<button type="button" class="zg-magic3-slot tone-'+card.tone+(disabled?' locked':'')+(exhausted?' exhausted':'')+(index>=capacity?' over-limit':'')+'" onclick="zgVttAbilityOpen(\''+card.key+'\')" title="'+esc(card.name)+'"><i>'+esc(card.icon)+'</i><b>'+esc(card.name)+'</b></button>';
+    }
+    var innateCards=cards.filter(function(card){return card.innate;}),spellCards=cards.filter(function(card){return card.group==='spells';});
+    var innatePageSize=4,innatePageCount=Math.max(1,Math.ceil(innateCards.length/innatePageSize));innateAbilityPage=Math.max(0,Math.min(innatePageCount-1,Number(innateAbilityPage)||0));
+    var innatePageCards=innateCards.slice(innateAbilityPage*innatePageSize,innateAbilityPage*innatePageSize+innatePageSize);
+    var normalizedSearch=String(abilitySearch||'').trim().toLowerCase();
+    var catalogCards=spellCards.filter(function(card){
+      if(abilitiesFilter!=='all'&&card.spellType!==abilitiesFilter)return false;
+      return !normalizedSearch||String(card.name+' '+card.kind+' '+card.description).toLowerCase().indexOf(normalizedSearch)>=0;
+    });
+    var catalogPageSize=8,catalogPageCount=Math.max(1,Math.ceil(catalogCards.length/catalogPageSize));abilityCatalogPage=Math.max(0,Math.min(catalogPageCount-1,Number(abilityCatalogPage)||0));
+    var catalogPageCards=catalogCards.slice(abilityCatalogPage*catalogPageSize,abilityCatalogPage*catalogPageSize+catalogPageSize);
+    var catalogHtml=catalogPageCards.map(catalogCardHtml).join('');
+    for(var catalogPlaceholderIndex=catalogPageCards.length;catalogPlaceholderIndex<catalogPageSize;catalogPlaceholderIndex++)catalogHtml+='<span class="zg-magic3-catalog-placeholder"></span>';
+    var spellCount=spellCards.length;
+    var typeDefinitions=[
+      {key:'kodex',label:'Боевые кодексы',short:'Кодексы',icon:'⚔'},
+      {key:'folio',label:'Фолианты',short:'Фолианты',icon:'📖'},
+      {key:'obrad',label:'Обрядники',short:'Обрядники',icon:'◇'}
+    ],grouped={kodex:[],folio:[],obrad:[]},capacities={},maxSlotCount=3;
+    spellCards.forEach(function(card){grouped[card.spellType].push(card);});
+    typeDefinitions.forEach(function(definition){capacities[definition.key]=spellTypeCapacity(definition.key);maxSlotCount=Math.max(maxSlotCount,capacities[definition.key],grouped[definition.key].length);});
+    var slotRows=Math.max(1,Math.ceil(maxSlotCount/3));
+    var groupsHtml=typeDefinitions.map(function(definition){
+      var type=definition.key,capacity=capacities[type],visibleSlots=Math.max(capacity,grouped[type].length),slots='';
+      for(var slotIndex=0;slotIndex<visibleSlots;slotIndex++)slots+=spellSlotHtml(grouped[type][slotIndex],slotIndex,type,capacity);
+      return '<section class="zg-magic3-slot-group type-'+type+'"><header><span>'+definition.icon+'</span><b>'+definition.label+'</b><em>'+grouped[type].length+' / '+capacity+'</em></header><div>'+slots+'</div></section>';
+    }).join('');
+    var innateEmpty='<div class="zg-spellbook-empty"><i>◇</i><b>Нет врождённых сил</b><span>Позиции и навыки добавляются в разделе «Персонажи»</span></div>';
+    return '<div class="zg-abilities-panel zg-spellbook zg-magic3" style="--magic-slot-rows:'+slotRows+'">'+
+      '<section class="zg-spellbook-innate"><header><h3>Врождённые навыки</h3><span>'+innateCards.length+'</span></header><div class="zg-magic3-innate-list">'+(innatePageCards.length?innatePageCards.map(innateCardHtml).join(''):innateEmpty)+'</div><footer class="zg-magic3-pages">'+pageButton(-1,innateAbilityPage,innatePageCount,'zgVttInnatePage','Предыдущие врождённые способности')+'<span>'+(innateAbilityPage+1)+' / '+innatePageCount+'</span>'+pageButton(1,innateAbilityPage,innatePageCount,'zgVttInnatePage','Следующие врождённые способности')+'</footer></section>'+
+      '<section class="zg-spellbook-catalog"><header><h3>Освоенные заклинания</h3><span>'+spellCount+'</span></header>'+
+        '<div class="zg-spellbook-search"><i>⌕</i><input value="'+esc(abilitySearch)+'" oninput="zgVttAbilitiesSearch(this.value)" placeholder="Поиск по названию, типу или описанию"></div>'+
+        '<nav><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')">Все <small>'+spellCount+'</small></button><button class="'+(abilitiesFilter==='kodex'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'kodex\')" title="Боевые кодексы">⚔</button><button class="'+(abilitiesFilter==='folio'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'folio\')" title="Фолианты">📖</button><button class="'+(abilitiesFilter==='obrad'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'obrad\')" title="Обрядники">◇</button></nav>'+
+        '<div class="zg-spellbook-list">'+catalogHtml+'</div>'+
+        '<footer class="zg-magic3-pages">'+pageButton(-1,abilityCatalogPage,catalogPageCount,'zgVttAbilityCatalogPage','Предыдущая страница заклинаний')+'<span>'+(abilityCatalogPage+1)+' / '+catalogPageCount+(catalogCards.length!==spellCount?' · '+catalogCards.length:'')+'</span>'+pageButton(1,abilityCatalogPage,catalogPageCount,'zgVttAbilityCatalogPage','Следующая страница заклинаний')+'</footer>'+
+      '</section>'+
+      '<section class="zg-magic3-slots"><header><h3>Мои заклинания</h3><span>'+spellCount+'</span></header><div>'+groupsHtml+'</div></section>'+
+    '</div>';
   }
   function dicePanel(){
     return '<div class="zg-vtt-dice">' + [4,6,8,10,12,20].map(function(sides){
@@ -14344,13 +14839,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(activePanel==='group')payload.members=heroMembers().map(function(item){var c=item.character||{};return{uid:item.uid,name:c.name||item.name||'',online:item.online!==false,hpCur:c.hpCur,hpMax:c.hpMax,tempHp:c.tempHp,statuses:c.statuses,statusEffects:c.statusEffects};});
     if(activePanel==='character')payload.character={name:character.name,race:character.race,klasse:character.klasse,level:character.level,hpCur:character.hpCur,hpMax:character.hpMax,tempHp:character.tempHp,ac:character.ac,speed:character.speed,stats:character.stats,statuses:character.statuses,statusEffects:character.statusEffects,resistances:character.resistances,vulnerabilities:character.vulnerabilities,immunities:character.immunities,revision:character.revision,updatedAt:character.updatedAt,updatedBy:character.updatedBy,source:character.source,progressionPlan:character.progressionPlan};
     if(activePanel==='inventory')payload.inventory={filter:inventoryFilter,search:inventorySearch,sort:inventorySort,notice:inventoryOperationNotice,hpCur:character.hpCur,hpMax:character.hpMax,tempHp:character.tempHp,statuses:character.statuses,statusEffects:character.statusEffects,inventoryItems:character.inventoryItems,equipItems:character.equipItems};
-    if(activePanel==='abilities')payload.abilities={filter:abilitiesFilter,busy:abilityRequestBusy,mastery:character.mastery,skills:character.skills,spellRefs:character.spellRefs,spellsLearned:character.spellsLearned,spellCD:character.spellCD,abilityUsage:character.abilityUsage,characterUpdateProposal:member&&member.characterUpdateProposal};
-    if(activePanel==='journal')payload.journal={entries:character.journalEntries,notes:character.notes,currentGoal:character.currentGoal};
+    if(activePanel==='abilities')payload.abilities={filter:abilitiesFilter,search:abilitySearch,busy:abilityRequestBusy,mastery:character.mastery,skills:character.skills,spellRefs:character.spellRefs,spellsLearned:character.spellsLearned,spellCD:character.spellCD,abilityUsage:character.abilityUsage,characterUpdateProposal:member&&member.characterUpdateProposal};
+    if(activePanel==='journal')payload.journal={filter:journalFilter,page:journalPage,selected:journalSelectedId,entries:character.journalEntries,notes:character.notes,currentGoal:character.currentGoal,mainGoals:character.mainGoals,goals:character.goals,quests:character.quests};
     if(activePanel==='dice')payload.dice=lastRoll;
     try{return JSON.stringify(payload,function(key,value){return typeof value==='string'&&/^(?:data|blob):/i.test(value)?'':value;});}catch(error){return activePanel+'|'+Date.now();}
   }
   function backpackArtSource(skin){
-    return 'images/vtt-ui/backpack-v2/open-status.webp';
+    return BAG_CAL_BACKGROUNDS[skin]||BAG_CAL_BACKGROUNDS.status;
   }
   function syncBackpackArt(drawer,skin){
     var art=el('zg-backpack-art'),layerA=el('zg-backpack-open-a');
@@ -14368,14 +14863,14 @@ document.addEventListener('DOMContentLoaded', function(){
     lastDrawerRenderSignature=signature;
     if(window.ZargotaPerformance)window.ZargotaPerformance.mark('renderDrawer');
     var title = el('zg-vtt-drawer-title'), body = el('zg-vtt-drawer-body'), drawer=el('zg-vtt-drawer'); if (!body) return;
-    var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember);
+    var viewedMember=drawerMember();
     var backpackPanels={character:'hero',inventory:'items',abilities:'magic',journal:'journal'};
     if(drawer){
       drawer.classList.remove('inventory-skin');
       drawer.classList.toggle('backpack-skin',!!backpackPanels[activePanel]);
       if(backpackPanels[activePanel])drawer.dataset.backpackSkin=backpackPanels[activePanel];
       else delete drawer.dataset.backpackSkin;
-      if(backpackPanels[activePanel]){bagCalApply();syncBackpackArt(drawer,backpackPanels[activePanel]);}
+      if(backpackPanels[activePanel])syncBackpackArt(drawer,backpackPanels[activePanel]);
       else lastBackpackSkin='';
     }
     var labels = { group:'Группа', character:'Состояние Героя', inventory:'Вещи', abilities:'Магия', journal:'Личный журнал', dice:'Кубики' };
@@ -14389,7 +14884,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (activePanel === 'abilities') body.innerHTML = abilitiesPanel();
     if (activePanel === 'journal') body.innerHTML = journalPanel();
     if (activePanel === 'dice') body.innerHTML = dicePanel();
-    if(viewOnly&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0)body.insertAdjacentHTML('afterbegin','<div class="zg-drawer-readonly" role="status" title="'+(activePanel==='abilities'?'Просмотр снимка комнаты · мастер может корректировать заряды в карточке способности':'Просмотр снимка комнаты · без редактирования и заявок')+'">◈ Снимок комнаты</div>');
+    if(backpackPanels[activePanel])bagCalApply();
     document.querySelectorAll('[data-vtt-tool]').forEach(function(button){ button.classList.toggle('active', button.getAttribute('data-vtt-tool') === activePanel); });
   }
   function render(snapshot){
@@ -14864,7 +15359,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if(typeof w.addInventoryItem==='function')w.addInventoryItem(c.id);
     setTimeout(function(){w.zgVttOpenPanel('inventory');},120);
   };
-  w.zgVttInventoryFilter=function(filter){inventoryFilter=filter||'all';renderDrawer();};
+  w.zgVttInventoryFilter=function(filter){inventoryFilter=['all','consumable','material','key','equipment','other'].indexOf(filter)>=0?filter:'all';inventoryPage=0;renderDrawer();};
+  w.zgVttInventoryPage=function(delta){inventoryPage=Math.max(0,inventoryPage+(Number(delta)<0?-1:1));renderDrawer();};
   w.zgVttInventorySearch=function(value){
     inventorySearch=String(value||'').slice(0,80);renderDrawer();
     var input=el('zg-bag-search');if(input){input.focus();try{input.setSelectionRange(inventorySearch.length,inventorySearch.length);}catch(ignore){}}
@@ -14876,7 +15372,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if(event){event.preventDefault();if(event.currentTarget)event.currentTarget.classList.remove('dragover');}
     var index=Number(event&&event.dataTransfer&&event.dataTransfer.getData('text/zargota-item')),member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];
     if(!item||!c)return;if(typeof item==='string'){item={name:item,icon:'📦',qty:1};c.inventoryItems[index]=item;}
-    var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),allowed=slotName==='head'?/голов|шлем|капюш|head/.test(hay):slotName==='body'?/брон|доспех|одеж|ряса|плащ|body|armor/.test(hay):slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):slotName==='accessory'?/талис|кольц|амул|ожерел|access/.test(hay):!/зель|еда|монет|ключ|potion/.test(hay);
+    var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),allowed=
+      slotName==='head'?/голов|шлем|капюш|head/.test(hay):
+      slotName==='armor'?/брон|доспех|одеж|ряса|body|armor/.test(hay):
+      slotName==='cloak'?/плащ|накид|cloak/.test(hay):
+      slotName==='weapon'?/оруж|меч|кинжал|топор|лук|молот|weapon/.test(hay):
+      slotName==='hands'?/перчат|наруч|рукав|hands|glove/.test(hay):
+      slotName==='legs'?/сапог|ботин|обув|понож|legs|boot/.test(hay):
+      /^accessory[12]$/.test(slotName)?/талис|кольц|амул|ожерел|access/.test(hay):false;
     if(!allowed){if(w.showToast)w.showToast('Этот предмет не подходит для выбранного слота');return;}
     (c.inventoryItems||[]).forEach(function(entry){if(entry&&entry!==item&&entry.equipped===true&&entry.slot===slotName)entry.equipped=false;});
     (c.equipItems||[]).forEach(function(entry){if(entry&&entry.equipped!==false&&entry.slot===slotName)entry.equipped=false;});
@@ -14895,7 +15398,7 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgVttInventoryCloseItem=function(){var modal=el('zg-vtt-item-detail');if(modal)modal.remove();inventoryDetail=null;};
   w.zgVttInventoryEditItem=function(){if(!inventoryDetail)return;var member=ownMember(),c=fullLocalCharacter(member);if(!c)return;var detail=inventoryDetail;w.zgVttInventoryCloseItem();if(typeof w.openItemConstructor==='function')w.openItemConstructor(c.id,detail.source,detail.index);};
-  w.zgVttInventoryQuickEquip=function(index){var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];if(!item)return;var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),slot=/голов|шлем|капюш/.test(hay)?'head':/брон|доспех|одеж|ряса|плащ/.test(hay)?'body':/оруж|меч|кинжал|топор|лук|молот/.test(hay)?'weapon':/талис|кольц|амул|ожерел/.test(hay)?'accessory':'utility';var transfer={getData:function(){return String(index);}};w.zgVttInventoryDrop({preventDefault:function(){},dataTransfer:transfer},slot);w.zgVttInventoryCloseItem();};
+  w.zgVttInventoryQuickEquip=function(index){var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];if(!item)return;var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),slot=/голов|шлем|капюш/.test(hay)?'head':/плащ|накид/.test(hay)?'cloak':/перчат|наруч|рукав/.test(hay)?'hands':/сапог|ботин|обув|понож/.test(hay)?'legs':/брон|доспех|одеж|ряса/.test(hay)?'armor':/оруж|меч|кинжал|топор|лук|молот/.test(hay)?'weapon':/талис|кольц|амул|ожерел/.test(hay)?'accessory1':'';if(!slot){if(w.showToast)w.showToast('Для этого предмета нет подходящего слота');return;}var transfer={getData:function(){return String(index);}};w.zgVttInventoryDrop({preventDefault:function(){},dataTransfer:transfer},slot);w.zgVttInventoryCloseItem();};
   w.zgVttInventoryUnequip=function(source,index){if(index===undefined){index=source;source='equip';}var member=ownMember(),c=fullLocalCharacter(member),list=c&&(source==='inventory'?c.inventoryItems:c.equipItems),item=list&&list[index];if(!item)return;item.equipped=false;delete item.slot;if(typeof w.saveChars==='function')w.saveChars({reason:'inventory-unequip'});w.zgVttInventoryCloseItem();renderDrawer();if(w.showToast)w.showToast('Предмет снят');};
   function journalEntryId(){
     var suffix='';
@@ -14921,6 +15424,7 @@ document.addEventListener('DOMContentLoaded', function(){
       entry={journalId:journalEntryId(),title:'',text:'',createdAt:now,updatedAt:now,updatedBy:String(session.uid||'local').slice(0,120)};
       entries.push(entry);editor.journalId=entry.journalId;editor.created=true;
     }
+    journalSelectedId=String(entry.journalId||'');
     entry.title=values.title;entry.text=values.text;entry.updatedAt=Date.now();entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);
     journalSave(editor.created&&!editor.saved?'journal-add':'journal-update',false);editor.saved=true;
   }
@@ -14949,8 +15453,11 @@ document.addEventListener('DOMContentLoaded', function(){
     var member=ownMember(),c=fullLocalCharacter(member),entries=c&&Array.isArray(c.journalEntries)?c.journalEntries:null;if(!entries)return;
     var index=entries.findIndex(function(entry){return entry&&String(entry.journalId)===String(journalId);});if(index<0)return;
     if(!w.confirm('Удалить эту запись из журнала?'))return;
-    var entry=entries[index],stamp=Date.now();entry.deletedAt=stamp;entry.updatedAt=stamp;entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);journalSave('journal-remove',true);renderDrawer();
+    var entry=entries[index],stamp=Date.now();entry.deletedAt=stamp;entry.updatedAt=stamp;entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);if(String(journalSelectedId)===String(journalId))journalSelectedId='';journalSave('journal-remove',true);renderDrawer();
   };
+  w.zgVttJournalSelect=function(journalId){journalSelectedId=String(journalId||'');renderDrawer();};
+  w.zgVttJournalFilter=function(filter){journalFilter=['all','note','place'].indexOf(filter)>=0?filter:'all';journalPage=0;journalSelectedId='';renderDrawer();};
+  w.zgVttJournalPage=function(delta){journalPage=Math.max(0,journalPage+(Number(delta)<0?-1:1));journalSelectedId='';renderDrawer();};
   w.zgVttJournalMasterAdd=function(memberUid){
     var session=state&&state.session;
     if(!session||session.role!=='master'||!memberUid||!w.ZargotaRooms||!w.ZargotaRooms.gmAddJournalEntry){if(w.showToast)w.showToast('Добавлять мастерские записи можно только в активной комнате');return false;}
@@ -14967,7 +15474,14 @@ document.addEventListener('DOMContentLoaded', function(){
       return false;
     });
   };
-  w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','skills','spells'].indexOf(filter)>=0?filter:'all';expandedAbilityKey='';renderDrawer();};
+  w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','kodex','folio','obrad'].indexOf(filter)>=0?filter:'all';abilityCatalogPage=0;expandedAbilityKey='';renderDrawer();};
+  w.zgVttAbilitiesSearch=function(value){
+    abilitySearch=String(value||'').trim().toLowerCase().slice(0,120);
+    abilityCatalogPage=0;renderDrawer();
+    setTimeout(function(){var input=el('zg-vtt-drawer')&&el('zg-vtt-drawer').querySelector('.zg-spellbook-search input');if(!input)return;input.focus();var end=input.value.length;try{input.setSelectionRange(end,end);}catch(ignore){}},0);
+  };
+  w.zgVttAbilityCatalogPage=function(delta){abilityCatalogPage=Math.max(0,abilityCatalogPage+(Number(delta)<0?-1:1));renderDrawer();};
+  w.zgVttInnatePage=function(delta){innateAbilityPage=Math.max(0,innateAbilityPage+(Number(delta)<0?-1:1));renderDrawer();};
   w.zgVttAbilityClose=function(){var modal=el('zg-vtt-ability-detail');if(modal)modal.remove();expandedAbilityKey='';};
   function abilityDetailSection(icon,title,text,open){
     text=String(text||'').trim();if(!text)return'';
@@ -19289,6 +19803,11 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin.calibrating .zg-bag-tabs>button[data-bag-cal-key].cal-selected{outline:2px solid #6ff0a0;background:#63d98a18;box-shadow:0 0 16px #54d38299}
   .zg-vtt-drawer.backpack-skin.calibrating [data-bag-cal-key="title"],.zg-vtt-drawer.backpack-skin.calibrating [data-bag-cal-key="content"]{outline:1px dashed #67b9ff;outline-offset:-2px;cursor:move}
   .zg-vtt-drawer.backpack-skin.calibrating [data-bag-cal-key].cal-selected{outline:2px solid #6ff0a0;box-shadow:inset 0 0 18px #54d38238,0 0 13px #54d38288}
+  .zg-vtt-drawer.backpack-skin .bag-cal-element.bag-cal-adjusted{transform:translate3d(var(--bag-element-dx-px,0),var(--bag-element-dy-px,0),0) scale(var(--bag-element-sx,1),var(--bag-element-sy,1))!important;transform-origin:center;opacity:var(--bag-element-opacity,1)}
+  .zg-vtt-drawer.backpack-skin.calibrating [data-bag-element-key]{cursor:move}
+  .zg-vtt-drawer.backpack-skin.calibrating.bag-cal-outline-all [data-bag-element-key]{outline:1px dashed #62b8d7aa;outline-offset:-2px}
+  .zg-vtt-drawer.backpack-skin.calibrating [data-bag-element-key]:hover:not(:has([data-bag-element-key]:hover)){outline:2px dashed #f0bf58;outline-offset:-2px;background-color:#c9962412}
+  .zg-vtt-drawer.backpack-skin.calibrating [data-bag-element-key].cal-selected{outline:3px solid #66f2a0!important;outline-offset:-3px;box-shadow:inset 0 0 14px #54d38228,0 0 12px #54d38288!important}
   .zg-vtt-drawer.backpack-skin.calibrating.bag-cal-grid::before{content:'';position:absolute;z-index:20;inset:0;pointer-events:none;background-image:linear-gradient(to right,#68d6ff45 1px,transparent 1px),linear-gradient(to bottom,#68d6ff45 1px,transparent 1px);background-size:calc(var(--bag-grid-step)*1%) calc(var(--bag-grid-step)*1%);box-shadow:inset 0 0 0 1px #68d6ff70}
   .zg-bag-calibrator{position:fixed;z-index:2147483400;left:14px;top:72px;width:304px;max-height:calc(100vh - 88px);overflow:auto;display:none;padding:13px;border:1px solid #9b7734;border-radius:10px;background:#0d0a07f5;color:#cfb77c;box-shadow:0 18px 55px #000e;font:11px 'Cinzel',serif}
   .zg-bag-calibrator.open{display:block}
@@ -19302,10 +19821,17 @@ window.zgImageStore = (function() {
   .zg-bag-cal-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-bag-cal-actions button{min-height:31px;border:1px solid #59431f;border-radius:5px;background:#1a1208;color:#cdb171;font:9px 'Cinzel',serif;cursor:pointer}.zg-bag-cal-actions button:hover{border-color:#c99a3d;color:#f4d78e}.zg-bag-cal-actions button.primary{grid-column:1/-1;border-color:#467653;color:#82e2a0}
   .zg-bag-cal-grid-settings{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0}.zg-bag-cal-grid-settings label{display:flex;align-items:center;gap:6px;padding:6px;border:1px solid #40331f;border-radius:5px;background:#120e08;color:#9e895e;font:9px Georgia,serif}.zg-bag-cal-grid-settings input[type="number"]{width:45px;margin-left:auto;border:1px solid #4b391e;background:#080705;color:#e5c77f;text-align:center}
   .zg-bag-cal-align{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:8px 0}.zg-bag-cal-align button{min-height:27px;padding:3px;border:1px solid #47371e;border-radius:4px;background:#151008;color:#a8905e;font:8px 'Cinzel',serif;cursor:pointer}.zg-bag-cal-align button:hover{border-color:#be9137;color:#efd087}
+  .zg-bag-cal-current{margin:-2px 0 9px;padding:7px 8px;border-left:3px solid #62d992;background:#112018;color:#8ce3aa;font:700 9px/1.35 'Cinzel',serif}
+  .zg-bag-cal-panels{display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin:0 0 9px}.zg-bag-cal-panels button{min-height:28px;border:1px solid #4e3c21;border-radius:4px;background:#171008;color:#c3a76c;font:8px 'Cinzel',serif;cursor:pointer}.zg-bag-cal-panels button:hover{border-color:#c69238;color:#f1d387}
+  .zg-bag-cal-element-fields[hidden],.zg-bag-cal-layout-fields[hidden],.zg-bag-cal-element-align[hidden]{display:none!important}
+  .zg-bag-cal-element-fields{margin:7px 0;padding:7px;border:1px solid #3d523d;border-radius:6px;background:#0b120d}
+  .zg-bag-cal-nudge{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:7px 0}.zg-bag-cal-nudge button,.zg-bag-cal-layer-actions button{min-height:27px;border:1px solid #465035;border-radius:4px;background:#10170d;color:#b7ca83;cursor:pointer}.zg-bag-cal-nudge .empty{visibility:hidden}
+  .zg-bag-cal-layer-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:7px 0}
+  .zg-bag-cal-target{margin:5px 0 7px!important}
+  .zg-bag-cal-element-align small{display:block;margin-top:8px;color:#7e8f72;font:8px/1.4 Georgia,serif}
   .zg-bag-section-title{display:none}
   .zg-vtt-drawer.backpack-skin .zg-bag-section-title{display:block;color:#f0d79d;font:600 11px/1 'Cinzel',serif;letter-spacing:.8px;text-align:center;text-shadow:0 2px 5px #000}
   .zg-vtt-drawer.backpack-skin .zg-vtt-drawer-body{color:#d7c196;background:transparent;scrollbar-color:#87613a transparent}
-  .zg-vtt-drawer.backpack-skin .zg-drawer-readonly{width:max-content;max-width:100%;margin:0 auto 8px;padding:5px 10px;border:1px solid #6d5332;border-radius:14px;background:#15100bd9;color:#bda879;font:600 8px/1.2 'Cinzel',serif;letter-spacing:.5px;box-shadow:0 4px 12px #0008}
   .zg-vtt-drawer.backpack-skin .zg-bag-columns{border:0;background:transparent;box-shadow:none}
   .zg-vtt-drawer.backpack-skin .zg-bag-character-name{padding-left:10px;padding-right:10px}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-vitals>div,.zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-statbox{border:0;border-bottom:1px solid #8a584855;border-radius:0;background:transparent;box-shadow:none}
@@ -19770,7 +20296,6 @@ window.zgImageStore = (function() {
   .zg-ability-summary .zg-ability-copy{gap:4px}.zg-ability-eyebrow{display:flex!important;flex-direction:row!important;align-items:center;gap:6px!important}.zg-ability-eyebrow small{color:#8b7547;font-size:7px}.zg-ability-summary .zg-ability-copy>b{color:#ead8a7;font-size:11px;letter-spacing:.15px}.zg-ability-summary .zg-ability-copy>q{color:#7d7057;font-size:9px}.zg-ability-cooldown{align-self:flex-start;box-sizing:border-box;max-width:100%!important;padding:3px 7px!important;border-color:#514124!important;background:#181208;color:#b89a5f!important}
   .zg-ability-resource{display:flex;flex-direction:column;align-items:flex-end!important;gap:4px!important}.zg-ability-resource>small{color:#695c43!important;font-size:6px!important;letter-spacing:1px}.zg-ability-card.exhausted .zg-ability-resource>small{color:#b45c52!important}.zg-ability-charges{display:flex;flex-direction:column;align-items:flex-end;gap:4px}.zg-ability-charges>span{display:flex!important;flex-direction:row!important;justify-content:flex-end;gap:3px!important}.zg-ability-charges i{box-sizing:border-box!important;width:10px!important;height:10px!important;border:1px solid #6da26d!important;border-radius:50%!important;background:#2e6a36!important;box-shadow:0 0 6px #54a85b44!important;font-size:0!important}.zg-ability-charges i.spent{border-color:#68403b!important;background:#351b18!important;box-shadow:none!important}.zg-ability-charges small{align-self:center;color:#76674b;font:700 7px Arial!important}.zg-ability-charges>b{color:#bfa56b!important;font:700 8px 'Cinzel',serif!important}.zg-ability-charges.modal{width:100%;align-items:flex-start;margin-top:2px}.zg-ability-charges.modal>span{justify-content:flex-start}.zg-ability-charges.modal i{width:15px!important;height:15px!important}.zg-ability-charges.modal>b{font-size:9px!important}
   .zg-ability-learn{align-self:auto;padding:2px 7px;font-size:6px}.zg-abilities-panel>footer{padding:7px 12px;color:#71664f;line-height:1.55}
-  .zg-drawer-readonly{margin-bottom:10px;padding:8px 10px;border:1px solid #675c42;border-radius:4px;background:#18140d;color:#aa9b7a;font:8px 'Cinzel',serif;letter-spacing:.45px;text-align:center}
   .zg-bag-operation-state{margin-bottom:10px;padding:8px 10px;border:1px solid #4a3a23;border-radius:5px;background:#151108;color:#a99a7c;font-size:10px}.zg-bag-operation-state.loading{border-color:#82652e;color:#d5b66f}.zg-bag-operation-state.success{border-color:#416641;color:#8fc78f}.zg-bag-operation-state.error{border-color:#753f3f;color:#dc8989}
   .zg-ability-modal-backdrop{position:fixed;z-index:12200;inset:0;display:grid;place-items:center;padding:18px;background:#030201c7;backdrop-filter:blur(5px)}.zg-ability-modal{position:relative;width:min(720px,calc(100vw - 30px));max-height:min(82vh,760px);overflow:auto;padding:26px;border:1px solid #846229;border-radius:6px;background:radial-gradient(circle at 50% 0,#7b531924,transparent 38%),linear-gradient(145deg,#181109,#090705 74%);box-shadow:0 30px 100px #000;color:#a99979}.zg-ability-modal-close{position:absolute;right:10px;top:8px;width:35px;height:35px;border:0;background:transparent;color:#a58c5d;font-size:27px;cursor:pointer}.zg-ability-modal header{display:flex;gap:14px;align-items:center;padding-right:35px}.zg-ability-modal header>i{width:50px;height:50px;border:1px solid #65491f;border-radius:50%;display:grid;place-items:center;color:#e0bd62;font:normal 25px serif}.zg-ability-modal header div{min-width:0}.zg-ability-modal header small{color:#987c43;font:8px 'Cinzel',serif;letter-spacing:1.6px;text-transform:uppercase}.zg-ability-modal h3{margin:5px 0;color:#ecd69d;font:600 22px 'Cinzel',serif}.zg-ability-modal header em{color:#81704f;font:italic 10px Georgia,serif}.zg-ability-spell-state{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 8px;padding:10px 12px;border:1px solid #456b48;border-radius:4px;background:#101a11;color:#8fca93}.zg-ability-spell-state.locked{border-style:dashed;border-color:#655d50;background:#15120e;color:#9a9180}.zg-ability-spell-state.unknown{border-color:#5d553f;background:#17140d;color:#a39779}.zg-ability-spell-state b{width:100%;font:600 9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-spell-state span{padding:3px 7px;border:1px solid currentColor;border-radius:9px;font:8px 'Cinzel',serif}.zg-ability-spell-state small{width:100%;color:#a99b80;font:11px/1.45 Georgia,serif}.zg-ability-spell-state small strong{color:#cfb77e}.zg-ability-gm-resource{display:grid;grid-template-columns:minmax(0,1fr) 108px 108px;gap:7px;align-items:center;margin:12px 0;padding:11px 12px;border:1px solid #705528;border-radius:5px;background:linear-gradient(100deg,#211709,#110d07);box-shadow:inset 0 1px 0 #e5c66a12}.zg-ability-gm-resource div{display:flex;flex-direction:column;gap:3px}.zg-ability-gm-resource small{color:#94763d;font:700 7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-ability-gm-resource b{color:#e2c67d;font:600 11px 'Cinzel',serif}.zg-ability-gm-resource span{color:#776b52;font:9px Georgia,serif}.zg-ability-gm-resource button{height:35px;border:1px solid #6b5127;border-radius:4px;background:#1b1309;color:#d6b767;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-ability-gm-resource button:hover:not(:disabled){border-color:#c8973d;background:#2b1d0b;color:#ffe09a}.zg-ability-gm-resource button:disabled{opacity:.35;cursor:not-allowed}.zg-ability-modal-copy{margin-top:16px;padding:18px;border:1px solid #332817;border-radius:4px;background:#0b0906;color:#b6a889;font:15px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-modal aside{margin-top:12px;padding:12px 14px;border-left:3px solid #7c5527;background:#21130c;color:#a98468;font:12px/1.55 Georgia,serif;white-space:pre-line}.zg-ability-modal aside b{display:block;margin-bottom:5px;color:#d2ad72;font:9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-modal footer{display:grid;grid-template-columns:1fr 130px;gap:9px;margin-top:15px}.zg-ability-modal footer button{height:42px;border:1px solid #795925;border-radius:4px;background:#26190b;color:#e2c577;font:600 10px 'Cinzel',serif;cursor:pointer}.zg-ability-modal footer button:last-child{background:#0d0b08;color:#8f8064}.zg-ability-modal footer button:disabled{opacity:.4;cursor:not-allowed}@media(max-width:620px){.zg-ability-gm-resource{grid-template-columns:1fr 1fr}.zg-ability-gm-resource div{grid-column:1/-1}}
   .zg-ability-detail-sections{margin-top:15px;border-top:1px solid #392b18}.zg-ability-detail-section{border-bottom:1px solid #302414;background:transparent}.zg-ability-detail-section summary{min-height:45px;display:grid;grid-template-columns:24px minmax(0,1fr) 18px;gap:8px;align-items:center;padding:0 7px;color:#b9a47a;cursor:pointer;list-style:none}.zg-ability-detail-section summary::-webkit-details-marker{display:none}.zg-ability-detail-section summary:hover{color:#ead49a;background:#a77a2810}.zg-ability-detail-section summary i{font-style:normal;text-align:center}.zg-ability-detail-section summary b{font:600 9px 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}.zg-ability-detail-section summary span{font-size:15px;transition:transform .18s ease}.zg-ability-detail-section[open] summary span{transform:rotate(180deg)}.zg-ability-detail-section>div{padding:3px 39px 17px;color:#b7a787;font:14px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-detail-section[open]{background:linear-gradient(90deg,#8e652314,transparent 70%)}@media(max-width:620px){.zg-ability-detail-section>div{padding-left:10px;padding-right:10px}.zg-ability-modal{padding:20px 16px}.zg-ability-modal footer{grid-template-columns:1fr}}
@@ -20060,7 +20585,7 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open):last-of-type{border-right:0!important}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open) img{display:none!important}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>i{display:block;color:#aa8350;font:normal 19px/23px Georgia,serif;filter:drop-shadow(0 2px 2px #000)}
-  .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){background:linear-gradient(180deg,#6630159c,#2b160dbd)!important;box-shadow:inset 0 -2px #a96b32!important}.zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close)>i{color:#d3a25d}
+.zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){background:transparent!important;box-shadow:none!important}.zg-vtt-drawer.backpack-skin .zg-bag-tabs>button.active:not(.zg-vtt-panel-close)>i{color:#d3a25d}
   .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key]{top:0!important;width:25%!important;height:100%!important;transform:none!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="status"]{left:0!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="items"]{left:25%!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="magic"]{left:50%!important}.zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-tabs>button[data-bag-cal-key="journal"]{left:75%!important}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-vtt-drawer-body{overflow:auto;overscroll-behavior:contain;contain:paint;clip-path:inset(0 round 0 0 17px 17px);padding:7px 9px 17px;background:transparent}
   .zg-state-board{min-height:100%;box-sizing:border-box;padding:7px;border:1px solid #5a3c25;border-radius:8px;background:linear-gradient(135deg,#21160f,#100b08 70%);color:#bda27a;box-shadow:inset 0 0 28px #000c,0 6px 16px #0008}
@@ -20074,14 +20599,11 @@ window.zgImageStore = (function() {
   .zg-state-injuries{margin-top:8px;border:1px solid #4e3421;border-radius:5px;background:#130e0a;overflow:hidden}.zg-state-injuries>div{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:7px}.zg-state-injury{display:grid;place-items:center;aspect-ratio:1;border:1px solid #513722;border-radius:5px;background:#100b08;color:#5e472f}.zg-state-injury i{font:normal 20px Georgia,serif}.zg-state-injury b{max-width:90%;overflow:hidden;color:#766247;font:600 6.5px 'Cinzel',serif;text-align:center;text-overflow:ellipsis;white-space:nowrap}.zg-state-injury.filled{border-color:#76502f;background:#20120d}.zg-state-injury.filled i{color:#a0503d}.zg-state-injury.filled b{color:#b7966e}
   .zg-vtt-drawer.backpack-skin .zg-bag-section-title{display:none!important}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-state-tools{position:absolute;z-index:7;right:8px;top:5px;margin:0}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-drawer-readonly{position:absolute;z-index:7;left:8px;top:5px;width:22px;height:22px;margin:0;padding:0;border-radius:50%;font-size:0;overflow:hidden}
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-drawer-readonly::before{content:'◈';font:700 9px/20px 'Cinzel',serif}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{padding-top:33px}
   @media(max-width:560px){.zg-state-main{grid-template-columns:40% minmax(0,1fr)}.zg-state-portrait{height:137px}.zg-state-stat-list>div{grid-template-columns:25px minmax(0,1fr) 24px 17px;min-height:41px;padding:1px 3px}.zg-state-stat-list img{width:23px;height:23px}.zg-state-stat-list b{font-size:6px}.zg-state-stat-list strong{font-size:11px}.zg-state-fame-row{padding:5px}.zg-state-fame-row header b{font-size:6px}.zg-state-effect-row{grid-template-columns:26px minmax(0,1fr);min-height:38px;padding:3px 4px}.zg-state-effect-row>i{width:23px;height:23px}.zg-state-effect-row>em{display:none}}
 
   /* Точная подгонка под финальный концепт: резкая типографика и плотная сетка. */
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-state-tools,
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-drawer-readonly{display:none!important}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-bag-state-tools{display:none!important}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{padding:8px;text-shadow:none}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>i{font-size:22px;line-height:25px}
   .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>span{color:#c1a275;font-size:9px;line-height:12px;text-shadow:none}
@@ -20300,12 +20822,28 @@ window.zgImageStore = (function() {
     pointer-events:none;
   }
   .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs{
-    left:3.125%;
-    top:1.35%;
-    width:92.1875%;
-    height:8.7%;
+    left:4%;
+    top:1.5%;
+    width:91.5%;
+    height:7.5%;
     border-radius:0;
     overflow:visible;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-interface .zg-bag-tabs[data-bag-cal-key="tabbar"]{
+    left:calc(var(--bag-cal-x)*1%)!important;
+    top:calc(var(--bag-cal-y)*1%)!important;
+    width:calc(var(--bag-cal-w)*1%)!important;
+    height:calc(var(--bag-cal-h)*1%)!important;
+    border-radius:calc(var(--bag-cal-radius,0)*1px)!important;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs[data-bag-cal-key="tabbar"]::before{
+    border-radius:inherit;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-interface .zg-bag-tabs[data-bag-cal-key="tabbar"]>button[data-bag-cal-key]{
+    left:calc(var(--bag-cal-x)*1%)!important;
+    top:calc(var(--bag-cal-y)*1%)!important;
+    width:calc(var(--bag-cal-w)*1%)!important;
+    height:calc(var(--bag-cal-h)*1%)!important;
   }
   .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
     --zg-tab-icon-size:21px;
@@ -20428,6 +20966,115 @@ window.zgImageStore = (function() {
     }
   }
 
+  /* Точная внутренняя подгонка без изменения внешней границы интерфейса. */
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs{
+    top:1.5%;
+    height:7.5%;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated .zg-bag-interface .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    top:10.2%!important;
+    height:89.8%!important;
+    padding-left:6px;
+    padding-right:6px;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    --zg-tab-icon-size:23px;
+    grid-template-rows:24px 10px!important;
+    row-gap:0;
+    padding:0 2px!important;
+    isolation:isolate;
+    overflow:visible;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button[data-bag-cal-key="items"]:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){--zg-tab-icon-size:24px}
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button[data-bag-cal-key="magic"]:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){--zg-tab-icon-size:28px}
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button[data-bag-cal-key="journal"]:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){--zg-tab-icon-size:23px}
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)::before{
+    content:"";
+    position:absolute;
+    z-index:0;
+    left:50%;
+    top:39%;
+    width:68px;
+    height:46px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:radial-gradient(ellipse at center,rgba(244,184,94,.34) 0%,rgba(181,103,42,.18) 42%,rgba(91,43,19,0) 74%);
+    filter:blur(2px);
+    pointer-events:none;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>img{
+    position:relative;
+    z-index:1;
+    transform:translateY(-1px) scale(var(--bag-cal-icon,1))!important;
+    filter:brightness(1.24) saturate(1.2) drop-shadow(0 0 4px rgba(255,210,130,.82)) drop-shadow(0 0 10px rgba(184,104,43,.58))!important;
+  }
+  .zg-vtt-drawer.backpack-skin .zg-bag-interface .zg-bag-tabs>button.active:not(.zg-vtt-panel-close):not(.zg-bag-cal-open)>span{
+    position:relative;
+    z-index:1;
+    color:#f1cf94!important;
+    text-shadow:0 0 6px rgba(209,135,55,.62),0 1px 2px #000!important;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-board{padding:5px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-main{gap:6px}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-injuries>div{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    justify-content:stretch;
+    gap:6px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-injury{
+    width:100%;
+    max-width:none;
+    aspect-ratio:1.12;
+  }
+  @media(min-width:561px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-left h3{
+      font-size:15px;
+      line-height:1.22;
+    }
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-left>p{font-size:9.5px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list>div{
+      grid-template-columns:42px minmax(0,1fr) 41px 28px;
+      padding-right:8px;
+      padding-left:8px;
+    }
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list img{
+      width:39px;
+      height:39px;
+    }
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list b{
+      font-size:11.5px;
+      letter-spacing:.1px;
+    }
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list strong{font-size:22px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list em{font-size:11px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-fame-row header b{font-size:11px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-fame-row header span{font-size:14px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-fame-row>div i{font-size:14px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp{
+      grid-template-columns:40px minmax(0,1fr) auto;
+      gap:8px;
+    }
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>i{font-size:35px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp small{font-size:10.5px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp b{font-size:23px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>em{font-size:12px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>u{height:6px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-combat-values small{font-size:10.5px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-combat-values i{font-size:18px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-combat-values b{font-size:21px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] :is(.zg-state-effects,.zg-state-injuries)>h4{
+      font-size:11.5px;
+      letter-spacing:.75px;
+    }
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-effects>div>p{font-size:10px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-injury i{font-size:26px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-injury b{font-size:9px}
+  }
+
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped,
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-storage{
     background:linear-gradient(180deg,#1009058f,#0b07045e);
@@ -20476,7 +21123,7 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-columns h4{
     margin:0;
     color:#d9c18c;
-    font-size:10px;
+    font-size:11px;
     letter-spacing:.75px;
     text-transform:uppercase;
   }
@@ -20493,7 +21140,7 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-list{
     display:flex;
     flex-direction:column;
-    gap:4px;
+    gap:6px;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot{
     min-height:57px;
@@ -20502,10 +21149,10 @@ window.zgImageStore = (function() {
     overflow:hidden;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot>small{
-    left:49px;
-    top:7px;
+    left:53px;
+    top:8px;
     color:#9c7d53;
-    font-size:7px;
+    font-size:9px;
     letter-spacing:.8px;
     text-transform:uppercase;
   }
@@ -20594,15 +21241,19 @@ window.zgImageStore = (function() {
     min-width:0;
     overflow:hidden;
     text-overflow:ellipsis;
-    white-space:nowrap;
+    white-space:normal;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy b{
     color:#dec89a;
-    font:600 8px 'Cinzel',serif;
+    font:600 9.5px/1.25 'Cinzel',serif;
+    -webkit-line-clamp:2;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-copy em{
     color:#8f7b5b;
-    font:normal 7px Georgia,serif;
+    font:normal 8.5px/1.3 Georgia,serif;
+    -webkit-line-clamp:2;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-item-meta{
     position:static;
@@ -20622,23 +21273,92 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item{
     height:57px;
     min-height:57px;
-    grid-template-columns:37px minmax(0,1fr);
-    gap:5px;
-    padding:15px 5px 4px;
+    grid-template-columns:42px minmax(0,1fr);
+    gap:7px;
+    padding:16px 7px 5px;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-art{
-    width:35px;
-    height:35px;
+    width:40px;
+    height:40px;
     border:0;
     background:transparent;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-art img,
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-art i{
-    width:34px;
-    height:34px;
+    width:39px;
+    height:39px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-copy b{
+    font-size:10px;
+    line-height:1.25;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-copy em{
+    font-size:8.5px;
+    line-height:1.28;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-meta{
     display:none;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped{
+    min-width:0;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-list{
+    min-height:0;
+    flex:1;
+    display:grid;
+    grid-template-rows:repeat(5,minmax(76px,1fr));
+    gap:7px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:76px;
+    display:grid;
+    grid-template-rows:22px minmax(0,1fr);
+    align-items:stretch;
+    justify-content:stretch;
+    padding:0;
+    overflow:hidden;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot>small{
+    position:static;
+    grid-row:1;
+    min-width:0;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    padding:5px 8px 2px;
+    color:#a38659;
+    font:600 8px/1.15 'Cinzel',serif;
+    letter-spacing:.45px;
+    text-align:center;
+    text-transform:uppercase;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot>.zg-bag-item{
+    grid-row:2;
+    align-self:stretch;
+    box-sizing:border-box;
+    width:100%;
+    height:auto;
+    min-height:0;
+    grid-template-columns:40px minmax(0,1fr);
+    gap:7px;
+    padding:3px 8px 8px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equip-slot>.zg-bag-slot-mark{
+    grid-row:2;
+    align-self:center;
+    justify-self:center;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-copy{
+    align-self:center;
+    overflow:hidden;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-copy b{
+    -webkit-line-clamp:2;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-equipped .zg-bag-item-copy em{
+    -webkit-line-clamp:2;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-empty{
     min-height:130px;
@@ -20690,6 +21410,445 @@ window.zgImageStore = (function() {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-quick-grid .zg-bag-item-meta{
     display:none;
   }
+  /* Высота колонок из калибровки остаётся, но текст и иконки не растягиваются вместе с ней. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-columns.bag-cal-adjusted :is(
+    h4,
+    .zg-bag-equip-slot>small,
+    .zg-bag-equip-slot>.zg-bag-slot-mark,
+    .zg-bag-equip-slot>.zg-bag-item>*,
+    .zg-bag-storage-head,
+    .zg-bag-filters>button,
+    .zg-bag-storage-tools>input,
+    .zg-bag-storage-tools>select,
+    .zg-bag-grid>.zg-bag-item>*
+  ){
+    transform:scaleY(var(--bag-columns-inverse-sy,1));
+    transform-origin:top center;
+  }
+
+  /* Inventory v3: isolated fixed-frame layout. No inherited item scaling and no scrolling. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-vtt-drawer-body{
+    overflow:hidden!important;
+    padding:4px 6px 7px!important;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="items"] .zg-bag-operation-state{
+    position:absolute;
+    z-index:20;
+    left:12px;
+    right:12px;
+    top:7px;
+    margin:0;
+    pointer-events:none;
+  }
+  .zg-inv2{
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:minmax(128px,34%) minmax(0,66%);
+    grid-template-rows:minmax(0,1fr) 76px;
+    gap:7px 8px;
+    overflow:hidden;
+    color:#bca77f;
+  }
+  .zg-inv2>section{
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+    border:1px solid #614326;
+    background:
+      radial-gradient(circle at 50% 0,rgba(145,91,34,.12),transparent 32%),
+      linear-gradient(150deg,rgba(24,15,9,.96),rgba(8,7,5,.98));
+    box-shadow:inset 0 0 25px rgba(0,0,0,.54),inset 0 1px rgba(228,186,105,.07);
+  }
+  .zg-inv2 h4{
+    margin:0;
+    color:#ddc28b;
+    font:600 11px/1 'Cinzel',serif;
+    letter-spacing:.55px;
+    text-transform:uppercase;
+  }
+  .zg-inv2-equipped{
+    grid-column:1;
+    grid-row:1;
+    display:grid;
+    grid-template-rows:38px minmax(0,1fr);
+    border-radius:8px 8px 3px 3px;
+  }
+  .zg-inv2-equipped>header,
+  .zg-inv2-storage>header{
+    min-width:0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 10px;
+    border-bottom:1px solid #49321e;
+    background:linear-gradient(180deg,rgba(48,29,13,.66),rgba(19,13,8,.52));
+  }
+  .zg-inv2-equip-list{
+    min-height:0;
+    display:grid;
+    grid-template-rows:repeat(8,minmax(0,1fr));
+    gap:3px;
+    padding:5px;
+    overflow:hidden;
+  }
+  .zg-inv2-equip-slot{
+    position:relative;
+    box-sizing:border-box;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr);
+    align-items:center;
+    overflow:hidden;
+    border:1px solid #4d351f;
+    border-radius:4px;
+    background:linear-gradient(100deg,rgba(31,20,12,.92),rgba(11,8,6,.88));
+    box-shadow:inset 0 1px rgba(231,191,112,.05),0 2px 5px rgba(0,0,0,.28);
+  }
+  .zg-inv2-equip-slot.dragover{
+    border-color:#d0a651;
+    background:linear-gradient(100deg,#3a260f,#171007);
+    box-shadow:inset 0 0 15px rgba(207,151,50,.2),0 0 10px rgba(207,151,50,.22);
+  }
+  .zg-inv2-slot-art,
+  .zg-inv2-equipped-art{
+    box-sizing:border-box;
+    width:36px;
+    height:calc(100% - 6px);
+    min-height:32px;
+    max-height:49px;
+    margin-left:3px;
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+    border:1px solid #49331f;
+    border-radius:3px;
+    background:#090705;
+    color:#6b5435;
+    font:700 8px 'Cinzel',serif;
+  }
+  .zg-inv2-slot-copy{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    padding:4px 7px;
+  }
+  .zg-inv2-slot-copy b{
+    color:#8f7954;
+    font:600 8px 'Cinzel',serif;
+    text-transform:uppercase;
+  }
+  .zg-inv2-slot-copy em{
+    color:#554a39;
+    font:normal 7px Georgia,serif;
+  }
+  .zg-inv2-equipped-item{
+    grid-column:1/-1;
+    align-self:stretch;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr);
+    align-items:center;
+    gap:0;
+    padding:0;
+    border:0;
+    background:transparent;
+    color:inherit;
+    text-align:left;
+    cursor:pointer;
+  }
+  .zg-inv2-equipped-art img,
+  .zg-inv2-equipped-art i{
+    width:31px;
+    height:31px;
+    object-fit:contain;
+    font:normal 20px/31px serif;
+  }
+  .zg-inv2-equipped-copy{
+    min-width:0;
+    align-self:stretch;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:2px;
+    padding:12px 7px 3px;
+    overflow:hidden;
+  }
+  .zg-inv2-equipped-copy b,
+  .zg-inv2-equipped-copy em{
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-inv2-equipped-copy b{
+    color:#d7be87;
+    font:600 8.5px/1.15 'Cinzel',serif;
+  }
+  .zg-inv2-equipped-copy em{
+    color:#8d7b5c;
+    font:normal 7.5px/1.15 Georgia,serif;
+  }
+  .zg-inv2-equip-slot>small{
+    position:absolute;
+    z-index:2;
+    left:45px;
+    top:4px;
+    right:4px;
+    overflow:hidden;
+    color:#92764c;
+    font:600 6.5px/1 'Cinzel',serif;
+    letter-spacing:.45px;
+    text-transform:uppercase;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+    pointer-events:none;
+  }
+  .zg-inv2-quick{
+    grid-column:1;
+    grid-row:2;
+    display:grid;
+    grid-template-rows:28px minmax(0,1fr);
+    border-radius:3px 3px 8px 8px;
+  }
+  .zg-inv2-quick>h4{
+    display:flex;
+    align-items:center;
+    padding:0 8px;
+    border-bottom:1px solid #49321e;
+    font-size:8px;
+  }
+  .zg-inv2-quick>div{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:4px;
+    padding:5px;
+  }
+  .zg-inv2-quick-slot{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+    border:1px solid #49331f;
+    border-radius:4px;
+    background:linear-gradient(145deg,#100b07,#080604);
+    color:#6e5533;
+  }
+  button.zg-inv2-quick-slot{cursor:pointer}
+  .zg-inv2-quick-slot img,
+  .zg-inv2-quick-slot i{
+    width:30px;
+    height:30px;
+    object-fit:contain;
+    font:normal 19px/30px serif;
+  }
+  .zg-inv2-storage{
+    position:relative;
+    grid-column:2;
+    grid-row:1/3;
+    display:grid;
+    grid-template-rows:38px 42px minmax(0,1fr) 24px;
+    border-radius:8px;
+  }
+  .zg-inv2-storage::before{
+    content:"";
+    position:absolute;
+    left:-7px;
+    top:12px;
+    bottom:12px;
+    width:3px;
+    border-left:1px solid #2c1d12;
+    border-right:1px solid #75502d;
+    opacity:.72;
+  }
+  .zg-inv2-storage>header>span{
+    margin-left:auto;
+    color:#c5aa76;
+    font:9px 'Cinzel',serif;
+    white-space:nowrap;
+  }
+  .zg-inv2-lock{
+    color:#746247;
+    font-style:normal;
+    font-size:10px;
+  }
+  .zg-inv2-add{
+    width:24px;
+    height:24px;
+    border:1px solid #5f4526;
+    border-radius:5px;
+    background:#100b07;
+    color:#a88b54;
+    font-size:16px;
+    line-height:20px;
+    cursor:pointer;
+  }
+  .zg-inv2-add:hover{border-color:#a9823d;color:#e0c277}
+  .zg-inv2-filters{
+    min-width:0;
+    display:grid;
+    grid-template-columns:1.25fr repeat(5,minmax(0,1fr));
+    gap:3px;
+    padding:5px 7px;
+    border-bottom:1px solid #39291a;
+  }
+  .zg-inv2-filters button{
+    min-width:0;
+    height:31px;
+    border:1px solid #47331f;
+    border-radius:4px;
+    background:linear-gradient(#171109,#0c0906);
+    color:#796647;
+    font:600 10px 'Cinzel',serif;
+    cursor:pointer;
+  }
+  .zg-inv2-filters button:first-child{font-size:8px}
+  .zg-inv2-filters button.active{
+    border-color:#906a31;
+    background:linear-gradient(#3a2813,#191008);
+    color:#e0c078;
+    box-shadow:inset 0 0 10px rgba(184,123,39,.15);
+  }
+  .zg-inv2-list{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:repeat(12,minmax(0,1fr));
+    overflow:hidden;
+    border-bottom:1px solid #3d2b1a;
+    background:rgba(5,4,3,.38);
+  }
+  .zg-inv2-item,
+  .zg-inv2-item-placeholder{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+    border:0;
+    border-bottom:1px solid #352719;
+    background:linear-gradient(90deg,rgba(41,27,15,.32),rgba(10,8,6,.12));
+  }
+  .zg-inv2-item{
+    width:100%;
+    display:grid;
+    grid-template-columns:43px minmax(0,1fr) 38px;
+    align-items:center;
+    gap:7px;
+    padding:2px 7px 2px 4px;
+    color:inherit;
+    text-align:left;
+    cursor:pointer;
+  }
+  .zg-inv2-item:hover{background:linear-gradient(90deg,rgba(87,57,25,.35),rgba(15,10,7,.12))}
+  .zg-inv2-art{
+    box-sizing:border-box;
+    width:38px;
+    height:calc(100% - 4px);
+    min-height:29px;
+    max-height:39px;
+    display:grid;
+    place-items:center;
+    overflow:hidden;
+    border:1px solid #43301e;
+    border-radius:3px;
+    background:#080604;
+  }
+  .zg-inv2-art img,
+  .zg-inv2-art i{
+    width:31px;
+    height:31px;
+    object-fit:contain;
+    font:normal 19px/31px serif;
+  }
+  .zg-inv2-copy{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .zg-inv2-copy b,
+  .zg-inv2-copy em{
+    overflow:hidden;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-inv2-copy b{
+    color:#d5bb84;
+    font:500 9px/1.15 'Cinzel',serif;
+  }
+  .zg-inv2-copy em{
+    color:#847458;
+    font:normal 7.5px/1.15 Georgia,serif;
+  }
+  .zg-inv2-meta{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:2px;
+  }
+  .zg-inv2-meta b{color:#c4aa75;font:normal 8px Georgia,serif}
+  .zg-inv2-meta small{color:#71634d;font:6.5px Georgia,serif}
+  .zg-inv2-item-placeholder{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    color:#4f4433;
+  }
+  .zg-inv2-item-placeholder b{font:600 7px 'Cinzel',serif}
+  .zg-inv2-item-placeholder small{font:6.5px Georgia,serif}
+  .zg-inv2-pages{
+    display:grid;
+    grid-template-columns:30px minmax(0,1fr) 30px;
+    align-items:center;
+    padding:1px 7px;
+    background:#0a0705;
+  }
+  .zg-inv2-pages button{
+    height:20px;
+    border:0;
+    background:transparent;
+    color:#a5844e;
+    font:18px/18px Georgia,serif;
+    cursor:pointer;
+  }
+  .zg-inv2-pages button:disabled{opacity:.18;cursor:default}
+  .zg-inv2-pages span{
+    color:#695a42;
+    font:7px 'Cinzel',serif;
+    text-align:center;
+  }
+  @media(max-width:560px){
+    .zg-inv2{grid-template-columns:minmax(112px,37%) minmax(0,63%);gap:5px}
+    .zg-inv2-equip-list{gap:2px;padding:3px}
+    .zg-inv2-equip-slot{grid-template-columns:34px minmax(0,1fr)}
+    .zg-inv2-slot-art,.zg-inv2-equipped-art{width:30px;margin-left:2px}
+    .zg-inv2-equipped-item{grid-template-columns:34px minmax(0,1fr)}
+    .zg-inv2-equip-slot>small{left:36px;font-size:5.5px}
+    .zg-inv2-equipped-copy{padding-left:4px;padding-right:3px}
+    .zg-inv2-equipped-copy b{font-size:7px}
+    .zg-inv2-equipped-copy em{font-size:6px}
+    .zg-inv2-slot-copy{padding-left:4px;padding-right:3px}
+    .zg-inv2-slot-copy b{font-size:6px}
+    .zg-inv2-storage{grid-template-rows:35px 38px minmax(0,1fr) 22px}
+    .zg-inv2-storage>header{padding:0 6px}
+    .zg-inv2 h4{font-size:8px}
+    .zg-inv2-filters{padding:4px;gap:2px}
+    .zg-inv2-filters button{height:28px;font-size:8px}
+    .zg-inv2-item{grid-template-columns:34px minmax(0,1fr) 31px;gap:4px;padding-left:2px;padding-right:4px}
+    .zg-inv2-art{width:31px}.zg-inv2-art img,.zg-inv2-art i{width:27px;height:27px;line-height:27px}
+    .zg-inv2-copy b{font-size:7px}.zg-inv2-copy em{font-size:6px}.zg-inv2-meta b{font-size:7px}.zg-inv2-meta small{font-size:5.5px}
+  }
 
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-abilities-panel>header,
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-abilities-panel>nav{
@@ -20729,39 +21888,1138 @@ window.zgImageStore = (function() {
     color:#c8a674;
     font-size:8px;
   }
-
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-bag-notes{
-    gap:10px;
-    padding:8px 10px 28px;
+  /* Магическая книга: заполненная сетка внутри существующей рамки рюкзака. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-vtt-drawer-body{
+    overflow:hidden;
   }
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry,
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy article{
-    padding:15px 16px;
-    border:1px solid #8e643f8c;
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-spellbook{
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    min-height:0;
+    display:grid;
+    grid-template-columns:minmax(126px,34%) minmax(0,66%);
+    grid-template-rows:minmax(0,1fr) auto auto;
+    gap:7px;
+    padding:2px;
+    color:#b9a67e;
+  }
+  .zg-spellbook>section{
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+    border:1px solid #5b4226;
+    border-radius:10px;
+    background:
+      radial-gradient(circle at 50% -12%,rgba(151,100,41,.16),transparent 38%),
+      linear-gradient(145deg,rgba(28,18,11,.94),rgba(10,8,6,.97));
+    box-shadow:inset 0 1px rgba(240,199,111,.07),inset 0 0 28px rgba(0,0,0,.42),0 5px 13px rgba(0,0,0,.35);
+  }
+  .zg-spellbook section>header{
+    box-sizing:border-box;
+    min-height:43px;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:7px 10px;
+    border-bottom:1px solid #49331e;
+    background:linear-gradient(180deg,rgba(48,30,14,.76),rgba(22,15,9,.58));
+  }
+  .zg-spellbook section>header>div{min-width:0}
+  .zg-spellbook section>header small{
+    display:block;
+    color:#846d45;
+    font:700 6px/1.2 'Cinzel',serif;
+    letter-spacing:1.25px;
+  }
+  .zg-spellbook section>header h3{
+    margin:2px 0 0;
+    color:#e1c47f;
+    font:600 12px/1.15 'Cinzel',serif;
+    letter-spacing:.25px;
+  }
+  .zg-spellbook section>header>span{
+    flex:0 0 auto;
+    min-width:22px;
+    height:22px;
+    margin-left:auto;
+    display:grid;
+    place-items:center;
+    border:1px solid #6c4e27;
+    border-radius:50%;
+    background:#110c07;
+    color:#c6a15c;
+    font:700 7px 'Cinzel',serif;
+    box-shadow:inset 0 0 8px rgba(187,126,40,.16);
+  }
+  .zg-spellbook-innate{
+    grid-column:1;
+    grid-row:1;
+    display:flex;
+    flex-direction:column;
+  }
+  .zg-spellbook-innate>div{
+    min-height:0;
+    display:flex;
+    flex:1;
+    flex-direction:column;
+    gap:6px;
+    padding:7px;
+    overflow-y:auto;
+  }
+  .zg-spell-innate-card{
+    --spell-tone:#b88a3d;
+    position:relative;
+    flex:1 0 112px;
+    min-height:112px;
+    overflow:hidden;
+    border:1px solid color-mix(in srgb,var(--spell-tone) 52%,#342617);
     border-radius:8px;
-    background:linear-gradient(145deg,#23130ced,#100a07e8);
-    box-shadow:inset 0 1px #e5bd7a18,0 5px 14px #0008;
-    overflow-wrap:anywhere;
+    background:
+      radial-gradient(circle at 50% 22%,color-mix(in srgb,var(--spell-tone) 18%,transparent),transparent 48%),
+      linear-gradient(160deg,#1b130c,#0b0907 74%);
+    box-shadow:inset 0 0 0 2px #090705,0 4px 10px #0007;
   }
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry b,
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy b{
-    color:#f0d69d;
-    font-size:13px;
-    text-shadow:0 2px 3px #000;
+  .zg-spell-innate-card::after{
+    content:"";
+    position:absolute;
+    inset:auto 17% 0;
+    height:1px;
+    background:linear-gradient(90deg,transparent,var(--spell-tone),transparent);
+    opacity:.65;
   }
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry p,
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-legacy p{
-    color:#d5c09c;
-    font-size:12px;
-    line-height:1.62;
-    text-shadow:0 1px 2px #000;
-    overflow-wrap:anywhere;
+  .zg-spell-innate-card>button{
+    width:100%;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:5px;
+    padding:10px 8px 8px;
+    border:0;
+    background:transparent;
+    color:inherit;
+    cursor:pointer;
   }
-  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-entry small{
-    color:#aa8c63;
+  .zg-spell-innate-card .zg-spell-glyph{
+    width:46px;
+    height:46px;
+    font-size:22px;
+  }
+  .zg-spell-innate-card>button>div{
+    min-width:0;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+  }
+  .zg-spell-innate-card small{
+    color:#8d7449;
+    font:700 6px 'Cinzel',serif;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+  }
+  .zg-spell-innate-card b{
+    max-width:100%;
+    margin-top:3px;
+    color:#e0c480;
+    font:600 10px/1.22 'Cinzel',serif;
+    text-align:center;
+  }
+  .zg-spell-innate-card p{
+    display:-webkit-box;
+    max-width:100%;
+    margin:5px 0 0;
+    overflow:hidden;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    color:#7d7058;
+    font:8px/1.3 Georgia,serif;
+    text-align:center;
+  }
+  .zg-spell-innate-card .zg-ability-cooldown,
+  .zg-spell-innate-card .zg-ability-passive{
+    margin-top:7px;
+    padding:2px 6px;
+    border:1px solid #4d3a21;
+    border-radius:8px;
+    color:#a78a54;
+    font:normal 6px 'Cinzel',serif;
+  }
+  .zg-spellbook-catalog{
+    grid-column:2;
+    grid-row:1;
+    display:grid;
+    grid-template-rows:auto auto auto minmax(0,1fr);
+  }
+  .zg-spellbook-search{
+    height:36px;
+    display:grid;
+    grid-template-columns:25px minmax(0,1fr);
+    align-items:center;
+    margin:7px 7px 5px;
+    border:1px solid #4d3820;
+    border-radius:7px;
+    background:#090806;
+    box-shadow:inset 0 0 12px #000;
+  }
+  .zg-spellbook-search i{
+    color:#a28650;
+    font:normal 18px Georgia,serif;
+    text-align:right;
+  }
+  .zg-spellbook-search input{
+    min-width:0;
+    height:100%;
+    padding:0 8px;
+    border:0;
+    outline:0;
+    background:transparent;
+    color:#d4bd87;
+    font:9px Georgia,serif;
+  }
+  .zg-spellbook-search input::placeholder{color:#625842}
+  .zg-spellbook-catalog>nav{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:4px;
+    padding:0 7px 6px;
+  }
+  .zg-spellbook-catalog>nav button{
+    min-width:0;
+    height:28px;
+    border:1px solid #45331f;
+    border-radius:6px;
+    background:linear-gradient(#17110b,#0c0a07);
+    color:#8c7953;
+    font:700 7px 'Cinzel',serif;
+    cursor:pointer;
+  }
+  .zg-spellbook-catalog>nav button small{font-size:6px;opacity:.58}
+  .zg-spellbook-catalog>nav button.active{
+    border-color:#8b652d;
+    background:linear-gradient(#3a2813,#181008);
+    color:#e2c477;
+    box-shadow:inset 0 0 10px rgba(191,128,43,.16),0 0 9px rgba(167,107,35,.09);
+  }
+  .zg-spellbook-list{
+    min-height:0;
+    margin:0 7px 7px;
+    overflow-y:auto;
+    border:1px solid #3d2d1d;
+    border-radius:7px;
+    background:rgba(6,5,4,.56);
+  }
+  .zg-spell-catalog-card{
+    --spell-tone:#b88a3d;
+    border-bottom:1px solid #382a1b;
+    background:linear-gradient(90deg,color-mix(in srgb,var(--spell-tone) 7%,transparent),transparent 64%);
+  }
+  .zg-spell-catalog-card:last-child{border-bottom:0}
+  .zg-spell-catalog-card[hidden]{display:none}
+  .zg-spell-catalog-card>button{
+    width:100%;
+    min-height:51px;
+    display:grid;
+    grid-template-columns:40px minmax(0,1fr) auto;
+    gap:8px;
+    align-items:center;
+    padding:5px 8px 5px 5px;
+    border:0;
+    background:transparent;
+    color:inherit;
+    text-align:left;
+    cursor:pointer;
+  }
+  .zg-spell-catalog-card>button:hover{background:color-mix(in srgb,var(--spell-tone) 10%,transparent)}
+  .zg-spell-glyph{
+    box-sizing:border-box;
+    width:38px;
+    height:38px;
+    display:grid;
+    place-items:center;
+    border:1px solid color-mix(in srgb,var(--spell-tone) 63%,#302317);
+    border-radius:7px;
+    background:
+      radial-gradient(circle at 40% 32%,color-mix(in srgb,var(--spell-tone) 31%,#17100a),#090706 70%);
+    box-shadow:inset 0 0 0 2px #070604,0 0 9px color-mix(in srgb,var(--spell-tone) 20%,transparent);
+    color:color-mix(in srgb,var(--spell-tone) 72%,#f4d79a);
+    font:normal 18px/1 Georgia,serif;
+    text-shadow:0 0 7px var(--spell-tone);
+  }
+  .zg-spell-catalog-card>button>span{min-width:0;display:flex;flex-direction:column;gap:3px}
+  .zg-spell-catalog-card .zg-ability-eyebrow{
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:flex-start!important;
+    gap:3px!important;
+  }
+  .zg-spell-catalog-card b{
+    overflow:hidden;
+    color:#dcc591;
+    font:600 10px/1.18 'Cinzel',serif;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-spell-catalog-card small{
+    overflow:hidden;
+    color:#776a50;
+    font:8px/1.2 Georgia,serif;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-spell-catalog-card>button>em{
+    color:#82a853;
+    font:normal 8px 'Cinzel',serif;
+    white-space:nowrap;
+  }
+  .zg-spell-catalog-card>button>em.spent{color:#bd733d}
+  .zg-spell-catalog-card.locked{opacity:.56;filter:saturate(.6)}
+  .zg-spell-catalog-card.exhausted{background:linear-gradient(90deg,#4a18151f,transparent)}
+  .zg-spellbook-prepared{
+    grid-column:1 / -1;
+    grid-row:2;
+  }
+  .zg-spellbook-prepared>header{min-height:35px!important;padding:5px 10px!important}
+  .zg-spellbook-prepared>header h3{font-size:10px!important}
+  .zg-spellbook-prepared>div{
+    display:grid;
+    grid-auto-columns:minmax(52px,1fr);
+    grid-auto-flow:column;
+    gap:5px;
+    padding:7px;
+    overflow-x:auto;
+  }
+  .zg-spell-prepared{
+    --spell-tone:#b88a3d;
+    min-width:52px;
+    height:57px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    overflow:hidden;
+    border:1px solid color-mix(in srgb,var(--spell-tone) 56%,#362718);
+    border-radius:7px;
+    background:radial-gradient(circle at 50% 36%,color-mix(in srgb,var(--spell-tone) 20%,transparent),#0b0907 76%);
+    color:#cbb37c;
+    cursor:pointer;
+  }
+  .zg-spell-prepared i{
+    color:color-mix(in srgb,var(--spell-tone) 75%,#eed293);
+    font:normal 18px Georgia,serif;
+    text-shadow:0 0 7px var(--spell-tone);
+  }
+  .zg-spell-prepared span{
+    max-width:90%;
+    overflow:hidden;
+    font:600 6px 'Cinzel',serif;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-spell-prepared.locked{opacity:.38;filter:saturate(.4)}
+  .zg-spell-prepared.exhausted{border-color:#713b32}
+  .zg-spell-prepared.add{
+    border-style:dashed;
+    border-color:#4b3822;
+    background:#0a0806;
+    color:#634d2d;
+    font-size:20px;
+    cursor:default;
+  }
+  .zg-spellbook>footer{
+    grid-column:1 / -1;
+    grid-row:3;
+    padding:3px 8px;
+    color:#695d47;
+    font:7px/1.3 Georgia,serif;
+    text-align:center;
+  }
+  .zg-spellbook-empty{
+    min-height:90px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:5px;
+    padding:10px;
+    color:#665b47;
+    text-align:center;
+  }
+  .zg-spellbook-empty i{color:#866c3e;font:normal 22px Georgia,serif}
+  .zg-spellbook-empty b{color:#9b855c;font:600 8px 'Cinzel',serif}
+  .zg-spellbook-empty span{font:8px/1.3 Georgia,serif}
+  .zg-spellbook .tone-fire{--spell-tone:#df6726}
+  .zg-spellbook .tone-ice{--spell-tone:#5aa8df}
+  .zg-spellbook .tone-life{--spell-tone:#83b63f}
+  .zg-spellbook .tone-storm{--spell-tone:#728ee5}
+  .zg-spellbook .tone-ward{--spell-tone:#d4a33d}
+  .zg-spellbook .tone-void{--spell-tone:#9b66d4}
+  .zg-spellbook .tone-blood{--spell-tone:#b95047}
+  .zg-spellbook .tone-arcane{--spell-tone:#7666c5}
+  .zg-spellbook .tone-gold{--spell-tone:#b88a3d}
+  @media(max-width:560px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-vtt-drawer-body{overflow-y:auto}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-spellbook{
+      height:auto;
+      grid-template-columns:1fr;
+      grid-template-rows:auto minmax(360px,1fr) auto auto;
+    }
+    .zg-spellbook-innate{grid-column:1;grid-row:1}
+    .zg-spellbook-innate>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}
+    .zg-spell-innate-card{min-height:105px}
+    .zg-spellbook-catalog{grid-column:1;grid-row:2}
+    .zg-spellbook-prepared{grid-column:1;grid-row:3}
+    .zg-spellbook>footer{grid-column:1;grid-row:4}
+  }
+
+  /* Магия v3: врождённые способности, освоенные заклинания и три независимых лимита. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-vtt-drawer-body{
+    overflow:hidden!important;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated[data-backpack-skin="magic"] .zg-bag-interface .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    top:9.4%!important;
+    height:90.6%!important;
+    padding:4px 7px 7px!important;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-magic3{
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:minmax(126px,31%) minmax(0,69%);
+    grid-template-rows:minmax(0,1fr) calc(72px + var(--magic-slot-rows,1)*52px);
+    gap:6px;
+    padding:0 2px;
+    overflow:hidden;
+  }
+  .zg-magic3>section{
+    min-width:0;
+    min-height:0;
+    overflow:hidden!important;
+  }
+  .zg-magic3 .zg-spellbook-innate{
+    grid-column:1;
+    grid-row:1;
+    display:grid;
+    grid-template-rows:38px minmax(0,1fr) 20px;
+  }
+  .zg-magic3 .zg-magic3-innate-list{
+    min-width:0;
+    min-height:0;
+    display:grid!important;
+    grid-template-rows:repeat(4,minmax(0,1fr));
+    gap:4px;
+    padding:5px!important;
+    overflow:hidden!important;
+  }
+  .zg-magic3 .zg-spell-innate-card{
+    flex:initial;
+    min-width:0;
+    min-height:0;
+    border-radius:5px;
+  }
+  .zg-magic3 .zg-spell-innate-card>button{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:40px minmax(0,1fr);
+    grid-template-rows:1fr;
+    gap:6px;
+    padding:6px;
+    text-align:left;
+  }
+  .zg-magic3 .zg-spell-innate-card .zg-spell-glyph{
+    width:37px;
+    height:calc(100% - 2px);
+    min-height:37px;
+    max-height:60px;
+    font-size:19px;
+  }
+  .zg-magic3 .zg-spell-innate-card>button>div{
+    min-width:0;
+    align-items:flex-start;
+    justify-content:center;
+    gap:7px;
+  }
+  .zg-magic3 .zg-spell-innate-card small,
+  .zg-magic3 .zg-spell-innate-card b{
+    max-width:100%;
+    overflow:hidden;
+    text-align:left;
+  }
+  .zg-magic3 .zg-spell-innate-card b{
+    display:-webkit-box;
+    overflow:hidden;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:3;
+    color:#ead095;
+    font-size:10px;
+    line-height:1.22;
+    white-space:normal;
+    text-overflow:clip;
+  }
+  .zg-magic3 .zg-spell-innate-card .zg-magic3-innate-type{
+    box-sizing:border-box;
+    display:block;
+    align-items:center;
+    width:100%;
+    min-height:0;
+    padding:0;
+    border:0;
+    border-radius:0;
+    background:transparent;
+    color:#c6a566;
+    font:700 7px/1.15 Georgia,serif;
+    letter-spacing:0;
+    text-transform:none;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-magic3 .zg-spell-innate-card p,
+  .zg-magic3 .zg-spell-innate-card .zg-ability-cooldown,
+  .zg-magic3 .zg-spell-innate-card .zg-ability-passive,
+  .zg-magic3 .zg-spell-innate-card .zg-ability-charges{
+    display:none!important;
+  }
+  .zg-magic3 .zg-spellbook-catalog{
+    grid-column:2;
+    grid-row:1;
+    display:grid;
+    grid-template-rows:38px 40px 35px minmax(0,1fr) 20px;
+  }
+  .zg-magic3 .zg-spellbook-search{
+    box-sizing:border-box;
+    height:34px;
+    margin:5px 7px 4px;
+  }
+  .zg-magic3 .zg-spellbook-catalog>nav{
+    grid-template-columns:1.35fr repeat(3,minmax(0,1fr));
+    gap:4px;
+    padding:0 7px 5px;
+  }
+  .zg-magic3 .zg-spellbook-catalog>nav button{
+    height:31px;
     font-size:9px;
   }
+  .zg-magic3 .zg-spellbook-list{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:repeat(8,minmax(0,1fr));
+    margin:0 7px;
+    overflow:hidden!important;
+    border-radius:5px;
+  }
+  .zg-magic3 .zg-spell-catalog-card{
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+  }
+  .zg-magic3 .zg-spell-catalog-card>button{
+    min-width:0;
+    min-height:0;
+    height:100%;
+    grid-template-columns:37px minmax(0,1fr) auto;
+    gap:6px;
+    padding:3px 6px 3px 4px;
+  }
+  .zg-magic3 .zg-spell-catalog-card .zg-spell-glyph{
+    width:33px;
+    height:calc(100% - 2px);
+    min-height:30px;
+    max-height:40px;
+    font-size:16px;
+  }
+  .zg-magic3 .zg-spell-catalog-card b{font-size:8.5px}
+  .zg-magic3 .zg-spell-catalog-card small{font-size:7px}
+  .zg-magic3 .zg-spell-catalog-card>button>em{font-size:6.5px}
+  .zg-magic3-catalog-placeholder{
+    min-width:0;
+    min-height:0;
+    border-bottom:1px solid #2c2117;
+    background:linear-gradient(90deg,rgba(45,29,15,.13),transparent);
+  }
+  .zg-magic3-pages{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:28px minmax(0,1fr) 28px;
+    align-items:center;
+    margin:0;
+    padding:0 5px;
+    border-top:1px solid #342517;
+    background:#090705;
+  }
+  .zg-magic3-pages button{
+    height:20px;
+    border:0;
+    background:transparent;
+    color:#ad8951;
+    font:17px/18px Georgia,serif;
+    cursor:pointer;
+  }
+  .zg-magic3-pages button:disabled{opacity:.18;cursor:default}
+  .zg-magic3-pages span{
+    overflow:hidden;
+    color:#716148;
+    font:6.5px 'Cinzel',serif;
+    text-align:center;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-magic3 .zg-magic3-slots{
+    grid-column:1/-1;
+    grid-row:2;
+    display:grid;
+    grid-template-rows:35px minmax(0,1fr);
+    border-radius:9px;
+  }
+  .zg-magic3 .zg-magic3-slots>header{
+    min-height:35px;
+    padding:5px 10px;
+  }
+  .zg-magic3 .zg-magic3-slots>header h3{font-size:11px}
+  .zg-magic3 .zg-magic3-slots>div{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    padding:5px 6px 6px;
+    overflow:hidden;
+  }
+  .zg-magic3-slot-group{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:20px minmax(0,1fr);
+    padding:0 6px;
+    overflow:hidden;
+  }
+  .zg-magic3-slot-group+ .zg-magic3-slot-group{
+    border-left:1px solid #5b4124;
+    box-shadow:inset 1px 0 rgba(227,181,91,.035);
+  }
+  .zg-magic3-slot-group>header{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:0!important;
+    display:grid;
+    grid-template-columns:15px minmax(0,1fr) auto;
+    gap:4px;
+    align-items:center;
+    margin:0;
+    padding:0!important;
+    border-bottom:1px solid #3b2a1a;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+  .zg-magic3-slot-group>header>span{
+    display:block!important;
+    width:auto!important;
+    min-width:0!important;
+    height:auto!important;
+    margin:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:#b99655;
+    font-size:10px;
+    line-height:1;
+    text-align:center;
+  }
+  .zg-magic3-slot-group>header>b{
+    overflow:hidden;
+    color:#bda56f;
+    font:600 6.5px 'Cinzel',serif;
+    letter-spacing:.25px;
+    text-transform:uppercase;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-magic3-slot-group>header>em{
+    color:#776548;
+    font:normal 6px 'Cinzel',serif;
+    white-space:nowrap;
+  }
+  .zg-magic3-slot-group>div{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:repeat(var(--magic-slot-rows,1),minmax(0,1fr));
+    gap:4px;
+    padding-top:3px;
+    overflow:hidden;
+  }
+  .zg-magic3-slot{
+    --spell-tone:#b88a3d;
+    min-width:0;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    overflow:hidden;
+    border:1px solid color-mix(in srgb,var(--spell-tone) 50%,#3a2919);
+    border-radius:5px;
+    background:radial-gradient(circle at 50% 38%,color-mix(in srgb,var(--spell-tone) 19%,transparent),#090705 76%);
+    color:#bfa46e;
+    cursor:pointer;
+  }
+  .zg-magic3-slot i{
+    color:color-mix(in srgb,var(--spell-tone) 70%,#e6ca8d);
+    font:normal 15px/1 Georgia,serif;
+    text-shadow:0 0 7px var(--spell-tone);
+  }
+  .zg-magic3-slot b{
+    max-width:88%;
+    overflow:hidden;
+    color:#9d8962;
+    font:600 5.5px 'Cinzel',serif;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+  .zg-magic3-slot.empty{
+    border-style:dashed;
+    border-color:#463421;
+    background:#080605;
+    color:#59442b;
+    cursor:default;
+  }
+  .zg-magic3-slot.empty i{color:#664e30;text-shadow:none}
+  .zg-magic3-slot.empty small{color:#493a28;font:5.5px 'Cinzel',serif}
+  .zg-magic3-slot.locked{opacity:.46;filter:saturate(.55)}
+  .zg-magic3-slot.exhausted{border-color:#743d32}
+  .zg-magic3-slot.over-limit{border-color:#9a453d;box-shadow:inset 0 0 10px #7a241e38}
+  .zg-magic3 .tone-fire{--spell-tone:#df6726}
+  .zg-magic3 .tone-ice{--spell-tone:#5aa8df}
+  .zg-magic3 .tone-life{--spell-tone:#83b63f}
+  .zg-magic3 .tone-storm{--spell-tone:#728ee5}
+  .zg-magic3 .tone-ward{--spell-tone:#d4a33d}
+  .zg-magic3 .tone-void{--spell-tone:#9b66d4}
+  .zg-magic3 .tone-blood{--spell-tone:#b95047}
+  .zg-magic3 .tone-arcane{--spell-tone:#7666c5}
+  .zg-magic3 .tone-gold{--spell-tone:#b88a3d}
   @media(max-width:560px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-magic3{
+      height:100%;
+      grid-template-columns:minmax(108px,34%) minmax(0,66%);
+      grid-template-rows:minmax(0,1fr) calc(66px + var(--magic-slot-rows,1)*46px);
+      gap:5px;
+    }
+    .zg-magic3 .zg-spell-innate-card>button{grid-template-columns:31px minmax(0,1fr);gap:3px;padding:4px}
+    .zg-magic3 .zg-spell-innate-card .zg-spell-glyph{width:29px;font-size:14px}
+    .zg-magic3 .zg-spell-innate-card b{font-size:7.5px}
+    .zg-magic3 .zg-spell-innate-card .zg-magic3-innate-type{font-size:6px}
+    .zg-magic3 .zg-spell-innate-card p{display:none}
+    .zg-magic3 .zg-spellbook-catalog{grid-template-rows:39px 39px 33px minmax(0,1fr) 20px}
+    .zg-magic3 .zg-spellbook-search{height:31px;margin:4px}
+    .zg-magic3 .zg-spellbook-catalog>nav{padding:0 4px 4px;gap:2px}
+    .zg-magic3 .zg-spellbook-catalog>nav button{height:27px;font-size:7px}
+    .zg-magic3 .zg-spellbook-list{margin:0 4px}
+    .zg-magic3 .zg-spell-catalog-card>button{grid-template-columns:29px minmax(0,1fr);gap:3px;padding:2px}
+    .zg-magic3 .zg-spell-catalog-card .zg-spell-glyph{width:27px;min-height:24px;font-size:13px}
+    .zg-magic3 .zg-spell-catalog-card>button>em{display:none}
+    .zg-magic3 .zg-spell-catalog-card b{font-size:6.5px}
+    .zg-magic3 .zg-spell-catalog-card small{font-size:5.5px}
+    .zg-magic3 .zg-magic3-slots>div{padding:3px}
+    .zg-magic3-slot-group{padding:0 3px}
+    .zg-magic3-slot-group>header{grid-template-columns:12px minmax(0,1fr) auto;gap:2px}
+    .zg-magic3-slot-group>header>b{font-size:5px}
+    .zg-magic3-slot-group>header>em{font-size:5px}
+    .zg-magic3-slot-group>div{gap:2px;padding-top:3px}
+    .zg-magic3-slot i{font-size:12px}
+    .zg-magic3-slot b{display:none}
+  }
+
+  /* Журнал: цели, индекс записей и открытая страница без редакторской панели. */
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-vtt-drawer-body{
+    overflow:hidden!important;
+  }
+  .zg-vtt-drawer.backpack-skin.backpack-calibrated[data-backpack-skin="journal"] .zg-bag-interface .zg-vtt-drawer-body[data-bag-cal-key="content"]{
+    top:9.4%!important;
+    height:90.6%!important;
+    padding:4px 7px 7px!important;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-bag-notes.zg-journal3{
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:104px minmax(0,1fr);
+    gap:6px;
+    padding:0 2px;
+    overflow:hidden;
+  }
+  .zg-journal3>section{
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+    border:1px solid #5b3d21;
+    border-radius:8px;
+    background:linear-gradient(145deg,rgba(27,18,11,.96),rgba(9,7,5,.97));
+    box-shadow:inset 0 0 18px #0008,inset 0 1px rgba(224,177,91,.08);
+  }
+  .zg-journal3 h3{margin:0}
+  .zg-journal3-goals{
+    display:grid;
+    grid-template-rows:29px minmax(0,1fr);
+  }
+  .zg-journal3-goals>header{
+    display:grid;
+    grid-template-columns:1fr auto 1fr;
+    align-items:center;
+    gap:8px;
+    padding:0 12px;
+    color:#b99859;
+  }
+  .zg-journal3-goals>header::before,
+  .zg-journal3-goals>header::after{
+    content:'';
+    height:1px;
+    background:linear-gradient(90deg,transparent,#765329);
+  }
+  .zg-journal3-goals>header::after{background:linear-gradient(90deg,#765329,transparent)}
+  .zg-journal3-goals>header>i{display:none}
+  .zg-journal3-goals>header h3{
+    color:#c7a665;
+    font:600 10px/1 'Cinzel',serif;
+    letter-spacing:.4px;
+    white-space:nowrap;
+  }
+  .zg-journal3-goals>div{
+    min-width:0;
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px;
+    padding:0 7px 7px;
+  }
+  .zg-journal3-goal{
+    min-width:0;
+    display:grid;
+    grid-template-columns:27px minmax(0,1fr);
+    gap:6px;
+    align-items:center;
+    padding:5px 7px;
+    overflow:hidden;
+    border:1px solid #4d351e;
+    border-radius:5px;
+    background:linear-gradient(145deg,#20150d,#0e0a07);
+    box-shadow:inset 0 0 12px #0007;
+  }
+  .zg-journal3-goal>i{
+    width:25px;
+    height:34px;
+    display:grid;
+    place-items:center;
+    color:#9d7a42;
+    font:17px/1 Georgia,serif;
+    border-right:1px solid #4d351e;
+  }
+  .zg-journal3-goal>span{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+  .zg-journal3-goal b,
+  .zg-journal3-goal small,
+  .zg-journal3-goal em{
+    display:block;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .zg-journal3-goal b{
+    display:-webkit-box;
+    color:#d6bd82;
+    font:600 9px/1.12 Georgia,serif;
+    white-space:normal;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+  }
+  .zg-journal3-goal small{color:#806d4e;font:6.5px/1.1 Georgia,serif;white-space:nowrap}
+  .zg-journal3-goal em{color:#809d50;font:normal 7px/1.15 'Cinzel',serif;white-space:nowrap}
+  .zg-journal3-goal.new em{color:#6086a2}
+  .zg-journal3-goal.done em{color:#9c7851}
+  .zg-journal3-goals-empty{
+    grid-column:1/-1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    border:1px dashed #4c351f;
+    border-radius:5px;
+    color:#806b46;
+    text-align:left;
+  }
+  .zg-journal3-goals-empty>i{font-size:16px}
+  .zg-journal3-goals-empty b,
+  .zg-journal3-goals-empty small{display:block}
+  .zg-journal3-goals-empty b{color:#a68b58;font:600 8px 'Cinzel',serif}
+  .zg-journal3-goals-empty small{margin-top:2px;color:#675a43;font:6.5px Georgia,serif}
+  .zg-journal3-main{
+    display:grid;
+    grid-template-columns:minmax(136px,36%) minmax(0,64%);
+  }
+  .zg-journal3-index{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:36px 42px minmax(0,1fr) 18px 39px;
+    overflow:hidden;
+    border-right:1px solid #5b3d21;
+    background:linear-gradient(90deg,rgba(28,19,12,.93),rgba(14,10,7,.96));
+  }
+  .zg-journal3-index>header{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:0 9px;
+    border-bottom:1px solid #3c2a19;
+  }
+  .zg-journal3-index>header i{color:#a47e42;font-size:15px}
+  .zg-journal3-index>header h3{color:#cdb275;font:600 11px/1 'Cinzel',serif}
+  .zg-journal3-index>nav{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    padding:4px 5px;
+    border-bottom:1px solid #3c2a19;
+  }
+  .zg-journal3-index>nav button{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    border:0;
+    border-right:1px solid #392819;
+    background:transparent;
+    color:#806b48;
+    cursor:pointer;
+  }
+  .zg-journal3-index>nav button:last-child{border-right:0}
+  .zg-journal3-index>nav button.active{
+    color:#d8b968;
+    background:linear-gradient(180deg,#7c55251e,transparent);
+    box-shadow:inset 0 -1px #b38535;
+  }
+  .zg-journal3-index>nav i{font:13px/1 Georgia,serif}
+  .zg-journal3-index>nav span{font:600 7px/1 'Cinzel',serif}
+  .zg-journal3-list{
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:repeat(6,minmax(0,1fr));
+    gap:4px;
+    padding:5px;
+    overflow:hidden;
+  }
+  .zg-journal3-entry{
+    box-sizing:border-box;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-columns:25px minmax(0,1fr) 18px;
+    gap:6px;
+    align-items:center;
+    padding:4px 5px;
+    overflow:hidden;
+    border:1px solid #3f2d1c;
+    border-radius:4px;
+    background:linear-gradient(145deg,#17100a,#0c0906);
+    color:#9b845b;
+    text-align:left;
+    cursor:pointer;
+  }
+  .zg-journal3-entry:hover,
+  .zg-journal3-entry.active{
+    border-color:#a5792f;
+    color:#ddc17c;
+    background:linear-gradient(145deg,#291a0d,#120c07);
+    box-shadow:inset 2px 0 #d0a347,0 0 10px #b7791822;
+  }
+  .zg-journal3-entry>i{color:#917345;font:15px/1 Georgia,serif;text-align:center}
+  .zg-journal3-entry>span{min-width:0}
+  .zg-journal3-entry b,
+  .zg-journal3-entry small{
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .zg-journal3-entry b{color:inherit;font:600 8.5px/1.2 Georgia,serif}
+  .zg-journal3-entry small{margin-top:2px;color:#796647;font:6.5px/1 'Cinzel',serif}
+  .zg-journal3-entry>em{
+    width:16px;
+    height:16px;
+    display:grid;
+    place-items:center;
+    border:1px solid #624921;
+    border-radius:50%;
+    color:#b4914e;
+    font:normal 7px/1 Georgia,serif;
+  }
+  .zg-journal3-list-empty{
+    grid-row:1/-1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    color:#695b42;
+    font:7px/1.35 'Cinzel',serif;
+    text-align:center;
+  }
+  .zg-journal3-list-empty i{font-size:18px}
+  .zg-journal3-pages{
+    display:grid;
+    grid-template-columns:28px 1fr 28px;
+    align-items:center;
+    border-top:1px solid #332416;
+  }
+  .zg-journal3-pages button{
+    height:18px;
+    border:0;
+    background:transparent;
+    color:#a17f43;
+    font:15px/1 Georgia,serif;
+    cursor:pointer;
+  }
+  .zg-journal3-pages button:disabled{opacity:.16;cursor:default}
+  .zg-journal3-pages span{color:#6e5d42;font:6px 'Cinzel',serif;text-align:center}
+  .zg-journal3-add{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    margin:3px 6px 5px;
+    border:1px solid #65491f;
+    border-radius:4px;
+    background:linear-gradient(180deg,#22170c,#120d08);
+    color:#c8a85f;
+    font:600 8px/1 'Cinzel',serif;
+    cursor:pointer;
+  }
+  .zg-journal3-add:first-letter{font-size:15px}
+  .zg-journal3-add:hover{border-color:#a57a2e;color:#efd48b}
+  .zg-journal3-preview{
+    min-width:0;
+    min-height:0;
+    padding:6px;
+    overflow:hidden;
+    background:radial-gradient(circle at 50% 40%,rgba(120,75,29,.08),transparent 56%),#0c0907;
+  }
+  .zg-journal3-paper{
+    box-sizing:border-box;
+    width:100%;
+    height:100%;
+    min-width:0;
+    min-height:0;
+    display:grid;
+    grid-template-rows:auto auto minmax(0,1fr);
+    overflow:hidden;
+    padding:20px 18px 17px;
+    border:2px solid #76562e;
+    border-radius:4px;
+    background:
+      linear-gradient(rgba(71,48,25,.13) 1px,transparent 1px) 0 97px/100% 22px,
+      radial-gradient(circle at 28% 18%,rgba(255,239,185,.42),transparent 26%),
+      radial-gradient(circle at 70% 76%,rgba(89,53,25,.14),transparent 38%),
+      #c8ad78;
+    box-shadow:inset 0 0 28px #56371866,inset 0 0 0 2px #d0b47b44,0 8px 22px #0008;
+    color:#372515;
+  }
+  .zg-journal3-paper[ondblclick]{cursor:pointer}
+  .zg-journal3-paper>header{text-align:center}
+  .zg-journal3-paper>header h3{
+    max-width:100%;
+    overflow:hidden;
+    color:#2d1c0e;
+    font:600 17px/1.15 Georgia,serif;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    text-shadow:0 1px #e5cf9a66;
+  }
+  .zg-journal3-paper>header>i{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin:7px 0 4px;
+    color:#594124;
+    font-size:8px;
+  }
+  .zg-journal3-paper>header>i::before,
+  .zg-journal3-paper>header>i::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,transparent,#725431)}
+  .zg-journal3-paper>header>i::after{background:linear-gradient(90deg,#725431,transparent)}
+  .zg-journal3-paper>header small{color:#5c4225;font:italic 8px/1 Georgia,serif}
+  .zg-journal3-paper-art{
+    height:128px;
+    margin:12px 0 10px;
+    border:1px solid #73543299;
+    background-position:center;
+    background-size:cover;
+    filter:sepia(.75) saturate(.6) contrast(.85);
+    mix-blend-mode:multiply;
+    opacity:.78;
+  }
+  .zg-journal3-paper-text{
+    min-height:0;
+    margin-top:15px;
+    overflow:hidden;
+    color:#382818;
+    font:italic 10px/1.68 Georgia,serif;
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+    -webkit-mask-image:linear-gradient(#000 92%,transparent);
+    mask-image:linear-gradient(#000 92%,transparent);
+  }
+  .zg-journal3-paper.empty{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    padding:28px;
+    text-align:center;
+  }
+  .zg-journal3-paper.empty>i{color:#6d4e29;font-size:31px}
+  .zg-journal3-paper.empty>b{color:#3f2a15;font:600 13px 'Cinzel',serif}
+  .zg-journal3-paper.empty>span{max-width:220px;color:#665035;font:9px/1.45 Georgia,serif}
+  @media(max-width:560px){
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-bag-notes.zg-journal3{
+      grid-template-rows:92px minmax(0,1fr);
+      gap:4px;
+    }
+    .zg-journal3-goals{grid-template-rows:25px minmax(0,1fr)}
+    .zg-journal3-goals>header h3{font-size:8px}
+    .zg-journal3-goals>div{gap:3px;padding:0 4px 5px}
+    .zg-journal3-goal{grid-template-columns:20px minmax(0,1fr);gap:3px;padding:3px}
+    .zg-journal3-goal>i{width:19px;font-size:12px}
+    .zg-journal3-goal b{font-size:6.5px}
+    .zg-journal3-goal small{display:none}
+    .zg-journal3-main{grid-template-columns:minmax(118px,39%) minmax(0,61%)}
+    .zg-journal3-index{grid-template-rows:32px 38px minmax(0,1fr) 18px 35px}
+    .zg-journal3-index>header{gap:5px;padding:0 6px}
+    .zg-journal3-index>header h3{font-size:8.5px}
+    .zg-journal3-list{gap:3px;padding:4px}
+    .zg-journal3-entry{grid-template-columns:20px minmax(0,1fr);gap:4px;padding:3px}
+    .zg-journal3-entry>em{display:none}
+    .zg-journal3-entry b{font-size:6.5px}
+    .zg-journal3-paper{padding:15px 11px 12px}
+    .zg-journal3-paper>header h3{font-size:13px}
+    .zg-journal3-paper-art{height:95px;margin:9px 0 6px}
+    .zg-journal3-paper-text{margin-top:10px;font-size:8px;line-height:1.58}
     .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
       grid-template-rows:46px 13px;
     }
@@ -21169,7 +23427,7 @@ window.zgImageStore = (function() {
         <img class="zg-backpack-open-frame active" id="zg-backpack-open-a" src="images/vtt-ui/backpack-v2/open-status.webp" alt="">
       </div>
       <div class="zg-bag-interface" data-bag-cal-key="interface">
-        <div class="zg-bag-tabs">
+        <div class="zg-bag-tabs" data-bag-cal-key="tabbar">
           <button type="button" data-bag-cal-key="status" onclick="zgVttOpenPanel('character')" aria-label="Состояние Героя"><img src="images/vtt-icons/health.png?v=20260728" alt=""><span>Состояние</span></button>
           <button type="button" class="active" data-bag-cal-key="items" onclick="zgVttOpenPanel('inventory')" aria-label="Вещи"><img src="images/vtt-icons/inventory.png?v=20260728" alt=""><span>Вещи</span></button>
           <button type="button" data-bag-cal-key="magic" onclick="zgVttOpenPanel('abilities')" aria-label="Магия"><img src="images/vtt-icons/abilities.png?v=20260728" alt=""><span>Магия</span></button>
@@ -21182,17 +23440,42 @@ window.zgImageStore = (function() {
     </aside>
     <section class="zg-bag-calibrator" id="zg-bag-calibrator" aria-label="Калибровка вкладок сумки">
       <header><b>Калибровка сумки</b><button type="button" onclick="zgBagCalToggle(event,false)" aria-label="Закрыть">×</button></header>
+      <div class="zg-bag-cal-panels" aria-label="Раздел для настройки">
+        <button type="button" onclick="zgBagCalPanel('character')">Состояние</button>
+        <button type="button" onclick="zgBagCalPanel('inventory')">Вещи</button>
+        <button type="button" onclick="zgBagCalPanel('abilities')">Магия / заклинания</button>
+        <button type="button" onclick="zgBagCalPanel('journal')">Журнал</button>
+      </div>
       <select id="zg-bag-cal-select" onchange="zgBagCalSelect(this.value)">
         <option value="interface">Весь интерфейс по пунктиру</option>
       </select>
-      <label class="zg-bag-cal-field"><span>X</span><input data-bag-cal-prop="x" type="range" min="0" max="90" step=".1" oninput="zgBagCalSet('x',this.value)"><output data-bag-cal-out="x"></output></label>
-      <label class="zg-bag-cal-field"><span>Y</span><input data-bag-cal-prop="y" type="range" min="0" max="60" step=".1" oninput="zgBagCalSet('y',this.value)"><output data-bag-cal-out="y"></output></label>
-      <label class="zg-bag-cal-field"><span>Ширина</span><input data-bag-cal-prop="w" type="range" min="7" max="30" step=".1" oninput="zgBagCalSet('w',this.value)"><output data-bag-cal-out="w"></output></label>
-      <label class="zg-bag-cal-field"><span>Высота</span><input data-bag-cal-prop="h" type="range" min="35" max="100" step=".1" oninput="zgBagCalSet('h',this.value)"><output data-bag-cal-out="h"></output></label>
-      <label class="zg-bag-cal-field"><span>Скругление видимой рамки</span><input data-bag-cal-prop="radius" type="range" min="0" max="180" step="1" oninput="zgBagCalSet('radius',this.value)"><output data-bag-cal-out="radius"></output></label>
-      <div class="zg-bag-cal-grid-settings"><label><input id="zg-bag-cal-grid-toggle" type="checkbox" checked onchange="zgBagCalGrid(this.checked)"> Сетка</label><label>Шаг % <input id="zg-bag-cal-grid-step" type="number" min=".5" max="10" step=".5" value="2.5" onchange="zgBagCalGridStep(this.value)"></label><label><input id="zg-bag-cal-snap" type="checkbox" checked onchange="zgBagCalSnap(this.checked)"> Привязка</label></div>
-      <p class="zg-bag-cal-hint">Зелёная граница теперь является видимой рамкой всей панели: четыре вкладки, лист и травмы двигаются и скругляются вместе. Верхние ячейки автоматически остаются внутри неё. X/Y, ширина и высота измеряются относительно изображения рюкзака; исходное положение выставлено по внутреннему пунктирному шву.</p>
-      <div class="zg-bag-cal-actions"><button type="button" class="primary" onclick="zgBagCalDownload()">Скачать JSON</button><button type="button" onclick="zgBagCalCopy()">Копировать JSON</button><button type="button" onclick="zgBagCalImport()">Вставить JSON</button><button type="button" onclick="zgBagCalReset()">Сбросить</button></div>
+      <div class="zg-bag-cal-current" id="zg-bag-cal-current">Основа · весь интерфейс</div>
+      <div class="zg-bag-cal-layout-fields" id="zg-bag-cal-layout-fields">
+        <label class="zg-bag-cal-field"><span>X</span><input data-bag-cal-prop="x" type="range" min="0" max="90" step=".1" oninput="zgBagCalSet('x',this.value)"><output data-bag-cal-out="x"></output></label>
+        <label class="zg-bag-cal-field"><span>Y</span><input data-bag-cal-prop="y" type="range" min="0" max="60" step=".1" oninput="zgBagCalSet('y',this.value)"><output data-bag-cal-out="y"></output></label>
+        <label class="zg-bag-cal-field"><span>Ширина</span><input data-bag-cal-prop="w" type="range" min="7" max="30" step=".1" oninput="zgBagCalSet('w',this.value)"><output data-bag-cal-out="w"></output></label>
+        <label class="zg-bag-cal-field"><span>Высота</span><input data-bag-cal-prop="h" type="range" min="35" max="100" step=".1" oninput="zgBagCalSet('h',this.value)"><output data-bag-cal-out="h"></output></label>
+        <label class="zg-bag-cal-field"><span>Скругление</span><input data-bag-cal-prop="radius" type="range" min="0" max="180" step="1" oninput="zgBagCalSet('radius',this.value)"><output data-bag-cal-out="radius"></output></label>
+      </div>
+      <div class="zg-bag-cal-element-fields" id="zg-bag-cal-element-fields" hidden>
+        <label class="zg-bag-cal-field"><span>Сдвиг X</span><input data-bag-element-prop="dx" type="range" min="-100" max="100" step=".05" oninput="zgBagElementSet('dx',this.value)"><output data-bag-element-out="dx"></output></label>
+        <label class="zg-bag-cal-field"><span>Сдвиг Y</span><input data-bag-element-prop="dy" type="range" min="-100" max="100" step=".05" oninput="zgBagElementSet('dy',this.value)"><output data-bag-element-out="dy"></output></label>
+        <label class="zg-bag-cal-field"><span>Ширина ×</span><input data-bag-element-prop="sx" type="range" min=".25" max="3" step=".01" oninput="zgBagElementSet('sx',this.value)"><output data-bag-element-out="sx"></output></label>
+        <label class="zg-bag-cal-field"><span>Высота ×</span><input data-bag-element-prop="sy" type="range" min=".25" max="3" step=".01" oninput="zgBagElementSet('sy',this.value)"><output data-bag-element-out="sy"></output></label>
+        <label class="zg-bag-cal-field"><span>Скругление</span><input data-bag-element-prop="radius" type="range" min="-1" max="180" step="1" oninput="zgBagElementSet('radius',this.value)"><output data-bag-element-out="radius"></output></label>
+        <label class="zg-bag-cal-field"><span>Прозрачность</span><input data-bag-element-prop="opacity" type="range" min=".15" max="1" step=".01" oninput="zgBagElementSet('opacity',this.value)"><output data-bag-element-out="opacity"></output></label>
+        <label class="zg-bag-cal-field"><span>Слой Z</span><input data-bag-element-prop="z" type="range" min="-30" max="30" step="1" oninput="zgBagElementSet('z',this.value)"><output data-bag-element-out="z"></output></label>
+        <div class="zg-bag-cal-nudge"><span class="empty"></span><button type="button" onclick="zgBagCalNudge(0,-1)">↑</button><span class="empty"></span><button type="button" onclick="zgBagCalNudge(-1,0)">←</button><button type="button" onclick="zgBagCalNudge(0,1)">↓</button><button type="button" onclick="zgBagCalNudge(1,0)">→</button></div>
+        <div class="zg-bag-cal-layer-actions"><button type="button" onclick="zgBagCalLayer('back')">На дно</button><button type="button" onclick="zgBagCalLayer(-1)">− слой</button><button type="button" onclick="zgBagCalLayer(1)">＋ слой</button><button type="button" onclick="zgBagCalLayer('front')">Наверх</button></div>
+      </div>
+      <div class="zg-bag-cal-element-align" id="zg-bag-cal-element-align" hidden>
+        <small>Выровнять выбранный слой относительно:</small>
+        <select class="zg-bag-cal-target" id="zg-bag-cal-target"></select>
+        <div class="zg-bag-cal-align"><button type="button" onclick="zgBagCalAlignElement('left')">Левый край</button><button type="button" onclick="zgBagCalAlignElement('center')">Центр X</button><button type="button" onclick="zgBagCalAlignElement('right')">Правый край</button><button type="button" onclick="zgBagCalAlignElement('top')">Верх</button><button type="button" onclick="zgBagCalAlignElement('middle')">Центр Y</button><button type="button" onclick="zgBagCalAlignElement('bottom')">Низ</button><button type="button" onclick="zgBagCalAlignElement('width')">Та же ширина</button><button type="button" onclick="zgBagCalAlignElement('height')">Та же высота</button><button type="button" onclick="zgBagCalAlignElement('size')">Тот же размер</button></div>
+      </div>
+      <div class="zg-bag-cal-grid-settings"><label><input id="zg-bag-cal-grid-toggle" type="checkbox" onchange="zgBagCalGrid(this.checked)"> Сетка</label><label>Шаг % <input id="zg-bag-cal-grid-step" type="number" min=".5" max="10" step=".5" value="1.5" onchange="zgBagCalGridStep(this.value)"></label><label><input id="zg-bag-cal-snap" type="checkbox" onchange="zgBagCalSnap(this.checked)"> Привязка</label><label><input id="zg-bag-cal-outlines" type="checkbox" onchange="zgBagCalOutlines(this.checked)"> Все границы</label></div>
+      <p class="zg-bag-cal-hint">Выбери слой в списке или нажми прямо на элемент. Перетаскивание двигает только выбранный слой. Группы, отдельные показатели и ячейки разделены по именам. Все смещения сохраняются относительно размеров рюкзака и входят в JSON.</p>
+      <div class="zg-bag-cal-actions"><button type="button" class="primary" onclick="zgBagCalDownload()">Скачать JSON всех слоёв</button><button type="button" onclick="zgBagCalCopy()">Копировать JSON</button><button type="button" onclick="zgBagCalImport()">Вставить JSON</button><button type="button" onclick="zgBagCalResetSelected()">Сбросить выбранный</button><button type="button" onclick="zgBagCalReset()">Сбросить всё</button></div>
     </section>
     <button type="button" class="zg-bag-cal-floating" id="zg-bag-cal-floating" onclick="zgBagCalToggle(event,true)">⌖ Настроить сумку</button>
     <nav class="zg-player-dock" id="zg-player-dock" aria-label="Действия персонажа">
