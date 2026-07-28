@@ -23,9 +23,12 @@ window.__zgpScriptStarted = true;
     str: 'Сила', dex: 'Ловкость', int: 'Интеллект',
     cha: 'Харизма', per: 'Восприятие', con: 'Выносливость'
   };
+  function statIcon(key) {
+    return typeof global.zgStatIcon === 'function' ? global.zgStatIcon(key) : '◆';
+  }
   var STAT_ICONS = {
-    str: '💪', dex: '🤸', int: '🧠',
-    cha: '😎', per: '👁', con: '🧃'
+    str: statIcon('str'), dex: statIcon('dex'), int: statIcon('int'),
+    cha: statIcon('cha'), per: statIcon('per'), con: statIcon('con')
   };
   var SPELL_TYPES = {
     kodex: { icon: '🥋', label: 'Кодекс', color: '#c8d4dc' },
@@ -541,7 +544,7 @@ window.__zgpScriptStarted = true;
     if (ui.menu === 'root') {
       return '<div class="zgp-menu"><button class="zgp-menu-close" onclick="zgProgressionCloseMenu()">×</button>' +
         '<div class="zgp-menu-root"><div class="zgp-menu-title">УР. ' + ui.level + ' · ВЫБЕРИТЕ РЕШЕНИЕ</div>' +
-        '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'stats\')"><span>💪</span>Повысить стат<small>' +
+        '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'stats\')"><span>' + STAT_ICONS.str + '</span>Повысить стат<small>' +
           entryPointCount(entry) + '/' + levelAllowance(character, ui.level) + '</small></button>' +
         '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'spells\')"><span>🏹</span>Выбрать навык<small>из Каталога</small></button>' +
         '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'items\')"><span>💰</span>Купить предмет<small>из Товаров</small></button>' +
@@ -580,7 +583,7 @@ window.__zgpScriptStarted = true;
       '<div class="zgp-bottom-cell">Свободных очков на ур. ' + ui.level + ':<b>' +
       (levelAllowance(character, ui.level) - entryPointCount(selected)) + '</b></div>' +
       '<div class="zgp-bottom-cell">Запланировано до ур. ' + target + ':' +
-      '<div class="zgp-bottom-icons"><span>🧠 <strong>' + totals.stats + '</strong></span><span>🏹 <strong>' +
+      '<div class="zgp-bottom-icons"><span>' + STAT_ICONS.str + ' <strong>' + totals.stats + '</strong></span><span>🏹 <strong>' +
       totals.spells + '</strong></span><span>💰 <strong>' + totals.items + '</strong></span><span>🪙 <strong>' +
       (totals.gold > 0 ? '+' : '') + totals.gold + '</strong></span><span>🪶 <strong>' +
       totals.notes + '</strong></span></div></div>' +
@@ -1038,7 +1041,7 @@ window.__zgpScriptStarted = true;
     return '<div class="zgp-level-title"><h3>' + (ui.level === 11 ? 'Абсолют' : 'План на уровень ' + ui.level) + '</h3>' +
       '<span class="zgp-budget">Очки: ' + used + ' / ' + allowance + '</span></div>' +
       '<div class="zgp-tabs">' +
-        '<button class="zgp-tab ' + (ui.tab === 'stats' ? 'on' : '') + '" onclick="zgProgressionTab(\'stats\')">💪 Характеристики</button>' +
+        '<button class="zgp-tab ' + (ui.tab === 'stats' ? 'on' : '') + '" onclick="zgProgressionTab(\'stats\')">' + STAT_ICONS.str + ' Характеристики</button>' +
         '<button class="zgp-tab ' + (ui.tab === 'spells' ? 'on' : '') + '" onclick="zgProgressionTab(\'spells\')">📚 Каталог</button>' +
         '<button class="zgp-tab ' + (ui.tab === 'items' ? 'on' : '') + '" onclick="zgProgressionTab(\'items\')">🎒 Товары</button>' +
         '<button class="zgp-tab ' + (ui.tab === 'notes' ? 'on' : '') + '" onclick="zgProgressionTab(\'notes\')">🪶 Заметки</button>' +
