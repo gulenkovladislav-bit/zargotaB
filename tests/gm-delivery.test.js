@@ -21,6 +21,9 @@ assert.match(html, /onclick="zgGmDeliveryToggle\(\)"/);
 
 assert.match(network, /gmSendDelivery:\s*function/);
 assert.match(network, /gmSendDeliveries:\s*function/);
+assert.match(network, /function appendOperationEvent\(operationType, operationId, phase, metadata, error\)/);
+assert.match(network, /category:\s*'gameplay-operation'/);
+assert.match(network, /rows\.slice\(-160\)/);
 assert.match(network, /return api\.gmSendDeliveries\(\[memberUid\],value\)/);
 assert.match(network, /acknowledgeGmDelivery:\s*function/);
 assert.match(network, /\['item','quest','text','image'\]\.indexOf\(value\.kind\)/);
@@ -40,6 +43,15 @@ var batchEnd = network.indexOf('acknowledgeGmDelivery: function', batchStart);
 var batchBlock = network.slice(batchStart, batchEnd);
 assert.match(batchBlock, /firebase\.update\(roomRef\(session\.code\),updates\)/);
 assert.doesNotMatch(batchBlock, /Promise\.all/, 'group delivery must use one atomic room update');
+assert.match(batchBlock, /appendOperationEvent\('gm-delivery',deliveryId,'sending',diagnostic\)/);
+assert.match(batchBlock, /appendOperationEvent\('gm-delivery',diagnostic\.id,'pending-player',diagnostic\)/);
+assert.match(batchBlock, /deliveryWriteCommitted\?'send-refresh-failed':'send-failed'/);
+var deliveryAckStart = network.indexOf('acknowledgeGmDelivery: function');
+var deliveryAckEnd = network.indexOf('gmProposeSkillUpdate: function', deliveryAckStart);
+var deliveryAckBlock = network.slice(deliveryAckStart, deliveryAckEnd);
+assert.match(deliveryAckBlock, /appendOperationEvent\('gm-delivery',deliveryId,'acknowledging',deliveryDiagnostic\)/);
+assert.match(deliveryAckBlock, /status==='applied'\?'applied':'player-failed'/);
+assert.match(deliveryAckBlock, /deliveryAckWritten\?'ack-refresh-failed':'ack-failed'/);
 
 assert.match(delivery, /STORAGE_KEY = 'zargota_gm_delivery_library_v1'/);
 assert.match(delivery, /HISTORY_KEY = 'zargota_gm_delivery_history_v1'/);

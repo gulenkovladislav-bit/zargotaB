@@ -119,10 +119,21 @@
     };
   }
 
+  function appendDiagnosticEvent(event) {
+    try {
+      var rows = JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]');
+      if (!Array.isArray(rows)) rows = [];
+      rows.push(event);
+      localStorage.setItem(SYNC_LOG_KEY, JSON.stringify(rows.slice(-160)));
+    } catch (e) {}
+    return event;
+  }
+
   function appendSyncEvent(character, direction, reason, result, error) {
     var session = readSession(), identity = syncIdentity(character);
     var event = {
       time: now(),
+      category: 'character-sync',
       uid: String(session && session.uid || auth && auth.currentUser && auth.currentUser.uid || ''),
       roomCode: String(session && session.code || ''),
       characterId: identity.characterId,
@@ -133,13 +144,32 @@
       result: result || '',
       error: error ? String(error.message || error).slice(0, 300) : ''
     };
-    try {
-      var rows = JSON.parse(localStorage.getItem(SYNC_LOG_KEY) || '[]');
-      if (!Array.isArray(rows)) rows = [];
-      rows.push(event);
-      localStorage.setItem(SYNC_LOG_KEY, JSON.stringify(rows.slice(-100)));
-    } catch (e) {}
-    return event;
+    return appendDiagnosticEvent(event);
+  }
+
+  function appendOperationEvent(operationType, operationId, phase, metadata, error) {
+    var session = readSession();
+    metadata = metadata && typeof metadata === 'object' ? metadata : {};
+    return appendDiagnosticEvent({
+      time: now(),
+      category: 'gameplay-operation',
+      uid: String(session && session.uid || auth && auth.currentUser && auth.currentUser.uid || ''),
+      roomCode: String(session && session.code || ''),
+      operationType: String(operationType || '').slice(0, 40),
+      operationId: String(operationId || '').slice(0, 180),
+      phase: String(phase || '').slice(0, 40),
+      kind: String(metadata.kind || '').slice(0, 60),
+      name: String(metadata.name || '').slice(0, 160),
+      targetUid: String(metadata.targetUid || '').slice(0, 160),
+      targetCount: Math.max(0, Math.min(99, Number(metadata.targetCount) || 0)),
+      targetKeys: (Array.isArray(metadata.targetKeys) ? metadata.targetKeys : []).slice(0, 12).map(function (key) {
+        return String(key || '').slice(0, 160);
+      }),
+      damage: Math.max(0, Number(metadata.damage) || 0),
+      heal: Math.max(0, Number(metadata.heal) || 0),
+      result: String(metadata.result || '').slice(0, 120),
+      error: error ? String(error.message || error).slice(0, 300) : ''
+    });
   }
 
   function setCharacterSync(status, character, direction, reason, error) {
@@ -2787,6 +2817,11 @@
       actionKind = String(actionKind || 'custom').slice(0, 40);
       speakerUid = String(speakerUid || '').slice(0, 128);
       details = details && typeof details === 'object' ? details : null;
+      var abilityOperationId = actionKind === 'ability'
+        ? 'action-ability-' + now() + '-' + Math.random().toString(36).slice(2, 8)
+        : '';
+      var abilityDiagnostic = null;
+      var abilityRequestWritten = false;
       if (!text) return Promise.resolve(api.getSnapshot());
       return ensureReady().then(function (user) {
         var session = readSession();
@@ -2798,7 +2833,7 @@
           if (!member || member.role !== 'player') throw roomError('Герой не найден в комнате.', 'player-missing');
           if (member.actionRequest && member.actionRequest.status === 'pending') throw roomError('Предыдущая заявка ещё ждёт решения мастера.', 'request-pending');
           var request = {
-            id: 'action-' + targetUid.slice(0, 10) + '-' + now(), uid: targetUid,
+            id: abilityOperationId || 'action-' + targetUid.slice(0, 10) + '-' + now(), uid: targetUid,
             name: member.character && member.character.name || member.name || 'Герой',
             portrait: member.character && member.character.portrait || '',
             text: text, actionKind: actionKind, status: 'pending', createdAt: now(),
@@ -2843,6 +2878,13 @@
             request.target=normalizeAbilityTargeting(details.targeting);
             var usage=member.character&&member.character.abilityUsage&&member.character.abilityUsage[request.ability.resourceKey];
             if(request.ability.resourceMax&&usage&&Number(usage.used)>=request.ability.resourceMax)throw roomError('Заряды этой способности закончились.','ability-exhausted');
+            abilityDiagnostic = {
+              kind: request.ability.kind || 'ability',
+              name: request.ability.name,
+              targetUid: targetUid,
+              targetCount: request.target && request.target.mode === 'self' ? 1 : (request.target && (request.target.targetKey || request.target.point) ? 1 : 0),
+              targetKeys: request.target && request.target.targetKey ? [request.target.targetKey] : []
+            };
           }
           if(details&&actionKind==='spell-learning'){
             var spellId=String(details.spellId||'').slice(0,80);
@@ -2852,11 +2894,15 @@
             if(member.character.spellsLearned&&member.character.spellsLearned[spellId]===true)throw roomError('Это заклинание уже изучено.','spell-already-learned');
             request.learning={spellId:spellId,name:String(details.name||'Заклинание').slice(0,120),learnType:String(details.learnType||'').slice(0,30),learnText:String(details.learnText||'').slice(0,500)};
           }
+          if (abilityDiagnostic) appendOperationEvent('ability-cast', request.id, 'sending-request', abilityDiagnostic);
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + targetUid), { actionRequest: request }).then(function () {
+            abilityRequestWritten = true;
+            if (abilityDiagnostic) appendOperationEvent('ability-cast', request.id, 'pending-gm', abilityDiagnostic);
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
+        if (abilityOperationId) appendOperationEvent('ability-cast', abilityOperationId, abilityRequestWritten?'request-refresh-failed':'request-failed', abilityDiagnostic || {kind:'ability'}, error);
         if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted','spell-learning-invalid','spell-already-learned'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
@@ -3339,6 +3385,9 @@
       var title=String(value.title||'').trim().slice(0,180);
       var body=String(value.text||'').trim().slice(0,6000);
       var image=String(value.image||'').trim();
+      var deliveryDiagnosticBatchId='gm-delivery-batch-'+now()+'-'+Math.random().toString(36).slice(2,8);
+      var deliveryDiagnostics=[];
+      var deliveryWriteCommitted=false;
       if(image.length>350000)return Promise.reject(roomError('Изображение слишком большое для игровой комнаты.','delivery-image-large'));
       if(image&&!/^(?:https?:|data:image\/|images\/|\.?\.?\/)/i.test(image))image='';
       if(!memberUids.length)return Promise.reject(roomError('Выберите хотя бы одного игрока.','member-required'));
@@ -3387,6 +3436,9 @@
           var stamp=now(),updates={};
           members.forEach(function(target,index){
             var deliveryId='gm-delivery-'+stamp+'-'+index+'-'+Math.random().toString(36).slice(2,8);
+            var diagnostic={id:deliveryId,kind:kind,name:title,targetUid:target.uid,targetCount:1,targetKeys:[]};
+            deliveryDiagnostics.push(diagnostic);
+            appendOperationEvent('gm-delivery',deliveryId,'sending',diagnostic);
             updates['members/'+target.uid+'/gmDeliveries/'+deliveryId]={
               id:deliveryId,
               batchId:members.length>1?'gm-delivery-batch-'+stamp:'',
@@ -3408,10 +3460,21 @@
           });
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){
+            deliveryWriteCommitted=true;
+            deliveryDiagnostics.forEach(function(diagnostic){
+              appendOperationEvent('gm-delivery',diagnostic.id,'pending-player',diagnostic);
+            });
             return refreshRoom(session.code).then(function(){return api.getSnapshot();});
           });
         });
       }).catch(function(error){
+        if(deliveryDiagnostics.length){
+          deliveryDiagnostics.forEach(function(diagnostic){
+            appendOperationEvent('gm-delivery',diagnostic.id,deliveryWriteCommitted?'send-refresh-failed':'send-failed',diagnostic,error);
+          });
+        }else{
+          appendOperationEvent('gm-delivery',deliveryDiagnosticBatchId,'send-failed',{kind:kind,name:title,targetCount:memberUids.length},error);
+        }
         if(error&&['member-required','delivery-title-required','delivery-image-large','master-only','room-not-found','character-missing'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
@@ -3420,6 +3483,8 @@
     acknowledgeGmDelivery: function (deliveryId, status) {
       deliveryId=String(deliveryId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
       status=['applied','failed'].indexOf(status)>=0?status:'applied';
+      var deliveryDiagnostic=null;
+      var deliveryAckWritten=false;
       if(!deliveryId)return Promise.resolve(api.getSnapshot());
       return ensureReady().then(function(user){
         var session=readSession();
@@ -3428,14 +3493,19 @@
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
           var member=room.members&&room.members[user.uid],delivery=member&&member.gmDeliveries&&member.gmDeliveries[deliveryId];
           if(!delivery||delivery.status!=='pending')return api.getSnapshot();
+          deliveryDiagnostic={kind:delivery.kind||'',name:delivery.title||'',targetUid:user.uid,targetCount:1};
+          appendOperationEvent('gm-delivery',deliveryId,'acknowledging',deliveryDiagnostic);
           var updates={};
           updates['gmDeliveries/'+deliveryId+'/status']=status;
           updates['gmDeliveries/'+deliveryId+'/resolvedAt']=now();
           return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),updates).then(function(){
+            deliveryAckWritten=true;
+            appendOperationEvent('gm-delivery',deliveryId,status==='applied'?'applied':'player-failed',deliveryDiagnostic);
             return refreshRoom(session.code).then(function(){return api.getSnapshot();});
           });
         });
       }).catch(function(error){
+        if(deliveryDiagnostic)appendOperationEvent('gm-delivery',deliveryId,deliveryAckWritten?'ack-refresh-failed':'ack-failed',deliveryDiagnostic,error);
         if(error&&error.code==='room-not-found')throw error;
         throw friendlyFirebaseError(error);
       });
@@ -3910,12 +3980,16 @@
 
     resolveCombatAbility: function (requestUid, targetKeys, overrides) {
       requestUid=String(requestUid||'').slice(0,128);targetKeys=(Array.isArray(targetKeys)?targetKeys:[targetKeys]).map(function(key){return String(key||'').slice(0,160);}).filter(Boolean).filter(function(key,index,list){return list.indexOf(key)===index;}).slice(0,30);overrides=overrides&&typeof overrides==='object'?overrides:{};
+      var castDiagnostic=null;
+      var castWriteCommitted=false;
       return ensureReady().then(function(user){
         var session=readSession();if(!session||session.role!=='master')throw roomError('Разыгрывать способности может только мастер.','master-only');
         return readRoom(session.code).then(function(room){
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
           var member=room.members&&room.members[requestUid],request=member&&member.actionRequest,ability=request&&request.ability;
           if(!request||request.status!=='pending'||!ability)throw roomError('Заявка способности уже обработана.','request-missing');
+          castDiagnostic={id:String(request.id||''),kind:String(ability.kind||'ability'),name:String(ability.name||''),targetUid:requestUid,targetCount:targetKeys.length,targetKeys:targetKeys.slice()};
+          appendOperationEvent('ability-cast',castDiagnostic.id,'resolving',castDiagnostic);
           var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[];
           if(!combat||!combat.active||!order.length)throw roomError('Разыграть способность можно только в активном бою.','combat-missing');
           var actorIndex=order.findIndex(function(entry){return entry&&entry.uid===requestUid;}),targetIndexes=targetKeys.map(function(key){return order.findIndex(function(entry){return entry&&entry.key===key;});});
@@ -3977,9 +4051,22 @@
           updates.combatEvent={id:'combat-ability-'+stamp,kind:'combat-ability',name:actor.name||request.name||'Участник',portrait:actor.portrait||'',text:'Применяет «'+(effect.name||'способность')+'»'+(effect.areaMode!=='manual'?' по области «'+({circle:'круг',line:'линия',cone:'конус'}[effect.areaMode]||effect.areaMode)+'» длиной '+effect.areaRadius+' кл.':'')+'. '+summaries.join('; ')+'.'+(effect.durationRounds?' Длительность: '+effect.durationRounds+' р.':'')+(effect.concentration?' Требует концентрации.':''),ability:effect.name||'',abilityKey:effect.key||'',targetKeys:targetKeys,results:results,areaMode:effect.areaMode,areaRadius:effect.areaMode!=='manual'?effect.areaRadius:0,areaWidth:effect.areaMode==='line'?effect.areaWidth:0,areaAnchorKey:effect.areaMode!=='manual'?effect.areaAnchorKey:'',concentration:effect.concentration,durationRounds:effect.durationRounds,roll:firstRoll.roll==null?null:firstRoll.roll,rolls:firstRoll.rolls||[],total:firstRoll.total==null?null:firstRoll.total,dc:firstRoll.dc==null?null:firstRoll.dc,success:results.every(function(result){return result.success;}),damage:results.reduce(function(sum,result){return sum+result.damage;},0),heal:results.reduce(function(sum,result){return sum+result.heal;},0),ts:stamp,revealAt:stamp+(firstRoll.roll!=null?3200:500)};updates.updatedAt=stamp;
           updates.combatEvent.actorKey=actor.key||'';
           updates.combatEvent.areaAnchorPoint=effect.areaMode!=='manual'?effect.areaAnchorPoint:null;
-          return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
+          castDiagnostic.targetCount=targetKeys.length;
+          castDiagnostic.targetKeys=targetKeys.slice();
+          castDiagnostic.damage=updates.combatEvent.damage;
+          castDiagnostic.heal=updates.combatEvent.heal;
+          appendOperationEvent('ability-cast',castDiagnostic.id,'applying',castDiagnostic);
+          return firebase.update(roomRef(session.code),updates).then(function(){
+            castWriteCommitted=true;
+            appendOperationEvent('ability-cast',castDiagnostic.id,'applied',castDiagnostic);
+            return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+          });
         });
-      }).catch(function(error){if(error&&['master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-area-anchor','combat-not-turn','combat-status-blocked','combat-action-spent','combat-target-range','ability-exhausted'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+      }).catch(function(error){
+        if(castDiagnostic)appendOperationEvent('ability-cast',castDiagnostic.id,castWriteCommitted?'resolve-refresh-failed':'resolve-failed',castDiagnostic,error);
+        if(error&&['master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-area-anchor','combat-not-turn','combat-status-blocked','combat-action-spent','combat-target-range','ability-exhausted'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
     },
 
     prepareCombatReaction: function (text, participantKey) {
