@@ -16,6 +16,7 @@ new vm.Script(delivery, {filename:'gm-delivery.js'});
 
 assert.match(html, /gm-delivery\.css\?v=/);
 assert.match(html, /gm-delivery\.js\?v=/);
+assert.ok(html.indexOf('gameplay-operation-outbox.js') < html.indexOf('zargota-network.js'));
 assert.match(html, /class="zg-scene-publish zg-gm-delivery-button"/);
 assert.match(html, /onclick="zgGmDeliveryToggle\(\)"/);
 
@@ -30,7 +31,7 @@ assert.match(network, /\['item','quest','text','image'\]\.indexOf\(value\.kind\)
 assert.match(network, /\['calm','solemn','ominous'\]\.indexOf\(value\.mood\)/);
 assert.match(network, /status:'pending'/);
 assert.match(network, /members\/'\+target\.uid\+'\/gmDeliveries\/'\+deliveryId/);
-assert.match(network, /batchId:members\.length>1\?'gm-delivery-batch-'\+stamp:''/);
+assert.match(network, /batchId:members\.length>1\?deliveryOperationId:''/);
 assert.match(network, /memberUids=.*filter\(function\(uid,index,list\)\{return list\.indexOf\(uid\)===index;\}\)\.slice\(0,40\)/);
 assert.match(network, /resolved\.slice\(30\)/);
 assert.match(network, /delivery-image-large/);
@@ -43,6 +44,12 @@ var batchEnd = network.indexOf('acknowledgeGmDelivery: function', batchStart);
 var batchBlock = network.slice(batchStart, batchEnd);
 assert.match(batchBlock, /firebase\.update\(roomRef\(session\.code\),updates\)/);
 assert.doesNotMatch(batchBlock, /Promise\.all/, 'group delivery must use one atomic room update');
+assert.match(batchBlock, /queueGameplayOperation\('gm-delivery',deliveryOperationId/);
+assert.match(batchBlock, /gameplayOperationSnapshot\('gm-delivery',deliveryOperationId\)/);
+assert.match(batchBlock, /var deliveryId='gm-delivery-'\+deliveryOperationId\+'-'\+index/);
+assert.match(batchBlock, /target\.member\.gmDeliveries&&target\.member\.gmDeliveries\[deliveryId\]/);
+assert.match(batchBlock, /appliedDeliveryIds\.indexOf\(deliveryId\)>=0/);
+assert.match(batchBlock, /removeGameplayOperation\(deliveryOperationId\)/);
 assert.match(batchBlock, /appendOperationEvent\('gm-delivery',deliveryId,'sending',diagnostic\)/);
 assert.match(batchBlock, /appendOperationEvent\('gm-delivery',diagnostic\.id,'pending-player',diagnostic\)/);
 assert.match(batchBlock, /deliveryWriteCommitted\?'send-refresh-failed':'send-failed'/);
@@ -68,6 +75,8 @@ assert.match(delivery, /zgGmDeliveryShelf/);
 assert.match(delivery, /zgGmDeliveryRepeat/);
 assert.match(delivery, /activeTarget === '__all__' \? 'Выдать группе'/);
 assert.match(delivery, /w\.ZargotaRooms\.gmSendDeliveries\(memberUids, value\)/);
+assert.match(delivery, /snapshot\s*&&\s*snapshot\.queuedOperation/);
+assert.match(delivery, /выдача сохранена и отправится автоматически/);
 assert.match(delivery, /function appendHistory/);
 assert.match(delivery, /function previewMarkup/);
 assert.match(delivery, /id="zg-gm-delivery-preview"/);

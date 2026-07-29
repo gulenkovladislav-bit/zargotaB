@@ -9,8 +9,9 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <script src="character-store.js?v=2026-07-27.2"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
+<script src="gameplay-operation-outbox.js?v=2026-07-29.1"></script>
 <script src="equipment-rules.js?v=2026-07-29.1"></script>
-<script src="zargota-network.js?v=2026-07-29.21"></script>
+<script src="zargota-network.js?v=2026-07-29.22"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.3">
 <script src="gm-delivery.js?v=2026-07-29.4"></script>
 <script>
@@ -15998,7 +15999,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     abilityRequestBusy=true;renderDrawer();
     var abilityOperation=w.ZargotaRooms.requestAction?w.ZargotaRooms.requestAction('Хочет применить «'+label+'»','ability',w.zgPossessedPlayerUid||'',profile):w.ZargotaRooms.sendChat('Хочет применить «'+label+'»','action',w.zgPossessedPlayerUid||'');
-    abilityOperation.then(function(){if(w.showToast)w.showToast('Заявка отправлена мастеру');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку');}).then(function(){abilityRequestBusy=false;renderDrawer();});
+    abilityOperation.then(function(snapshot){if(w.showToast)w.showToast(snapshot&&snapshot.queuedOperation?'Нет связи — заявка сохранена и отправится автоматически':'Заявка отправлена мастеру');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку');}).then(function(){abilityRequestBusy=false;renderDrawer();});
   };
   w.zgVttAbilityTargetCancelled=function(){pendingAbilityCast=null;};
   w.zgVttSendAbilityTarget=function(selection){
@@ -16009,7 +16010,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var targetLabel=selection&&selection.targetName?' по цели «'+selection.targetName+'»':selection&&selection.mode==='point'?' в выбранной точке':'';
     Promise.resolve(w.ZargotaRooms.requestAction('Хочет применить «'+pending.label+'»'+targetLabel,'ability',w.zgPossessedPlayerUid||'',payload)).then(function(snapshot){
       if(snapshot)state=snapshot;
-      if(w.showToast)w.showToast(selection&&selection.targetName?'Заявка отправлена: '+selection.targetName:'Точка заклинания отправлена мастеру');
+      if(w.showToast)w.showToast(snapshot&&snapshot.queuedOperation?'Нет связи — заявка сохранена и отправится автоматически':selection&&selection.targetName?'Заявка отправлена: '+selection.targetName:'Точка заклинания отправлена мастеру');
     }).catch(function(error){
       if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку');
     }).then(function(){abilityRequestBusy=false;renderDrawer();});

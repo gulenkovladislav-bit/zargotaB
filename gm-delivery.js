@@ -701,10 +701,13 @@
     if (w.ZargotaRooms.gmSendDeliveries) operation = w.ZargotaRooms.gmSendDeliveries(memberUids, value);
     else if (memberUids.length === 1 && w.ZargotaRooms.gmSendDelivery) operation = w.ZargotaRooms.gmSendDelivery(memberUids[0], value);
     else operation = Promise.reject(new Error('Групповая выдача недоступна в этой версии комнаты.'));
-    operation.then(function () {
-      appendHistory(value, members, 'sent', '', repeatedFrom);
-      if (w.showToast) w.showToast(memberUids.length > 1 ? 'Выдача отправлена всей группе' : 'Выдача отправлена игроку');
-      if (!repeatedFrom) {
+    operation.then(function (snapshot) {
+      var queued = !!(snapshot && snapshot.queuedOperation);
+      appendHistory(value, members, queued ? 'queued' : 'sent', '', repeatedFrom);
+      if (w.showToast) w.showToast(queued
+        ? 'Нет связи — выдача сохранена и отправится автоматически'
+        : memberUids.length > 1 ? 'Выдача отправлена всей группе' : 'Выдача отправлена игроку');
+      if (!queued && !repeatedFrom) {
         delete drafts[activeKind];
         activeImage = '';
         if (value.kind === 'item' && value.payload && Array.isArray(value.payload.items)) itemBundle = [];

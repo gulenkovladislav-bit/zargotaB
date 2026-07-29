@@ -44,6 +44,7 @@
   };
   var leaveRoomPromise = null;
   var outboxFlushPromise = null;
+  var gameplayOutboxFlushPromise = null;
   var tabChannel = null;
   var tabPeers = Object.create(null);
   var tabHeartbeatTimer = 0;
@@ -172,6 +173,23 @@
     });
   }
 
+  function rememberActionOperation(existing, operationId, timestamp) {
+    operationId = String(operationId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 180);
+    var source = existing && typeof existing === 'object' ? existing : {};
+    var rows = Object.keys(source).filter(function (key) {
+      return /^[a-zA-Z0-9_-]{1,180}$/.test(key);
+    }).map(function (key) {
+      return {key:key,time:Math.max(0,Number(source[key])||0)};
+    });
+    if (operationId && !rows.some(function (row) { return row.key === operationId; })) {
+      rows.push({key:operationId,time:Math.max(1,Number(timestamp)||now())});
+    }
+    rows.sort(function (a,b) { return b.time-a.time; });
+    var result = {};
+    rows.slice(0,40).forEach(function (row) { result[row.key]=row.time; });
+    return result;
+  }
+
   function setCharacterSync(status, character, direction, reason, error) {
     var identity = syncIdentity(character), timestamp = now();
     characterSync.status = status;
@@ -191,6 +209,112 @@
 
   function syncOutbox() {
     return w.ZargotaSyncOutbox || null;
+  }
+
+  function gameplayOutbox() {
+    return w.ZargotaGameplayOutbox || null;
+  }
+
+  function gameplayOperationSnapshot(type, operationId) {
+    var snapshot = api.getSnapshot();
+    snapshot.queuedOperation = {
+      type: String(type || ''),
+      operationId: String(operationId || ''),
+      queued: true
+    };
+    return snapshot;
+  }
+
+  function queueGameplayOperation(type, operationId, payload) {
+    var store = gameplayOutbox(), session = readSession();
+    if (!store || !session || !auth || !auth.currentUser || !tabCanWrite()) return {ok:false,skipped:true};
+    return store.enqueue({
+      type:type,
+      operationId:operationId,
+      roomCode:session.code,
+      uid:auth.currentUser.uid,
+      role:session.role,
+      tabId:sessionTabId(),
+      payload:payload,
+      createdAt:now()
+    });
+  }
+
+  function removeGameplayOperation(operationId) {
+    var store = gameplayOutbox();
+    return !store || store.remove(operationId);
+  }
+
+  function markGameplayOperationError(operationId, error) {
+    var store = gameplayOutbox();
+    return !store || store.markError(operationId, error);
+  }
+
+  function terminalGameplayError(error) {
+    var code = String(error && error.code || '');
+    return [
+      'room-required','room-not-found','player-missing','member-required','master-only',
+      'delivery-title-required','delivery-image-large','character-missing',
+      'ability-exhausted','spell-learning-invalid','spell-already-learned'
+    ].indexOf(code) >= 0 || code.indexOf('permission-denied') >= 0;
+  }
+
+  function flushGameplayOutbox() {
+    if (gameplayOutboxFlushPromise) return gameplayOutboxFlushPromise;
+    var store = gameplayOutbox(), session = readSession();
+    if (!store || !connected || !session || !auth || !auth.currentUser || !currentRoom || !tabCanWrite()) {
+      return Promise.resolve(api.getSnapshot());
+    }
+    var entries = store.forSession({
+      roomCode:session.code,
+      uid:auth.currentUser.uid,
+      role:session.role
+    });
+    if (!entries.length) return Promise.resolve(api.getSnapshot());
+    function flushAt(index) {
+      if (index >= entries.length || !connected || !tabCanWrite()) return Promise.resolve(api.getSnapshot());
+      var entry = entries[index], payload = entry.payload || {}, operation;
+      store.markAttempt(entry.operationId);
+      appendOperationEvent(entry.type === 'gm-delivery' ? 'gm-delivery' : 'ability-cast', entry.operationId, 'retrying', {
+        kind:payload.value && payload.value.kind || payload.details && payload.details.kind || '',
+        name:payload.value && payload.value.title || payload.details && payload.details.name || '',
+        targetCount:Array.isArray(payload.memberUids) ? payload.memberUids.length : 1
+      });
+      if (entry.type === 'gm-delivery') {
+        operation = api.gmSendDeliveries(payload.memberUids || [], Object.assign({}, payload.value || {}, {
+          operationId:entry.operationId,
+          fromOutbox:true
+        }));
+      } else {
+        operation = api.requestAction(payload.text || '', 'ability', payload.speakerUid || '', Object.assign({}, payload.details || {}, {
+          operationId:entry.operationId,
+          fromOutbox:true
+        }));
+      }
+      return Promise.resolve(operation).then(function (snapshot) {
+        if (snapshot && snapshot.queuedOperation) {
+          store.markError(entry.operationId, 'Connection lost during retry');
+          return flushAt(index + 1);
+        }
+        store.remove(entry.operationId);
+        appendOperationEvent(entry.type === 'gm-delivery' ? 'gm-delivery' : 'ability-cast', entry.operationId, 'retry-acked', {
+          targetCount:Array.isArray(payload.memberUids) ? payload.memberUids.length : 1
+        });
+        return flushAt(index + 1);
+      }, function (error) {
+        store.markError(entry.operationId, error);
+        if (terminalGameplayError(error)) store.remove(entry.operationId);
+        return flushAt(index + 1);
+      });
+    }
+    gameplayOutboxFlushPromise = flushAt(0).then(function (snapshot) {
+      gameplayOutboxFlushPromise = null;
+      return snapshot;
+    }, function () {
+      gameplayOutboxFlushPromise = null;
+      return api.getSnapshot();
+    });
+    return gameplayOutboxFlushPromise;
   }
 
   function outboxScope(session, characterId) {
@@ -1058,14 +1182,26 @@
     return !session || !tabCoordinationState().isSecondary;
   }
 
+  function resumePrimaryTab(session) {
+    session = session || readSession();
+    if (!connected || !session || !tabCanWrite()) return Promise.resolve();
+    return Promise.all([
+      Promise.resolve(setPresence(session)),
+      Promise.resolve(flushCharacterOutbox()),
+      Promise.resolve(flushGameplayOutbox())
+    ]).catch(function () {});
+  }
+
   function notifyTabCoordination() {
+    var resumePromise = Promise.resolve();
     if (typeof api !== 'undefined' && api && api.getSnapshot) {
       var state = tabCoordinationState(), wasSecondary = tabWasSecondary;
       tabWasSecondary = !!state.isSecondary;
       if (tabWasSecondary) clearPresenceDisconnectHandles();
-      else if (wasSecondary && connected) setPresence(readSession());
+      else if (wasSecondary && connected) resumePromise = resumePrimaryTab(readSession());
       emit();
     }
+    return resumePromise;
   }
 
   function initTabCoordination() {
@@ -1161,8 +1297,9 @@
     session.tabClaimedAt = Math.max(now(), latestClaim + 1);
     saveSession(session);
     tabCoordinationMessage('takeover', session);
-    notifyTabCoordination();
-    return Promise.resolve(api.getSnapshot());
+    return Promise.resolve(notifyTabCoordination()).then(function () {
+      return api.getSnapshot();
+    });
   }
 
   function generatedCode(length, used) {
@@ -1690,7 +1827,10 @@
       restoreCharacterInboundFromRoom(currentRoom);
       scheduleMasterCombatEquipmentReconcile(currentRoom);
       emit();
-      if (connected) flushCharacterOutbox();
+      if (connected) {
+        flushCharacterOutbox();
+        flushGameplayOutbox();
+      }
     }, function (error) {
       console.error('Zargota room listener:', error);
       emit();
@@ -2817,12 +2957,38 @@
       actionKind = String(actionKind || 'custom').slice(0, 40);
       speakerUid = String(speakerUid || '').slice(0, 128);
       details = details && typeof details === 'object' ? details : null;
+      var abilityFromOutbox = !!(details && details.fromOutbox);
+      var suppliedAbilityOperationId = String(details && details.operationId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 180);
       var abilityOperationId = actionKind === 'ability'
-        ? 'action-ability-' + now() + '-' + Math.random().toString(36).slice(2, 8)
+        ? suppliedAbilityOperationId || 'action-ability-' + now() + '-' + Math.random().toString(36).slice(2, 8)
         : '';
       var abilityDiagnostic = null;
       var abilityRequestWritten = false;
+      var abilityQueueResult = {ok:false,skipped:true};
       if (!text) return Promise.resolve(api.getSnapshot());
+      if (actionKind === 'ability' && !tabCanWrite()) {
+        return Promise.reject(roomError('Эта вкладка работает только для просмотра. Передайте управление ей перед отправкой заявки.', 'tab-read-only'));
+      }
+      if (actionKind === 'ability' && !abilityFromOutbox) {
+        var queuedAbilityDetails = Object.assign({}, details || {});
+        delete queuedAbilityDetails.operationId;
+        delete queuedAbilityDetails.fromOutbox;
+        abilityQueueResult = queueGameplayOperation('ability-request', abilityOperationId, {
+          text:text,
+          speakerUid:speakerUid,
+          details:queuedAbilityDetails
+        });
+        if (!abilityQueueResult.ok && !connected) {
+          return Promise.reject(roomError('Нет связи, а локальная очередь заявки недоступна.', abilityQueueResult.error || 'operation-queue-unavailable'));
+        }
+      }
+      if (actionKind === 'ability' && !connected) {
+        appendOperationEvent('ability-cast', abilityOperationId, 'queued-offline', {
+          kind:details && details.kind || 'ability',
+          name:details && details.name || ''
+        });
+        return Promise.resolve(gameplayOperationSnapshot('ability-request', abilityOperationId));
+      }
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session) throw roomError('Сначала войдите в комнату.', 'room-required');
@@ -2831,7 +2997,27 @@
           var targetUid = session.role === 'master' && speakerUid ? speakerUid : user.uid;
           var member = room.members && room.members[targetUid];
           if (!member || member.role !== 'player') throw roomError('Герой не найден в комнате.', 'player-missing');
-          if (member.actionRequest && member.actionRequest.status === 'pending') throw roomError('Предыдущая заявка ещё ждёт решения мастера.', 'request-pending');
+          if (abilityOperationId && member.actionOperationIds && member.actionOperationIds[abilityOperationId]) {
+            removeGameplayOperation(abilityOperationId);
+            appendOperationEvent('ability-cast', abilityOperationId, 'already-resolved', {
+              kind:details && details.kind || 'ability',
+              name:details && details.name || '',
+              targetUid:targetUid
+            });
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          }
+          if (member.actionRequest && abilityOperationId && String(member.actionRequest.id || '') === abilityOperationId) {
+            removeGameplayOperation(abilityOperationId);
+            appendOperationEvent('ability-cast', abilityOperationId, member.actionRequest.status === 'pending' ? 'already-pending' : 'already-resolved', {
+              kind:member.actionRequest.ability && member.actionRequest.ability.kind || 'ability',
+              name:member.actionRequest.ability && member.actionRequest.ability.name || '',
+              targetUid:targetUid
+            });
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          }
+          if (member.actionRequest && (member.actionRequest.status === 'pending' || abilityFromOutbox)) {
+            throw roomError('Предыдущая заявка ещё ждёт решения мастера.', 'request-pending');
+          }
           var request = {
             id: abilityOperationId || 'action-' + targetUid.slice(0, 10) + '-' + now(), uid: targetUid,
             name: member.character && member.character.name || member.name || 'Герой',
@@ -2897,12 +3083,19 @@
           if (abilityDiagnostic) appendOperationEvent('ability-cast', request.id, 'sending-request', abilityDiagnostic);
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + targetUid), { actionRequest: request }).then(function () {
             abilityRequestWritten = true;
+            if (!removeGameplayOperation(request.id)) appendOperationEvent('ability-cast', request.id, 'queue-remove-failed', abilityDiagnostic);
             if (abilityDiagnostic) appendOperationEvent('ability-cast', request.id, 'pending-gm', abilityDiagnostic);
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           });
         });
       }).catch(function (error) {
         if (abilityOperationId) appendOperationEvent('ability-cast', abilityOperationId, abilityRequestWritten?'request-refresh-failed':'request-failed', abilityDiagnostic || {kind:'ability'}, error);
+        if (abilityOperationId) markGameplayOperationError(abilityOperationId, error);
+        if (abilityOperationId && terminalGameplayError(error)) removeGameplayOperation(abilityOperationId);
+        if (abilityRequestWritten) return api.getSnapshot();
+        if (!abilityFromOutbox && abilityQueueResult.ok && !terminalGameplayError(error)) {
+          return gameplayOperationSnapshot('ability-request', abilityOperationId);
+        }
         if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted','spell-learning-invalid','spell-already-learned'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
@@ -2964,6 +3157,7 @@
               character.updatedAt=resolvedAt;character.updatedBy=user.uid;character.source='ability-approved';character.syncOperationId=operationId;
               current.character=character;
               current.actionRequest=Object.assign({},currentRequest,{status:'approved',resolvedAt:resolvedAt});
+              current.actionOperationIds=rememberActionOperation(current.actionOperationIds,currentRequest.id,resolvedAt);
               current.messages=Object.assign({},current.messages||{});
               current.messages[messageId]={id:messageId,uid:requestUid,kind:'action-approved',name:request.name||current.name||'Герой',portrait:request.portrait||'',text:'Мастер разрешает: '+request.text,ts:resolvedAt};
               return current;
@@ -2982,6 +3176,9 @@
           var updates = {};
           updates['members/' + requestUid + '/actionRequest/status'] = accepted ? 'approved' : 'rejected';
           updates['members/' + requestUid + '/actionRequest/resolvedAt'] = resolvedAt;
+          if (request.actionKind === 'ability') {
+            updates['members/' + requestUid + '/actionOperationIds'] = rememberActionOperation(member.actionOperationIds,request.id,resolvedAt);
+          }
           if (accepted && request.actionKind === 'combat-attack') {
             updates['members/' + requestUid + '/actionRequest/details/mode'] = ['advantage','disadvantage'].indexOf(resolution.mode) >= 0 ? resolution.mode : 'normal';
           }
@@ -3380,14 +3577,23 @@
     gmSendDeliveries: function (memberUids, value) {
       memberUids=(Array.isArray(memberUids)?memberUids:[memberUids]).map(function(uid){return String(uid||'').slice(0,160);}).filter(Boolean).filter(function(uid,index,list){return list.indexOf(uid)===index;}).slice(0,40);
       value=value&&typeof value==='object'?value:{};
+      var deliveryFromOutbox=!!value.fromOutbox;
+      var suppliedDeliveryOperationId=String(value.operationId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,150);
+      var deliveryOperationId=suppliedDeliveryOperationId||'gm-delivery-op-'+now()+'-'+Math.random().toString(36).slice(2,8);
+      var queuedDeliveryValue;
+      try{queuedDeliveryValue=JSON.parse(JSON.stringify(value));}catch(queueCloneError){queuedDeliveryValue={};}
+      delete queuedDeliveryValue.operationId;
+      delete queuedDeliveryValue.fromOutbox;
       var kind=['item','quest','text','image'].indexOf(value.kind)>=0?value.kind:'text';
       var mood=['calm','solemn','ominous'].indexOf(value.mood)>=0?value.mood:'calm';
       var title=String(value.title||'').trim().slice(0,180);
       var body=String(value.text||'').trim().slice(0,6000);
       var image=String(value.image||'').trim();
-      var deliveryDiagnosticBatchId='gm-delivery-batch-'+now()+'-'+Math.random().toString(36).slice(2,8);
+      var deliveryDiagnosticBatchId=deliveryOperationId;
       var deliveryDiagnostics=[];
       var deliveryWriteCommitted=false;
+      var deliveryQueueResult={ok:false,skipped:true};
+      if(!tabCanWrite())return Promise.reject(roomError('Эта вкладка работает только для просмотра. Передайте управление ей перед выдачей.','tab-read-only'));
       if(image.length>350000)return Promise.reject(roomError('Изображение слишком большое для игровой комнаты.','delivery-image-large'));
       if(image&&!/^(?:https?:|data:image\/|images\/|\.?\.?\/)/i.test(image))image='';
       if(!memberUids.length)return Promise.reject(roomError('Выберите хотя бы одного игрока.','member-required'));
@@ -3426,6 +3632,19 @@
       }else if(kind==='quest'){
         payload.quest={title:title,text:body,image:image};
       }
+      if(!deliveryFromOutbox){
+        deliveryQueueResult=queueGameplayOperation('gm-delivery',deliveryOperationId,{
+          memberUids:memberUids.slice(),
+          value:queuedDeliveryValue
+        });
+        if(!deliveryQueueResult.ok&&!connected){
+          return Promise.reject(roomError('Нет связи, а локальная очередь выдачи недоступна.',deliveryQueueResult.error||'operation-queue-unavailable'));
+        }
+      }
+      if(!connected){
+        appendOperationEvent('gm-delivery',deliveryOperationId,'queued-offline',{kind:kind,name:title,targetCount:memberUids.length});
+        return Promise.resolve(gameplayOperationSnapshot('gm-delivery',deliveryOperationId));
+      }
       return ensureReady().then(function(user){
         var session=readSession();
         if(!session||session.role!=='master')throw roomError('Выдавать награды может только мастер.','master-only');
@@ -3433,15 +3652,21 @@
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
           if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
           var members=memberUids.map(function(memberUid){var member=room.members&&room.members[memberUid];if(!member||member.role!=='player'||!member.characterId||!member.character)throw roomError('Лист одного из выбранных игроков недоступен.','character-missing');return{uid:memberUid,member:member};});
-          var stamp=now(),updates={};
+          var stamp=now(),updates={},newDeliveryCount=0;
           members.forEach(function(target,index){
-            var deliveryId='gm-delivery-'+stamp+'-'+index+'-'+Math.random().toString(36).slice(2,8);
+            var deliveryId='gm-delivery-'+deliveryOperationId+'-'+index;
             var diagnostic={id:deliveryId,kind:kind,name:title,targetUid:target.uid,targetCount:1,targetKeys:[]};
             deliveryDiagnostics.push(diagnostic);
+            var appliedDeliveryIds=target.member.character&&Array.isArray(target.member.character.appliedDeliveryIds)?target.member.character.appliedDeliveryIds:[];
+            if(target.member.gmDeliveries&&target.member.gmDeliveries[deliveryId]||appliedDeliveryIds.indexOf(deliveryId)>=0){
+              appendOperationEvent('gm-delivery',deliveryId,'already-pending',diagnostic);
+              return;
+            }
+            newDeliveryCount++;
             appendOperationEvent('gm-delivery',deliveryId,'sending',diagnostic);
             updates['members/'+target.uid+'/gmDeliveries/'+deliveryId]={
               id:deliveryId,
-              batchId:members.length>1?'gm-delivery-batch-'+stamp:'',
+              batchId:members.length>1?deliveryOperationId:'',
               kind:kind,
               mood:mood,
               showPopup:value.showPopup!==false,
@@ -3458,9 +3683,14 @@
             }).sort(function(a,b){return Number(deliveries[b].resolvedAt||deliveries[b].createdAt||0)-Number(deliveries[a].resolvedAt||deliveries[a].createdAt||0);});
             resolved.slice(30).forEach(function(key){updates['members/'+target.uid+'/gmDeliveries/'+key]=null;});
           });
+          if(!newDeliveryCount){
+            removeGameplayOperation(deliveryOperationId);
+            return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+          }
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){
             deliveryWriteCommitted=true;
+            if(!removeGameplayOperation(deliveryOperationId))appendOperationEvent('gm-delivery',deliveryOperationId,'queue-remove-failed',{kind:kind,name:title,targetCount:memberUids.length});
             deliveryDiagnostics.forEach(function(diagnostic){
               appendOperationEvent('gm-delivery',diagnostic.id,'pending-player',diagnostic);
             });
@@ -3474,6 +3704,12 @@
           });
         }else{
           appendOperationEvent('gm-delivery',deliveryDiagnosticBatchId,'send-failed',{kind:kind,name:title,targetCount:memberUids.length},error);
+        }
+        markGameplayOperationError(deliveryOperationId,error);
+        if(terminalGameplayError(error))removeGameplayOperation(deliveryOperationId);
+        if(deliveryWriteCommitted)return api.getSnapshot();
+        if(!deliveryFromOutbox&&deliveryQueueResult.ok&&!terminalGameplayError(error)){
+          return gameplayOperationSnapshot('gm-delivery',deliveryOperationId);
         }
         if(error&&['member-required','delivery-title-required','delivery-image-large','master-only','room-not-found','character-missing'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
@@ -4043,7 +4279,7 @@
             order[targetIndex]=target;results.push({key:target.key,name:target.name||'Цель',roll:natural,rolls:rolls,rollMode:rollMode,modifier:modifier,total:total,dc:dc,success:success,damage:damage,heal:heal,absorbed:absorbed,hp:after,tempHp:target.tempHp,statuses:applyStatuses?effect.statuses:[]});
           });
           if(cost!=='free')economy[cost]=Math.max(0,Number(economy[cost]||0)-1);if(restrictions.slowed&&(cost==='long'||cost==='short')){economy.long=0;economy.short=0;}order[actorIndex].economy=economy;if(effect.concentration)order[actorIndex].concentration={sourceId:effectSource,abilityKey:effect.key||'',name:effect.name||'Способность',startedAt:castStamp,durationRounds:effect.durationRounds||0};
-          var stamp=now(),updates={};updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['members/'+requestUid+'/actionRequest/status']='approved';updates['members/'+requestUid+'/actionRequest/resolvedAt']=stamp;
+          var stamp=now(),updates={};updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['members/'+requestUid+'/actionRequest/status']='approved';updates['members/'+requestUid+'/actionRequest/resolvedAt']=stamp;updates['members/'+requestUid+'/actionOperationIds']=rememberActionOperation(member.actionOperationIds,request.id,stamp);
           if(resourceMutation&&resourceMutation.changed){updates['members/'+requestUid+'/character/abilityUsage/'+resourceKey]=Object.assign({},resourceMutation.state,{updatedAt:stamp});}
           targetIndexes.forEach(function(targetIndex,listIndex){var target=order[targetIndex],result=results[listIndex];if(target.uid){updates['members/'+target.uid+'/character/hpCur']=result.hp;updates['members/'+target.uid+'/character/tempHp']=result.tempHp;updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=result.hp;updates['scene/tokens/'+index+'/tempHp']=result.tempHp;updates['scene/tokens/'+index+'/statuses']=target.statuses||[];updates['scene/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=result.hp;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=result.tempHp;updates['zones/'+zoneId+'/tokens/'+index+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});});}});
           concentrationTouched.forEach(function(index){if(targetIndexes.indexOf(index)>=0)return;var target=order[index];if(target.uid){updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['scene/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});});}});
@@ -4502,6 +4738,10 @@
       return flushCharacterOutbox();
     },
 
+    flushGameplayOutbox: function () {
+      return flushGameplayOutbox();
+    },
+
     markLocalCharacterSaveFailed: function (character, error) {
       setCharacterSync('storage-error', character, 'local', 'edit', error);
       appendSyncEvent(character, 'local', 'edit', 'storage-error', error);
@@ -4527,6 +4767,7 @@
         session: readSession(),
         online: connected,
         outbox: syncOutbox() ? syncOutbox().diagnostics() : [],
+        gameplayOutbox: gameplayOutbox() ? gameplayOutbox().diagnostics() : [],
         conflicts: syncOutbox() && syncOutbox().readConflicts ? syncOutbox().readConflicts() : [],
         performance: performanceSnapshot(),
         events: log.slice(-100)
@@ -4594,6 +4835,7 @@
         if (connected) {
           setPresence(readSession());
           flushCharacterOutbox();
+          flushGameplayOutbox();
         }
         emit();
       });

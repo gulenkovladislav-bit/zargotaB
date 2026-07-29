@@ -1,0 +1,13 @@
+{
+  "name": "zargota-vtt",
+  "private": true,
+  "scripts": {
+    "test:unit": "for test_file in tests/*.test.js; do node \"$test_file\" || exit 1; done",
+    "test:firebase-rules": "firebase emulators:exec --project zargota-vtt-rules-test --only database \"node tests/firebase-rules.emulator.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.1",
+    "firebase": "12.16.0",
+    "firebase-tools": "15.24.0"
+  }
+}

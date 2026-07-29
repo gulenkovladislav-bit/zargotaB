@@ -83,7 +83,11 @@ assert.match(tabCoordinationBlock, /data\.type !== 'heartbeat' && data\.type !==
 assert.match(tabCoordinationBlock, /data\.type !== 'takeover'/);
 assert.match(tabCoordinationBlock, /String\(peer\.uid \|\| ''\) === uid/);
 assert.match(tabCoordinationBlock, /isSecondary:/);
+assert.match(tabCoordinationBlock, /resumePrimaryTab\(readSession\(\)\)/);
 assert.match(network, /if \(!tabCanWrite\(\)\) return Promise\.reject\(roomError\(/);
+assert.match(network, /function queueGameplayOperation[\s\S]*?!tabCanWrite\(\)\) return \{ok:false,skipped:true\}/);
+assert.match(network, /actionKind === 'ability' && !tabCanWrite\(\)/);
+assert.match(network, /if\(!tabCanWrite\(\)\)return Promise\.reject\(roomError\('Эта вкладка работает только для просмотра\. Передайте управление ей перед выдачей\.'/);
 assert.match(network, /clearPresenceDisconnectHandles/);
 assert.strictEqual(tabCoordinationBlock.indexOf('stopWatchingRoom') >= 0, false, 'detection must not stop an active room');
 assert.strictEqual(tabCoordinationBlock.indexOf('firebase.') >= 0, false, 'detection must remain local');
@@ -196,12 +200,16 @@ function coordinatedTab(tabId,startedAt,uid){
     tabPeers:{},
     tabHeartbeatTimer:0,
     tabWasSecondary:false,
-    connected:false,
+    connected:true,
+    characterFlushes:0,
+    gameplayFlushes:0,
     Math:Math,Date:Date,JSON:JSON,Uint32Array:Uint32Array,Array:Array,
     now:function(){return Date.now();},
     w:tabWindow,
     clearPresenceDisconnectHandles:function(){return Promise.resolve();},
     setPresence:function(){return Promise.resolve();},
+    flushCharacterOutbox:function(){context.characterFlushes++;return Promise.resolve();},
+    flushGameplayOutbox:function(){context.gameplayFlushes++;return Promise.resolve();},
     emit:function(){},
     setInterval:function(){return 1;},
     clearInterval:function(){},
@@ -228,9 +236,13 @@ assert.strictEqual(secondSessionTab.tabCoordinationState().isSecondary,false,'ex
 assert.strictEqual(firstSessionTab.tabCoordinationState().isSecondary,true,'previous owner must become read-only');
 assert.strictEqual(firstSessionTab.tabCanWrite(),false,'previous owner must reject Firebase writes after takeover');
 assert.strictEqual(secondSessionTab.tabCanWrite(),true);
+assert.strictEqual(secondSessionTab.characterFlushes,1,'new owner must immediately resume the character outbox');
+assert.strictEqual(secondSessionTab.gameplayFlushes,1,'new owner must immediately resume the gameplay outbox');
 secondSessionTab.saveSession(null);
 assert.strictEqual(firstSessionTab.tabCoordinationState().active,1,'release must remove the duplicate immediately');
 assert.strictEqual(firstSessionTab.tabCoordinationState().isSecondary,false,'remaining tab must regain ownership after release');
+assert.strictEqual(firstSessionTab.characterFlushes,1,'remaining tab must resume the character outbox after release');
+assert.strictEqual(firstSessionTab.gameplayFlushes,1,'remaining tab must resume the gameplay outbox after release');
 var differentIdentityTab=coordinatedTab('tab-different-user',3000,'different-user');
 assert.strictEqual(firstSessionTab.tabCoordinationState().active,1,'a different uid in the same room is not a duplicate identity');
 assert.strictEqual(differentIdentityTab.tabCoordinationState().active,1);
@@ -388,9 +400,11 @@ assert.match(network, /localUnsynced\s*\|\|\s*pending/);
 assert.match(network, /canApplyIncomingCharacter\(session,\s*member\.character,\s*\{\s*allowQueued:true\s*\}\)/);
 assert.match(network, /clearLocalUnsynced\(entry\.characterId\)/);
 assert.match(network, /firebase\.ref\(db,\s*'\.info\/connected'\)/);
-assert.match(network, /if\s*\(connected\)\s*\{\s*setPresence\(readSession\(\)\);\s*flushCharacterOutbox\(\);/);
-assert.match(network, /if\s*\(connected\)\s*flushCharacterOutbox\(\);/);
+assert.match(network, /if\s*\(connected\)\s*\{\s*setPresence\(readSession\(\)\);\s*flushCharacterOutbox\(\);\s*flushGameplayOutbox\(\);/);
+assert.match(network, /if\s*\(connected\)\s*\{\s*flushCharacterOutbox\(\);\s*flushGameplayOutbox\(\);/);
 assert.match(network, /if\s*\(remaining\s*&&\s*connected\s*&&\s*shouldContinue\)\s*return\s*flushCharacterOutbox\(\);/);
+assert.match(network, /gameplayOutbox:\s*gameplayOutbox\(\)/);
+assert.match(network, /flushGameplayOutbox:\s*function/);
 
 var domainStart = network.indexOf('function combatNumber');
 var domainEnd = network.indexOf('function statusTurnTick', domainStart);
