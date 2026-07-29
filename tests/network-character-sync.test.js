@@ -21,6 +21,39 @@ assert.match(network, /snapshot\.revision\s*=\s*Math\.max\(localRevision,\s*room
 assert.match(network, /snapshot\.updatedBy\s*=\s*String\(user\s*&&\s*user\.uid/);
 assert.match(network, /function sessionProgressionPlan\(value\)/);
 assert.match(network, /progressionPlan:\s*sessionProgressionPlan\(character\.progressionPlan\)/);
+var characterSnapshotStart = network.indexOf('  function characterSnapshot(character)');
+var characterSnapshotEnd = network.indexOf('  function campaignKeyFor(character)', characterSnapshotStart);
+var characterSnapshotContext = {
+  campaignKeyFor:function(character){ return String(character && character.campaignKey || ''); },
+  mergeAppliedDeliveryIds:function(first, second){
+    var result=[],seen={};
+    [].concat(Array.isArray(first)?first:[],Array.isArray(second)?second:[]).forEach(function(rawId){
+      var id=String(rawId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
+      if(id&&!seen[id]){seen[id]=true;result.push(id);}
+    });
+    return result.slice(-120);
+  },
+  w:{}
+};
+vm.runInNewContext(network.slice(characterSnapshotStart, characterSnapshotEnd), characterSnapshotContext);
+var vitalsSnapshot = characterSnapshotContext.characterSnapshot({
+  id:'hero-vitals',
+  hpCur:'11',
+  hpMax:'14',
+  ac:'10',
+  initiative:'+2',
+  speed:'7 м',
+  stats:{},
+  campaignKey:'hero-vitals'
+});
+assert.strictEqual(vitalsSnapshot.hpCur, 11);
+assert.strictEqual(vitalsSnapshot.hpMax, 14);
+assert.strictEqual(vitalsSnapshot.ac, 10);
+assert.strictEqual(vitalsSnapshot.initiative, 2);
+assert.strictEqual(vitalsSnapshot.speed, 7, 'localized speed must remain numeric in Firebase');
+assert.match(html, /saveChars\(vitalsField \? \{reason:'vitals-update'\} : undefined\)/);
+assert.match(html, /saveChars\(\{reason:'stats-update'\}\)/);
+assert.match(html, /if \(vitalsField && window\.zgVttRefreshDrawer\) window\.zgVttRefreshDrawer\(\)/);
 assert.match(html, /GM_SHEET_SEEN_KEY='zargota_gm_sheet_seen_v1'/);
 assert.match(html, /function gmSheetIsUnread\(member\)/);
 assert.match(html, /РОАДМАПА ИГРОКА/);
@@ -286,6 +319,15 @@ assert.match(network, /character\/syncOperationId'\]\s*=\s*eventId/);
 assert.match(network, /kind==='temp-hp'\?'gm-temp-hp'/);
 assert.match(network, /updates\.manualEvent=event/);
 assert.match(network, /statusEnabled:statusEnabled/);
+assert.match(network, /gmBroadcastVisual:\s*function/);
+assert.match(network, /particle:\['embers','frost','healing','shadow','poison','blood','arcane','lightning'\]/);
+assert.match(network, /animation:\['shake','pulse','levitate','blink','impact','dissolve'\]/);
+assert.match(network, /scene:\['flash','darkness','tremor','focus','storm','holy'\]/);
+assert.match(network, /firebase\.update\(roomRef\(session\.code\),\{visualEvent:event,updatedAt:stamp\}\)/);
+var gmVisualNetworkStart = network.indexOf('gmBroadcastVisual: function');
+var gmVisualNetworkEnd = network.indexOf('resolveCombatAttack: function', gmVisualNetworkStart);
+var gmVisualNetworkBlock = network.slice(gmVisualNetworkStart, gmVisualNetworkEnd);
+assert.doesNotMatch(gmVisualNetworkBlock, /messages/, 'visual events must not pollute the session chat');
 assert.match(html, /zgGmInterventionApply\(\\'temp-hp\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'inventory\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'abilities\\'\)/);
@@ -303,6 +345,24 @@ assert.match(html, /event\.statusEnabled\?'gm-status-add':'gm-status-remove'/);
 assert.match(html, /className='zg-gm-particles '/);
 assert.match(html, /@keyframes zgGmDamageAvatar/);
 assert.match(html, /@keyframes zgGmHealAvatar/);
+assert.match(html, /zgGmInterventionTab\(\\'entity\\'\)/);
+assert.match(html, /zgGmInterventionTab\(\\'statuses\\'\)/);
+assert.match(html, /zgGmInterventionTab\(\\'visual\\'\)/);
+assert.match(html, /zgGmInterventionTab\(\\'delivery\\'\)/);
+assert.match(html, /w\.zgGmVisualTrigger=function/);
+assert.match(html, /state&&state\.room&&state\.room\.visualEvent/);
+assert.match(html, /function animateGmVisualEvent/);
+assert.match(html, /className='zg-gm-vfx-particles vfx-'/);
+assert.match(html, /className='zg-gm-scene-vfx vfx-'/);
+assert.match(html, /@keyframes zgGmVfxParticle/);
+assert.match(html, /@keyframes zgGmSceneVeil/);
+assert.match(html, /html\.zg-reduced-effects \.zg-game-overlay \.zg-gm-scene-vfx/);
+var combatVisualStart = html.indexOf('function animateCombatVisual()');
+var combatVisualEnd = html.indexOf('function animateGmAdjustmentVisual()', combatVisualStart);
+var combatVisualBlock = html.slice(combatVisualStart, combatVisualEnd);
+assert.match(combatVisualBlock, /kind==='combat-damage'/);
+assert.match(combatVisualBlock, /critical\?'КРИТ':'ПОПАДАНИЕ'/);
+assert.doesNotMatch(combatVisualBlock, /'⚔ '\+Math\.max\(0,Number\(event\.damage\)/, 'attack approval must not display fake zero damage');
 assert.match(html, /zgDicePlanB/);
 assert.match(html, /type==='free'\?'zgDicePlanB\(event\)'/);
 assert.doesNotMatch(html, /data-dice-free-mode/);
@@ -330,13 +390,15 @@ assert.match(network, /if\s*\(connected\)\s*\{\s*setPresence\(readSession\(\)\);
 assert.match(network, /if\s*\(connected\)\s*flushCharacterOutbox\(\);/);
 assert.match(network, /if\s*\(remaining\s*&&\s*connected\s*&&\s*shouldContinue\)\s*return\s*flushCharacterOutbox\(\);/);
 
-var domainStart = network.indexOf('function applyVitalsDomainOperation');
-var domainEnd = network.indexOf('function combatHeroEntry', domainStart);
+var domainStart = network.indexOf('function combatNumber');
+var domainEnd = network.indexOf('function statusTurnTick', domainStart);
 var domainContext = { result:null };
 vm.runInNewContext(
   network.slice(domainStart, domainEnd) +
     '; result={' +
       'damage:applyVitalsDomainOperation({hp:12,hpMax:20,tempHp:4},{damage:7}),' +
+      'localizedDamage:applyVitalsDomainOperation({hp:"11 / 14",hpMax:"14 HP",tempHp:"2"},{damage:"5 урона"}),' +
+      'localizedFormula:rollFormula("1д8 + 2",false),' +
       'heal:applyVitalsDomainOperation({hp:18,hpMax:20,tempHp:0},{heal:7}),' +
       'temp:applyVitalsDomainOperation({hp:10,hpMax:20,tempHp:0},{setTempHp:50}),' +
       'statusAdd:applyStatusDomainOperation({statuses:[],statusEffects:[]},{statusKey:"burn",enable:true,effect:{type:"status",sourceId:"spell-1"}}),' +
@@ -349,6 +411,11 @@ vm.runInNewContext(
 assert.strictEqual(domainContext.result.damage.hp, 9);
 assert.strictEqual(domainContext.result.damage.tempHp, 0);
 assert.strictEqual(domainContext.result.damage.absorbed, 4);
+assert.strictEqual(domainContext.result.localizedDamage.hp, 8, 'localized HP and damage must not collapse to zero');
+assert.strictEqual(domainContext.result.localizedDamage.tempHp, 0);
+assert.strictEqual(domainContext.result.localizedDamage.damage, 5);
+assert.strictEqual(domainContext.result.localizedFormula.formula, '1d8+2');
+assert.ok(domainContext.result.localizedFormula.total >= 3 && domainContext.result.localizedFormula.total <= 10);
 assert.strictEqual(domainContext.result.heal.hp, 20);
 assert.strictEqual(domainContext.result.temp.tempHp, 10);
 assert.deepStrictEqual(Array.from(domainContext.result.statusAdd.statuses), ['burn']);
@@ -362,7 +429,19 @@ assert.strictEqual(domainContext.result.authoritativeUsage.max, 3);
 
 var combatDamageStart = network.indexOf('resolveCombatDamage: function');
 var combatDamageEnd = network.indexOf('finishApprovedDamageRoll: function', combatDamageStart);
-assert.match(network.slice(combatDamageStart, combatDamageEnd), /applyVitalsDomainOperation\(target,\{damage:damage\}\)/);
+var combatDamageBlock = network.slice(combatDamageStart, combatDamageEnd);
+assert.match(combatDamageBlock, /applyVitalsDomainOperation\(target,\{damage:damage\}\)/);
+assert.match(combatDamageBlock, /character\/revision'\]\s*=\s*firebase\.increment\(1\)/);
+assert.match(combatDamageBlock, /character\/source'\]\s*=\s*'combat-damage'/);
+assert.match(combatDamageBlock, /character\/syncOperationId'\]\s*=\s*damageOperationId/);
+assert.match(html, /finishApprovedAttackRoll\(uid,request\.id,true,event&&event\.id\|\|'','',isHit,!!\(event&&event\.critical\)\)/);
+var advanceCombatStart = network.indexOf('advanceCombat: function');
+var advanceCombatEnd = network.indexOf('useCombatAction: function', advanceCombatStart);
+var advanceCombatBlock = network.slice(advanceCombatStart, advanceCombatEnd);
+assert.match(advanceCombatBlock, /session\.role !== 'master' && \(!activeEntry \|\| String\(activeEntry\.uid \|\| ''\) !== String\(user\.uid\)\)/);
+assert.match(html, /playerOwnTurn[\s\S]+Завершить ход/);
+assert.match(html, /\.zg-combat-bar-actions\.player\{grid-template-columns:1fr\}/);
+assert.match(network, /session\.role !== 'player' \|\| session\.uid !== auth\.currentUser\.uid \|\| session\.code !== room\.code/);
 var combatAbilityStart = network.indexOf('resolveCombatAbility: function');
 var combatAbilityEnd = network.indexOf('prepareCombatReaction: function', combatAbilityStart);
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyVitalsDomainOperation\(target,\{damage:damage,heal:heal,preserveOverMax:true\}\)/);
@@ -516,6 +595,12 @@ assert.match(html, /width:min\(670px,calc\(\(100vh - 32px\)\*\.72\),calc\(100vw 
 assert.match(html, /background:none/);
 assert.match(html, /class="zg-state-board"/);
 assert.match(html, /class="zg-state-hp"/);
+assert.match(html, /class="zg-state-vitals"/);
+assert.match(html, /class="zg-state-vitals-top"/);
+assert.match(html, /class="zg-state-armor"/);
+assert.match(html, /class="zg-state-hp-bar"/);
+assert.match(html, /class="zg-state-combat-values"><div><small>Скорость<\/small>[\s\S]*?<div><small>Инициатива<\/small>/);
+assert.doesNotMatch(html, /class="zg-state-combat-values"><div><small>Броня<\/small>/);
 assert.match(html, /activeStatuses=\[\]\.concat/);
 assert.match(html, /class="zg-state-stat-list"/);
 assert.match(html, /class="zg-bag-state-disclosure roadmap"/);
@@ -582,6 +667,7 @@ var snapshotStart = network.indexOf('function characterSnapshot');
 var snapshotEnd = network.indexOf('function campaignKeyFor', snapshotStart);
 var snapshotSource = network.slice(snapshotStart, snapshotEnd);
 var snapshotContext = {
+  mergeAppliedDeliveryIds:characterSnapshotContext.mergeAppliedDeliveryIds,
   input: {
     id: 7,
     name: 'Герой',
@@ -600,11 +686,12 @@ var snapshotContext = {
     quote: 'Цитата',
     notes: [{ text:'Сохранить текст', attachment:'data:image/png;base64,nested' }],
     journalEntries: [
-      { journalId:'journal-safe_1', title:'Запись', text:'Текст', createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
+      { journalId:'journal-safe_1', title:'Запись', text:'Текст', image:'images/journal/ruins.webp', kind:'quest', createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
       { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', createdAt:300 },
       { journalId:'journal-data', title:'data:text/plain,hidden', text:'blob:hidden', createdAt:-1, updatedAt:'oops', updatedBy:'data:text/plain,uid' }
     ],
-    portrait: 'data:image/png;base64,portrait'
+    portrait: 'data:image/png;base64,portrait',
+    _gmDeliveryIds:['gm-delivery-safe','bad/id','gm-delivery-safe']
   },
   result: null
 };
@@ -643,12 +730,15 @@ assert.strictEqual(snapshotContext.result.portrait, 'images/portraits/hero.webp'
 assert.strictEqual(snapshotContext.result.journalEntries.length, 3);
 assert.strictEqual(snapshotContext.result.journalEntries[0].journalId, 'journal-safe_1');
 assert.strictEqual(snapshotContext.result.journalEntries[0].text, 'Текст');
+assert.strictEqual(snapshotContext.result.journalEntries[0].image, 'images/journal/ruins.webp');
+assert.strictEqual(snapshotContext.result.journalEntries[0].kind, 'quest');
 assert.strictEqual(snapshotContext.result.journalEntries[0].deletedAt, 250);
 assert.strictEqual(snapshotContext.result.journalEntries[1].journalId, 'badkey');
 assert.strictEqual(snapshotContext.result.journalEntries[2].title, '');
 assert.strictEqual(snapshotContext.result.journalEntries[2].text, '');
 assert.strictEqual(snapshotContext.result.journalEntries[2].createdAt, 0);
 assert.strictEqual(snapshotContext.result.journalEntries[2].updatedBy, '');
+assert.deepStrictEqual(Array.from(snapshotContext.result.appliedDeliveryIds), ['gm-delivery-safe','badid']);
 snapshotContext.input.journalEntries = Array.from({length:82}, function(_, index) {
   return { journalId:'journal-'+index, title:'Запись '+index, text:'Текст '+index, createdAt:index };
 });
@@ -664,6 +754,8 @@ assert.match(journalPanelBlock, /c\.journalEntries/);
 assert.match(journalPanelBlock, /fullLocalCharacter\(member\)/);
 assert.match(journalPanelBlock, /zgVttJournalOpen/);
 assert.match(journalPanelBlock, /<h3>Главные цели<\/h3>/);
+assert.match(journalPanelBlock, /class="zg-journal3-manual"/);
+assert.match(journalPanelBlock, /zgVttJournalOpenManual\(event\)/);
 assert.match(journalPanelBlock, /<h3>Мои записи<\/h3>/);
 assert.match(journalPanelBlock, /zg-journal3-preview/);
 assert.match(journalPanelBlock, /zgVttJournalFilter/);
@@ -690,12 +782,31 @@ var journalPanelContext = {
 };
 vm.runInNewContext(journalPanelBlock + '; result=journalPanel();', journalPanelContext);
 assert.match(journalPanelContext.result, /Главные цели/);
+assert.match(journalPanelContext.result, /Открыть Мануал/);
 assert.match(journalPanelContext.result, /Древние руины/);
 assert.match(journalPanelContext.result, /Место/);
 assert.match(journalPanelContext.result, /zg-journal3-paper/);
 assert.strictEqual(journalPanelContext.journalSelectedId, 'place-1');
 assert.match(html, /saveChars\(\{reason:reason\|\|'journal-update'\}\)/);
 assert.match(html, /journalSave\('journal-remove',true\)/);
+assert.match(html, /w\.zgVttJournalOpenManual=function\(event\)/);
+assert.match(html, /w\.showPage\('manual'\)/);
+var journalManualStart = html.indexOf('w.zgVttJournalOpenManual=function(event)');
+var journalManualEnd = html.indexOf('w.zgVttJournalOpen=function(journalId)', journalManualStart);
+var journalManualCalls = [];
+var journalManualContext = { w:{
+  zgVttCloseDrawer:function(options){ journalManualCalls.push(['close',options]); },
+  showPage:function(page){ journalManualCalls.push(['page',page]); }
+}};
+vm.runInNewContext(html.slice(journalManualStart, journalManualEnd), journalManualContext);
+journalManualContext.w.zgVttJournalOpenManual({
+  preventDefault:function(){ journalManualCalls.push(['prevent']); },
+  stopPropagation:function(){ journalManualCalls.push(['stop']); }
+});
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(journalManualCalls)),
+  [['prevent'],['stop'],['close',{immediate:true}],['page','manual']]
+);
 
 var inventoryHelperStart = network.indexOf('function normalizeInventoryOperationItem');
 var inventoryHelperEnd = network.indexOf('function emit', inventoryHelperStart);
@@ -760,7 +871,8 @@ var applyBlock = html.slice(applyStart, applyEnd);
 assert.strictEqual(applyBlock.indexOf('skills:roomCharacter.skills') >= 0, false);
 assert.strictEqual(applyBlock.indexOf('biography:roomCharacter.biography') >= 0, false);
 assert.strictEqual(applyBlock.indexOf('notes:roomCharacter.notes') >= 0, false, 'legacy local notes must not be overwritten by a forced room snapshot');
-assert.match(applyBlock, /journalEntries:zgMergeSessionJournalEntries\(localCharacter\.journalEntries,roomCharacter\.journalEntries\)/);
+assert.match(applyBlock, /zgBuildSessionCharacterRuntime\(localCharacter,roomCharacter\)/);
+assert.match(html, /journalEntries:zgMergeSessionJournalEntries\(localCharacter\.journalEntries,roomCharacter\.journalEntries\)/);
 assert.match(snapshotSource, /notes:\s*clean\(character\.notes\s*\|\|\s*character\.journal\s*\|\|\s*character\.quests/);
 
 var inventoryMergeStart = html.indexOf('function zgMergeSessionInventoryItems');
@@ -785,9 +897,10 @@ vm.runInNewContext(
   journalMergeContext
 );
 assert.strictEqual(journalMergeContext.result.length, 3);
-assert.strictEqual(journalMergeContext.result[0].title, 'Локальная');
-assert.strictEqual(journalMergeContext.result[1].deletedAt, 30);
+assert.strictEqual(journalMergeContext.result[0].deletedAt, 30);
+assert.strictEqual(journalMergeContext.result[1].title, 'Комната');
 assert.strictEqual(journalMergeContext.result[2].title, 'Запись мастера');
+assert.strictEqual(journalMergeContext.result.some(function(entry) { return entry.title === 'Локальная'; }), false);
 
 var abilityMergeStart = html.indexOf('function zgMergeSessionAbilityUsage');
 var abilityMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', abilityMergeStart);
@@ -802,8 +915,8 @@ assert.strictEqual(abilityMergeContext.result['101'].max, 3);
 assert.strictEqual(abilityMergeContext.result['101'].note, 'keep');
 assert.strictEqual(abilityMergeContext.result['202'].used, 1);
 assert.strictEqual(abilityMergeContext.result['202'].max, 2);
-assert.match(applyBlock, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage\)/);
-assert.match(applyBlock, /spellsLearned:zgMergeSessionSpellsLearned\(localCharacter,roomCharacter\.spellsLearned\)/);
+assert.match(html, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage\)/);
+assert.match(html, /spellsLearned:zgMergeSessionSpellsLearned\(localCharacter,roomCharacter\.spellsLearned\)/);
 var learnedMergeStart = html.indexOf('function zgMergeSessionSpellsLearned');
 var learnedMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', learnedMergeStart);
 var learnedMergeContext = { result:null };
@@ -815,6 +928,30 @@ vm.runInNewContext(
 assert.strictEqual(learnedMergeContext.result['101'], true, 'stale room false must not forget a locally learned spell');
 assert.strictEqual(learnedMergeContext.result['202'], true, 'approved room learning must merge into the local sheet');
 assert.strictEqual(learnedMergeContext.result['999'], undefined, 'room learning outside local spellRefs must be ignored');
+var runtimeHelpersStart = html.indexOf('function zgMergeSessionInventoryItems');
+var runtimeHelpersEnd = html.indexOf('function zgNormalizeSkillUpdateValue', runtimeHelpersStart);
+var runtimeContext = { result:null, Math:Math, Number:Number, String:String, JSON:JSON, Array:Array, Object:Object };
+vm.runInNewContext(
+  html.slice(runtimeHelpersStart, runtimeHelpersEnd) +
+    '; result=zgBuildSessionCharacterRuntime(' +
+      '{spellRefs:[101],spellCD:{101:{used:0,max:3}},_gmDeliveryIds:["delivery-local"],journalEntries:[{journalId:"same",title:"Локальная",updatedAt:10}],inventoryItems:[{itemId:"keep-image",image:"data:image/png;base64,local"}]},' +
+      '{level:2,hpCur:8,hpMax:14,tempHp:2,ac:12,initiative:3,speed:8,stats:{str:{base:2}},statuses:["burn"],abilityUsage:{"spell-101":{used:2,max:3}},spellsLearned:{"101":true},inventoryItems:[{itemId:"keep-image",name:"Ключ",image:""}],equipItems:[],arenaEquipSlots:{weapon:"sword"},journalEntries:[{journalId:"same",title:"Firebase",updatedAt:20}],currentGoal:"Вернуть печать",progressionPlan:{version:1},appliedDeliveryIds:["delivery-room"],revision:9}' +
+    ');',
+  runtimeContext
+);
+assert.strictEqual(runtimeContext.result.level,2);
+assert.strictEqual(runtimeContext.result.ac,12);
+assert.strictEqual(runtimeContext.result.initiative,3);
+assert.strictEqual(runtimeContext.result.speed,8);
+assert.strictEqual(runtimeContext.result.stats.str.base,2);
+assert.strictEqual(runtimeContext.result.journalEntries[0].title,'Firebase');
+assert.strictEqual(runtimeContext.result.inventoryItems[0].image,'data:image/png;base64,local');
+assert.deepStrictEqual(Array.from(runtimeContext.result._gmDeliveryIds),['delivery-local','delivery-room']);
+assert.strictEqual(runtimeContext.result.currentGoal,'Вернуть печать');
+assert.strictEqual(runtimeContext.result.progressionPlan.version,1);
+assert.strictEqual(runtimeContext.result.revision,9);
+assert.match(network, /appliedDeliveryIds:\s*mergeAppliedDeliveryIds\(character\._gmDeliveryIds/);
+assert.match(network, /applied\.character\.appliedDeliveryIds=mergeAppliedDeliveryIds/);
 assert.match(html, /zgSheetTabAction\('journal'\)/);
 assert.match(html, /zgVttJournalMasterAdd/);
 

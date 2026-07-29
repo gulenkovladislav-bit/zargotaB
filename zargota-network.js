@@ -458,16 +458,23 @@
     return combatDamageTraits(list).some(function (item) { return item === needle || item.indexOf(needle) >= 0 || needle.indexOf(item) >= 0; });
   }
 
+  function combatNumber(value, fallback) {
+    if (typeof value === 'number' && isFinite(value)) return value;
+    var match = String(value == null ? '' : value).match(/-?\d+(?:[.,]\d+)?/);
+    var parsed = match ? Number(match[0].replace(',', '.')) : Number(fallback);
+    return isFinite(parsed) ? parsed : 0;
+  }
+
   function applyVitalsDomainOperation(state, operation) {
     state=state||{};operation=operation||{};
-    var hpMax=Math.max(0,Number(state.hpMax)||0),beforeHp=Math.max(0,Number(state.hp==null?state.hpCur:state.hp)||0),beforeTempHp=Math.max(0,Number(state.tempHp)||0);
-    var damage=Math.max(0,Number(operation.damage)||0),heal=Math.max(0,Number(operation.heal)||0),absorbed=Math.min(beforeTempHp,damage),hpDamage=Math.max(0,damage-absorbed);
+    var hpMax=Math.max(0,combatNumber(state.hpMax,0)),beforeHp=Math.max(0,combatNumber(state.hp==null?state.hpCur:state.hp,0)),beforeTempHp=Math.max(0,combatNumber(state.tempHp,0));
+    var damage=Math.max(0,combatNumber(operation.damage,0)),heal=Math.max(0,combatNumber(operation.heal,0)),absorbed=Math.min(beforeTempHp,damage),hpDamage=Math.max(0,damage-absorbed);
     var tempHp=Math.max(0,beforeTempHp-absorbed),afterDamage=Math.max(0,beforeHp-hpDamage),healCap=hpMax||afterDamage+heal;
     if(operation.preserveOverMax)healCap=Math.max(beforeHp,healCap);
     var hp=heal?Math.min(healCap,afterDamage+heal):afterDamage;
     if(operation.setTempHp!=null){
       var tempLimit=hpMax?Math.floor(hpMax*.5):9999;
-      tempHp=Math.min(tempLimit,Math.max(0,Number(operation.setTempHp)||0));
+      tempHp=Math.min(tempLimit,Math.max(0,combatNumber(operation.setTempHp,0)));
     }
     return{hp:hp,hpMax:hpMax,tempHp:tempHp,beforeHp:beforeHp,beforeTempHp:beforeTempHp,damage:damage,heal:heal,absorbed:absorbed,hpDamage:hpDamage,reachedZero:beforeHp>0&&hp===0,changed:hp!==beforeHp||tempHp!==beforeTempHp};
   }
@@ -585,12 +592,18 @@
 
   function combatStat(entry, key) {
     var stat = entry && entry.stats && entry.stats[key] || {};
-    if (typeof stat === 'number') return Number(stat) || 0;
-    return Number(stat.cur != null && stat.cur !== 0 ? stat.cur : stat.base) || 0;
+    if (typeof stat === 'number') return combatNumber(stat, 0);
+    return combatNumber(stat.cur != null && stat.cur !== 0 ? stat.cur : stat.base, 0);
+  }
+
+  function normalizeCombatFormula(formula) {
+    var source=String(formula||'').toLowerCase().replace(/[дd]/g,'d').replace(/[−–—]/g,'-').replace(/\s+/g,'');
+    var match=source.match(/(\d{1,2})d(\d{1,3})([+-]\d+)?/i);
+    return match ? match[1]+'d'+match[2]+(match[3]||'') : '1d4';
   }
 
   function rollFormula(formula, critical) {
-    var match = String(formula || '1d4').replace(/\s+/g, '').match(/^(\d{1,2})d(\d{1,3})([+-]\d+)?$/i);
+    var normalized=normalizeCombatFormula(formula),match=normalized.match(/^(\d{1,2})d(\d{1,3})([+-]\d+)?$/i);
     var count = match ? Math.max(1, Math.min(20, Number(match[1]) || 1)) : 1;
     var sides = match ? Math.max(2, Math.min(100, Number(match[2]) || 4)) : 4;
     var bonus = match ? Number(match[3] || 0) : 0, rolls = [], total = bonus;
@@ -603,9 +616,9 @@
     effects.forEach(function (effect) {
       if (effect.statusKey && keys.indexOf(effect.statusKey) < 0) keys.push(effect.statusKey);
     });
-    var hpMax = Math.max(0, Number(entry && entry.hpMax) || 0);
-    var hp = Math.max(0, Number(entry && entry.hp != null ? entry.hp : hpMax) || 0);
-    var tempHp = Math.max(0, Number(entry && entry.tempHp) || 0);
+    var hpMax = Math.max(0, combatNumber(entry && entry.hpMax, 0));
+    var hp = Math.max(0, combatNumber(entry && entry.hp != null ? entry.hp : hpMax, 0));
+    var tempHp = Math.max(0, combatNumber(entry && entry.tempHp, 0));
     keys.forEach(function (key) {
       if (seen[key]) return;
       seen[key] = true;
@@ -896,7 +909,28 @@
     });
   }
 
+  function mergeAppliedDeliveryIds(first, second) {
+    var result = [], seen = Object.create(null);
+    [].concat(Array.isArray(first) ? first : [], Array.isArray(second) ? second : []).forEach(function (rawId) {
+      var id = String(rawId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 180);
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      result.push(id);
+    });
+    return result.slice(-120);
+  }
+
   function characterSnapshot(character) {
+    function metricNumber(value, fallback) {
+      var match = String(value == null ? '' : value).match(/-?\d+(?:[.,]\d+)?/);
+      var parsed = match ? Number(match[0].replace(',', '.')) : Number(fallback);
+      return isFinite(parsed) ? parsed : 0;
+    }
+    function sessionDamageFormula(value) {
+      var source=String(value||'').toLowerCase().replace(/[дd]/g,'d').replace(/[−–—]/g,'-').replace(/\s+/g,'');
+      var match=source.match(/(\d{1,2})d(\d{1,3})([+-]\d+)?/i);
+      return match ? match[1]+'d'+match[2]+(match[3]||'') : '1d4';
+    }
     function stripHeavy(value) {
       if (typeof value === 'string') return /^(?:data|blob):/i.test(value) ? '' : value;
       if (Array.isArray(value)) return value.map(stripHeavy);
@@ -955,6 +989,8 @@
           journalId:journalId,
           title:cleanText(raw.title, 200),
           text:cleanText(raw.text, 12000),
+          image:cleanText(raw.image, 2000),
+          kind:cleanText(raw.kind, 40),
           createdAt:Math.max(0, Number(raw.createdAt) || 0),
           updatedAt:Math.max(0, Number(raw.updatedAt) || 0),
           updatedBy:cleanText(raw.updatedBy, 120),
@@ -1022,13 +1058,12 @@
     var weaponProfiles = [], weaponSeen = {};
     directItems.forEach(function (item) {
       if (!item || !item._sessionEquipped || String(item.category || item.cat || '').toLowerCase() !== 'weapon') return;
-      var formula = String(item.damageFormula || item.damage || '').match(/\d+d\d+(?:\s*[+-]\s*\d+)?/i);
-      if (!formula) return;
-      var key = String(item.itemId || item.id || item.name || formula[0]); if (weaponSeen[key]) return; weaponSeen[key] = true;
-      weaponProfiles.push({ id:key, name:item.name || 'Оружие', damageFormula:formula[0].replace(/\s+/g,''), damageType:item.damageType || '', range:item.range || '1 клетка', stat:item.attackStat || item.stat || '' });
+      var formula = sessionDamageFormula(item.damageFormula || item.damage || '');
+      var key = String(item.itemId || item.id || item.name || formula); if (weaponSeen[key]) return; weaponSeen[key] = true;
+      weaponProfiles.push({ id:key, name:item.name || 'Оружие', damageFormula:formula, damageType:item.damageType || '', range:item.range || '1 клетка', stat:item.attackStat || item.stat || '' });
     });
     if (!weaponProfiles.length) weaponProfiles.push({ id:'improvised', name:'Импровизированная атака', damageFormula:'1d4', damageType:'Дробящий', range:'1 клетка', stat:'str' });
-    var hpMax = Math.max(0, Number(character.hpMax || 0));
+    var hpMax = Math.max(0, metricNumber(character.hpMax, 0));
     var effectTempHp = (Array.isArray(character.tempEffects) ? character.tempEffects : []).reduce(function (sum, effect) {
       if (!effect || effect.type !== 'hp') return sum;
       return sum + Math.max(0, Number(effect.value) || 0);
@@ -1058,12 +1093,12 @@
       race: character.race || '',
       klasse: character.klasse || '',
       level: Number(character.level || 1),
-      hpCur: Number(character.hpCur != null ? character.hpCur : character.hpMax || 0),
+      hpCur: Math.max(0, metricNumber(character.hpCur != null ? character.hpCur : character.hpMax, 0)),
       hpMax: hpMax,
       tempHp: tempHp,
-      ac: Number(character.ac || 10),
-      initiative: Number(character.initiative || 0),
-      speed: Number(character.speed || 0),
+      ac: Math.max(0, metricNumber(character.ac, 10)),
+      initiative: metricNumber(character.initiative, 0),
+      speed: Math.max(0, metricNumber(character.speed, 0)),
       stats: clean(character.stats, {}),
       mastery: clean(Array.isArray(character.mastery) ? character.mastery : [], []).slice(0, 40),
       skills: displayList(character.skills || character.abilities, 40),
@@ -1082,6 +1117,7 @@
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
       notes: clean(character.notes || character.journal || character.quests, []),
       journalEntries: sessionJournalEntries(character.journalEntries),
+      appliedDeliveryIds: mergeAppliedDeliveryIds(character._gmDeliveryIds, []),
       biography: cleanText(character.biography || character.bio, 12000),
       quote: cleanText(character.quote, 1000),
       origin: cleanText(character.origin, 500),
@@ -1229,9 +1265,10 @@
       return;
     }
     var member = room && room.members && room.members[auth.currentUser.uid];
-    if (member && member.role === 'player' && session.role !== 'player') {
+    if (member && member.role === 'player' && (session.role !== 'player' || session.uid !== auth.currentUser.uid || session.code !== room.code)) {
       session.role = 'player';
       session.uid = auth.currentUser.uid;
+      session.code = room.code || session.code;
       session.playerCode = member.playerCode || session.playerCode || '';
       saveSession(session);
     }
@@ -1841,6 +1878,7 @@
             var applied=applyJournalDomainOperation(current,{type:'replace',entries:liveSnapshot.journalEntries},{
               revision:liveSnapshot.revision,updatedAt:now(),updatedBy:user.uid,source:syncReason,operationId:journalOperationId
             });
+            if(applied.ok)applied.character.appliedDeliveryIds=mergeAppliedDeliveryIds(current.appliedDeliveryIds,liveSnapshot.appliedDeliveryIds);
             return applied.ok?applied.character:undefined;
           }).then(function (result) {
             if (!result || !result.committed) {
@@ -1885,6 +1923,7 @@
               }
               return;
             }
+            applied.character.appliedDeliveryIds=mergeAppliedDeliveryIds(current&&current.appliedDeliveryIds,liveSnapshot.appliedDeliveryIds);
             return applied.character;
           }).then(function (result) {
             if (!result || !result.committed) {
@@ -2618,9 +2657,9 @@
           var order = membersOf(room, 'player').filter(function (member) {
             return member.characterId && member.character && (!heroOptions[member.uid] || heroOptions[member.uid].selected !== false);
           }).map(function (member) {
-            var option=heroOptions[member.uid]||{},bonus = Number(member.character.initiative || 0), mode=['advantage','disadvantage'].indexOf(option.mode)>=0?option.mode:'normal';
-            var speed = Math.max(0, Number(member.character.speed) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:'hero:'+member.uid, hp:Number(member.character.hpCur||0), hpMax:Number(member.character.hpMax||0), tempHp:Math.max(0,Number(member.character.tempHp)||0), ac:Number(member.character.ac||10), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var option=heroOptions[member.uid]||{},bonus = combatNumber(member.character.initiative,0), mode=['advantage','disadvantage'].indexOf(option.mode)>=0?option.mode:'normal';
+            var speed = Math.max(0, combatNumber(member.character.speed,7) || 7);
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:'hero:'+member.uid, hp:Math.max(0,combatNumber(member.character.hpCur,0)), hpMax:Math.max(0,combatNumber(member.character.hpMax,0)), tempHp:Math.max(0,combatNumber(member.character.tempHp,0)), ac:Math.max(0,combatNumber(member.character.ac,10)), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -2639,11 +2678,11 @@
               key:'token:'+String(participant.tokenId).slice(0, 120), kind:participant.kind === 'ally' ? 'ally' : (participant.kind === 'npc' ? 'npc' : 'enemy'),
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               sourceRef:participant.sourceRef&&['npc','beast'].indexOf(participant.sourceRef.type)>=0?{type:participant.sourceRef.type,id:String(participant.sourceRef.id||'').slice(0,120)}:null,
-              level:Math.max(1,Math.min(99,Number(participant.level)||1)),
-              roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:String(participant.group||participant.name||('group-'+index)).trim().slice(0,80), hp:participant.hp == null ? null : Math.max(0, Number(participant.hp) || 0),
-              hpMax:participant.hpMax == null ? null : Math.max(0, Number(participant.hpMax) || 0), orderHint:index,
-              tempHp:Math.min(Math.floor(Math.max(0,Number(participant.hpMax)||0)*0.5),Math.max(0,Number(participant.tempHp)||0)),
-              ac:Math.max(0,Number(participant.ac)||10),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
+              level:Math.max(1,Math.min(99,combatNumber(participant.level,1)||1)),
+              roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:String(participant.group||participant.name||('group-'+index)).trim().slice(0,80), hp:participant.hp == null ? null : Math.max(0,combatNumber(participant.hp,0)),
+              hpMax:participant.hpMax == null ? null : Math.max(0,combatNumber(participant.hpMax,0)), orderHint:index,
+              tempHp:Math.min(Math.floor(Math.max(0,combatNumber(participant.hpMax,0))*0.5),Math.max(0,combatNumber(participant.tempHp,0))),
+              ac:Math.max(0,combatNumber(participant.ac,10)),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
               statuses:Array.isArray(participant.statuses) ? participant.statuses.slice(0, 23) : [],
               statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
               economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
@@ -2712,7 +2751,7 @@
           order.sort(function(a,b){return Number(b.total)-Number(a.total)||Number(b.bonus)-Number(a.bonus)||Number(a.orderHint||0)-Number(b.orderHint||0)||String(a.name||'').localeCompare(String(b.name||''),'ru');});
           var opening=order[0],tick=statusTurnTick(opening),stamp=now();opening.hp=tick.hp;order[0]=opening;
           var updates={combat:{active:true,phase:'active',round:1,turnIndex:0,order:order,startedAt:combat.startedAt||stamp,battleStartedAt:stamp,updatedAt:stamp},combatEvent:{id:'combat-start-'+stamp,kind:'combat',name:'Мир Зарготы',text:'Бой! Ход: '+(opening.name||'участник')+'.'+(tick.changes.length?' '+tick.changes.join('; '):''),ts:stamp},updatedAt:stamp};
-          if(opening.uid)updates['members/'+opening.uid+'/character/hpCur']=Number(opening.hp||0);
+          if(opening.uid)updates['members/'+opening.uid+'/character/hpCur']=Math.max(0,combatNumber(opening.hp,0));
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['master-only','room-not-found','initiative-closed','initiative-pending'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
@@ -2766,8 +2805,8 @@
             updates['members/'+entry.uid+'/character/statuses'] = entry.statuses || [];
             updates['members/'+entry.uid+'/character/statusEffects'] = entry.statusEffects || [];
             if (entry === current) {
-              updates['members/'+entry.uid+'/character/hpCur'] = Number(entry.hp || 0);
-              updates['members/'+entry.uid+'/character/tempHp'] = Math.max(0, Number(entry.tempHp) || 0);
+              updates['members/'+entry.uid+'/character/hpCur'] = Math.max(0,combatNumber(entry.hp,0));
+              updates['members/'+entry.uid+'/character/tempHp'] = Math.max(0,combatNumber(entry.tempHp,0));
             }
           });
           updates['combat/turnIndex']=next;updates['combat/round']=round;updates['combat/order']=order;updates['combat/updatedAt']=stamp;
@@ -2776,7 +2815,7 @@
           return firebase.update(roomRef(session.code), updates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','combat-missing'].indexOf(error.code) >= 0) throw error;
+        if (error && ['session-missing','master-only','room-not-found','combat-missing','turn-owner-only'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -2914,6 +2953,97 @@
         });
       }).catch(function (error) {
         if (error && ['member-required','master-only','room-not-found','character-missing','journal-entry-invalid','journal-full'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    gmSendDelivery: function (memberUid, value) {
+      memberUid=String(memberUid||'').slice(0,160);
+      value=value&&typeof value==='object'?value:{};
+      var kind=['item','quest','text','image'].indexOf(value.kind)>=0?value.kind:'text';
+      var mood=['calm','solemn','ominous'].indexOf(value.mood)>=0?value.mood:'calm';
+      var title=String(value.title||'').trim().slice(0,180);
+      var body=String(value.text||'').trim().slice(0,6000);
+      var image=String(value.image||'').trim();
+      if(image.length>350000)return Promise.reject(roomError('Изображение слишком большое для игровой комнаты.','delivery-image-large'));
+      if(image&&!/^(?:https?:|data:image\/|images\/|\.?\.?\/)/i.test(image))image='';
+      if(!memberUid)return Promise.reject(roomError('Выберите игрока.','member-required'));
+      if(!title)return Promise.reject(roomError('Укажите название выдачи.','delivery-title-required'));
+      var rawPayload=value.payload&&typeof value.payload==='object'?value.payload:{},payload={};
+      if(kind==='item'){
+        payload.item={
+          name:String(rawPayload.name||title).trim().slice(0,200),
+          icon:String(rawPayload.icon||'📦').slice(0,20),
+          image:image,
+          category:String(rawPayload.category||'other').trim().slice(0,80),
+          description:String(rawPayload.description||body).trim().slice(0,4000),
+          effects:String(rawPayload.effects||'').trim().slice(0,2000),
+          damageFormula:String(rawPayload.damageFormula||'').trim().slice(0,40),
+          damageType:String(rawPayload.damageType||'').trim().slice(0,80),
+          acBonus:Math.max(-99,Math.min(99,Number(rawPayload.acBonus)||0)),
+          qty:Math.max(1,Math.min(999,Math.floor(Number(rawPayload.qty)||1))),
+          equipped:false
+        };
+      }else if(kind==='quest'){
+        payload.quest={title:title,text:body,image:image};
+      }
+      return ensureReady().then(function(user){
+        var session=readSession();
+        if(!session||session.role!=='master')throw roomError('Выдавать награды может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var member=room.members&&room.members[memberUid];
+          if(!member||member.role!=='player'||!member.characterId||!member.character)throw roomError('Лист выбранного игрока недоступен.','character-missing');
+          var stamp=now(),deliveryId='gm-delivery-'+stamp+'-'+Math.random().toString(36).slice(2,8),updates={};
+          updates['members/'+memberUid+'/gmDeliveries/'+deliveryId]={
+            id:deliveryId,
+            kind:kind,
+            mood:mood,
+            showPopup:value.showPopup!==false,
+            title:title,
+            text:body,
+            image:image,
+            payload:payload,
+            status:'pending',
+            createdAt:stamp,
+            createdBy:user.uid
+          };
+          var deliveries=member.gmDeliveries||{},resolved=Object.keys(deliveries).filter(function(key){
+            return deliveries[key]&&deliveries[key].status&&deliveries[key].status!=='pending';
+          }).sort(function(a,b){return Number(deliveries[b].resolvedAt||deliveries[b].createdAt||0)-Number(deliveries[a].resolvedAt||deliveries[a].createdAt||0);});
+          resolved.slice(30).forEach(function(key){updates['members/'+memberUid+'/gmDeliveries/'+key]=null;});
+          updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){
+            return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['member-required','delivery-title-required','delivery-image-large','master-only','room-not-found','character-missing'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    acknowledgeGmDelivery: function (deliveryId, status) {
+      deliveryId=String(deliveryId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
+      status=['applied','failed'].indexOf(status)>=0?status:'applied';
+      if(!deliveryId)return Promise.resolve(api.getSnapshot());
+      return ensureReady().then(function(user){
+        var session=readSession();
+        if(!session||session.role!=='player')return api.getSnapshot();
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var member=room.members&&room.members[user.uid],delivery=member&&member.gmDeliveries&&member.gmDeliveries[deliveryId];
+          if(!delivery||delivery.status!=='pending')return api.getSnapshot();
+          var updates={};
+          updates['gmDeliveries/'+deliveryId+'/status']=status;
+          updates['gmDeliveries/'+deliveryId+'/resolvedAt']=now();
+          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),updates).then(function(){
+            return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&error.code==='room-not-found')throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -3182,6 +3312,44 @@
       }).catch(function(error){if(error&&['master-only','room-not-found','entity-missing','adjust-invalid'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
+    gmBroadcastVisual: function (targetRef, visual) {
+      targetRef=targetRef||{};visual=visual||{};
+      var tokenId=String(targetRef.tokenId||'').slice(0,120),memberUid=String(targetRef.memberUid||'').slice(0,128);
+      var type=['particle','animation','scene'].indexOf(visual.type)>=0?visual.type:'particle';
+      var intensity=['soft','normal','strong'].indexOf(visual.intensity)>=0?visual.intensity:'normal';
+      var allowed={
+        particle:['embers','frost','healing','shadow','poison','blood','arcane','lightning'],
+        animation:['shake','pulse','levitate','blink','impact','dissolve'],
+        scene:['flash','darkness','tremor','focus','storm','holy']
+      };
+      var effect=String(visual.effect||'').toLowerCase();
+      if(allowed[type].indexOf(effect)<0)return Promise.reject(roomError('Выберите доступный визуальный эффект.','visual-invalid'));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Визуальные эффекты запускает только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          if(type!=='scene'){
+            var sceneToken=(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).some(function(token){return token&&String(token.id)===tokenId;});
+            var member=memberUid&&room.members&&room.members[memberUid];
+            var combatEntry=(room.combat&&Array.isArray(room.combat.order)?room.combat.order:[]).some(function(entry){return entry&&((tokenId&&String(entry.tokenId)===tokenId)||(memberUid&&String(entry.uid)===memberUid));});
+            if(!sceneToken&&!member&&!combatEntry)throw roomError('Для этого эффекта выберите жетон на сцене.','entity-missing');
+          }
+          var stamp=now(),event={
+            id:'gm-visual-'+stamp+'-'+Math.random().toString(36).slice(2,7),
+            kind:'gm-visual',type:type,effect:effect,intensity:intensity,
+            targetTokenId:tokenId,targetUid:memberUid,createdBy:user.uid,ts:stamp
+          };
+          return firebase.update(roomRef(session.code),{visualEvent:event,updatedAt:stamp}).then(function(){
+            return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['visual-invalid','master-only','room-not-found','entity-missing'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     resolveCombatAttack: function (targetKey, options, participantKey) {
       options = options || {}; targetKey = String(targetKey || '').slice(0, 160); participantKey = String(participantKey || '').slice(0, 160);
       return ensureReady().then(function (user) {
@@ -3248,7 +3416,16 @@
           target.hp=after;target.tempHp=tempAfter;if(reachedZero)target.zeroHp={pending:true,reachedAt:now(),source:attacker.key};order[targetIndex]=target;
           var stamp=now(),updates={};
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;
-          if(target.uid){updates['members/'+target.uid+'/character/hpCur']=after;updates['members/'+target.uid+'/character/tempHp']=tempAfter;}
+          if(target.uid){
+            var damageOperationId='combat-damage-'+stamp;
+            updates['members/'+target.uid+'/character/hpCur']=after;
+            updates['members/'+target.uid+'/character/tempHp']=tempAfter;
+            updates['members/'+target.uid+'/character/revision']=firebase.increment(1);
+            updates['members/'+target.uid+'/character/updatedAt']=stamp;
+            updates['members/'+target.uid+'/character/updatedBy']=user.uid;
+            updates['members/'+target.uid+'/character/source']='combat-damage';
+            updates['members/'+target.uid+'/character/syncOperationId']=damageOperationId;
+          }
           if(target.tokenId){
             (room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=after;updates['scene/tokens/'+index+'/tempHp']=tempAfter;}});
             Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=tempAfter;}});});
