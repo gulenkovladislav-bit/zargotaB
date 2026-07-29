@@ -122,6 +122,33 @@ try {
     updatedAt: 3
   }));
   await assertSucceeds(set(ref(player, `${roomPath}/updatedAt`), 3));
+  await assertSucceeds(set(ref(player, `${roomPath}/ping`), {
+    id: 'ping-player',
+    uid: playerUid,
+    x: 40,
+    y: 60,
+    focus: false,
+    zoom: 1,
+    createdAt: 3
+  }));
+  await assertFails(set(ref(player, `${roomPath}/ping`), {
+    id: 'ping-player-focus',
+    uid: playerUid,
+    x: 40,
+    y: 60,
+    focus: true,
+    zoom: 1,
+    createdAt: 4
+  }));
+  await assertSucceeds(set(ref(master, `${roomPath}/ping`), {
+    id: 'ping-master-focus',
+    uid: masterUid,
+    x: 50,
+    y: 50,
+    focus: true,
+    zoom: 1.5,
+    createdAt: 5
+  }));
 
   await assertFails(set(ref(outsider, `${roomPath}/updatedAt`), 4));
   await assertFails(set(ref(outsider, `${roomPath}/combat/turnIndex`), 0));

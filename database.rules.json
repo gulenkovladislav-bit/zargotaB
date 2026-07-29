@@ -24,7 +24,7 @@
         },
         "ping": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists() && newData.child('uid').val() === auth.uid",
-          ".validate": "!newData.exists() || (newData.hasChildren(['id', 'uid', 'x', 'y', 'focus', 'zoom', 'createdAt']) && newData.child('id').isString() && newData.child('id').val().length <= 80 && newData.child('uid').val() === auth.uid && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 100 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 100 && newData.child('focus').isBoolean() && (!newData.child('focus').val() || root.child('rooms').child($room).child('masterUid').val() === auth.uid) && newData.child('zoom').isNumber() && newData.child('zoom').val() >= 0.4 && newData.child('zoom').val() <= 3)"
+          ".validate": "!newData.exists() || (newData.hasChildren(['id', 'uid', 'x', 'y', 'focus', 'zoom', 'createdAt']) && newData.child('id').isString() && newData.child('id').val().length <= 80 && newData.child('uid').val() === auth.uid && newData.child('x').isNumber() && newData.child('x').val() >= 0 && newData.child('x').val() <= 100 && newData.child('y').isNumber() && newData.child('y').val() >= 0 && newData.child('y').val() <= 100 && newData.child('focus').isBoolean() && (newData.child('focus').val() === false || root.child('rooms').child($room).child('masterUid').val() === auth.uid) && newData.child('zoom').isNumber() && newData.child('zoom').val() >= 0.4 && newData.child('zoom').val() <= 3)"
         },
         "pingTrail": {
           "$uid": {

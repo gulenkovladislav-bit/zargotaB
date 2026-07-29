@@ -17,6 +17,7 @@
   var importSearch = '';
   var itemBundle = [];
   var drafts = Object.create(null);
+  var activeTemplateIds = Object.create(null);
   var busy = false;
   var applying = Object.create(null);
   var popupQueue = [];
@@ -29,6 +30,31 @@
   }
 
   function node(id) { return document.getElementById(id); }
+
+  function safeQuestId(value) {
+    return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
+  }
+
+  function newQuestId() {
+    var suffix = '';
+    try {
+      if (w.crypto && w.crypto.getRandomValues) {
+        var values = new Uint32Array(2);
+        w.crypto.getRandomValues(values);
+        suffix = values[0].toString(36) + values[1].toString(36);
+      }
+    } catch (error) {}
+    if (!suffix) suffix = Math.random().toString(36).slice(2);
+    return safeQuestId('quest-' + Date.now().toString(36) + '-' + suffix);
+  }
+
+  function questStatus(value) {
+    return ['new','active','completed','failed'].indexOf(value) >= 0 ? value : 'new';
+  }
+
+  function questImportance(value) {
+    return value === 'secondary' ? 'secondary' : 'main';
+  }
 
   function emptyLibrary() {
     return { item:[], quest:[], text:[], image:[] };
@@ -128,6 +154,12 @@
         weight:node('zg-gm-delivery-weight') && node('zg-gm-delivery-weight').value,
         slot:node('zg-gm-delivery-slot') && node('zg-gm-delivery-slot').value
       };
+    } else if (activeKind === 'quest') {
+      payload = {
+        questId:safeQuestId(node('zg-gm-delivery-quest-id') && node('zg-gm-delivery-quest-id').value) || newQuestId(),
+        status:questStatus(node('zg-gm-delivery-quest-status') && node('zg-gm-delivery-quest-status').value),
+        importance:questImportance(node('zg-gm-delivery-quest-importance') && node('zg-gm-delivery-quest-importance').value)
+      };
     }
     return {
       kind:activeKind,
@@ -150,10 +182,16 @@
   function draftForKind(kind) {
     var value = drafts[kind];
     if (value) return value;
-    return {
+    value = {
       kind:kind,mood:activeMood,showPopup:true,title:'',text:'',image:'',
-      payload:kind === 'item' ? {icon:'📦',qty:1,category:'other',acBonus:0,attackStat:'str',range:'1 клетка',weight:0,slot:''} : {}
+      payload:kind === 'item'
+        ? {icon:'📦',qty:1,category:'other',acBonus:0,attackStat:'str',range:'1 клетка',weight:0,slot:''}
+        : kind === 'quest'
+          ? {questId:newQuestId(),status:'new',importance:'main'}
+          : {}
     };
+    drafts[kind] = value;
+    return value;
   }
 
   function selected(value, expected) {
@@ -375,13 +413,17 @@
     var draft = draftForKind(activeKind), payload = draft.payload || {};
     activeMood = draft.mood || activeMood;
     activeImage = draft.image || '';
-    var fields = activeKind === 'item'
-      ? '<div class="zg-gm-delivery-row compact"><label>Иконка<input id="zg-gm-delivery-icon" maxlength="20" value="' + esc(payload.icon || '📦') + '"></label><label>Количество<input id="zg-gm-delivery-qty" type="number" min="1" max="999" value="' + Math.max(1, Number(payload.qty) || 1) + '"></label><label>Категория<select id="zg-gm-delivery-category"><option value="other"' + selected(payload.category,'other') + '>Другое</option><option value="weapon"' + selected(payload.category,'weapon') + '>Оружие</option><option value="armor"' + selected(payload.category,'armor') + '>Броня</option><option value="shield"' + selected(payload.category,'shield') + '>Щит</option><option value="consumable"' + selected(payload.category,'consumable') + '>Расходник</option><option value="material"' + selected(payload.category,'material') + '>Материал</option><option value="key"' + selected(payload.category,'key') + '>Ключ</option></select></label></div>' +
+    var fields = '';
+    if (activeKind === 'item') {
+      fields = '<div class="zg-gm-delivery-row compact"><label>Иконка<input id="zg-gm-delivery-icon" maxlength="20" value="' + esc(payload.icon || '📦') + '"></label><label>Количество<input id="zg-gm-delivery-qty" type="number" min="1" max="999" value="' + Math.max(1, Number(payload.qty) || 1) + '"></label><label>Категория<select id="zg-gm-delivery-category"><option value="other"' + selected(payload.category,'other') + '>Другое</option><option value="weapon"' + selected(payload.category,'weapon') + '>Оружие</option><option value="armor"' + selected(payload.category,'armor') + '>Броня</option><option value="shield"' + selected(payload.category,'shield') + '>Щит</option><option value="consumable"' + selected(payload.category,'consumable') + '>Расходник</option><option value="material"' + selected(payload.category,'material') + '>Материал</option><option value="key"' + selected(payload.category,'key') + '>Ключ</option></select></label></div>' +
         '<div class="zg-gm-delivery-row compact"><label>Урон<input id="zg-gm-delivery-damage" maxlength="40" placeholder="1d6+2" value="' + esc(payload.damageFormula || '') + '"></label><label>Тип урона<input id="zg-gm-delivery-damage-type" maxlength="80" placeholder="Рубящий" value="' + esc(payload.damageType || '') + '"></label><label>Характеристика<select id="zg-gm-delivery-attack-stat"><option value="str"' + selected(payload.attackStat,'str') + '>Сила</option><option value="dex"' + selected(payload.attackStat,'dex') + '>Ловкость</option><option value="int"' + selected(payload.attackStat,'int') + '>Интеллект</option><option value="cha"' + selected(payload.attackStat,'cha') + '>Харизма</option><option value="per"' + selected(payload.attackStat,'per') + '>Восприятие</option></select></label></div>' +
         '<div class="zg-gm-delivery-row compact"><label>Бонус AC<input id="zg-gm-delivery-ac" type="number" min="-99" max="99" value="' + (Number(payload.acBonus) || 0) + '"></label><label>Дальность<input id="zg-gm-delivery-range" maxlength="80" placeholder="1 клетка" value="' + esc(payload.range || '1 клетка') + '"></label><label>Вес<input id="zg-gm-delivery-weight" type="number" min="0" max="9999" step="0.1" value="' + (Number(payload.weight) || 0) + '"></label></div>' +
         '<div class="zg-gm-delivery-row"><label>Слот экипировки<select id="zg-gm-delivery-slot"><option value=""' + selected(payload.slot,'') + '>Определить по предмету</option><option value="weapon"' + selected(payload.slot,'weapon') + '>Оружие</option><option value="head"' + selected(payload.slot,'head') + '>Голова</option><option value="armor"' + selected(payload.slot,'armor') + '>Доспех</option><option value="cloak"' + selected(payload.slot,'cloak') + '>Плащ</option><option value="hands"' + selected(payload.slot,'hands') + '>Руки</option><option value="legs"' + selected(payload.slot,'legs') + '>Ноги</option><option value="accessory1"' + selected(payload.slot,'accessory1') + '>Аксессуар</option></select></label></div>' +
-        '<label>Эффекты предмета<input id="zg-gm-delivery-effects" maxlength="2000" placeholder="+1 к скорости, +2 к Силе…" value="' + esc(payload.effects || '') + '"></label>'
-      : '';
+        '<label>Эффекты предмета<input id="zg-gm-delivery-effects" maxlength="2000" placeholder="+1 к скорости, +2 к Силе…" value="' + esc(payload.effects || '') + '"></label>';
+    } else if (activeKind === 'quest') {
+      fields = '<input id="zg-gm-delivery-quest-id" type="hidden" value="' + esc(safeQuestId(payload.questId) || newQuestId()) + '">' +
+        '<div class="zg-gm-delivery-row compact"><label>Статус<select id="zg-gm-delivery-quest-status"><option value="new"' + selected(questStatus(payload.status),'new') + '>Новое</option><option value="active"' + selected(questStatus(payload.status),'active') + '>Активное</option><option value="completed"' + selected(questStatus(payload.status),'completed') + '>Завершённое</option><option value="failed"' + selected(questStatus(payload.status),'failed') + '>Проваленное</option></select></label><label>Роль в журнале<select id="zg-gm-delivery-quest-importance"><option value="main"' + selected(questImportance(payload.importance),'main') + '>Главная цель</option><option value="secondary"' + selected(questImportance(payload.importance),'secondary') + '>Дополнительная цель</option></select></label></div>';
+    }
     var templates = filteredTemplates();
     var shelf = activeShelf === 'history'
       ? '<section class="zg-gm-delivery-history">' +
@@ -424,7 +466,7 @@
       '<label class="zg-gm-delivery-check"><input id="zg-gm-delivery-popup-toggle" type="checkbox" ' + (draft.showPopup === false ? '' : 'checked') + '><span>Показать игроку большое уведомление</span></label>' +
       '<section id="zg-gm-delivery-preview" class="zg-gm-delivery-preview"><header>Предпросмотр карточки игрока</header>' + previewMarkup(draft) + '</section>' +
       bundleMarkup() +
-      '<div class="zg-gm-delivery-actions"><button type="button" onclick="zgGmDeliverySaveTemplate()">Сохранить в библиотеку</button><button type="button" class="primary" onclick="zgGmDeliverySend()" ' + (!members.length || busy ? 'disabled' : '') + '>' + (busy ? 'Отправляем…' : activeTarget === '__all__' ? 'Выдать группе' : 'Выдать') + '</button></div></section>' +
+      '<div class="zg-gm-delivery-actions"><button type="button" onclick="zgGmDeliverySaveTemplate()">' + (activeTemplateIds[activeKind] ? 'Обновить заготовку' : 'Сохранить в библиотеку') + '</button><button type="button" class="primary" onclick="zgGmDeliverySend()" ' + (!members.length || busy ? 'disabled' : '') + '>' + (busy ? 'Отправляем…' : activeTarget === '__all__' ? 'Выдать группе' : 'Выдать') + '</button></div></section>' +
       '<nav class="zg-gm-delivery-shelves"><button type="button" class="' + (activeShelf === 'library' ? 'active' : '') + '" onclick="zgGmDeliveryShelf(\'library\')">Библиотека</button><button type="button" class="' + (activeShelf === 'history' ? 'active' : '') + '" onclick="zgGmDeliveryShelf(\'history\')">История <span>' + history.length + '</span></button></nav>' +
       shelf;
     var file = node('zg-gm-delivery-file');
@@ -457,7 +499,9 @@
       ['zg-gm-delivery-effects','effects'],['zg-gm-delivery-damage','damageFormula'],
       ['zg-gm-delivery-damage-type','damageType'],['zg-gm-delivery-ac','acBonus'],
       ['zg-gm-delivery-attack-stat','attackStat'],['zg-gm-delivery-range','range'],
-      ['zg-gm-delivery-weight','weight'],['zg-gm-delivery-slot','slot']
+      ['zg-gm-delivery-weight','weight'],['zg-gm-delivery-slot','slot'],
+      ['zg-gm-delivery-quest-id','questId'],['zg-gm-delivery-quest-status','status'],
+      ['zg-gm-delivery-quest-importance','importance']
     ].forEach(function (pair) {
       var input = node(pair[0]);
       if (input && payload[pair[1]] != null) input.value = payload[pair[1]];
@@ -544,14 +588,19 @@
       if (w.showToast) w.showToast('Укажите название');
       return;
     }
-    value.id = 'tpl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,6);
-    value.createdAt = Date.now();
-    value.updatedAt = value.createdAt;
+    var existingId = activeTemplateIds[activeKind];
+    var existingIndex = (library[activeKind] || []).findIndex(function (item) { return item && item.id === existingId; });
+    var stamp = Date.now();
+    value.id = existingIndex >= 0 ? existingId : 'tpl-' + stamp.toString(36) + '-' + Math.random().toString(36).slice(2,6);
+    value.createdAt = existingIndex >= 0 ? Number(library[activeKind][existingIndex].createdAt) || stamp : stamp;
+    value.updatedAt = stamp;
+    if (existingIndex >= 0) library[activeKind].splice(existingIndex, 1);
     library[activeKind].unshift(value);
+    activeTemplateIds[activeKind] = value.id;
     library[activeKind] = library[activeKind].slice(0, 80);
     if (saveLibrary(library)) {
       renderPanel();
-      if (w.showToast) w.showToast('Сохранено в библиотеку ГМ');
+      if (w.showToast) w.showToast(existingIndex >= 0 ? 'Заготовка обновлена' : 'Сохранено в библиотеку ГМ');
     }
   };
 
@@ -560,6 +609,7 @@
     if (!value) return;
     rememberPanelDraft();
     activeMood = value.mood || 'calm';
+    activeTemplateIds[activeKind] = value.id;
     drafts[activeKind] = JSON.parse(JSON.stringify(value));
     activeImage = value.image || '';
     renderPanel({skipRemember:true});
@@ -567,6 +617,7 @@
 
   w.zgGmDeliveryRemoveTemplate = function (id) {
     library[activeKind] = (library[activeKind] || []).filter(function (item) { return item && item.id !== id; });
+    if (activeTemplateIds[activeKind] === id) delete activeTemplateIds[activeKind];
     saveLibrary(library);
     renderPanel();
   };
@@ -709,6 +760,7 @@
         : memberUids.length > 1 ? 'Выдача отправлена всей группе' : 'Выдача отправлена игроку');
       if (!queued && !repeatedFrom) {
         delete drafts[activeKind];
+        delete activeTemplateIds[activeKind];
         activeImage = '';
         if (value.kind === 'item' && value.payload && Array.isArray(value.payload.items)) itemBundle = [];
       }
