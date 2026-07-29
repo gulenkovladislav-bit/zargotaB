@@ -289,8 +289,10 @@ assert.match(network, /inventoryOperations:hasItemOperations/);
 assert.match(network, /store\.applyInventoryOperations\(current,\s*itemOperations/);
 assert.match(network, /firebase\.runTransaction\(characterRef/);
 assert.match(network, /store\.recordConflict\(options\.outboxEntry,\s*operationConflict\)/);
-assert.match(network, /memberUpdates\['character\/'\s*\+\s*field\]/);
-assert.match(network, /memberUpdates\['character\/syncOperationId'\]/);
+assert.match(network, /firebase\.runTransaction\(scopedCharacterRef/);
+assert.match(network, /next\[field\]\s*=\s*liveSnapshot\[field\]/);
+assert.match(network, /next\s*=\s*applyEquipmentDerivedSnapshot\(next,\s*liveSnapshot\)/);
+assert.match(network, /next\.syncOperationId\s*=\s*liveSnapshot\.syncOperationId/);
 assert.match(network, /gmAddInventoryItem:\s*function/);
 assert.match(network, /gmAddJournalEntry:\s*function/);
 assert.match(network, /gmAdjustAbilityUsage:\s*function/);
@@ -611,6 +613,61 @@ assert.doesNotMatch(html, /РЕЖИМ БРОСКИ ЖИЗНИ/);
 assert.match(html, /\.zg-vtt-drawer\.backpack-skin \.zg-bag-section-title\{display:none!important\}/);
 assert.match(html, /grid-template-columns:repeat\(4,minmax\(0,82px\)\)/);
 assert.match(html, /\.zg-state-portrait img\{filter:none\}/);
+assert.match(html, /var equipmentSummary=c\._equipBonusCache&&typeof c\._equipBonusCache==='object'/);
+assert.match(html, /function equipmentSourceTitle\(label,kind,statKey\)/);
+assert.match(html, /class="zg-equip-bonus"/);
+assert.match(html, /Источники? экипировочного бонуса|Источник экипировочного бонуса/);
+assert.match(html, /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] \.zg-vtt-drawer-body\{\s*overflow:hidden!important;/);
+
+var characterStatsStart = html.indexOf('function characterStats(member){');
+var characterStatsEnd = html.indexOf('function inventoryItemCategory(item){', characterStatsStart);
+var characterStatsSource = html.slice(characterStatsStart, characterStatsEnd);
+function renderCharacterStats(member, localCharacter) {
+  var context = {
+    result:null,
+    input:member,
+    state:{session:{role:'player'}},
+    w:{
+      STAT_LABEL_RU:{str:'Сила'},
+      zgStatIcon:function(){ return '<i class="stat-icon"></i>'; }
+    },
+    fullLocalCharacter:function(){ return localCharacter || null; },
+    esc:function(value){
+      return String(value == null ? '' : value)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    },
+    Array:Array, Object:Object, Number:Number, String:String, Math:Math, Date:Date
+  };
+  vm.runInNewContext(characterStatsSource + '; result=characterStats(input);', context);
+  return context.result;
+}
+var equipmentSources = [{
+  name:'Бригантина',
+  bonuses:{ac:2,hp:4,speed:1,initiative:1,stats:{str:1}}
+}];
+var localEquipmentCharacter = {
+  name:'Локальный герой',stats:{str:{base:2,cur:3,tmp:0}},
+  hpCur:11,hpMax:18,ac:12,speed:8,initiative:2,
+  _equipBonusCache:{
+    acBonus:2,hpBonus:4,speedBonus:1,initiativeBonus:1,
+    statBonuses:{str:1},sources:equipmentSources
+  }
+};
+var localEquipmentHtml = renderCharacterStats({uid:'local',name:'Локальный герой'}, localEquipmentCharacter);
+assert.match(localEquipmentHtml, /aria-label="Сила: \+1 от снаряжения · Бригантина \+1"/);
+assert.match(localEquipmentHtml, /aria-label="Максимум HP: \+4 от снаряжения · Бригантина \+4"/);
+assert.match(localEquipmentHtml, /aria-label="Броня: \+2 от снаряжения · Бригантина \+2"/);
+assert.match(localEquipmentHtml, /aria-label="Скорость: \+1 от снаряжения · Бригантина \+1"/);
+assert.match(localEquipmentHtml, /aria-label="Инициатива: \+1 от снаряжения · Бригантина \+1"/);
+var remoteEquipmentCharacter = Object.assign({}, localEquipmentCharacter, {
+  name:'Firebase герой',
+  _equipBonusCache:null,
+  equipmentBonuses:localEquipmentCharacter._equipBonusCache
+});
+var remoteEquipmentHtml = renderCharacterStats({uid:'remote',name:'Firebase герой',character:remoteEquipmentCharacter}, null);
+assert.match(remoteEquipmentHtml, /aria-label="Броня: \+2 от снаряжения · Бригантина \+2"/);
+assert.strictEqual((localEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
+assert.strictEqual((remoteEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
 
 var abilitiesStart = html.indexOf('function abilitiesPanel()');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
@@ -954,5 +1011,9 @@ assert.match(network, /appliedDeliveryIds:\s*mergeAppliedDeliveryIds\(character\
 assert.match(network, /applied\.character\.appliedDeliveryIds=mergeAppliedDeliveryIds/);
 assert.match(html, /zgSheetTabAction\('journal'\)/);
 assert.match(html, /zgVttJournalMasterAdd/);
+assert.match(network, /function normalizeAbilityTargeting\(targeting\)/);
+assert.match(network, /request\.target=normalizeAbilityTargeting\(details\.targeting\)/);
+assert.match(html, /pendingAbilityCast=\{key:key,label:label,profile:profile\}/);
+assert.match(html, /targeting:selection&&typeof selection==='object'\?selection:\{\}/);
 
 console.log('network character sync contract passed');

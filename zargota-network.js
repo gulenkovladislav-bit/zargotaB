@@ -33,6 +33,9 @@
   var createRoomPromise = null;
   var lastPingWriteAt = 0;
   var lastPingTrailWriteAt = 0;
+  var combatEquipmentReconcileTimer = 0;
+  var combatEquipmentReconcileBusy = false;
+  var combatEquipmentReconcilePending = false;
   var networkPerformance = {
     writes:[], writeBytes:0, roomSnapshots:[], roomSnapshotBytes:0, roomSnapshotMaxBytes:0,
     writeKinds:{},
@@ -381,6 +384,60 @@
     return snapshot;
   }
 
+  function equipmentBonusTotals(value) {
+    value = value && typeof value === 'object' ? value : {};
+    var stats = value.statBonuses && typeof value.statBonuses === 'object' ? value.statBonuses : {};
+    return {
+      acBonus:Number(value.acBonus) || 0,
+      hpBonus:Number(value.hpBonus) || 0,
+      speedBonus:Number(value.speedBonus) || 0,
+      initiativeBonus:Number(value.initiativeBonus) || 0,
+      statBonuses:{
+        str:Number(stats.str) || 0,dex:Number(stats.dex) || 0,int:Number(stats.int) || 0,
+        cha:Number(stats.cha) || 0,per:Number(stats.per) || 0,con:Number(stats.con) || 0
+      }
+    };
+  }
+
+  function applyEquipmentDerivedSnapshot(current, snapshot) {
+    current = current && typeof current === 'object' ? Object.assign({}, current) : {};
+    snapshot = snapshot && typeof snapshot === 'object' ? snapshot : {};
+    var hadPrevious = !!(current.equipmentBonuses && typeof current.equipmentBonuses === 'object');
+    var previous = equipmentBonusTotals(current.equipmentBonuses);
+    var next = equipmentBonusTotals(snapshot.equipmentBonuses);
+    var previousHpMax = Math.max(0, Number(current.hpMax) || 0);
+    var nextHpMax = hadPrevious
+      ? Math.max(1, previousHpMax + next.hpBonus - previous.hpBonus)
+      : Math.max(1, Number(snapshot.hpMax) || previousHpMax || 1);
+    var hpDelta = nextHpMax - previousHpMax;
+    current.hpMax = nextHpMax;
+    current.hpCur = Math.max(0, Math.min(nextHpMax, (Number(current.hpCur) || 0) + hpDelta));
+    current.ac = hadPrevious ? (Number(current.ac) || 0) + next.acBonus - previous.acBonus : Number(snapshot.ac) || 0;
+    current.initiative = hadPrevious ? (Number(current.initiative) || 0) + next.initiativeBonus - previous.initiativeBonus : Number(snapshot.initiative) || 0;
+    current.speed = Math.max(0, hadPrevious ? (Number(current.speed) || 0) + next.speedBonus - previous.speedBonus : Number(snapshot.speed) || 0);
+    if (hadPrevious) {
+      var stats = current.stats && typeof current.stats === 'object' ? Object.assign({}, current.stats) : {};
+      Object.keys(next.statBonuses).forEach(function (key) {
+        var value = stats[key], delta = next.statBonuses[key] - previous.statBonuses[key];
+        if (value && typeof value === 'object') {
+          value = Object.assign({}, value);
+          value.cur = (Number(value.cur) || 0) + delta;
+          stats[key] = value;
+        } else {
+          stats[key] = (Number(value) || 0) + delta;
+        }
+      });
+      current.stats = stats;
+    } else if (snapshot.stats && typeof snapshot.stats === 'object') {
+      current.stats = JSON.parse(JSON.stringify(snapshot.stats));
+    }
+    current.weaponProfiles = Array.isArray(snapshot.weaponProfiles) ? snapshot.weaponProfiles.slice(0, 12) : [];
+    current.equipmentBonuses = snapshot.equipmentBonuses && typeof snapshot.equipmentBonuses === 'object'
+      ? JSON.parse(JSON.stringify(snapshot.equipmentBonuses))
+      : next;
+    return current;
+  }
+
   function pointInPolygon(x, y, points) {
     var inside = false;
     points = Array.isArray(points) ? points : [];
@@ -427,15 +484,22 @@
   }
 
   function combatEntryDistance(room, attacker, target) {
-    var from = combatEntryToken(room, attacker), to = combatEntryToken(room, target);
+    var from = combatEntryScenePoint(room, attacker), to = combatEntryScenePoint(room, target);
     if (!from || !to) return null;
     return movementCells(room.scene || {}, from.x, from.y, to.x, to.y);
   }
 
+  function combatEntryScenePoint(room, entry) {
+    var direct=entry&&entry.scenePoint,token=direct?null:combatEntryToken(room,entry);
+    var x=direct&&direct.x!=null?Number(direct.x):token&&Number(token.x),y=direct&&direct.y!=null?Number(direct.y):token&&Number(token.y);
+    if(!isFinite(x)||!isFinite(y))return null;
+    return{x:Math.max(0,Math.min(100,x)),y:Math.max(0,Math.min(100,y))};
+  }
+
   function combatEntryPoint(room, entry) {
-    var token = combatEntryToken(room, entry), scene = room && room.scene || {};
-    if (!token) return null;
-    return { x:Number(token.x) * Math.max(1, Number(scene.boardWidth) || 32) / 100, y:Number(token.y) * Math.max(1, Number(scene.boardHeight) || 20) / 100 };
+    var point=combatEntryScenePoint(room,entry),scene = room && room.scene || {};
+    if (!point) return null;
+    return { x:point.x * Math.max(1, Number(scene.boardWidth) || 32) / 100, y:point.y * Math.max(1, Number(scene.boardHeight) || 20) / 100 };
   }
 
   function combatAreaContains(room, shape, originEntry, anchorEntry, targetEntry, length, width) {
@@ -516,6 +580,25 @@
       tickType:tickType,tickDice:tickDice,damageType:String(effect.damageType||'').slice(0,40),
       autoRemove:['never','end_of_turn','save_dc'].indexOf(effect.autoRemove)>=0?effect.autoRemove:'never',
       saveDC:Math.max(0,Math.min(40,Number(effect.saveDC)||0)),saveStat:['str','dex','int','cha','per','con'].indexOf(effect.saveStat)>=0?effect.saveStat:'con'
+    };
+  }
+
+  function normalizeAbilityTargeting(targeting) {
+    targeting=targeting&&typeof targeting==='object'?targeting:null;
+    if(!targeting)return null;
+    var hasX=targeting.x!==null&&targeting.x!==undefined&&targeting.x!=='',hasY=targeting.y!==null&&targeting.y!==undefined&&targeting.y!=='';
+    var tokenId=String(targeting.tokenId||'').slice(0,120),targetKey=String(targeting.targetKey||'').slice(0,160);
+    if(!tokenId&&!targetKey&&!hasX&&!hasY)return null;
+    var mode=['token','point','self'].indexOf(targeting.mode)>=0?targeting.mode:(tokenId||targetKey?'token':'point');
+    return{
+      mode:mode,
+      x:hasX?Math.max(0,Math.min(100,Number(targeting.x)||0)):null,
+      y:hasY?Math.max(0,Math.min(100,Number(targeting.y)||0)):null,
+      tokenId:tokenId,
+      targetKey:targetKey,
+      targetName:String(targeting.targetName||'').slice(0,160),
+      tokenType:String(targeting.tokenType||'').slice(0,40),
+      distanceCells:Math.max(0,Math.min(200,Number(targeting.distanceCells)||0))
     };
   }
 
@@ -616,6 +699,56 @@
     base = Math.max(0, base + modifiers.speedMod - slowSpeedMod);
     if (restrictions.slowed) base = Math.floor(base / 2);
     return base;
+  }
+
+  function reconcileCombatEquipmentEntry(entry, character, phase) {
+    if (!entry || !character) return entry;
+    var next = Object.assign({}, entry);
+    var previousHpMax = Math.max(0, combatNumber(entry.hpMax, 0));
+    var previousHp = Math.max(0, combatNumber(entry.hp, previousHpMax));
+    var missingHp = Math.max(0, previousHpMax - previousHp);
+    var nextHpMax = Math.max(1, combatNumber(character.hpMax, previousHpMax || 1));
+    var previousEconomy = Object.assign({long:1,short:1,reaction:1,movement:0,movementMax:7}, entry.economy || {});
+    var previousAllowance = combatTurnMovement(Object.assign({}, entry, {economy:previousEconomy}));
+    var previousRemaining = Math.max(0, combatNumber(previousEconomy.movement, 0));
+    var movementSpent = Math.max(0, previousAllowance - previousRemaining);
+
+    next.hpMax = nextHpMax;
+    next.hp = Math.max(0, Math.min(nextHpMax, nextHpMax - missingHp));
+    next.ac = Math.max(0, combatNumber(character.ac, entry.ac == null ? 10 : entry.ac));
+    next.stats = character.stats && typeof character.stats === 'object'
+      ? JSON.parse(JSON.stringify(character.stats))
+      : {};
+    next.mastery = Array.isArray(character.mastery) ? JSON.parse(JSON.stringify(character.mastery)).slice(0, 40) : [];
+    next.weaponProfiles = Array.isArray(character.weaponProfiles) ? JSON.parse(JSON.stringify(character.weaponProfiles)).slice(0, 12) : [];
+    next.equipmentBonuses = character.equipmentBonuses && typeof character.equipmentBonuses === 'object'
+      ? JSON.parse(JSON.stringify(character.equipmentBonuses))
+      : {};
+    next.bonus = combatNumber(character.initiative, entry.bonus || 0);
+    if (phase === 'initiative' && entry.roll != null) next.total = combatNumber(entry.roll, 0) + next.bonus;
+
+    var nextEconomy = Object.assign({}, previousEconomy, {
+      movementMax:Math.max(0, combatNumber(character.speed, previousEconomy.movementMax || 7))
+    });
+    next.economy = nextEconomy;
+    var nextAllowance = combatTurnMovement(next);
+    nextEconomy.movement = Math.max(0, nextAllowance - movementSpent);
+    return next;
+  }
+
+  function reconcileCombatEquipmentOrder(room, orderOverride) {
+    var combat = room && room.combat || {};
+    var order = Array.isArray(orderOverride) ? orderOverride : (Array.isArray(combat.order) ? combat.order : []);
+    var members = room && room.members || {};
+    var changed = false;
+    var nextOrder = order.map(function (entry) {
+      var member = entry && entry.uid && members[entry.uid];
+      if (!entry || entry.kind !== 'hero' || !member || !member.character) return entry;
+      var next = reconcileCombatEquipmentEntry(entry, member.character, combat.phase);
+      if (JSON.stringify(next) !== JSON.stringify(entry)) changed = true;
+      return next;
+    });
+    return { changed:changed, order:nextOrder };
   }
 
   function combatStatusEffects(entry) {
@@ -1198,6 +1331,36 @@
       weaponProfiles.push({ id:key, name:item.name || 'Оружие', damageFormula:formula, damageType:item.damageType || '', range:item.range || '1 клетка', stat:item.attackStat || item.stat || '' });
     });
     if (!weaponProfiles.length) weaponProfiles.push({ id:'improvised', name:'Импровизированная атака', damageFormula:'1d4', damageType:'Дробящий', range:'1 клетка', stat:'str' });
+    var rawEquipmentCache = character._equipBonusCache || character.equipmentBonuses || {};
+    var rawEquipmentStatBonuses = rawEquipmentCache.statBonuses && typeof rawEquipmentCache.statBonuses === 'object'
+      ? rawEquipmentCache.statBonuses
+      : {};
+    var rawEquipmentBonuses = {
+      acBonus:Number(rawEquipmentCache.acBonus) || 0,
+      hpBonus:Number(rawEquipmentCache.hpBonus) || 0,
+      speedBonus:Number(rawEquipmentCache.speedBonus) || 0,
+      initiativeBonus:Number(rawEquipmentCache.initiativeBonus) || 0,
+      statBonuses:{
+        str:Number(rawEquipmentStatBonuses.str) || 0,dex:Number(rawEquipmentStatBonuses.dex) || 0,
+        int:Number(rawEquipmentStatBonuses.int) || 0,cha:Number(rawEquipmentStatBonuses.cha) || 0,
+        per:Number(rawEquipmentStatBonuses.per) || 0,con:Number(rawEquipmentStatBonuses.con) || 0
+      }
+    };
+    var rawEquipmentSources = character._equipBonusCache && Array.isArray(character._equipBonusCache.sources)
+      ? character._equipBonusCache.sources
+      : character.equipmentBonuses && Array.isArray(character.equipmentBonuses.sources)
+        ? character.equipmentBonuses.sources
+        : [];
+    rawEquipmentBonuses.sources = rawEquipmentSources.slice(0, 24).map(function (source) {
+      source = source && typeof source === 'object' ? source : {};
+      return {
+        id:cleanText(source.id, 160),
+        source:cleanText(source.source, 30),
+        slot:cleanText(source.slot, 40),
+        name:cleanText(source.name, 200),
+        bonuses:clean(source.bonuses, {})
+      };
+    });
     var hpMax = Math.max(0, metricNumber(character.hpMax, 0));
     var effectTempHp = (Array.isArray(character.tempEffects) ? character.tempEffects : []).reduce(function (sum, effect) {
       if (!effect || effect.type !== 'hp') return sum;
@@ -1241,6 +1404,7 @@
       spellRefs: spellRefs,
       spellsLearned: clean(spellsLearned, {}),
       weaponProfiles: clean(weaponProfiles, []).slice(0, 12),
+      equipmentBonuses: clean(rawEquipmentBonuses, {}),
       resistances: clean(character.resistances || character.damageResistances, []),
       vulnerabilities: clean(character.vulnerabilities || character.damageVulnerabilities, []),
       immunities: clean(character.immunities || character.damageImmunities, []),
@@ -1322,6 +1486,26 @@
       qty:Math.max(1, Math.min(999, Math.floor(Number(item.qty) || 1))),
       icon:String(item.icon || '📦').slice(0, 20),
       description:String(item.description || '').slice(0, 4000),
+      category:String(item.category || 'other').slice(0, 40),
+      effects:String(item.effects || item.effect || '').slice(0, 1000),
+      damageFormula:String(item.damageFormula || item.damage || '').slice(0, 40),
+      damageType:String(item.damageType || '').slice(0, 80),
+      acBonus:Math.max(-99, Math.min(99, Number(item.acBonus) || 0)),
+      hpBonus:Math.max(-999, Math.min(999, Number(item.hpBonus) || 0)),
+      speedBonus:Math.max(-99, Math.min(99, Number(item.speedBonus) || 0)),
+      initiativeBonus:Math.max(-99, Math.min(99, Number(item.initiativeBonus) || 0)),
+      statBonuses:{
+        str:Math.max(-99,Math.min(99,Number(item.statBonuses&&item.statBonuses.str)||0)),
+        dex:Math.max(-99,Math.min(99,Number(item.statBonuses&&item.statBonuses.dex)||0)),
+        int:Math.max(-99,Math.min(99,Number(item.statBonuses&&item.statBonuses.int)||0)),
+        cha:Math.max(-99,Math.min(99,Number(item.statBonuses&&item.statBonuses.cha)||0)),
+        per:Math.max(-99,Math.min(99,Number(item.statBonuses&&item.statBonuses.per)||0)),
+        con:Math.max(-99,Math.min(99,Number(item.statBonuses&&item.statBonuses.con)||0))
+      },
+      attackStat:['str','dex','int','cha','per','con'].indexOf(String(item.attackStat || '')) >= 0 ? String(item.attackStat) : 'str',
+      range:String(item.range || '').slice(0, 80),
+      weight:Math.max(0, Math.min(9999, Number(item.weight) || 0)),
+      slot:String(item.slot || '').slice(0, 40),
       equipped:false
     };
   }
@@ -1376,6 +1560,11 @@
   }
 
   function stopWatchingRoom() {
+    if (combatEquipmentReconcileTimer) {
+      clearTimeout(combatEquipmentReconcileTimer);
+      combatEquipmentReconcileTimer = 0;
+    }
+    combatEquipmentReconcilePending = false;
     if (roomUnsubscribe) {
       try { roomUnsubscribe(); } catch (e) {}
       roomUnsubscribe = null;
@@ -1418,6 +1607,44 @@
     enableCharacterInbound(session, { uid:session.uid }, member.character);
   }
 
+  function scheduleMasterCombatEquipmentReconcile(room) {
+    var session = readSession();
+    var preview = reconcileCombatEquipmentOrder(room);
+    if (!room || !room.combat || !Array.isArray(room.combat.order) || !room.combat.order.length || !preview.changed) return;
+    if (!session || session.role !== 'master' || !auth || !auth.currentUser || room.masterUid !== auth.currentUser.uid || !tabCanWrite()) return;
+    combatEquipmentReconcilePending = true;
+    if (combatEquipmentReconcileTimer) clearTimeout(combatEquipmentReconcileTimer);
+    combatEquipmentReconcileTimer = setTimeout(function runEquipmentReconcile() {
+      combatEquipmentReconcileTimer = 0;
+      if (combatEquipmentReconcileBusy) return;
+      var latestRoom = currentRoom, latestSession = readSession();
+      if (!combatEquipmentReconcilePending || !latestRoom || !latestSession || latestSession.role !== 'master' || !auth || !auth.currentUser || latestRoom.masterUid !== auth.currentUser.uid || !tabCanWrite()) return;
+      var latestPreview = reconcileCombatEquipmentOrder(latestRoom);
+      combatEquipmentReconcilePending = false;
+      if (!latestPreview.changed) return;
+      combatEquipmentReconcileBusy = true;
+      var combatRef = firebase.ref(db, 'rooms/' + latestSession.code + '/combat');
+      firebase.runTransaction(combatRef, function (combat) {
+        if (!combat || !Array.isArray(combat.order) || !combat.order.length) return;
+        var basis = Object.assign({}, latestRoom, {combat:combat});
+        var result = reconcileCombatEquipmentOrder(basis, combat.order);
+        if (!result.changed) return;
+        var nextCombat = Object.assign({}, combat);
+        nextCombat.order = result.order;
+        nextCombat.updatedAt = now();
+        nextCombat.equipmentSyncedAt = nextCombat.updatedAt;
+        return nextCombat;
+      }).then(function () {
+        combatEquipmentReconcileBusy = false;
+        if (combatEquipmentReconcilePending && currentRoom) scheduleMasterCombatEquipmentReconcile(currentRoom);
+      }, function (error) {
+        combatEquipmentReconcileBusy = false;
+        console.warn('Zargota combat equipment reconcile:', error);
+        if (combatEquipmentReconcilePending && currentRoom) scheduleMasterCombatEquipmentReconcile(currentRoom);
+      });
+    }, 120);
+  }
+
   function watchRoom(code) {
     stopWatchingRoom();
     if (!code || !firebase || !db) return;
@@ -1431,6 +1658,7 @@
       }
       syncSessionRole(currentRoom);
       restoreCharacterInboundFromRoom(currentRoom);
+      scheduleMasterCombatEquipmentReconcile(currentRoom);
       emit();
       if (connected) flushCharacterOutbox();
     }, function (error) {
@@ -2058,6 +2286,7 @@
               }
               return;
             }
+            applied.character = applyEquipmentDerivedSnapshot(applied.character, liveSnapshot);
             applied.character.appliedDeliveryIds=mergeAppliedDeliveryIds(current&&current.appliedDeliveryIds,liveSnapshot.appliedDeliveryIds);
             return applied.character;
           }).then(function (result) {
@@ -2077,15 +2306,25 @@
             return { inventoryConflict:false };
           });
         } else if (scopedFields.length) {
-          scopedFields.forEach(function (field) {
-            memberUpdates['character/' + field] = liveSnapshot[field] == null ? [] : liveSnapshot[field];
+          var scopedCharacterRef = firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid + '/character');
+          roomWrite=firebase.runTransaction(scopedCharacterRef, function (current) {
+            if (!current || typeof current !== 'object') return;
+            var next = Object.assign({}, current);
+            scopedFields.forEach(function (field) {
+              next[field] = liveSnapshot[field] == null ? [] : liveSnapshot[field];
+            });
+            next = applyEquipmentDerivedSnapshot(next, liveSnapshot);
+            next.revision = liveSnapshot.revision;
+            next.updatedAt = now();
+            next.updatedBy = liveSnapshot.updatedBy;
+            next.source = liveSnapshot.source;
+            next.syncOperationId = liveSnapshot.syncOperationId || '';
+            return next;
+          }).then(function (result) {
+            if (!result || !result.committed) throw roomError('Лист героя недоступен для пересчёта снаряжения.', 'inventory-character-missing');
+            liveSnapshot = result.snapshot && result.snapshot.val ? result.snapshot.val() : liveSnapshot;
+            return result;
           });
-          memberUpdates['character/revision'] = liveSnapshot.revision;
-          memberUpdates['character/updatedAt'] = liveSnapshot.updatedAt;
-          memberUpdates['character/updatedBy'] = liveSnapshot.updatedBy;
-          memberUpdates['character/source'] = liveSnapshot.source;
-          memberUpdates['character/syncOperationId'] = liveSnapshot.syncOperationId || '';
-          roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
         } else {
           memberUpdates.character = liveSnapshot;
           roomWrite=firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), memberUpdates);
@@ -2601,6 +2840,7 @@
               statuses:(Array.isArray(details.statuses)?details.statuses:[]).slice(0,8).map(function(status){return String(status&&typeof status==='object'&&(status.key||status.statusKey||status.id)||status||'').slice(0,60);}).filter(Boolean),
               description:String(details.description || '').slice(0,500)
             };
+            request.target=normalizeAbilityTargeting(details.targeting);
             var usage=member.character&&member.character.abilityUsage&&member.character.abilityUsage[request.ability.resourceKey];
             if(request.ability.resourceMax&&usage&&Number(usage.used)>=request.ability.resourceMax)throw roomError('Заряды этой способности закончились.','ability-exhausted');
           }
@@ -2794,7 +3034,7 @@
           }).map(function (member) {
             var option=heroOptions[member.uid]||{},bonus = combatNumber(member.character.initiative,0), mode=['advantage','disadvantage'].indexOf(option.mode)>=0?option.mode:'normal';
             var speed = Math.max(0, combatNumber(member.character.speed,7) || 7);
-            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:'hero:'+member.uid, hp:Math.max(0,combatNumber(member.character.hpCur,0)), hpMax:Math.max(0,combatNumber(member.character.hpMax,0)), tempHp:Math.max(0,combatNumber(member.character.tempHp,0)), ac:Math.max(0,combatNumber(member.character.ac,10)), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
+            var entry = { key:'member:'+member.uid, kind:'hero', uid:member.uid, name:member.character.name || member.name || 'Герой', portrait:member.character.portrait || '', roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:'hero:'+member.uid, hp:Math.max(0,combatNumber(member.character.hpCur,0)), hpMax:Math.max(0,combatNumber(member.character.hpMax,0)), tempHp:Math.max(0,combatNumber(member.character.tempHp,0)), ac:Math.max(0,combatNumber(member.character.ac,10)), stats:member.character.stats||{}, mastery:member.character.mastery||[], weaponProfiles:member.character.weaponProfiles||[], equipmentBonuses:member.character.equipmentBonuses||{}, resistances:member.character.resistances||[], vulnerabilities:member.character.vulnerabilities||[], immunities:member.character.immunities||[], statuses:Array.isArray(member.character.statuses)?member.character.statuses:[], statusEffects:Array.isArray(member.character.statusEffects)?member.character.statusEffects:[], economy:{ long:1, short:1, reaction:1, movement:speed, movementMax:speed } };
             var restrictions = combatRestrictions(entry);
             entry.economy.long = restrictions.blocked.long ? 0 : 1;
             entry.economy.short = restrictions.blocked.short ? 0 : 1;
@@ -3684,7 +3924,16 @@
           function safeFormula(value){value=String(value||'').trim().slice(0,18);return /^\d{1,2}d(?:4|6|8|10|12|20|100)(?:\s*[+-]\s*\d{1,3})?$/.test(value)?value.replace(/\s+/g,''):'';}
           function safeStat(value,fallback){value=String(value||'').toLowerCase();return ['str','dex','int','cha','per','con'].indexOf(value)>=0?value:fallback;}
           var effect=Object.assign({},ability),allowedModes=['utility','attack','save'],baseStatuses=Array.isArray(effect.statuses)?effect.statuses:String(effect.statuses||'').split(',');effect.resolutionMode=allowedModes.indexOf(overrides.resolutionMode)>=0?overrides.resolutionMode:(allowedModes.indexOf(effect.resolutionMode)>=0?effect.resolutionMode:'utility');effect.attackStat=safeStat(overrides.attackStat,effect.attackStat||'int');effect.saveStat=safeStat(overrides.saveStat,effect.saveStat||'con');effect.saveDC=overrides.saveDC===''||overrides.saveDC==null?effect.saveDC:Math.max(1,Math.min(99,Number(overrides.saveDC)||10));effect.damageFormula=safeFormula(overrides.damageFormula==null?effect.damageFormula:overrides.damageFormula);effect.healFormula=safeFormula(overrides.healFormula==null?effect.healFormula:overrides.healFormula);effect.damageType=String(overrides.damageType==null?effect.damageType:overrides.damageType).trim().slice(0,32);effect.halfOnSave=overrides.halfOnSave==null?!!effect.halfOnSave:!!overrides.halfOnSave;effect.durationRounds=Math.max(0,Math.min(99,Number(overrides.durationRounds==null?effect.durationRounds:overrides.durationRounds)||0));effect.concentration=overrides.concentration==null?!!effect.concentration:!!overrides.concentration;effect.statuses=Array.isArray(overrides.statuses)?overrides.statuses:String(overrides.statuses==null?baseStatuses.join(','):overrides.statuses).split(',');effect.statuses=effect.statuses.map(function(key){return String(key||'').trim().slice(0,48);}).filter(Boolean).slice(0,12);effect.areaMode=['circle','line','cone'].indexOf(overrides.areaMode)>=0?overrides.areaMode:'manual';effect.areaRadius=Math.max(1,Math.min(30,Number(overrides.areaRadius)||Number(effect.aoeRadius)||1));effect.areaWidth=Math.max(1,Math.min(12,Number(overrides.areaWidth)||1));effect.areaAnchorKey=String(overrides.areaAnchorKey||'').slice(0,160);
-          var areaAnchorIndex=-1;if(effect.areaMode!=='manual'){areaAnchorIndex=order.findIndex(function(entry){return entry&&entry.key===effect.areaAnchorKey;});if(areaAnchorIndex<0||!combatEntryToken(room,order[areaAnchorIndex]))throw roomError('Центр или направление области не найдено на карте.','combat-area-anchor');targetIndexes=order.map(function(entry,index){if(effect.areaMode!=='circle'&&index===actorIndex)return-1;return combatAreaContains(room,effect.areaMode,order[actorIndex],order[areaAnchorIndex],entry,effect.areaRadius,effect.areaWidth)?index:-1;}).filter(function(index){return index>=0;});targetKeys=targetIndexes.map(function(index){return order[index].key;});}
+          var rawAreaPoint=overrides.areaAnchorPoint&&typeof overrides.areaAnchorPoint==='object'?overrides.areaAnchorPoint:null;
+          effect.areaAnchorPoint=rawAreaPoint&&rawAreaPoint.x!=null&&rawAreaPoint.y!=null?{x:Math.max(0,Math.min(100,Number(rawAreaPoint.x)||0)),y:Math.max(0,Math.min(100,Number(rawAreaPoint.y)||0))}:null;
+          var areaAnchorIndex=-1,areaAnchorEntry=null;
+          if(effect.areaMode!=='manual'){
+            areaAnchorIndex=order.findIndex(function(entry){return entry&&entry.key===effect.areaAnchorKey;});
+            areaAnchorEntry=effect.areaAnchorPoint?{scenePoint:effect.areaAnchorPoint}:(areaAnchorIndex>=0?order[areaAnchorIndex]:null);
+            if(!areaAnchorEntry||!combatEntryPoint(room,areaAnchorEntry))throw roomError('Центр или направление области не найдено на карте.','combat-area-anchor');
+            targetIndexes=order.map(function(entry,index){if(effect.areaMode!=='circle'&&index===actorIndex)return-1;return combatAreaContains(room,effect.areaMode,order[actorIndex],areaAnchorEntry,entry,effect.areaRadius,effect.areaWidth)?index:-1;}).filter(function(index){return index>=0;});
+            targetKeys=targetIndexes.map(function(index){return order[index].key;});
+          }
           if(!targetIndexes.length||targetIndexes.some(function(index){return index<0;}))throw roomError('Цели способности не найдены.','combat-participant-missing');
           var resourceKey=String(effect.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),resourceMax=Math.max(0,Math.min(99,Number(effect.resourceMax)||0)),resourceMutation=resourceKey&&resourceMax?applyAbilityUsageDomainOperation(member.character&&member.character.abilityUsage,resourceKey,{delta:1,max:resourceMax,minimumUsed:effect.resourceUsed,preserveExistingMax:false}):null;if(resourceMax&&(resourceKey?!resourceMutation||!resourceMutation.changed:Math.max(0,Number(effect.resourceUsed)||0)>=resourceMax))throw roomError('Заряды этой способности закончились.','ability-exhausted');
           var cost=['long','short','reaction','free'].indexOf(effect.actionCost)>=0?effect.actionCost:'long',turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0));
@@ -3695,7 +3944,7 @@
           if(cost!=='free'&&Number(economy[cost]||0)<1)throw roomError('Нужное действие уже израсходовано.','combat-action-spent');
           var castStamp=now(),effectSource='ability-'+requestUid+'-'+castStamp,concentrationTouched=[];
           if(effect.concentration&&actor.concentration&&actor.concentration.sourceId){var previousSource=String(actor.concentration.sourceId);order=order.map(function(entry,index){entry=Object.assign({},entry);var beforeEffects=Array.isArray(entry.statusEffects)?entry.statusEffects:[],removed=beforeEffects.filter(function(item){return item&&String(item.sourceId||'')===previousSource;});if(!removed.length)return entry;entry.statusEffects=beforeEffects.filter(function(item){return !item||String(item.sourceId||'')!==previousSource;});var activeKeys=entry.statusEffects.map(function(item){return item&&(item.statusKey||item.key)||'';});entry.statuses=combatStatusKeys(entry).filter(function(key){return !removed.some(function(item){return (item.statusKey||item.key)===key;})||activeKeys.indexOf(key)>=0;});concentrationTouched.push(index);return entry;});actor=Object.assign({},order[actorIndex]);}
-          var range=Math.max(0,Number(effect.rangeCells)||0),rangeIndexes=effect.areaMode==='circle'?[areaAnchorIndex]:(effect.areaMode==='manual'?targetIndexes:[]);if((effect.areaMode==='line'||effect.areaMode==='cone')&&range&&effect.areaRadius>range)throw roomError('Длина области '+effect.areaRadius+' кл. превышает дальность способности '+range+' кл.','combat-target-range');rangeIndexes.forEach(function(targetIndex){var distance=combatEntryDistance(room,actor,order[targetIndex]);if(range&&distance!=null&&distance>range)throw roomError((effect.areaMode!=='manual'?'Точка области':(order[targetIndex].name||'Цель'))+' слишком далеко: '+distance+' кл., дальность способности '+range+' кл.','combat-target-range');});
+          var range=Math.max(0,Number(effect.rangeCells)||0),rangeEntries=effect.areaMode==='circle'?[areaAnchorEntry]:(effect.areaMode==='manual'?targetIndexes.map(function(index){return order[index];}):[]);if((effect.areaMode==='line'||effect.areaMode==='cone')&&range&&effect.areaRadius>range)throw roomError('Длина области '+effect.areaRadius+' кл. превышает дальность способности '+range+' кл.','combat-target-range');rangeEntries.forEach(function(targetEntry){var distance=combatEntryDistance(room,actor,targetEntry);if(range&&distance!=null&&distance>range)throw roomError((effect.areaMode!=='manual'?'Точка области':(targetEntry.name||'Цель'))+' слишком далеко: '+distance+' кл., дальность способности '+range+' кл.','combat-target-range');});
           var mode=effect.resolutionMode,results=[],damageType=String(effect.damageType||''),actorModifiers=combatStatusModifiers(actor);
           targetIndexes.forEach(function(targetIndex){
             var target=concentrationTouched.indexOf(targetIndex)>=0?Object.assign({},order[targetIndex]):combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex])),natural=null,rolls=[],modifier=0,total=null,success=true,dc=null,rollMode='normal',targetModifiers=combatStatusModifiers(target);
@@ -3726,6 +3975,8 @@
           concentrationTouched.forEach(function(index){if(targetIndexes.indexOf(index)>=0)return;var target=order[index];if(target.uid){updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['scene/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});});}});
           var summaries=results.map(function(result){var outcome=mode==='save'?(result.success?'спасся':'провалил спасбросок'):mode==='attack'?(result.success?'попадание':'промах'):'эффект применён';return result.name+': '+outcome+(result.damage?' · урон '+result.damage:'')+(result.heal?' · лечение '+result.heal:'')+(result.statuses.length?' · '+result.statuses.join(', '):'');});var firstRoll=results.filter(function(result){return result.roll!=null;})[0]||{};
           updates.combatEvent={id:'combat-ability-'+stamp,kind:'combat-ability',name:actor.name||request.name||'Участник',portrait:actor.portrait||'',text:'Применяет «'+(effect.name||'способность')+'»'+(effect.areaMode!=='manual'?' по области «'+({circle:'круг',line:'линия',cone:'конус'}[effect.areaMode]||effect.areaMode)+'» длиной '+effect.areaRadius+' кл.':'')+'. '+summaries.join('; ')+'.'+(effect.durationRounds?' Длительность: '+effect.durationRounds+' р.':'')+(effect.concentration?' Требует концентрации.':''),ability:effect.name||'',abilityKey:effect.key||'',targetKeys:targetKeys,results:results,areaMode:effect.areaMode,areaRadius:effect.areaMode!=='manual'?effect.areaRadius:0,areaWidth:effect.areaMode==='line'?effect.areaWidth:0,areaAnchorKey:effect.areaMode!=='manual'?effect.areaAnchorKey:'',concentration:effect.concentration,durationRounds:effect.durationRounds,roll:firstRoll.roll==null?null:firstRoll.roll,rolls:firstRoll.rolls||[],total:firstRoll.total==null?null:firstRoll.total,dc:firstRoll.dc==null?null:firstRoll.dc,success:results.every(function(result){return result.success;}),damage:results.reduce(function(sum,result){return sum+result.damage;},0),heal:results.reduce(function(sum,result){return sum+result.heal;},0),ts:stamp,revealAt:stamp+(firstRoll.roll!=null?3200:500)};updates.updatedAt=stamp;
+          updates.combatEvent.actorKey=actor.key||'';
+          updates.combatEvent.areaAnchorPoint=effect.areaMode!=='manual'?effect.areaAnchorPoint:null;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
       }).catch(function(error){if(error&&['master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-area-anchor','combat-not-turn','combat-status-blocked','combat-action-spent','combat-target-range','ability-exhausted'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});

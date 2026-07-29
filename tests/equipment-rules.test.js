@@ -1,6 +1,9 @@
 'use strict';
 
 var assert = require('assert');
+var fs = require('fs');
+var path = require('path');
+var vm = require('vm');
 var rules = require('../equipment-rules.js');
 
 var mixedCharacter = {
@@ -82,5 +85,35 @@ var explicitStats = rules.calculate({
 }, []);
 assert.strictEqual(explicitStats.statBonuses.per, 2, 'typed stat bonus has priority over prose');
 assert.strictEqual(explicitStats.statBonuses.con, -1);
+
+var network = fs.readFileSync(path.resolve(__dirname, '..', 'zargota-network.js'), 'utf8');
+var derivedStart = network.indexOf('  function equipmentBonusTotals(');
+var derivedEnd = network.indexOf('  function pointInPolygon(', derivedStart);
+assert.ok(derivedStart >= 0 && derivedEnd > derivedStart, 'equipment derived helper block must remain extractable');
+var derivedContext = { Number:Number, Object:Object, Math:Math, Array:Array, JSON:JSON };
+vm.runInNewContext(network.slice(derivedStart, derivedEnd), derivedContext);
+
+var reconciled = derivedContext.applyEquipmentDerivedSnapshot({
+  hpCur:8,hpMax:14,ac:12,initiative:1,speed:7,
+  stats:{ dex:{base:3,cur:3,tmp:0} },
+  equipmentBonuses:{ acBonus:2,hpBonus:4,speedBonus:0,initiativeBonus:0,statBonuses:{dex:0} }
+}, {
+  hpMax:10,ac:13,initiative:2,speed:9,
+  stats:{ dex:{base:3,cur:4,tmp:0} },
+  weaponProfiles:[{id:'sword'}],
+  equipmentBonuses:{ acBonus:3,hpBonus:0,speedBonus:2,initiativeBonus:1,statBonuses:{dex:1} }
+});
+assert.strictEqual(reconciled.hpMax, 10);
+assert.strictEqual(reconciled.hpCur, 4, 'equipment HP delta must preserve damage already applied in room');
+assert.strictEqual(reconciled.ac, 13);
+assert.strictEqual(reconciled.initiative, 2);
+assert.strictEqual(reconciled.speed, 9);
+assert.strictEqual(reconciled.stats.dex.cur, 4);
+assert.strictEqual(reconciled.weaponProfiles[0].id, 'sword');
+
+assert.match(network, /equipmentBonuses: clean\(rawEquipmentBonuses, \{\}\)/);
+assert.match(network, /applied\.character = applyEquipmentDerivedSnapshot\(applied\.character, liveSnapshot\)/);
+assert.match(network, /equipmentBonuses:member\.character\.equipmentBonuses\|\|\{\}/);
+assert.match(network, /damageFormula:String\(item\.damageFormula \|\| item\.damage \|\| ''\)/);
 
 console.log('equipment rules tests passed');

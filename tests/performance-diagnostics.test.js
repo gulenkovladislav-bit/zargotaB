@@ -107,7 +107,9 @@ var watcherStart=network.indexOf('  function stopWatchingRoom()');
 var watcherEnd=network.indexOf('  function setPresence(session)',watcherStart);
 var watcherContext={
   roomUnsubscribe:null,currentRoom:null,characterInboundSession:'old',db:{},
+  combatEquipmentReconcileTimer:0,combatEquipmentReconcileBusy:false,combatEquipmentReconcilePending:false,
   connected:false,networkPerformance:networkContext.networkPerformance,
+  clearTimeout:clearTimeout,setTimeout:setTimeout,
   firebase:{
     ref:function(db,path){return path;},
     onValue:function(){return function(){watcherContext.unsubscribeCalls++;};}

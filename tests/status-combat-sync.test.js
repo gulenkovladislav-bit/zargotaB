@@ -54,6 +54,24 @@ var privateStackedEffect = context.normalizeStatusEffectInput({stacks:99,visibil
 assert.strictEqual(privateStackedEffect.stacks, 20, 'status stacks must be bounded');
 assert.strictEqual(privateStackedEffect.visibility, 'gm');
 
+var normalizedAbilityTarget = context.normalizeAbilityTargeting({
+  mode:'token',
+  x:140,
+  y:-4,
+  tokenId:'enemy-1',
+  targetKey:'token:enemy-1',
+  targetName:'Страж',
+  tokenType:'custom',
+  distanceCells:999
+});
+assert.strictEqual(normalizedAbilityTarget.mode, 'token');
+assert.strictEqual(normalizedAbilityTarget.x, 100);
+assert.strictEqual(normalizedAbilityTarget.y, 0);
+assert.strictEqual(normalizedAbilityTarget.targetKey, 'token:enemy-1');
+assert.strictEqual(normalizedAbilityTarget.targetName, 'Страж');
+assert.strictEqual(normalizedAbilityTarget.distanceCells, 200);
+assert.strictEqual(context.normalizeAbilityTargeting({}), null, 'empty spell target must not be persisted');
+
 var applied = context.applyStatusDomainOperation(
   {statuses:[],statusEffects:[]},
   {statusKey:'test',enable:true,effect:effect}
@@ -161,6 +179,99 @@ assert.strictEqual(updates['scene/tokens/0/hp'], 7);
 assert.strictEqual(updates['zones/crypt/tokens/0/tempHp'], 2);
 assert.deepStrictEqual(Array.from(updates['scene/tokens/0/statuses']), ['burn']);
 
+var pointAreaRoom = {
+  scene:{
+    boardWidth:20,boardHeight:20,
+    tokens:[
+      {id:'caster',x:10,y:10},
+      {id:'near',x:51,y:50},
+      {id:'far',x:80,y:80}
+    ]
+  },
+  zones:{}
+};
+var casterEntry = {key:'token:caster',tokenId:'caster'};
+var nearEntry = {key:'token:near',tokenId:'near'};
+var farEntry = {key:'token:far',tokenId:'far'};
+var freePointAnchor = {scenePoint:{x:50,y:50}};
+var areaHelpersStart = network.indexOf('  function movementCells(');
+var areaHelpersEnd = network.indexOf('  function combatDamageTraits(', areaHelpersStart);
+var areaContext = {Math:Math,Number:Number,String:String,Object:Object,Array:Array,isFinite:isFinite};
+vm.runInNewContext(network.slice(areaHelpersStart,areaHelpersEnd),areaContext);
+assert.strictEqual(areaContext.combatAreaContains(pointAreaRoom,'circle',casterEntry,freePointAnchor,nearEntry,2,1),true,'free scene point must anchor a spell area');
+assert.strictEqual(areaContext.combatAreaContains(pointAreaRoom,'circle',casterEntry,freePointAnchor,farEntry,2,1),false);
+assert.strictEqual(areaContext.combatEntryDistance(pointAreaRoom,casterEntry,freePointAnchor),8,'range to a free scene point must use the scene grid');
+
+var equipmentRoom = {
+  combat:{
+    phase:'active',
+    order:[{
+      key:'member:player-1',kind:'hero',uid:'player-1',
+      hp:8,hpMax:14,tempHp:2,ac:12,bonus:0,total:13,
+      stats:{str:{base:2,cur:2,tmp:0}},
+      weaponProfiles:[{id:'old'}],
+      equipmentBonuses:{acBonus:2,hpBonus:4},
+      statuses:['burn'],statusEffects:[],
+      economy:{long:0,short:1,reaction:0,movement:4,movementMax:7}
+    }]
+  },
+  members:{
+    'player-1':{
+      character:{
+        hpMax:18,ac:15,initiative:2,speed:9,
+        stats:{str:{base:3,cur:3,tmp:0}},
+        mastery:[{name:'Стойка'}],
+        weaponProfiles:[{id:'new',name:'Сабля'}],
+        equipmentBonuses:{acBonus:5,hpBonus:8,speedBonus:2}
+      }
+    }
+  }
+};
+var equipmentReconcile = context.reconcileCombatEquipmentOrder(equipmentRoom);
+var reconciledEntry = equipmentReconcile.order[0];
+assert.strictEqual(equipmentReconcile.changed, true);
+assert.strictEqual(reconciledEntry.hpMax, 18);
+assert.strictEqual(reconciledEntry.hp, 12, 'equipment reconcile must preserve six points of received damage');
+assert.strictEqual(reconciledEntry.tempHp, 2);
+assert.strictEqual(reconciledEntry.ac, 15);
+assert.strictEqual(reconciledEntry.bonus, 2);
+assert.strictEqual(reconciledEntry.total, 13, 'active combat order must not be reordered by a later initiative bonus');
+assert.strictEqual(reconciledEntry.economy.movementMax, 9);
+assert.strictEqual(reconciledEntry.economy.movement, 6, 'spent movement must be preserved when maximum speed changes');
+assert.strictEqual(reconciledEntry.economy.long, 0);
+assert.strictEqual(reconciledEntry.economy.reaction, 0);
+assert.strictEqual(reconciledEntry.statuses[0], 'burn');
+equipmentRoom.combat.order = equipmentReconcile.order;
+assert.strictEqual(context.reconcileCombatEquipmentOrder(equipmentRoom).changed, false, 'equal equipment snapshot must not cause a write loop');
+
+var racialEquipmentStatusConflict = {
+  ac:13,
+  speed:9,
+  stats:{dex:{base:1,cur:3,tmp:0}},
+  equipmentBonuses:{
+    acBonus:3,
+    speedBonus:2,
+    statBonuses:{dex:2}
+  },
+  statuses:['shield','curse','slow'],
+  statusEffects:[],
+  economy:{movement:9,movementMax:9}
+};
+var conflictModifiers = context.combatStatusModifiers(racialEquipmentStatusConflict);
+assert.strictEqual(racialEquipmentStatusConflict.stats.dex.base, 1, 'racial stat remains in the immutable base');
+assert.strictEqual(racialEquipmentStatusConflict.stats.dex.cur, 3, 'equipment bonus is represented once in the current stat');
+assert.strictEqual(racialEquipmentStatusConflict.equipmentBonuses.statBonuses.dex, 2);
+assert.strictEqual(conflictModifiers.attackMod, -2, 'status attack modifier remains separate from racial and equipment stats');
+assert.strictEqual(racialEquipmentStatusConflict.stats.dex.cur + conflictModifiers.attackMod, 1, 'attack uses final stat plus status exactly once');
+assert.strictEqual(racialEquipmentStatusConflict.ac + conflictModifiers.acMod, 15, 'status AC stacks once on top of item-derived AC');
+assert.strictEqual(context.combatTurnMovement(racialEquipmentStatusConflict), 4, 'slow halves item-enhanced speed without subtracting its legacy modifier twice');
+
+var initiativeEntry = context.reconcileCombatEquipmentEntry({
+  kind:'hero',uid:'player-1',roll:11,total:11,bonus:0,hp:14,hpMax:14,
+  economy:{long:1,short:1,reaction:1,movement:7,movementMax:7}
+}, equipmentRoom.members['player-1'].character, 'initiative');
+assert.strictEqual(initiativeEntry.total, 13, 'initiative preview must use the updated bonus before combat begins');
+
 assert.match(html, /function gmStatusCatalog\(\)/);
 assert.match(html, /typeof w\.getStatusMechanics==='function'/);
 assert.match(html, /effect:enable\?gmStatusEffectPayload\(def\):null/);
@@ -172,7 +283,37 @@ assert.match(network, /normalizeStatusEffectInput\(operation\.effect,statusKey,s
 assert.match(network, /stacks:Math\.max\(1,Math\.min\(20/);
 assert.match(network, /autoRemove!=='save_dc'/);
 assert.match(network, /queueCombatEntryState\(room,updates,current,true\)/);
+assert.match(network, /function scheduleMasterCombatEquipmentReconcile\(room\)/);
+assert.match(network, /session\.role !== 'master'/);
+assert.match(network, /firebase\.runTransaction\(combatRef/);
+assert.match(network, /nextCombat\.equipmentSyncedAt/);
 assert.match(network, /combatRollMode\(String\(options\.mode\|\|'normal'\),targetModifiers\.grantAdvantageToAttackers,forcedDisadvantage\)/);
 assert.match(network, /damageResult\.total\+statBonus\+attackerModifiers\.damageMod/);
+assert.match(network, /request\.target=normalizeAbilityTargeting\(details\.targeting\)/);
+assert.match(network, /areaAnchorEntry=effect\.areaAnchorPoint\?\{scenePoint:effect\.areaAnchorPoint\}/);
+assert.match(network, /updates\.combatEvent\.areaAnchorPoint=effect\.areaMode!=='manual'\?effect\.areaAnchorPoint:null/);
+assert.match(network, /economy\[cost\]=Math\.max\(0,Number\(economy\[cost\]\|\|0\)-1\)/);
+assert.match(network, /character\/abilityUsage\/'\+resourceKey/);
+assert.match(network, /character\/hpCur'\]=result\.hp/);
+assert.match(network, /scene\/tokens\/'\+index\+'\/statuses'\]=target\.statuses/);
+assert.match(html, /var abilityTargeting = null/);
+assert.match(html, /function completeAbilityTarget\(point,token\)/);
+assert.match(html, /w\.zgSceneAbilityTarget=function\(profile,meta\)/);
+assert.match(html, /w\.zgVttSendAbilityTarget=function\(selection\)/);
+assert.match(html, /actionRequest\.details\|\|actionRequest\.target\|\|\{\}/);
+assert.match(html, /requestedTargetKey=request\.target&&String\(request\.target\.targetKey\|\|''\)/);
+assert.match(html, /areaAnchorPoint=\{x:clamp\(request\.target\.x,0,100\),y:clamp\(request\.target\.y,0,100\)\}/);
+assert.match(html, /a=d\.areaAnchorPoint&&d\.areaAnchorPoint\.x!=null&&d\.areaAnchorPoint\.y!=null\?d\.areaAnchorPoint:abilityEntryToken\(anchor\)/);
+assert.match(html, /function animateCombatAbilityVisual\(event\)/);
+assert.match(html, /kind==='combat-ability'/);
+assert.match(html, /\.zg-combat-spell-cast/);
+assert.match(html, /function openAbilityTargetEntity\(key,order\)/);
+assert.match(html, /gmInterventionTab='entity'/);
+assert.match(html, /data-ability-field="damageFormula"/);
+assert.match(html, /data-ability-field="healFormula"/);
+assert.match(html, /data-ability-field="statuses"/);
+assert.match(html, /data-ability-field="durationRounds"/);
+assert.match(html, /id='zg-ability-target-hud'|id="zg-ability-target-hud"|hud\.id='zg-ability-target-hud'/);
+assert.match(html, /\.zg-vtt-token\.zg-ability-target-valid/);
 
 console.log('status combat sync contract passed');
