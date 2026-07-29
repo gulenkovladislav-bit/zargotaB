@@ -18,6 +18,9 @@
   var itemBundle = [];
   var drafts = Object.create(null);
   var activeTemplateIds = Object.create(null);
+  var assetLibrary = [];
+  var assetLibraryLoaded = false;
+  var assetLibraryLoading = false;
   var busy = false;
   var applying = Object.create(null);
   var popupQueue = [];
@@ -164,6 +167,8 @@
     return {
       kind:activeKind,
       mood:activeMood,
+      presentation:activeKind === 'image' && node('zg-gm-delivery-presentation') && node('zg-gm-delivery-presentation').value === 'cinematic' ? 'cinematic' : 'card',
+      privateDelivery:activeKind === 'text' && !!(node('zg-gm-delivery-private') && node('zg-gm-delivery-private').checked),
       showPopup:!!(node('zg-gm-delivery-popup-toggle') && node('zg-gm-delivery-popup-toggle').checked),
       title:String(title && title.value || '').trim(),
       text:String(text && text.value || '').trim(),
@@ -183,7 +188,7 @@
     var value = drafts[kind];
     if (value) return value;
     value = {
-      kind:kind,mood:activeMood,showPopup:true,title:'',text:'',image:'',
+      kind:kind,mood:activeMood,presentation:'card',privateDelivery:false,showPopup:true,title:'',text:'',image:'',
       payload:kind === 'item'
         ? {icon:'📦',qty:1,category:'other',acBonus:0,attackStat:'str',range:'1 клетка',weight:0,slot:''}
         : kind === 'quest'
@@ -360,6 +365,7 @@
       if (Number(payload.weight)) tags.push('Вес ' + Number(payload.weight));
       tags.push('×' + Math.max(1, Number(payload.qty) || 1));
     }
+    if (value.kind === 'text' && value.privateDelivery) tags.push('Скрытый канал');
     return '<article class="zg-gm-delivery-preview-card mood-' + esc(value.mood || activeMood) + '">' +
       (value.image ? '<img src="' + esc(value.image) + '" alt="">' : '<i>' + esc(icon) + '</i>') +
       '<div><small>' + esc(kindLabel(value.kind)) + '</small><b>' + esc(value.title || 'Название') + '</b>' +
@@ -392,6 +398,38 @@
       }).join('') : '<p>В этом источнике пока нет предметов.</p>') + '</div></section>';
   }
 
+  function requestAssetLibrary(force) {
+    if ((!force && (assetLibraryLoaded || assetLibraryLoading)) || !w.zgImageStore || typeof w.zgImageStore.listAll !== 'function') return;
+    assetLibraryLoading = true;
+    w.zgImageStore.listAll(function (items) {
+      assetLibrary = (Array.isArray(items) ? items : []).filter(function (item) {
+        return item && item.path && /^images\//i.test(String(item.path));
+      }).sort(function (first, second) {
+        return Number(second.createdAt || 0) - Number(first.createdAt || 0);
+      }).slice(0, 80);
+      assetLibraryLoaded = true;
+      assetLibraryLoading = false;
+      var panel = node('zg-gm-delivery-panel');
+      if (panel && panel.classList.contains('open') && (activeKind === 'image' || activeKind === 'quest')) renderPanel();
+    });
+  }
+
+  function assetLibraryMarkup() {
+    if (activeKind !== 'image' && activeKind !== 'quest') return '';
+    var cards = assetLibrary.map(function (asset) {
+      var path = String(asset.path || ''), published = asset.published === true;
+      var name = path.split('/').pop() || 'Иллюстрация';
+      return '<button type="button" class="' + (published ? 'published' : 'local') + '" ' +
+        (published ? 'onclick="zgGmDeliveryUseAsset(decodeURIComponent(\'' + encodeURIComponent(path) + '\'))"' : 'disabled') +
+        ' title="' + esc(published ? 'Выбрать иллюстрацию' : 'Сначала опубликуйте медиа-пакет') + '">' +
+        '<img src="' + esc(path) + '" alt=""><span><b>' + esc(name) + '</b><small>' + (published ? 'Готово игрокам' : 'Только на этом устройстве') + '</small></span></button>';
+    }).join('');
+    return '<section class="zg-gm-delivery-assets"><header><div><small>Вне игровой комнаты</small><b>Библиотека иллюстраций</b></div><button type="button" onclick="zgGmDeliveryRefreshAssets()">Обновить</button></header>' +
+      '<p>Крупные файлы сохраняются отдельно и отправляются игрокам только ссылкой. Локальный файл станет доступен после публикации медиа-пакета.</p>' +
+      '<div>' + (assetLibraryLoading ? '<em>Читаем библиотеку…</em>' : cards || '<em>Опубликованных иллюстраций пока нет.</em>') + '</div>' +
+      '<input id="zg-gm-delivery-asset-file" type="file" accept="image/*" hidden><button type="button" class="add" onclick="document.getElementById(\'zg-gm-delivery-asset-file\').click()">＋ Добавить крупную иллюстрацию</button></section>';
+  }
+
   function kindLabel(kind) {
     return {item:'Предмет', quest:'Задание', text:'Текст', image:'Изображение'}[kind] || 'Сообщение';
   }
@@ -411,6 +449,7 @@
     if (members.length > 1) validTargets.unshift('__all__');
     if (validTargets.indexOf(activeTarget) < 0) activeTarget = validTargets[0] || '';
     var draft = draftForKind(activeKind), payload = draft.payload || {};
+    if ((activeKind === 'image' || activeKind === 'quest') && !assetLibraryLoaded) requestAssetLibrary(false);
     activeMood = draft.mood || activeMood;
     activeImage = draft.image || '';
     var fields = '';
@@ -423,6 +462,10 @@
     } else if (activeKind === 'quest') {
       fields = '<input id="zg-gm-delivery-quest-id" type="hidden" value="' + esc(safeQuestId(payload.questId) || newQuestId()) + '">' +
         '<div class="zg-gm-delivery-row compact"><label>Статус<select id="zg-gm-delivery-quest-status"><option value="new"' + selected(questStatus(payload.status),'new') + '>Новое</option><option value="active"' + selected(questStatus(payload.status),'active') + '>Активное</option><option value="completed"' + selected(questStatus(payload.status),'completed') + '>Завершённое</option><option value="failed"' + selected(questStatus(payload.status),'failed') + '>Проваленное</option></select></label><label>Роль в журнале<select id="zg-gm-delivery-quest-importance"><option value="main"' + selected(questImportance(payload.importance),'main') + '>Главная цель</option><option value="secondary"' + selected(questImportance(payload.importance),'secondary') + '>Дополнительная цель</option></select></label></div>';
+    } else if (activeKind === 'image') {
+      fields = '<div class="zg-gm-delivery-row"><label>Показ<select id="zg-gm-delivery-presentation"><option value="card"' + selected(draft.presentation,'card') + '>Карточка</option><option value="cinematic"' + selected(draft.presentation,'cinematic') + '>Кинематографический на весь экран</option></select></label></div>';
+    } else if (activeKind === 'text') {
+      fields = '<label class="zg-gm-delivery-check"><input id="zg-gm-delivery-private" type="checkbox" ' + (draft.privateDelivery ? 'checked' : '') + '><span>Скрытый канал · сообщение доступно только выбранному игроку и ГМ</span></label>';
     }
     var templates = filteredTemplates();
     var shelf = activeShelf === 'history'
@@ -458,6 +501,7 @@
       fields +
       '<label>Изображение<input id="zg-gm-delivery-image" maxlength="350000" placeholder="URL или загруженный файл" value="' + esc(draft.image || '') + '"></label>' +
       '<div class="zg-gm-delivery-upload"><input id="zg-gm-delivery-file" type="file" accept="image/*" hidden><button type="button" onclick="document.getElementById(\'zg-gm-delivery-file\').click()">Загрузить изображение</button><small>До 250 КБ</small></div>' +
+      assetLibraryMarkup() +
       '<fieldset class="zg-gm-delivery-moods"><legend>Настроение показа</legend>' +
         '<button type="button" class="' + (activeMood === 'calm' ? 'active' : '') + '" data-mood="calm" onclick="zgGmDeliveryMood(\'calm\')">Спокойное</button>' +
         '<button type="button" class="' + (activeMood === 'solemn' ? 'active' : '') + '" data-mood="solemn" onclick="zgGmDeliveryMood(\'solemn\')">Торжественное</button>' +
@@ -471,6 +515,8 @@
       shelf;
     var file = node('zg-gm-delivery-file');
     if (file) file.addEventListener('change', readImageFile);
+    var assetFile = node('zg-gm-delivery-asset-file');
+    if (assetFile) assetFile.addEventListener('change', readAssetFile);
     host.oninput = function (event) {
       if (event.target && event.target.closest && event.target.closest('.zg-gm-delivery-compose')) refreshDeliveryPreview();
     };
@@ -528,6 +574,35 @@
     reader.readAsDataURL(file);
   }
 
+  function readAssetFile(event) {
+    var file = event && event.target && event.target.files && event.target.files[0];
+    if (!file) return;
+    if (!/^image\//i.test(String(file.type || '')) || file.size > 12 * 1024 * 1024) {
+      if (w.showToast) w.showToast('Нужен файл изображения до 12 МБ');
+      event.target.value = '';
+      return;
+    }
+    if (!w.zgImageStore || typeof w.zgImageStore.put !== 'function') {
+      if (w.showToast) w.showToast('Локальная библиотека изображений недоступна');
+      return;
+    }
+    var idHint = 'gm_delivery_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,6);
+    w.zgImageStore.put(file, 'deliveries', idHint, function (path) {
+      if (!path) {
+        if (w.showToast) w.showToast('Не удалось сохранить иллюстрацию');
+        return;
+      }
+      activeImage = path;
+      assetLibrary.unshift({path:path,published:false,createdAt:Date.now()});
+      var input = node('zg-gm-delivery-image');
+      if (input) input.value = path;
+      drafts[activeKind] = currentForm();
+      assetLibraryLoaded = false;
+      requestAssetLibrary(true);
+      if (w.showToast) w.showToast('Иллюстрация сохранена локально. Опубликуйте медиа-пакет, чтобы отправлять её игрокам.');
+    });
+  }
+
   w.zgGmDeliveryToggle = function (force) {
     ensureUi();
     var panel = node('zg-gm-delivery-panel');
@@ -535,6 +610,27 @@
     var open = force == null ? !panel.classList.contains('open') : !!force;
     panel.classList.toggle('open', open);
     if (open) renderPanel();
+  };
+
+  w.zgGmDeliveryRefreshAssets = function () {
+    rememberPanelDraft();
+    assetLibraryLoaded = false;
+    requestAssetLibrary(true);
+    renderPanel({skipRemember:true});
+  };
+
+  w.zgGmDeliveryUseAsset = function (path) {
+    path = String(path || '');
+    var asset = assetLibrary.filter(function (item) { return item && String(item.path) === path; })[0];
+    if (!asset || asset.published !== true) {
+      if (w.showToast) w.showToast('Сначала опубликуйте эту иллюстрацию');
+      return;
+    }
+    activeImage = path;
+    var input = node('zg-gm-delivery-image');
+    if (input) input.value = path;
+    drafts[activeKind] = currentForm();
+    refreshDeliveryPreview();
   };
 
   w.zgGmDeliveryKind = function (kind) {
@@ -782,9 +878,20 @@
       if (w.showToast) w.showToast(!target || !target.value ? 'Выберите игрока' : 'Укажите название');
       return;
     }
+    var selectedAsset = assetLibrary.filter(function (asset) {
+      return asset && String(asset.path || '') === String(value.image || '');
+    })[0];
+    if (selectedAsset && selectedAsset.published !== true) {
+      if (w.showToast) w.showToast('Эта иллюстрация пока есть только на вашем устройстве. Сначала опубликуйте медиа-пакет.');
+      return;
+    }
     var members = targetMembers(target.value);
     if (!members.length) {
       if (w.showToast) w.showToast('Выбранные игроки больше не подключены');
+      return;
+    }
+    if (value.privateDelivery && members.length !== 1) {
+      if (w.showToast) w.showToast('Скрытый текст можно отправить только одному игроку');
       return;
     }
     activeTarget = target.value;
@@ -817,6 +924,56 @@
     return Array.isArray(character && character._gmDeliveryIds) ? character._gmDeliveryIds : [];
   }
 
+  function upsertQuestJournalEntry(journal, delivery) {
+    journal = Array.isArray(journal) ? journal.slice() : [];
+    delivery = delivery && typeof delivery === 'object' ? delivery : {};
+    var quest = delivery.payload && delivery.payload.quest && typeof delivery.payload.quest === 'object'
+      ? delivery.payload.quest
+      : {};
+    var deliveryId = String(delivery.id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
+    var questId = safeQuestId(quest.questId) || safeQuestId('delivery-' + deliveryId);
+    var journalId = safeQuestId('gm-quest-' + questId);
+    var existingIndex = journal.findIndex(function (entry) {
+      return entry && (
+        String(entry.questId || '') === questId ||
+        String(entry.journalId || '') === journalId
+      );
+    });
+    var incomingQuestAt = Math.max(0, Number(delivery.createdAt) || Date.now());
+    var existing = existingIndex >= 0 ? journal[existingIndex] : null;
+    if (existing && Math.max(0, Number(existing.questUpdatedAt) || 0) > incomingQuestAt) {
+      return { journal:journal, changed:false, mode:'stale', questId:questId, journalId:journalId };
+    }
+    if (!existing && journal.length >= 80) {
+      return { journal:journal, changed:false, mode:'full', questId:questId, journalId:journalId };
+    }
+    var stamp = Date.now();
+    var next = Object.assign({}, existing || {}, {
+      journalId:journalId,
+      questId:questId,
+      title:quest.title || delivery.title || 'Новая цель',
+      text:quest.text || delivery.text || '',
+      image:quest.image || delivery.image || '',
+      imageFit:quest.imageFit === 'cover' ? 'cover' : 'contain',
+      kind:'quest',
+      status:questStatus(quest.status),
+      importance:questImportance(quest.importance),
+      questUpdatedAt:incomingQuestAt,
+      createdAt:existing ? Math.max(0, Number(existing.createdAt) || incomingQuestAt) : incomingQuestAt,
+      updatedAt:stamp,
+      updatedBy:'gm'
+    });
+    if (existingIndex >= 0) journal[existingIndex] = next;
+    else journal.push(next);
+    return {
+      journal:journal,
+      changed:true,
+      mode:existing ? 'updated' : 'created',
+      questId:questId,
+      journalId:journalId
+    };
+  }
+
   function applyDelivery(delivery, member) {
     var character = localCharacter(member);
     if ((delivery.kind === 'item' || delivery.kind === 'quest') && !character) {
@@ -826,6 +983,7 @@
     var already = character && appliedIds(character).indexOf(deliveryId) >= 0;
     var rollback = null;
     var changed = false;
+    var saveReason = delivery.kind === 'item' ? 'inventory-add' : 'journal-add';
     if (character && !already && (delivery.kind === 'item' || delivery.kind === 'quest')) {
       rollback = {
         inventoryItems:character.inventoryItems,
@@ -877,23 +1035,11 @@
       }
     }
     if (!already && delivery.kind === 'quest') {
-      var quest = delivery.payload && delivery.payload.quest || {};
-      var journalId = 'gm-' + deliveryId.replace(/[^a-zA-Z0-9_-]/g, '');
-      var journal = Array.isArray(character.journalEntries) ? character.journalEntries.slice() : [];
-      var questExists = journal.some(function (entry) { return entry && String(entry.journalId || '') === journalId; });
-      if (!questExists) {
-        if (journal.length >= 80) return Promise.reject(new Error('Журнал заполнен: цель ГМ пока не применена.'));
-        journal.push({
-          journalId:journalId,
-          title:quest.title || delivery.title || 'Новая цель',
-          text:quest.text || delivery.text || '',
-          image:quest.image || delivery.image || '',
-          kind:'quest',
-          createdAt:Number(delivery.createdAt) || Date.now(),
-          updatedAt:Number(delivery.createdAt) || Date.now(),
-          updatedBy:'gm'
-        });
-        character.journalEntries = journal;
+      var questResult = upsertQuestJournalEntry(character.journalEntries, delivery);
+      if (questResult.mode === 'full') return Promise.reject(new Error('Журнал заполнен: цель ГМ пока не применена.'));
+      if (questResult.changed) {
+        character.journalEntries = questResult.journal;
+        saveReason = questResult.mode === 'updated' ? 'journal-update' : 'journal-add';
         changed = true;
       }
     }
@@ -904,7 +1050,7 @@
     }
     if (character && changed) {
       save = typeof w.saveChars === 'function'
-        ? Promise.resolve(w.saveChars({reason:delivery.kind === 'item' ? 'inventory-add' : 'journal-add'}))
+        ? Promise.resolve(w.saveChars({reason:saveReason}))
         : Promise.reject(new Error('Хранилище персонажей недоступно.'));
     }
     return save.then(function (result) {
@@ -921,7 +1067,11 @@
   }
 
   function popupTitle(delivery) {
-    return {item:'Получен предмет', quest:'Новая цель', text:'Послание мастера', image:'Открыт образ'}[delivery.kind] || 'Получено';
+    if (delivery && delivery.kind === 'quest') {
+      var status = questStatus(delivery.payload && delivery.payload.quest && delivery.payload.quest.status);
+      return {new:'Новая цель',active:'Цель обновлена',completed:'Цель завершена',failed:'Цель провалена'}[status];
+    }
+    return {item:'Получен предмет', text:'Послание мастера', image:'Открыт образ'}[delivery.kind] || 'Получено';
   }
 
   function enqueuePopup(delivery) {
@@ -946,7 +1096,8 @@
         ? '<div class="zg-delivery-popup-meta"><span>' + esc(delivery.payload.item.icon || '📦') + '</span><b>Количество: ' + Math.max(1, Number(delivery.payload.item.qty) || 1) + '</b></div>'
         : '';
     popupOpen = true;
-    popup.className = 'zg-player-delivery-popup open mood-' + (delivery.mood || 'calm');
+    popup.className = 'zg-player-delivery-popup open mood-' + (delivery.mood || 'calm') +
+      (delivery.kind === 'image' && delivery.presentation === 'cinematic' ? ' presentation-cinematic' : '');
     host.innerHTML =
       '<small>' + esc(popupTitle(delivery)) + '</small>' +
       (delivery.image ? '<img src="' + esc(delivery.image) + '" alt="">' : '<i>' + kindIcon(delivery.kind) + '</i>') +

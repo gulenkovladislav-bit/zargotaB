@@ -19,7 +19,8 @@ var mechanics = [
   {key:'shield',acMod:2},
   {key:'curse',attackMod:-2,damageMod:-1},
   {key:'custom-lock',cantAct:true,cantMove:true,cantReact:true},
-  {key:'burn',startOfTurnEffect:'damage',startOfTurnDice:'1d4'}
+  {key:'burn',startOfTurnEffect:'damage',startOfTurnDice:'1d4'},
+  {key:'blind',attackDisadvantage:true,grantAdvantageToAttackers:true}
 ];
 var context = {
   Math:deterministicMath,
@@ -29,7 +30,11 @@ var context = {
   Array:Array,
   JSON:JSON,
   isFinite:isFinite,
-  w:{getStatusMechanics:function(){ return mechanics; }}
+  w:{getStatusMechanics:function(){ return mechanics; }},
+  now:function(){ return 1700000000000; },
+  rememberActionOperation:function(existing,operationId,timestamp){
+    var next=Object.assign({},existing||{});next[operationId]=timestamp;return next;
+  }
 };
 vm.runInNewContext(network.slice(start, end), context);
 
@@ -50,9 +55,87 @@ assert.strictEqual(effect.tickDice, '1d6');
 assert.strictEqual(effect.cantMove, true);
 assert.strictEqual(effect.stacks, 1);
 assert.strictEqual(effect.visibility, 'public');
+assert.strictEqual(effect.durationUnit, 'rounds');
+assert.strictEqual(effect.remainingRounds, 2);
+var hourlyEffect = context.normalizeStatusEffectInput({
+  unit:'hours',
+  duration:4,
+  remaining:3
+}, 'hourly', 'Часовой');
+assert.strictEqual(hourlyEffect.unit, 'hours', 'hour duration must survive network normalization');
+assert.strictEqual(hourlyEffect.durationUnit, 'hours');
+assert.strictEqual(hourlyEffect.duration, 4);
+assert.strictEqual(hourlyEffect.remaining, 3);
+assert.strictEqual(hourlyEffect.remainingRounds, null);
+var dailyEffect = context.normalizeStatusEffectInput({
+  durationUnit:'days',
+  durationValue:2
+}, 'daily', 'Дневной');
+assert.strictEqual(dailyEffect.unit, 'days', 'day duration must survive network normalization');
+assert.strictEqual(dailyEffect.remaining, 2);
+var manualEffect = context.normalizeStatusEffectInput({
+  unit:'manual',
+  duration:8,
+  remaining:6
+}, 'manual', 'До снятия');
+assert.strictEqual(manualEffect.unit, 'manual');
+assert.strictEqual(manualEffect.duration, null, 'manual status must not retain a misleading numeric duration');
+assert.strictEqual(manualEffect.remaining, null);
+assert.strictEqual(hourlyEffect.durationMinutes, 240);
+assert.strictEqual(hourlyEffect.remainingMinutes, 180);
+assert.strictEqual(dailyEffect.durationMinutes, 2880);
+assert.strictEqual(dailyEffect.remainingMinutes, 2880);
+var legacyRoundEffect = context.normalizeStatusEffectInput({duration:3}, 'legacy', 'Старый');
+assert.strictEqual(legacyRoundEffect.unit, 'rounds', 'legacy positive duration without a unit remains round-based');
+assert.strictEqual(legacyRoundEffect.remaining, 3);
 var privateStackedEffect = context.normalizeStatusEffectInput({stacks:99,visibility:'gm'}, 'secret', 'Скрытый');
 assert.strictEqual(privateStackedEffect.stacks, 20, 'status stacks must be bounded');
 assert.strictEqual(privateStackedEffect.visibility, 'gm');
+
+var timedSource = {
+  statuses:['hourly','daily','round','manual'],
+  statusEffects:[
+    {type:'status',statusKey:'hourly',unit:'hours',duration:2,remaining:2,durationMinutes:120,remainingMinutes:90},
+    {type:'status',statusKey:'daily',unit:'days',duration:1,remaining:1,durationMinutes:1440,remainingMinutes:1440},
+    {type:'status',statusKey:'round',unit:'rounds',duration:2,remaining:2,remainingRounds:2},
+    {type:'status',statusKey:'manual',unit:'manual',remaining:null}
+  ]
+};
+var hourAdvance = context.advanceWorldTimedStatusEffects(timedSource, 60);
+assert.strictEqual(hourAdvance.changed, true);
+assert.strictEqual(hourAdvance.value.statusEffects[0].remainingMinutes, 30, 'world time keeps sub-hour precision');
+assert.strictEqual(hourAdvance.value.statusEffects[0].remaining, 1);
+assert.strictEqual(hourAdvance.value.statusEffects[1].remainingMinutes, 1380);
+assert.strictEqual(hourAdvance.value.statusEffects[2].remainingRounds, 2, 'world time must not consume combat rounds');
+assert.strictEqual(hourAdvance.value.statusEffects[3].remaining, null, 'manual status is untouched');
+var dayAdvance = context.advanceWorldTimedStatusEffects(timedSource, 1440);
+assert.deepStrictEqual(Array.from(dayAdvance.value.statuses), ['round','manual']);
+assert.strictEqual(dayAdvance.value.statusEffects.length, 2);
+
+var timedRoom = {
+  masterUid:'gm',
+  worldClock:{totalMinutes:1380,revision:4,appliedOperationIds:{}},
+  members:{player:{character:Object.assign({revision:2},timedSource)}},
+  scene:{tokens:[Object.assign({id:'hero-player'},timedSource)]},
+  zones:{crypt:{tokens:[Object.assign({id:'hero-player'},timedSource)]}},
+  combat:{active:true,round:7,turnIndex:1,order:[Object.assign({key:'hero:player'},timedSource)]}
+};
+var roomAdvance = context.advanceRoomWorldTimeState(timedRoom, 60, 'world-time-test', 'gm', 1700000000000);
+assert.strictEqual(roomAdvance.changed, true);
+assert.strictEqual(roomAdvance.room.worldClock.totalMinutes, 1440);
+assert.strictEqual(roomAdvance.room.worldClock.day, 2);
+assert.strictEqual(roomAdvance.room.worldClock.lastOperation.beforeMinutes, 1380);
+assert.strictEqual(roomAdvance.room.worldClock.lastOperation.afterMinutes, 1440);
+assert.strictEqual(roomAdvance.room.worldClock.lastOperation.uid, 'gm');
+assert.strictEqual(roomAdvance.room.combat.round, 7, 'world clock transaction must not advance combat round');
+assert.strictEqual(roomAdvance.room.combat.turnIndex, 1, 'world clock transaction must not move combat turn');
+assert.strictEqual(roomAdvance.room.members.player.character.revision, 3);
+assert.strictEqual(roomAdvance.room.scene.tokens[0].statusEffects[0].remainingMinutes, 30);
+assert.strictEqual(roomAdvance.room.zones.crypt.tokens[0].statusEffects[0].remainingMinutes, 30);
+assert.strictEqual(roomAdvance.room.combat.order[0].statusEffects[0].remainingMinutes, 30);
+var duplicateAdvance = context.advanceRoomWorldTimeState(roomAdvance.room, 60, 'world-time-test', 'gm', 1700000000100);
+assert.strictEqual(duplicateAdvance.duplicate, true);
+assert.strictEqual(duplicateAdvance.room.worldClock.totalMinutes, 1440, 'operationId makes retries idempotent');
 
 var normalizedAbilityTarget = context.normalizeAbilityTargeting({
   mode:'token',
@@ -92,12 +175,45 @@ var modifiers = context.combatStatusModifiers({
 assert.strictEqual(modifiers.acMod, 4, 'Firebase effect must override local mechanics');
 assert.strictEqual(modifiers.attackMod, -3);
 assert.strictEqual(modifiers.damageMod, -2);
+var preciseDisadvantage = context.combatStatusModifiers({statuses:['blind'],statusEffects:[]});
+assert.strictEqual(preciseDisadvantage.attackDisadvantage, true);
+assert.strictEqual(preciseDisadvantage.saveDisadvantage, false, 'attack disadvantage must not silently affect every saving throw');
 
 var restrictions = context.combatRestrictions({statuses:['custom-lock'],statusEffects:[]});
 assert.strictEqual(restrictions.blocked.long, true);
 assert.strictEqual(restrictions.blocked.short, true);
 assert.strictEqual(restrictions.blocked.reaction, true);
 assert.strictEqual(restrictions.blocked.movement, true);
+assert.deepStrictEqual(
+  Array.from(context.combatStatusKeys({statuses:['STUN','Оглушён','Горит','BURN']})),
+  ['stun','burn'],
+  'legacy uppercase and localized status names must normalize and deduplicate for combat'
+);
+var localizedRestrictions = context.combatRestrictions({
+  statuses:['Паралич'],
+  statusEffects:[{type:'status',statusKey:'Паралич',unit:'manual'}]
+});
+assert.strictEqual(localizedRestrictions.blocked.long, true);
+assert.strictEqual(localizedRestrictions.blocked.short, true);
+assert.strictEqual(localizedRestrictions.blocked.reaction, true);
+assert.strictEqual(localizedRestrictions.blocked.movement, true);
+var exhaustedRestrictions = context.combatRestrictions({
+  statuses:['exhausted'],
+  statusEffects:[{type:'status',statusKey:'exhausted',unit:'manual',stacks:5}]
+});
+assert.strictEqual(context.combatStatusLevel({
+  statuses:['exhausted'],
+  statusEffects:[{type:'status',statusKey:'exhausted',unit:'manual',stacks:5}]
+}, 'exhausted'), 5);
+assert.strictEqual(exhaustedRestrictions.blocked.reaction, true, 'structured exhaustion stacks must drive combat restrictions');
+assert.strictEqual(exhaustedRestrictions.blocked.long, true);
+assert.strictEqual(exhaustedRestrictions.blocked.short, true);
+assert.strictEqual(exhaustedRestrictions.blocked.movement, true);
+assert.strictEqual(context.combatTurnMovement({
+  statuses:['exhausted'],
+  statusEffects:[{type:'status',statusKey:'exhausted',unit:'manual',stacks:2}],
+  economy:{movementMax:7}
+}), 3, 'exhaustion II must halve movement');
 assert.strictEqual(context.combatTurnMovement({
   statuses:['slow'],
   statusEffects:[],
@@ -139,6 +255,31 @@ var stackedTick = context.statusTurnTick({
   }]
 });
 assert.strictEqual(stackedTick.hp, 8, 'each stack must contribute one periodic damage roll');
+
+var roundExpiry = context.expireTurnStatuses({
+  statuses:['burn'],
+  statusEffects:[{
+    type:'status',
+    statusKey:'burn',
+    unit:'rounds',
+    durationUnit:'rounds',
+    duration:3,
+    remaining:2,
+    remainingRounds:2
+  }]
+});
+assert.strictEqual(roundExpiry.effects[0].remaining, 1, 'combat turn must decrement a round duration');
+assert.strictEqual(roundExpiry.effects[0].remainingRounds, 1);
+var worldTimeExpiry = context.expireTurnStatuses({
+  statuses:['poison','curse'],
+  statusEffects:[
+    {type:'status',statusKey:'poison',unit:'hours',durationUnit:'hours',duration:3,remaining:2},
+    {type:'status',statusKey:'curse',unit:'days',durationUnit:'days',duration:2,remaining:2}
+  ]
+});
+assert.strictEqual(worldTimeExpiry.effects[0].remaining, 2, 'combat turn must not decrement an hourly duration');
+assert.strictEqual(worldTimeExpiry.effects[1].remaining, 2, 'combat turn must not decrement a daily duration');
+assert.strictEqual(worldTimeExpiry.expired.length, 0);
 
 deterministicMath.random = function () { return 0.99; };
 var savedTick = context.statusTurnTick({
@@ -274,12 +415,39 @@ assert.strictEqual(initiativeEntry.total, 13, 'initiative preview must use the u
 
 assert.match(html, /function gmStatusCatalog\(\)/);
 assert.match(html, /typeof w\.getStatusMechanics==='function'/);
-assert.match(html, /effect:enable\?gmStatusEffectPayload\(def\):null/);
-assert.match(html, /stacks:1,visibility:'public'/);
-assert.match(html, /effect\.visibility==='gm'&&!isMaster/);
+assert.match(html, /function gmStatusEffectPayload\(status,options\)/);
+assert.match(html, /durationUnit:unit/);
+assert.match(html, /zgGmStatusDurationOpen/);
+assert.match(html, />Раунды<\/option>/);
+assert.match(html, />Часы<\/option>/);
+assert.match(html, />Дни<\/option>/);
+assert.match(html, />До снятия<\/option>/);
+assert.match(html, /zg-gm-status-duration-visibility/);
+assert.match(html, /zg-gm-status-duration-stacks/);
+assert.match(html, /effect\.visibility==='gm'&&!options\.isMaster/);
+assert.match(html, /seen\[key\]=true;\s*if\(effect\.visibility==='gm'&&!options\.isMaster\)return/);
 assert.match(html, /zgGmInterventionStatusUpdate/);
 assert.match(html, /tokenCombatStatuses\(token\).*slice\(0,5\)/s);
 assert.match(network, /normalizeStatusEffectInput\(operation\.effect,statusKey,statusLabel\)/);
+assert.match(network, /function normalizeStatusDurationUnit\(/);
+assert.match(network, /function normalizeWorldClock\(/);
+assert.match(network, /function advanceWorldTimedStatusEffects\(/);
+assert.match(network, /function advanceRoomWorldTimeState\(/);
+assert.match(network, /gmAdvanceWorldTime: function \(operation\)/);
+assert.match(network, /firebase\.runTransaction\(roomTarget/);
+assert.match(network, /world-time-delta-invalid/);
+assert.match(network, /deltaMinutes<1\|\|deltaMinutes>525600/);
+assert.match(html, /function worldClockView\(clock\)/);
+assert.match(html, /id="zg-world-clock"/);
+assert.match(html, /zgGmAdvanceWorldTime\(1440\)/);
+assert.match(html, /Раунд боя не меняется/);
+assert.match(network, /effect\.durationUnit\|\|effect\.unit/);
+assert.match(network, /unit==='rounds'/);
+assert.match(network, /function normalizeCombatStatusKey\(/);
+assert.match(network, /function combatStatusLevel\(/);
+assert.match(network, /attackDisadvantage/);
+assert.match(network, /dexSaveDisadvantage/);
+assert.match(network, /Истощение IV запрещает применять заклинания/);
 assert.match(network, /stacks:Math\.max\(1,Math\.min\(20/);
 assert.match(network, /autoRemove!=='save_dc'/);
 assert.match(network, /queueCombatEntryState\(room,updates,current,true\)/);

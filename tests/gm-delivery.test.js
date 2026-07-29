@@ -29,6 +29,12 @@ assert.match(network, /return api\.gmSendDeliveries\(\[memberUid\],value\)/);
 assert.match(network, /acknowledgeGmDelivery:\s*function/);
 assert.match(network, /\['item','quest','text','image'\]\.indexOf\(value\.kind\)/);
 assert.match(network, /\['calm','solemn','ominous'\]\.indexOf\(value\.mood\)/);
+assert.match(network, /value\.presentation==='cinematic'\?'cinematic':'card'/);
+assert.match(network, /presentation:presentation/);
+assert.match(network, /privateDelivery=kind==='text'&&value\.privateDelivery===true/);
+assert.match(network, /privateDeliveries\/'\+session\.code\+'\/'\+members\[0\]\.uid/);
+assert.match(network, /currentPrivateDeliveries&&currentPrivateDeliveries\[deliveryId\]/);
+assert.match(network, /ownMember\.gmDeliveries = Object\.assign\(\{\}, ownMember\.gmDeliveries \|\| \{\}, currentPrivateDeliveries\)/);
 assert.match(network, /status:'pending'/);
 assert.match(network, /members\/'\+target\.uid\+'\/gmDeliveries\/'\+deliveryId/);
 assert.match(network, /batchId:members\.length>1\?deliveryOperationId:''/);
@@ -39,15 +45,18 @@ assert.match(network, /Array\.isArray\(rawPayload\.items\)\?rawPayload\.items\.s
 assert.match(network, /payload\.items=rawItems\.map/);
 assert.match(network, /normalizeDeliveryItem/);
 assert.match(network, /bundleImageSize>350000/);
+assert.match(network, /questId:questId/);
+assert.match(network, /status:questStatus/);
+assert.match(network, /importance:questImportance/);
 var batchStart = network.indexOf('gmSendDeliveries: function');
 var batchEnd = network.indexOf('acknowledgeGmDelivery: function', batchStart);
 var batchBlock = network.slice(batchStart, batchEnd);
 assert.match(batchBlock, /firebase\.update\(roomRef\(session\.code\),updates\)/);
-assert.doesNotMatch(batchBlock, /Promise\.all/, 'group delivery must use one atomic room update');
+assert.match(batchBlock, /updates\['members\/'\+target\.uid\+'\/gmDeliveries\/'\+deliveryId\]=deliveryRecord/, 'shared group delivery must stay in one atomic room update');
 assert.match(batchBlock, /queueGameplayOperation\('gm-delivery',deliveryOperationId/);
 assert.match(batchBlock, /gameplayOperationSnapshot\('gm-delivery',deliveryOperationId\)/);
 assert.match(batchBlock, /var deliveryId='gm-delivery-'\+deliveryOperationId\+'-'\+index/);
-assert.match(batchBlock, /target\.member\.gmDeliveries&&target\.member\.gmDeliveries\[deliveryId\]/);
+assert.match(batchBlock, /var targetDeliveries=privateDelivery\?privateExisting:target\.member\.gmDeliveries\|\|\{\}/);
 assert.match(batchBlock, /appliedDeliveryIds\.indexOf\(deliveryId\)>=0/);
 assert.match(batchBlock, /removeGameplayOperation\(deliveryOperationId\)/);
 assert.match(batchBlock, /appendOperationEvent\('gm-delivery',deliveryId,'sending',diagnostic\)/);
@@ -66,6 +75,23 @@ assert.match(delivery, /MAX_IMAGE_BYTES = 250 \* 1024/);
 assert.match(delivery, /var drafts = Object\.create\(null\)/);
 assert.match(delivery, /function rememberPanelDraft\(\)/);
 assert.match(delivery, /if \(!options\.skipRemember\) rememberPanelDraft\(\)/);
+assert.match(delivery, /function safeQuestId\(value\)/);
+assert.match(delivery, /function upsertQuestJournalEntry\(journal, delivery\)/);
+assert.match(delivery, /id="zg-gm-delivery-quest-status"/);
+assert.match(delivery, /id="zg-gm-delivery-quest-importance"/);
+assert.match(delivery, /activeTemplateIds/);
+assert.match(delivery, /Обновить заготовку/);
+assert.match(delivery, /function requestAssetLibrary\(force\)/);
+assert.match(delivery, /w\.zgImageStore\.listAll/);
+assert.match(delivery, /w\.zgImageStore\.put\(file, 'deliveries'/);
+assert.match(delivery, /zgGmDeliveryUseAsset/);
+assert.match(delivery, /zgGmDeliveryRefreshAssets/);
+assert.match(delivery, /published !== true/);
+assert.match(delivery, /id="zg-gm-delivery-presentation"/);
+assert.match(delivery, /presentation-cinematic/);
+assert.match(delivery, /id="zg-gm-delivery-private"/);
+assert.match(delivery, /Скрытый текст можно отправить только одному игроку/);
+assert.match(delivery, /privateDelivery:activeKind === 'text'/);
 assert.match(delivery, /function filteredTemplates\(\)/);
 assert.match(delivery, /librarySort === 'title'/);
 assert.match(delivery, /zgGmDeliveryLibrarySearch/);
@@ -99,18 +125,60 @@ assert.match(delivery, /character\.inventoryItems = inventory\.concat\(additions
 assert.match(delivery, /journal\.push\(/);
 assert.match(delivery, /character\._gmDeliveryIds = appliedIds\(character\)\.concat\(deliveryId\)/);
 assert.match(delivery, /acknowledgeGmDelivery\(delivery\.id, 'applied'\)/);
-assert.match(delivery, /saveChars\(\{reason:delivery\.kind === 'item' \? 'inventory-add' : 'journal-add'\}\)/);
+assert.match(delivery, /saveChars\(\{reason:saveReason\}\)/);
+assert.match(delivery, /questResult\.mode === 'updated' \? 'journal-update' : 'journal-add'/);
 assert.match(delivery, /character\.inventoryItems = rollback\.inventoryItems/);
 assert.match(delivery, /character\.journalEntries = rollback\.journalEntries/);
 assert.match(delivery, /character\._gmDeliveryIds = rollback\.deliveryIds/);
 assert.match(delivery, /inventory\.concat\(additions\)\.some\(function \(item\)/);
-assert.match(delivery, /journal\.some\(function \(entry\)/);
+assert.match(delivery, /journal\.findIndex\(function \(entry\)/);
 assert.match(delivery, /delivery\.showPopup !== false/);
 assert.match(delivery, /mood-' \+ \(delivery\.mood \|\| 'calm'\)/);
 assert.match(delivery, /receivedFromGm:true/);
 assert.match(delivery, /equipped:false/);
 assert.match(delivery, /attackStat:source\.attackStat/);
 assert.match(delivery, /preferredSlot:source\.slot/);
+
+var questHelperStart = delivery.indexOf('function safeQuestId(value)');
+var questHelperEnd = delivery.indexOf('function emptyLibrary()', questHelperStart);
+var questUpsertStart = delivery.indexOf('function upsertQuestJournalEntry(journal, delivery)');
+var questUpsertEnd = delivery.indexOf('function applyDelivery(delivery, member)', questUpsertStart);
+var questContext = { result:null };
+vm.runInNewContext(
+  delivery.slice(questHelperStart, questHelperEnd) +
+    delivery.slice(questUpsertStart, questUpsertEnd) +
+    '; result=upsertQuestJournalEntry([], {id:"delivery-1",createdAt:100,title:"Найти руины",text:"Первый след",image:"images/ruins.webp",payload:{quest:{questId:"ruins-main",status:"new",importance:"main",imageFit:"cover"}}});',
+  questContext
+);
+var createdQuest = questContext.result;
+assert.strictEqual(createdQuest.mode, 'created');
+assert.strictEqual(createdQuest.journal.length, 1);
+assert.strictEqual(createdQuest.journal[0].journalId, 'gm-quest-ruins-main');
+assert.strictEqual(createdQuest.journal[0].questId, 'ruins-main');
+assert.strictEqual(createdQuest.journal[0].status, 'new');
+assert.strictEqual(createdQuest.journal[0].importance, 'main');
+assert.strictEqual(createdQuest.journal[0].image, 'images/ruins.webp');
+assert.strictEqual(createdQuest.journal[0].imageFit, 'cover');
+questContext.currentJournal = createdQuest.journal;
+vm.runInNewContext(
+  'result=upsertQuestJournalEntry(currentJournal, {id:"delivery-2",createdAt:200,title:"Вернуться к руинам",text:"Вход открыт",payload:{quest:{questId:"ruins-main",status:"completed",importance:"secondary"}}});',
+  questContext
+);
+var updatedQuest = questContext.result;
+assert.strictEqual(updatedQuest.mode, 'updated');
+assert.strictEqual(updatedQuest.journal.length, 1);
+assert.strictEqual(updatedQuest.journal[0].title, 'Вернуться к руинам');
+assert.strictEqual(updatedQuest.journal[0].status, 'completed');
+assert.strictEqual(updatedQuest.journal[0].importance, 'secondary');
+assert.strictEqual(updatedQuest.journal[0].createdAt, 100);
+assert.strictEqual(createdQuest.journal[0].title, 'Найти руины', 'upsert must not mutate the rollback source entry');
+questContext.currentJournal = updatedQuest.journal;
+vm.runInNewContext(
+  'result=upsertQuestJournalEntry(currentJournal, {id:"delivery-old",createdAt:150,title:"Устаревшая версия",payload:{quest:{questId:"ruins-main",status:"active",importance:"main"}}});',
+  questContext
+);
+assert.strictEqual(questContext.result.mode, 'stale');
+assert.strictEqual(questContext.result.journal[0].title, 'Вернуться к руинам');
 
 assert.match(styles, /\.zg-player-delivery-popup\.mood-calm/);
 assert.match(styles, /\.zg-player-delivery-popup\.mood-solemn/);
@@ -123,6 +191,8 @@ assert.match(styles, /\.zg-gm-delivery-shelves/);
 assert.match(styles, /\.zg-gm-delivery-import/);
 assert.match(styles, /\.zg-gm-delivery-bundle/);
 assert.match(styles, /\.zg-delivery-popup-bundle/);
+assert.match(styles, /\.zg-gm-delivery-assets/);
+assert.match(styles, /\.zg-player-delivery-popup\.presentation-cinematic/);
 
 assert.match(todo, /Этап 1\. Единый канал выдачи/);
 assert.match(todo, /Этап 4\. Канонические статусы/);

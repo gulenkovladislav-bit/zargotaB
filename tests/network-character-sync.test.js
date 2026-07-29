@@ -617,7 +617,8 @@ assert.match(html, /class="zg-state-armor"/);
 assert.match(html, /class="zg-state-hp-bar"/);
 assert.match(html, /class="zg-state-combat-values"><div><small>Скорость<\/small>[\s\S]*?<div><small>Инициатива<\/small>/);
 assert.doesNotMatch(html, /class="zg-state-combat-values"><div><small>Броня<\/small>/);
-assert.match(html, /activeStatuses=\[\]\.concat/);
+assert.match(html, /activeStatuses=collectDisplayStatuses\(/);
+assert.match(html, /statuses:c\.statuses,[\s\S]*statusEffects:c\.statusEffects,[\s\S]*tempEffects:c\.tempEffects/);
 assert.match(html, /class="zg-state-stat-list"/);
 assert.match(html, /class="zg-bag-state-disclosure roadmap"/);
 assert.match(html, /Мировой уровень славы/);
@@ -646,6 +647,8 @@ function renderCharacterStats(member, localCharacter) {
       zgStatIcon:function(){ return '<i class="stat-icon"></i>'; }
     },
     fullLocalCharacter:function(){ return localCharacter || null; },
+    collectDisplayStatuses:function(){ return []; },
+    statusDurationText:function(){ return ''; },
     esc:function(value){
       return String(value == null ? '' : value)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -757,7 +760,7 @@ var snapshotContext = {
     quote: 'Цитата',
     notes: [{ text:'Сохранить текст', attachment:'data:image/png;base64,nested' }],
     journalEntries: [
-      { journalId:'journal-safe_1', title:'Запись', text:'Текст', image:'images/journal/ruins.webp', kind:'quest', createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
+      { journalId:'journal-safe_1', questId:'ruins-main', title:'Запись', text:'Текст', image:'images/journal/ruins.webp', kind:'quest', status:'active', importance:'secondary', questUpdatedAt:175, createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
       { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', createdAt:300 },
       { journalId:'journal-data', title:'data:text/plain,hidden', text:'blob:hidden', createdAt:-1, updatedAt:'oops', updatedBy:'data:text/plain,uid' }
     ],
@@ -803,6 +806,10 @@ assert.strictEqual(snapshotContext.result.journalEntries[0].journalId, 'journal-
 assert.strictEqual(snapshotContext.result.journalEntries[0].text, 'Текст');
 assert.strictEqual(snapshotContext.result.journalEntries[0].image, 'images/journal/ruins.webp');
 assert.strictEqual(snapshotContext.result.journalEntries[0].kind, 'quest');
+assert.strictEqual(snapshotContext.result.journalEntries[0].questId, 'ruins-main');
+assert.strictEqual(snapshotContext.result.journalEntries[0].status, 'active');
+assert.strictEqual(snapshotContext.result.journalEntries[0].importance, 'secondary');
+assert.strictEqual(snapshotContext.result.journalEntries[0].questUpdatedAt, 175);
 assert.strictEqual(snapshotContext.result.journalEntries[0].deletedAt, 250);
 assert.strictEqual(snapshotContext.result.journalEntries[1].journalId, 'badkey');
 assert.strictEqual(snapshotContext.result.journalEntries[2].title, '');
@@ -844,6 +851,8 @@ var journalPanelContext = {
     currentGoal:'Найти руины',
     goals:[{title:'Вернуть печать',status:'Новая'}],
     journalEntries:[
+      {journalId:'quest-main',questId:'ruins-main',title:'Открыть древние руины',text:'Найти вход',kind:'quest',status:'active',importance:'main',createdAt:4},
+      {journalId:'quest-side',questId:'herbs-side',title:'Собрать травы',text:'Для лекаря',kind:'quest',status:'new',importance:'secondary',createdAt:3},
       {journalId:'place-1',title:'Древние руины',text:'Следы старой цивилизации',createdAt:2},
       {journalId:'note-1',title:'Символы',text:'Знак глаза',createdAt:1}
     ]
@@ -855,9 +864,12 @@ vm.runInNewContext(journalPanelBlock + '; result=journalPanel();', journalPanelC
 assert.match(journalPanelContext.result, /Главные цели/);
 assert.match(journalPanelContext.result, /Открыть Мануал/);
 assert.match(journalPanelContext.result, /Древние руины/);
+assert.match(journalPanelContext.result, /Открыть древние руины/);
+assert.match(journalPanelContext.result, /Главная цель · Активное/);
+assert.match(journalPanelContext.result, /Дополнительная цель · Новое/);
 assert.match(journalPanelContext.result, /Место/);
 assert.match(journalPanelContext.result, /zg-journal3-paper/);
-assert.strictEqual(journalPanelContext.journalSelectedId, 'place-1');
+assert.strictEqual(journalPanelContext.journalSelectedId, 'quest-main');
 assert.match(html, /saveChars\(\{reason:reason\|\|'journal-update'\}\)/);
 assert.match(html, /journalSave\('journal-remove',true\)/);
 assert.match(html, /w\.zgVttJournalOpenManual=function\(event\)/);

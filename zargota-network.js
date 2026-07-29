@@ -28,6 +28,8 @@
   var currentRoom = null;
   var currentCampaign = null;
   var roomUnsubscribe = null;
+  var privateDeliveriesUnsubscribe = null;
+  var currentPrivateDeliveries = {};
   var connected = false;
   var initError = null;
   var createRoomPromise = null;
@@ -717,20 +719,35 @@
     return{statuses:statuses,statusEffects:effects,enabled:enable,changed:enable?!active||!!operation.effect:active};
   }
 
+  function normalizeStatusDurationUnit(value, fallback) {
+    value=String(value||fallback||'manual').toLowerCase();
+    return ['rounds','minutes','hours','days','manual','concentration'].indexOf(value)>=0?value:'manual';
+  }
+
   function normalizeStatusEffectInput(effect, key, label) {
     effect=effect&&typeof effect==='object'?effect:{};
-    var duration=Math.max(0,Math.min(99,Math.floor(Number(effect.duration==null?effect.remaining:effect.duration)||0)));
+    var rawDuration=effect.durationValue!=null?effect.durationValue:(effect.duration!=null?effect.duration:(effect.remainingRounds!=null?effect.remainingRounds:effect.remaining));
+    var duration=Math.max(0,Math.min(999,Math.floor(Number(rawDuration)||0)));
+    var unit=normalizeStatusDurationUnit(effect.durationUnit||effect.unit,duration?'rounds':'manual');
+    if(unit==='manual'||unit==='concentration')duration=0;
+    else if(!duration)duration=1;
+    var rawRemaining=unit==='rounds'&&effect.remainingRounds!=null?effect.remainingRounds:effect.remaining;
+    var remaining=unit==='manual'||unit==='concentration'?null:Math.max(0,Math.min(duration,Math.floor(Number(rawRemaining==null?duration:rawRemaining)||0)));
+    var minuteFactor=unit==='days'?1440:(unit==='hours'?60:(unit==='minutes'?1:0));
+    var durationMinutes=minuteFactor?Math.max(1,Math.min(1438560,Math.floor(Number(effect.durationMinutes)||duration*minuteFactor))):null;
+    var remainingMinutes=minuteFactor?Math.max(0,Math.min(durationMinutes,Math.floor(Number(effect.remainingMinutes==null?remaining*minuteFactor:effect.remainingMinutes)||0))):null;
     var tickType=['damage','heal'].indexOf(effect.tickType)>=0?effect.tickType:'none';
     var tickDice=normalizeCombatFormula(effect.tickDice||'1d4');
     return{
       type:'status',statusKey:key,label:String(effect.label||label||key).slice(0,60),value:String(effect.value||effect.label||label||key).slice(0,80),
       icon:String(effect.icon||'✦').slice(0,20),color:/^#[0-9a-f]{3,8}$/i.test(String(effect.color||''))?String(effect.color):'#a88b55',
-      unit:duration?'rounds':String(effect.unit||'manual').slice(0,24),duration:duration||null,remaining:duration||null,
+      unit:unit,durationUnit:unit,duration:duration||null,durationValue:duration||null,remaining:remaining,remainingRounds:unit==='rounds'?remaining:null,
+      durationMinutes:durationMinutes,remainingMinutes:remainingMinutes,
       sourceId:String(effect.sourceId||'gm-manual:'+key).slice(0,120),sourceActorKey:String(effect.sourceActorKey||'').slice(0,160),
       stacks:Math.max(1,Math.min(20,Math.floor(Number(effect.stacks)||1))),visibility:effect.visibility==='gm'?'gm':'public',
       acMod:Math.max(-99,Math.min(99,Number(effect.acMod)||0)),attackMod:Math.max(-99,Math.min(99,Number(effect.attackMod)||0)),
       damageMod:Math.max(-99,Math.min(99,Number(effect.damageMod)||0)),speedMod:Math.max(-99,Math.min(99,Number(effect.speedMod)||0)),
-      cantAct:!!effect.cantAct,cantMove:!!effect.cantMove,cantReact:!!effect.cantReact,hasDisadvantage:!!effect.hasDisadvantage,grantAdvantageToAttackers:!!effect.grantAdvantageToAttackers,
+      cantAct:!!effect.cantAct,cantMove:!!effect.cantMove,cantReact:!!effect.cantReact,hasDisadvantage:!!effect.hasDisadvantage,attackDisadvantage:!!effect.attackDisadvantage,saveDisadvantage:!!effect.saveDisadvantage,dexSaveDisadvantage:!!effect.dexSaveDisadvantage,abilityCheckDisadvantage:!!effect.abilityCheckDisadvantage,grantAdvantageToAttackers:!!effect.grantAdvantageToAttackers,
       tickType:tickType,tickDice:tickDice,damageType:String(effect.damageType||'').slice(0,40),
       autoRemove:['never','end_of_turn','save_dc'].indexOf(effect.autoRemove)>=0?effect.autoRemove:'never',
       saveDC:Math.max(0,Math.min(40,Number(effect.saveDC)||0)),saveStat:['str','dex','int','cha','per','con'].indexOf(effect.saveStat)>=0?effect.saveStat:'con'
@@ -778,11 +795,30 @@
     return { combat:combat, order:order, index:index, entry:index >= 0 ? order[index] : null };
   }
 
+  var COMBAT_STATUS_ALIASES={
+    'оглушён':'stun','оглушен':'stun','горит':'burn','отравлен':'poison','заморожен':'freeze','страх':'fear','ослеплён':'blind','ослеплен':'blind',
+    'опрокинут':'prone','кровотечение':'bleed','магическая немота':'silence','магический якорь':'anchor','очарован':'charm','подчинён':'dominate',
+    'подчинен':'dominate','паралич':'paralyze','обездвижен':'restrain','замедлен':'slow','проклят':'curse','истощён':'exhausted','истощен':'exhausted',
+    'невидим':'invisible','регенерация':'regen','защитный щит':'shield','ярость':'rage','полёт':'fly','полет':'fly','замешательство':'confusion'
+  };
+  function normalizeCombatStatusKey(status) {
+    var raw=typeof status==='string'?status:status&&(status.key||status.statusKey||status.id)||'';
+    var key=String(raw||'').trim().toLowerCase();
+    return COMBAT_STATUS_ALIASES[key]||key;
+  }
+
   function combatStatusKeys(entry) {
-    return (Array.isArray(entry && entry.statuses) ? entry.statuses : []).map(function (status) {
-      if (typeof status === 'string') return status;
-      return status && (status.key || status.statusKey || status.id) || '';
-    }).filter(Boolean);
+    var seen={};
+    return (Array.isArray(entry && entry.statuses) ? entry.statuses : []).map(normalizeCombatStatusKey).filter(function(key){if(!key||seen[key])return false;seen[key]=true;return true;});
+  }
+
+  function combatStatusLevel(entry,key) {
+    key=normalizeCombatStatusKey(key);
+    var values=[]
+      .concat(Array.isArray(entry&&entry.statusEffects)?entry.statusEffects:[])
+      .concat(Array.isArray(entry&&entry.statuses)?entry.statuses:[]);
+    var match=values.filter(function(status){return normalizeCombatStatusKey(status)===key;})[0];
+    return match?Math.max(1,Math.min(20,Math.floor(Number(match.level||match.stacks)||1))):0;
   }
 
   function combatEntryWithRoomStatuses(room, entry) {
@@ -817,10 +853,7 @@
       blocked.movement = true;
       reasons.push('Обездвижен: скорость равна 0');
     }
-    var exhaustion = (Array.isArray(entry && entry.statuses) ? entry.statuses : []).filter(function (status) {
-      return status && typeof status === 'object' && (status.key === 'exhausted' || status.statusKey === 'exhausted');
-    })[0];
-    var exhaustionLevel = Math.max(0, Number(exhaustion && (exhaustion.level || exhaustion.stacks)) || 0);
+    var exhaustionLevel = combatStatusLevel(entry,'exhausted');
     if (exhaustionLevel >= 2) {
       blocked.reaction = true;
       reasons.push('Истощение II: реакции недоступны');
@@ -852,6 +885,7 @@
     var slowSpeedMod = modifiers.byKey.slow ? Number(modifiers.byKey.slow.speedMod) || 0 : 0;
     base = Math.max(0, base + modifiers.speedMod - slowSpeedMod);
     if (restrictions.slowed) base = Math.floor(base / 2);
+    if (combatStatusLevel(entry,'exhausted') >= 2) base = Math.floor(base / 2);
     return base;
   }
 
@@ -907,22 +941,25 @@
 
   function combatStatusEffects(entry) {
     return (Array.isArray(entry && entry.statusEffects) ? entry.statusEffects : []).filter(function (effect) {
-      return effect && effect.type === 'status' && (effect.unit !== 'rounds' || Number(effect.remaining) > 0);
+      if(!effect||effect.type!=='status')return false;
+      var unit=normalizeStatusDurationUnit(effect.durationUnit||effect.unit,'manual');
+      var remaining=unit==='rounds'&&effect.remainingRounds!=null?effect.remainingRounds:effect.remaining;
+      return unit!=='rounds'||Number(remaining)>0;
     }).map(function (effect) { return Object.assign({}, effect); });
   }
 
   function combatStatusModifiers(entry) {
-    var result={acMod:0,attackMod:0,damageMod:0,speedMod:0,cantAct:false,cantMove:false,cantReact:false,hasDisadvantage:false,grantAdvantageToAttackers:false,byKey:{}};
+    var result={acMod:0,attackMod:0,damageMod:0,speedMod:0,cantAct:false,cantMove:false,cantReact:false,hasDisadvantage:false,attackDisadvantage:false,saveDisadvantage:false,dexSaveDisadvantage:false,abilityCheckDisadvantage:false,grantAdvantageToAttackers:false,byKey:{}};
     var effects=combatStatusEffects(entry),mechanics=[];
     try{mechanics=typeof w.getStatusMechanics==='function'?w.getStatusMechanics():[];}catch(error){mechanics=[];}
     combatStatusKeys(entry).forEach(function(key){
-      key=String(key||'').toLowerCase();if(!key||result.byKey[key])return;
+      key=normalizeCombatStatusKey(key);if(!key||result.byKey[key])return;
       var fallback=(Array.isArray(mechanics)?mechanics:[]).filter(function(rule){return rule&&rule.key===key;})[0]||{};
-      var effect=effects.filter(function(item){return item&&String(item.statusKey||item.key||'').toLowerCase()===key;})[0]||{};
+      var effect=effects.filter(function(item){return item&&normalizeCombatStatusKey(item)===key;})[0]||{};
       var rule=Object.assign({},fallback,effect);if(rule.enabled===false)return;result.byKey[key]=rule;
       result.acMod+=Number(rule.acMod)||0;result.attackMod+=Number(rule.attackMod)||0;result.damageMod+=Number(rule.damageMod)||0;result.speedMod+=Number(rule.speedMod)||0;
       if(rule.cantAct)result.cantAct=true;if(rule.cantMove)result.cantMove=true;if(rule.cantReact)result.cantReact=true;
-      if(rule.hasDisadvantage)result.hasDisadvantage=true;if(rule.grantAdvantageToAttackers)result.grantAdvantageToAttackers=true;
+      if(rule.hasDisadvantage)result.hasDisadvantage=true;if(rule.attackDisadvantage)result.attackDisadvantage=true;if(rule.saveDisadvantage)result.saveDisadvantage=true;if(rule.dexSaveDisadvantage)result.dexSaveDisadvantage=true;if(rule.abilityCheckDisadvantage)result.abilityCheckDisadvantage=true;if(rule.grantAdvantageToAttackers)result.grantAdvantageToAttackers=true;
     });
     return result;
   }
@@ -940,6 +977,7 @@
     });
     var normalized=normalizeStatusEffectInput(input,key,options.label||rule.label||key);
     normalized.unit=normalized.duration?'rounds':(options.concentration?'concentration':'manual');
+    normalized.durationUnit=normalized.unit;
     normalized.concentration=!!options.concentration;
     return normalized;
   }
@@ -1012,7 +1050,7 @@
   function statusTurnTick(entry) {
     var effects = combatStatusEffects(entry), keys = combatStatusKeys(entry), seen = {}, changes = [], saves = [], removedKeys = {};
     effects.forEach(function (effect) {
-      if (effect.statusKey && keys.indexOf(effect.statusKey) < 0) keys.push(effect.statusKey);
+      var effectKey=normalizeCombatStatusKey(effect);if(effectKey&&keys.indexOf(effectKey)<0)keys.push(effectKey);
     });
     var hpMax = Math.max(0, combatNumber(entry && entry.hpMax, 0));
     var hp = Math.max(0, combatNumber(entry && entry.hp != null ? entry.hp : hpMax, 0));
@@ -1020,7 +1058,7 @@
     keys.forEach(function (key) {
       if (seen[key]) return;
       seen[key] = true;
-      var effect = effects.filter(function (item) { return item.statusKey === key; })[0];
+      var effect = effects.filter(function (item) { return normalizeCombatStatusKey(item) === key; })[0];
       var delta = 0;
       if (effect && (effect.tickType === 'damage' || effect.tickType === 'heal')) {
         var tickTotal=0,tickStacks=Math.max(1,Math.min(20,Math.floor(Number(effect.stacks)||1)));
@@ -1041,10 +1079,10 @@
     var modifiers=combatStatusModifiers(Object.assign({},entry,{statuses:keys,statusEffects:effects}));
     var statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
     keys.forEach(function(key){
-      var effect=effects.filter(function(item){return item&&item.statusKey===key;})[0],rule=effect||modifiers.byKey[key]||{};
+      var effect=effects.filter(function(item){return item&&normalizeCombatStatusKey(item)===key;})[0],rule=effect||modifiers.byKey[key]||{};
       if(rule.autoRemove!=='save_dc'||Number(rule.saveDC)<=0)return;
       var stat=['str','dex','int','cha','per','con'].indexOf(rule.saveStat)>=0?rule.saveStat:'con';
-      var mode=combatRollMode('normal',false,modifiers.hasDisadvantage),first=rollDie(20),second=mode==='normal'?null:rollDie(20);
+      var mode=combatRollMode('normal',false,modifiers.hasDisadvantage||modifiers.saveDisadvantage||(stat==='dex'&&modifiers.dexSaveDisadvantage)),first=rollDie(20),second=mode==='normal'?null:rollDie(20);
       var natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),bonus=combatStat(entry,stat),total=natural+bonus,success=natural===20||(natural!==1&&total>=Number(rule.saveDC));
       saves.push({statusKey:key,label:rule.label||rule.value||key,statKey:stat,roll:natural,rolls:second==null?[first]:[first,second],mode:mode,bonus:bonus,total:total,dc:Number(rule.saveDC),success:success});
       changes.push((rule.label||rule.value||key)+': спасбросок '+statLabels[stat]+' '+total+' против DC '+Number(rule.saveDC)+' — '+(success?'успех, состояние снято':'провал'));
@@ -1052,7 +1090,7 @@
     });
     if(Object.keys(removedKeys).length){
       keys=keys.filter(function(key){return !removedKeys[key];});
-      effects=effects.filter(function(effect){return !effect||!removedKeys[effect.statusKey];});
+      effects=effects.filter(function(effect){return !effect||!removedKeys[normalizeCombatStatusKey(effect)];});
     }
     return { hp:hp, tempHp:tempHp, statuses:keys, statusEffects:effects, changes:changes, saves:saves };
   }
@@ -1061,16 +1099,132 @@
     var effects = combatStatusEffects(entry), expired = [], active = [];
     effects.forEach(function (effect) {
       if (effect.autoRemove === 'end_of_turn') { expired.push(effect); return; }
-      if (effect.unit === 'rounds') {
-        effect.remaining = Math.max(0, Number(effect.remaining) - 1);
+      var unit=normalizeStatusDurationUnit(effect.durationUnit||effect.unit,'manual');
+      if (unit === 'rounds') {
+        effect.remaining = Math.max(0, Number(effect.remainingRounds!=null?effect.remainingRounds:effect.remaining) - 1);
+        effect.remainingRounds=effect.remaining;
+        effect.unit='rounds';
+        effect.durationUnit='rounds';
         if (!effect.remaining) { expired.push(effect); return; }
       }
       active.push(effect);
     });
     var statuses = combatStatusKeys(entry).filter(function (key) {
-      return !expired.some(function (effect) { return effect.statusKey === key; }) || active.some(function (effect) { return effect.statusKey === key; });
+      return !expired.some(function (effect) { return normalizeCombatStatusKey(effect) === key; }) || active.some(function (effect) { return normalizeCombatStatusKey(effect) === key; });
     });
     return { effects:active, statuses:statuses, expired:expired };
+  }
+
+  function normalizeWorldClock(clock) {
+    clock=clock&&typeof clock==='object'?clock:{};
+    var totalMinutes=Math.max(0,Math.min(525600000,Math.floor(Number(clock.totalMinutes)||0)));
+    return{
+      totalMinutes:totalMinutes,
+      day:Math.floor(totalMinutes/1440)+1,
+      minuteOfDay:totalMinutes%1440,
+      revision:Math.max(0,Math.floor(Number(clock.revision)||0)),
+      updatedAt:Math.max(0,Number(clock.updatedAt)||0),
+      updatedBy:String(clock.updatedBy||'').slice(0,128),
+      appliedOperationIds:clock.appliedOperationIds&&typeof clock.appliedOperationIds==='object'?clock.appliedOperationIds:{},
+      lastOperation:clock.lastOperation&&typeof clock.lastOperation==='object'?clock.lastOperation:null
+    };
+  }
+
+  function advanceWorldTimedStatusEffects(source, deltaMinutes) {
+    source=source&&typeof source==='object'?source:{};
+    deltaMinutes=Math.max(0,Math.floor(Number(deltaMinutes)||0));
+    var effects=Array.isArray(source.statusEffects)?source.statusEffects:[],expiredKeys={},changed=false;
+    var nextEffects=effects.reduce(function(result,effect){
+      if(!effect||typeof effect!=='object'){result.push(effect);return result;}
+      var unit=normalizeStatusDurationUnit(effect.durationUnit||effect.unit,'manual');
+      var factor=unit==='days'?1440:(unit==='hours'?60:(unit==='minutes'?1:0));
+      if(!factor||!deltaMinutes){result.push(effect);return result;}
+      var remainingUnits=Math.max(0,Number(effect.remaining==null?effect.duration:effect.remaining)||0);
+      var beforeMinutes=Math.max(0,Math.floor(Number(effect.remainingMinutes==null?remainingUnits*factor:effect.remainingMinutes)||0));
+      var afterMinutes=Math.max(0,beforeMinutes-deltaMinutes),key=normalizeCombatStatusKey(effect);
+      if(afterMinutes<=0){changed=true;if(key)expiredKeys[key]=true;return result;}
+      if(afterMinutes!==beforeMinutes){
+        var next=Object.assign({},effect);
+        next.unit=unit;next.durationUnit=unit;next.remainingMinutes=afterMinutes;
+        next.durationMinutes=Math.max(afterMinutes,Math.floor(Number(effect.durationMinutes)||Math.max(1,Number(effect.duration)||1)*factor));
+        next.remaining=Math.ceil(afterMinutes/factor);
+        next.remainingRounds=null;
+        result.push(next);changed=true;return result;
+      }
+      result.push(effect);return result;
+    },[]);
+    var statuses=Array.isArray(source.statuses)?source.statuses:[],nextStatuses=statuses;
+    if(Object.keys(expiredKeys).length){
+      var surviving={};
+      nextEffects.forEach(function(effect){var key=normalizeCombatStatusKey(effect);if(key)surviving[key]=true;});
+      nextStatuses=statuses.filter(function(status){
+        var key=normalizeCombatStatusKey(status);
+        return !expiredKeys[key]||surviving[key];
+      });
+      if(nextStatuses.length!==statuses.length)changed=true;
+    }
+    if(!changed)return{value:source,changed:false,expiredKeys:[]};
+    return{
+      value:Object.assign({},source,{statusEffects:nextEffects,statuses:nextStatuses}),
+      changed:true,
+      expiredKeys:Object.keys(expiredKeys)
+    };
+  }
+
+  function advanceRoomWorldTimeState(room, deltaMinutes, operationId, uid, timestamp) {
+    if(!room||typeof room!=='object')return{room:room,changed:false,duplicate:false,expiredCount:0};
+    deltaMinutes=Math.floor(Number(deltaMinutes)||0);
+    operationId=String(operationId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
+    timestamp=Math.max(1,Number(timestamp)||now());
+    var clock=normalizeWorldClock(room.worldClock);
+    if(operationId&&clock.appliedOperationIds[operationId])return{room:room,changed:false,duplicate:true,expiredCount:0,beforeMinutes:clock.totalMinutes,afterMinutes:clock.totalMinutes};
+    var next=Object.assign({},room),expiredCount=0,projectionChanged=false;
+    function advanceContainer(source){
+      var result=advanceWorldTimedStatusEffects(source,deltaMinutes);
+      if(result.changed){projectionChanged=true;expiredCount+=result.expiredKeys.length;}
+      return result.value;
+    }
+    var members=room.members&&typeof room.members==='object'?Object.assign({},room.members):{};
+    Object.keys(members).forEach(function(memberUid){
+      var member=members[memberUid];if(!member||!member.character)return;
+      var character=advanceContainer(member.character);if(character===member.character)return;
+      character=Object.assign({},character,{
+        revision:Math.max(0,Number(character.revision)||0)+1,
+        updatedAt:timestamp,updatedBy:uid,source:'gm-world-time',syncOperationId:operationId
+      });
+      members[memberUid]=Object.assign({},member,{character:character});
+    });
+    next.members=members;
+    if(room.scene&&Array.isArray(room.scene.tokens)){
+      var sceneChanged=false,sceneTokens=room.scene.tokens.map(function(token){var advanced=advanceContainer(token);if(advanced!==token)sceneChanged=true;return advanced;});
+      if(sceneChanged)next.scene=Object.assign({},room.scene,{tokens:sceneTokens});
+    }
+    if(room.zones&&typeof room.zones==='object'){
+      var zones=Object.assign({},room.zones),zonesChanged=false;
+      Object.keys(zones).forEach(function(zoneId){
+        var zone=zones[zoneId];if(!zone||!Array.isArray(zone.tokens))return;
+        var zoneChanged=false,tokens=zone.tokens.map(function(token){var advanced=advanceContainer(token);if(advanced!==token)zoneChanged=true;return advanced;});
+        if(zoneChanged){zones[zoneId]=Object.assign({},zone,{tokens:tokens});zonesChanged=true;}
+      });
+      if(zonesChanged)next.zones=zones;
+    }
+    if(room.combat&&Array.isArray(room.combat.order)){
+      var combatChanged=false,order=room.combat.order.map(function(entry){var advanced=advanceContainer(entry);if(advanced!==entry)combatChanged=true;return advanced;});
+      if(combatChanged)next.combat=Object.assign({},room.combat,{order:order,updatedAt:timestamp});
+    }
+    var beforeMinutes=clock.totalMinutes,afterMinutes=Math.min(525600000,beforeMinutes+deltaMinutes);
+    next.worldClock=Object.assign({},clock,{
+      totalMinutes:afterMinutes,
+      day:Math.floor(afterMinutes/1440)+1,
+      minuteOfDay:afterMinutes%1440,
+      revision:clock.revision+1,
+      updatedAt:timestamp,
+      updatedBy:String(uid||'').slice(0,128),
+      appliedOperationIds:rememberActionOperation(clock.appliedOperationIds,operationId,timestamp),
+      lastOperation:{operationId:operationId,beforeMinutes:beforeMinutes,afterMinutes:afterMinutes,deltaMinutes:deltaMinutes,uid:String(uid||'').slice(0,128),ts:timestamp,expiredCount:expiredCount}
+    });
+    next.updatedAt=timestamp;
+    return{room:next,changed:true,duplicate:false,expiredCount:expiredCount,beforeMinutes:beforeMinutes,afterMinutes:afterMinutes,projectionChanged:projectionChanged};
   }
 
   function normalizeRoomCode(value) {
@@ -1422,10 +1576,15 @@
         seen[journalId] = true;
         return {
           journalId:journalId,
+          questId:cleanText(raw.questId, 100).replace(/[^a-zA-Z0-9_-]/g, ''),
           title:cleanText(raw.title, 200),
           text:cleanText(raw.text, 12000),
           image:cleanText(raw.image, 2000),
+          imageFit:String(raw.imageFit || '') === 'cover' ? 'cover' : 'contain',
           kind:cleanText(raw.kind, 40),
+          status:['new','active','completed','failed'].indexOf(String(raw.status || '')) >= 0 ? String(raw.status) : '',
+          importance:String(raw.importance || '') === 'secondary' ? 'secondary' : raw.kind === 'quest' ? 'main' : '',
+          questUpdatedAt:Math.max(0, Number(raw.questUpdatedAt) || 0),
           createdAt:Math.max(0, Number(raw.createdAt) || 0),
           updatedAt:Math.max(0, Number(raw.updatedAt) || 0),
           updatedBy:cleanText(raw.updatedBy, 120),
@@ -1683,8 +1842,14 @@
     var stamp = Math.max(0, Number(metadata && metadata.updatedAt) || now());
     return {
       journalId:journalId,
+      questId:String(entry.questId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100),
       title:String(entry.title || '').trim().slice(0, 200),
       text:String(entry.text || '').slice(0, 12000),
+      image:String(entry.image || '').slice(0, 2000),
+      kind:String(entry.kind || '').slice(0, 40),
+      status:['new','active','completed','failed'].indexOf(String(entry.status || '')) >= 0 ? String(entry.status) : '',
+      importance:String(entry.importance || '') === 'secondary' ? 'secondary' : entry.kind === 'quest' ? 'main' : '',
+      questUpdatedAt:Math.max(0, Number(entry.questUpdatedAt) || 0),
       createdAt:Math.max(0, Number(entry.createdAt) || stamp),
       updatedAt:stamp,
       updatedBy:String(metadata && metadata.updatedBy || entry.updatedBy || '').slice(0, 120),
@@ -1738,6 +1903,11 @@
       networkPerformance.roomWatchStops++;
       networkPerformance.activeRoomWatches=Math.max(0,networkPerformance.activeRoomWatches-1);
     }
+    if (privateDeliveriesUnsubscribe) {
+      try { privateDeliveriesUnsubscribe(); } catch (e) {}
+      privateDeliveriesUnsubscribe = null;
+    }
+    currentPrivateDeliveries = {};
     currentRoom = null;
     characterInboundSession = null;
   }
@@ -1812,9 +1982,27 @@
     }, 120);
   }
 
+  function watchPrivateDeliveries(code) {
+    var watchedSession = readSession();
+    if (privateDeliveriesUnsubscribe || !code || !firebase || !db || !watchedSession || watchedSession.role !== 'player' || !watchedSession.uid) return;
+    privateDeliveriesUnsubscribe = firebase.onValue(
+      firebase.ref(db, 'privateDeliveries/' + code + '/' + watchedSession.uid),
+      function (snapshot) {
+        currentPrivateDeliveries = snapshot.exists() && snapshot.val() || {};
+        emit();
+      },
+      function (error) {
+        currentPrivateDeliveries = {};
+        console.error('Zargota private delivery listener:', error);
+        emit();
+      }
+    );
+  }
+
   function watchRoom(code) {
     stopWatchingRoom();
     if (!code || !firebase || !db) return;
+    watchPrivateDeliveries(code);
     networkPerformance.roomWatchStarts++;networkPerformance.activeRoomWatches++;networkPerformance.maxRoomWatches=Math.max(networkPerformance.maxRoomWatches,networkPerformance.activeRoomWatches);
     roomUnsubscribe = firebase.onValue(firebase.ref(db, 'rooms/' + code), function (snapshot) {
       currentRoom = snapshot.exists() ? snapshot.val() : null;
@@ -1824,6 +2012,7 @@
         if(missingSession&&missingSession.code===code)saveSession(null);
       }
       syncSessionRole(currentRoom);
+      watchPrivateDeliveries(code);
       restoreCharacterInboundFromRoom(currentRoom);
       scheduleMasterCombatEquipmentReconcile(currentRoom);
       emit();
@@ -1898,6 +2087,10 @@
 
   function roomRef(code) {
     return firebase.ref(db, 'rooms/' + code);
+  }
+
+  function privateDeliveriesRoomRef(code) {
+    return firebase.ref(db, 'privateDeliveries/' + code);
   }
 
   function readRoom(code) {
@@ -2092,7 +2285,9 @@
           emit();
           if(!existing)return null;
           if(saved.role==='master'&&existing.masterUid===user.uid){
-            return firebase.remove(roomRef(saved.code)).then(function(){return null;});
+            return firebase.remove(privateDeliveriesRoomRef(saved.code)).catch(function(){return null;}).then(function(){
+              return firebase.remove(roomRef(saved.code)).then(function(){return null;});
+            });
           }
           var cleanup={};
           if(existing.members&&existing.members[user.uid])cleanup['members/'+user.uid]=null;
@@ -2112,6 +2307,13 @@
             masterLastSeen: now(),
             createdAt: now(),
             updatedAt: now(),
+            worldClock: {
+              totalMinutes: 0,
+              day: 1,
+              minuteOfDay: 0,
+              revision: 0,
+              appliedOperationIds: {}
+            },
             members: {},
             pending: {},
             slots: {}
@@ -3586,6 +3788,8 @@
       delete queuedDeliveryValue.fromOutbox;
       var kind=['item','quest','text','image'].indexOf(value.kind)>=0?value.kind:'text';
       var mood=['calm','solemn','ominous'].indexOf(value.mood)>=0?value.mood:'calm';
+      var presentation=kind==='image'&&value.presentation==='cinematic'?'cinematic':'card';
+      var privateDelivery=kind==='text'&&value.privateDelivery===true;
       var title=String(value.title||'').trim().slice(0,180);
       var body=String(value.text||'').trim().slice(0,6000);
       var image=String(value.image||'').trim();
@@ -3598,6 +3802,8 @@
       if(image&&!/^(?:https?:|data:image\/|images\/|\.?\.?\/)/i.test(image))image='';
       if(!memberUids.length)return Promise.reject(roomError('Выберите хотя бы одного игрока.','member-required'));
       if(!title)return Promise.reject(roomError('Укажите название выдачи.','delivery-title-required'));
+      if(value.privateDelivery===true&&!privateDelivery)return Promise.reject(roomError('Скрытый канал доступен только для текста.','delivery-private-kind'));
+      if(privateDelivery&&memberUids.length!==1)return Promise.reject(roomError('Скрытый текст можно отправить только одному игроку.','delivery-private-target'));
       var rawPayload=value.payload&&typeof value.payload==='object'?value.payload:{},payload={};
       if(kind==='item'){
         var bundleImageSize=image.length;
@@ -3630,7 +3836,20 @@
         else payload.item=normalizeDeliveryItem(rawPayload,title,body,image);
         if(bundleImageSize>350000)return Promise.reject(roomError('Суммарный размер изображений набора слишком большой.','delivery-image-large'));
       }else if(kind==='quest'){
-        payload.quest={title:title,text:body,image:image};
+        var rawQuest=rawPayload.quest&&typeof rawPayload.quest==='object'?rawPayload.quest:rawPayload;
+        var questId=String(rawQuest.questId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+        if(!questId)questId=('quest-'+deliveryOperationId).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100);
+        var questStatus=['new','active','completed','failed'].indexOf(String(rawQuest.status||''))>=0?String(rawQuest.status):'new';
+        var questImportance=String(rawQuest.importance||'')==='secondary'?'secondary':'main';
+        payload.quest={
+          questId:questId,
+          title:title,
+          text:body,
+          image:image,
+          imageFit:String(rawQuest.imageFit||'')==='cover'?'cover':'contain',
+          status:questStatus,
+          importance:questImportance
+        };
       }
       if(!deliveryFromOutbox){
         deliveryQueueResult=queueGameplayOperation('gm-delivery',deliveryOperationId,{
@@ -3648,27 +3867,34 @@
       return ensureReady().then(function(user){
         var session=readSession();
         if(!session||session.role!=='master')throw roomError('Выдавать награды может только мастер.','master-only');
-        return readRoom(session.code).then(function(room){
+        var privateExistingPromise=privateDelivery
+          ? firebase.get(firebase.ref(db,'privateDeliveries/'+session.code+'/'+memberUids[0])).then(function(snapshot){return snapshot.exists()&&snapshot.val()||{};})
+          : Promise.resolve({});
+        return Promise.all([readRoom(session.code),privateExistingPromise]).then(function(results){
+          var room=results[0],privateExisting=results[1]||{};
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
           if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
           var members=memberUids.map(function(memberUid){var member=room.members&&room.members[memberUid];if(!member||member.role!=='player'||!member.characterId||!member.character)throw roomError('Лист одного из выбранных игроков недоступен.','character-missing');return{uid:memberUid,member:member};});
-          var stamp=now(),updates={},newDeliveryCount=0;
+          var stamp=now(),updates={},privateUpdates={},newDeliveryCount=0;
           members.forEach(function(target,index){
             var deliveryId='gm-delivery-'+deliveryOperationId+'-'+index;
             var diagnostic={id:deliveryId,kind:kind,name:title,targetUid:target.uid,targetCount:1,targetKeys:[]};
             deliveryDiagnostics.push(diagnostic);
             var appliedDeliveryIds=target.member.character&&Array.isArray(target.member.character.appliedDeliveryIds)?target.member.character.appliedDeliveryIds:[];
-            if(target.member.gmDeliveries&&target.member.gmDeliveries[deliveryId]||appliedDeliveryIds.indexOf(deliveryId)>=0){
+            var targetDeliveries=privateDelivery?privateExisting:target.member.gmDeliveries||{};
+            if(targetDeliveries&&targetDeliveries[deliveryId]||appliedDeliveryIds.indexOf(deliveryId)>=0){
               appendOperationEvent('gm-delivery',deliveryId,'already-pending',diagnostic);
               return;
             }
             newDeliveryCount++;
             appendOperationEvent('gm-delivery',deliveryId,'sending',diagnostic);
-            updates['members/'+target.uid+'/gmDeliveries/'+deliveryId]={
+            var deliveryRecord={
               id:deliveryId,
               batchId:members.length>1?deliveryOperationId:'',
               kind:kind,
               mood:mood,
+              presentation:presentation,
+              privateDelivery:privateDelivery,
               showPopup:value.showPopup!==false,
               title:title,
               text:body,
@@ -3678,17 +3904,28 @@
               createdAt:stamp,
               createdBy:user.uid
             };
-            var deliveries=target.member.gmDeliveries||{},resolved=Object.keys(deliveries).filter(function(key){
+            if(privateDelivery)privateUpdates[deliveryId]=deliveryRecord;
+            else updates['members/'+target.uid+'/gmDeliveries/'+deliveryId]=deliveryRecord;
+            var deliveries=targetDeliveries,resolved=Object.keys(deliveries).filter(function(key){
               return deliveries[key]&&deliveries[key].status&&deliveries[key].status!=='pending';
             }).sort(function(a,b){return Number(deliveries[b].resolvedAt||deliveries[b].createdAt||0)-Number(deliveries[a].resolvedAt||deliveries[a].createdAt||0);});
-            resolved.slice(30).forEach(function(key){updates['members/'+target.uid+'/gmDeliveries/'+key]=null;});
+            resolved.slice(30).forEach(function(key){
+              if(privateDelivery)privateUpdates[key]=null;
+              else updates['members/'+target.uid+'/gmDeliveries/'+key]=null;
+            });
           });
           if(!newDeliveryCount){
             removeGameplayOperation(deliveryOperationId);
             return refreshRoom(session.code).then(function(){return api.getSnapshot();});
           }
-          updates.updatedAt=stamp;
-          return firebase.update(roomRef(session.code),updates).then(function(){
+          var deliveryWrite;
+          if(privateDelivery){
+            deliveryWrite=firebase.update(firebase.ref(db,'privateDeliveries/'+session.code+'/'+members[0].uid),privateUpdates);
+          }else{
+            updates.updatedAt=stamp;
+            deliveryWrite=firebase.update(roomRef(session.code),updates);
+          }
+          return deliveryWrite.then(function(){
             deliveryWriteCommitted=true;
             if(!removeGameplayOperation(deliveryOperationId))appendOperationEvent('gm-delivery',deliveryOperationId,'queue-remove-failed',{kind:kind,name:title,targetCount:memberUids.length});
             deliveryDiagnostics.forEach(function(diagnostic){
@@ -3711,7 +3948,7 @@
         if(!deliveryFromOutbox&&deliveryQueueResult.ok&&!terminalGameplayError(error)){
           return gameplayOperationSnapshot('gm-delivery',deliveryOperationId);
         }
-        if(error&&['member-required','delivery-title-required','delivery-image-large','master-only','room-not-found','character-missing'].indexOf(error.code)>=0)throw error;
+        if(error&&['member-required','delivery-title-required','delivery-image-large','delivery-private-kind','delivery-private-target','master-only','room-not-found','character-missing'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -3727,16 +3964,28 @@
         if(!session||session.role!=='player')return api.getSnapshot();
         return readRoom(session.code).then(function(room){
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
-          var member=room.members&&room.members[user.uid],delivery=member&&member.gmDeliveries&&member.gmDeliveries[deliveryId];
+          var member=room.members&&room.members[user.uid];
+          var sharedDelivery=member&&member.gmDeliveries&&member.gmDeliveries[deliveryId];
+          var privateDelivery=currentPrivateDeliveries&&currentPrivateDeliveries[deliveryId];
+          var delivery=sharedDelivery||privateDelivery;
           if(!delivery||delivery.status!=='pending')return api.getSnapshot();
           deliveryDiagnostic={kind:delivery.kind||'',name:delivery.title||'',targetUid:user.uid,targetCount:1};
           appendOperationEvent('gm-delivery',deliveryId,'acknowledging',deliveryDiagnostic);
           var updates={};
-          updates['gmDeliveries/'+deliveryId+'/status']=status;
-          updates['gmDeliveries/'+deliveryId+'/resolvedAt']=now();
-          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),updates).then(function(){
+          var targetRef;
+          if(privateDelivery&&privateDelivery.privateDelivery===true){
+            updates.status=status;
+            updates.resolvedAt=now();
+            targetRef=firebase.ref(db,'privateDeliveries/'+session.code+'/'+user.uid+'/'+deliveryId);
+          }else{
+            updates['gmDeliveries/'+deliveryId+'/status']=status;
+            updates['gmDeliveries/'+deliveryId+'/resolvedAt']=now();
+            targetRef=firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid);
+          }
+          return firebase.update(targetRef,updates).then(function(){
             deliveryAckWritten=true;
             appendOperationEvent('gm-delivery',deliveryId,status==='applied'?'applied':'player-failed',deliveryDiagnostic);
+            if(privateDelivery&&privateDelivery.privateDelivery===true)return api.getSnapshot();
             return refreshRoom(session.code).then(function(){return api.getSnapshot();});
           });
         });
@@ -4012,6 +4261,39 @@
       }).catch(function(error){if(error&&['master-only','room-not-found','entity-missing','adjust-invalid'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
+    gmAdvanceWorldTime: function (operation) {
+      operation=operation&&typeof operation==='object'?operation:{};
+      var deltaMinutes=Math.floor(Number(operation.deltaMinutes)||0);
+      var operationId=String(operation.operationId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
+      if(!operationId)return Promise.reject(roomError('Не удалось определить операцию времени.','world-time-operation-invalid'));
+      if(deltaMinutes<1||deltaMinutes>525600)return Promise.reject(roomError('Можно продвинуть время от 1 минуты до 365 дней.','world-time-delta-invalid'));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Временем комнаты управляет только мастер.','master-only');
+        var duplicate=false,summary=null,authorityMismatch=false,roomTarget=roomRef(session.code);
+        appendOperationEvent('world-time',operationId,'started',{kind:'advance',name:String(deltaMinutes)});
+        return firebase.runTransaction(roomTarget,function(room){
+          if(!room)return;
+          if(room.masterUid!==user.uid){authorityMismatch=true;return;}
+          var result=advanceRoomWorldTimeState(room,deltaMinutes,operationId,user.uid,now());
+          duplicate=result.duplicate;summary=result;
+          return result.room;
+        }).then(function(result){
+          if(!result||!result.committed){
+            if(authorityMismatch)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+            throw roomError('Комната изменилась или больше недоступна. Повторите попытку.','room-not-found');
+          }
+          appendOperationEvent('world-time',operationId,duplicate?'duplicate':'ack',{
+            kind:'advance',name:String(deltaMinutes),result:duplicate?'already-applied':String(summary&&summary.afterMinutes||0)
+          });
+          return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){
+        appendOperationEvent('world-time',operationId,'failed',{kind:'advance',name:String(deltaMinutes)},error);
+        if(error&&['world-time-operation-invalid','world-time-delta-invalid','master-only','room-not-found'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     gmBroadcastVisual: function (targetRef, visual) {
       targetRef=targetRef||{};visual=visual||{};
       var tokenId=String(targetRef.tokenId||'').slice(0,120),memberUid=String(targetRef.memberUid||'').slice(0,128);
@@ -4075,7 +4357,7 @@
           var statKey=['str','dex','int','cha','per','con'].indexOf(options.statKey)>=0?options.statKey:(weapon.stat||'str');
           var statBonus=combatStat(attacker,statKey),masteryBonus=Math.max(0,Math.min(3,Number(options.masteryBonus)||0));
           var keys=combatStatusKeys(attacker),attackerModifiers=combatStatusModifiers(attacker),targetModifiers=combatStatusModifiers(target);
-          var forcedDisadvantage=['stun','blind','fear'].some(function(key){return keys.indexOf(key)>=0;})||attackerModifiers.hasDisadvantage;
+          var forcedDisadvantage=['stun','blind','fear'].some(function(key){return keys.indexOf(key)>=0;})||attackerModifiers.hasDisadvantage||attackerModifiers.attackDisadvantage||combatStatusLevel(attacker,'exhausted')>=3;
           var mode=combatRollMode(String(options.mode||'normal'),targetModifiers.grantAdvantageToAttackers,forcedDisadvantage);
           var first=rollDie(20),second=mode==='normal'?null:rollDie(20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
           var attackTotal=natural+statBonus+masteryBonus+attackerModifiers.attackMod,targetAc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod),critical=natural===20,failed=natural===1,hit=!failed&&(critical||attackTotal>=targetAc);
@@ -4179,8 +4461,8 @@
           var mode = ['advantage','disadvantage'].indexOf(options.mode) >= 0 ? options.mode : 'normal';
           var statusModifiers = combatStatusModifiers(target);
           var keys = combatStatusKeys(target);
-          var exhausted = (target.statuses || []).filter(function (status) { return status && typeof status === 'object' && (status.key === 'exhausted' || status.statusKey === 'exhausted'); })[0];
-          mode = combatRollMode(mode, false, statusModifiers.hasDisadvantage || (statKey === 'dex' && keys.indexOf('restrain') >= 0) || Number(exhausted && (exhausted.level || exhausted.stacks)) >= 3);
+          var exhaustionLevel = combatStatusLevel(target,'exhausted');
+          mode = combatRollMode(mode, false, statusModifiers.hasDisadvantage || statusModifiers.saveDisadvantage || (statKey === 'dex' && (statusModifiers.dexSaveDisadvantage || keys.indexOf('restrain') >= 0)) || exhaustionLevel >= 3);
           var first = rollDie(20), second = mode === 'normal' ? null : rollDie(20);
           var natural = second == null ? first : (mode === 'advantage' ? Math.max(first, second) : Math.min(first, second));
           var total = natural + modifier;
@@ -4249,7 +4531,9 @@
           var cost=['long','short','reaction','free'].indexOf(effect.actionCost)>=0?effect.actionCost:'long',turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0));
           if((cost==='long'||cost==='short')&&actorIndex!==turnIndex)throw roomError('Долгие и короткие способности применяются только в свой ход.','combat-not-turn');
           var economy=Object.assign({long:1,short:1,reaction:1},actor.economy||{}),restrictions=combatRestrictions(actor);
-          if(combatStatusKeys(actor).indexOf('silence')>=0&&(/^spell-/.test(String(effect.key||''))||/^spell-/.test(String(effect.sourceId||''))))throw roomError('Магическая немота запрещает применять заклинания.','combat-status-blocked');
+          var isSpellAbility=/^spell-/.test(String(effect.key||''))||/^spell-/.test(String(effect.sourceId||''));
+          if(isSpellAbility&&combatStatusKeys(actor).indexOf('silence')>=0)throw roomError('Магическая немота запрещает применять заклинания.','combat-status-blocked');
+          if(isSpellAbility&&combatStatusLevel(actor,'exhausted')>=4)throw roomError('Истощение IV запрещает применять заклинания.','combat-status-blocked');
           if(cost!=='free'&&restrictions.blocked[cost])throw roomError(restrictions.reasons[0]||'Текущее состояние запрещает способность.','combat-status-blocked');
           if(cost!=='free'&&Number(economy[cost]||0)<1)throw roomError('Нужное действие уже израсходовано.','combat-action-spent');
           var castStamp=now(),effectSource='ability-'+requestUid+'-'+castStamp,concentrationTouched=[];
@@ -4260,14 +4544,14 @@
             var target=concentrationTouched.indexOf(targetIndex)>=0?Object.assign({},order[targetIndex]):combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex])),natural=null,rolls=[],modifier=0,total=null,success=true,dc=null,rollMode='normal',targetModifiers=combatStatusModifiers(target);
             if(mode==='attack'){
               modifier=combatStat(actor,effect.attackStat)+actorModifiers.attackMod;
-              rollMode=combatRollMode('normal',targetModifiers.grantAdvantageToAttackers,actorModifiers.hasDisadvantage);
+              rollMode=combatRollMode('normal',targetModifiers.grantAdvantageToAttackers,actorModifiers.hasDisadvantage||actorModifiers.attackDisadvantage||combatStatusLevel(actor,'exhausted')>=3);
               var attackFirst=rollDie(20),attackSecond=rollMode==='normal'?null:rollDie(20);
               natural=attackSecond==null?attackFirst:(rollMode==='advantage'?Math.max(attackFirst,attackSecond):Math.min(attackFirst,attackSecond));rolls=attackSecond==null?[attackFirst]:[attackFirst,attackSecond];
               total=natural+modifier;dc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod);success=natural===20||(natural!==1&&total>=dc);
             }
             if(mode==='save'){
               modifier=combatStat(target,effect.saveStat);
-              rollMode=combatRollMode('normal',false,targetModifiers.hasDisadvantage);
+              rollMode=combatRollMode('normal',false,targetModifiers.hasDisadvantage||targetModifiers.saveDisadvantage||(effect.saveStat==='dex'&&targetModifiers.dexSaveDisadvantage));
               var saveFirst=rollDie(20),saveSecond=rollMode==='normal'?null:rollDie(20);
               natural=saveSecond==null?saveFirst:(rollMode==='advantage'?Math.max(saveFirst,saveSecond):Math.min(saveFirst,saveSecond));rolls=saveSecond==null?[saveFirst]:[saveFirst,saveSecond];
               dc=effect.saveDC==null?10+combatStat(actor,effect.attackStat):Math.max(1,Number(effect.saveDC)||10);total=natural+modifier;success=natural===20||(natural!==1&&total>=dc);
@@ -4621,7 +4905,9 @@
             if (secondary) {
               operation = Promise.resolve();
             } else if (session.role === 'master') {
-              operation = firebase.remove(roomRef(session.code));
+              operation = firebase.remove(privateDeliveriesRoomRef(session.code)).catch(function(){return null;}).then(function(){
+                return firebase.remove(roomRef(session.code));
+              });
             } else if (session.role === 'pending' && session.playerCode) {
               operation = firebase.remove(firebase.ref(db, 'rooms/' + session.code + '/pending/' + session.playerCode));
             } else {
@@ -4705,7 +4991,15 @@
 
     getSnapshot: function () {
       var session = readSession();
-      var member = currentRoom && session && currentRoom.members ? currentRoom.members[session.uid] || null : null;
+      var snapshotRoom = currentRoom;
+      if (currentRoom && session && session.role === 'player' && session.uid && Object.keys(currentPrivateDeliveries || {}).length) {
+        var snapshotMembers = Object.assign({}, currentRoom.members || {});
+        var ownMember = Object.assign({}, snapshotMembers[session.uid] || {});
+        ownMember.gmDeliveries = Object.assign({}, ownMember.gmDeliveries || {}, currentPrivateDeliveries);
+        snapshotMembers[session.uid] = ownMember;
+        snapshotRoom = Object.assign({}, currentRoom, {members:snapshotMembers});
+      }
+      var member = snapshotRoom && session && snapshotRoom.members ? snapshotRoom.members[session.uid] || null : null;
       return {
         mode: api.mode,
         networkReady: !!(auth && auth.currentUser && !initError),
@@ -4713,10 +5007,10 @@
         connected: !!currentRoom,
         approved: !!(member && member.role === 'player'),
         session: session,
-        room: currentRoom,
+        room: snapshotRoom,
         campaign: currentCampaign,
-        players: membersOf(currentRoom, 'player'),
-        pending: pendingOf(currentRoom),
+        players: membersOf(snapshotRoom, 'player'),
+        pending: pendingOf(snapshotRoom),
         tabCoordination: tabCoordinationState(),
         characterSync: cloneCharacterSync(),
         error: initError ? initError.message : ''

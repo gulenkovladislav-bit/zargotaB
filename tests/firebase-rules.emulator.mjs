@@ -38,6 +38,7 @@ const seedRoom = {
   masterUid,
   phase: 'combat',
   updatedAt: 1,
+  worldClock: { totalMinutes:0, day:1, minuteOfDay:0, revision:0 },
   members: {
     [masterUid]: { uid: masterUid, role: 'master', name: 'ГМ' },
     [playerUid]: {
@@ -83,6 +84,50 @@ try {
   await assertSucceeds(get(ref(player, roomPath)));
   await assertSucceeds(get(ref(outsider, roomPath)));
 
+  const privateDeliveryPath = `privateDeliveries/${roomCode}/${playerUid}/private-1`;
+  await assertSucceeds(set(ref(master, privateDeliveryPath), {
+    id: 'private-1',
+    kind: 'text',
+    mood: 'ominous',
+    presentation: 'card',
+    privateDelivery: true,
+    showPopup: true,
+    title: 'Только для тебя',
+    text: 'Остальные игроки этого не видят.',
+    image: '',
+    status: 'pending',
+    createdAt: 1,
+    createdBy: masterUid
+  }));
+  await assertSucceeds(get(ref(master, privateDeliveryPath)));
+  await assertSucceeds(get(ref(player, privateDeliveryPath)));
+  await assertFails(get(ref(testEnv.authenticatedContext(otherUid).database(), privateDeliveryPath)));
+  await assertFails(get(ref(outsider, privateDeliveryPath)));
+  await assertFails(set(ref(player, `privateDeliveries/${roomCode}/${playerUid}/private-forged`), {
+    id: 'private-forged',
+    kind: 'text',
+    mood: 'calm',
+    presentation: 'card',
+    privateDelivery: true,
+    showPopup: true,
+    title: 'Подделка',
+    text: 'Игрок не может создавать скрытые сообщения.',
+    status: 'pending',
+    createdAt: 1,
+    createdBy: masterUid
+  }));
+  await assertFails(update(ref(testEnv.authenticatedContext(otherUid).database(), privateDeliveryPath), {
+    status: 'applied',
+    resolvedAt: 2
+  }));
+  await assertFails(update(ref(player, privateDeliveryPath), {
+    title: 'Игрок не может менять текст'
+  }));
+  await assertSucceeds(update(ref(player, privateDeliveryPath), {
+    status: 'applied',
+    resolvedAt: 2
+  }));
+
   await assertSucceeds(update(ref(master, roomPath), {
     [`members/${playerUid}/gmDeliveries/delivery-1`]: {
       id: 'delivery-1',
@@ -94,6 +139,24 @@ try {
     'combat/updatedAt': 2,
     updatedAt: 2
   }));
+  await assertSucceeds(update(ref(master, `${roomPath}/worldClock`), {
+    totalMinutes: 60,
+    day: 1,
+    minuteOfDay: 60,
+    revision: 1,
+    updatedAt: 2,
+    updatedBy: masterUid,
+    appliedOperationIds: { 'world-time-rules': 2 },
+    lastOperation: {
+      operationId: 'world-time-rules',
+      beforeMinutes: 0,
+      afterMinutes: 60,
+      deltaMinutes: 60,
+      uid: masterUid,
+      ts: 2
+    }
+  }));
+  await assertFails(set(ref(player, `${roomPath}/worldClock/totalMinutes`), 120));
 
   await assertSucceeds(set(ref(player, `${roomPath}/members/${playerUid}/actionRequest`), {
     id: 'ability-1',
@@ -162,6 +225,11 @@ try {
   assert.equal(finalRoom.members[playerUid].character.hpCur, 9);
   assert.equal(finalRoom.members[otherUid].character.hpCur, 7);
   assert.equal(finalRoom.combat.turnIndex, 1);
+  assert.equal(finalRoom.worldClock.totalMinutes, 60);
+  const finalPrivateDelivery = (await get(ref(master, privateDeliveryPath))).val();
+  assert.equal(finalPrivateDelivery.status, 'applied');
+  assert.equal(finalPrivateDelivery.resolvedAt, 2);
+  await assertSucceeds(set(ref(master, `privateDeliveries/${roomCode}`), null));
 
   console.log('firebase realtime database rules emulator matrix passed');
 } finally {

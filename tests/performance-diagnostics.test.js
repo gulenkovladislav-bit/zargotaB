@@ -107,6 +107,7 @@ var watcherStart=network.indexOf('  function stopWatchingRoom()');
 var watcherEnd=network.indexOf('  function setPresence(session)',watcherStart);
 var watcherContext={
   roomUnsubscribe:null,currentRoom:null,characterInboundSession:'old',db:{},
+  privateDeliveriesUnsubscribe:null,currentPrivateDeliveries:{},
   combatEquipmentReconcileTimer:0,combatEquipmentReconcileBusy:false,combatEquipmentReconcilePending:false,
   connected:false,networkPerformance:networkContext.networkPerformance,
   clearTimeout:clearTimeout,setTimeout:setTimeout,

@@ -12,6 +12,24 @@
         }
       }
     },
+    "privateDeliveries": {
+      "$room": {
+        ".write": "auth != null && root.child('rooms').child($room).child('masterUid').val() === auth.uid",
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || root.child('rooms').child($room).child('masterUid').val() === auth.uid)",
+          "$delivery": {
+            ".write": "auth != null && root.child('rooms').child($room).child('masterUid').val() === auth.uid",
+            ".validate": "!newData.exists() || (newData.hasChildren(['id', 'kind', 'mood', 'presentation', 'privateDelivery', 'showPopup', 'title', 'text', 'status', 'createdAt', 'createdBy']) && newData.child('id').isString() && newData.child('id').val() === $delivery && newData.child('id').val().length <= 180 && newData.child('kind').val() === 'text' && newData.child('privateDelivery').val() === true && newData.child('mood').isString() && (newData.child('mood').val() === 'calm' || newData.child('mood').val() === 'solemn' || newData.child('mood').val() === 'ominous') && newData.child('presentation').val() === 'card' && newData.child('showPopup').isBoolean() && newData.child('title').isString() && newData.child('title').val().length <= 180 && newData.child('text').isString() && newData.child('text').val().length <= 6000 && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'applied' || newData.child('status').val() === 'failed') && newData.child('createdAt').isNumber() && newData.child('createdBy').val() === root.child('rooms').child($room).child('masterUid').val())",
+            "status": {
+              ".write": "auth != null && auth.uid === $uid && data.val() === 'pending' && (newData.val() === 'applied' || newData.val() === 'failed') && newData.parent().child('resolvedAt').isNumber()"
+            },
+            "resolvedAt": {
+              ".write": "auth != null && auth.uid === $uid && data.parent().child('status').val() === 'pending' && (newData.parent().child('status').val() === 'applied' || newData.parent().child('status').val() === 'failed') && newData.isNumber()"
+            }
+          }
+        }
+      }
+    },
     "rooms": {
       "$room": {
         ".read": "auth != null",

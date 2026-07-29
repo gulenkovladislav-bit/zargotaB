@@ -11,9 +11,9 @@
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
 <script src="gameplay-operation-outbox.js?v=2026-07-29.1"></script>
 <script src="equipment-rules.js?v=2026-07-29.1"></script>
-<script src="zargota-network.js?v=2026-07-29.22"></script>
-<link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.3">
-<script src="gm-delivery.js?v=2026-07-29.4"></script>
+<script src="zargota-network.js?v=2026-07-29.25"></script>
+<link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.4">
+<script src="gm-delivery.js?v=2026-07-29.7"></script>
 <script>
 (function(w){
   var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
@@ -10775,12 +10775,22 @@ document.addEventListener('DOMContentLoaded', function(){
     return Object.keys(TOKEN_STATUS_DEFS).map(function(key){var def=TOKEN_STATUS_DEFS[key];return{key:key,icon:def[0],color:def[1],label:def[2],enabled:true};});
   }
   function gmStatusDefinition(key){return gmStatusCatalog().filter(function(status){return status.key===key;})[0]||null;}
-  function gmStatusEffectPayload(status){
-    var duration=Math.max(0,Math.min(99,Number(status&&status.defaultDuration)||0)),tickType=['damage','heal'].indexOf(status&&status.startOfTurnEffect)>=0?status.startOfTurnEffect:'none';
-    return{type:'status',statusKey:status.key,label:status.label,value:status.label,icon:status.icon,color:status.color,unit:duration?'rounds':'manual',duration:duration||null,remaining:duration||null,sourceId:'gm-manual:'+status.key,
-      stacks:1,visibility:'public',
+  function gmStatusEffectPayload(status,options){
+    options=options&&typeof options==='object'?options:{};
+    var defaultDuration=Math.max(0,Math.min(999,Math.floor(Number(status&&status.defaultDuration)||0)));
+    var requestedDuration=options.durationValue!=null?options.durationValue:(options.duration!=null?options.duration:defaultDuration);
+    var duration=Math.max(0,Math.min(999,Math.floor(Number(requestedDuration)||0)));
+    var requestedUnit=String(options.durationUnit||options.unit||(duration?'rounds':'manual')).toLowerCase();
+    var unit=['rounds','hours','days','manual'].indexOf(requestedUnit)>=0?requestedUnit:'manual';
+    if(unit==='manual')duration=0;else if(!duration)duration=1;
+    var remaining=unit==='manual'?null:duration,minuteFactor=unit==='days'?1440:(unit==='hours'?60:0);
+    var durationMinutes=minuteFactor?duration*minuteFactor:null,remainingMinutes=durationMinutes;
+    var tickType=['damage','heal'].indexOf(status&&status.startOfTurnEffect)>=0?status.startOfTurnEffect:'none';
+    return{type:'status',statusKey:status.key,label:status.label,value:status.label,icon:status.icon,color:status.color,unit:unit,durationUnit:unit,duration:duration||null,durationValue:duration||null,remaining:remaining,remainingRounds:unit==='rounds'?remaining:null,sourceId:'gm-manual:'+status.key,
+      durationMinutes:durationMinutes,remainingMinutes:remainingMinutes,
+      stacks:Math.max(1,Math.min(20,Math.floor(Number(options.stacks)||1))),visibility:options.visibility==='gm'?'gm':'public',
       acMod:Number(status.acMod)||0,attackMod:Number(status.attackMod)||0,damageMod:Number(status.damageMod)||0,speedMod:Number(status.speedMod)||0,
-      cantAct:!!status.cantAct,cantMove:!!status.cantMove,cantReact:!!status.cantReact,hasDisadvantage:!!status.hasDisadvantage,grantAdvantageToAttackers:!!status.grantAdvantageToAttackers,
+      cantAct:!!status.cantAct,cantMove:!!status.cantMove,cantReact:!!status.cantReact,hasDisadvantage:!!status.hasDisadvantage,attackDisadvantage:!!status.attackDisadvantage,saveDisadvantage:!!status.saveDisadvantage,dexSaveDisadvantage:!!status.dexSaveDisadvantage,abilityCheckDisadvantage:!!status.abilityCheckDisadvantage,grantAdvantageToAttackers:!!status.grantAdvantageToAttackers,
       tickType:tickType,tickDice:String(status.startOfTurnDice||'1d4'),damageType:String(status.endOfTurnDamageType||''),autoRemove:String(status.autoRemove||'never'),saveDC:Number(status.saveDC)||0,saveStat:String(status.saveStat||'con')};
   }
   var DEFAULT_SCENE = { layers:[], tokens:[], regions:[], view:{fog:true,visionMode:'party',rememberExplored:true,cinematic:false,showOtherRequests:false,statusVisibility:{},minZoom:.6,maxZoom:2.2,panLimit:45}, grid:true, gridSize:64, boardWidth:32, boardHeight:20, gridAboveTokens:false,gridColor:'#cab270',gridOpacity:.1,gridThickness:1,gridContrast:1,gridSaturation:1,snap:true, gridOx:0, gridOy:0, x:0, y:0, zoom:1, revision:0 };
@@ -10794,6 +10804,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var lastAppliedSceneSignature = '';
   var lastAppliedSceneStructureSignature = '';
   var roomSnapshot = null;
+  var lastWorldClockRevision = -1;
   var selectedLayerId = '';
   var selectedTokenId = ''; w.zgGetSelectedTokenId = function(){ return selectedTokenId; };
   var gmInterventionTokenId = '';
@@ -10801,6 +10812,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var gmInterventionTab = 'entity';
   var gmVisualIntensity = 'normal';
   var gmVisualBusy = false;
+  var gmWorldTimeBusy = false;
   var GM_VISUAL_CATALOG = {
     particle:[
       ['embers','✹','Искры','Огонь и угли','#ed7a35'],['frost','❄','Иней','Холодный взрыв','#72c9f4'],
@@ -11980,12 +11992,44 @@ document.addEventListener('DOMContentLoaded', function(){
     var entry=combatEntryForToken(token),member=token&&token.type==='hero'?memberForToken(token):null,source=entry||(member&&member.character)||token||{};
     return {hp:Number(source.hp==null?source.hpCur:source.hp)||0,hpMax:Number(source.hpMax)||0,tempHp:Number(source.tempHp)||0};
   }
+  function worldClockView(clock){
+    clock=clock&&typeof clock==='object'?clock:{};
+    var totalMinutes=Math.max(0,Math.floor(Number(clock.totalMinutes)||0)),minuteOfDay=totalMinutes%1440,hour=Math.floor(minuteOfDay/60),minute=minuteOfDay%60;
+    var phase=hour>=5&&hour<8?'dawn':(hour>=8&&hour<18?'sun':(hour>=18&&hour<21?'twilight':'moon'));
+    var phases={dawn:['Рассвет','☼'],sun:['День','☀'],twilight:['Сумерки','◐'],moon:['Ночь','☾']},phaseRow=phases[phase];
+    return{
+      totalMinutes:totalMinutes,
+      day:Math.floor(totalMinutes/1440)+1,
+      minuteOfDay:minuteOfDay,
+      time:String(hour).padStart(2,'0')+':'+String(minute).padStart(2,'0'),
+      phase:phase,phaseLabel:phaseRow[0],phaseIcon:phaseRow[1],
+      angle:minuteOfDay/1440*360
+    };
+  }
+  function renderWorldClock(){
+    var button=el('zg-world-clock');if(!button)return;
+    var view=worldClockView(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.worldClock),revision=Math.max(0,Number(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.worldClock&&roomSnapshot.room.worldClock.revision)||0);
+    button.className='zg-world-clock '+view.phase+(isMaster?' gm':'')+(gmWorldTimeBusy?' busy':'');
+    button.style.setProperty('--world-clock-angle',view.angle+'deg');
+    button.dataset.revision=String(revision);
+    button.disabled=gmWorldTimeBusy;
+    button.setAttribute('aria-label',(isMaster?'Открыть управление временем. ':'')+'День пути '+view.day+', '+view.time+', '+view.phaseLabel);
+    button.innerHTML='<span class="zg-world-clock-dial"><i>'+view.phaseIcon+'</i><b></b></span><span><small>День пути '+view.day+'</small><strong>'+view.time+'</strong><em>'+view.phaseLabel+'</em></span>';
+  }
+  function gmWorldTimePanel(){
+    var view=worldClockView(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.worldClock);
+    return '<section class="zg-gm-time-panel '+view.phase+'"><header><span class="dial" style="--world-clock-angle:'+view.angle+'deg"><i>'+view.phaseIcon+'</i><b></b></span><div><small>Время комнаты</small><strong>'+view.time+'</strong><em>День пути '+view.day+' · '+view.phaseLabel+'</em></div></header>'+
+      '<p>Календарь мира ещё не задан: названия месяцев и их длина не выдумываются. Часы и срок состояний уже синхронизированы для всей комнаты.</p>'+
+      '<div class="zg-gm-time-presets"><button type="button" onclick="zgGmAdvanceWorldTime(10)" '+(gmWorldTimeBusy?'disabled':'')+'><b>+10</b><span>минут</span></button><button type="button" onclick="zgGmAdvanceWorldTime(60)" '+(gmWorldTimeBusy?'disabled':'')+'><b>+1</b><span>час</span></button><button type="button" onclick="zgGmAdvanceWorldTime(180)" '+(gmWorldTimeBusy?'disabled':'')+'><b>+3</b><span>часа</span></button><button type="button" onclick="zgGmAdvanceWorldTime(480)" '+(gmWorldTimeBusy?'disabled':'')+'><b>+8</b><span>часов</span></button><button type="button" onclick="zgGmAdvanceWorldTime(1440)" '+(gmWorldTimeBusy?'disabled':'')+'><b>+1</b><span>день</span></button></div>'+
+      '<footer><span>Раунд боя не меняется</span><span>⌛ Часы и дни истекают здесь</span></footer></section>';
+  }
   function gmInterventionTabs(){
     return '<nav class="zg-gm-tool-tabs" aria-label="Разделы пульта ГМ">'+
       '<button type="button" class="'+(gmInterventionTab==='entity'?'active':'')+'" onclick="zgGmInterventionTab(\'entity\')"><i>♥</i><span>Сущность</span></button>'+
       '<button type="button" class="'+(gmInterventionTab==='statuses'?'active':'')+'" onclick="zgGmInterventionTab(\'statuses\')"><i>✦</i><span>Состояния</span></button>'+
       '<button type="button" class="'+(gmInterventionTab==='visual'?'active':'')+'" onclick="zgGmInterventionTab(\'visual\')"><i>✺</i><span>Визуал</span></button>'+
       '<button type="button" class="'+(gmInterventionTab==='delivery'?'active':'')+'" onclick="zgGmInterventionTab(\'delivery\')"><i>▣</i><span>Выдать</span></button>'+
+      '<button type="button" class="'+(gmInterventionTab==='time'?'active':'')+'" onclick="zgGmInterventionTab(\'time\')"><i>◷</i><span>Время</span></button>'+
     '</nav>';
   }
   function gmTargetCard(token,vitals){
@@ -12008,8 +12052,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var statusCatalog=gmStatusCatalog();
     var statuses=statusCatalog.map(function(def){var key=def.key;return '<button type="button" class="'+(active[key]?'active':'')+'" style="--status-color:'+def.color+'" onclick="zgGmInterventionStatus(\''+key+'\')" title="'+esc(def.label)+'" '+(gmInterventionBusy?'disabled':'')+'><i>'+def.icon+'</i><span>'+def.label+'</span><em>'+(active[key]?'Снять':'Добавить')+'</em></button>';}).join('');
     var activeStatusControls=token?statusCatalog.filter(function(def){return active[def.key];}).map(function(def){
-      var effect=tokenStatusEffect(token,def.key)||gmStatusEffectPayload(def),stacks=Math.max(1,Math.min(20,Number(effect.stacks)||1)),hidden=effect.visibility==='gm';
-      return '<div class="zg-gm-active-status" style="--status-color:'+def.color+'"><i>'+def.icon+'</i><span><b>'+esc(def.label)+'</b><small>'+(hidden?'Только ГМ':'Видят игроки')+'</small></span><div><button type="button" onclick="zgGmInterventionStatusUpdate(\''+def.key+'\',\'stacks\',-1)" '+(stacks<=1||gmInterventionBusy?'disabled':'')+'>−</button><em>×'+stacks+'</em><button type="button" onclick="zgGmInterventionStatusUpdate(\''+def.key+'\',\'stacks\',1)" '+(stacks>=20||gmInterventionBusy?'disabled':'')+'>＋</button><button type="button" class="visibility '+(hidden?'hidden':'')+'" onclick="zgGmInterventionStatusUpdate(\''+def.key+'\',\'visibility\')" '+(gmInterventionBusy?'disabled':'')+'>'+(hidden?'◉ ГМ':'◎ Все')+'</button></div></div>';
+      var effect=tokenStatusEffect(token,def.key)||gmStatusEffectPayload(def),stacks=Math.max(1,Math.min(20,Number(effect.stacks)||1)),hidden=effect.visibility==='gm',durationText=statusDurationText(effect)||'до снятия';
+      return '<div class="zg-gm-active-status" style="--status-color:'+def.color+'"><i>'+def.icon+'</i><span><b>'+esc(def.label)+'</b><small>'+(hidden?'Только ГМ':'Видят игроки')+' · '+esc(durationText)+'</small></span><div><button type="button" onclick="zgGmInterventionStatusUpdate(\''+def.key+'\',\'stacks\',-1)" '+(stacks<=1||gmInterventionBusy?'disabled':'')+'>−</button><em>×'+stacks+'</em><button type="button" onclick="zgGmInterventionStatusUpdate(\''+def.key+'\',\'stacks\',1)" '+(stacks>=20||gmInterventionBusy?'disabled':'')+'>＋</button><button type="button" class="visibility '+(hidden?'hidden':'')+'" onclick="zgGmInterventionStatusUpdate(\''+def.key+'\',\'visibility\')" '+(gmInterventionBusy?'disabled':'')+'>'+(hidden?'◉ ГМ':'◎ Все')+'</button><button type="button" class="duration" onclick="zgGmStatusDurationOpen(\''+def.key+'\')" title="Изменить длительность" '+(gmInterventionBusy?'disabled':'')+'>⌛</button></div></div>';
     }).join(''):'';
     var content='';
     if(gmInterventionTab==='entity'){
@@ -12024,8 +12068,10 @@ document.addEventListener('DOMContentLoaded', function(){
         '<section class="zg-gm-vfx-section"><header><div><small>На выбранный жетон</small><b>Частицы</b></div><span>'+(token?esc(tokenName(token)):'нужна цель')+'</span></header><div class="zg-gm-vfx-grid">'+gmVisualEffectButtons('particle',!token)+'</div></section>'+
         '<section class="zg-gm-vfx-section"><header><div><small>На выбранный жетон</small><b>Анимации</b></div><span>'+(token?esc(tokenName(token)):'нужна цель')+'</span></header><div class="zg-gm-vfx-grid">'+gmVisualEffectButtons('animation',!token)+'</div></section>'+
         '<section class="zg-gm-vfx-section scene"><header><div><small>На всё поле</small><b>Эффекты сцены</b></div><span>без выбранной цели</span></header><div class="zg-gm-vfx-grid">'+gmVisualEffectButtons('scene',false)+'</div></section>';
-    }else{
+    }else if(gmInterventionTab==='delivery'){
       content='<section class="zg-gm-delivery-link"><i>▣</i><div><small>Получение с уведомлением</small><b>Предметы, цели, текст и изображения</b><p>Выберите адресата, настроение всплывающего окна и решите, показывать ли его игроку.</p></div><button type="button" onclick="zgGmInterventionOpenDelivery()">Открыть выдачу</button></section>';
+    }else{
+      content=gmWorldTimePanel();
     }
     host.innerHTML=gmInterventionTabs()+'<div class="zg-gm-tool-content" data-tab="'+gmInterventionTab+'">'+content+'</div>';
   }
@@ -12034,7 +12080,29 @@ document.addEventListener('DOMContentLoaded', function(){
     if(open){gmInterventionTokenId=selectedTokenId||gmInterventionTokenId;var overview=el('zg-overview-panel'),zones=el('zg-zones-panel');if(overview)overview.classList.remove('open');if(zones)zones.classList.remove('open');}
     panel.classList.toggle('open',open);if(open)renderGmIntervention();
   };
-  w.zgGmInterventionTab=function(tab){if(['entity','statuses','visual','delivery'].indexOf(tab)<0)return;gmInterventionTab=tab;renderGmIntervention();};
+  w.zgGmInterventionTab=function(tab){if(['entity','statuses','visual','delivery','time'].indexOf(tab)<0)return;gmInterventionTab=tab;renderGmIntervention();};
+  w.zgWorldClockOpen=function(ev){
+    if(ev)ev.stopPropagation();if(!isMaster)return;
+    gmInterventionTab='time';w.zgGmInterventionToggle(null,true);
+  };
+  w.zgGmAdvanceWorldTime=function(minutes){
+    minutes=Math.floor(Number(minutes)||0);if(!isMaster||gmWorldTimeBusy||minutes<1)return;
+    var operationId='world-time-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),operation;
+    gmWorldTimeBusy=true;renderWorldClock();renderGmIntervention();
+    if(isDiceTestSnapshot()){
+      var current=worldClockView(roomSnapshot.room.worldClock);roomSnapshot.room.worldClock={totalMinutes:current.totalMinutes+minutes,revision:Math.max(0,Number(roomSnapshot.room.worldClock&&roomSnapshot.room.worldClock.revision)||0)+1};
+      operation=Promise.resolve(roomSnapshot);
+    }else if(w.ZargotaRooms&&w.ZargotaRooms.gmAdvanceWorldTime){
+      operation=w.ZargotaRooms.gmAdvanceWorldTime({operationId:operationId,deltaMinutes:minutes});
+    }else operation=Promise.reject(new Error('Нет соединения с комнатой'));
+    operation.then(function(snapshot){
+      if(snapshot&&snapshot.room)roomSnapshot=snapshot;
+      renderWorldClock();renderGmIntervention();
+      if(w.showToast)w.showToast('Игровое время продвинуто');
+    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить время');}).then(function(){
+      gmWorldTimeBusy=false;renderWorldClock();renderGmIntervention();
+    });
+  };
   w.zgGmVisualIntensity=function(intensity){if(['soft','normal','strong'].indexOf(intensity)<0)return;gmVisualIntensity=intensity;renderGmIntervention();};
   w.zgGmInterventionOpenDelivery=function(){w.zgGmInterventionToggle(null,false);if(typeof w.zgGmDeliveryToggle==='function')w.zgGmDeliveryToggle(true);};
   w.zgGmVisualTrigger=function(type,effect){
@@ -12071,8 +12139,46 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!w.ZargotaRooms||!w.ZargotaRooms.gmAdjustEntity)return Promise.reject(new Error('Нет соединения с комнатой'));
     return w.ZargotaRooms.gmAdjustEntity({tokenId:token.id,memberUid:token.memberUid||''},operation);
   }
+  function applyGmInterventionStatus(token,def,enable,effect){
+    if(!token||!def||gmInterventionBusy)return;
+    gmInterventionBusy=true;renderGmIntervention();
+    gmInterventionOperation(token,{kind:'status',statusKey:def.key,label:def.label,enable:enable,effect:enable?effect:null}).then(function(snapshot){
+      mergeInterventionSnapshot(snapshot,token);if(snapshot&&snapshot.room&&snapshot.room.code==='TEST'&&w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);
+    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить эффект');}).then(function(){gmInterventionBusy=false;renderGmIntervention();});
+  }
+  function closeGmStatusDurationDialog(){var dialog=el('zg-gm-status-duration-dialog');if(dialog)dialog.remove();}
+  w.zgGmStatusDurationClose=closeGmStatusDurationDialog;
+  w.zgGmStatusDurationUnitChange=function(value){
+    var input=el('zg-gm-status-duration-value');if(!input)return;input.disabled=String(value)==='manual';if(!input.disabled&&Number(input.value)<1)input.value='1';
+  };
+  w.zgGmStatusDurationOpen=function(key){
+    var token=interventionToken(),def=gmStatusDefinition(key);if(!token||!def||gmInterventionBusy)return;
+    closeGmStatusDurationDialog();
+    var current=tokenStatusEffect(token,key),source=current||gmStatusEffectPayload(def),unit=String(source.durationUnit||source.unit||(source.duration?'rounds':'manual')).toLowerCase();
+    if(['rounds','hours','days','manual'].indexOf(unit)<0)unit='manual';
+    var duration=Math.max(1,Math.min(999,Math.floor(Number(source.durationValue!=null?source.durationValue:source.duration)||Number(def.defaultDuration)||1)));
+    var stacks=Math.max(1,Math.min(20,Math.floor(Number(source.stacks)||1))),visibility=source.visibility==='gm'?'gm':'public';
+    var overlay=document.createElement('div');overlay.id='zg-gm-status-duration-dialog';overlay.className='zg-gm-status-duration-dialog';overlay.onclick=function(ev){if(ev.target===overlay)closeGmStatusDurationDialog();};
+    overlay.innerHTML='<article style="--status-color:'+esc(def.color||'#a88b55')+'" data-status-key="'+esc(def.key)+'"><button type="button" class="close" onclick="zgGmStatusDurationClose()" aria-label="Закрыть">×</button><header><i>'+esc(def.icon||'✦')+'</i><div><small>'+(current?'Настройка активного состояния':'Новое состояние')+'</small><h3>'+esc(def.label)+'</h3></div></header><p>'+esc(def.description||'Мастер задаёт длительность и видимость состояния.')+'</p><div class="fields"><label><span>Количество</span><input id="zg-gm-status-duration-value" type="number" min="1" max="999" value="'+duration+'" '+(unit==='manual'?'disabled':'')+'></label><label><span>Единица</span><select id="zg-gm-status-duration-unit" onchange="zgGmStatusDurationUnitChange(this.value)"><option value="rounds" '+(unit==='rounds'?'selected':'')+'>Раунды</option><option value="hours" '+(unit==='hours'?'selected':'')+'>Часы</option><option value="days" '+(unit==='days'?'selected':'')+'>Дни</option><option value="manual" '+(unit==='manual'?'selected':'')+'>До снятия</option></select></label><label><span>Видимость</span><select id="zg-gm-status-duration-visibility"><option value="public" '+(visibility==='public'?'selected':'')+'>Видят игроки</option><option value="gm" '+(visibility==='gm'?'selected':'')+'>Только ГМ</option></select></label><label><span>Стаки</span><input id="zg-gm-status-duration-stacks" type="number" min="1" max="20" value="'+stacks+'"></label></div><footer><button type="button" onclick="zgGmStatusDurationClose()">Отмена</button><button type="button" class="apply" onclick="zgGmStatusDurationApply()">'+(current?'Сохранить':'Добавить')+'</button></footer></article>';
+    document.body.appendChild(overlay);
+  };
+  w.zgGmStatusDurationApply=function(){
+    var dialog=el('zg-gm-status-duration-dialog'),token=interventionToken();if(!dialog||!token||gmInterventionBusy)return;
+    var article=dialog.querySelector('article'),key=String(article&&article.getAttribute('data-status-key')||''),def=gmStatusDefinition(key);if(!def)return;
+    var unitNode=el('zg-gm-status-duration-unit'),valueNode=el('zg-gm-status-duration-value'),visibilityNode=el('zg-gm-status-duration-visibility'),stacksNode=el('zg-gm-status-duration-stacks');
+    var unit=unitNode&&['rounds','hours','days','manual'].indexOf(unitNode.value)>=0?unitNode.value:'manual';
+    var duration=unit==='manual'?0:Math.max(1,Math.min(999,Math.floor(Number(valueNode&&valueNode.value)||1)));
+    var visibility=visibilityNode&&visibilityNode.value==='gm'?'gm':'public',stacks=Math.max(1,Math.min(20,Math.floor(Number(stacksNode&&stacksNode.value)||1)));
+    var current=tokenStatusEffect(token,key)||{},durationPayload=gmStatusEffectPayload(def,{durationUnit:unit,durationValue:duration,visibility:visibility,stacks:stacks});
+    var next=Object.assign({},gmStatusEffectPayload(def),current,{
+      unit:durationPayload.unit,durationUnit:durationPayload.durationUnit,duration:durationPayload.duration,durationValue:durationPayload.durationValue,
+      remaining:durationPayload.remaining,remainingRounds:durationPayload.remainingRounds,durationMinutes:durationPayload.durationMinutes,remainingMinutes:durationPayload.remainingMinutes,
+      visibility:durationPayload.visibility,stacks:durationPayload.stacks
+    });
+    closeGmStatusDurationDialog();applyGmInterventionStatus(token,def,true,next);
+  };
   w.zgGmInterventionApply=function(kind){var token=interventionToken(),input=el('zg-gm-intervention-amount'),amount=Math.floor(Number(input&&input.value)||0);if(!token||gmInterventionBusy)return;gmInterventionBusy=true;renderGmIntervention();gmInterventionOperation(token,{kind:kind,amount:amount}).then(function(snapshot){mergeInterventionSnapshot(snapshot,token);if(snapshot&&snapshot.room&&snapshot.room.code==='TEST'&&w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);if(w.showToast)w.showToast(kind==='heal'?'Лечение применено':kind==='temp-hp'?'Временные HP установлены':'Урон применён');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить HP');}).then(function(){gmInterventionBusy=false;renderGmIntervention();});};
-  w.zgGmInterventionStatus=function(key){var token=interventionToken(),def=gmStatusDefinition(key);if(!token||!def||gmInterventionBusy)return;var active=tokenCombatStatuses(token).some(function(status){return status.key===key;}),enable=!active;gmInterventionBusy=true;renderGmIntervention();gmInterventionOperation(token,{kind:'status',statusKey:key,label:def.label,enable:enable,effect:enable?gmStatusEffectPayload(def):null}).then(function(snapshot){mergeInterventionSnapshot(snapshot,token);if(snapshot&&snapshot.room&&snapshot.room.code==='TEST'&&w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить эффект');}).then(function(){gmInterventionBusy=false;renderGmIntervention();});};
+  w.zgGmInterventionStatus=function(key){var token=interventionToken(),def=gmStatusDefinition(key);if(!token||!def||gmInterventionBusy)return;var active=tokenCombatStatuses(token).some(function(status){return status.key===key;});if(!active){w.zgGmStatusDurationOpen(key);return;}applyGmInterventionStatus(token,def,false,null);};
   w.zgGmInterventionStatusUpdate=function(key,field,direction){
     var token=interventionToken(),def=gmStatusDefinition(key),current=token&&tokenStatusEffect(token,key);if(!token||!def||!current||gmInterventionBusy)return;
     var next=Object.assign({},gmStatusEffectPayload(def),current);
@@ -12596,40 +12702,159 @@ document.addEventListener('DOMContentLoaded', function(){
     return order.find(function(entry){return entry&&entry.tokenId===token.id;})||null;
   }
   w.zgCombatEntryForToken=combatEntryForToken;
+  var STATUS_DISPLAY_ALIASES={
+    stun:'stun','оглушён':'stun','оглушен':'stun','оглушение':'stun',
+    burn:'burn','горит':'burn','горение':'burn','подожжён':'burn','подожжен':'burn',
+    poison:'poison','отравлен':'poison','отравление':'poison',
+    freeze:'freeze','заморожен':'freeze','заморозка':'freeze',
+    fear:'fear','страх':'fear','испуган':'fear',
+    blind:'blind','ослеплён':'blind','ослеплен':'blind','слепота':'blind',
+    prone:'prone','опрокинут':'prone','сбит с ног':'prone',
+    bleed:'bleed','кровотечение':'bleed',
+    silence:'silence','немота':'silence','безмолвие':'silence',
+    anchor:'anchor','якорь':'anchor',
+    charm:'charm','очарован':'charm','очарование':'charm',
+    dominate:'dominate','подчинён':'dominate','подчинен':'dominate',
+    paralyze:'paralyze','паралич':'paralyze','парализован':'paralyze',
+    restrain:'restrain','обездвижен':'restrain','удерживаем':'restrain',
+    slow:'slow','замедлен':'slow','замедление':'slow',
+    curse:'curse','проклят':'curse','проклятие':'curse',
+    exhausted:'exhausted','истощён':'exhausted','истощен':'exhausted','истощение':'exhausted',
+    invisible:'invisible','невидим':'invisible','невидимость':'invisible',
+    regen:'regen','регенерация':'regen',
+    shield:'shield','щит':'shield',
+    rage:'rage','ярость':'rage',
+    fly:'fly','полёт':'fly','полет':'fly',
+    confusion:'confusion','замешательство':'confusion'
+  };
+  function normalizeStatusDisplayKey(status){
+    var raw=typeof status==='string'?status:status&&(status.statusKey||status.key||status.id||status.name||status.label||status.value)||'';
+    raw=String(raw||'').replace(/^[^\p{L}\p{N}_-]+/u,'').trim().toLowerCase();
+    return STATUS_DISPLAY_ALIASES[raw]||raw;
+  }
+  function statusDisplayDefinition(key){
+    var catalog=gmStatusCatalog(),match=catalog.filter(function(status){return status&&String(status.key).toLowerCase()===String(key).toLowerCase();})[0];
+    if(match)return match;
+    var fallback=TOKEN_STATUS_DEFS[key];
+    return fallback?{key:key,icon:fallback[0],color:fallback[1],label:fallback[2],description:''}:null;
+  }
+  function statusDisplayEntry(value,key){
+    var item=value&&typeof value==='object'?value:{},definition=statusDisplayDefinition(key),known=!!definition;
+    var remaining=item.remaining==null?(item.remainingRounds==null?null:Number(item.remainingRounds)):Number(item.remaining);
+    var duration=item.duration==null?(item.durationValue==null?null:Number(item.durationValue)):Number(item.duration);
+    var remainingMinutes=item.remainingMinutes==null?null:Number(item.remainingMinutes);
+    var unit=String(item.durationUnit||item.unit||(item.remainingRounds!=null?'rounds':''));
+    var tickType=String(item.tickType||definition&&definition.startOfTurnEffect||'');
+    if(['damage','heal'].indexOf(tickType)<0)tickType='';
+    return{
+      key:key,
+      label:known?definition.label:(item.value||item.label||item.name||key),
+      icon:item.icon||definition&&definition.icon||'✦',
+      color:item.color||definition&&definition.color||'#9b875c',
+      remaining:Number.isFinite(remaining)?remaining:null,
+      remainingMinutes:Number.isFinite(remainingMinutes)?remainingMinutes:null,
+      unit:unit,
+      duration:Number.isFinite(duration)?duration:null,
+      description:definition&&definition.description||item.description||item.desc||item.effect||item.text||'',
+      tickType:tickType,
+      tickDice:String(item.tickDice||definition&&definition.startOfTurnDice||''),
+      stacks:Math.max(1,Number(item.stacks)||1),
+      visibility:item.visibility==='gm'?'gm':'public',
+      sourceId:String(item.sourceId||'')
+    };
+  }
+  function collectDisplayStatuses(source,options){
+    source=source||{};options=options||{};
+    var effects=[]
+      .concat(Array.isArray(source.statusEffects)?source.statusEffects:[])
+      .concat((Array.isArray(source.tempEffects)?source.tempEffects:[]).filter(function(effect){return effect&&effect.type==='status';}));
+    var statuses=Array.isArray(source.statuses)?source.statuses:[],result=[],seen={};
+    effects.forEach(function(effect){
+      if(!effect)return;
+      var key=normalizeStatusDisplayKey(effect);if(!key||seen[key])return;
+      seen[key]=true;
+      if(effect.visibility==='gm'&&!options.isMaster)return;
+      result.push(statusDisplayEntry(effect,key));
+    });
+    statuses.forEach(function(status){
+      var key=normalizeStatusDisplayKey(status);if(!key||seen[key])return;
+      seen[key]=true;
+      if(status&&typeof status==='object'&&status.visibility==='gm'&&!options.isMaster)return;
+      result.push(statusDisplayEntry(status,key));
+    });
+    return result.slice(0,40);
+  }
   function tokenCombatStatuses(token){
     var entry=combatEntryForToken(token),member=token.type==='hero'?memberForToken(token):null;
     var effects=Array.isArray(entry&&entry.statusEffects)?entry.statusEffects:(member&&member.character&&Array.isArray(member.character.statusEffects)?member.character.statusEffects:(Array.isArray(token.statusEffects)?token.statusEffects:[]));
     var statuses=Array.isArray(entry&&entry.statuses)?entry.statuses:(member&&member.character&&Array.isArray(member.character.statuses)?member.character.statuses:(Array.isArray(token.statuses)?token.statuses:[]));
-    var result=[],seen={};
-    effects.forEach(function(effect){
-      if(!effect||effect.type!=='status')return;
-      var key=String(effect.statusKey||effect.key||effect.id||'').toLowerCase();if(!key||seen[key])return;
-      if(effect.visibility==='gm'&&!isMaster){seen[key]=true;return;}
-      seen[key]=true;
-      result.push({key:key,label:effect.value||effect.label||key,icon:effect.icon||'',color:effect.color||'',remaining:effect.remaining==null?null:Number(effect.remaining),unit:effect.unit||'',duration:effect.duration==null?null:Number(effect.duration),description:effect.description||effect.desc||'',tickType:effect.tickType||'',tickValue:Number(effect.tickValue)||0,stacks:Math.max(1,Number(effect.stacks)||1),visibility:effect.visibility==='gm'?'gm':'public'});
-    });
-    statuses.forEach(function(status){var key=String(typeof status==='string'?status:status&&(status.statusKey||status.key||status.id)||'').toLowerCase();if(!key||seen[key])return;seen[key]=true;result.push({key:key,label:typeof status==='object'&&(status.label||status.value)||key,icon:typeof status==='object'&&status.icon||'',color:typeof status==='object'&&status.color||'',remaining:null});});
-    return result.slice(0,23);
+    return collectDisplayStatuses({statusEffects:effects,statuses:statuses},{isMaster:isMaster}).slice(0,23);
   }
   function tokenStatusEffect(token,key){
     var entry=combatEntryForToken(token),member=token&&token.type==='hero'?memberForToken(token):null;
     var effects=Array.isArray(entry&&entry.statusEffects)?entry.statusEffects:(member&&member.character&&Array.isArray(member.character.statusEffects)?member.character.statusEffects:(Array.isArray(token&&token.statusEffects)?token.statusEffects:[]));
-    return effects.filter(function(effect){return effect&&effect.type==='status'&&String(effect.statusKey||effect.key||effect.id||'').toLowerCase()===String(key||'').toLowerCase();})[0]||null;
+    var normalizedKey=normalizeStatusDisplayKey(key);
+    return effects.filter(function(effect){return effect&&effect.type==='status'&&normalizeStatusDisplayKey(effect)===normalizedKey;})[0]||null;
   }
   function statusCatalog(){
-    var catalog={};Object.keys(TOKEN_STATUS_DEFS).forEach(function(key){var def=TOKEN_STATUS_DEFS[key];catalog[key]={key:key,icon:def[0],color:def[1],label:def[2],description:''};});
-    function collect(source){if(!source)return;(Array.isArray(source.statusEffects)?source.statusEffects:[]).forEach(function(effect){if(!effect)return;var key=String(effect.statusKey||effect.key||effect.id||'').toLowerCase();if(!key)return;catalog[key]=Object.assign({},catalog[key]||{key:key},{icon:effect.icon||(catalog[key]&&catalog[key].icon)||'✦',color:effect.color||(catalog[key]&&catalog[key].color)||'#9b875c',label:effect.value||effect.label||(catalog[key]&&catalog[key].label)||key,description:effect.description||effect.desc||(catalog[key]&&catalog[key].description)||''});});}
+    var catalog={};gmStatusCatalog().forEach(function(status){if(status&&status.key)catalog[String(status.key).toLowerCase()]=Object.assign({},status);});
+    function collect(source){if(!source)return;(Array.isArray(source.statusEffects)?source.statusEffects:[]).forEach(function(effect){if(!effect)return;var key=normalizeStatusDisplayKey(effect);if(!key)return;var entry=statusDisplayEntry(effect,key);catalog[key]=Object.assign({},catalog[key]||{key:key},entry);});}
     (draft.tokens||[]).forEach(collect);var room=roomSnapshot&&roomSnapshot.room;Object.keys(room&&room.members||{}).forEach(function(uid){collect(room.members[uid]&&room.members[uid].character);});var order=room&&room.combat&&room.combat.order||[];order.forEach(collect);return catalog;
   }
+  function statusDurationText(status){
+    if(status.remaining==null)return status.unit==='manual'?'до снятия':'';
+    if(status.remainingMinutes!=null&&(status.unit==='hours'||status.unit==='days')){
+      var minutes=Math.max(0,Math.floor(Number(status.remainingMinutes)||0)),days=Math.floor(minutes/1440),hours=Math.floor(minutes%1440/60),rest=minutes%60,parts=[];
+      if(days)parts.push(days+' дн.');
+      if(hours)parts.push(hours+' ч.');
+      if(rest||!parts.length)parts.push(rest+' мин.');
+      return parts.slice(0,2).join(' ');
+    }
+    var value=Math.max(0,Number(status.remaining)||0),labels={rounds:'раунд.',minutes:'мин.',hours:'ч.',days:'дн.'};
+    return value+' '+(labels[status.unit]||status.unit||'');
+  }
+  function statusTickText(status){
+    if(!status.tickType)return'';
+    var action=status.tickType==='heal'?'Лечение':'Урон',dice=status.tickDice||'по правилу статуса';
+    return action+': '+dice+' в начале хода';
+  }
+  var TOKEN_STATUS_VISUAL_PRIORITY={burn:100,freeze:95,shield:90,stun:85,poison:80,bleed:75,invisible:70,fear:65};
+  function selectTokenStatusVisuals(statuses){
+    return (Array.isArray(statuses)?statuses:[]).map(function(status,index){
+      var key=normalizeStatusDisplayKey(status),priority=TOKEN_STATUS_VISUAL_PRIORITY[key]||10;
+      return{key:key,kind:TOKEN_STATUS_VISUAL_PRIORITY[key]?key:'ring',color:status&&status.color||'#9b875c',priority:priority,index:index};
+    }).filter(function(status){return !!status.key;}).sort(function(a,b){return b.priority-a.priority||a.index-b.index;}).slice(0,2);
+  }
+  var tokenStatusVisualObserver=typeof w!=='undefined'&&w.IntersectionObserver?new w.IntersectionObserver(function(entries){
+    entries.forEach(function(entry){entry.target.classList.toggle('is-vfx-visible',entry.isIntersecting&&entry.intersectionRatio>0);});
+  },{root:null,rootMargin:'120px'}):null;
+  function removeTokenStatusVisuals(node){
+    var host=node&&node.querySelector('.zg-vtt-token-status-visuals');if(!host)return;
+    if(tokenStatusVisualObserver)tokenStatusVisualObserver.unobserve(host);host.remove();
+  }
+  function appendTokenStatusVisuals(node,statuses){
+    var selected=selectTokenStatusVisuals(statuses);if(!node||!selected.length)return;
+    var host=document.createElement('span');host.className='zg-vtt-token-status-visuals';host.setAttribute('aria-hidden','true');
+    selected.forEach(function(status,index){
+      var layer=document.createElement('i');layer.className='zg-vtt-status-vfx zg-vtt-status-vfx-'+status.kind;layer.dataset.statusKey=status.key;layer.style.setProperty('--status-vfx-color',status.color);layer.style.setProperty('--status-vfx-offset',index?'-4px':'0px');host.appendChild(layer);
+    });
+    node.appendChild(host);
+    if(tokenStatusVisualObserver)tokenStatusVisualObserver.observe(host);else host.classList.add('is-vfx-visible');
+  }
+  function syncStatusVisualDocumentState(){
+    if(typeof document!=='undefined'&&document.documentElement)document.documentElement.classList.toggle('zg-status-vfx-paused',!!document.hidden);
+  }
+  if(typeof document!=='undefined'&&document.addEventListener){document.addEventListener('visibilitychange',syncStatusVisualDocumentState);syncStatusVisualDocumentState();}
   w.zgTokenStatusInfo=function(tokenId,key){
-    var token=(draft.tokens||[]).filter(function(item){return item&&item.id===tokenId;})[0];if(!token)return;var status=tokenCombatStatuses(token).filter(function(item){return item.key===key;})[0],def=statusCatalog()[key]||{};status=Object.assign({},def,status||{});var old=el('zg-token-status-info');if(old)old.remove();
-    var overlay=document.createElement('div');overlay.id='zg-token-status-info';overlay.className='zg-token-status-info';overlay.onclick=function(ev){if(ev.target===overlay)overlay.remove();};var duration=status.remaining!=null?(status.remaining+' '+({rounds:'раунд.',minutes:'мин.',hours:'ч.',days:'дн.'}[status.unit]||status.unit||'')):'';overlay.innerHTML='<article style="--status-color:'+esc(status.color||'#9b875c')+'"><button type="button" onclick="this.closest(\'.zg-token-status-info\').remove()" aria-label="Закрыть">×</button><i>'+esc(status.icon||'✦')+'</i><h3>'+esc(status.label||key)+'</h3>'+(duration?'<small>⏳ '+esc(duration)+'</small>':'')+(status.stacks>1?'<small>Стаки: '+status.stacks+'</small>':'')+(status.tickType?'<small>⚙ '+(status.tickValue>0?'+':'')+status.tickValue+' к '+esc(status.tickType)+' каждый раун</small>':'')+'<p>'+esc(status.description||'Этот статус отмечен на персонаже. Подробное описание для него пока не задано.')+'</p></article>';document.body.appendChild(overlay);
+    key=normalizeStatusDisplayKey(key);var token=(draft.tokens||[]).filter(function(item){return item&&item.id===tokenId;})[0];if(!token)return;var status=tokenCombatStatuses(token).filter(function(item){return item.key===key;})[0],def=statusCatalog()[key]||{};status=Object.assign({},def,status||{});var old=el('zg-token-status-info');if(old)old.remove();
+    var duration=statusDurationText(status),tick=statusTickText(status);var overlay=document.createElement('div');overlay.id='zg-token-status-info';overlay.className='zg-token-status-info';overlay.onclick=function(ev){if(ev.target===overlay)overlay.remove();};overlay.innerHTML='<article style="--status-color:'+esc(status.color||'#9b875c')+'"><button type="button" onclick="this.closest(\'.zg-token-status-info\').remove()" aria-label="Закрыть">×</button><i>'+esc(status.icon||'✦')+'</i><h3>'+esc(status.label||key)+'</h3>'+(duration?'<small>⏳ '+esc(duration)+'</small>':'')+(status.stacks>1?'<small>Стаки: '+status.stacks+'</small>':'')+(tick?'<small>⚙ '+esc(tick)+'</small>':'')+'<p>'+esc(status.description||'Статус отмечен на персонаже. Мастер уточняет его эффект по ситуации.')+'</p></article>';document.body.appendChild(overlay);
   };
   function appendTokenCombatStatuses(node,token){
     var visibility=(draft.view&&draft.view.statusVisibility)||{};
     var statuses=tokenCombatStatuses(token).filter(function(status){return visibility[status.key]!==false;}).slice(0,5);if(!statuses.length)return;
+    appendTokenStatusVisuals(node,statuses);
     var host=document.createElement('span');host.className='zg-vtt-token-statuses';
-    statuses.forEach(function(status){var def=TOKEN_STATUS_DEFS[status.key]||['✦','#9b875c',status.label],badge=document.createElement('button');badge.type='button';badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.stacks>1?' · стаки '+status.stacks:'')+(status.remaining>0?' · '+status.remaining+' р.':'')+' · нажмите для описания';badge.addEventListener('pointerdown',function(ev){ev.preventDefault();ev.stopPropagation();});badge.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();w.zgTokenStatusInfo(token.id,status.key);});if(status.remaining>0||status.stacks>1){var duration=document.createElement('em');duration.textContent=status.stacks>1?'×'+status.stacks:status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
+    statuses.forEach(function(status){var def=TOKEN_STATUS_DEFS[status.key]||['✦','#9b875c',status.label],badge=document.createElement('button'),durationText=statusDurationText(status);badge.type='button';badge.className='zg-vtt-token-status';badge.style.setProperty('--status-color',status.color||def[1]);badge.textContent=status.icon||def[0];badge.title=(status.label||def[2])+(status.stacks>1?' · стаки '+status.stacks:'')+(durationText?' · '+durationText:'')+' · нажмите для описания';badge.addEventListener('pointerdown',function(ev){ev.preventDefault();ev.stopPropagation();});badge.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();w.zgTokenStatusInfo(token.id,status.key);});if(status.remaining>0||status.stacks>1){var duration=document.createElement('em');duration.textContent=status.stacks>1?'×'+status.stacks:status.remaining;badge.appendChild(duration);}host.appendChild(badge);});
     node.appendChild(host);
   }
   w.zgStatusVisibilityRender=function(){
@@ -12773,6 +12998,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function renderTokens(){
     if(w.ZargotaPerformance)w.ZargotaPerformance.mark('renderTokens');
     var layer = el('zg-vtt-token-layer'); if (!layer) return;
+    if(tokenStatusVisualObserver)tokenStatusVisualObserver.disconnect();
     layer.innerHTML = '';
     var viewerGm = isMaster && gmVision === 'gm';
     draft.tokens.slice().sort(function(a,b){ return a.z-b.z; }).forEach(function(token){
@@ -12887,6 +13113,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!node||token.type==='text')return;
       var oldStatuses=node.querySelector('.zg-vtt-token-statuses');
       if(oldStatuses)oldStatuses.remove();
+      removeTokenStatusVisuals(node);
       var combatEntry=combatEntryForToken(token),statuses=tokenCombatStatuses(token);
       if(combatEntry||statuses.length)appendTokenCombatStatuses(node,token);
       var member=token.type==='hero'?memberForToken(token):null;
@@ -13176,21 +13403,37 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     if(added||rosterChanged){dirty=true;setStatus('Состав героев обновлён · опубликуйте сцену');renderTokens();}
   }
+  function syncDraftTimedStatuses(scene){
+    if(!scene||!Array.isArray(scene.tokens))return false;
+    var byId={};scene.tokens.forEach(function(token){if(token&&token.id)byId[String(token.id)]=token;});
+    var changed=false;
+    (draft.tokens||[]).forEach(function(token){
+      var source=token&&byId[String(token.id)];if(!source)return;
+      var nextStatuses=Array.isArray(source.statuses)?source.statuses:[],nextEffects=Array.isArray(source.statusEffects)?source.statusEffects:[];
+      var before=JSON.stringify([token.statuses||[],token.statusEffects||[]]),after=JSON.stringify([nextStatuses,nextEffects]);
+      if(before===after)return;
+      token.statuses=nextStatuses.slice();token.statusEffects=nextEffects.map(function(effect){return effect&&typeof effect==='object'?Object.assign({},effect):effect;});changed=true;
+    });
+    return changed;
+  }
   function roomState(snapshot){
     roomSnapshot = snapshot;
     var overlay = el('zg-game-overlay');
     isMaster = !!(snapshot && snapshot.session && snapshot.session.role === 'master');
     if(!isMaster&&w.zgArrivalFocusReset){playerCameraFocus=null;w.zgArrivalFocusReset=false;}
     if (overlay) overlay.classList.toggle('gm', isMaster);
+    renderWorldClock();
     if (!isMaster) gmVision = 'gm';
     applyGmWorkspaceMode(gmWorkspaceMode,false);
     updateVisionButton();
     if (!snapshot || !snapshot.room) return;
+    var worldClockRevision=Math.max(0,Number(snapshot.room.worldClock&&snapshot.room.worldClock.revision)||0);
     var roomChanged = false;
     if (snapshot.room.code !== activeRoomCode) {
       activeRoomCode = snapshot.room.code || '';
       lastAppliedSceneSignature = '';
       lastAppliedSceneStructureSignature = '';
+      lastWorldClockRevision = -1;
       dirty = false; roomChanged = true; histReset(); clearGroupSel();
     }
     var src = snapshot.room.scene || DEFAULT_SCENE;
@@ -13200,6 +13443,8 @@ document.addEventListener('DOMContentLoaded', function(){
       zoneId = me && me.zone || '';
       if (zoneId && snapshot.room.zones && snapshot.room.zones[zoneId]) src = snapshot.room.zones[zoneId];  // игрок в своей зоне
     }
+    if(isMaster&&lastWorldClockRevision>=0&&worldClockRevision!==lastWorldClockRevision&&syncDraftTimedStatuses(src))renderTokens();
+    lastWorldClockRevision=worldClockRevision;
     var visualSignature=sceneVisualSignature(src,zoneId,snapshot.room);
     var visualSceneChanged=roomChanged||visualSignature!==lastAppliedSceneSignature;
     var structureSignature=sceneStructureSignature(src,zoneId,snapshot.room);
@@ -14482,7 +14727,18 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttPartyClick = function(uid){
     gmMarkSheetSeen(uid);
     renderParty();
+    var session=state&&state.session;
+    if(session&&session.role==='master'&&typeof w.zgVttOpenPanelForMember==='function'){
+      if(w.zgSheetClose)w.zgSheetClose();
+      return w.zgVttOpenPanelForMember('character',uid);
+    }
+    if(session&&session.role==='player'&&String(session.uid)===String(uid)&&typeof w.zgVttOpenPanel==='function'){
+      if(w.zgSheetClose)w.zgSheetClose();
+      w.zgVttOpenPanel('character',{forceOpen:true,resetMember:true});
+      return true;
+    }
     if (w.zgSheetOpen) w.zgSheetOpen(uid);
+    return false;
   };
   function renderJournal(){
     var room = state && state.room;
@@ -14695,11 +14951,11 @@ document.addEventListener('DOMContentLoaded', function(){
     var heroPortrait=c.portrait
       ? '<img src="'+esc(c.portrait)+'" alt="">'
       : '<span>'+esc(String(c.name||'?').trim().charAt(0).toUpperCase()||'✦')+'</span>';
-    var activeStatuses=[].concat(Array.isArray(c.statuses)?c.statuses:[],Array.isArray(c.statusEffects)?c.statusEffects:[]);
-    var statuses=activeStatuses.map(function(status){
-      var item=typeof status==='string'?{name:status}:status||{};
-      return '<span class="zg-bag-status-card"><i>'+esc(item.icon||'✦')+'</i><b>'+esc(item.name||item.label||'Статус')+'</b>'+(item.duration?'<small>'+esc(item.duration)+'</small>':'')+'</span>';
-    }).join('');
+    var activeStatuses=collectDisplayStatuses({
+      statuses:c.statuses,
+      statusEffects:c.statusEffects,
+      tempEffects:c.tempEffects
+    },{isMaster:!!(state&&state.session&&state.session.role==='master')});
     var hpMax=Math.max(1,Number(c.hpMax)||1),hpCur=Math.max(0,Math.min(hpMax,Number(c.hpCur)||0)),hpPercent=Math.round(hpCur/hpMax*100),tempHp=Math.max(0,Number(c.tempHp)||0);
     var equipmentSummary=c._equipBonusCache&&typeof c._equipBonusCache==='object'
       ?c._equipBonusCache
@@ -14733,7 +14989,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return '<div class="zg-state-fame-row"><header><b>'+label+'</b><span>'+value+' / 8</span></header><div>'+Array.from({length:8},function(_,index){return '<i class="'+(index<value?'filled':'')+'">✦</i>';}).join('')+'</div></div>';
     }
     function statParts(key){var value=stats[key]||{},base=value.cur!=null&&value.cur!==0?Number(value.cur)||0:Number(value.base)||0,temp=Number(value.tmp)||0;return{base:base,temp:temp};}
-    var effectsHtml=activeStatuses.map(function(status){var item=typeof status==='string'?{name:status}:status||{},description=item.description||item.effect||item.text||'',duration=item.duration||item.rounds||item.turns||'';return '<article class="zg-state-effect-row"><i>'+esc(item.icon||'✦')+'</i><span><b>'+esc(item.name||item.label||'Статус')+'</b>'+(description?'<small>'+esc(description)+'</small>':'')+'</span>'+(duration?'<em>⌛ '+esc(duration)+'</em>':'')+'</article>';}).join('');
+    var effectsHtml=activeStatuses.map(function(status){var description=status.description||'',duration=statusDurationText(status);return '<article class="zg-state-effect-row"><i>'+esc(status.icon||'✦')+'</i><span><b>'+esc(status.label||'Статус')+'</b>'+(description?'<small>'+esc(description)+'</small>':'')+'</span>'+(duration?'<em>⌛ '+esc(duration)+'</em>':'')+'</article>';}).join('');
     var injurySource=Array.isArray(c.injuries)?c.injuries:Array.isArray(c.traumas)?c.traumas:Array.isArray(c.wounds)?c.wounds:[],injuries=[];
     for(var injuryIndex=0;injuryIndex<4;injuryIndex++){var injury=injurySource[injuryIndex];injuries.push(injury?'<article class="zg-state-injury filled"><i>'+esc(typeof injury==='object'&&injury.icon||'✦')+'</i><b>'+esc(typeof injury==='string'?injury:injury.name||injury.label||'Травма')+'</b></article>':'<article class="zg-state-injury"><i>＋</i><b>Нет травм</b></article>');}
     return '<div class="zg-bag-state-tools">'+remoteMeta+planHtml+'</div>'+
@@ -14897,23 +15153,29 @@ document.addEventListener('DOMContentLoaded', function(){
     if(typeof legacyNotes==='string')legacyNotes=legacyNotes.trim()?[legacyNotes]:[];
     if(!Array.isArray(legacyNotes))legacyNotes=[legacyNotes];
     function recordCategory(entry){
+      if(entry&&String(entry.kind||'').toLowerCase()==='quest')return'quest';
       var hay=String((entry&&entry.category||'')+' '+(entry&&entry.type||'')+' '+(entry&&entry.kind||'')+' '+(entry&&entry.title||'')+' '+(entry&&entry.name||'')).toLowerCase();
       return /place|location|мест|локац|карта|руин|лес|долин|дорог|тракт|путь|храм|святилищ|город|деревн|порт|замок|пещер/.test(hay)?'place':'note';
     }
-    function recordIcon(category){return category==='place'?'⌖':'▤';}
-    function recordType(category){return category==='place'?'Место':'Заметка';}
+    function recordIcon(category){return category==='quest'?'✦':category==='place'?'⌖':'▤';}
+    function questStatusLabel(status){var value=String(status||'').toLowerCase();return/провал|failed/.test(value)?'Проваленное':/заверш|готов|done|complete/.test(value)?'Завершённое':/нов|new/.test(value)?'Новое':'Активное';}
+    function questTone(status){return status==='completed'?'done':status==='failed'?'failed':status==='new'?'new':'active';}
+    function recordType(record){
+      if(record&&record.kind==='quest')return record.importance==='secondary'?'Дополнительная цель':'Главная цель';
+      return record&&record.category==='place'?'Место':'Заметка';
+    }
     function recordImage(value){
       value=String(value||'').trim();
       return /^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(value)?value:'';
     }
     var records=entries.slice().sort(function(a,b){return Number(b.updatedAt||b.createdAt||0)-Number(a.updatedAt||a.createdAt||0);}).map(function(entry){
       var category=recordCategory(entry);
-      return{id:String(entry.journalId||''),title:entry.title||'Без названия',text:entry.text||'',category:category,icon:entry.icon||recordIcon(category),image:recordImage(entry.image||entry.art||entry.cover),editable:true};
+      return{id:String(entry.journalId||''),title:entry.title||'Без названия',text:entry.text||'',category:category,icon:entry.icon||recordIcon(category),image:recordImage(entry.image||entry.art||entry.cover),imageFit:entry.imageFit==='cover'?'cover':'contain',kind:String(entry.kind||''),status:String(entry.status||''),importance:String(entry.importance||''),editable:String(entry.updatedBy||'')!=='gm'};
     });
     legacyNotes.forEach(function(note,index){
       if(note==null)return;
       var item=typeof note==='object'?note:{text:String(note)},category=recordCategory(item);
-      records.push({id:'legacy-'+index,title:item.title||item.name||'Запись листа',text:item.text||item.description||'',category:category,icon:item.icon||recordIcon(category),image:recordImage(item.image||item.art),editable:false});
+      records.push({id:'legacy-'+index,title:item.title||item.name||'Запись листа',text:item.text||item.description||'',category:category,icon:item.icon||recordIcon(category),image:recordImage(item.image||item.art),imageFit:item.imageFit==='cover'?'cover':'contain',kind:'',status:'',importance:'',editable:false});
     });
     function pushGoal(target,value){
       if(value==null||value==='')return;
@@ -14921,10 +15183,12 @@ document.addEventListener('DOMContentLoaded', function(){
       var item=typeof value==='object'?value:{title:String(value)},title=String(item.title||item.name||item.text||'').trim();
       if(!title)return;
       var key=title.toLowerCase();if(target.some(function(goal){return goal.key===key;}))return;
-      var status=String(item.status||item.state||'Активна'),statusHay=status.toLowerCase(),tone=/заверш|готов|done|complete/.test(statusHay)?'done':/нов|new/.test(statusHay)?'new':'active';
+      var rawStatus=String(item.status||item.state||'active'),status=questStatusLabel(rawStatus),statusHay=rawStatus.toLowerCase(),tone=/провал|failed/.test(statusHay)?'failed':/заверш|готов|done|complete/.test(statusHay)?'done':/нов|new/.test(statusHay)?'new':'active';
       target.push({key:key,title:title,description:String(item.description||item.details||'').trim(),status:status,tone:tone,icon:item.icon||'✦'});
     }
-    var goals=[];pushGoal(goals,c.currentGoal);pushGoal(goals,c.mainGoals);pushGoal(goals,c.goals);pushGoal(goals,c.quests);
+    var goals=[];
+    entries.filter(function(entry){return String(entry.kind||'')==='quest'&&String(entry.importance||'main')!=='secondary';}).forEach(function(entry){pushGoal(goals,entry);});
+    pushGoal(goals,c.currentGoal);pushGoal(goals,c.mainGoals);pushGoal(goals,c.goals);pushGoal(goals,c.quests);
     goals=goals.slice(0,3);
     var goalsHtml=goals.length?goals.map(function(goal){
       return'<article class="zg-journal3-goal '+goal.tone+'"><i>'+esc(goal.icon)+'</i><span><b>'+esc(goal.title)+'</b>'+(goal.description?'<small>'+esc(goal.description)+'</small>':'')+'<em>'+esc(goal.status)+'</em></span></article>';
@@ -14937,7 +15201,9 @@ document.addEventListener('DOMContentLoaded', function(){
     journalSelectedId=selected&&selected.id||'';
     var listHtml=pageRecords.map(function(record,index){
       var selectedClass=selected&&selected.id===record.id?' active':'';
-      return'<button type="button" class="zg-journal3-entry'+selectedClass+'" data-journal-id="'+esc(record.id)+'" onclick="zgVttJournalSelect(this.dataset.journalId)"><i>'+esc(record.icon)+'</i><span><b>'+esc(record.title)+'</b><small>'+recordType(record.category)+'</small></span><em>'+String(journalPage*pageSize+index+1)+'</em></button>';
+      var questClass=record.kind==='quest'?' quest '+questTone(record.status)+' '+(record.importance==='secondary'?'secondary':'main'):'';
+      var lead=record.image?'<i class="thumb"><img src="'+esc(record.image)+'" alt="" loading="lazy" decoding="async"></i>':'<i>'+esc(record.icon)+'</i>';
+      return'<button type="button" class="zg-journal3-entry'+selectedClass+questClass+'" data-journal-id="'+esc(record.id)+'" onclick="zgVttJournalSelect(this.dataset.journalId)">'+lead+'<span><b>'+esc(record.title)+'</b><small>'+recordType(record)+(record.kind==='quest'?' · '+questStatusLabel(record.status):'')+'</small></span><em>'+String(journalPage*pageSize+index+1)+'</em></button>';
     }).join('');
     if(!listHtml)listHtml='<div class="zg-journal3-list-empty"><i>◇</i><span>В этой категории пока нет записей</span></div>';
     var canAdd=!!localCharacter,session=state&&state.session,isMasterTarget=!!(session&&session.role==='master'&&member&&member.character);
@@ -14945,14 +15211,14 @@ document.addEventListener('DOMContentLoaded', function(){
     var preview='';
     if(selected){
       var previewAction=selected.editable&&localCharacter?' ondblclick="zgVttJournalOpen(\''+esc(selected.id)+'\')" title="Двойной клик — изменить запись"':'';
-      var previewArt=selected.image?'<div class="zg-journal3-paper-art" style="background-image:url(&quot;'+esc(selected.image)+'&quot;)"></div>':'';
-      preview='<article class="zg-journal3-paper"'+previewAction+'><header><h3>'+esc(selected.title)+'</h3><i>◇</i><small>'+recordType(selected.category)+'</small></header>'+previewArt+'<div class="zg-journal3-paper-text">'+esc(selected.text||'Текст записи пока не заполнен.')+'</div></article>';
+      var previewArt=selected.image?'<figure class="zg-journal3-paper-art '+selected.imageFit+'"><img src="'+esc(selected.image)+'" alt="'+esc(selected.title)+'" loading="lazy" decoding="async"></figure>':'';
+      preview='<article class="zg-journal3-paper"'+previewAction+'><header><h3>'+esc(selected.title)+'</h3><i>◇</i><small>'+recordType(selected)+(selected.kind==='quest'?' · '+questStatusLabel(selected.status):'')+'</small></header>'+previewArt+'<div class="zg-journal3-paper-text">'+esc(selected.text||'Текст записи пока не заполнен.')+'</div></article>';
     }else preview='<div class="zg-journal3-paper empty"><i>▤</i><b>Журнал пока пуст</b><span>Создайте первую запись, чтобы сохранить важное из приключения.</span></div>';
     return'<div class="zg-bag-notes zg-journal3">'+
       '<section class="zg-journal3-goals"><header><i>✦</i><h3>Главные цели</h3><button type="button" class="zg-journal3-manual" onclick="zgVttJournalOpenManual(event)" title="Открыть Мануал" aria-label="Открыть Мануал">?</button><i>✦</i></header><div>'+goalsHtml+'</div></section>'+
       '<section class="zg-journal3-main">'+
         '<aside class="zg-journal3-index"><header><i>❧</i><h3>Мои записи</h3></header>'+
-          '<nav><button type="button" class="'+(journalFilter==='all'?'active':'')+'" onclick="zgVttJournalFilter(\'all\')"><i>▤</i><span>Все</span></button><button type="button" class="'+(journalFilter==='note'?'active':'')+'" onclick="zgVttJournalFilter(\'note\')"><i>❧</i><span>Заметки</span></button><button type="button" class="'+(journalFilter==='place'?'active':'')+'" onclick="zgVttJournalFilter(\'place\')"><i>⌖</i><span>Места</span></button></nav>'+
+          '<nav><button type="button" class="'+(journalFilter==='all'?'active':'')+'" onclick="zgVttJournalFilter(\'all\')"><i>▤</i><span>Все</span></button><button type="button" class="'+(journalFilter==='quest'?'active':'')+'" onclick="zgVttJournalFilter(\'quest\')"><i>✦</i><span>Задания</span></button><button type="button" class="'+(journalFilter==='note'?'active':'')+'" onclick="zgVttJournalFilter(\'note\')"><i>❧</i><span>Заметки</span></button><button type="button" class="'+(journalFilter==='place'?'active':'')+'" onclick="zgVttJournalFilter(\'place\')"><i>⌖</i><span>Места</span></button></nav>'+
           '<div class="zg-journal3-list">'+listHtml+'</div>'+
           '<footer class="zg-journal3-pages"><button type="button" onclick="zgVttJournalPage(-1)" '+(journalPage<=0?'disabled':'')+'>‹</button><span>'+(journalPage+1)+' / '+pageCount+'</span><button type="button" onclick="zgVttJournalPage(1)" '+(journalPage>=pageCount-1?'disabled':'')+'>›</button></footer>'+addControl+
         '</aside>'+
@@ -15817,7 +16083,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var entry=entries[index],stamp=Date.now();entry.deletedAt=stamp;entry.updatedAt=stamp;entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);if(String(journalSelectedId)===String(journalId))journalSelectedId='';journalSave('journal-remove',true);renderDrawer();
   };
   w.zgVttJournalSelect=function(journalId){journalSelectedId=String(journalId||'');renderDrawer();};
-  w.zgVttJournalFilter=function(filter){journalFilter=['all','note','place'].indexOf(filter)>=0?filter:'all';journalPage=0;journalSelectedId='';renderDrawer();};
+  w.zgVttJournalFilter=function(filter){journalFilter=['all','quest','note','place'].indexOf(filter)>=0?filter:'all';journalPage=0;journalSelectedId='';renderDrawer();};
   w.zgVttJournalPage=function(delta){journalPage=Math.max(0,journalPage+(Number(delta)<0?-1:1));journalSelectedId='';renderDrawer();};
   w.zgVttJournalMasterAdd=function(memberUid){
     var session=state&&state.session;
@@ -19879,6 +20145,11 @@ window.zgImageStore = (function() {
   .zg-game-overlay{position:fixed;inset:0;z-index:9650;display:none;background:radial-gradient(120% 100% at 50% 40%,#0a0806 0%,#040303 70%)}
   .zg-game-overlay.open{display:block}   /* мгновенно непрозрачный — без мелькания меню */
   .zg-session-connection{position:absolute;z-index:80;left:50%;top:14px;display:none;transform:translateX(-50%);padding:7px 13px;border:1px solid #9a6a2c;border-radius:16px;background:#180f07e8;color:#e0bd72;font:600 9px 'Cinzel',serif;letter-spacing:.7px;box-shadow:0 6px 18px #000a}.zg-session-connection.show{display:block}
+  .zg-world-clock{position:absolute;z-index:8;left:72px;bottom:17px;min-width:128px;height:48px;display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center;gap:8px;padding:4px 10px 4px 5px;border:1px solid #51401f;border-radius:24px;background:linear-gradient(110deg,#171109e8,#090806e8);box-shadow:0 8px 25px #000a,inset 0 1px 0 #e2c76b14;color:#a89568;text-align:left;pointer-events:auto;cursor:default;backdrop-filter:blur(7px)}
+  .zg-world-clock.gm{cursor:pointer}.zg-world-clock.gm:hover{border-color:#ae8537;background:linear-gradient(110deg,#291c0be8,#0c0906ee);box-shadow:0 8px 25px #000b,0 0 16px #bd8b3033}.zg-world-clock.busy{opacity:.65;cursor:wait}
+  .zg-world-clock-dial,.zg-gm-time-panel .dial{position:relative;display:grid;place-items:center;border:1px solid #745727;border-radius:50%;background:radial-gradient(circle,#2a1c0b,#0b0907 72%);color:#e1c16e;box-shadow:inset 0 0 12px #d99c2926,0 0 9px #000}
+  .zg-world-clock-dial{width:36px;height:36px}.zg-world-clock-dial i,.zg-gm-time-panel .dial i{font:normal 16px/1 Georgia,serif;text-shadow:0 0 10px currentColor}.zg-world-clock-dial b,.zg-gm-time-panel .dial b{position:absolute;left:50%;top:50%;width:1px;height:42%;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(var(--world-clock-angle));background:linear-gradient(#f6dc8d,#8b6328);box-shadow:0 0 5px #eab955;transition:transform .65s cubic-bezier(.2,.8,.2,1)}.zg-world-clock-dial:after,.zg-gm-time-panel .dial:after{content:'';position:absolute;width:4px;height:4px;border-radius:50%;background:#f0d077;box-shadow:0 0 5px #eab955}
+  .zg-world-clock>span:last-child{min-width:0;display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:7px}.zg-world-clock small{grid-column:1/-1;color:#716347;font:600 6px 'Cinzel',serif;letter-spacing:.7px;text-transform:uppercase}.zg-world-clock strong{color:#e6ce8c;font:700 14px/1.1 Georgia,serif;letter-spacing:.5px}.zg-world-clock em{color:#75694f;font:italic 8px Georgia,serif}.zg-world-clock.sun .zg-world-clock-dial,.zg-gm-time-panel.sun .dial{color:#f1c74f}.zg-world-clock.dawn .zg-world-clock-dial,.zg-gm-time-panel.dawn .dial{color:#dc8d4d}.zg-world-clock.twilight .zg-world-clock-dial,.zg-gm-time-panel.twilight .dial{color:#bd7d7b}.zg-world-clock.moon .zg-world-clock-dial,.zg-gm-time-panel.moon .dial{color:#8fa8d0}
   .zg-game-overlay.arriving .zg-vtt-scene{animation:zgPlayerArrival 5.8s cubic-bezier(.2,.72,.2,1) both}
   .zg-vtt-world.arrival-glide{transition:transform 5.55s cubic-bezier(.18,.72,.16,1)!important;will-change:transform}
   .zg-vtt-arrival-fog{position:fixed;inset:-16%;z-index:80;display:none;pointer-events:none;background:radial-gradient(circle at var(--zg-arrival-x,50%) var(--zg-arrival-y,50%),rgba(137,146,140,.72) 0 8%,rgba(74,83,79,.88) 27%,rgba(13,17,16,.98) 72%),repeating-radial-gradient(ellipse at 18% 48%,rgba(164,173,166,.34) 0 8%,transparent 17% 27%),repeating-radial-gradient(ellipse at 84% 42%,rgba(136,148,142,.3) 0 9%,transparent 19% 30%);filter:blur(22px) saturate(.72)}
@@ -20374,11 +20645,14 @@ window.zgImageStore = (function() {
   .zg-gm-meters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 14px}.zg-gm-meters>div{padding:8px 9px;border:1px solid #352a1b;border-radius:7px;background:#0b0907}.zg-gm-meters header{display:flex;justify-content:space-between;margin-bottom:6px;color:#807157;font-size:8px}.zg-gm-meters header b{color:#b9917f;font:600 8px 'Cinzel',serif}.zg-gm-meters>div>i{display:block;height:5px;overflow:hidden;border-radius:3px;background:#21100d}.zg-gm-meters>div>i>span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#81352d,#d56850);box-shadow:0 0 8px #d85b44}.zg-gm-meters>div.temp>i{background:#0d1b22}.zg-gm-meters>div.temp>i>span{background:linear-gradient(90deg,#285b70,#58a7c4);box-shadow:0 0 8px #4e9ebe}
   .zg-gm-action-section,.zg-gm-status-section{padding:11px;border:1px solid #3b301e;border-radius:9px;background:#0c0a07c9}.zg-gm-action-section>header,.zg-gm-status-section>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.zg-gm-action-section>header div,.zg-gm-status-section>header div{display:grid;gap:2px}.zg-gm-action-section>header small,.zg-gm-status-section>header small{color:#716344;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-gm-action-section>header b,.zg-gm-status-section>header b{color:#d8bd7b;font:600 10px 'Cinzel',serif}.zg-gm-action-section>header>span,.zg-gm-status-section>header>span{color:#635942;font-size:8px}.zg-gm-amount{display:grid;grid-template-columns:34px 34px 34px 1fr;gap:5px;margin-bottom:8px}.zg-gm-amount>button{border:1px solid #44351f;border-radius:5px;background:#151008;color:#a9925f;font:700 9px 'Cinzel',serif;cursor:pointer}.zg-gm-amount>button:hover{border-color:#a27a32;color:#eed28a}.zg-gm-amount label{height:35px;display:grid;grid-template-columns:1fr 62px;align-items:center;padding-left:9px;border:1px solid #44351f;border-radius:5px;background:#100d09;color:#76684b;font:8px 'Cinzel',serif}.zg-gm-amount input{box-sizing:border-box;width:100%;height:33px;border:0;border-left:1px solid #44351f;background:#080706;color:#ead59c;text-align:center;font:700 13px 'Cinzel',serif;outline:none}.zg-gm-primary-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-gm-primary-actions button{min-height:52px;display:grid;grid-template-columns:30px 1fr;align-items:center;padding:7px;border:1px solid #44321e;border-radius:7px;background:#120e09;color:#aa9467;text-align:left;cursor:pointer}.zg-gm-primary-actions button.temp-hp{grid-column:1/-1}.zg-gm-primary-actions button>i{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;font:normal 16px serif}.zg-gm-primary-actions button span{display:grid;gap:2px}.zg-gm-primary-actions button b{font:600 9px 'Cinzel',serif}.zg-gm-primary-actions button small{color:#665b47;font-size:8px}.zg-gm-primary-actions button.damage{border-color:#603027}.zg-gm-primary-actions button.damage>i{background:#32120e;color:#f18774}.zg-gm-primary-actions button.heal{border-color:#285136}.zg-gm-primary-actions button.heal>i{background:#102719;color:#79cb8e}.zg-gm-primary-actions button.temp-hp{border-color:#2a5060}.zg-gm-primary-actions button.temp-hp>i{background:#10232c;color:#7bc5df}.zg-gm-primary-actions button:hover{filter:brightness(1.25);transform:translateY(-1px)}.zg-gm-primary-actions button:disabled,.zg-gm-intervention-statuses button:disabled{opacity:.42;cursor:wait;transform:none}
   .zg-gm-intervention-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:9px 0}.zg-gm-intervention-links button{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;min-height:44px;padding:7px;border:1px solid #40331f;border-radius:7px;background:#0f0c08;color:#aa925f;text-align:left;cursor:pointer}.zg-gm-intervention-links button>i{font:normal 15px serif}.zg-gm-intervention-links button>span{min-width:0;display:grid;color:#c3a96e;font:600 8px 'Cinzel',serif}.zg-gm-intervention-links button small{margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#605741;font:8px Georgia,serif}.zg-gm-intervention-links button>b{color:#755f36;font-size:16px}.zg-gm-status-section{margin-top:9px}.zg-gm-intervention-statuses{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:390px;overflow:auto;padding-right:2px}.zg-gm-intervention-statuses button{display:grid;grid-template-columns:27px 1fr auto;align-items:center;min-height:42px;padding:5px 7px;border:1px solid #30281b;border-radius:6px;background:#0b0907;color:#756a52;text-align:left;cursor:pointer}.zg-gm-intervention-statuses button i{display:grid;place-items:center;width:23px;height:23px;border-radius:50%;border:1px solid color-mix(in srgb,var(--status-color),transparent 42%);background:color-mix(in srgb,var(--status-color),transparent 90%);color:var(--status-color);font-style:normal}.zg-gm-intervention-statuses button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:8px 'Cinzel',serif}.zg-gm-intervention-statuses button em{color:#4f493c;font:normal 7px Georgia,serif}.zg-gm-intervention-statuses button.active{border-color:color-mix(in srgb,var(--status-color),#332719 45%);color:#e1d1a5;box-shadow:inset 0 0 18px color-mix(in srgb,var(--status-color),transparent 90%)}.zg-gm-intervention-statuses button.active em{color:var(--status-color)}.zg-gm-intervention-empty{display:grid;place-items:center;gap:7px;padding:42px 18px;text-align:center;border:1px dashed #4a3a21;border-radius:9px;color:#846f4e}.zg-gm-intervention-empty.compact{padding:20px 14px;margin-bottom:9px}.zg-gm-intervention-empty i{font-size:30px;color:#c18c38}.zg-gm-intervention-empty b{color:#d6ba78;font:600 12px 'Cinzel',serif}.zg-gm-intervention-empty span{font:11px/1.45 Georgia,serif}
-  .zg-gm-active-statuses{display:grid;gap:5px;margin:0 0 9px;padding:7px;border:1px solid #44341f;border-radius:7px;background:#100c08}.zg-gm-active-status{display:grid;grid-template-columns:25px minmax(0,1fr) auto;align-items:center;gap:7px;min-height:36px}.zg-gm-active-status>i{display:grid;place-items:center;width:23px;height:23px;border:1px solid var(--status-color);border-radius:50%;color:var(--status-color);font-style:normal}.zg-gm-active-status>span{min-width:0;display:grid}.zg-gm-active-status>span b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7c28d;font:600 8px 'Cinzel',serif}.zg-gm-active-status>span small{color:#6c6048;font:7px Georgia,serif}.zg-gm-active-status>div{display:grid;grid-template-columns:24px 28px 24px 48px;align-items:center;gap:3px}.zg-gm-active-status button{height:25px;padding:0;border:1px solid #4b3820;border-radius:5px;background:#0b0907;color:#b99b5e;font:700 10px Arial;cursor:pointer}.zg-gm-active-status button:disabled{opacity:.35;cursor:not-allowed}.zg-gm-active-status em{text-align:center;color:#d6bb78;font:normal 8px 'Cinzel',serif}.zg-gm-active-status button.visibility{font:600 7px 'Cinzel',serif}.zg-gm-active-status button.visibility.hidden{border-color:#674335;color:#d69573}
-  .zg-gm-tool-tabs{position:sticky;z-index:1;top:43px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:-5px 0 12px;padding:5px;border:1px solid #332817;border-radius:9px;background:#0b0907f2;backdrop-filter:blur(8px)}.zg-gm-tool-tabs button{min-width:0;min-height:44px;display:grid;place-items:center;gap:2px;padding:5px 2px;border:1px solid transparent;border-radius:6px;background:transparent;color:#74684e;cursor:pointer}.zg-gm-tool-tabs button i{font:normal 15px serif}.zg-gm-tool-tabs button span{font:600 7px 'Cinzel',serif;letter-spacing:.3px}.zg-gm-tool-tabs button:hover{color:#c9ae70;background:#171109}.zg-gm-tool-tabs button.active{border-color:#8a682d;background:radial-gradient(circle at 50% 5%,#9c6a2438,transparent 68%),#201609;color:#f0d58d;box-shadow:inset 0 0 16px #c8952930,0 0 12px #000}.zg-gm-tool-content{animation:zgGmToolTabIn .18s ease}@keyframes zgGmToolTabIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .zg-gm-active-statuses{display:grid;gap:5px;margin:0 0 9px;padding:7px;border:1px solid #44341f;border-radius:7px;background:#100c08}.zg-gm-active-status{display:grid;grid-template-columns:25px minmax(0,1fr) auto;align-items:center;gap:7px;min-height:36px}.zg-gm-active-status>i{display:grid;place-items:center;width:23px;height:23px;border:1px solid var(--status-color);border-radius:50%;color:var(--status-color);font-style:normal}.zg-gm-active-status>span{min-width:0;display:grid}.zg-gm-active-status>span b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d7c28d;font:600 8px 'Cinzel',serif}.zg-gm-active-status>span small{color:#6c6048;font:7px Georgia,serif}.zg-gm-active-status>div{display:grid;grid-template-columns:24px 28px 24px 48px 28px;align-items:center;gap:3px}.zg-gm-active-status button{height:25px;padding:0;border:1px solid #4b3820;border-radius:5px;background:#0b0907;color:#b99b5e;font:700 10px Arial;cursor:pointer}.zg-gm-active-status button:disabled{opacity:.35;cursor:not-allowed}.zg-gm-active-status em{text-align:center;color:#d6bb78;font:normal 8px 'Cinzel',serif}.zg-gm-active-status button.visibility{font:600 7px 'Cinzel',serif}.zg-gm-active-status button.visibility.hidden{border-color:#674335;color:#d69573}.zg-gm-active-status button.duration{color:var(--status-color)}
+  .zg-gm-status-duration-dialog{position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box;background:#020100c9;backdrop-filter:blur(4px)}.zg-gm-status-duration-dialog article{position:relative;width:min(440px,94vw);padding:19px;border:1px solid color-mix(in srgb,var(--status-color),#6e4b22 48%);border-radius:13px;background:radial-gradient(circle at 18% 0,color-mix(in srgb,var(--status-color),transparent 91%),transparent 40%),linear-gradient(155deg,#1a120a,#090705 72%);box-shadow:0 24px 70px #000,0 0 34px color-mix(in srgb,var(--status-color),transparent 84%);color:#b9a377}.zg-gm-status-duration-dialog .close{position:absolute;top:8px;right:10px;width:30px;height:30px;border:0;background:transparent;color:#8d7951;font-size:23px;cursor:pointer}.zg-gm-status-duration-dialog header{display:flex;align-items:center;gap:12px;padding-right:30px}.zg-gm-status-duration-dialog header>i{display:grid;place-items:center;width:48px;height:48px;border:1px solid var(--status-color);border-radius:50%;background:color-mix(in srgb,var(--status-color),transparent 90%);color:var(--status-color);font:normal 25px serif}.zg-gm-status-duration-dialog header div{display:grid;gap:2px}.zg-gm-status-duration-dialog header small{color:#756342;font:8px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-gm-status-duration-dialog h3{margin:0;color:#ead49c;font:700 18px 'Cinzel',serif}.zg-gm-status-duration-dialog p{margin:13px 0 16px;padding-bottom:13px;border-bottom:1px solid #49351d;color:#9a8968;font:13px/1.45 Georgia,serif}.zg-gm-status-duration-dialog .fields{display:grid;grid-template-columns:1fr 1fr;gap:9px}.zg-gm-status-duration-dialog label{display:grid;gap:5px}.zg-gm-status-duration-dialog label span{color:#85724e;font:8px 'Cinzel',serif;letter-spacing:.7px;text-transform:uppercase}.zg-gm-status-duration-dialog input,.zg-gm-status-duration-dialog select{box-sizing:border-box;width:100%;height:39px;padding:0 10px;border:1px solid #554021;border-radius:6px;background:#0b0805;color:#dec58a;font:600 12px Georgia,serif;outline:none}.zg-gm-status-duration-dialog input:focus,.zg-gm-status-duration-dialog select:focus{border-color:var(--status-color);box-shadow:0 0 0 2px color-mix(in srgb,var(--status-color),transparent 82%)}.zg-gm-status-duration-dialog input:disabled{opacity:.35}.zg-gm-status-duration-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:17px}.zg-gm-status-duration-dialog footer button{min-width:110px;height:39px;border:1px solid #4f3c22;border-radius:7px;background:#100c08;color:#9f8a60;font:600 10px 'Cinzel',serif;cursor:pointer}.zg-gm-status-duration-dialog footer button.apply{border-color:color-mix(in srgb,var(--status-color),#765123 52%);background:color-mix(in srgb,var(--status-color),#160e07 84%);color:#efd79a}
+  .zg-gm-tool-tabs{position:sticky;z-index:1;top:43px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:-5px 0 12px;padding:5px;border:1px solid #332817;border-radius:9px;background:#0b0907f2;backdrop-filter:blur(8px)}.zg-gm-tool-tabs button{min-width:0;min-height:44px;display:grid;place-items:center;gap:2px;padding:5px 2px;border:1px solid transparent;border-radius:6px;background:transparent;color:#74684e;cursor:pointer}.zg-gm-tool-tabs button i{font:normal 15px serif}.zg-gm-tool-tabs button span{font:600 7px 'Cinzel',serif;letter-spacing:.3px}.zg-gm-tool-tabs button:hover{color:#c9ae70;background:#171109}.zg-gm-tool-tabs button.active{border-color:#8a682d;background:radial-gradient(circle at 50% 5%,#9c6a2438,transparent 68%),#201609;color:#f0d58d;box-shadow:inset 0 0 16px #c8952930,0 0 12px #000}.zg-gm-tool-content{animation:zgGmToolTabIn .18s ease}@keyframes zgGmToolTabIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .zg-gm-time-panel{overflow:hidden;border:1px solid #5c4521;border-radius:11px;background:radial-gradient(circle at 15% 5%,#a06d2129,transparent 42%),#0d0a07}.zg-gm-time-panel>header{display:grid;grid-template-columns:82px minmax(0,1fr);align-items:center;gap:15px;padding:18px;border-bottom:1px solid #392b18}.zg-gm-time-panel .dial{width:78px;height:78px}.zg-gm-time-panel .dial i{font-size:28px}.zg-gm-time-panel>header div{display:grid;gap:3px}.zg-gm-time-panel>header small{color:#766647;font:7px 'Cinzel',serif;letter-spacing:1.4px;text-transform:uppercase}.zg-gm-time-panel>header strong{color:#f0d58b;font:700 34px/1 Georgia,serif;letter-spacing:1px;text-shadow:0 0 17px #dcaa3f32}.zg-gm-time-panel>header em{color:#8f7c59;font:italic 10px Georgia,serif}.zg-gm-time-panel>p{margin:0;padding:12px 15px;color:#82745a;font:10px/1.5 Georgia,serif}.zg-gm-time-presets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;padding:0 11px 12px}.zg-gm-time-presets button{min-width:0;height:54px;display:grid;place-content:center;gap:3px;border:1px solid #47371d;border-radius:7px;background:#110d08;color:#837451;cursor:pointer}.zg-gm-time-presets button:hover:not(:disabled){border-color:#b48838;background:#271a09;color:#efd183;transform:translateY(-1px)}.zg-gm-time-presets button:disabled{opacity:.5;cursor:wait}.zg-gm-time-presets b{font:700 14px Georgia,serif}.zg-gm-time-presets span{font:600 6px 'Cinzel',serif;text-transform:uppercase}.zg-gm-time-panel>footer{display:flex;justify-content:space-between;gap:8px;padding:9px 12px;border-top:1px solid #332817;background:#090806;color:#6f634b;font:7px 'Cinzel',serif}
   .zg-gm-vfx-intensity,.zg-gm-vfx-section{padding:10px;margin-bottom:9px;border:1px solid #3b301e;border-radius:9px;background:#0c0a07c9}.zg-gm-vfx-intensity>header,.zg-gm-vfx-section>header{display:flex;align-items:end;justify-content:space-between;margin-bottom:9px}.zg-gm-vfx-intensity header div,.zg-gm-vfx-section header div{display:grid;gap:2px}.zg-gm-vfx-intensity header small,.zg-gm-vfx-section header small{color:#716344;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-gm-vfx-intensity header b,.zg-gm-vfx-section header b{color:#dec47f;font:600 10px 'Cinzel',serif}.zg-gm-vfx-intensity header>span,.zg-gm-vfx-section header>span{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#655b45;font-size:8px}.zg-gm-vfx-intensity>div{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.zg-gm-vfx-intensity button{height:32px;border:1px solid #3c301e;border-radius:5px;background:#110d08;color:#76694e;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-gm-vfx-intensity button.active{border-color:#ad8031;background:#2c1c09;color:#efd284;box-shadow:inset 0 0 12px #d6942830}.zg-gm-vfx-section.scene{border-color:#554020;background:radial-gradient(circle at 100% 0,#8f65201e,transparent 50%),#0c0a07}.zg-gm-vfx-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-gm-vfx-grid>button{min-width:0;min-height:49px;display:grid;grid-template-columns:31px minmax(0,1fr);gap:7px;align-items:center;padding:6px;border:1px solid color-mix(in srgb,var(--vfx-color),#2c2519 72%);border-radius:7px;background:linear-gradient(135deg,color-mix(in srgb,var(--vfx-color),transparent 94%),#0b0907);color:#88795c;text-align:left;cursor:pointer}.zg-gm-vfx-grid>button>i{display:grid;place-items:center;width:29px;height:29px;border:1px solid color-mix(in srgb,var(--vfx-color),transparent 42%);border-radius:50%;background:color-mix(in srgb,var(--vfx-color),transparent 90%);color:var(--vfx-color);font:normal 16px serif;box-shadow:0 0 11px color-mix(in srgb,var(--vfx-color),transparent 78%)}.zg-gm-vfx-grid>button span{min-width:0;display:grid;gap:2px}.zg-gm-vfx-grid>button b,.zg-gm-vfx-grid>button small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-gm-vfx-grid>button b{color:#cdb47a;font:600 8px 'Cinzel',serif}.zg-gm-vfx-grid>button small{color:#655a44;font-size:8px}.zg-gm-vfx-grid>button:hover:not(:disabled){border-color:var(--vfx-color);filter:brightness(1.18);transform:translateY(-1px)}.zg-gm-vfx-grid>button:disabled{opacity:.28;cursor:not-allowed;filter:grayscale(.7)}
   .zg-gm-delivery-link{display:grid;grid-template-columns:54px minmax(0,1fr);gap:13px;align-items:center;padding:18px;border:1px solid #5b4522;border-radius:11px;background:radial-gradient(circle at 15% 20%,#9b6b2527,transparent 38%),#0d0a07}.zg-gm-delivery-link>i{display:grid;place-items:center;width:50px;height:50px;border:1px solid #8f6a2b;border-radius:50%;background:#211608;color:#e0bd69;font:normal 23px serif;box-shadow:0 0 22px #bd85252f}.zg-gm-delivery-link>div{min-width:0;display:grid;gap:4px}.zg-gm-delivery-link small{color:#78694c;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-gm-delivery-link b{color:#e5cc8e;font:600 11px/1.35 'Cinzel',serif}.zg-gm-delivery-link p{margin:2px 0 0;color:#7f7258;font:10px/1.45 Georgia,serif}.zg-gm-delivery-link>button{grid-column:1/-1;height:38px;border:1px solid #9b732d;border-radius:6px;background:linear-gradient(180deg,#30200c,#1b1107);color:#efd184;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-gm-delivery-link>button:hover{border-color:#d1a342;box-shadow:0 0 17px #bc84252b}
-  @media(max-width:700px){.zg-gm-intervention{left:10px;right:10px;top:72px;width:auto;max-height:calc(100vh - 84px)}.zg-gm-meters{grid-template-columns:1fr}.zg-gm-target-card{grid-template-columns:56px minmax(0,1fr) auto}.zg-gm-target-card>img,.zg-gm-target-placeholder{width:52px;height:52px}.zg-gm-tool-tabs{top:43px}.zg-gm-vfx-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:700px){.zg-gm-intervention{left:10px;right:10px;top:72px;width:auto;max-height:calc(100vh - 84px)}.zg-world-clock{left:68px;bottom:18px;min-width:118px}.zg-gm-meters{grid-template-columns:1fr}.zg-gm-target-card{grid-template-columns:56px minmax(0,1fr) auto}.zg-gm-target-card>img,.zg-gm-target-placeholder{width:52px;height:52px}.zg-gm-tool-tabs{top:43px}.zg-gm-vfx-grid{grid-template-columns:1fr 1fr}.zg-gm-time-presets{grid-template-columns:repeat(3,1fr)}}
+  @media(prefers-reduced-motion:reduce){.zg-world-clock-dial b,.zg-gm-time-panel .dial b{transition:none!important}}
   .zg-zone-create-title{margin:10px 0 6px;color:#826e43;font:600 9px 'Cinzel',serif;text-transform:uppercase}.zg-zone-create{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.zg-zone-create button{height:31px;border:1px solid #49371c;border-radius:4px;background:#151008;color:#bba471;font:9px 'Cinzel',serif;cursor:pointer}.zg-zone-create button:hover{border-color:#b98b37;color:#f0d58a}
   .zg-zones-list{display:flex;flex-direction:column;gap:5px;margin:12px 0}.zg-zone-row{display:grid;grid-template-columns:20px 1fr auto;gap:7px;align-items:center;width:100%;min-height:36px;padding:6px 8px;border:1px solid #332817;border-radius:4px;background:#100d09;color:#9d8a63;text-align:left;cursor:pointer}.zg-zone-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 10px 'Cinzel',serif}.zg-zone-row small{font-size:8px;color:#6f624a}.zg-zone-row.selected{border-color:#bd913c;background:#20170b;color:#efd692}.zg-zone-empty{display:block;padding:13px;text-align:center;color:#74664a}
   .zg-zone-editor{display:grid;grid-template-columns:1fr 92px;gap:8px;padding-top:10px;border-top:1px solid #352916}.zg-zone-editor[hidden]{display:none}.zg-zone-editor label{display:flex;flex-direction:column;gap:4px;color:#82724f;font:9px 'Cinzel',serif}.zg-zone-editor label:nth-child(3),.zg-zone-editor label:nth-child(4){grid-column:1/-1}.zg-zone-editor input,.zg-zone-editor select{height:30px;border:1px solid #44341d;border-radius:4px;background:#0c0a07;color:#d1b979;padding:0 8px;font:10px Georgia,serif}.zg-zone-editor input[type=range]{height:auto;padding:0}.zg-zone-delete{grid-column:1/-1;height:31px;border:1px solid #6c302a;border-radius:4px;background:#1b0d0b;color:#c7786d;font:10px 'Cinzel',serif;cursor:pointer}.zg-zone-help{display:block;margin-top:9px;color:#6c6048;line-height:1.4}
@@ -20527,6 +20801,31 @@ window.zgImageStore = (function() {
   .zg-vtt-token-statuses{position:absolute;z-index:6;left:calc(100% + 7px);top:50%;display:flex;flex-direction:column;gap:3px;transform:translateY(-50%);pointer-events:auto}
   .zg-vtt-token-status{position:relative;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent);cursor:pointer;pointer-events:auto;transition:transform .15s,filter .15s}.zg-vtt-token-status:hover{transform:scale(1.15);filter:brightness(1.25)}
   .zg-vtt-token-status em{position:absolute;right:-4px;bottom:-4px;min-width:12px;height:12px;padding:0 2px;border:1px solid #100d08;border-radius:7px;background:var(--status-color,#9b875c);color:#090704;font:700 8px/11px Arial,sans-serif;text-align:center}
+  .zg-vtt-token-status-visuals{position:absolute;z-index:1;inset:-9px;border-radius:50%;pointer-events:none;contain:layout paint style}
+  .zg-vtt-status-vfx{position:absolute;inset:var(--status-vfx-offset,0px);display:block;border:2px solid color-mix(in srgb,var(--status-vfx-color,#9b875c) 76%,transparent);border-radius:50%;opacity:.7;box-shadow:0 0 8px color-mix(in srgb,var(--status-vfx-color,#9b875c) 54%,transparent),inset 0 0 7px color-mix(in srgb,var(--status-vfx-color,#9b875c) 28%,transparent);animation:zgStatusRingBreath 2.8s ease-in-out infinite;animation-play-state:paused;will-change:transform,opacity}
+  .zg-vtt-token-status-visuals.is-vfx-visible .zg-vtt-status-vfx{animation-play-state:running}
+  .zg-vtt-status-vfx::before,.zg-vtt-status-vfx::after{content:'';position:absolute;inset:-4px;border-radius:inherit;pointer-events:none;animation-play-state:paused}
+  .zg-vtt-token-status-visuals.is-vfx-visible .zg-vtt-status-vfx::before,.zg-vtt-token-status-visuals.is-vfx-visible .zg-vtt-status-vfx::after{animation-play-state:running}
+  .zg-vtt-status-vfx-burn{border-color:#e87332;box-shadow:0 0 10px #ff5a24a6,inset 0 0 8px #8f260d66;animation-name:zgStatusBurnRing;animation-duration:1.65s}.zg-vtt-status-vfx-burn::before{inset:-7px;background:radial-gradient(circle at 18% 25%,#ffd36b 0 2px,transparent 2.6px),radial-gradient(circle at 82% 32%,#f06b2f 0 1.5px,transparent 2.2px),radial-gradient(circle at 55% 94%,#ffb13c 0 1.5px,transparent 2.3px);animation:zgStatusOrbit 4.8s linear infinite}
+  .zg-vtt-status-vfx-poison{border-color:#66b84f;box-shadow:0 0 11px #5dcc4f8a,inset 0 0 10px #274e226b;animation-name:zgStatusPoisonBreath;animation-duration:3.4s}.zg-vtt-status-vfx-poison::before{inset:-5px;background:radial-gradient(circle at 30% 20%,#85d06b70,transparent 28%),radial-gradient(circle at 72% 80%,#3f8e3866,transparent 32%);filter:blur(2px);animation:zgStatusOrbit 8s linear infinite reverse}
+  .zg-vtt-status-vfx-freeze{border-color:#8ad9ff;box-shadow:0 0 12px #62bfe7a6,inset 0 0 9px #bfefff73;animation-name:zgStatusFreezeGlint;animation-duration:2.6s}.zg-vtt-status-vfx-freeze::before{inset:-5px;border:1px dashed #d4f4ffb8;animation:zgStatusOrbit 12s linear infinite}
+  .zg-vtt-status-vfx-stun{border-color:#ead14e;box-shadow:0 0 10px #f5d94f94;animation-name:zgStatusRingBreath}.zg-vtt-status-vfx-stun::before{content:'✦  ·  ✦';inset:-9px;display:flex;align-items:flex-start;justify-content:center;color:#f5df67;font:10px/1 Arial;text-shadow:0 0 5px #f5d94f;animation:zgStatusOrbit 3.6s linear infinite}
+  .zg-vtt-status-vfx-bleed{border-color:#d84949;box-shadow:0 0 9px #d52f2f8c,inset 0 0 8px #6f11116b;animation-name:zgStatusBleedPulse;animation-duration:1.9s}
+  .zg-vtt-status-vfx-shield{border:2px double #78b6ff;box-shadow:0 0 12px #5ca6ff9c,inset 0 0 10px #428ce56b;animation-name:zgStatusShieldPulse;animation-duration:3s}.zg-vtt-status-vfx-shield::before{inset:3px;border:1px solid #b5d8ff78}
+  .zg-vtt-status-vfx-invisible{border:1.5px dashed #7ed8d6;box-shadow:0 0 10px #72d8d187;animation-name:zgStatusInvisible;animation-duration:2.2s}
+  .zg-vtt-status-vfx-fear{border-color:#8d5bb9;box-shadow:0 0 14px #6b329eb0,inset 0 0 11px #2d103f91;animation-name:zgStatusFearPulse;animation-duration:2.5s}
+  @keyframes zgStatusRingBreath{0%,100%{opacity:.48;transform:scale(.98)}50%{opacity:.78;transform:scale(1.035)}}
+  @keyframes zgStatusOrbit{to{transform:rotate(360deg)}}
+  @keyframes zgStatusBurnRing{0%,100%{opacity:.55;transform:scale(.98)}35%{opacity:.95;transform:scale(1.04)}70%{opacity:.7;transform:scale(1.01)}}
+  @keyframes zgStatusPoisonBreath{0%,100%{opacity:.42;transform:scale(.96)}50%{opacity:.78;transform:scale(1.06)}}
+  @keyframes zgStatusFreezeGlint{0%,100%{opacity:.58;filter:brightness(.9)}50%{opacity:.92;filter:brightness(1.35)}}
+  @keyframes zgStatusBleedPulse{0%,100%{opacity:.48;transform:scale(.98)}20%{opacity:.95;transform:scale(1.055)}38%{opacity:.55;transform:scale(1.01)}}
+  @keyframes zgStatusShieldPulse{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:.9;transform:scale(1.045)}}
+  @keyframes zgStatusInvisible{0%,100%{opacity:.2;transform:scale(.98) rotate(0)}45%{opacity:.8;transform:scale(1.04) rotate(4deg)}70%{opacity:.32;transform:scale(1.01) rotate(-3deg)}}
+  @keyframes zgStatusFearPulse{0%,100%{opacity:.35;transform:scale(.97)}50%{opacity:.82;transform:scale(1.065)}}
+  html.zg-status-vfx-paused .zg-vtt-status-vfx,html.zg-status-vfx-paused .zg-vtt-status-vfx::before,html.zg-status-vfx-paused .zg-vtt-status-vfx::after{animation-play-state:paused!important}
+  html.zg-reduced-effects .zg-vtt-status-vfx{animation:none!important;opacity:.58;filter:none!important;will-change:auto}html.zg-reduced-effects .zg-vtt-status-vfx::before,html.zg-reduced-effects .zg-vtt-status-vfx::after{animation:none!important;display:none}
+  @media (prefers-reduced-motion:reduce){.zg-vtt-status-vfx{animation:none!important;opacity:.58;filter:none!important;will-change:auto}.zg-vtt-status-vfx::before,.zg-vtt-status-vfx::after{animation:none!important;display:none}}
   .zg-vtt-token-light{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:-1;mix-blend-mode:screen;border-radius:50%}
   .zg-vtt-token-light.flicker{animation:zgLightFlicker 2.5s infinite alternate ease-in-out}
   @keyframes zgLightFlicker{0%{opacity:.85;transform:translate(-50%,-50%) scale(.96)}25%{opacity:1;transform:translate(-50%,-50%) scale(1.03)}50%{opacity:.9;transform:translate(-50%,-50%) scale(.98)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}100%{opacity:.85;transform:translate(-50%,-50%) scale(.97)}}
@@ -23447,6 +23746,7 @@ window.zgImageStore = (function() {
   .zg-journal3-goal em{color:#809d50;font:normal 7px/1.15 'Cinzel',serif;white-space:nowrap}
   .zg-journal3-goal.new em{color:#6086a2}
   .zg-journal3-goal.done em{color:#9c7851}
+  .zg-journal3-goal.failed em{color:#9f5148}
   .zg-journal3-goals-empty{
     grid-column:1/-1;
     display:flex;
@@ -23487,7 +23787,7 @@ window.zgImageStore = (function() {
   .zg-journal3-index>header h3{color:#cdb275;font:600 11px/1 'Cinzel',serif}
   .zg-journal3-index>nav{
     display:grid;
-    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-columns:repeat(4,minmax(0,1fr));
     padding:4px 5px;
     border-bottom:1px solid #3c2a19;
   }
@@ -23546,6 +23846,9 @@ window.zgImageStore = (function() {
     box-shadow:inset 2px 0 #d0a347,0 0 10px #b7791822;
   }
   .zg-journal3-entry>i{color:#917345;font:15px/1 Georgia,serif;text-align:center}
+  .zg-journal3-entry>i.thumb{width:24px;height:28px;overflow:hidden;border:1px solid #674b28;border-radius:3px;background:#080706;box-shadow:0 2px 6px #0008}
+  .zg-journal3-entry>i.thumb img{width:100%;height:100%;display:block;object-fit:cover;filter:sepia(.28) saturate(.8)}
+  .zg-journal3-entry.quest.main{border-left:2px solid #bd8a32}.zg-journal3-entry.quest.secondary{border-left:2px solid #756348}.zg-journal3-entry.quest.done{opacity:.72}.zg-journal3-entry.quest.failed{border-left-color:#91463e}.zg-journal3-entry.quest.new small{color:#6e95ae}.zg-journal3-entry.quest.active small{color:#8da65f}.zg-journal3-entry.quest.failed small{color:#b2685e}
   .zg-journal3-entry>span{min-width:0}
   .zg-journal3-entry b,
   .zg-journal3-entry small{
@@ -23630,19 +23933,19 @@ window.zgImageStore = (function() {
     border-radius:4px;
     background:
       linear-gradient(rgba(71,48,25,.13) 1px,transparent 1px) 0 97px/100% 22px,
-      radial-gradient(circle at 28% 18%,rgba(255,239,185,.42),transparent 26%),
-      radial-gradient(circle at 70% 76%,rgba(89,53,25,.14),transparent 38%),
-      #c8ad78;
-    box-shadow:inset 0 0 28px #56371866,inset 0 0 0 2px #d0b47b44,0 8px 22px #0008;
-    color:#372515;
+      radial-gradient(circle at 28% 18%,rgba(255,246,210,.54),transparent 29%),
+      radial-gradient(circle at 70% 76%,rgba(89,53,25,.10),transparent 40%),
+      linear-gradient(135deg,#d8c18f,#c6aa72 64%,#d2b983);
+    box-shadow:inset 0 0 23px #5637184d,inset 0 0 0 2px #f0dca455,0 8px 22px #0008;
+    color:#27170c;
   }
   .zg-journal3-paper[ondblclick]{cursor:pointer}
   .zg-journal3-paper>header{text-align:center}
   .zg-journal3-paper>header h3{
     max-width:100%;
     overflow:hidden;
-    color:#2d1c0e;
-    font:600 17px/1.15 Georgia,serif;
+    color:#241409;
+    font:700 18px/1.15 Georgia,serif;
     text-overflow:ellipsis;
     white-space:nowrap;
     text-shadow:0 1px #e5cf9a66;
@@ -23658,23 +23961,26 @@ window.zgImageStore = (function() {
   .zg-journal3-paper>header>i::before,
   .zg-journal3-paper>header>i::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,transparent,#725431)}
   .zg-journal3-paper>header>i::after{background:linear-gradient(90deg,#725431,transparent)}
-  .zg-journal3-paper>header small{color:#5c4225;font:italic 8px/1 Georgia,serif}
+  .zg-journal3-paper>header small{color:#51371d;font:italic 9px/1 Georgia,serif}
   .zg-journal3-paper-art{
-    height:128px;
+    height:clamp(92px,24vh,150px);
+    display:grid;
+    place-items:center;
+    overflow:hidden;
     margin:12px 0 10px;
     border:1px solid #73543299;
-    background-position:center;
-    background-size:cover;
-    filter:sepia(.75) saturate(.6) contrast(.85);
-    mix-blend-mode:multiply;
-    opacity:.78;
+    border-radius:2px;
+    background:#8f744c55;
+    box-shadow:inset 0 0 16px #3c261744;
   }
+  .zg-journal3-paper-art img{width:100%;height:100%;display:block;object-fit:contain;filter:sepia(.34) saturate(.82) contrast(.94);opacity:.92}.zg-journal3-paper-art.cover img{object-fit:cover}
   .zg-journal3-paper-text{
     min-height:0;
     margin-top:15px;
     overflow:hidden;
-    color:#382818;
-    font:italic 10px/1.68 Georgia,serif;
+    color:#24170e;
+    font:italic 12px/1.62 Georgia,serif;
+    text-shadow:0 1px rgba(255,245,210,.3);
     white-space:pre-wrap;
     overflow-wrap:anywhere;
     -webkit-mask-image:linear-gradient(#000 92%,transparent);
@@ -23716,7 +24022,7 @@ window.zgImageStore = (function() {
     .zg-journal3-paper{padding:15px 11px 12px}
     .zg-journal3-paper>header h3{font-size:13px}
     .zg-journal3-paper-art{height:95px;margin:9px 0 6px}
-    .zg-journal3-paper-text{margin-top:10px;font-size:8px;line-height:1.58}
+    .zg-journal3-paper-text{margin-top:10px;font-size:9.5px;line-height:1.58}
     .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close):not(.zg-bag-cal-open){
       grid-template-rows:46px 13px;
     }
@@ -23868,6 +24174,9 @@ window.zgImageStore = (function() {
   <!-- ══ ЭКРАН ИГРЫ (тёмный, заглушка под инструментарий D&D) ══ -->
   <div id="zg-game-overlay" class="zg-game-overlay">
     <div class="zg-session-connection" id="zg-session-connection" aria-live="polite"></div>
+    <button type="button" class="zg-world-clock moon" id="zg-world-clock" onclick="zgWorldClockOpen(event)" aria-label="Игровое время">
+      <span class="zg-world-clock-dial"><i>☾</i><b></b></span><span><small>День пути 1</small><strong>00:00</strong><em>Ночь</em></span>
+    </button>
     <button type="button" class="zg-game-gear" onclick="zgGameSettings(event)" title="Настройки" aria-label="Настройки">⚙</button>
     <button type="button" class="zg-scene-gear" id="zg-scene-gear" onclick="zgSceneSettings(event)" title="Настройка сцены" aria-label="Настройка сцены">🗺</button>
     <div class="zg-gm-actions" id="zg-gm-actions">
@@ -53997,29 +54306,29 @@ function getDefaultStatusMechanics() {
   var _sts2 = (typeof ALL_STATUSES !== 'undefined' ? ALL_STATUSES : (window.ALL_STATUSES||[]));
   // Канонические дефолты по COMBAT_RULESET_CANON §9
   var CANON = {
-    stun:      { cantAct:true, cantReact:true, grantAdvantageToAttackers:true, hasDisadvantage:true, autoRemove:'save_dc', saveDC:14, saveStat:'con', defaultDuration:1, description:'Теряет долгое действие и реакцию. Помеха на атаки и большинство проверок. В начале хода — Сл 14 Выносливости для снятия.' },
+    stun:      { cantAct:true, cantReact:true, grantAdvantageToAttackers:true, attackDisadvantage:true, abilityCheckDisadvantage:true, autoRemove:'save_dc', saveDC:14, saveStat:'con', defaultDuration:1, description:'Теряет долгое действие и реакцию. Помеха на атаки и большинство проверок. В начале хода — Сл 14 Выносливости для снятия.' },
     burn:      { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Огонь', defaultDuration:2, description:'Получает 1d4 Огня в начале хода. Сбивается водой, действием "Упасть и катиться" или в зависимости от объёма пламени.' },
-    poison:    { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Яд', attackMod:-2, defaultDuration:3, description:'Получает 1d4 Яда в начале хода. Помеха на броски атак и проверки характеристик. Снимается лекарством или Сл 14 Выносливости.' },
-    freeze:    { cantMove:true, cantAct:true, speedMod:-3, hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:1, description:'Скован льдом: обездвижен, ослеплён, мыслительные процессы заторможены. Уязвим к Дробящему и Звуковому урону. По нему — атаки с преимуществом.' },
-    fear:      { hasDisadvantage:true, defaultDuration:2, description:'Не может добровольно приближаться к источнику страха. Помеха на броски рядом с ним.' },
-    blind:     { hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Помеха на атаки. Все атаки по нему — с преимуществом.' },
-    prone:     { grantAdvantageToAttackers:true, speedMod:-3, defaultDuration:1, description:'Опрокинут. Встать = половина скорости хода. Ближние атаки по нему с преимуществом, дальние — с помехой.' },
+    poison:    { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Яд', attackDisadvantage:true, abilityCheckDisadvantage:true, defaultDuration:3, description:'Получает 1d4 Яда в начале хода. Помеха на броски атак и проверки характеристик. Снимается лекарством или Сл 14 Выносливости.' },
+    freeze:    { cantMove:true, cantAct:true, attackDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:1, description:'Скован льдом: обездвижен, ослеплён, заторможен. Уязвим к Дробящему и Звуковому урону. По нему — атаки с преимуществом.' },
+    fear:      { attackDisadvantage:true, abilityCheckDisadvantage:true, defaultDuration:2, description:'Не может добровольно приближаться к источнику страха. Помеха на броски рядом с ним.' },
+    blind:     { attackDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Помеха на атаки. Все атаки по нему — с преимуществом.' },
+    prone:     { grantAdvantageToAttackers:true, defaultDuration:1, description:'Опрокинут. Встать = половина скорости хода. Ближние атаки по нему с преимуществом, дальние — с помехой.' },
     bleed:     { startOfTurnEffect:'damage', startOfTurnDice:'1d4', endOfTurnDamageType:'Физ.', defaultDuration:3, description:'Периодический урон 1d4 в начале хода. Тяжёлое кровотечение — стакается. Снимается перевязкой (Сл 10 Ловкости).' },
     silence:   { defaultDuration:2, description:'Магическая немота. Не может использовать заклинания и магические способности. Обычные навыки и атаки работают.' },
     anchor:    { defaultDuration:3, description:'Магический якорь. Не может телепортироваться или перемещаться магическими средствами (телепорт, Полёт, портал, прыжок-сквозь-тень и т.п.).' },
-    charm:     { hasDisadvantage:true, defaultDuration:3, description:'Очарован. Не может атаковать источник чар. Помеха на проверки против него.' },
+    charm:     { abilityCheckDisadvantage:true, defaultDuration:3, description:'Очарован. Не может атаковать источник чар. Помеха на проверки против него.' },
     dominate:  { cantAct:true, cantReact:true, defaultDuration:2, description:'Подчинён. Действует полностью по воле источника статуса (контролёра); собственных действий не совершает.' },
     paralyze:  { cantAct:true, cantMove:true, cantReact:true, grantAdvantageToAttackers:true, attackMod:-99, autoRemove:'save_dc', saveDC:15, saveStat:'con', defaultDuration:1, description:'Полный паралич. Обездвижен и не может действовать, но мысли в порядке. По нему — атаки с преимуществом. Сл 15 Выносливости для снятия.' },
-    restrain:  { cantMove:true, hasDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Обездвижен. Скорость 0. Помеха на атаки и спасброски Ловкости. По нему — атаки с преимуществом. Действовать (атаковать, кастовать) — можно.' },
-    slow:      { speedMod:-3, attackMod:-1, defaultDuration:3, description:'Замедлен. Передвижение в 2 раза меньше. Только одно действие за ход.' },
+    restrain:  { cantMove:true, attackDisadvantage:true, dexSaveDisadvantage:true, grantAdvantageToAttackers:true, defaultDuration:2, description:'Обездвижен. Скорость 0. Помеха на атаки и спасброски Ловкости. По нему — атаки с преимуществом. Действовать (атаковать, кастовать) — можно.' },
+    slow:      { defaultDuration:3, description:'Замедлен. Передвижение в 2 раза меньше. Только одно действие за ход.' },
     curse:     { attackMod:-2, damageMod:-1, defaultDuration:5, description:'Проклят. Конкретные эффекты — кастомные, зависят от источника проклятия. Дефолт: -2 к атакам, -1 к урону. Снимается ритуалом или святой магией.' },
-    exhausted: { hasDisadvantage:true, description:'Истощён (5 уровней). Ур.1 Усталость — помеха на проверки характеристик. Ур.2 Изнеможение — скорость ÷ 2, реакций нет. Ур.3 Истощение — помеха на атаки и спасброски. Ур.4 Срыв — макс HP ÷ 2, нельзя кастовать. Ур.5 Коллапс — без сознания (борьба за жизнь). Снимается: -1 уровень за короткий отдых, всё за долгий. Эффекты статуса по умолчанию = Ур.1; для более высоких уровней ГМ вручную поднимает модификаторы (помеха атак, -2 скор., итд) на странице Состояний.' },
-    invisible: { acMod:2, defaultDuration:3, description:'Действительно невидим. Можно лишь услышать по звуку, заметить по дыму/жидкостям или предметам, особым заклинаниям или ГМ-проверкам Восприятия.' },
+    exhausted: { abilityCheckDisadvantage:true, description:'Истощён (5 уровней). Ур.1 Усталость — помеха на проверки характеристик. Ур.2 Изнеможение — скорость ÷ 2, реакций нет. Ур.3 Истощение — помеха на атаки и спасброски. Ур.4 Срыв — макс HP ÷ 2, нельзя кастовать. Ур.5 Коллапс — без сознания (борьба за жизнь). Снимается: -1 уровень за короткий отдых, всё за долгий.' },
+    invisible: { defaultDuration:3, description:'Действительно невидим. Можно лишь услышать по звуку, заметить по дыму/жидкостям или предметам, особым заклинаниям или ГМ-проверкам Восприятия.' },
     regen:     { startOfTurnEffect:'heal', startOfTurnDice:'1d4', defaultDuration:3, description:'Восстанавливает 1d4 HP в начале хода. Эффекты кастомные, зависят от источника регенерации.' },
     shield:    { acMod:2, defaultDuration:3, description:'Защитный щит (кастом). Дефолт: +2 AC. Один удар может снять — по решению источника.' },
-    rage:      { damageMod:2, acMod:-2, defaultDuration:3, description:'Ярость. Усиление атак и урона, снижение защиты и контроля. Детали зависят от источника ярости. Не снимается добровольно до конца боя.' },
-    fly:       { speedMod:2, description:'Полёт. Обычно скорость нормальная, но детали кастомные. Игнорирует трудную местность. Может выйти из ближнего боя без реакции.' },
-    confusion: { hasDisadvantage:true, defaultDuration:2, description:'Замешательство. В свой ход: 50% шанс атаковать случайную цель в радиусе 1 клетки (включая союзников).' }
+    rage:      { defaultDuration:3, description:'Ярость. Усиление атак и урона, снижение защиты и контроля. Числа задаёт источник ярости. Не снимается добровольно до конца боя.' },
+    fly:       { description:'Полёт. Скорость задаёт источник эффекта. Игнорирует трудную местность. Может выйти из ближнего боя без реакции.' },
+    confusion: { defaultDuration:2, description:'Замешательство. В свой ход: 50% шанс атаковать случайную цель в радиусе 1 клетки (включая союзников).' }
   };
 
   return _sts2.map(function(st) {
@@ -54047,6 +54356,10 @@ function getDefaultStatusMechanics() {
       cantMove: !!c.cantMove,
       cantReact: !!c.cantReact,
       hasDisadvantage: !!c.hasDisadvantage,
+      attackDisadvantage: !!c.attackDisadvantage,
+      saveDisadvantage: !!c.saveDisadvantage,
+      dexSaveDisadvantage: !!c.dexSaveDisadvantage,
+      abilityCheckDisadvantage: !!c.abilityCheckDisadvantage,
       grantAdvantageToAttackers: !!c.grantAdvantageToAttackers,
       // Авто-снятие
       autoRemove: c.autoRemove || 'never',
@@ -54067,7 +54380,15 @@ function getStatusMechanics() {
   // Merge: keep custom settings, add missing statuses
   return defaults.map(function(def) {
     var found = saved.find(function(s){ return s.key === def.key; });
-    return found ? Object.assign({}, def, found) : def;
+    if(!found)return def;
+    var merged=Object.assign({},def,found);
+    // В старом редакторе hasDisadvantage назывался именно «Помеха на атаку»,
+    // хотя движок ошибочно применял его и ко всем спасброскам.
+    if(found.hasDisadvantage===true&&found.attackDisadvantage==null){
+      merged.attackDisadvantage=true;
+      merged.hasDisadvantage=false;
+    }
+    return merged;
   });
 }
 // Экспорт для движка (он живёт в отдельном IIFE)
@@ -56038,7 +56359,9 @@ function renderStatusesPage() {
     if (m.cantAct) badges.push({ txt:'⛔ Блок действий', col:'#c87878' });
     if (m.cantMove) badges.push({ txt:'⛔ Блок движения', col:'#c87878' });
     if (m.cantReact) badges.push({ txt:'⛔ Без реакций', col:'#c87878' });
-    if (m.hasDisadvantage) badges.push({ txt:'📉 Помеха атак', col:'#d4a84b' });
+    if (m.attackDisadvantage || m.hasDisadvantage) badges.push({ txt:'📉 Помеха атак', col:'#d4a84b' });
+    if (m.saveDisadvantage || m.dexSaveDisadvantage) badges.push({ txt:'🎲 Помеха сейва', col:'#d4a84b' });
+    if (m.abilityCheckDisadvantage) badges.push({ txt:'◇ Помеха проверок', col:'#d4a84b' });
     if (m.grantAdvantageToAttackers) badges.push({ txt:'📈 Преим. атак', col:'#d4a84b' });
     if (m.startOfTurnEffect === 'damage') badges.push({ txt:'🔥 DoT ' + (m.startOfTurnDice||'1d4'), col:'#e05020' });
     if (m.startOfTurnEffect === 'heal') badges.push({ txt:'💚 HoT ' + (m.startOfTurnDice||'1d4'), col:'#6fcb83' });
@@ -56130,7 +56453,10 @@ function renderStatusEditor(m) {
   if (m.cantAct) previewParts.push('⛔ Цель не может использовать долгие и короткие действия');
   if (m.cantMove) previewParts.push('⛔ Цель не может перемещаться');
   if (m.cantReact) previewParts.push('⛔ Цель не может использовать реакции');
-  if (m.hasDisadvantage) previewParts.push('📉 У цели помеха на броски атак');
+  if (m.attackDisadvantage || m.hasDisadvantage) previewParts.push('📉 У цели помеха на броски атак');
+  if (m.saveDisadvantage) previewParts.push('🎲 У цели помеха на все спасброски');
+  if (m.dexSaveDisadvantage) previewParts.push('🎲 У цели помеха на спасброски Ловкости');
+  if (m.abilityCheckDisadvantage) previewParts.push('◇ У цели помеха на проверки характеристик');
   if (m.grantAdvantageToAttackers) previewParts.push('📈 Атаки по цели идут с преимуществом');
   if (m.acMod) previewParts.push((m.acMod > 0 ? '🛡 +' : '⚠️ ') + m.acMod + ' к AC цели');
   if (m.attackMod && Math.abs(m.attackMod) < 50) previewParts.push((m.attackMod > 0 ? '⚔ +' : '⚔ ') + m.attackMod + ' к броскам атаки цели');
@@ -56174,7 +56500,10 @@ function renderStatusEditor(m) {
         + chk('cantAct', m.cantAct, '⛔ Не может совершать действия')
         + chk('cantMove', m.cantMove, '⛔ Не может двигаться')
         + chk('cantReact', m.cantReact, '⛔ Нет реакций')
-        + chk('hasDisadvantage', m.hasDisadvantage, '📉 Помеха на атаку')
+        + chk('attackDisadvantage', m.attackDisadvantage || m.hasDisadvantage, '📉 Помеха на атаку')
+        + chk('saveDisadvantage', m.saveDisadvantage, '🎲 Помеха на все спасброски')
+        + chk('dexSaveDisadvantage', m.dexSaveDisadvantage, '🎲 Помеха на сейвы Ловкости')
+        + chk('abilityCheckDisadvantage', m.abilityCheckDisadvantage, '◇ Помеха на проверки')
         + chk('grantAdvantageToAttackers', m.grantAdvantageToAttackers, '📈 Атакующие имеют преим.')
         + '</div>'
       )
@@ -56243,7 +56572,11 @@ global.arenaStatusSave = function(key) {
   m.cantAct = gvb('cantAct');
   m.cantMove = gvb('cantMove');
   m.cantReact = gvb('cantReact');
-  m.hasDisadvantage = gvb('hasDisadvantage');
+  m.hasDisadvantage = false;
+  m.attackDisadvantage = gvb('attackDisadvantage');
+  m.saveDisadvantage = gvb('saveDisadvantage');
+  m.dexSaveDisadvantage = gvb('dexSaveDisadvantage');
+  m.abilityCheckDisadvantage = gvb('abilityCheckDisadvantage');
   m.grantAdvantageToAttackers = gvb('grantAdvantageToAttackers');
   // Начало хода (канон: DoT/HoT)
   m.startOfTurnEffect = gv('startOfTurnEffect') || 'none';

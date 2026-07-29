@@ -9,7 +9,19 @@ var html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
 var clickStart = html.indexOf('w.zgVttPartyClick = function');
 var clickEnd = html.indexOf('function renderJournal', clickStart);
 var clickBlock = html.slice(clickStart, clickEnd);
-assert.match(clickBlock, /w\.zgSheetOpen\(uid\)/);
+assert.match(clickBlock, /session&&session\.role==='master'/);
+assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid\)/);
+assert.match(clickBlock, /session&&session\.role==='player'&&String\(session\.uid\)===String\(uid\)/);
+assert.match(clickBlock, /zgVttOpenPanel\('character',\{forceOpen:true,resetMember:true\}\)/);
+assert.ok(
+  clickBlock.indexOf("zgVttOpenPanelForMember('character',uid)") < clickBlock.indexOf('w.zgSheetOpen(uid)'),
+  'master portrait click must choose the canonical drawer before the legacy read-only fallback'
+);
+assert.ok(
+  clickBlock.indexOf("zgVttOpenPanel('character',{forceOpen:true,resetMember:true})") < clickBlock.indexOf('w.zgSheetOpen(uid)'),
+  'own player portrait click must choose the canonical drawer before the legacy read-only fallback'
+);
+assert.match(clickBlock, /if\(w\.zgSheetClose\)w\.zgSheetClose\(\)/);
 assert.strictEqual(clickBlock.indexOf('zgPossessPlayer') >= 0, false, 'portrait click must open the sheet, not possess immediately');
 assert.match(html, /zgVttPartyClick\('\s*\+\s*esc\(JSON\.stringify\(member\.uid\)\)/);
 assert.strictEqual(
@@ -64,6 +76,11 @@ assert.match(html, /id="zg-sheet-tab-abilities" onclick="zgSheetTabAction\('abil
 assert.match(html, /id="zg-sheet-tab-items" onclick="zgSheetTabAction\('items'\)"/);
 assert.match(html, /w\.zgVttOpenPanel = function\(panel,options\)/);
 assert.match(html, /if \(!options\.forceOpen && activePanel === panel/);
+assert.match(html, /String\(entry\.kind\|\|''\)\.toLowerCase\(\)==='quest'/);
+assert.match(html, /zgVttJournalFilter\(\\'quest\\'\)/);
+assert.match(html, /journalFilter=\['all','quest','note','place'\]/);
+assert.match(html, /class="zg-journal3-paper-art /);
+assert.match(html, /object-fit:contain/);
 
 assert.match(html, /id="chars-btn-back" onclick="zgCharBack\(\)"/);
 assert.match(html, /Вернуться в сессию/);
