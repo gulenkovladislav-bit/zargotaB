@@ -46,6 +46,7 @@ assert.match(network, /payload\.items=rawItems\.map/);
 assert.match(network, /normalizeDeliveryItem/);
 assert.match(network, /bundleImageSize>350000/);
 assert.match(network, /questId:questId/);
+assert.match(network, /icon:String\(rawQuest\.icon\|\|'✦'\)/);
 assert.match(network, /status:questStatus/);
 assert.match(network, /importance:questImportance/);
 var batchStart = network.indexOf('gmSendDeliveries: function');
@@ -79,6 +80,9 @@ assert.match(delivery, /function safeQuestId\(value\)/);
 assert.match(delivery, /function upsertQuestJournalEntry\(journal, delivery\)/);
 assert.match(delivery, /id="zg-gm-delivery-quest-status"/);
 assert.match(delivery, /id="zg-gm-delivery-quest-importance"/);
+assert.match(delivery, /id="zg-gm-delivery-quest-icon"/);
+assert.match(delivery, /function questIconOptions\(value\)/);
+assert.match(delivery, /w\.zgGmDeliveryOpenForMember = function \(memberUid, kind\)/);
 assert.match(delivery, /activeTemplateIds/);
 assert.match(delivery, /Обновить заготовку/);
 assert.match(delivery, /function requestAssetLibrary\(force\)/);
@@ -147,7 +151,7 @@ var questContext = { result:null };
 vm.runInNewContext(
   delivery.slice(questHelperStart, questHelperEnd) +
     delivery.slice(questUpsertStart, questUpsertEnd) +
-    '; result=upsertQuestJournalEntry([], {id:"delivery-1",createdAt:100,title:"Найти руины",text:"Первый след",image:"images/ruins.webp",payload:{quest:{questId:"ruins-main",status:"new",importance:"main",imageFit:"cover"}}});',
+    '; result=upsertQuestJournalEntry([], {id:"delivery-1",createdAt:100,title:"Найти руины",text:"Первый след",image:"images/ruins.webp",payload:{quest:{questId:"ruins-main",icon:"⚑",status:"new",importance:"main",imageFit:"cover"}}});',
   questContext
 );
 var createdQuest = questContext.result;
@@ -157,6 +161,7 @@ assert.strictEqual(createdQuest.journal[0].journalId, 'gm-quest-ruins-main');
 assert.strictEqual(createdQuest.journal[0].questId, 'ruins-main');
 assert.strictEqual(createdQuest.journal[0].status, 'new');
 assert.strictEqual(createdQuest.journal[0].importance, 'main');
+assert.strictEqual(createdQuest.journal[0].icon, '⚑');
 assert.strictEqual(createdQuest.journal[0].image, 'images/ruins.webp');
 assert.strictEqual(createdQuest.journal[0].imageFit, 'cover');
 questContext.currentJournal = createdQuest.journal;
@@ -198,4 +203,77 @@ assert.match(todo, /Этап 1\. Единый канал выдачи/);
 assert.match(todo, /Этап 4\. Канонические статусы/);
 assert.match(todo, /Этап 6\. Каст заклинаний на сцене/);
 
-console.log('gm delivery contract passed');
+var applyHelperStart = delivery.indexOf('function safeQuestId(value)');
+var applyHelperEnd = delivery.indexOf('function questIconOptions(value)', applyHelperStart);
+var applyDeliveryStart = delivery.indexOf('function localCharacter(member)');
+var applyDeliveryEnd = delivery.indexOf('function popupTitle(delivery)', applyDeliveryStart);
+assert.ok(applyHelperStart >= 0 && applyHelperEnd > applyHelperStart);
+assert.ok(applyDeliveryStart >= 0 && applyDeliveryEnd > applyDeliveryStart);
+
+(async function testPlayerDeliveryApplication() {
+  var acknowledged = [];
+  var saveReasons = [];
+  var deliveryCharacter = {id:'hero-delivery',inventoryItems:[],journalEntries:[]};
+  var applyContext = {
+    Promise:Promise,
+    Date:Date,
+    Math:Math,
+    result:null,
+    w:{
+      characters:[deliveryCharacter],
+      saveChars:function(options){saveReasons.push(options&&options.reason);return Promise.resolve({ok:true});},
+      ZargotaRooms:{
+        acknowledgeGmDelivery:function(id,status){acknowledged.push({id:id,status:status});return Promise.resolve({ok:true});}
+      }
+    }
+  };
+  vm.runInNewContext(
+    delivery.slice(applyHelperStart, applyHelperEnd) +
+      delivery.slice(applyDeliveryStart, applyDeliveryEnd) +
+      '; result={applyDelivery:applyDelivery};',
+    applyContext
+  );
+  var member = {characterId:'hero-delivery'};
+  var itemDelivery = {
+    id:'delivery-item-live',
+    kind:'item',
+    title:'Походный набор',
+    text:'Выдан мастером',
+    createdAt:500,
+    payload:{items:[
+      {name:'Зелье',icon:'🧪',category:'consumable',qty:2},
+      {name:'Кинжал',icon:'🗡',category:'weapon',damageFormula:'1d4',attackStat:'dex',slot:'weapon'}
+    ]}
+  };
+  await applyContext.result.applyDelivery(itemDelivery, member);
+  assert.strictEqual(deliveryCharacter.inventoryItems.length, 2, 'player delivery handler must add every bundled item');
+  assert.strictEqual(deliveryCharacter.inventoryItems[0].receivedFromGm, true);
+  assert.strictEqual(deliveryCharacter.inventoryItems[1].preferredSlot, 'weapon');
+  assert.deepStrictEqual(saveReasons, ['inventory-add']);
+  assert.deepStrictEqual(acknowledged, [{id:'delivery-item-live',status:'applied'}]);
+
+  await applyContext.result.applyDelivery(itemDelivery, member);
+  assert.strictEqual(deliveryCharacter.inventoryItems.length, 2, 'repeated delivery handling must not duplicate items');
+  assert.deepStrictEqual(saveReasons, ['inventory-add'], 'already applied delivery must not save again');
+  assert.strictEqual(acknowledged.length, 2, 'an idempotent retry may safely acknowledge the same delivery');
+
+  var questDelivery = {
+    id:'delivery-quest-live',
+    kind:'quest',
+    title:'Найти старый колодец',
+    text:'Осмотреть руины у тракта.',
+    image:'images/journal/well.webp',
+    createdAt:700,
+    payload:{quest:{questId:'old-well',icon:'⚑',status:'active',importance:'main',imageFit:'cover'}}
+  };
+  await applyContext.result.applyDelivery(questDelivery, member);
+  assert.strictEqual(deliveryCharacter.journalEntries.length, 1, 'quest delivery must create a journal entry');
+  assert.strictEqual(deliveryCharacter.journalEntries[0].questId, 'old-well');
+  assert.strictEqual(deliveryCharacter.journalEntries[0].image, 'images/journal/well.webp');
+  assert.strictEqual(saveReasons[1], 'journal-add');
+  assert.deepStrictEqual(acknowledged[2], {id:'delivery-quest-live',status:'applied'});
+  console.log('gm delivery contract passed');
+})().catch(function(error){
+  console.error(error);
+  process.exitCode=1;
+});

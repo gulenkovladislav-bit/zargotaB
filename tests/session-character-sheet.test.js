@@ -76,11 +76,34 @@ assert.match(html, /id="zg-sheet-tab-abilities" onclick="zgSheetTabAction\('abil
 assert.match(html, /id="zg-sheet-tab-items" onclick="zgSheetTabAction\('items'\)"/);
 assert.match(html, /w\.zgVttOpenPanel = function\(panel,options\)/);
 assert.match(html, /if \(!options\.forceOpen && activePanel === panel/);
-assert.match(html, /String\(entry\.kind\|\|''\)\.toLowerCase\(\)==='quest'/);
+assert.match(html, /currentBody\.dataset\.activePanel === panel/);
+assert.match(html, /body\.dataset\.activePanel=renderError\?'':activePanel/);
+assert.ok(
+  html.indexOf('body.innerHTML=nextBodyHtml') < html.indexOf("lastDrawerRenderSignature=renderError?'':signature"),
+  'drawer render signature must be acknowledged only after the new panel body is committed'
+);
+assert.match(html, /Не удалось отрисовать раздел сумки/);
+assert.match(html, /Не удалось подготовить состояния героя/);
+assert.match(html, /function journalEntryKind\(entry\)/);
+assert.match(html, /\['quest','note','place'\]\.indexOf\(explicit\)/);
 assert.match(html, /zgVttJournalFilter\(\\'quest\\'\)/);
 assert.match(html, /journalFilter=\['all','quest','note','place'\]/);
 assert.match(html, /class="zg-journal3-paper-art /);
 assert.match(html, /object-fit:contain/);
+assert.match(html, /id="zg-journal-editor-kind"/);
+assert.match(html, /id="zg-journal-editor-icons"/);
+assert.match(html, /zgVttJournalConfirmRemove/);
+assert.match(html, /zg-journal-delete-backdrop/);
+assert.match(html, /w\.zgCollectDisplayStatuses=collectDisplayStatuses/);
+assert.match(html, /w\.zgStatusDurationText=statusDurationText/);
+assert.match(html, /if\(typeof w\.zgCollectDisplayStatuses==='function'\)/);
+assert.match(html, /activeStatuses=w\.zgCollectDisplayStatuses\(/);
+assert.match(html, /typeof w\.zgStatusDurationText==='function'\?w\.zgStatusDurationText/);
+assert.strictEqual(
+  /var activeStatuses=collectDisplayStatuses\(/.test(html),
+  false,
+  'character drawer must not call a status helper hidden inside another IIFE'
+);
 
 assert.match(html, /id="chars-btn-back" onclick="zgCharBack\(\)"/);
 assert.match(html, /Вернуться в сессию/);

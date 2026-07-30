@@ -59,6 +59,27 @@
     return value === 'secondary' ? 'secondary' : 'main';
   }
 
+  var QUEST_ICONS = [
+    {icon:'✦',label:'Цель'},
+    {icon:'⚔',label:'Бой'},
+    {icon:'⚑',label:'Поручение'},
+    {icon:'⛨',label:'Защита'},
+    {icon:'◈',label:'Тайна'},
+    {icon:'☩',label:'Святыня'}
+  ];
+
+  function questIcon(value) {
+    value = String(value || '');
+    return QUEST_ICONS.some(function (option) { return option.icon === value; }) ? value : '✦';
+  }
+
+  function questIconOptions(value) {
+    value = questIcon(value);
+    return QUEST_ICONS.map(function (option) {
+      return '<option value="' + esc(option.icon) + '"' + selected(value,option.icon) + '>' + esc(option.icon + ' ' + option.label) + '</option>';
+    }).join('');
+  }
+
   function emptyLibrary() {
     return { item:[], quest:[], text:[], image:[] };
   }
@@ -160,6 +181,7 @@
     } else if (activeKind === 'quest') {
       payload = {
         questId:safeQuestId(node('zg-gm-delivery-quest-id') && node('zg-gm-delivery-quest-id').value) || newQuestId(),
+        icon:questIcon(node('zg-gm-delivery-quest-icon') && node('zg-gm-delivery-quest-icon').value),
         status:questStatus(node('zg-gm-delivery-quest-status') && node('zg-gm-delivery-quest-status').value),
         importance:questImportance(node('zg-gm-delivery-quest-importance') && node('zg-gm-delivery-quest-importance').value)
       };
@@ -192,7 +214,7 @@
       payload:kind === 'item'
         ? {icon:'📦',qty:1,category:'other',acBonus:0,attackStat:'str',range:'1 клетка',weight:0,slot:''}
         : kind === 'quest'
-          ? {questId:newQuestId(),status:'new',importance:'main'}
+          ? {questId:newQuestId(),icon:'✦',status:'new',importance:'main'}
           : {}
     };
     drafts[kind] = value;
@@ -461,7 +483,7 @@
         '<label>Эффекты предмета<input id="zg-gm-delivery-effects" maxlength="2000" placeholder="+1 к скорости, +2 к Силе…" value="' + esc(payload.effects || '') + '"></label>';
     } else if (activeKind === 'quest') {
       fields = '<input id="zg-gm-delivery-quest-id" type="hidden" value="' + esc(safeQuestId(payload.questId) || newQuestId()) + '">' +
-        '<div class="zg-gm-delivery-row compact"><label>Статус<select id="zg-gm-delivery-quest-status"><option value="new"' + selected(questStatus(payload.status),'new') + '>Новое</option><option value="active"' + selected(questStatus(payload.status),'active') + '>Активное</option><option value="completed"' + selected(questStatus(payload.status),'completed') + '>Завершённое</option><option value="failed"' + selected(questStatus(payload.status),'failed') + '>Проваленное</option></select></label><label>Роль в журнале<select id="zg-gm-delivery-quest-importance"><option value="main"' + selected(questImportance(payload.importance),'main') + '>Главная цель</option><option value="secondary"' + selected(questImportance(payload.importance),'secondary') + '>Дополнительная цель</option></select></label></div>';
+        '<div class="zg-gm-delivery-row compact"><label>Иконка<select id="zg-gm-delivery-quest-icon">' + questIconOptions(payload.icon) + '</select></label><label>Статус<select id="zg-gm-delivery-quest-status"><option value="new"' + selected(questStatus(payload.status),'new') + '>Новое</option><option value="active"' + selected(questStatus(payload.status),'active') + '>Активное</option><option value="completed"' + selected(questStatus(payload.status),'completed') + '>Завершённое</option><option value="failed"' + selected(questStatus(payload.status),'failed') + '>Проваленное</option></select></label><label>Роль в журнале<select id="zg-gm-delivery-quest-importance"><option value="main"' + selected(questImportance(payload.importance),'main') + '>Главная цель</option><option value="secondary"' + selected(questImportance(payload.importance),'secondary') + '>Дополнительная цель</option></select></label></div>';
     } else if (activeKind === 'image') {
       fields = '<div class="zg-gm-delivery-row"><label>Показ<select id="zg-gm-delivery-presentation"><option value="card"' + selected(draft.presentation,'card') + '>Карточка</option><option value="cinematic"' + selected(draft.presentation,'cinematic') + '>Кинематографический на весь экран</option></select></label></div>';
     } else if (activeKind === 'text') {
@@ -546,7 +568,7 @@
       ['zg-gm-delivery-damage-type','damageType'],['zg-gm-delivery-ac','acBonus'],
       ['zg-gm-delivery-attack-stat','attackStat'],['zg-gm-delivery-range','range'],
       ['zg-gm-delivery-weight','weight'],['zg-gm-delivery-slot','slot'],
-      ['zg-gm-delivery-quest-id','questId'],['zg-gm-delivery-quest-status','status'],
+      ['zg-gm-delivery-quest-id','questId'],['zg-gm-delivery-quest-icon','icon'],['zg-gm-delivery-quest-status','status'],
       ['zg-gm-delivery-quest-importance','importance']
     ].forEach(function (pair) {
       var input = node(pair[0]);
@@ -610,6 +632,21 @@
     var open = force == null ? !panel.classList.contains('open') : !!force;
     panel.classList.toggle('open', open);
     if (open) renderPanel();
+  };
+
+  w.zgGmDeliveryOpenForMember = function (memberUid, kind) {
+    rememberPanelDraft();
+    activeTarget = String(memberUid || '');
+    activeKind = ['item','quest','text','image'].indexOf(kind) >= 0 ? kind : 'quest';
+    var draft = draftForKind(activeKind);
+    activeImage = draft.image || '';
+    activeMood = draft.mood || 'calm';
+    ensureUi();
+    var panel = node('zg-gm-delivery-panel');
+    if (!panel) return false;
+    panel.classList.add('open');
+    renderPanel({skipRemember:true});
+    return true;
   };
 
   w.zgGmDeliveryRefreshAssets = function () {
@@ -955,6 +992,7 @@
       text:quest.text || delivery.text || '',
       image:quest.image || delivery.image || '',
       imageFit:quest.imageFit === 'cover' ? 'cover' : 'contain',
+      icon:questIcon(quest.icon),
       kind:'quest',
       status:questStatus(quest.status),
       importance:questImportance(quest.importance),
@@ -1098,9 +1136,12 @@
     popupOpen = true;
     popup.className = 'zg-player-delivery-popup open mood-' + (delivery.mood || 'calm') +
       (delivery.kind === 'image' && delivery.presentation === 'cinematic' ? ' presentation-cinematic' : '');
+    var popupIcon = delivery.kind === 'quest' && delivery.payload && delivery.payload.quest
+      ? questIcon(delivery.payload.quest.icon)
+      : kindIcon(delivery.kind);
     host.innerHTML =
       '<small>' + esc(popupTitle(delivery)) + '</small>' +
-      (delivery.image ? '<img src="' + esc(delivery.image) + '" alt="">' : '<i>' + kindIcon(delivery.kind) + '</i>') +
+      (delivery.image ? '<img src="' + esc(delivery.image) + '" alt="">' : '<i>' + esc(popupIcon) + '</i>') +
       '<h2>' + esc(delivery.title || 'Получено') + '</h2>' +
       (delivery.text ? '<p>' + esc(delivery.text) + '</p>' : '') +
       itemMeta;

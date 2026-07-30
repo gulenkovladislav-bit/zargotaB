@@ -32,7 +32,18 @@ var mechanics = [
     icon:'☠',
     color:'#5fbd55',
     label:'Отравлен',
-    description:'Получает помеху по правилам состояния.'
+    description:'Получает 1 урон и помеху по правилам состояния.',
+    startOfTurnEffect:'damage',
+    startOfTurnValue:1
+  },
+  {
+    key:'bleed',
+    icon:'🩸',
+    color:'#cf4848',
+    label:'Кровотечение',
+    description:'Получает 1 урон за каждый стак.',
+    startOfTurnEffect:'damage',
+    startOfTurnValue:1
   }
 ];
 var context = {
@@ -66,7 +77,7 @@ assert.strictEqual(deduped.length, 2, 'legacy and structured statuses must colla
 assert.strictEqual(deduped[0].key, 'burn');
 assert.strictEqual(deduped[0].label, 'Горит', 'Manual label must replace raw technical label');
 assert.strictEqual(deduped[0].description, mechanics[1].description);
-assert.strictEqual(deduped[0].tickDice, '1d6', 'persisted tick dice must override the Manual default');
+assert.strictEqual(deduped[0].tickDice, '1d4', 'burning must follow the current Manual even when an old effect stores another die');
 assert.strictEqual(deduped[1].key, 'stun');
 assert.strictEqual(deduped[1].label, 'Оглушён');
 
@@ -104,6 +115,53 @@ assert.strictEqual(localTemp[0].key, 'poison');
 assert.strictEqual(localTemp[0].label, 'Отравлен');
 assert.strictEqual(localTemp[0].remaining, 3);
 assert.strictEqual(localTemp[0].unit, 'hours');
+assert.strictEqual(localTemp[0].tickDice, '');
+assert.strictEqual(localTemp[0].tickValue, 1);
+
+assert.match(html, /w\.zgCollectActiveStatusEffects\(source,\{includeHidden:!!options\.isMaster\}\)/);
+assert.match(html, /function statusSourceText\(status\)/);
+assert.match(html, /Источников: /);
+assert.match(html, /sourceText=statusSourceText\(status\)/);
+context.w = {
+  zgCollectActiveStatusEffects:function(){
+    return {
+      keys:['burn'],
+      effects:[
+        {type:'status',statusKey:'burn',sourceId:'spell:first',stacks:1},
+        {type:'status',statusKey:'burn',sourceId:'item:torch',stacks:3}
+      ],
+      byKey:{burn:{type:'status',statusKey:'burn',sourceId:'spell:first',stacks:1}},
+      rawByKey:{}
+    };
+  }
+};
+var unifiedDisplay = context.collectDisplayStatuses({}, {isMaster:false});
+assert.strictEqual(unifiedDisplay.length, 1, 'one display row must represent multiple structured sources');
+assert.strictEqual(unifiedDisplay[0].sourceCount, 2);
+assert.strictEqual(unifiedDisplay[0].stacks, 3);
+assert.strictEqual(context.statusSourceText(unifiedDisplay[0]), 'Источников: 2');
+context.w = {};
+
+context.w = {
+  zgCollectActiveStatusEffects:function(){
+    return {
+      keys:['bleed'],
+      effects:[
+        {type:'status',statusKey:'bleed',sourceId:'weapon:first',stacks:1},
+        {type:'status',statusKey:'bleed',sourceId:'weapon:second',stacks:2}
+      ],
+      byKey:{bleed:{type:'status',statusKey:'bleed',sourceId:'weapon:first',stacks:1}},
+      rawByKey:{}
+    };
+  }
+};
+var bleedingDisplay = context.collectDisplayStatuses({}, {isMaster:false});
+assert.strictEqual(bleedingDisplay[0].stacks, 3, 'bleeding display must show the sum of active stacks');
+assert.strictEqual(
+  context.statusTickText(bleedingDisplay[0]),
+  'Урон: 1 × 3 стака в начале хода'
+);
+context.w = {};
 
 var custom = context.collectDisplayStatuses({
   statuses:[{key:'custom_mist',label:'Туман',icon:'◌',description:'Скрывает силуэт.'}]
@@ -115,9 +173,18 @@ assert.strictEqual(custom[0].description, 'Скрывает силуэт.');
 
 assert.strictEqual(context.statusDurationText({remaining:2,unit:'rounds'}), '2 раунд.');
 assert.strictEqual(context.statusDurationText({remaining:null,unit:'manual'}), 'до снятия');
+assert.strictEqual(context.statusDurationLongText({remaining:1,unit:'rounds'}), '1 раунд');
+assert.strictEqual(context.statusDurationLongText({remaining:3,unit:'rounds'}), '3 раунда');
+assert.strictEqual(context.statusDurationLongText({remaining:12,unit:'rounds'}), '12 раундов');
+assert.strictEqual(context.statusDurationLongText({remainingMinutes:1500,unit:'days'}), '1 день 1 час');
+assert.strictEqual(context.statusDurationLongText({remaining:null,unit:'manual'}), 'До ручного снятия');
 assert.strictEqual(
   context.statusTickText({tickType:'damage',tickDice:'1d4'}),
   'Урон: 1d4 в начале хода'
+);
+assert.strictEqual(
+  context.statusTickText({key:'poison',tickType:'damage',tickValue:1}),
+  'Урон: 1 в начале хода'
 );
 assert.strictEqual(
   context.statusTickText({tickType:'heal',tickDice:'1d6'}),
@@ -138,15 +205,52 @@ assert.deepStrictEqual(
 assert.strictEqual(selectedVisuals.length, 2);
 var fallbackVisual = context.selectTokenStatusVisuals([{key:'custom_mist',color:'#aaaaaa'}]);
 assert.strictEqual(fallbackVisual[0].kind, 'ring', 'unknown statuses must use the calm fallback ring');
+[
+  'burn','freeze','poison','bleed','stun','shield','invisible','fear',
+  'blind','silence','anchor','charm','dominate','paralyze','restrain',
+  'slow','curse','exhausted','regen','rage','fly','confusion','prone'
+].forEach(function(key){
+  assert.notStrictEqual(
+    context.selectTokenStatusVisuals([{key:key}])[0].kind,
+    'ring',
+    key + ' must have a semantic portrait overlay'
+  );
+});
 
 assert.doesNotMatch(
   html,
   /tickValue>0\?\+'\':|к '\+esc\(status\.tickType\)\+' каждый раун/,
   'token status modal must not render the legacy broken tick sentence'
 );
+assert.match(html, /Отравлен'[^]*startOfTurnValue:1/);
+assert.match(html, /Кровотечение'[^]*startOfTurnValue:1/);
+assert.match(html, /1 урон Ядом в начале хода/);
+assert.match(html, /Каждое последующее наложение добавляет 1 стак/);
 assert.match(html, /description:definition&&definition\.description/);
-assert.match(html, /activeStatuses=collectDisplayStatuses\(/);
+assert.match(html, /if\(typeof w\.zgCollectDisplayStatuses==='function'\)/);
+assert.match(html, /activeStatuses=w\.zgCollectDisplayStatuses\(/);
+assert.doesNotMatch(html, /activeStatuses=collectDisplayStatuses\(/);
+assert.match(html, /class="zg-state-effect-row"[^>]*onclick="zgVttStatusInfo/);
+assert.match(html, /w\.zgVttStatusInfo=function\(index\)/);
+assert.match(html, /className='zg-vtt-status-info'/);
+assert.doesNotMatch(
+  html.slice(html.indexOf('var effectsHtml=activeStatuses.map'),html.indexOf('var injurySource=',html.indexOf('var effectsHtml=activeStatuses.map'))),
+  /status\.description|zgStatusDurationText|zgStatusSourceText/,
+  'compact status rows must render names only; full details belong in the dialog'
+);
 assert.match(html, /className='zg-vtt-token-status-visuals'/);
+assert.match(html, /aria-label="Уменьшить стаки"/);
+assert.match(html, /aria-label="Увеличить длительность"/);
+assert.match(html, /zgGmInterventionStatusRemoveConfirm/);
+assert.match(html, /zgGmInterventionStatusRemoveApply/);
+assert.match(html, /Удалить состояние/);
+assert.match(html, /field==='duration'/);
+assert.match(html, /remainingMinutes=Math\.max\(factor/);
+assert.match(html, /\.zg-vtt-status-vfx-freeze\{overflow:hidden[^}]*background:/);
+assert.match(html, /\.zg-vtt-status-vfx-freeze::before\{[^}]*clip-path:/);
+assert.match(html, /\.zg-vtt-status-vfx-burn::before\{[^}]*radial-gradient/);
+assert.match(html, /\.zg-vtt-status-vfx-poison::before\{[^}]*radial-gradient/);
+assert.match(html, /\.zg-vtt-token-status-visuals\{position:absolute;z-index:4/);
 assert.match(html, /new w\.IntersectionObserver/);
 assert.match(html, /tokenStatusVisualObserver\.disconnect\(\)/);
 assert.match(html, /prefers-reduced-motion:reduce\)\{\.zg-vtt-status-vfx/);

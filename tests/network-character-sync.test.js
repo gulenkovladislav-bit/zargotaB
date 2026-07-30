@@ -9,7 +9,9 @@ var root = path.resolve(__dirname, '..');
 var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
+var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
+assert.match(html, /zargota-network\.js\?v=2026-07-29\.27/, 'network cache key must change with the status synchronization contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -291,6 +293,7 @@ assert.match(html, /persistCollectionBestEffort/);
 assert.ok(html.indexOf('character-sync-outbox.js') < html.indexOf('zargota-network.js'));
 assert.match(network, /queueCharacterSync/);
 assert.match(network, /flushCharacterOutbox/);
+assert.match(network, /discardCharacterOutbox:\s*function\s*\(characterId\)/);
 assert.match(network, /changedFields\s*=\s*\/\^inventory-/);
 assert.match(network, /baseFieldSignatures\[field\]\s*=\s*store\.fieldSignature/);
 assert.match(network, /baseFieldValues\[field\]\s*=\s*value/);
@@ -446,6 +449,7 @@ assert.strictEqual(domainContext.result.authoritativeUsage.max, 3);
 var combatDamageStart = network.indexOf('resolveCombatDamage: function');
 var combatDamageEnd = network.indexOf('finishApprovedDamageRoll: function', combatDamageStart);
 var combatDamageBlock = network.slice(combatDamageStart, combatDamageEnd);
+assert.match(combatDamageBlock, /session\.role!=='master'/);
 assert.match(combatDamageBlock, /applyVitalsDomainOperation\(target,\{damage:damage\}\)/);
 assert.match(combatDamageBlock, /character\/revision'\]\s*=\s*firebase\.increment\(1\)/);
 assert.match(combatDamageBlock, /character\/source'\]\s*=\s*'combat-damage'/);
@@ -455,14 +459,33 @@ var advanceCombatStart = network.indexOf('advanceCombat: function');
 var advanceCombatEnd = network.indexOf('useCombatAction: function', advanceCombatStart);
 var advanceCombatBlock = network.slice(advanceCombatStart, advanceCombatEnd);
 assert.match(advanceCombatBlock, /session\.role !== 'master' && \(!activeEntry \|\| String\(activeEntry\.uid \|\| ''\) !== String\(user\.uid\)\)/);
+assert.match(advanceCombatBlock, /beginCombatTurnOperation\(combat,operationId,stamp,user\.uid\)/);
+assert.match(advanceCombatBlock, /if\(turnOperation\.duplicate\)/);
+assert.match(advanceCombatBlock, /combat\/appliedTurnOperationIds/);
+assert.match(advanceCombatBlock, /combat\/lastTurnOperation/);
 assert.match(html, /playerOwnTurn[\s\S]+Завершить ход/);
 assert.match(html, /\.zg-combat-bar-actions\.player\{grid-template-columns:1fr\}/);
+assert.match(html, /combatAdvanceRetryId/);
+assert.match(html, /advanceCombat\(\{operationId:combatAdvanceRetryId\}\)/);
 assert.match(network, /session\.role !== 'player' \|\| session\.uid !== auth\.currentUser\.uid \|\| session\.code !== room\.code/);
+var syncCharacterStart = network.indexOf('syncCharacter: function');
+var syncCharacterEnd = network.indexOf('persistCampaignCharacter: function', syncCharacterStart);
+var syncCharacterBlock = network.slice(syncCharacterStart, syncCharacterEnd);
+assert.match(syncCharacterBlock, /liveSnapshot = result\.snapshot && result\.snapshot\.val \? result\.snapshot\.val\(\) : liveSnapshot/);
+assert.match(syncCharacterBlock, /setCharacterSync\('synced', liveSnapshot, 'local→room', syncReason\)/);
+assert.match(syncCharacterBlock, /return refreshRoom\(session\.code\)\.then\(function \(\) \{ return api\.getSnapshot\(\); \}\)/);
 var combatAbilityStart = network.indexOf('resolveCombatAbility: function');
 var combatAbilityEnd = network.indexOf('prepareCombatReaction: function', combatAbilityStart);
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyVitalsDomainOperation\(target,\{damage:damage,heal:heal,preserveOverMax:true\}\)/);
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyStatusDomainOperation\(target,/);
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyAbilityUsageDomainOperation\(member\.character&&member\.character\.abilityUsage[^;]+preserveExistingMax:false/);
+assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /actor\.hp==null\?actor\.hpMax:actor\.hp\)<=0/);
+var requestMovementStart = network.indexOf('requestMovement: function');
+var requestMovementEnd = network.indexOf('requestMovementAs: function', requestMovementStart);
+assert.match(network.slice(requestMovementStart, requestMovementEnd), /combat-zero-hp/);
+var requestActionStart = network.indexOf('requestAction: function');
+var requestActionEnd = network.indexOf('resolveAction: function', requestActionStart);
+assert.match(network.slice(requestActionStart, requestActionEnd), /actionKind === 'ability'[\s\S]+combat-zero-hp/);
 assert.match(network, /statusTurnTick[\s\S]+applyVitalsDomainOperation\(\{hp:hp,hpMax:hpMax,tempHp:tempHp\}/);
 assert.match(network, /outbox-remove-error/);
 assert.match(network, /outbox:\s*syncOutbox\(\)/);
@@ -537,7 +560,8 @@ var inventoryDropStart = html.indexOf('w.zgVttInventoryDrop=function');
 var inventoryDropEnd = html.indexOf('w.zgVttInventoryOpenItem=function', inventoryDropStart);
 var inventoryDropBlock = html.slice(inventoryDropStart, inventoryDropEnd);
 assert.strictEqual(inventoryDropBlock.indexOf('equipItems.push') >= 0, false, 'equipping must not copy an inventory item');
-assert.match(inventoryDropBlock, /item\.slot=slotName;item\.equipped=true/);
+assert.match(inventoryDropBlock, /equipmentRules\.planHandEquip\(c\.inventoryItems,index,slotName\)/);
+assert.match(inventoryDropBlock, /commitInventoryMutation\(member,c,before,'inventory-equip'/);
 assert.match(html, /w\.zgVttInventoryUnequip=function\(source,index\)/);
 assert.match(html, /source==='inventory'\?c\.inventoryItems:c\.equipItems/);
 assert.match(html, /saveChars\(\{reason:'inventory-add'\}\)/);
@@ -555,6 +579,20 @@ assert.match(html, /w\.zgVttOpenPanelForMember=function\(panel,uid\)/);
 assert.match(html, /drawerMemberUid = ''/);
 assert.doesNotMatch(html, /Снимок комнаты|zg-drawer-readonly/);
 assert.match(html, /class="zg-inv2"/);
+assert.match(html, /--zg-drawer-text:clamp\(/);
+assert.match(html, /--zg-drawer-secondary:clamp\(/);
+assert.match(html, /--zg-drawer-heading:clamp\(/);
+assert.match(html, /\.zg-inv2-item:hover,[\s\S]*?transform:scale\(1\.012\)/);
+assert.match(html, /prefers-reduced-motion:reduce\)\{[\s\S]*?\.zg-inv2-item\{transition:none\}/);
+assert.match(html, /class="zg-inv2-hand-pair/);
+assert.match(html, /handSlot\('mainHand','Основная','I'/);
+assert.match(html, /handSlot\('offHand','Вторая','II'/);
+assert.match(html, /class="zg-inv2-hand-heading"/);
+assert.match(html, /class="zg-inv2-hand-content"/);
+assert.match(html, /Обе руки/);
+assert.match(html, /class="zg-inv2-filters" aria-label="Фильтры инвентаря"/);
+assert.match(html, /title="'\+filter\.label\+'" aria-label="'\+filter\.label\+'" aria-pressed="'\+active\+'"/);
+assert.match(html, /aria-label="Быстрый предмет: '\+esc\(quickLabel\)\+'"/);
 assert.match(html, /var pageSize=12,pageCount=/);
 assert.match(html, /grid-template-rows:repeat\(8,minmax\(0,1fr\)\)/);
 assert.match(html, /grid-template-rows:repeat\(12,minmax\(0,1fr\)\)/);
@@ -564,10 +602,16 @@ var drawerRenderStart = html.indexOf('function renderDrawer(force)');
 var drawerRenderEnd = html.indexOf('function render(snapshot)', drawerRenderStart);
 var drawerRenderBlock = html.slice(drawerRenderStart, drawerRenderEnd);
 assert.ok(
-  drawerRenderBlock.lastIndexOf('bagCalApply()') > drawerRenderBlock.indexOf('body.innerHTML = inventoryPanel()'),
+  drawerRenderBlock.lastIndexOf('bagCalApply()') > drawerRenderBlock.indexOf("nextBodyHtml = inventoryPanel()"),
   'saved backpack calibration must be applied after inventory markup is rendered'
 );
 assert.match(html, /w\.zgVttSetInventoryNotice=function\(uid,kind,text\)/);
+assert.match(html, /function commitInventoryMutation\(member,character,before,reason,successText\)/);
+assert.match(html, /'loading','Сохраняем…'/);
+assert.match(html, /flushCharacterOutbox/);
+assert.match(html, /discardCharacterOutbox\(character&&character\.id\)/);
+assert.match(html, /saveChars\(\{sync:syncAttempted,reason:'inventory-rollback'\}\)/);
+assert.match(html, /'offline','Нет связи — изменение сохранено и ждёт отправки\.'/);
 assert.match(html, /class="zg-bag-operation-state/);
 assert.match(html, /role="status" aria-live="polite"/);
 assert.match(html, /viewOnly\?'Только просмотр'/);
@@ -585,6 +629,19 @@ assert.match(html, /onclick="zgVttOpenPanel\('character'\)" aria-label="Сост
 assert.match(html, /onclick="zgVttOpenPanel\('inventory'\)" aria-label="Вещи"/);
 assert.match(html, /onclick="zgVttOpenPanel\('abilities'\)" aria-label="Магия"/);
 assert.match(html, /onclick="zgVttOpenPanel\('journal'\)" aria-label="Личный журнал"/);
+assert.match(html, /class="zg-bag-tabs" data-bag-cal-key="tabbar" role="tablist" aria-label="Разделы сумки героя"/);
+assert.strictEqual((html.match(/role="tab" aria-controls="zg-vtt-drawer-body"/g)||[]).length, 4);
+assert.match(drawerRenderBlock, /button\.setAttribute\('aria-selected',String\(isActive\)\)/);
+assert.match(drawerRenderBlock, /button\.tabIndex=isActive\?0:-1/);
+assert.match(html, /closest\('\.zg-bag-tabs button\[role="tab"\]'\)/);
+assert.match(html, /event\.key==='ArrowRight'/);
+assert.match(html, /event\.key==='ArrowLeft'/);
+assert.match(html, /event\.key==='Home'/);
+assert.match(html, /event\.key==='End'/);
+assert.match(html, /Backpack accessibility: visible keyboard focus/);
+assert.match(html, /@media \(forced-colors:active\)/);
+assert.match(html, /\.zg-journal3-paper\{[\s\S]*?background:Canvas!important;[\s\S]*?color:CanvasText/);
+assert.match(html, /\.zg-token-status-info article,[\s\S]*?max-height:calc\(100dvh - 32px\)/);
 assert.match(html, /w\.zgSelectedHeroMemberUid=token\.type==='hero'/);
 assert.match(html, /selectedInventoryUid=state&&state\.session&&state\.session\.role==='master'/);
 assert.match(drawerOpenBlock, /zg-gm-intervention/);
@@ -617,7 +674,17 @@ assert.match(html, /class="zg-state-armor"/);
 assert.match(html, /class="zg-state-hp-bar"/);
 assert.match(html, /class="zg-state-combat-values"><div><small>Скорость<\/small>[\s\S]*?<div><small>Инициатива<\/small>/);
 assert.doesNotMatch(html, /class="zg-state-combat-values"><div><small>Броня<\/small>/);
-assert.match(html, /activeStatuses=collectDisplayStatuses\(/);
+assert.match(html, /--zg-vitals-divider:64%/);
+assert.match(html, /grid-template-rows:var\(--zg-vitals-top-row\) var\(--zg-vitals-bottom-row\)/);
+assert.match(html, /\.zg-state-vitals-top,\s*\.zg-vtt-drawer[\s\S]*?\.zg-state-combat-values\{[\s\S]*?grid-template-columns:var\(--zg-vitals-divider\) minmax\(0,1fr\)/);
+assert.match(html, /\.zg-state-vitals::after\{[\s\S]*?left:var\(--zg-vitals-divider\);[\s\S]*?top:var\(--zg-vitals-top-row\)/);
+assert.match(html, /\.zg-state-combat-values\{[\s\S]*?border-top:1px solid #684526/);
+assert.match(html, /\.zg-state-combat-values>div\+div\{[\s\S]*?border-left:1px solid #5d3d22/);
+assert.match(html, /\.zg-state-hp-bar\{[\s\S]*?position:absolute;[\s\S]*?left:11px;[\s\S]*?right:11px;[\s\S]*?bottom:7px/);
+assert.match(html, /var speedValue=c\.speed===undefined\|\|c\.speed===null\|\|c\.speed===''\?'—':c\.speed/);
+assert.match(html, /if\(typeof w\.zgCollectDisplayStatuses==='function'\)/);
+assert.match(html, /activeStatuses=w\.zgCollectDisplayStatuses\(/);
+assert.doesNotMatch(html, /activeStatuses=collectDisplayStatuses\(/);
 assert.match(html, /statuses:c\.statuses,[\s\S]*statusEffects:c\.statusEffects,[\s\S]*tempEffects:c\.tempEffects/);
 assert.match(html, /class="zg-state-stat-list"/);
 assert.match(html, /class="zg-bag-state-disclosure roadmap"/);
@@ -685,6 +752,10 @@ var remoteEquipmentHtml = renderCharacterStats({uid:'remote',name:'Firebase ге
 assert.match(remoteEquipmentHtml, /aria-label="Броня: \+2 от снаряжения · Бригантина \+2"/);
 assert.strictEqual((localEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
 assert.strictEqual((remoteEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
+var missingSpeedHtml = renderCharacterStats({uid:'missing-speed',name:'Без скорости'}, {name:'Без скорости',stats:{},hpCur:1,hpMax:1,ac:10});
+var zeroSpeedHtml = renderCharacterStats({uid:'zero-speed',name:'Неподвижный'}, {name:'Неподвижный',stats:{},hpCur:1,hpMax:1,ac:10,speed:0});
+assert.match(missingSpeedHtml, /<small>Скорость<\/small><i>➜<\/i><b>—<\/b>/);
+assert.match(zeroSpeedHtml, /<small>Скорость<\/small><i>➜<\/i><b>0<\/b>/);
 
 var abilitiesStart = html.indexOf('function abilitiesPanel()');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
@@ -705,6 +776,11 @@ assert.match(abilitiesBlock, /skills\.forEach\(function\(raw,index\).*innate:tru
 assert.match(abilitiesBlock, /var catalogCards=spellCards\.filter/);
 assert.match(abilitiesBlock, /<header><h3>Врождённые навыки<\/h3>/);
 assert.match(abilitiesBlock, /<h3>Освоенные заклинания<\/h3>/);
+assert.match(abilitiesBlock, /aria-label="Поиск освоенных заклинаний"/);
+assert.match(abilitiesBlock, /aria-label="Фильтры освоенных заклинаний"/);
+assert.match(abilitiesBlock, /title="Боевые кодексы" aria-label="Боевые кодексы"/);
+assert.match(abilitiesBlock, /title="Фолианты" aria-label="Фолианты"/);
+assert.match(abilitiesBlock, /title="Обрядники" aria-label="Обрядники"/);
 assert.doesNotMatch(abilitiesBlock, /<small>ПОЗИЦИИ И НАВЫКИ<\/small>|<small>ЛИМИТЫ ИЗ МАНУАЛА<\/small>/);
 assert.match(abilitiesBlock, /function compactInnateName\(card\)/);
 assert.match(abilitiesBlock, /function compactInnateType\(card\)/);
@@ -749,7 +825,11 @@ var snapshotContext = {
     inventoryItems: [
       { itemId:'zg-item-7-i-stable', name:'Ключ', qty:2, image:'data:image/png;base64,item' },
       { itemId:'backpack-sword', name:'Меч в рюкзаке', category:'weapon', damageFormula:'9d9' },
-      { itemId:'equipped-sword', name:'Надетый меч', category:'weapon', damageFormula:'1d8', equipped:true, slot:'weapon' }
+      { itemId:'equipped-sword', name:'Надетый меч', category:'weapon', damageFormula:'1d8', equipped:true, slot:'weapon' },
+      { itemId:'offhand-dagger', name:'Кинжал', category:'weapon', damageFormula:'1d4', equipped:true, slot:'offHand', handsRequired:1 }
+    ],
+    equipItems: [
+      { itemId:'equipped-sword', name:'Старая копия меча', category:'weapon', damageFormula:'1d8', equipped:true, slot:'weapon' }
     ],
     skills: [{ name:'Приём', description:'Описание', image:'data:image/png;base64,heavy' }],
     traits: ['Черта'],
@@ -760,17 +840,18 @@ var snapshotContext = {
     quote: 'Цитата',
     notes: [{ text:'Сохранить текст', attachment:'data:image/png;base64,nested' }],
     journalEntries: [
-      { journalId:'journal-safe_1', questId:'ruins-main', title:'Запись', text:'Текст', image:'images/journal/ruins.webp', kind:'quest', status:'active', importance:'secondary', questUpdatedAt:175, createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
+      { journalId:'journal-safe_1', questId:'ruins-main', title:'Запись', text:'Текст', icon:'⚔', image:'images/journal/ruins.webp', kind:'quest', status:'active', importance:'secondary', questUpdatedAt:175, createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
       { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', createdAt:300 },
-      { journalId:'journal-data', title:'data:text/plain,hidden', text:'blob:hidden', createdAt:-1, updatedAt:'oops', updatedBy:'data:text/plain,uid' }
+      { journalId:'journal-data', title:'data:text/plain,hidden', text:'blob:hidden', image:'javascript:alert(1)', createdAt:-1, updatedAt:'oops', updatedBy:'data:text/plain,uid' }
     ],
     portrait: 'data:image/png;base64,portrait',
     _gmDeliveryIds:['gm-delivery-safe','bad/id','gm-delivery-safe']
   },
-  result: null
+  result: null,
+  equipmentRules:equipmentRules
 };
 vm.runInNewContext(
-  'var w={}; function campaignKeyFor(){return "hero-key";}' +
+  'var w={ZargotaEquipmentRules:equipmentRules}; function campaignKeyFor(){return "hero-key";}' +
     snapshotSource +
     '; result=characterSnapshot(input);',
   snapshotContext
@@ -790,6 +871,10 @@ assert.strictEqual(snapshotContext.result.inventoryItems[0].qty, 2);
 assert.strictEqual(snapshotContext.result.inventoryItems[0].image, '');
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'backpack-sword'; }), false);
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'equipped-sword'; }), true);
+assert.strictEqual(snapshotContext.result.weaponProfiles.length, 2, 'main/offhand weapon profiles must stay unique');
+assert.strictEqual(snapshotContext.result.weaponProfiles.filter(function(profile) { return profile.id === 'equipped-sword'; })[0].slot, 'mainHand');
+assert.strictEqual(snapshotContext.result.weaponProfiles.filter(function(profile) { return profile.id === 'offhand-dagger'; })[0].slot, 'offHand');
+assert.strictEqual(snapshotContext.result.weaponProfiles.filter(function(profile) { return profile.id === 'offhand-dagger'; })[0].handsRequired, 1);
 assert.strictEqual(snapshotContext.result.biography, 'История');
 assert.strictEqual(snapshotContext.result.quote, 'Цитата');
 assert.strictEqual(snapshotContext.result.notes[0].text, 'Сохранить текст');
@@ -804,6 +889,7 @@ assert.strictEqual(snapshotContext.result.portrait, 'images/portraits/hero.webp'
 assert.strictEqual(snapshotContext.result.journalEntries.length, 3);
 assert.strictEqual(snapshotContext.result.journalEntries[0].journalId, 'journal-safe_1');
 assert.strictEqual(snapshotContext.result.journalEntries[0].text, 'Текст');
+assert.strictEqual(snapshotContext.result.journalEntries[0].icon, '⚔');
 assert.strictEqual(snapshotContext.result.journalEntries[0].image, 'images/journal/ruins.webp');
 assert.strictEqual(snapshotContext.result.journalEntries[0].kind, 'quest');
 assert.strictEqual(snapshotContext.result.journalEntries[0].questId, 'ruins-main');
@@ -814,6 +900,7 @@ assert.strictEqual(snapshotContext.result.journalEntries[0].deletedAt, 250);
 assert.strictEqual(snapshotContext.result.journalEntries[1].journalId, 'badkey');
 assert.strictEqual(snapshotContext.result.journalEntries[2].title, '');
 assert.strictEqual(snapshotContext.result.journalEntries[2].text, '');
+assert.strictEqual(snapshotContext.result.journalEntries[2].image, '', 'dangerous journal image schemes must not enter the room snapshot');
 assert.strictEqual(snapshotContext.result.journalEntries[2].createdAt, 0);
 assert.strictEqual(snapshotContext.result.journalEntries[2].updatedBy, '');
 assert.deepStrictEqual(Array.from(snapshotContext.result.appliedDeliveryIds), ['gm-delivery-safe','badid']);
@@ -828,11 +915,19 @@ assert.strictEqual(snapshotContext.result.journalEntries[79].journalId, 'journal
 var journalPanelStart = html.indexOf('function journalPanel');
 var journalPanelEnd = html.indexOf('function vttAbilityProfile', journalPanelStart);
 var journalPanelBlock = html.slice(journalPanelStart, journalPanelEnd);
+var journalIconHelpersStart = html.indexOf('var JOURNAL_ICON_VARIANTS');
+var journalIconHelpersEnd = html.indexOf('var abilitiesFilter', journalIconHelpersStart);
+var journalIconHelpersBlock = html.slice(journalIconHelpersStart, journalIconHelpersEnd);
+assert.match(journalIconHelpersBlock, /note:\[/);
+assert.match(journalIconHelpersBlock, /quest:\[/);
+assert.match(journalIconHelpersBlock, /place:\[/);
 assert.match(journalPanelBlock, /c\.journalEntries/);
 assert.match(journalPanelBlock, /fullLocalCharacter\(member\)/);
 assert.match(journalPanelBlock, /zgVttJournalOpen/);
 assert.match(journalPanelBlock, /<h3>Главные цели<\/h3>/);
 assert.match(journalPanelBlock, /class="zg-journal3-manual"/);
+assert.match(journalPanelBlock, /aria-label="Предыдущая страница журнала"/);
+assert.match(journalPanelBlock, /aria-label="Следующая страница журнала"/);
 assert.match(journalPanelBlock, /zgVttJournalOpenManual\(event\)/);
 assert.match(journalPanelBlock, /<h3>Мои записи<\/h3>/);
 assert.match(journalPanelBlock, /zg-journal3-preview/);
@@ -851,16 +946,17 @@ var journalPanelContext = {
     currentGoal:'Найти руины',
     goals:[{title:'Вернуть печать',status:'Новая'}],
     journalEntries:[
-      {journalId:'quest-main',questId:'ruins-main',title:'Открыть древние руины',text:'Найти вход',kind:'quest',status:'active',importance:'main',createdAt:4},
+      {journalId:'quest-main',questId:'ruins-main',title:'Открыть древние руины',text:'Найти вход',icon:'⚔',kind:'quest',status:'active',importance:'main',createdAt:4},
       {journalId:'quest-side',questId:'herbs-side',title:'Собрать травы',text:'Для лекаря',kind:'quest',status:'new',importance:'secondary',createdAt:3},
-      {journalId:'place-1',title:'Древние руины',text:'Следы старой цивилизации',createdAt:2},
-      {journalId:'note-1',title:'Символы',text:'Знак глаза',createdAt:1}
+      {journalId:'place-1',title:'Древние руины',text:'Следы старой цивилизации',icon:'♜',kind:'place',createdAt:2},
+      {journalId:'note-1',title:'Символы',text:'Знак глаза',icon:'✒',kind:'note',createdAt:1},
+      {journalId:'gm-note',title:'Послание мастера',text:'Нельзя удалить',kind:'note',updatedBy:'gm',createdAt:0}
     ]
   }}; },
   fullLocalCharacter:function(member){ return member.character; },
   esc:function(value){ return String(value == null ? '' : value); }
 };
-vm.runInNewContext(journalPanelBlock + '; result=journalPanel();', journalPanelContext);
+vm.runInNewContext(journalIconHelpersBlock + journalPanelBlock + '; result=journalPanel();', journalPanelContext);
 assert.match(journalPanelContext.result, /Главные цели/);
 assert.match(journalPanelContext.result, /Открыть Мануал/);
 assert.match(journalPanelContext.result, /Древние руины/);
@@ -869,9 +965,70 @@ assert.match(journalPanelContext.result, /Главная цель · Актив�
 assert.match(journalPanelContext.result, /Дополнительная цель · Новое/);
 assert.match(journalPanelContext.result, /Место/);
 assert.match(journalPanelContext.result, /zg-journal3-paper/);
+assert.match(journalPanelContext.result, /zg-journal3-paper-delete/);
+assert.match(journalPanelContext.result, /⚔/);
 assert.strictEqual(journalPanelContext.journalSelectedId, 'quest-main');
+journalPanelContext.journalFilter = 'quest';
+journalPanelContext.journalSelectedId = '';
+vm.runInNewContext('result=journalPanel();', journalPanelContext);
+assert.match(journalPanelContext.result, /data-journal-id="quest-main"/);
+assert.match(journalPanelContext.result, /data-journal-id="quest-side"/);
+assert.doesNotMatch(journalPanelContext.result, /data-journal-id="place-1"/);
+assert.doesNotMatch(journalPanelContext.result, /data-journal-id="note-1"/);
+assert.match(html, /w\.zgVttJournalConfirmRemove=function\(journalId,event\)/);
+assert.match(html, /role="alertdialog"/);
+assert.match(html, /class="danger"[^>]*data-journal-id/);
+assert.doesNotMatch(html.slice(html.indexOf('w.zgVttJournalRemove=function(journalId)'), html.indexOf('w.zgVttJournalSelect=', html.indexOf('w.zgVttJournalRemove=function(journalId)'))), /w\.confirm/);
+assert.match(html, /background-color:#d8bd84/);
+assert.match(html, /\.zg-bag-notes\.zg-journal3 \.zg-journal3-paper\{[\s\S]*?opacity:1!important/);
+assert.match(html, /\.zg-journal3-paper-text\{[\s\S]*?opacity:1!important/);
+assert.match(html, /version:11/);
+assert.match(html, /rawVersion<11&&\(key==='journal\.paper'\|\|key==='journal\.entry-text'\)/);
 assert.match(html, /saveChars\(\{reason:reason\|\|'journal-update'\}\)/);
 assert.match(html, /journalSave\('journal-remove',true\)/);
+var journalDeleteStart = html.indexOf('w.zgVttJournalConfirmRemove=function(journalId,event)');
+var journalDeleteEnd = html.indexOf('w.zgVttJournalSelect=', journalDeleteStart);
+var journalDeleteHolder = { current:null };
+var journalDeleteCharacter = { journalEntries:[
+  {journalId:'owned-entry',title:'Личная запись',kind:'note',icon:'✒',updatedBy:'player-1'},
+  {journalId:'gm-entry',title:'Запись мастера',kind:'quest',updatedBy:'gm'}
+] };
+var journalDeleteCalls = [];
+var journalDeleteContext = {
+  w:{ showToast:function(message){ journalDeleteCalls.push(['toast',message]); } },
+  state:{ session:{ uid:'player-1' } },
+  journalSelectedId:'owned-entry',
+  ownMember:function(){ return { uid:'player-1' }; },
+  fullLocalCharacter:function(){ return journalDeleteCharacter; },
+  journalEntryKind:function(entry){ return entry.kind || 'note'; },
+  journalDisplayIcon:function(kind,icon){ return icon || (kind === 'quest' ? '✦' : '▤'); },
+  esc:function(value){ return String(value == null ? '' : value); },
+  el:function(id){ return id === 'zg-journal-delete-confirm' ? journalDeleteHolder.current : null; },
+  journalSave:function(reason,immediate){ journalDeleteCalls.push(['save',reason,immediate]); },
+  renderDrawer:function(){ journalDeleteCalls.push(['render']); },
+  document:{
+    createElement:function(){
+      return {
+        id:'',className:'',innerHTML:'',listeners:{},
+        addEventListener:function(name,handler){ this.listeners[name]=handler; },
+        querySelector:function(){ return { focus:function(){ journalDeleteCalls.push(['focus']); } }; },
+        remove:function(){ journalDeleteHolder.current=null; }
+      };
+    },
+    body:{ appendChild:function(node){ journalDeleteHolder.current=node; } }
+  }
+};
+vm.runInNewContext(html.slice(journalDeleteStart, journalDeleteEnd), journalDeleteContext);
+assert.strictEqual(journalDeleteContext.w.zgVttJournalConfirmRemove('owned-entry',{preventDefault:function(){},stopPropagation:function(){}}), true);
+assert.match(journalDeleteHolder.current.innerHTML, /Личная запись/);
+assert.match(journalDeleteHolder.current.innerHTML, /role="alertdialog"/);
+assert.strictEqual(journalDeleteContext.w.zgVttJournalRemove('owned-entry'), true);
+assert.ok(journalDeleteCharacter.journalEntries[0].deletedAt > 0);
+assert.strictEqual(journalDeleteContext.journalSelectedId, '');
+assert.strictEqual(journalDeleteHolder.current, null);
+assert.deepStrictEqual(journalDeleteCalls.filter(function(call){return call[0]==='save';}), [['save','journal-remove',true]]);
+assert.strictEqual(journalDeleteContext.w.zgVttJournalConfirmRemove('gm-entry'), false);
+assert.strictEqual(journalDeleteHolder.current, null);
 assert.match(html, /w\.zgVttJournalOpenManual=function\(event\)/);
 assert.match(html, /w\.showPage\('manual'\)/);
 var journalManualStart = html.indexOf('w.zgVttJournalOpenManual=function(event)');
@@ -926,7 +1083,7 @@ assert.strictEqual(fallbackItemContext.result.itemId, 'safe-fallback');
 var journalHelperContext = { result:null };
 vm.runInNewContext(
   inventoryHelperSource +
-    '; var entry=normalizeJournalOperationEntry({journalId:"master-entry",title:"  След  ",text:"Описание"},"fallback",{updatedAt:500,updatedBy:"gm"});' +
+    '; var entry=normalizeJournalOperationEntry({journalId:"master-entry",title:"  След  ",text:"Описание",icon:"⚑",image:"javascript:alert(1)"},"fallback",{updatedAt:500,updatedBy:"gm"});' +
     'result=applyJournalDomainOperation({id:"hero",hpCur:7,revision:4,journalEntries:[{journalId:"player-entry",title:"Игрок"}]},{type:"add",entry:entry},{updatedAt:500,updatedBy:"gm",source:"gm-journal-add",operationId:"journal-op-1"});',
   journalHelperContext
 );
@@ -934,6 +1091,8 @@ assert.strictEqual(journalHelperContext.result.ok, true);
 assert.strictEqual(journalHelperContext.result.character.hpCur, 7);
 assert.strictEqual(journalHelperContext.result.character.journalEntries.length, 2);
 assert.strictEqual(journalHelperContext.result.character.journalEntries[1].title, 'След');
+assert.strictEqual(journalHelperContext.result.character.journalEntries[1].icon, '⚑');
+assert.strictEqual(journalHelperContext.result.character.journalEntries[1].image, '');
 assert.strictEqual(journalHelperContext.result.character.revision, 5);
 assert.strictEqual(journalHelperContext.result.character.syncOperationId, 'journal-op-1');
 var journalReplaceContext = { result:null };

@@ -20,6 +20,8 @@ var mechanics = [
   {key:'curse',attackMod:-2,damageMod:-1},
   {key:'custom-lock',cantAct:true,cantMove:true,cantReact:true},
   {key:'burn',startOfTurnEffect:'damage',startOfTurnDice:'1d4'},
+  {key:'poison',startOfTurnEffect:'damage',startOfTurnValue:1,attackDisadvantage:true,abilityCheckDisadvantage:true},
+  {key:'bleed',startOfTurnEffect:'damage',startOfTurnValue:1},
   {key:'blind',attackDisadvantage:true,grantAdvantageToAttackers:true}
 ];
 var context = {
@@ -57,6 +59,37 @@ assert.strictEqual(effect.stacks, 1);
 assert.strictEqual(effect.visibility, 'public');
 assert.strictEqual(effect.durationUnit, 'rounds');
 assert.strictEqual(effect.remainingRounds, 2);
+assert.match(effect.effectId, /^status-test-[0-9a-f]{8}$/, 'network normalization must assign a stable effectId');
+var normalizedPoison = context.normalizeStatusEffectInput({
+  tickType:'damage',
+  tickDice:'1d4'
+}, 'poison', 'Отравлен');
+assert.strictEqual(normalizedPoison.tickType, 'damage');
+assert.strictEqual(normalizedPoison.tickDice, '', 'legacy poison dice must not survive the new fixed-damage canon');
+assert.strictEqual(normalizedPoison.tickValue, 1);
+var normalizedBleed = context.normalizeStatusEffectInput({
+  tickType:'damage',
+  tickDice:'1d8',
+  stacks:3
+}, 'bleed', 'Кровотечение');
+assert.strictEqual(normalizedBleed.tickDice, '');
+assert.strictEqual(normalizedBleed.tickValue, 1);
+assert.strictEqual(normalizedBleed.stacks, 3);
+assert.strictEqual(
+  context.normalizeStatusEffectInput({sourceId:'gm-manual:test'}, 'test', 'Тест').effectId,
+  context.normalizeStatusEffectInput({sourceId:'gm-manual:test'}, 'test', 'Тест').effectId,
+  'the same status source must keep the same effectId across retries'
+);
+assert.notStrictEqual(
+  context.normalizeStatusEffectInput({sourceId:'spell:first'}, 'test', 'Тест').effectId,
+  context.normalizeStatusEffectInput({sourceId:'spell:second'}, 'test', 'Тест').effectId,
+  'independent sources must not collapse into one effectId'
+);
+assert.strictEqual(
+  context.normalizeStatusEffectInput({effectId:'status-custom-id',sourceId:'spell:first'}, 'test', 'Тест').effectId,
+  'status-custom-id',
+  'an existing safe effectId must survive normalization'
+);
 var hourlyEffect = context.normalizeStatusEffectInput({
   unit:'hours',
   duration:4,
@@ -91,6 +124,31 @@ assert.strictEqual(legacyRoundEffect.remaining, 3);
 var privateStackedEffect = context.normalizeStatusEffectInput({stacks:99,visibility:'gm'}, 'secret', 'Скрытый');
 assert.strictEqual(privateStackedEffect.stacks, 20, 'status stacks must be bounded');
 assert.strictEqual(privateStackedEffect.visibility, 'gm');
+
+var collectedStatuses = context.collectActiveStatusEffects({
+  statuses:['BURN','Оглушён'],
+  statusEffects:[
+    {type:'status',statusKey:'burn',sourceId:'spell:first',stacks:1,unit:'rounds',remainingRounds:2},
+    {type:'status',statusKey:'Горит',sourceId:'item:torch',stacks:3,unit:'rounds',remainingRounds:2},
+    {type:'status',statusKey:'stun',sourceId:'gm-manual:stun',visibility:'gm',unit:'manual'}
+  ]
+}, {includeHidden:true});
+assert.deepStrictEqual(Array.from(collectedStatuses.keys), ['burn','stun'], 'combat collector must canonicalize structured and legacy keys once');
+assert.strictEqual(collectedStatuses.effects.length, 3, 'independent sources of one status must remain distinct');
+assert.strictEqual(collectedStatuses.levelsByKey.burn, 3, 'combat collector must preserve the strongest stack level');
+var collectedBleeding = context.collectActiveStatusEffects({
+  statuses:['bleed'],
+  statusEffects:[
+    {type:'status',statusKey:'bleed',sourceId:'weapon:first',stacks:1,unit:'rounds',remainingRounds:2},
+    {type:'status',statusKey:'bleed',sourceId:'weapon:second',stacks:2,unit:'rounds',remainingRounds:2}
+  ]
+}, {includeHidden:true});
+assert.strictEqual(collectedBleeding.levelsByKey.bleed, 3, 'bleeding stacks from independent sources must add together');
+var playerVisibleStatuses = context.collectActiveStatusEffects({
+  statuses:['STUN'],
+  statusEffects:[{type:'status',statusKey:'stun',sourceId:'gm-manual:stun',visibility:'gm',unit:'manual'}]
+}, {includeHidden:false});
+assert.strictEqual(playerVisibleStatuses.keys.length, 0, 'hidden structured status must reserve its key and not leak through legacy fallback');
 
 var timedSource = {
   statuses:['hourly','daily','round','manual'],
@@ -136,6 +194,19 @@ assert.strictEqual(roomAdvance.room.combat.order[0].statusEffects[0].remainingMi
 var duplicateAdvance = context.advanceRoomWorldTimeState(roomAdvance.room, 60, 'world-time-test', 'gm', 1700000000100);
 assert.strictEqual(duplicateAdvance.duplicate, true);
 assert.strictEqual(duplicateAdvance.room.worldClock.totalMinutes, 1440, 'operationId makes retries idempotent');
+assert.strictEqual(duplicateAdvance.room.members.player.character.statusEffects[0].remainingMinutes, 30, 'duplicate world-time operation must not expire a status twice');
+assert.strictEqual(duplicateAdvance.room.scene.tokens[0].statusEffects[0].remainingMinutes, 30);
+var exactClock = context.setRoomWorldClockState(timedRoom, 1440, 'exact', 'world-clock-exact', 'gm', 1700000000200);
+assert.strictEqual(exactClock.room.worldClock.totalMinutes, 1440);
+assert.strictEqual(exactClock.room.worldClock.displayMode, 'exact');
+assert.strictEqual(exactClock.room.worldClock.calendarId, 'zargota-lvk');
+assert.strictEqual(exactClock.room.members.player.character.statusEffects[0].remainingMinutes, 30, 'forward exact-time changes expire timed effects');
+var approximateClock = context.setRoomWorldClockState(exactClock.room, 1320, 'phase', 'world-clock-phase', 'gm', 1700000000300);
+assert.strictEqual(approximateClock.room.worldClock.totalMinutes, 1320);
+assert.strictEqual(approximateClock.room.worldClock.displayMode, 'phase');
+assert.strictEqual(approximateClock.room.members.player.character.statusEffects[0].remainingMinutes, 30, 'moving the clock backward never restores or consumes effects');
+var duplicateClockSet = context.setRoomWorldClockState(approximateClock.room, 1320, 'phase', 'world-clock-phase', 'gm', 1700000000400);
+assert.strictEqual(duplicateClockSet.duplicate, true, 'exact calendar writes must be idempotent');
 
 var normalizedAbilityTarget = context.normalizeAbilityTargeting({
   mode:'token',
@@ -161,6 +232,19 @@ var applied = context.applyStatusDomainOperation(
 );
 assert.deepStrictEqual(Array.from(applied.statuses), ['test']);
 assert.strictEqual(applied.statusEffects.length, 1);
+var appliedSecondSource = context.applyStatusDomainOperation(applied, {
+  statusKey:'test',
+  enable:true,
+  effect:context.normalizeStatusEffectInput({sourceId:'spell:second'}, 'test', 'Тест')
+});
+assert.strictEqual(appliedSecondSource.statusEffects.length, 2, 'two independent status sources must coexist');
+var retriedFirstSource = context.applyStatusDomainOperation(appliedSecondSource, {
+  statusKey:'test',
+  enable:true,
+  effect:context.normalizeStatusEffectInput({sourceId:'gm-manual:test',stacks:2}, 'test', 'Тест')
+});
+assert.strictEqual(retriedFirstSource.statusEffects.length, 2, 'retrying one source must replace it instead of duplicating it');
+assert.strictEqual(retriedFirstSource.statusEffects.filter(function(item){return item.sourceId==='gm-manual:test';})[0].stacks, 2);
 var removed = context.applyStatusDomainOperation(applied, {statusKey:'test',enable:false});
 assert.strictEqual(removed.statuses.length, 0);
 assert.strictEqual(removed.statusEffects.length, 0);
@@ -254,7 +338,42 @@ var stackedTick = context.statusTurnTick({
     tickDice:'1d4'
   }]
 });
-assert.strictEqual(stackedTick.hp, 8, 'each stack must contribute one periodic damage roll');
+assert.strictEqual(stackedTick.hp, 9, 'burning always rolls 1d4 once and does not multiply by stacks');
+
+var poisonTick = context.statusTurnTick({
+  hp:10,
+  hpMax:10,
+  tempHp:0,
+  statuses:['poison'],
+  statusEffects:[{
+    type:'status',
+    statusKey:'poison',
+    unit:'rounds',
+    remaining:2,
+    stacks:5,
+    tickType:'damage',
+    tickDice:'1d12'
+  }]
+});
+assert.strictEqual(poisonTick.hp, 9, 'poison must deal exactly 1 damage regardless of stale dice or stacks');
+var poisonModifiers = context.combatStatusModifiers({
+  statuses:['poison'],
+  statusEffects:[{type:'status',statusKey:'poison',attackDisadvantage:false,abilityCheckDisadvantage:false}]
+});
+assert.strictEqual(poisonModifiers.attackDisadvantage, true, 'poison always gives disadvantage on attacks');
+assert.strictEqual(poisonModifiers.abilityCheckDisadvantage, true, 'poison always gives disadvantage on ability checks');
+
+var bleedingTick = context.statusTurnTick({
+  hp:10,
+  hpMax:10,
+  tempHp:0,
+  statuses:['bleed'],
+  statusEffects:[
+    {type:'status',statusKey:'bleed',sourceId:'weapon:first',unit:'rounds',remaining:2,stacks:1,tickType:'damage',tickDice:'1d12'},
+    {type:'status',statusKey:'bleed',sourceId:'weapon:second',unit:'rounds',remaining:2,stacks:2,tickType:'damage',tickDice:'1d12'}
+  ]
+});
+assert.strictEqual(bleedingTick.hp, 7, 'bleeding deals 1 damage per accumulated stack');
 
 var roundExpiry = context.expireTurnStatuses({
   statuses:['burn'],
@@ -430,16 +549,29 @@ assert.match(html, /zgGmInterventionStatusUpdate/);
 assert.match(html, /tokenCombatStatuses\(token\).*slice\(0,5\)/s);
 assert.match(network, /normalizeStatusEffectInput\(operation\.effect,statusKey,statusLabel\)/);
 assert.match(network, /function normalizeStatusDurationUnit\(/);
+assert.match(network, /function stableStatusEffectId\(/);
+assert.match(network, /function collectActiveStatusEffects\(/);
+assert.match(network, /w\.zgCollectActiveStatusEffects=collectActiveStatusEffects/);
 assert.match(network, /function normalizeWorldClock\(/);
 assert.match(network, /function advanceWorldTimedStatusEffects\(/);
 assert.match(network, /function advanceRoomWorldTimeState\(/);
 assert.match(network, /gmAdvanceWorldTime: function \(operation\)/);
+assert.match(network, /gmSetWorldClock: function \(operation\)/);
+assert.match(network, /function setRoomWorldClockState\(/);
 assert.match(network, /firebase\.runTransaction\(roomTarget/);
+var worldTimeApiStart=network.indexOf('gmAdvanceWorldTime: function (operation)');
+var worldTimeApiEnd=network.indexOf('gmBroadcastVisual: function',worldTimeApiStart);
+var worldTimeApiBlock=network.slice(worldTimeApiStart,worldTimeApiEnd);
+assert.match(worldTimeApiBlock, /session\.role!=='master'/);
+assert.match(worldTimeApiBlock, /room\.masterUid!==user\.uid/);
 assert.match(network, /world-time-delta-invalid/);
 assert.match(network, /deltaMinutes<1\|\|deltaMinutes>525600/);
 assert.match(html, /function worldClockView\(clock\)/);
 assert.match(html, /id="zg-world-clock"/);
 assert.match(html, /zgGmAdvanceWorldTime\(1440\)/);
+assert.match(html, /zgGmSetExactWorldTime/);
+assert.match(html, /zgGmSetDayPhase/);
+assert.match(html, /zgGmWorldTimeMode/);
 assert.match(html, /Раунд боя не меняется/);
 assert.match(network, /effect\.durationUnit\|\|effect\.unit/);
 assert.match(network, /unit==='rounds'/);
@@ -508,6 +640,17 @@ var actionHistoryContext = {result:null,existing:oldActionHistory,Date:Date,Math
 vm.runInNewContext('function now(){return 1000;}\n'+network.slice(actionHistoryStart,actionHistoryEnd)+';result=rememberActionOperation(existing,"new-operation",1000);',actionHistoryContext);
 assert.strictEqual(Object.keys(actionHistoryContext.result).length,40,'completed ability operation history is bounded');
 assert.strictEqual(actionHistoryContext.result['new-operation'],1000);
+var turnOperationContext={first:null,second:null,Math:Math,Number:Number,Object:Object,String:String};
+vm.runInNewContext(
+  network.slice(actionHistoryStart,actionHistoryEnd)+
+  '; first=beginCombatTurnOperation({round:3,turnIndex:1,appliedTurnOperationIds:{}},"turn-op",1000,"player");'+
+  'second=beginCombatTurnOperation(first.combat,"turn-op",1100,"player");',
+  turnOperationContext
+);
+assert.strictEqual(turnOperationContext.first.duplicate,false);
+assert.strictEqual(turnOperationContext.second.duplicate,true,'the same turn operation must not tick round statuses twice');
+assert.strictEqual(turnOperationContext.second.combat.lastTurnOperation.fromRound,3);
+assert.strictEqual(turnOperationContext.second.combat.lastTurnOperation.fromTurn,1);
 assert.match(html, /\.zg-combat-spell-cast/);
 assert.match(html, /function openAbilityTargetEntity\(key,order\)/);
 assert.match(html, /gmInterventionTab='entity'/);

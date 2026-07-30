@@ -7,6 +7,7 @@ var vm = require('vm');
 
 var root = path.resolve(__dirname, '..');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+assert.match(html,/rel="icon" href="data:image\/svg\+xml/,'inline favicon must prevent a noisy missing favicon request');
 var signatureStart = html.indexOf('  function drawerRenderSignature()');
 var signatureEnd = html.indexOf('  function renderDrawer(force)', signatureStart);
 assert.ok(signatureStart >= 0 && signatureEnd > signatureStart, 'drawer signature helper must exist');
@@ -153,6 +154,35 @@ assert.ok(tokenPatchStart>=0&&tokenPatchEnd>tokenPatchStart,'token runtime patch
 assert.ok(tokenPatchBlock.indexOf("querySelector('.zg-vtt-token-hp')")>=0,'HP bar must be patched in place');
 assert.match(tokenPatchBlock,/appendTokenCombatStatuses\(node,token\)/);
 assert.doesNotMatch(tokenPatchBlock,/layer\\.innerHTML\\s*=\\s*''/);
+assert.doesNotMatch(tokenPatchBlock,/renderDrawer\(/,'token status and HP patches must not rerender the character drawer');
+
+var statusVfxStart=html.indexOf('  var TOKEN_STATUS_VISUAL_PRIORITY=');
+var statusVfxEnd=html.indexOf('  w.zgTokenStatusInfo=',statusVfxStart);
+var statusVfxBlock=html.slice(statusVfxStart,statusVfxEnd);
+assert.ok(statusVfxStart>=0&&statusVfxEnd>statusVfxStart,'token status VFX helper must exist');
+assert.match(statusVfxBlock,/\.slice\(0,2\)/,'status VFX must be capped at two animated layers per token');
+assert.match(statusVfxBlock,/new w\.IntersectionObserver/,'status VFX must pause outside the visible area');
+assert.match(statusVfxBlock,/visibilitychange/,'status VFX must react to hidden documents');
+assert.match(statusVfxBlock,/setAttribute\('aria-hidden','true'\)/,'decorative status VFX must be hidden from assistive technology');
+assert.doesNotMatch(statusVfxBlock,/setInterval\(/,'status VFX must not create permanent timers');
+assert.doesNotMatch(statusVfxBlock,/setTimeout\(/,'status VFX must not create delayed particle loops');
+assert.doesNotMatch(statusVfxBlock,/requestAnimationFrame\(/,'status VFX must rely on bounded CSS animation, not a frame scheduler');
+assert.doesNotMatch(statusVfxBlock,/ZargotaRooms|Firebase|markDirty/,'visual-only status effects must not write network state');
+
+var worldClockStart=html.indexOf('  function renderWorldClock()');
+var worldClockEnd=html.indexOf('  function gmWorldTimePanel()',worldClockStart);
+var worldClockBlock=html.slice(worldClockStart,worldClockEnd);
+assert.ok(worldClockStart>=0&&worldClockEnd>worldClockStart,'world clock render helper must exist');
+assert.doesNotMatch(worldClockBlock,/ZargotaRooms|Firebase|markDirty/,'clock rendering must not write network state');
+assert.doesNotMatch(worldClockBlock,/setInterval\(|setTimeout\(|requestAnimationFrame\(/,'clock rendering must not start a scheduler');
+assert.match(html,/\.zg-world-clock-dial b,[^{]*\{[^}]*transition:transform \.65s/,'clock hand movement must remain a CSS transition');
+assert.match(html,/@media\(prefers-reduced-motion:reduce\)\{\.zg-world-clock-dial b,[^{]*\{transition:none!important\}\}/,'clock transition must respect reduced motion');
+
+var advanceWorldTimeStart=html.indexOf('  w.zgGmAdvanceWorldTime=function(minutes)');
+var advanceWorldTimeEnd=html.indexOf('  w.zgGmVisualIntensity=',advanceWorldTimeStart);
+var advanceWorldTimeBlock=html.slice(advanceWorldTimeStart,advanceWorldTimeEnd);
+assert.ok(advanceWorldTimeStart>=0&&advanceWorldTimeEnd>advanceWorldTimeStart,'explicit GM world-time action must exist');
+assert.match(advanceWorldTimeBlock,/ZargotaRooms&&w\.ZargotaRooms\.gmAdvanceWorldTime/,'world time writes must stay behind the explicit GM action');
 
 var movementStart=html.indexOf('  function animateLastMovement(movementOverride)');
 var movementEnd=html.indexOf('  function applyCamera()',movementStart);
@@ -186,5 +216,30 @@ effectsContext.w.zgReducedEffectsToggle();
 assert.strictEqual(effectsContext.w.zgReducedEffectsState().enabled,false,'explicit off must override automatic weak-device mode');
 assert.match(html,/html\.zg-reduced-effects \.zg-game-overlay \.zg-vtt-token/);
 assert.match(html,/backdrop-filter:none!important/);
+assert.match(
+  html,
+  /@media\(max-width:560px\)\{[\s\S]*?\.zg-vtt-drawer\.backpack-skin\{[^}]*width:min\(calc\(100vw - 8px\)/,
+  'mobile backpack frame must stay inside the viewport instead of adding width'
+);
+assert.match(
+  html,
+  /@media\(max-width:560px\)\{[\s\S]*?\.zg-game-overlay\.gm \.zg-gm-actions\{[^}]*overflow:hidden/,
+  'mobile GM controls must remain in one bounded compact row'
+);
+assert.match(
+  html,
+  /\.zg-session-connection\{[^}]*left:8px;[^}]*top:48px;[^}]*max-width:calc\(100vw - 16px\)/,
+  'mobile reconnect notice must not cover the GM controls'
+);
+assert.match(
+  html,
+  /\.zg-game-overlay\.gm\.gm-vision \.zg-scene-quick\{[^}]*width:min\(210px,calc\(100vw - 70px\)\)/,
+  'mobile scene rail must stay compact'
+);
+assert.match(
+  html,
+  /\.zg-scene-quick \.zg-scene-dirty,[\s\S]*?\.zg-scene-quick \.zg-scene-published-state\{display:none\}/,
+  'mobile scene rail must hide technical publication labels'
+);
 
 console.log('render performance tests passed');

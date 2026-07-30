@@ -212,6 +212,8 @@ assert.strictEqual(itemOperations.some(function(operation) { return operation.ty
 var roomWithIndependentGmItem = Object.assign({}, itemBaseCharacter, {
   hpCur:9,
   revision:4,
+  statusEffects:[{ key:'burn', remaining:2, unit:'rounds' }],
+  journalEntries:[{ journalId:'gm-note', title:'Не трогать', text:'Запись ГМ' }],
   inventoryItems:[
     { itemId:'item-a', name:'Ключ', qty:1 },
     { itemId:'item-b', name:'Дар мастера', qty:1 }
@@ -231,6 +233,18 @@ assert.strictEqual(itemMergeResult.character.inventoryItems.filter(function(item
 assert.strictEqual(itemMergeResult.character.inventoryItems.some(function(item) { return item.itemId === 'item-b'; }), true);
 assert.strictEqual(itemMergeResult.character.inventoryItems.some(function(item) { return item.itemId === 'item-c'; }), true);
 assert.strictEqual(itemMergeResult.character.syncOperationId, 'inventory-op-1');
+assert.strictEqual(itemMergeResult.character.hpCur, 9, 'equip operation must not overwrite combat HP');
+assert.deepStrictEqual(itemMergeResult.character.statusEffects, roomWithIndependentGmItem.statusEffects);
+assert.deepStrictEqual(itemMergeResult.character.journalEntries, roomWithIndependentGmItem.journalEntries);
+var repeatedItemMerge = outbox.applyInventoryOperations(itemMergeResult.character, itemOperations, {
+  revision:5,
+  updatedAt:301,
+  updatedBy:'player',
+  source:'inventory-update',
+  operationId:'inventory-op-1'
+});
+assert.strictEqual(repeatedItemMerge.ok, true, 'retrying the same equip operation must be idempotent');
+assert.strictEqual(repeatedItemMerge.character.inventoryItems.length, 3);
 
 var fullInventoryResult = outbox.applyInventoryOperations(
   {revision:1,inventoryItems:Array.from({length:80},function(_,index){return{itemId:'full-'+index,name:'Предмет'};})},

@@ -62,8 +62,42 @@ assert.strictEqual(mixedResult.speedBonus, 2);
 assert.strictEqual(mixedResult.initiativeBonus, 1);
 assert.strictEqual(mixedResult.statBonuses.dex, 1);
 assert.strictEqual(mixedResult.statBonuses.str, 0, 'unequipped inventory item must not apply');
+
+assert.strictEqual(rules.normalizedEquipmentSlot({slot:'weapon',category:'weapon'}), 'mainHand');
+assert.strictEqual(rules.normalizedEquipmentSlot({slot:'main_hand',category:'weapon'}), 'mainHand');
+assert.strictEqual(rules.normalizedEquipmentSlot({name:'Старый щит',category:'shield'}), 'offHand');
+assert.strictEqual(rules.itemHandsRequired({name:'Двуручный меч',category:'weapon'}), 2);
+assert.strictEqual(rules.itemHandsRequired({name:'Рапира',category:'weapon'}), 1);
+assert.strictEqual(rules.canEquipInSlot({name:'Щит',category:'shield'}, 'mainHand'), false);
+assert.strictEqual(rules.canEquipInSlot({name:'Щит',category:'shield'}, 'offHand'), true);
+
+var handItems = [
+  {itemId:'sword',name:'Меч',category:'weapon',equipped:true,slot:'weapon'},
+  {itemId:'shield',name:'Щит',category:'shield',equipped:true,slot:'offHand'},
+  {itemId:'greatsword',name:'Двуручный меч',category:'weapon',equipped:false}
+];
+var initialHands = rules.resolveHandSlots(handItems);
+assert.strictEqual(initialHands.mainHand.item.itemId, 'sword');
+assert.strictEqual(initialHands.offHand.item.itemId, 'shield');
+var plannedGreatsword = rules.planHandEquip(handItems, 2, 'mainHand');
+assert.strictEqual(plannedGreatsword.ok, true);
+assert.strictEqual(plannedGreatsword.handsRequired, 2);
+assert.strictEqual(plannedGreatsword.items[0].equipped, false);
+assert.strictEqual(plannedGreatsword.items[1].equipped, false);
+assert.strictEqual(plannedGreatsword.items[2].slot, 'mainHand');
+assert.strictEqual(rules.resolveHandSlots(plannedGreatsword.items).twoHanded, true);
+
+var twoWeapons = rules.planHandEquip([
+  {itemId:'sword',name:'Меч',category:'weapon',equipped:true,slot:'mainHand'},
+  {itemId:'dagger',name:'Кинжал',category:'weapon',equipped:false}
+], 1, 'offHand');
+assert.strictEqual(twoWeapons.ok, true);
+assert.strictEqual(twoWeapons.items[0].equipped, true);
+assert.strictEqual(twoWeapons.items[1].slot, 'offHand');
 assert.strictEqual(mixedResult.weapon.name, 'Сабля');
 assert.strictEqual(mixedResult.weapon.damageFormula, '1d8');
+assert.strictEqual(mixedResult.weapon.slot, 'mainHand');
+assert.strictEqual(mixedResult.weapon.handsRequired, 1);
 assert.strictEqual(mixedResult.sources.length, 4);
 
 var duplicateCharacter = {
