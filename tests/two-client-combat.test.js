@@ -603,6 +603,18 @@ async function expectCode(operation, code) {
   assert.strictEqual(snapshot.room.combat.round, 3);
   assert.strictEqual(snapshot.room.combat.turnIndex, 0);
   assert.ok(!snapshot.room.combat.order[1].statuses.includes('marked'), 'expired round status must be removed');
+  await expectCode(
+    () => player.advanceCombat({ operationId:'zero-hp-before-death-save' }),
+    'death-save-required'
+  );
+  snapshot = await player.rollDeathSave(heroKey);
+  assert.strictEqual(snapshot.room.combat.order[0].zeroHp.lastRoll, 11, 'death save is rolled only after the player presses the die');
+  assert.strictEqual(snapshot.room.combat.order[0].zeroHp.successes, 1);
+  assert.strictEqual(snapshot.room.combat.order[0].zeroHp.failures, 0);
+  assert.strictEqual(snapshot.room.combat.order[0].zeroHp.lastRollRound, 3);
+  assert.strictEqual(snapshot.room.members[playerUid].character.deathSaves.successes, 1, 'death-save progress must synchronize to the character and GM client');
+  assert.strictEqual(snapshot.room.combatEvent.kind, 'death-save');
+  await expectCode(() => player.rollDeathSave(heroKey), 'death-save-already-rolled');
   await expectCode(() => master.resolveCombatAbility(playerUid, [enemyKey], {}), 'combat-zero-hp');
   await master.resolveAction(playerUid, false, {});
   await player.acknowledgeAction(beforeZeroHpRequestId);

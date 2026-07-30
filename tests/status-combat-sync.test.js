@@ -40,6 +40,25 @@ var context = {
 };
 vm.runInNewContext(network.slice(start, end), context);
 
+var enteredZeroHp = context.syncCombatZeroHp({hp:0}, 6, 'enemy:test', 1700000000000);
+assert.strictEqual(enteredZeroHp.zeroHp.pending, true);
+assert.strictEqual(enteredZeroHp.zeroHp.successes, 0);
+assert.strictEqual(enteredZeroHp.zeroHp.failures, 0);
+var naturalOneSave = context.resolveDeathSaveState(enteredZeroHp.zeroHp, 1, 2, 1700000000100);
+assert.strictEqual(naturalOneSave.failures, 2, 'natural 1 must add two death-save failures');
+assert.strictEqual(naturalOneSave.lastOutcome, 'critical-failure');
+var naturalTwentySave = context.resolveDeathSaveState(naturalOneSave, 20, 3, 1700000000200);
+assert.strictEqual(naturalTwentySave.successes, 2, 'natural 20 must add two death-save successes');
+assert.strictEqual(naturalTwentySave.lastOutcome, 'critical-success');
+var thirdSuccess = context.resolveDeathSaveState(naturalTwentySave, 10, 4, 1700000000300);
+var stabilizedSave = context.resolveDeathSaveState(thirdSuccess, 10, 5, 1700000000400);
+assert.strictEqual(stabilizedSave.state, 'stabilized');
+assert.strictEqual(stabilizedSave.pending, false);
+var fatalSave = context.resolveDeathSaveState({pending:true,state:'death-saves',failures:3}, 2, 6, 1700000000500);
+assert.strictEqual(fatalSave.state, 'dead');
+assert.strictEqual(fatalSave.failures, 4);
+assert.strictEqual(context.syncCombatZeroHp({hp:3,zeroHp:stabilizedSave}, 0, 'heal', 1700000000600).zeroHp, null, 'healing above zero clears death-save state');
+
 var effect = context.normalizeStatusEffectInput({
   duration:2,
   acMod:2,

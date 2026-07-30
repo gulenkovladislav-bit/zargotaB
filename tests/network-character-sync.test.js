@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-07-29\.27/, 'network cache key must change with the status synchronization contract');
+assert.match(html, /zargota-network\.js\?v=2026-07-30\.1/, 'network cache key must change with the manual death-save synchronization contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
