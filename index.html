@@ -39774,9 +39774,12 @@ window.openSkillCardPopup = function(charId, field, idx) {
 
   var backdrop = document.createElement('div');
   backdrop.id = 'skill-card-backdrop';
+  backdrop.setAttribute('role', 'presentation');
   backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9998;display:flex;align-items:' + (isMobile?'flex-start':'center') + ';justify-content:center;' + (isMobile?'padding:48px 12px 12px':'padding:24px') + ';overflow-y:auto';
 
   var popup = document.createElement('div');
+  popup.setAttribute('role', 'dialog');
+  popup.setAttribute('aria-modal', 'true');
   popup.style.cssText = 'position:relative;background:#0e0a06;border:2px solid ' + typeColor + ';border-radius:10px;width:' + (isMobile?'calc(100vw - 24px)':'560px') + ';max-width:100%;padding:24px 22px 20px;box-shadow:0 20px 60px #000000cc';
 
   function renderContent() {
@@ -40072,7 +40075,17 @@ window.openSkillCardPopup = function(charId, field, idx) {
     if (el) el.innerHTML = field === 'skills' ? buildSkillsList(c) : buildMasteryList(c);
   }
 
-  backdrop.addEventListener('click', function(e){ if(e.target===backdrop){ closeAll(); } });
+  // Редактор содержит длинные несохранённые тексты. Клик по затемнённой области
+  // и Escape намеренно ничего не закрывают: выйти можно только крестиком или
+  // явной кнопкой «Отмена», чтобы случайный клик не уничтожил ввод.
+  backdrop.addEventListener('click', function(e){
+    if (e.target === backdrop) e.preventDefault();
+  });
+  backdrop.addEventListener('keydown', function(e){
+    if (e.key !== 'Escape') return;
+    e.preventDefault();
+    e.stopPropagation();
+  });
 
   popup.dataset.mode = (!item.name || !item.name.trim()) ? 'edit' : 'view';
   backdrop.appendChild(popup);
@@ -41789,6 +41802,26 @@ function getSpellTypeLimitForCharacter(c, spellType, level) {
   var targetLevel = Math.max(1, Number(level != null ? level : c && c.level) || 1);
   return 3 + (every > 0 ? Math.floor(targetLevel / every) : 0);
 }
+function getCharacterSpellCatalogEntries() {
+  if (Array.isArray(entries) && entries.length > 0) return entries;
+  try {
+    var stored = JSON.parse(localStorage.getItem('grimoire_v3') || 'null');
+    var storedEntries = Array.isArray(stored)
+      ? stored
+      : (stored && Array.isArray(stored.entries) ? stored.entries : []);
+    if (storedEntries.length > 0) {
+      entries = storedEntries;
+      try { window.entries = entries; } catch(e) {}
+    }
+  } catch(e) {}
+  return Array.isArray(entries) ? entries : [];
+}
+function findCharacterCatalogSpell(spellId) {
+  var key = String(spellId);
+  return getCharacterSpellCatalogEntries().find(function(item) {
+    return item && String(item.id) === key;
+  }) || null;
+}
 function getSpellTypeCountsForCharacter(c) {
   var counts = { kodex:0, folio:0, obrad:0 };
   var seen = {};
@@ -41796,7 +41829,7 @@ function getSpellTypeCountsForCharacter(c) {
     var key = String(id);
     if (seen[key]) return;
     seen[key] = true;
-    var spell = entries.find(function(item){ return String(item.id) === key; });
+    var spell = findCharacterCatalogSpell(key);
     if (spell && counts[spell.spellType] != null) counts[spell.spellType] += 1;
   });
   return counts;
@@ -44233,7 +44266,7 @@ function buildSpellRefsList(c) {
   if (!c.spellCD) c.spellCD = {};
   if (!c.spellsLearned) c.spellsLearned = {};
   return c.spellRefs.map(function(sid) {
-    var sp = entries.find(function(e){ return e.id === sid; });
+    var sp = findCharacterCatalogSpell(sid);
     if (!sp) return '';
     var typeAccents = { kodex:'#c8d4dc', folio:'#5a9ae0', obrad:'#c03030' };
     var accentColor = typeAccents[sp.spellType] || '#8a6a2a';
@@ -44288,7 +44321,7 @@ function buildSpellRefsList(c) {
 }
 
 function showSpellDetail(charId, spellId) {
-  var sp = entries.find(function(e){ return e.id === spellId; });
+  var sp = findCharacterCatalogSpell(spellId);
   if (!sp) return;
   var c = characters.find(function(x){ return x.id === charId; });
   var old = document.getElementById('spell-detail-popup'); if (old) old.remove();
@@ -44504,6 +44537,7 @@ function openSpellPicker(charId) {
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
   var existing = c.spellRefs || [];
+  var catalogEntries = getCharacterSpellCatalogEntries();
 
   // Mobile: use full overlay with backdrop, X in corner
   var isMobile = window.innerWidth < 600;
@@ -44527,12 +44561,12 @@ function openSpellPicker(charId) {
   var typeColors = { kodex:'#c8d4dc', folio:'#5a9ae0', obrad:'#c03030' };
 
   var spellListHtml = '';
-  if (entries.length === 0) {
-    spellListHtml = '<div style="color:var(--dim);font-size:12px;padding:20px;text-align:center">Гримуар пуст — сначала добавь заклинания</div>';
+  if (catalogEntries.length === 0) {
+    spellListHtml = '<div style="color:var(--dim);font-size:12px;padding:20px;text-align:center">Каталог заклинаний пока пуст</div>';
   } else {
     // Собираем уникальные уровни для чипов
     var levelsSet = {};
-    entries.forEach(function(sp){ if (sp.level != null) levelsSet[sp.level] = 1; });
+    catalogEntries.forEach(function(sp){ if (sp.level != null) levelsSet[sp.level] = 1; });
     var levels = Object.keys(levelsSet).map(function(v){return parseInt(v,10);}).filter(function(v){return !isNaN(v);}).sort(function(a,b){return a-b;});
 
     var filtersHtml =
@@ -44553,8 +44587,8 @@ function openSpellPicker(charId) {
       '<input id="sp-picker-search" type="text" placeholder="Поиск..." oninput="filterSpellPicker(' + charId + ')" ' +
       'style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:3px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;margin-bottom:10px;box-sizing:border-box">' +
       '<div id="sp-picker-list" style="max-height:400px;overflow-y:auto">';
-    entries.forEach(function(sp) {
-      var isAdded = existing.indexOf(sp.id) >= 0;
+    catalogEntries.forEach(function(sp) {
+      var isAdded = existing.some(function(id){ return String(id) === String(sp.id); });
       var col = typeColors[sp.spellType] || '#8a6a2a';
       var icon = typeIcons[sp.spellType] || '📜';
       spellListHtml += '<div class="sp-picker-item" data-name="' + escHTML((sp.name||'').toLowerCase()) + '" data-type="' + escHTML(sp.spellType||'') + '" data-lvl="' + (sp.level||0) + '" style="display:flex;align-items:center;gap:8px;padding:6px 10px;margin-bottom:4px;border-left:3px solid ' + col + ';background:' + (isAdded?col+'12':'#0a0704') + ';border-radius:0 3px 3px 0;cursor:pointer;transition:all .15s" ' +
@@ -44634,14 +44668,14 @@ function pickSpell(charId, spellId, el) {
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
   if (!c.spellRefs) c.spellRefs = [];
-  var idx = c.spellRefs.indexOf(spellId);
+  var idx = c.spellRefs.findIndex(function(id){ return String(id) === String(spellId); });
   if (idx >= 0) {
     c.spellRefs.splice(idx, 1);
     el.style.background = '#0a0704';
     el.querySelector('span:last-child').textContent = '＋';
     el.querySelector('span:last-child').style.color = 'var(--dim)';
   } else {
-    var spell = entries.find(function(item){ return String(item.id) === String(spellId); });
+    var spell = findCharacterCatalogSpell(spellId);
     if (!spell) return;
     var counts = getSpellTypeCountsForCharacter(c);
     var limit = getSpellTypeLimitForCharacter(c, spell.spellType);
@@ -45226,6 +45260,12 @@ safeActivateHomeFallback();
 detectTelegramLikeWebView();
 try { load(); } catch(e) {}
 try { window.entries = entries; } catch(e) {}
+window.addEventListener('zgDataReady', function() {
+  try {
+    load();
+    window.entries = entries;
+  } catch(e) {}
+});
 try { loadChars(); } catch(e) {}
 window.addEventListener('zargota-room-state',function(event){try{zgMergeCampaignState(event&&event.detail);}catch(e){}});
 window.addEventListener('pagehide',function(){try{if(typeof saveChars==='function')saveChars({sync:false,bestEffort:true,reason:'pagehide'});}catch(e){}});
