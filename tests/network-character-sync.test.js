@@ -735,6 +735,37 @@ assert.match(html, /function equipmentSourceTitle\(label,kind,statKey\)/);
 assert.match(html, /class="zg-equip-bonus"/);
 assert.match(html, /Источники? экипировочного бонуса|Источник экипировочного бонуса/);
 assert.match(html, /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] \.zg-vtt-drawer-body\{\s*overflow:hidden!important;/);
+var vttShellStart = html.indexOf('//   КАРКАС VTT');
+var vttShellEnd = html.indexOf('//   КУБИК СНИЗУ', vttShellStart);
+var vttShellSource = html.slice(vttShellStart, vttShellEnd);
+assert.match(vttShellSource, /function currentVttSceneView\(\)/);
+assert.doesNotMatch(vttShellSource, /\bdraft\./, 'VTT shell must use the public scene snapshot instead of the editor-private draft');
+
+var drawerMemberStart = html.indexOf('function drawerMember(){');
+var drawerMemberEnd = html.indexOf('function drawerReadOnly(member){', drawerMemberStart);
+var drawerMemberSource = html.slice(drawerMemberStart, drawerMemberEnd);
+var roomHeroes = [
+  {uid:'hero-a',characterId:'a',character:{name:'Первый герой'}},
+  {uid:'hero-b',characterId:'b',character:{name:'Выбранный герой'}}
+];
+function resolveMasterDrawerMember(selectedUid) {
+  var context = {
+    result:null,
+    state:{session:{role:'master',uid:'gm'}},
+    drawerMemberUid:'',
+    selectedMemberUid:'',
+    w:{zgSelectedHeroMemberUid:selectedUid||''},
+    draft:{view:{}},
+    roomMembers:function(){ return [{uid:'gm',role:'master'}].concat(roomHeroes); },
+    heroMembers:function(){ return roomHeroes; },
+    ownMember:function(){ return {uid:'gm',role:'master'}; },
+    String:String
+  };
+  vm.runInNewContext(drawerMemberSource + '; result=drawerMember();', context);
+  return context.result;
+}
+assert.strictEqual(resolveMasterDrawerMember('').uid, 'hero-a', 'GM test bag should fall back to the first room hero');
+assert.strictEqual(resolveMasterDrawerMember('hero-b').uid, 'hero-b', 'GM bag should prefer the selected room hero');
 
 var characterStatsStart = html.indexOf('function characterStats(member){');
 var characterStatsEnd = html.indexOf('function inventoryItemCategory(item){', characterStatsStart);
@@ -752,6 +783,7 @@ function renderCharacterStats(member, localCharacter, displayStatuses) {
     },
     fullLocalCharacter:function(){ return localCharacter || null; },
     drawerPublicViewer:function(){ return false; },
+    currentVttSceneView:function(){ return {}; },
     collectDisplayStatuses:function(){ return []; },
     statusDurationText:function(){ return ''; },
     esc:function(value){

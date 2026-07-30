@@ -80,6 +80,58 @@ var renderEnd=html.indexOf('  function combatNodeForKey',renderStart);
 assert.match(html.slice(renderStart,renderEnd),/renderDrawer\(false\)/);
 assert.match(html,/if\(window\.zgVttRefreshDrawer\)window\.zgVttRefreshDrawer\(\)/);
 
+var initiativeStart=html.indexOf('  function renderInitiativeStage(force)');
+var initiativeEnd=html.indexOf('  function animateInitiativeRoll',initiativeStart);
+var initiativeBlock=html.slice(initiativeStart,initiativeEnd);
+assert.ok(initiativeStart>=0&&initiativeEnd>initiativeStart,'initiative render helper must exist');
+assert.match(initiativeBlock,/initiativeRenderSignature===nextSignature/,'unchanged room snapshots must not rebuild initiative');
+assert.ok(initiativeBlock.indexOf('initiativeRenderSignature===nextSignature')<initiativeBlock.indexOf("host.innerHTML='<div class=\"zg-initiative-title\""),'initiative signature guard must run before replacing its DOM');
+var initiativeWrites=0,initiativeHtml='',initiativeClasses={};
+var initiativeHost={
+  classList:{toggle:function(name,on){initiativeClasses[name]=!!on;}},
+  get innerHTML(){return initiativeHtml;},
+  set innerHTML(value){initiativeWrites++;initiativeHtml=String(value);}
+};
+var initiativeContext={
+  initiativeAnimating:false,initiativeDrag:null,initiativeRenderSignature:'',initiativeRanks:{},
+  state:{session:{role:'player',uid:'hero-1'},room:{combat:{phase:'initiative',active:false,order:[{key:'hero-1',uid:'hero-1',name:'Еван',kind:'hero',rollMode:'normal',bonus:1,total:null,orderHint:0}]}}},
+  el:function(id){return id==='zg-initiative-stage'?initiativeHost:null;},
+  initiativeSorted:function(order){return order.slice();},
+  combatEntryPortrait:function(){return'';},
+  esc:function(value){return String(value==null?'':value);},
+  JSON:JSON,Number:Number,String:String,Math:Math
+};
+vm.runInNewContext(initiativeBlock,initiativeContext);
+initiativeContext.renderInitiativeStage();
+initiativeContext.renderInitiativeStage();
+assert.strictEqual(initiativeWrites,1,'identical snapshots must create initiative DOM only once');
+assert.strictEqual(initiativeClasses.open,true,'guarded initiative stage must remain open');
+initiativeContext.state.room.combat.order[0].total=14;
+initiativeContext.renderInitiativeStage();
+assert.strictEqual(initiativeWrites,2,'a real initiative result must still update the stage');
+
+var combatRenderStart=html.indexOf('  function renderCombat()');
+var combatRenderEnd=html.indexOf('  var deathSaveRolling=',combatRenderStart);
+var combatRenderBlock=html.slice(combatRenderStart,combatRenderEnd);
+var combatHtmlHelperStart=html.indexOf('  function syncCombatHtml(node,html)');
+assert.ok(combatHtmlHelperStart>=0&&combatHtmlHelperStart<combatRenderStart,'combat DOM deduplication helper must exist');
+assert.doesNotMatch(combatRenderBlock,/(?:bar|notice|rollPrompt|economyHost)\.innerHTML\s*=/,'unchanged room snapshots must not replace stable combat chrome');
+assert.match(combatRenderBlock,/syncCombatHtml\(bar,/);
+assert.match(combatRenderBlock,/syncCombatHtml\(notice,/);
+assert.match(combatRenderBlock,/syncCombatHtml\(rollPrompt,/);
+assert.match(combatRenderBlock,/syncCombatHtml\(economyHost,/);
+assert.match(combatRenderBlock,/renderCombatPrepare\(false\)/,'background combat sync must use guarded prepare render');
+assert.match(combatRenderBlock,/renderCombatAttack\(false\)/,'background combat sync must use guarded attack render');
+assert.match(combatRenderBlock,/renderCombatSave\(false\)/,'background combat sync must use guarded saving-throw render');
+
+var attackRenderStart=html.indexOf('  function renderCombatAttack(force)');
+var attackRenderEnd=html.indexOf('  w.zgCombatAttackToggle=',attackRenderStart);
+var attackRenderBlock=html.slice(attackRenderStart,attackRenderEnd);
+assert.ok(attackRenderStart>=0&&attackRenderEnd>attackRenderStart,'guarded combat attack render must exist');
+assert.match(attackRenderBlock,/force===false&&body\.__zgCombatSignature===signature/,'unchanged combat snapshots must preserve open attack controls');
+assert.ok(attackRenderBlock.indexOf('force===false&&body.__zgCombatSignature===signature')<attackRenderBlock.indexOf("body.innerHTML='<div class=\"zg-combat-attack-confirm\""),'attack signature guard must run before replacing controls');
+assert.match(attackRenderBlock,/restoreCombatFormValues\(formValues\)/,'a real combat change must preserve still-valid dropdown choices');
+
 var sceneSignatureStart=html.indexOf('  function compactSceneVisualValue(value)');
 var sceneSignatureEnd=html.indexOf('  function updateDirtyUi()',sceneSignatureStart);
 assert.ok(sceneSignatureStart>=0&&sceneSignatureEnd>sceneSignatureStart,'scene visual signature helper must exist');
