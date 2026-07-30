@@ -128,6 +128,40 @@ try {
     resolvedAt: 2
   }));
 
+  const playerMeasurementPath = `${roomPath}/liveMeasurements/${playerUid}`;
+  const validMeasurement = {
+    uid: playerUid,
+    name: 'Игрок 1',
+    tool: 'ruler',
+    sx: 10,
+    sy: 20,
+    ex: 30,
+    ey: 40,
+    updatedAt: 3
+  };
+  await assertSucceeds(set(ref(player, playerMeasurementPath), validMeasurement));
+  await assertSucceeds(update(ref(player, playerMeasurementPath), {
+    tool: 'circle',
+    ex: 35
+  }));
+  await assertFails(set(ref(player, `${roomPath}/liveMeasurements/${otherUid}`), {
+    ...validMeasurement,
+    uid: otherUid
+  }));
+  await assertFails(set(ref(outsider, `${roomPath}/liveMeasurements/${outsiderUid}`), {
+    ...validMeasurement,
+    uid: outsiderUid
+  }));
+  await assertFails(set(ref(player, playerMeasurementPath), {
+    ...validMeasurement,
+    sx: 101
+  }));
+  await assertFails(set(ref(player, playerMeasurementPath), {
+    ...validMeasurement,
+    extra: true
+  }));
+  await assertSucceeds(set(ref(player, playerMeasurementPath), null));
+
   await assertSucceeds(update(ref(master, roomPath), {
     [`members/${playerUid}/gmDeliveries/delivery-1`]: {
       id: 'delivery-1',

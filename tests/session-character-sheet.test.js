@@ -10,17 +10,19 @@ var clickStart = html.indexOf('w.zgVttPartyClick = function');
 var clickEnd = html.indexOf('function renderJournal', clickStart);
 var clickBlock = html.slice(clickStart, clickEnd);
 assert.match(clickBlock, /session&&session\.role==='master'/);
-assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid\)/);
+assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid,\{toggle:true\}\)/);
 assert.match(clickBlock, /session&&session\.role==='player'&&String\(session\.uid\)===String\(uid\)/);
-assert.match(clickBlock, /zgVttOpenPanel\('character',\{forceOpen:true,resetMember:true\}\)/);
+assert.match(clickBlock, /zgVttOpenPanel\('character',\{toggle:true,resetMember:true\}\)/);
 assert.ok(
-  clickBlock.indexOf("zgVttOpenPanelForMember('character',uid)") < clickBlock.indexOf('w.zgSheetOpen(uid)'),
-  'master portrait click must choose the canonical drawer before the legacy read-only fallback'
+  clickBlock.indexOf("zgVttOpenPanelForMember('character',uid,{toggle:true})") >= 0,
+  'master portrait click must choose the canonical character drawer'
 );
 assert.ok(
-  clickBlock.indexOf("zgVttOpenPanel('character',{forceOpen:true,resetMember:true})") < clickBlock.indexOf('w.zgSheetOpen(uid)'),
-  'own player portrait click must choose the canonical drawer before the legacy read-only fallback'
+  clickBlock.indexOf("zgVttOpenPanel('character',{toggle:true,resetMember:true})") >= 0,
+  'own player portrait click must choose the canonical character drawer'
 );
+assert.match(clickBlock, /allowPlayerInspectAllies===false/);
+assert.match(clickBlock, /zgVttOpenPublicMember\(uid\)/);
 assert.match(clickBlock, /if\(w\.zgSheetClose\)w\.zgSheetClose\(\)/);
 assert.strictEqual(clickBlock.indexOf('zgPossessPlayer') >= 0, false, 'portrait click must open the sheet, not possess immediately');
 assert.match(html, /zgVttPartyClick\('\s*\+\s*esc\(JSON\.stringify\(member\.uid\)\)/);
@@ -94,6 +96,13 @@ assert.match(html, /id="zg-journal-editor-kind"/);
 assert.match(html, /id="zg-journal-editor-icons"/);
 assert.match(html, /zgVttJournalConfirmRemove/);
 assert.match(html, /zg-journal-delete-backdrop/);
+assert.match(html, /appendLegacyGoalRecord\(c\.currentGoal,'current'\)/);
+assert.match(html, /zgVttJournalOpenGoal/);
+assert.match(html, /data-journal-id="'\+esc\(goal\.id\)/);
+assert.match(html, /zgCharJournalTransfer/);
+assert.match(html, /zgVttFamilyOpen/);
+assert.match(html, /zgVttCharacterPatchOpen/);
+assert.match(html, /resolveCharacterPatchProposal/);
 assert.match(html, /w\.zgCollectDisplayStatuses=collectDisplayStatuses/);
 assert.match(html, /w\.zgStatusDurationText=statusDurationText/);
 assert.match(html, /if\(typeof w\.zgCollectDisplayStatuses==='function'\)/);

@@ -1655,7 +1655,31 @@
     return result.slice(-120);
   }
 
+  function portableImageData(value, maxLength) {
+    var data = String(value || '');
+    var max = Math.max(24000, Number(maxLength) || 120000);
+    return data.length <= max && /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(data) ? data : '';
+  }
+
+  function sharedImageSource(source, thumbnail, maxLength) {
+    var portable = portableImageData(thumbnail, maxLength) || portableImageData(source, maxLength);
+    if (portable) return portable;
+    var path = String(source || '').trim().slice(0, 2000);
+    return /^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(path) ? path : '';
+  }
+
   function characterSnapshot(character) {
+    function portableImageData(value, maxLength) {
+      var data = String(value || '');
+      var max = Math.max(24000, Number(maxLength) || 120000);
+      return data.length <= max && /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(data) ? data : '';
+    }
+    function sharedImageSource(source, thumbnail, maxLength) {
+      var portable = portableImageData(thumbnail, maxLength) || portableImageData(source, maxLength);
+      if (portable) return portable;
+      var path = String(source || '').trim().slice(0, 2000);
+      return /^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(path) ? path : '';
+    }
     function metricNumber(value, fallback) {
       var match = String(value == null ? '' : value).match(/-?\d+(?:[.,]\d+)?/);
       var parsed = match ? Number(match[0].replace(',', '.')) : Number(fallback);
@@ -1706,10 +1730,13 @@
       return (Array.isArray(value) ? value : []).slice(0, limit || 40).map(displayEntry).filter(Boolean);
     }
     function sessionItems(value, limit) {
-      return clean(Array.isArray(value) ? value : [], []).slice(0, limit).map(function (item) {
+      var sourceItems = Array.isArray(value) ? value : [];
+      return clean(sourceItems, []).slice(0, limit).map(function (item, index) {
         if (!item || typeof item !== 'object') return item;
         var next = Object.assign({}, item);
-        if (/^(?:data|blob):/i.test(String(next.image || ''))) next.image = '';
+        var sourceItem = sourceItems[index] && typeof sourceItems[index] === 'object' ? sourceItems[index] : {};
+        next.image = sharedImageSource(sourceItem.image, sourceItem.imageThumb, 90000);
+        delete next.imageThumb;
         delete next.heroArt;
         delete next.cinematicArt;
         return next;
@@ -1870,7 +1897,7 @@
       id: String(character.id),
       campaignKey: campaignKeyFor(character),
       name: character.name || 'Без имени',
-      portrait: /^(?:data|blob):/i.test(String(character.portrait || '')) ? '' : (character.portrait || ''),
+      portrait: sharedImageSource(character.portrait, character.portraitThumb, 140000),
       race: character.race || '',
       klasse: character.klasse || '',
       level: Number(character.level || 1),
@@ -1898,6 +1925,8 @@
       equipItems: sessionItems(character.equipItems, 40),
       arenaEquipSlots: clean(character.arenaEquipSlots, {}),
       notes: clean(character.notes || character.journal || character.quests, []),
+      battleEcho: cleanText(character.battleEcho, 12000),
+      family: clean(Array.isArray(character.family) ? character.family : [], []).slice(0, 80),
       journalEntries: sessionJournalEntries(character.journalEntries),
       appliedDeliveryIds: mergeAppliedDeliveryIds(character._gmDeliveryIds, []),
       biography: cleanText(character.biography || character.bio, 12000),
@@ -1959,6 +1988,25 @@
     return next;
   }
 
+  var CHARACTER_FIELD_PATCH_LIMITS = {
+    battleEcho:12000,
+    notes:12000,
+    currentGoal:2000,
+    family:80
+  };
+
+  function normalizeCharacterFieldPatch(field, value) {
+    field = String(field || '');
+    if (!Object.prototype.hasOwnProperty.call(CHARACTER_FIELD_PATCH_LIMITS, field)) return undefined;
+    if (field === 'family') return clean(Array.isArray(value) ? value : [], []).slice(0, CHARACTER_FIELD_PATCH_LIMITS.family);
+    return cleanText(value, CHARACTER_FIELD_PATCH_LIMITS[field]);
+  }
+
+  function characterFieldPatchSignature(field, value) {
+    var normalized = normalizeCharacterFieldPatch(field, value);
+    return normalized === undefined ? '' : JSON.stringify(normalized);
+  }
+
   function normalizeInventoryOperationItem(item, fallbackId) {
     item = item && typeof item === 'object' ? item : {};
     var itemId = String(item.itemId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
@@ -1968,6 +2016,12 @@
       name:String(item.name || '').trim().slice(0, 200),
       qty:Math.max(1, Math.min(999, Math.floor(Number(item.qty) || 1))),
       icon:String(item.icon || '📦').slice(0, 20),
+      image:(function () {
+        var thumb=String(item.imageThumb||''),source=String(item.image||'');
+        if(thumb.length<=90000&&/^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(thumb))return thumb;
+        if(source.length<=90000&&/^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(source))return source;
+        return /^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(source)?source.slice(0,2000):'';
+      })(),
       description:String(item.description || '').slice(0, 4000),
       category:String(item.category || 'other').slice(0, 40),
       effects:String(item.effects || item.effect || '').slice(0, 1000),
@@ -2408,7 +2462,7 @@
       layers: layers,
       tokens: tokens,
       regions: regions,
-      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,showOtherRequests:!!view.showOtherRequests,statusVisibility:statusVisibility,minZoom:Math.max(.4,Math.min(2,Number(view.minZoom)||.6)),maxZoom:Math.max(.6,Math.min(3,Number(view.maxZoom)||2.2)),panLimit:Math.max(10,Math.min(100,Number(view.panLimit)||45))},
+      view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,showOtherRequests:!!view.showOtherRequests,allowPlayerInspectAllies:view.allowPlayerInspectAllies!==false,showPublicStatuses:view.showPublicStatuses!==false,showPublicInjuries:!!view.showPublicInjuries,worldClockWidget:['always','brief','hidden'].indexOf(view.worldClockWidget)>=0?view.worldClockWidget:'always',statusVisibility:statusVisibility,minZoom:Math.max(.4,Math.min(2,Number(view.minZoom)||.6)),maxZoom:Math.max(.6,Math.min(3,Number(view.maxZoom)||2.2)),panLimit:Math.max(10,Math.min(100,Number(view.panLimit)||45))},
       grid: scene.grid !== false,
       gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
       boardWidth: Math.max(8, Math.min(80, Number(scene.boardWidth) || 32)),
@@ -2713,8 +2767,16 @@
           });
           if (heroTaken) throw roomError('Этот герой уже выбран другим игроком.', 'hero-taken');
           var entrySnapshot = nextCharacterSnapshot(character, member, user, 'entry');
+          var customHeroApproval = characterKey ? null : {
+            status:'pending',
+            requestedAt:now(),
+            requestedBy:user.uid,
+            characterId:String(character.id),
+            characterName:String(character.name || 'Личный герой').slice(0, 200)
+          };
           return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {
             characterId: String(character.id),character:entrySnapshot,campaignKey:characterKey,gmReady:false,
+            customHeroApproval:customHeroApproval,
             name:character.name||member.name,lastSeen:firebase.serverTimestamp(),online:true
           }).then(function () {
             enableCharacterInbound(session, user, entrySnapshot);
@@ -2731,6 +2793,37 @@
         appendSyncEvent(character, 'local→room', 'entry', 'error', error);
         emit();
         if (error && ['room-not-found','not-approved','hero-taken'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveCustomHeroProposal: function (memberUid, accepted) {
+      memberUid=String(memberUid||'').slice(0,128);accepted=accepted===true;
+      if(!memberUid)return Promise.reject(roomError('Игрок не выбран.','member-required'));
+      return ensureReady().then(function(user){
+        var session=readSession();
+        if(!session||session.role!=='master')throw roomError('Решение принимает только мастер комнаты.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var member=room.members&&room.members[memberUid],proposal=member&&member.customHeroApproval;
+          if(!member||member.role!=='player'||!proposal||proposal.status!=='pending')throw roomError('Заявка героя уже обработана.','proposal-missing');
+          var stamp=now(),updates={};
+          updates['members/'+memberUid+'/customHeroApproval/status']=accepted?'approved':'rejected';
+          updates['members/'+memberUid+'/customHeroApproval/resolvedAt']=stamp;
+          updates['members/'+memberUid+'/customHeroApproval/resolvedBy']=user.uid;
+          if(!accepted){
+            updates['members/'+memberUid+'/characterId']=null;
+            updates['members/'+memberUid+'/character']=null;
+            updates['members/'+memberUid+'/campaignKey']=null;
+          }
+          updates.updatedAt=stamp;
+          return firebase.update(roomRef(session.code),updates).then(function(){
+            return refreshRoom(session.code).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['member-required','master-only','room-not-found','proposal-missing'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -2925,9 +3018,11 @@
           if (room.phase !== 'character-select') throw roomError('Выбор персонажей ещё не начат.', 'wrong-phase');
           var members = membersOf(room);
           if (!members.length || members.some(function (member) {
-            return member.role === 'master' ? !(member.gmReady || member.characterId) : !member.characterId;
+            if (member.role === 'master') return !(member.gmReady || member.characterId);
+            return !member.characterId ||
+              member.customHeroApproval && member.customHeroApproval.status === 'pending';
           })) {
-            throw roomError('Не все участники выбрали персонажей.', 'characters-pending');
+            throw roomError('Не все участники выбрали персонажей или мастер ещё не подтвердил личного героя.', 'characters-pending');
           }
           return firebase.update(roomRef(session.code), {
             phase: 'journey',
@@ -4053,19 +4148,19 @@
         var bundleImageSize=image.length;
         var normalizeDeliveryItem=function(source,fallbackTitle,fallbackBody,fallbackImage){
           source=source&&typeof source==='object'?source:{};
-          var itemImage=String(source.image||fallbackImage||'').trim();
+          var itemImage=String(source.imageThumb||source.image||fallbackImage||'').trim();
           if(itemImage&&!/^(?:https?:|data:image\/|images\/|\.?\.?\/)/i.test(itemImage))itemImage='';
           bundleImageSize+=itemImage===image?0:itemImage.length;
           return{
             name:String(source.name||source.title||fallbackTitle||'Предмет').trim().slice(0,200),
             icon:String(source.icon||'📦').slice(0,20),
             image:itemImage,
-            category:String(source.category||'other').trim().slice(0,80),
-            description:String(source.description||source.text||fallbackBody||'').trim().slice(0,4000),
-            effects:String(source.effects||'').trim().slice(0,2000),
-            damageFormula:String(source.damageFormula||'').trim().slice(0,40),
+            category:String(source.category||source.cat||'other').trim().slice(0,80),
+            description:String(source.description||source.desc||source.text||fallbackBody||'').trim().slice(0,4000),
+            effects:String(source.effects||source.effect||'').trim().slice(0,2000),
+            damageFormula:String(source.damageFormula||source.damage||'').trim().slice(0,40),
             damageType:String(source.damageType||'').trim().slice(0,80),
-            acBonus:Math.max(-99,Math.min(99,Number(source.acBonus)||0)),
+            acBonus:Math.max(-99,Math.min(99,Number(source.acBonus!=null?source.acBonus:source.defense)||0)),
             attackStat:['str','dex','int','cha','per','con'].indexOf(source.attackStat)>=0?source.attackStat:'',
             range:String(source.range||'').trim().slice(0,80),
             weight:Math.max(0,Math.min(9999,Number(source.weight)||0)),
@@ -4237,6 +4332,106 @@
       }).catch(function(error){
         if(deliveryDiagnostic)appendOperationEvent('gm-delivery',deliveryId,deliveryAckWritten?'ack-refresh-failed':'ack-failed',deliveryDiagnostic,error);
         if(error&&error.code==='room-not-found')throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    gmProposeCharacterPatch: function (memberUid, operation) {
+      memberUid=String(memberUid||'').slice(0,128);operation=operation||{};
+      var field=String(operation.field||''),patch=normalizeCharacterFieldPatch(field,operation.value);
+      var reason=String(operation.reason||'').trim().slice(0,1000);
+      if(!memberUid)return Promise.reject(roomError('Сначала выберите героя.','member-required'));
+      if(patch===undefined)return Promise.reject(roomError('Это поле нельзя обновлять предложением.','character-patch-invalid'));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Предлагать обновления может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var member=room.members&&room.members[memberUid];
+          if(!member||member.role!=='player'||!member.character)throw roomError('Лист игрока пока недоступен.','character-missing');
+          var proposalId='field-update-'+now()+'-'+Math.random().toString(36).slice(2,8),abortCode='',stamp=now();
+          return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+memberUid),function(current){
+            var character=current&&current.character;
+            if(!current||current.role!=='player'||!character){abortCode='character-missing';return;}
+            var existing=current.characterUpdateProposal;
+            if(existing&&['pending','approved'].indexOf(existing.status)>=0){abortCode='proposal-pending';return;}
+            var baseValue=normalizeCharacterFieldPatch(field,character[field]);
+            current.characterUpdateProposal={
+              id:proposalId,
+              kind:'field-patch',
+              status:'pending',
+              field:field,
+              baseRevision:Math.max(0,Number(character.revision)||0),
+              baseSignature:characterFieldPatchSignature(field,baseValue),
+              baseValue:baseValue,
+              patchValue:patch,
+              reason:reason,
+              createdAt:stamp,
+              createdBy:user.uid
+            };
+            current.messages=Object.assign({},current.messages||{});
+            current.messages[proposalId]={
+              id:proposalId,uid:memberUid,kind:'character-update',name:'Мир Зарготы',
+              portrait:'',text:'Мастер предлагает точечное обновление листа героя.',ts:stamp
+            };
+            return current;
+          }).then(function(result){
+            if(!result||!result.committed){
+              if(abortCode==='proposal-pending')throw roomError('Предыдущее обновление ещё ждёт решения игрока.','proposal-pending');
+              throw roomError('Лист игрока изменился или недоступен.','character-missing');
+            }
+            return firebase.update(roomRef(session.code),{updatedAt:stamp}).catch(function(){return null;}).then(function(){
+              return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+            });
+          });
+        });
+      }).catch(function(error){
+        if(error&&['member-required','master-only','room-not-found','character-missing','proposal-pending','character-patch-invalid'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    resolveCharacterPatchProposal: function (accepted) {
+      accepted=accepted===true;
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='player')throw roomError('Решение принимает владелец героя.','player-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var member=room.members&&room.members[user.uid],proposal=member&&member.characterUpdateProposal;
+          if(!member||member.role!=='player'||!member.character)throw roomError('Лист игрока недоступен.','character-missing');
+          if(!proposal||proposal.kind!=='field-patch'||proposal.status!=='pending')throw roomError('Предложение уже обработано.','proposal-missing');
+          var stamp=now(),resolution='';
+          return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),function(current){
+            var live=current&&current.characterUpdateProposal,character=current&&current.character;
+            if(!live||live.id!==proposal.id||live.kind!=='field-patch'||live.status!=='pending'){resolution='missing';return;}
+            if(!accepted){
+              current.characterUpdateProposal=Object.assign({},live,{status:'rejected',resolvedAt:stamp,resolvedBy:user.uid});
+              resolution='rejected';return current;
+            }
+            var field=String(live.field||''),patch=normalizeCharacterFieldPatch(field,live.patchValue);
+            if(patch===undefined||characterFieldPatchSignature(field,character[field])!==String(live.baseSignature||'')){
+              current.characterUpdateProposal=Object.assign({},live,{status:'conflict',resolvedAt:stamp,resolvedBy:user.uid,conflictReason:'field-changed'});
+              resolution='conflict';return current;
+            }
+            character[field]=patch;
+            character.revision=Math.max(0,Number(character.revision)||0)+1;
+            character.updatedAt=stamp;character.updatedBy=user.uid;character.source='gm-field-patch-approved';character.syncOperationId=live.id;
+            current.character=character;
+            current.characterUpdateProposal=Object.assign({},live,{status:'approved',resolvedAt:stamp,resolvedBy:user.uid,appliedCharacterRevision:character.revision});
+            current.messages=Object.assign({},current.messages||{});
+            current.messages[live.id+'-approved']={id:live.id+'-approved',uid:user.uid,kind:'character-update-approved',name:character.name||current.name||'Герой',portrait:character.portrait||'',text:'Принимает точечное обновление листа.',ts:stamp};
+            resolution='approved';return current;
+          }).then(function(result){
+            if(!result||!result.committed)throw roomError('Предложение уже обработано.','proposal-missing');
+            return firebase.update(roomRef(session.code),{updatedAt:stamp}).catch(function(){return null;}).then(function(){
+              return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){
+                var snapshot=api.getSnapshot();snapshot.characterPatchResolution=resolution;return snapshot;
+              });
+            });
+          });
+        });
+      }).catch(function(error){
+        if(error&&['player-only','room-not-found','character-missing','proposal-missing'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -4592,6 +4787,29 @@
       }).catch(function(error){
         appendOperationEvent('world-clock-set',operationId,'failed',{kind:'set',name:displayMode},error);
         if(error&&['world-clock-operation-invalid','world-clock-target-invalid','master-only','room-not-found'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    gmPulseWorldClock: function (durationMs) {
+      durationMs=Math.max(3000,Math.min(30000,Math.floor(Number(durationMs)||10000)));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Показывать время игрокам может только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var stamp=now(),pulse={
+            id:'world-clock-pulse-'+stamp+'-'+Math.random().toString(36).slice(2,7),
+            ts:stamp,
+            expiresAt:stamp+durationMs,
+            createdBy:user.uid
+          };
+          return firebase.update(roomRef(session.code),{worldClockPulse:pulse,updatedAt:stamp}).then(function(){
+            return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['master-only','room-not-found'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },

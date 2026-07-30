@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-07-30\.1/, 'network cache key must change with the manual death-save synchronization contract');
+assert.match(html, /zargota-network\.js\?v=2026-07-30\.2/, 'network cache key must change with the current session synchronization contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -46,13 +46,17 @@ var vitalsSnapshot = characterSnapshotContext.characterSnapshot({
   initiative:'+2',
   speed:'7 м',
   stats:{},
-  campaignKey:'hero-vitals'
+  campaignKey:'hero-vitals',
+  battleEcho:'Шрам после боя',
+  family:[{id:'kin-1',name:'Сестра',relation:'сестра'}]
 });
 assert.strictEqual(vitalsSnapshot.hpCur, 11);
 assert.strictEqual(vitalsSnapshot.hpMax, 14);
 assert.strictEqual(vitalsSnapshot.ac, 10);
 assert.strictEqual(vitalsSnapshot.initiative, 2);
 assert.strictEqual(vitalsSnapshot.speed, 7, 'localized speed must remain numeric in Firebase');
+assert.strictEqual(vitalsSnapshot.battleEcho, 'Шрам после боя');
+assert.strictEqual(vitalsSnapshot.family.length, 1, 'family tree must be part of the bounded room snapshot');
 assert.match(html, /saveChars\(vitalsField \? \{reason:'vitals-update'\} : undefined\)/);
 assert.match(html, /saveChars\(\{reason:'stats-update'\}\)/);
 assert.match(html, /if \(vitalsField && window\.zgVttRefreshDrawer\) window\.zgVttRefreshDrawer\(\)/);
@@ -63,6 +67,9 @@ assert.match(html, /Только просмотр — план ещё не пр�
 assert.match(network, /gmProposeSkillUpdate:\s*function/);
 assert.match(network, /resolveSkillUpdateProposal:\s*function/);
 assert.match(network, /acknowledgeSkillUpdateProposal:\s*function/);
+assert.match(network, /gmProposeCharacterPatch:\s*function/);
+assert.match(network, /resolveCharacterPatchProposal:\s*function/);
+assert.match(network, /kind:'field-patch'/);
 assert.match(network, /skillUpdateSignature\(currentSkill\)!==String\(live\.baseSignature/);
 assert.match(html, /function zgApplyApprovedSkillUpdate\(localCharacter,member\)/);
 assert.match(html, /zgSkillUpdateSignature\(current\)!==zgSkillUpdateSignature\(base\)/);
@@ -72,6 +79,10 @@ assert.match(html, /ПРЕДЛОЖЕНИЕ МАСТЕРА/);
 assert.match(network, /if\s*\(!canApplyIncomingCharacter\(session,\s*member\.character,\s*\{\s*allowQueued:true\s*\}\)\)\s*return/);
 assert.match(network, /String\(member\.characterId\s*\|\|\s*''\)\s*!==\s*String\(character\.id\)/);
 assert.match(network, /if\s*\(heroTaken\)\s*throw roomError/);
+assert.match(network, /customHeroApproval\s*=\s*characterKey\s*\?\s*null/);
+assert.match(network, /resolveCustomHeroProposal:\s*function/);
+assert.match(network, /member\.customHeroApproval && member\.customHeroApproval\.status === 'pending'/);
+assert.match(html, /zgCharCustomHeroResolve/);
 assert.match(network, /var TAB_ID_KEY = 'zargota_vtt_tab_id_v1'/);
 assert.match(network, /var TAB_CHANNEL_NAME = 'zargota-session-tabs-v1'/);
 assert.match(network, /session\.tabId = sessionTabId\(\)/);
@@ -155,7 +166,10 @@ assert.notStrictEqual(skillContext.skillUpdateSignature(baseSkill),skillContext.
 
 var localSkillHelpersStart = html.indexOf('function zgNormalizeSkillUpdateValue(');
 var localSkillHelpersEnd = html.indexOf('function zgApplySessionCharacterToLocal(', localSkillHelpersStart);
-var localSkillContext = { Math:Math, Number:Number, String:String, JSON:JSON, Array:Array, Object:Object };
+var localSkillContext = {
+  Math:Math, Number:Number, String:String, JSON:JSON, Array:Array, Object:Object,
+  zgCloneSessionValue:function(value){return JSON.parse(JSON.stringify(value));}
+};
 vm.runInNewContext(html.slice(localSkillHelpersStart, localSkillHelpersEnd), localSkillContext);
 var localHero = { skills:[Object.assign({},baseSkill)] };
 var approvedMember = { characterUpdateProposal:{
@@ -173,6 +187,19 @@ var changedLocalHero = { skills:[Object.assign({},baseSkill,{description:'Лок
 var conflictingLocalApply = localSkillContext.zgApplyApprovedSkillUpdate(changedLocalHero,approvedMember);
 assert.strictEqual(conflictingLocalApply.conflict,true);
 assert.strictEqual(changedLocalHero.skills[0].description,'Локальная новая правка','conflict must preserve fresh local skill');
+var fieldHero = { currentGoal:'Старая цель' };
+var fieldMember = { characterUpdateProposal:{
+  id:'field-update-test',kind:'field-patch',status:'approved',field:'currentGoal',
+  baseSignature:JSON.stringify('Старая цель'),baseValue:'Старая цель',patchValue:'Новая цель'
+} };
+var firstFieldApply = localSkillContext.zgApplyApprovedCharacterFieldUpdate(fieldHero,fieldMember);
+assert.strictEqual(firstFieldApply.changed,true);
+assert.strictEqual(fieldHero.currentGoal,'Новая цель');
+assert.strictEqual(localSkillContext.zgApplyApprovedCharacterFieldUpdate(fieldHero,fieldMember).already,true);
+var conflictingFieldHero = { currentGoal:'Свежая локальная цель' };
+var conflictingFieldApply = localSkillContext.zgApplyApprovedCharacterFieldUpdate(conflictingFieldHero,fieldMember);
+assert.strictEqual(conflictingFieldApply.conflict,true);
+assert.strictEqual(conflictingFieldHero.currentGoal,'Свежая локальная цель','field patch conflict must preserve local text');
 
 var tabChannels=[];
 function FakeSessionChannel(name){this.name=name;this.onmessage=null;tabChannels.push(this);}
@@ -349,7 +376,15 @@ assert.match(html, /zgGmInterventionApply\(\\'temp-hp\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'inventory\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'abilities\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'journal\\'\)/);
-assert.match(html, /intervention\.classList\.add\('open'\)/);
+assert.match(html, /w\.zgGmInterventionMinimize=function/);
+assert.match(html, /class="zg-gm-intervention-orb"/);
+assert.match(html, /\.zg-gm-intervention\.minimized\{/);
+assert.match(html, /z-index:75/);
+var tokenDragStart = html.indexOf('function beginTokenDrag');
+var tokenDragEnd = html.indexOf('function renderTokens', tokenDragStart);
+var tokenDragBlock = html.slice(tokenDragStart, tokenDragEnd);
+assert.doesNotMatch(tokenDragBlock, /classList\.add\('open'\)/, 'selecting a token must not open the GM panel');
+assert.match(tokenDragBlock, /classList\.contains\('open'\)\|\|intervention\.classList\.contains\('minimized'\)/);
 assert.match(network, /increment:\s*databaseModule\.increment/);
 assert.match(html, /class="zg-gm-target-card"/);
 assert.match(html, /zgGmInterventionAmount\(10\)/);
@@ -548,9 +583,9 @@ assert.match(html, /До объединения снаряжения/);
 var addEquipmentStart = html.indexOf('function addEquipItem(id)');
 var addEquipmentEnd = html.indexOf('function removeEquipItem', addEquipmentStart);
 var addEquipmentBlock = html.slice(addEquipmentStart, addEquipmentEnd);
-assert.match(addEquipmentBlock, /c\.inventoryItems\.push/);
-assert.strictEqual(addEquipmentBlock.indexOf('c.equipItems.push') >= 0, false, 'new equipment must use canonical inventoryItems');
-assert.match(addEquipmentBlock, /openItemConstructor\(id, 'inventory-equip', newIdx\)/);
+assert.match(addEquipmentBlock, /charOpenEquipModal\(id\)/);
+assert.strictEqual(addEquipmentBlock.indexOf('inventoryItems.push') >= 0, false, 'the character sheet must select equipment from the Products catalog');
+assert.strictEqual(addEquipmentBlock.indexOf('equipItems.push') >= 0, false, 'the character sheet must not recreate a second equipment store');
 var arenaEquipmentStart = html.indexOf('function syncArmoryToCharacter');
 var arenaEquipmentEnd = html.indexOf('function openArmoryEditor', arenaEquipmentStart);
 var arenaEquipmentBlock = html.slice(arenaEquipmentStart, arenaEquipmentEnd);
@@ -575,7 +610,7 @@ assert.match(html, /function drawerReadOnly\(member\)/);
 assert.match(html, /var member=drawerMember\(\), localCharacter=fullLocalCharacter\(member\)/);
 assert.match(html, /canEdit&&source==='inventory'/);
 assert.match(html, /w\.zgVttInventoryOpenItem=function\(source,index\)\{\s*var member=drawerMember\(\)/);
-assert.match(html, /w\.zgVttOpenPanelForMember=function\(panel,uid\)/);
+assert.match(html, /w\.zgVttOpenPanelForMember=function\(panel,uid(?:,options)?\)/);
 assert.match(html, /drawerMemberUid = ''/);
 assert.doesNotMatch(html, /Снимок комнаты|zg-drawer-readonly/);
 assert.match(html, /class="zg-inv2"/);
@@ -644,7 +679,7 @@ assert.match(html, /\.zg-journal3-paper\{[\s\S]*?background:Canvas!important;[\s
 assert.match(html, /\.zg-token-status-info article,[\s\S]*?max-height:calc\(100dvh - 32px\)/);
 assert.match(html, /w\.zgSelectedHeroMemberUid=token\.type==='hero'/);
 assert.match(html, /selectedInventoryUid=state&&state\.session&&state\.session\.role==='master'/);
-assert.match(drawerOpenBlock, /zg-gm-intervention/);
+assert.doesNotMatch(drawerOpenBlock, /zg-gm-intervention/, 'opening the backpack must not hide the floating GM panel');
 assert.match(drawerOpenBlock, /activePanel === panel[^]*classList\.contains\('open'\)\) return;/);
 assert.doesNotMatch(drawerOpenBlock, /activePanel === panel[^]*zgVttCloseDrawer/, 'repeated tab click must not close the backpack');
 assert.match(html, /var backpackPanels=\{character:'hero',inventory:'items',abilities:'magic',journal:'journal'\}/);
@@ -704,16 +739,19 @@ assert.match(html, /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] 
 var characterStatsStart = html.indexOf('function characterStats(member){');
 var characterStatsEnd = html.indexOf('function inventoryItemCategory(item){', characterStatsStart);
 var characterStatsSource = html.slice(characterStatsStart, characterStatsEnd);
-function renderCharacterStats(member, localCharacter) {
+function renderCharacterStats(member, localCharacter, displayStatuses) {
   var context = {
     result:null,
     input:member,
     state:{session:{role:'player'}},
+    draft:{view:{}},
     w:{
       STAT_LABEL_RU:{str:'Сила'},
-      zgStatIcon:function(){ return '<i class="stat-icon"></i>'; }
+      zgStatIcon:function(){ return '<i class="stat-icon"></i>'; },
+      zgCollectDisplayStatuses:function(){ return displayStatuses || []; }
     },
     fullLocalCharacter:function(){ return localCharacter || null; },
+    drawerPublicViewer:function(){ return false; },
     collectDisplayStatuses:function(){ return []; },
     statusDurationText:function(){ return ''; },
     esc:function(value){
@@ -756,6 +794,13 @@ var missingSpeedHtml = renderCharacterStats({uid:'missing-speed',name:'Без с
 var zeroSpeedHtml = renderCharacterStats({uid:'zero-speed',name:'Неподвижный'}, {name:'Неподвижный',stats:{},hpCur:1,hpMax:1,ac:10,speed:0});
 assert.match(missingSpeedHtml, /<small>Скорость<\/small><i>➜<\/i><b>—<\/b>/);
 assert.match(zeroSpeedHtml, /<small>Скорость<\/small><i>➜<\/i><b>0<\/b>/);
+var tolerantStatusHtml = renderCharacterStats(
+  {uid:'status-test',name:'Статусный герой'},
+  {name:'Статусный герой',stats:{str:2},hpCur:4,hpMax:8,ac:10,statuses:['Горит']},
+  [null,'Горит',{key:'freeze',label:'Заморожен',icon:'❄'}]
+);
+assert.match(tolerantStatusHtml, /Открыть состояние: Горит/);
+assert.match(tolerantStatusHtml, /Открыть состояние: Заморожен/);
 
 var abilitiesStart = html.indexOf('function abilitiesPanel()');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
@@ -868,7 +913,7 @@ assert.strictEqual(snapshotContext.result.skills[0].description, 'Описани
 assert.strictEqual(snapshotContext.result.skills[0].image, undefined);
 assert.strictEqual(snapshotContext.result.inventoryItems[0].itemId, 'zg-item-7-i-stable');
 assert.strictEqual(snapshotContext.result.inventoryItems[0].qty, 2);
-assert.strictEqual(snapshotContext.result.inventoryItems[0].image, '');
+assert.strictEqual(snapshotContext.result.inventoryItems[0].image, 'data:image/png;base64,item');
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'backpack-sword'; }), false);
 assert.strictEqual(snapshotContext.result.weaponProfiles.some(function(profile) { return profile.id === 'equipped-sword'; }), true);
 assert.strictEqual(snapshotContext.result.weaponProfiles.length, 2, 'main/offhand weapon profiles must stay unique');
@@ -879,7 +924,7 @@ assert.strictEqual(snapshotContext.result.biography, 'История');
 assert.strictEqual(snapshotContext.result.quote, 'Цитата');
 assert.strictEqual(snapshotContext.result.notes[0].text, 'Сохранить текст');
 assert.strictEqual(snapshotContext.result.notes[0].attachment, '');
-assert.strictEqual(snapshotContext.result.portrait, '');
+assert.strictEqual(snapshotContext.result.portrait, 'data:image/png;base64,portrait');
 snapshotContext.input.portrait = 'blob:https://zargota.example/local-only';
 vm.runInNewContext('result=characterSnapshot(input);', snapshotContext);
 assert.strictEqual(snapshotContext.result.portrait, '');
