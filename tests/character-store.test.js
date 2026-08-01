@@ -27,10 +27,22 @@ assert.strictEqual(repeated.characters.length, 2);
 assert.strictEqual(repeated.characters[0].name, 'Пользовательский Еван');
 
 var tombstoned = store.mergeStarterHeroes([], templates, { evan: { deletedAt: 1 } }, 789);
-assert.deepStrictEqual(tombstoned.added, ['melissa']);
+assert.deepStrictEqual(tombstoned.added, ['evan', 'melissa']);
 assert.strictEqual(tombstoned.characters.some(function(character) {
   return character.campaignKey === 'evan';
-}), false);
+}), true);
+
+var recoveredStarters = store.recoverMissingStarterHeroes(
+  [{ id: 1, campaignKey: 'evan', name: 'Текущий Еван', _updatedAt: 30 }],
+  [
+    { characters: [{ id: 2, campaignKey: 'melissa', name: 'Старая Мелисса', _updatedAt: 10 }] },
+    { characters: [{ id: 2, campaignKey: 'melissa', name: 'Пользовательская Мелисса', _updatedAt: 20 }] }
+  ]
+);
+assert.deepStrictEqual(recoveredStarters.recovered, ['melissa']);
+assert.strictEqual(recoveredStarters.characters.length, 2);
+assert.strictEqual(recoveredStarters.characters[0].name, 'Текущий Еван');
+assert.strictEqual(recoveredStarters.characters[1].name, 'Пользовательская Мелисса');
 
 var mergedStores = store.mergeStoredCollections(
   [{ id: 1, name: 'LS', _updatedAt: 20 }, { id: 3, name: 'LS only' }],
@@ -279,14 +291,17 @@ function createIndexedDb() {
   }).hpCur, 2);
 
   var melissa = secondLoad.characters.find(function(character) { return character.campaignKey === 'melissa'; });
-  assert.strictEqual(store.markStarterHeroDeleted(melissa), true);
+  assert.strictEqual(store.markStarterHeroDeleted(melissa), false);
+  global.localStorage.setItem(store.config.tombstonesKey, JSON.stringify({
+    melissa:{ deletedAt:3500, characterId:String(melissa.id) }
+  }));
   var withoutMelissa = secondLoad.characters.filter(function(character) { return character.campaignKey !== 'melissa'; });
   await store.persistCollection(withoutMelissa);
   var thirdLoad = await store.loadAndSeed(withoutMelissa, { force: true, fetch: fetchBundle, now: 4000 });
   assert.strictEqual(thirdLoad.characters.some(function(character) {
     return character.campaignKey === 'melissa';
-  }), false);
-  assert.strictEqual(thirdLoad.characters.length, 4);
+  }), true);
+  assert.strictEqual(thirdLoad.characters.length, 5);
 
   var availableBackup = await store.getMigrationBackup();
   assert.strictEqual(availableBackup.exists, true);

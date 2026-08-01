@@ -356,7 +356,6 @@
     var result = parseCollection(existingCharacters);
     var templates = templateBundle && Array.isArray(templateBundle.heroes) ? templateBundle.heroes : [];
     var version = String(templateBundle && templateBundle.templateVersion || '');
-    var deleted = tombstones && typeof tombstones === 'object' ? tombstones : {};
     var knownKeys = Object.create(null);
     var knownIds = Object.create(null);
     var added = [];
@@ -370,7 +369,10 @@
     templates.forEach(function (template) {
       var key = campaignKeyFor(template);
       var id = template && template.id !== undefined && template.id !== null ? String(template.id) : '';
-      if (!key || deleted[key] || knownKeys[key] || (id && knownIds[id])) return;
+      // Пять героев основной кампании — обязательные шаблоны. Старые
+      // tombstone-метки больше не должны оставлять профиль полностью пустым.
+      // Существующий герой по campaignKey всегда сохраняется без замены.
+      if (!key || knownKeys[key] || (id && knownIds[id])) return;
       var character = clone(template);
       if (!character) return;
       character.campaignKey = key;
@@ -462,6 +464,40 @@
 
   function getEquipmentMigrationBackup() {
     return getStoredBackup(EQUIPMENT_BACKUP_KEY, EQUIPMENT_BACKUP_MARKER_KEY);
+  }
+
+  function recoverMissingStarterHeroes(existingCharacters, backups) {
+    var result = parseCollection(existingCharacters);
+    var knownKeys = Object.create(null);
+    var candidates = Object.create(null);
+    var recovered = [];
+
+    result.forEach(function (character) {
+      var key = campaignKeyFor(character);
+      if (key) knownKeys[key] = true;
+    });
+
+    (Array.isArray(backups) ? backups : []).forEach(function (backup) {
+      parseCollection(backup && backup.characters).forEach(function (character) {
+        var key = campaignKeyFor(character);
+        if (!key || knownKeys[key]) return;
+        var previous = candidates[key];
+        if (!previous || recordTimestamp(character) >= recordTimestamp(previous)) {
+          candidates[key] = character;
+        }
+      });
+    });
+
+    Object.keys(candidates).forEach(function (key) {
+      var character = clone(candidates[key]);
+      if (!character || knownKeys[key]) return;
+      character.campaignKey = key;
+      result.push(character);
+      knownKeys[key] = true;
+      recovered.push(key);
+    });
+
+    return { characters: result, recovered: recovered };
   }
 
   function restoreStoredBackup(getter, safetyKey) {
@@ -652,10 +688,6 @@
       var localCharacters = localRaw ? parseCollection(localRaw) : parseCollection(fallbackCharacters);
       var merged = mergeStoredCollections(localCharacters, idbRaw);
       var tombstones = readTombstones();
-      merged = merged.filter(function (character) {
-        var key = campaignKeyFor(character);
-        return !key || !tombstones[key];
-      });
       var storesNeedReconcile = JSON.stringify(merged) !== JSON.stringify(localCharacters);
       return ensureMigrationBackup(localRaw, idbRaw).then(function (backup) {
         if (!backup.ok) {
@@ -665,25 +697,31 @@
           if (!equipmentBackup.ok) {
             return { characters: merged, added: [], changed:false, backup:backup, equipmentBackup:equipmentBackup, error:'equipment-migration-backup-failed' };
           }
-          return loadTemplateBundle(options.fetch).then(function (bundle) {
-            var seeded = mergeStarterHeroes(merged, bundle, tombstones, options.now || Date.now());
-            storageSet(SEED_VERSION_KEY, seeded.templateVersion);
-            if (!seeded.added.length && !storesNeedReconcile) {
-              return { characters:seeded.characters, added:[], changed:false, backup:backup, equipmentBackup:equipmentBackup, templateVersion:seeded.templateVersion };
-            }
-            return persistCollection(seeded.characters).then(function (saved) {
-              return {
-                characters: seeded.characters,
-                added: seeded.added,
-                changed: true,
-                backup: backup,
-                equipmentBackup: equipmentBackup,
-                storage: saved,
-                templateVersion: seeded.templateVersion
-              };
+          return Promise.all([getMigrationBackup(), getEquipmentMigrationBackup()]).then(function (storedBackups) {
+            var recovery = recoverMissingStarterHeroes(merged, storedBackups);
+            merged = recovery.characters;
+            if (recovery.recovered.length) storesNeedReconcile = true;
+            return loadTemplateBundle(options.fetch).then(function (bundle) {
+              var seeded = mergeStarterHeroes(merged, bundle, tombstones, options.now || Date.now());
+              storageSet(SEED_VERSION_KEY, seeded.templateVersion);
+              if (!seeded.added.length && !storesNeedReconcile) {
+                return { characters:seeded.characters, added:[], recovered:recovery.recovered, changed:false, backup:backup, equipmentBackup:equipmentBackup, templateVersion:seeded.templateVersion };
+              }
+              return persistCollection(seeded.characters).then(function (saved) {
+                return {
+                  characters: seeded.characters,
+                  added: seeded.added,
+                  recovered: recovery.recovered,
+                  changed: true,
+                  backup: backup,
+                  equipmentBackup: equipmentBackup,
+                  storage: saved,
+                  templateVersion: seeded.templateVersion
+                };
+              });
+            }).catch(function (error) {
+              return { characters:merged, added:[], recovered:recovery.recovered, changed:false, backup:backup, equipmentBackup:equipmentBackup, error:error && error.message || 'starter-load-failed' };
             });
-          }).catch(function (error) {
-            return { characters:merged, added:[], changed:false, backup:backup, equipmentBackup:equipmentBackup, error:error && error.message || 'starter-load-failed' };
           });
         });
       });
@@ -701,9 +739,10 @@
   function markStarterHeroDeleted(character) {
     var key = campaignKeyFor(character);
     if (!key) return false;
-    var tombstones = readTombstones();
-    tombstones[key] = { deletedAt: Date.now(), characterId: String(character && character.id || '') };
-    return storageSet(TOMBSTONES_KEY, JSON.stringify(tombstones));
+    // Основные герои кампании восстанавливаются из неизменяемого шаблона.
+    // Удаление блокируется интерфейсом; старый публичный метод оставлен как
+    // безопасный no-op для обратной совместимости.
+    return false;
   }
 
   return {
@@ -723,6 +762,7 @@
     characterContentSignature: characterContentSignature,
     mergeStoredCollections: mergeStoredCollections,
     mergeStarterHeroes: mergeStarterHeroes,
+    recoverMissingStarterHeroes: recoverMissingStarterHeroes,
     rememberCollection: rememberCollection,
     prepareCollectionForSave: prepareCollectionForSave,
     markCollectionSaveFailed: markCollectionSaveFailed,

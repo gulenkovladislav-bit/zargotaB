@@ -109,6 +109,8 @@ assert.strictEqual(initiativeClasses.open,true,'guarded initiative stage must re
 initiativeContext.state.room.combat.order[0].total=14;
 initiativeContext.renderInitiativeStage();
 assert.strictEqual(initiativeWrites,2,'a real initiative result must still update the stage');
+assert.match(initiativeBlock,/draggable="false"/,'initiative d20 image must not start native browser drag');
+assert.match(html,/zgInitiativeDragStart=function\(ev\)\{[^}]*ev\.preventDefault\(\)/,'initiative pointer drag must suppress native image selection');
 
 var combatRenderStart=html.indexOf('  function renderCombat()');
 var combatRenderEnd=html.indexOf('  var deathSaveRolling=',combatRenderStart);
