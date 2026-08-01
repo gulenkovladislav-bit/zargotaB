@@ -15712,7 +15712,12 @@ document.addEventListener('DOMContentLoaded', function(){
     var items=inventoryRowsForView(allItems,inventoryFilter,inventorySearch,inventorySort);
     var equipped=allItems.map(function(item,index){return{item:item,index:index,source:'inventory'};}).filter(function(entry){return entry.item&&entry.item.equipped===true;})
       .concat((Array.isArray(local.equipItems)?local.equipItems:[]).map(function(item,index){return{item:item,index:index,source:'equip'};}).filter(function(entry){return entry.item&&entry.item.equipped!==false;}));
-    function art(item){var src=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item&&item.image||'');if(src)return '<img src="'+esc(src)+'" alt="">';return '<i>'+esc(item&&item.icon||'◈')+'</i>';}
+    function art(item){
+      var src=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item&&item.imageThumb||item&&item.image||'');
+      if(src)return '<img src="'+esc(src)+'" alt="">';
+      if(typeof w.zgItemIconMarkup==='function')return '<i>'+w.zgItemIconMarkup(item&&item.icon,'◈')+'</i>';
+      return '<i>'+esc(item&&item.icon||'◈')+'</i>';
+    }
     function itemSummary(item){
       var text=item&&(item.effect||item.description||item.text||item.damage||item.damageFormula||item.type||item.category)||'Дорожный предмет';
       return String(text).replace(/\s+/g,' ').trim();
@@ -16947,7 +16952,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var list=source==='equip'?c.equipItems:c.inventoryItems,item=list&&list[index];if(!item)return;if(typeof item==='string')item={name:item};
     inventoryDetail={source:source,index:index};
     var old=el('zg-vtt-item-detail');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-vtt-item-detail';modal.className='zg-item-detail-backdrop';
-    var itemImage=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item.image||''),image=itemImage?'<img src="'+esc(itemImage)+'" alt="">':'<i>'+esc(item.icon||'◈')+'</i>',meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · '),canEdit=!!fullLocalCharacter(member);
+    var itemImage=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item.imageThumb||item.image||''),image=itemImage?'<img src="'+esc(itemImage)+'" alt="">':typeof w.zgItemIconMarkup==='function'?'<i>'+w.zgItemIconMarkup(item.icon,'◈')+'</i>':'<i>'+esc(item.icon||'◈')+'</i>',meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · '),canEdit=!!fullLocalCharacter(member);
     var stats=[item.damage||item.damageFormula,item.acBonus?'Броня +'+item.acBonus:'',item.weight?'Вес '+item.weight:''].filter(Boolean);
     modal.innerHTML='<section class="zg-item-detail-card"><button type="button" class="zg-item-detail-close" onclick="zgVttInventoryCloseItem()">×</button><div class="zg-item-detail-art">'+image+'</div><small>'+(item.equipped?'Снаряжение':'Предмет из рюкзака')+'</small><h3>'+esc(item.name||item.text||'Без названия')+'</h3>'+(meta?'<div class="zg-item-detail-meta">'+esc(meta)+'</div>':'')+(stats.length?'<div class="zg-item-detail-stats">'+stats.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+'<p>'+esc(item.description||item.effect||item.text||'Описание предмета пока не заполнено.')+'</p>'+(Number(item.qty||1)>1?'<b class="zg-item-detail-qty">Количество: '+Number(item.qty)+'</b>':'')+(canEdit?'<div class="zg-item-detail-actions">'+(item.equipped?'<button type="button" onclick="zgVttInventoryUnequip(\''+source+'\','+index+')">Снять</button>':source==='inventory'?'<button type="button" onclick="zgVttInventoryQuickEquip('+index+')">Экипировать</button>':'')+'<button type="button" onclick="zgVttInventoryEditItem()">Изменить в листе</button></div>':'')+'</section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttInventoryCloseItem();});document.body.appendChild(modal);
@@ -19221,10 +19226,12 @@ window.zgExportDataJson = function(onProgress, onDone) {
   // Экспортирует ZIP с:
   //   - data.json (мир, с путями к картинкам)
   //   - manifest.json
-  //   - images/ — ТОЛЬКО новые картинки из IDB (published: false)
+  //   - images/ — ВСЕ локальные картинки из IDB.
   //
-  // После успешной упаковки помечает эти картинки как published,
-  // чтобы при следующем экспорте они не попадали в ZIP повторно.
+  // Нельзя считать картинку опубликованной в момент скачивания ZIP: между
+  // скачиванием и фактическим commit/push пользователь ещё может отменить
+  // перенос файлов. Повторное включение картинок безопаснее, чем потеря
+  // единственной копии и последующие 404 на другом клиенте.
 
   var report = function(pct, msg) { if (typeof onProgress === 'function') onProgress(pct, msg); };
 
@@ -19238,7 +19245,7 @@ window.zgExportDataJson = function(onProgress, onDone) {
         return;
       }
 
-      report(35, 'Собираю новые картинки из локального кеша...');
+      report(35, 'Собираю локальные картинки...');
 
       if (!window.zgImageStore) {
         finishZipping(output, []);
@@ -19246,7 +19253,7 @@ window.zgExportDataJson = function(onProgress, onDone) {
       }
 
       window.zgImageStore.listAll(function(items) {
-        var pending = items.filter(function(it) { return !it.published; });
+        var pending = items.filter(function(it) { return it && it.path && it.blob; });
 
         if (!pending.length) {
           finishZipping(output, []);
@@ -19278,7 +19285,10 @@ window.zgExportDataJson = function(onProgress, onDone) {
           encyclopedia: output.encyclopedia && output.encyclopedia.entries ? output.encyclopedia.entries.length : 0,
           armoryItems: output.armoryItems ? output.armoryItems.length : 0,
           atlasObjects: output.atlas && output.atlas.objects ? output.atlas.objects.length : 0,
-          newImages: preparedImages.length
+          // Keep the legacy field for older importers while exposing the
+          // precise name used by the current portable-media exporter.
+          newImages: preparedImages.length,
+          localImages: preparedImages.length
         }
       };
 
@@ -19311,13 +19321,13 @@ window.zgExportDataJson = function(onProgress, onDone) {
         '2. Перетащи data.json и manifest.json в папку Git-репо (замени старые)\n' +
         (preparedImages.length
           ? '3. Перетащи содержимое папки images/ в images/ репо (добавит новые файлы)\n'
-          : '3. Новых картинок в этом экспорте нет\n') +
+          : '3. Локальных картинок в этом экспорте нет\n') +
         '4. В GitHub Desktop → Commit + Push\n\n' +
         'Содержимое:\n' +
         '  data.json           — мир (каталог, персонажи, арена, энциклопедия, атлас)\n' +
         '  manifest.json       — версия + счётчики\n' +
         (preparedImages.length
-          ? '  images/             — ' + preparedImages.length + ' новых картинок\n'
+          ? '  images/             — ' + preparedImages.length + ' локальных картинок\n'
           : '')
       );
 
@@ -19327,25 +19337,19 @@ window.zgExportDataJson = function(onProgress, onDone) {
           report(60 + meta.percent * 0.4, 'Сжатие: ' + Math.round(meta.percent) + '%');
         }
       ).then(function(blob) {
-        report(98, 'Помечаю картинки как опубликованные...');
+        report(98, 'Готовлю скачивание...');
 
-        // Помечаем экспортированные картинки как published
-        var paths = preparedImages.map(function(img) { return img.path; });
         function downloadAndFinish() {
           triggerDownload(blob, 'zargota_export_' + output.version + '.zip');
           var mb = blob.size > 1048576 ? (blob.size/1048576).toFixed(1) + ' МБ' : Math.round(blob.size/1024) + ' КБ';
           if (typeof showToast === 'function') {
-            showToast('⬇ Экспорт готов: ' + mb + (preparedImages.length ? ' (+ ' + preparedImages.length + ' новых картинок)' : ''));
+            showToast('⬇ Экспорт готов: ' + mb + (preparedImages.length ? ' (+ ' + preparedImages.length + ' локальных картинок)' : ''));
           }
           report(100, 'Готово');
           if (typeof onDone === 'function') onDone(Math.round(blob.size/1024));
         }
 
-        if (paths.length && window.zgImageStore) {
-          window.zgImageStore.markPublished(paths, downloadAndFinish);
-        } else {
-          downloadAndFinish();
-        }
+        downloadAndFinish();
       }).catch(function(err) {
         if (typeof showToast === 'function') showToast('⚠ Ошибка ZIP: ' + (err.message || err));
         if (typeof onDone === 'function') onDone(-1);
@@ -41640,6 +41644,7 @@ function charInventoryImage(item) {
 }
 
 function charInventoryArt(item) {
+  if (typeof zgItemVisualMarkup === 'function') return zgItemVisualMarkup(item, '📦');
   var image = charInventoryImage(item);
   if (image) return '<img src="' + escHTML(image) + '" alt="' + escHTML(item && item.name || 'Предмет') + '">';
   return escHTML(item && item.icon || '📦');
@@ -41964,6 +41969,20 @@ function zgItemIconMarkup(value, fallback, extraStyle) {
   }
   return escHTML(value || fallback || '📦');
 }
+
+function zgItemVisualMarkup(item, fallback, extraStyle) {
+  item = item || {};
+  var source = String(item.imageThumb || item.image || '');
+  if (source) {
+    return '<img src="' + escHTML(source) + '" alt="' + escHTML(item.name || 'Предмет') + '" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;display:block;' + (extraStyle || '') + '">';
+  }
+  return zgItemIconMarkup(item.icon, fallback || '📦', extraStyle);
+}
+
+// Session drawer lives in an earlier isolated module. Expose the shared
+// renderer explicitly instead of relying on top-level lexical bindings.
+window.zgItemIconMarkup = zgItemIconMarkup;
+window.zgItemVisualMarkup = zgItemVisualMarkup;
 
 function openInventoryEmojiPicker(charId, itemIdx, event) {
   if (event) event.stopPropagation();
@@ -42919,11 +42938,7 @@ function _renderCharEquipModal() {
   var SLOT_ICONS = {main_hand:'⚔️',off_hand:'🗡️',two_hand:'🏹',body:'🧥',shield:'🛡️',head:'⛑️',gloves:'🧤',boots:'👢',belt:'🔗',amulet:'📿',ring:'💍',cloak:'🧣',artifact:'✨',consumable:'🧪'};
   var CAT_ICONS  = {weapon:'⚔️',armor:'🧥',shield:'🛡️',accessory:'💍',artifact:'✨',consumable:'🧪'};
   function itemIcon(item) {
-    var image = item && (item.imageThumb || item.image);
-    if (image) {
-      return '<img src="' + escHTML(image) + '" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;display:block">';
-    }
-    return escHTML(item && item.icon || SLOT_ICONS[item && item.slot] || CAT_ICONS[item && item.category] || '🗃️');
+    return zgItemVisualMarkup(item, SLOT_ICONS[item && item.slot] || CAT_ICONS[item && item.category] || '🗃️');
   }
 
   function getCatColor(cat) { return CATS[cat] || '#888'; }
@@ -57210,6 +57225,16 @@ function zgCartAdd(id) {
 function zgCartRemove(id) { if (_shopCart[id]) { _shopCart[id]--; if (_shopCart[id]<=0) delete _shopCart[id]; } zgRenderCart(); zgUpdateCartBtn(); }
 function zgCartAddQty(id) { _shopCart[id] = (_shopCart[id]||0)+1; zgRenderCart(); zgUpdateCartBtn(); }
 function zgCartClear() { _shopCart = {}; _ecoCart = {}; zgRenderCart(); zgUpdateCartBtn(); }
+function zgShopImageSource(item) {
+  return item ? String(item.imageThumb || item.image || '') : '';
+}
+function zgShopVisualMarkup(item, fallback, style) {
+  var source = zgShopImageSource(item);
+  if (source) return '<img src="' + escHTML(source) + '" alt="' + escHTML(item && item.name || 'Товар') + '" loading="lazy" decoding="async" style="' + (style || 'width:100%;height:100%;object-fit:cover') + '">';
+  return zgItemIconMarkup(item && item.icon, fallback || '📦');
+}
+window.zgShopImageSource = zgShopImageSource;
+window.zgShopVisualMarkup = zgShopVisualMarkup;
 function zgUpdateCartBtn() {
   // Перерисовываем текущую вкладку магазина, чтобы обновить бейдж на кнопке корзины
   var host = document.getElementById('shop-page-inner');
@@ -57234,7 +57259,7 @@ function zgRenderCart() {
     var it = items.find(function(x){ return x.id === id; }); if (!it) return '';
     var q = _shopCart[id];
     var cat = SHOP_CATS.find(function(x){ return x.key === it.cat; }) || SHOP_CATS[SHOP_CATS.length-1];
-    var thumb = it.image ? '<img src="' + escHTML(it.image) + '" style="width:40px;height:40px;object-fit:cover;border-radius:8px">' : '<span style="font-size:24px">' + escHTML(it.icon || cat.icon) + '</span>';
+    var thumb = zgShopImageSource(it) ? zgShopVisualMarkup(it, cat.icon, 'width:40px;height:40px;object-fit:cover;border-radius:8px') : '<span style="font-size:24px;width:30px;height:30px;display:block">' + zgItemIconMarkup(it.icon, cat.icon) + '</span>';
     return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #1a1309">' +
       '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#241a0e;border:1px solid #3a2a14;border-radius:8px;flex-shrink:0">' + thumb + '</div>' +
       '<div style="flex:1;min-width:0">' +
@@ -57938,7 +57963,7 @@ function renderShopPage() {
         var rar = SHOP_RARITY.find(function(x){ return x.key === it.rarity; }) || SHOP_RARITY[0];
         return '<div class="shop-card" onclick="zgShopView(\'' + it.id + '\')" style="--shop-accent:' + cat.color + '">'+
           // Большая картинка (фото или эмодзи) по центру
-          '<div class="shop-card-hero' + (it.imgSize==='wide' ? ' shop-card-hero-wide' : '') + '">' + (it.image ? '<img src="' + escHTML(it.image) + '" class="shop-card-hero-img" alt="">' : '<span class="shop-card-hero-emoji">' + escHTML(it.icon || cat.icon) + '</span>') + '</div>'+
+          '<div class="shop-card-hero' + (it.imgSize==='wide' ? ' shop-card-hero-wide' : '') + '">' + (zgShopImageSource(it) ? zgShopVisualMarkup(it, cat.icon, 'width:100%;height:100%;object-fit:cover;display:block') : '<span class="shop-card-hero-emoji" style="display:block;width:64px;height:64px">' + zgItemIconMarkup(it.icon, cat.icon) + '</span>') + '</div>'+
           // Название + редкость
           '<div class="shop-card-name">' + escHTML(it.name || 'Без имени') + '</div>'+
           '<div style="font-size:9px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;text-align:center;margin-bottom:8px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>'+
@@ -57986,9 +58011,9 @@ function zgShopView(itemId) {
     (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 20px) 12px 24px' : 'align-items:center;padding:20px');
   bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
 
-  var imgOrEmoji = it.image
-    ? '<img src="' + it.image + '" style="width:96px;height:96px;object-fit:cover;border-radius:16px;border:1px solid ' + cat.color + '55">'
-    : '<div style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:52px;border-radius:16px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,' + cat.color + ' 16%,#1a130a),#100b06);border:1px solid ' + cat.color + '44;filter:drop-shadow(0 3px 6px #000a)">' + escHTML(it.icon || cat.icon) + '</div>';
+  var imgOrEmoji = zgShopImageSource(it)
+    ? zgShopVisualMarkup(it, cat.icon, 'width:96px;height:96px;object-fit:cover;border-radius:16px;border:1px solid ' + cat.color + '55')
+    : '<div style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:52px;border-radius:16px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,' + cat.color + ' 16%,#1a130a),#100b06);border:1px solid ' + cat.color + '44;filter:drop-shadow(0 3px 6px #000a)"><span style="width:64px;height:64px;display:block">' + zgItemIconMarkup(it.icon, cat.icon) + '</span></div>';
 
   var chips = shopStatChips(it, true);
   var panel = document.createElement('div');
@@ -58032,7 +58057,7 @@ function zgShopEdit(itemId) {
     // Иконка/фото (большая, с кнопкой пикера и загрузки) + название
     '<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch">'+
       '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+
-        '<button id="shp-icon-btn" type="button" title="Выбрать эмодзи или фото" style="width:72px;height:72px;font-size:38px;background:radial-gradient(circle at 50% 40%,#241a0e,#100b06);border:1px solid #3a2a14;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden">' + (it && it.image ? '<img src="' + escHTML(it.image) + '" style="width:100%;height:100%;object-fit:cover">' : (it && it.icon ? escHTML(it.icon) : '🗡')) + '</button>'+
+        '<button id="shp-icon-btn" type="button" title="Выбрать эмодзи или фото" style="width:72px;height:72px;font-size:38px;background:radial-gradient(circle at 50% 40%,#241a0e,#100b06);border:1px solid #3a2a14;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden">' + (it ? zgShopVisualMarkup(it, '🗡', 'width:100%;height:100%;object-fit:cover;display:block') : '🗡') + '</button>'+
         '<div style="display:flex;gap:4px">'+
           '<button id="shp-emoji-pick" type="button" title="Эмодзи" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">😀</button>'+
           '<button id="shp-img-pick" type="button" title="Загрузить фото" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">🖼</button>'+
@@ -58108,10 +58133,21 @@ function zgShopEdit(itemId) {
     '</div>';
   bd.appendChild(panel);
   document.body.appendChild(bd);
+  var shopImagePreparing = false;
+  function setShopImagePreparing(value) {
+    shopImagePreparing = !!value;
+    var saveButton = panel.querySelector('#shp-save');
+    if (saveButton) {
+      saveButton.disabled = shopImagePreparing;
+      saveButton.style.opacity = shopImagePreparing ? '.5' : '1';
+      saveButton.textContent = shopImagePreparing ? 'Подготовка изображения…' : '💾 Сохранить';
+    }
+  }
 
   // Эмодзи-пикер (кнопка 😀 и клик по большой иконке)
   function pickEmoji(){
     zgShopOpenEmojiPicker(function(emoji){
+      setShopImagePreparing(false);
       panel.querySelector('#shp-icon').value = emoji;
       panel.querySelector('#shp-image').value = ''; // эмодзи заменяет фото
       panel.querySelector('#shp-image-thumb').value = '';
@@ -58151,6 +58187,7 @@ function zgShopEdit(itemId) {
   panel.querySelector('#shp-image-file').addEventListener('change', function(ev){
     var file = ev.target.files && ev.target.files[0];
     if (!file) return;
+    setShopImagePreparing(true);
     // Уникальный ключ на каждую загрузку — чтобы замена фото не упиралась в кэш старого blob
     var itemKey = ((it && it.id) ? it.id : ('new_' + Date.now().toString(36))) + '_' + Date.now().toString(36);
     var setImg = function(src){
@@ -58163,16 +58200,18 @@ function zgShopEdit(itemId) {
           window.zgImageStore.getBlobUrl(path, function(blobUrl){ setImg(blobUrl || path); panel.querySelector('#shp-image').value = path; });
           window.zgImageStore.makePortable(path, { maxSide:192, maxChars:90000 }, function(data){
             panel.querySelector('#shp-image-thumb').value = data || '';
+            setShopImagePreparing(false);
           });
         } else {
           var r = new FileReader(); r.onload = function(x){ setImg(String(x.target.result||'')); }; r.readAsDataURL(file);
           window.zgImageStore.makePortable(file, { maxSide:192, maxChars:90000 }, function(data){
             panel.querySelector('#shp-image-thumb').value = data || '';
+            setShopImagePreparing(false);
           });
         }
       });
     } else {
-      var r = new FileReader(); r.onload = function(x){ setImg(String(x.target.result||'')); }; r.readAsDataURL(file);
+      var r = new FileReader(); r.onload = function(x){ setImg(String(x.target.result||'')); setShopImagePreparing(false); }; r.onerror = function(){ setShopImagePreparing(false); }; r.readAsDataURL(file);
     }
     ev.target.value = '';
   });
@@ -58210,6 +58249,7 @@ function zgShopEdit(itemId) {
   });
 
   panel.querySelector('#shp-save').addEventListener('click', function(){
+    if (shopImagePreparing) { if (typeof showToast === 'function') showToast('Изображение ещё подготавливается'); return; }
     var name = (panel.querySelector('#shp-name').value || '').trim();
     if (!name) { if (typeof showToast === 'function') showToast('Нужно название'); return; }
     var rec = it || { id: 'shp_' + Date.now() + '_' + Math.floor(Math.random()*1000) };
