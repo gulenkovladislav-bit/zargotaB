@@ -29,4 +29,11 @@ assert.match(html, /setShopImagePreparing\(true\)/,
 assert.match(html, /if \(shopImagePreparing\)/,
   'shop editor must reject premature saving of an unfinished custom image');
 
+assert.match(html, /window\.zgEnsurePortableCharacterMedia = function\(character\)/,
+  'character entry must have a portable-media preparation step');
+assert.match(html, /prepare\(character, 'portrait', 'portraitThumb', \{ maxSide:320, maxChars:140000 \}\)/,
+  'a local IndexedDB portrait must receive a bounded cross-client thumbnail');
+assert.match(html, /confirmLocalCharacterForEntry\(character\)[\s\S]*zgEnsurePortableCharacterMedia\(character\)/,
+  'journey entry must finish portable portrait preparation before saving and joining');
+
 console.log('media portability contract passed');
