@@ -57417,7 +57417,7 @@ var SHOP_EMOJI_POOL = [
   { group:'Люди/услуги', list:['🤝','🧙','⚗️','🩺','⚖️','🎭','🎨','🎵','📚','🛠️','🧭','🗺️','✉️','🔍'] },
   { group:'Тёмное/подполье', list:['🩸','☠️','💀','🗝️','🕷️','🐀','🦇','⛓️','🃏','🎲','🕳️','🧿','⚰️'] }
 ];
-var _shopState = { filter:'', search:'', tab:'showcase' };
+var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false };
 var _shopEmojiTarget = null; // куда вставлять выбранный эмодзи
 var _shopCart = {}; // itemId -> qty (реальные товары витрины)
 var _ecoCart = {}; // name -> {price:{}, qty} (позиции из экономики)
@@ -57585,6 +57585,7 @@ function zgCartEcoRemove(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty--; if (_ecoC
 function zgShopSetFilter(f) { _shopState.filter = f || ''; renderShopPage(); }
 function zgShopSetSearch(v) { _shopState.search = v || ''; renderShopPageDebounced(); }
 function zgShopSetTab(t) { _shopState.tab = t || 'showcase'; renderShopPage(); }
+function zgShopToggleGmStats() { _shopState.gmStatsOpen = !_shopState.gmStatsOpen; renderShopPage(); }
 
 function loadShopItems() {
   try {
@@ -57723,10 +57724,10 @@ function zgSeedLegacyShopItems() {
   } catch(e) {}
 }
 
-// Компактная витрина v14. Старые автотовары заменяются, созданные вручную сохраняются.
+// Компактная витрина v15. Канонические товары обновляются, созданные вручную сохраняются.
 function zgSeedShopIfEmpty() {
   try {
-    if (localStorage.getItem('zargota_shop_seeded_v14')) return;
+    if (localStorage.getItem('zargota_shop_seeded_v15')) return;
     var featured = [
       { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
       { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
@@ -57754,12 +57755,14 @@ function zgSeedShopIfEmpty() {
       : [];
     if (!foundation.length) return;
     var existing = loadShopItems();
+    var canonicalIds = {};
+    foundation.forEach(function(item){ canonicalIds[String(item && item.id || '')] = true; });
     var manual = existing.filter(function(item) {
       var id = String(item && item.id || '');
-      return id.indexOf('shp_seed_') !== 0 && id.indexOf('shp_featured_') !== 0 && id.indexOf('shp_foundation_') !== 0 && id.indexOf('shp_consumable_') !== 0 && id.indexOf('shp_weapon_') !== 0 && id.indexOf('shp_counter_') !== 0 && id.indexOf('shp_armor_') !== 0 && id.indexOf('shp_hunt_') !== 0 && id.indexOf('shp_expedition_') !== 0 && id.indexOf('shp_scroll_') !== 0 && id.indexOf('shp_magiccons_') !== 0 && id.indexOf('shp_craft_') !== 0 && id.indexOf('shp_alcohol_') !== 0 && id.indexOf('shp_mobility_') !== 0 && id.indexOf('shp_artifact_') !== 0 && id.indexOf('shp_potion_') !== 0 && id.indexOf('shp_adornment_') !== 0 && id.indexOf('shp_black_') !== 0 && id.indexOf('shp_poison_') !== 0;
+      return id.indexOf('shp_seed_') !== 0 && id.indexOf('shp_featured_') !== 0 && !canonicalIds[id];
     });
     saveShopItems(featured.concat(foundation, manual));
-    localStorage.setItem('zargota_shop_seeded_v14', '1');
+    localStorage.setItem('zargota_shop_seeded_v15', '1');
     var host = document.getElementById('shop-page-inner');
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}
@@ -58190,6 +58193,49 @@ function zgEconomyMemoHtml() {
     '<div style="text-align:center;margin-top:20px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic;line-height:1.6">Средние цены. ×2–3 в глуши, дешевле в столице. Торг по Харизме даёт 10–25% скидки.<br>Вдохновлено D&D 5e и средневековьем, адаптировано под Зарготу.</div>';
 }
 
+function zgShopCatalogStats(items) {
+  items = Array.isArray(items) ? items : [];
+  var categoryKeys = SHOP_CATS.map(function(cat){ return cat.key; });
+  var rarityKeys = SHOP_RARITY.map(function(rarity){ return rarity.key; });
+  var stats = { total:items.length, categories:{}, rarities:{} };
+  categoryKeys.forEach(function(key){ stats.categories[key] = 0; });
+  rarityKeys.forEach(function(key){ stats.rarities[key] = 0; });
+  items.forEach(function(item){
+    var cat = categoryKeys.indexOf(item && item.cat) >= 0 ? item.cat : 'other';
+    var rarity = rarityKeys.indexOf(item && item.rarity) >= 0 ? item.rarity : 'common';
+    stats.categories[cat] = (stats.categories[cat] || 0) + 1;
+    stats.rarities[rarity] = (stats.rarities[rarity] || 0) + 1;
+  });
+  return stats;
+}
+
+function zgShopGmStatsHtml(items, visibleCount) {
+  if (typeof zgGmUnlocked !== 'function' || !zgGmUnlocked() || !_shopState.gmStatsOpen) return '';
+  var stats = zgShopCatalogStats(items);
+  var shown = Math.max(0, Number(visibleCount) || 0);
+  var categoryChips = SHOP_CATS.filter(function(cat){ return stats.categories[cat.key] > 0; }).map(function(cat){
+    var active = _shopState.filter === cat.key;
+    return '<button type="button" onclick="zgShopSetFilter(\'' + cat.key + '\')" title="Показать только: ' + escHTML(cat.label) + '" style="display:flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid ' + (active ? cat.color : cat.color + '55') + ';border-radius:7px;background:' + (active ? cat.color + '22' : '#0a0704') + ';color:' + cat.color + ';font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer"><span>' + cat.icon + ' ' + escHTML(cat.label) + '</span><b style="font-size:12px">' + stats.categories[cat.key] + '</b></button>';
+  }).join('');
+  var rarityChips = SHOP_RARITY.filter(function(rarity){ return stats.rarities[rarity.key] > 0; }).map(function(rarity){
+    return '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid ' + rarity.color + '44;border-radius:12px;color:' + rarity.color + ';font-family:\'Cinzel\',serif;font-size:9px"><span>' + escHTML(rarity.label) + '</span><b>' + stats.rarities[rarity.key] + '</b></span>';
+  }).join('');
+  return '<section id="zg-shop-gm-stats" data-total="' + stats.total + '" style="margin:0 0 18px;padding:13px 14px;border:1px solid #d4a04a55;border-left:3px solid #d4a04a;border-radius:9px;background:linear-gradient(135deg,#171006,#0b0805);box-shadow:0 8px 24px #0005">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px">' +
+      '<div><b style="font-family:\'Cinzel\',serif;font-size:12px;color:#e8c060;letter-spacing:.8px">🧭 СТАТИСТИКА ГМа</b><div style="font-size:10px;color:#77664a;margin-top:3px">Состав единого каталога Лавки и Оружейной</div></div>' +
+      '<div style="display:flex;gap:8px;align-items:center;font-family:\'Cinzel\',serif"><span style="color:#9b8968;font-size:10px">ПОКАЗАНО <b style="color:#d8c8a8;font-size:14px">' + shown + '</b></span><span style="color:#9b8968;font-size:10px">ВСЕГО <b style="color:#e8c060;font-size:17px">' + stats.total + '</b></span><button type="button" onclick="zgShopToggleGmStats()" title="Закрыть статистику" aria-label="Закрыть статистику ГМа" style="width:24px;height:24px;padding:0;border:1px solid #d4a04a55;border-radius:6px;background:#0a0704;color:#a89062;cursor:pointer">✕</button></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px">' + categoryChips + '</div>' +
+    '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:9px;color:#66583e;font-family:\'Cinzel\',serif;margin-right:2px">РЕДКОСТЬ</span>' + rarityChips + '</div>' +
+  '</section>';
+}
+
+function zgShopGmStatsToggleHtml() {
+  if (typeof zgGmUnlocked !== 'function' || !zgGmUnlocked()) return '';
+  var open = !!_shopState.gmStatsOpen;
+  return '<button id="zg-shop-gm-stats-toggle" type="button" onclick="zgShopToggleGmStats()" title="' + (open ? 'Скрыть статистику ГМа' : 'Показать статистику ГМа') + '" aria-label="Статистика ГМа" aria-expanded="' + (open ? 'true' : 'false') + '" style="display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;padding:0;border:1px solid ' + (open ? '#d4a04a' : '#2a1e10') + ';border-radius:50%;background:' + (open ? '#d4a04a18' : 'transparent') + ';color:' + (open ? '#e8c060' : '#7a6a48') + ';font-size:13px;cursor:pointer;flex:0 0 auto">🧭</button>';
+}
+
 function renderShopPage() {
   var host = document.getElementById('shop-page-inner');
   if (!host) return;
@@ -58245,6 +58291,7 @@ function renderShopPage() {
         var on = _shopState.filter === cat.key;
         return '<button onclick="zgShopSetFilter(\'' + cat.key + '\')" style="padding:6px 12px;border:1px solid ' + (on ? cat.color : '#2a1e10') + ';border-radius:16px;background:' + (on ? cat.color + '18' : 'transparent') + ';color:' + (on ? cat.color : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.5px">' + cat.icon + ' ' + cat.label + '</button>';
       }).join('')+
+      zgShopGmStatsToggleHtml()+
     '</div>';
 
   var grid;
@@ -58276,7 +58323,7 @@ function renderShopPage() {
     '</div>';
   }
 
-  host.innerHTML = head + zgCurrencyBarHtml() + toolbar + grid +
+  host.innerHTML = head + zgCurrencyBarHtml() + toolbar + zgShopGmStatsHtml(items, filtered.length) + grid +
     '<div style="text-align:center;margin-top:26px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic">' + items.length + ' товаров на витрине · клик по карточке — просмотр</div>';
 }
 var _shopSearchTimer = null;

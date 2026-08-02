@@ -58,7 +58,7 @@ assert.ok(consumables.every(function (item) { return item.category === 'consumab
 assert.ok(consumables.every(function (item) { return item.charges === 1; }));
 assert.ok(consumables.every(function (item) { return item.tags.indexOf('consumable') >= 0; }));
 assert.ok(consumables.every(function (item) { return item.effects.length >= 1; }));
-assert.strictEqual(economy.getShopSeedItems().length, 241);
+assert.strictEqual(economy.getShopSeedItems().length, 266);
 var consumableAudit = economy.auditItemDefinitions(consumables);
 assert.strictEqual(consumableAudit.length, 20);
 assert.ok(consumableAudit.every(function (row) { return row.confidence === 'structured'; }));
@@ -228,6 +228,10 @@ assert.strictEqual(new Set(craftingComponents.map(function (item) { return item.
 assert.ok(craftingComponents.every(function (item) { return item.category === 'material'; }));
 assert.ok(craftingComponents.every(function (item) { return item.crafting.consumedByRecipe === true; }));
 assert.ok(craftingComponents.every(function (item) { return item.crafting.affinities.length >= 2; }));
+assert.ok(craftingComponents.every(function (item) { return item.crafting.potionRefs.length >= 2; }));
+assert.ok(craftingComponents.every(function (item) { return /Для зелий:/.test(item.effect); }));
+var potionIds = new Set(economy.getPotionItems().map(function (item) { return item.id; }));
+assert.ok(craftingComponents.every(function (item) { return item.crafting.potionRefs.every(function (id) { return potionIds.has(id); }); }));
 var craftingAudit = economy.auditItemDefinitions(craftingComponents);
 assert.ok(craftingAudit.every(function (row) { return row.confidence === 'structured'; }));
 assert.ok(craftingAudit.every(function (row) { return row.status === 'within-tier'; }), JSON.stringify(craftingAudit, null, 2));
@@ -274,8 +278,39 @@ var poisons = economy.getPoisonItems();
 assert.strictEqual(poisons.length, 12);
 assert.deepStrictEqual(economy.validatePoisonItems(), []);
 assert.ok(poisons.every(function(item){return item.access.legality==='forbidden' && item.charges===1;}));
+assert.ok(poisons.every(function(item){return /^images\/shop\/poison-\d{2}\.png$/.test(item.image); }));
+assert.strictEqual(new Set(poisons.map(function(item){return item.image;})).size,12);
 
-[alcohol,movementGear,artifacts,potions,adornments,blackMarket,poisons].forEach(function(group){
+var loreGoods = economy.getLoreGoodsItems();
+assert.strictEqual(loreGoods.length, 19);
+assert.deepStrictEqual(economy.validateLoreGoodsItems(), []);
+assert.ok(loreGoods.every(function(item){return item.tags.indexOf('nonmagical')>=0;}));
+assert.ok(loreGoods.every(function(item){return item.access.legality==='open';}));
+assert.ok(loreGoods.every(function(item){return /^images\/shop\/lore-goods-\d{2}\.png$/.test(item.image);}));
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='alcohol';}).length,3);
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='boots';}).length,1);
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='climbing';}).length,1);
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='cloak';}).length,3);
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='instrument';}).length,3);
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='melee-weapon';}).length,4);
+assert.strictEqual(loreGoods.filter(function(item){return item.goodsGroup==='ranged-weapon';}).length,4);
+assert.ok(loreGoods.every(function(item){return !item.effects.some(function(effect){return effect.operation==='check-bonus'||effect.operation==='check-penalty';});}));
+var apprenticeClimbingKit = items.filter(function(item){return item.id==='shp_foundation_11';})[0];
+assert.strictEqual(apprenticeClimbingKit.name,'Ученический комплект Лесорубки');
+assert.strictEqual(apprenticeClimbingKit.image,'images/shop/lore-goods-05.png');
+assert.ok(apprenticeClimbingKit.effects.every(function(effect){return effect.operation!=='check-bonus'&&effect.operation!=='check-penalty';}));
+
+var necromancyItems = economy.getNecromancyItems();
+assert.strictEqual(necromancyItems.length,6);
+assert.deepStrictEqual(economy.validateNecromancyItems(), []);
+assert.ok(necromancyItems.every(function(item){return item.tags.indexOf('necromancy')>=0;}));
+assert.ok(necromancyItems.every(function(item){return item.access.markets.indexOf('secret')>=0;}));
+assert.strictEqual(necromancyItems.filter(function(item){return item.necromancyClass==='secret';}).length,3);
+assert.strictEqual(necromancyItems.filter(function(item){return item.necromancyClass==='forbidden';}).length,3);
+assert.ok(necromancyItems.filter(function(item){return item.necromancyClass==='forbidden';}).every(function(item){return item.access.legality==='forbidden';}));
+assert.ok(necromancyItems.every(function(item){return /^images\/shop\/necromancy-\d{2}\.png$/.test(item.image);}));
+
+[alcohol,movementGear,artifacts,potions,adornments,blackMarket,poisons,loreGoods,necromancyItems].forEach(function(group){
   var rows=economy.auditItemDefinitions(group);
   assert.ok(rows.every(function(row){return row.confidence==='structured';}));
   assert.ok(rows.every(function(row){return row.status==='within-tier';}),JSON.stringify(rows,null,2));
