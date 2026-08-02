@@ -259,12 +259,16 @@ assert.strictEqual(potions.filter(function(item){return item.role==='healing';})
 var adornments = economy.getMagicAdornmentItems();
 assert.strictEqual(adornments.length, 15);
 assert.deepStrictEqual(economy.validateMagicAdornmentItems(), []);
+assert.ok(adornments.every(function(item){return /^images\/shop\/(ring|amulet|charm)-\d{2}\.png$/.test(item.image); }));
+assert.strictEqual(new Set(adornments.map(function(item){return item.image;})).size,15);
 ['ring','amulet','charm'].forEach(function(kind){assert.strictEqual(adornments.filter(function(item){return item.kind===kind;}).length,5);});
 
 var blackMarket = economy.getBlackMarketItems();
 assert.strictEqual(blackMarket.length, 15);
 assert.deepStrictEqual(economy.validateBlackMarketItems(), []);
 assert.ok(blackMarket.every(function(item){return item.access.markets.indexOf('secret')>=0;}));
+assert.ok(blackMarket.every(function(item){return /^images\/shop\/black-market-\d{2}\.png$/.test(item.image); }));
+assert.strictEqual(new Set(blackMarket.map(function(item){return item.image;})).size,15);
 
 var poisons = economy.getPoisonItems();
 assert.strictEqual(poisons.length, 12);
