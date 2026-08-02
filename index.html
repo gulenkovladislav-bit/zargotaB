@@ -12,6 +12,7 @@
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
 <script src="gameplay-operation-outbox.js?v=2026-07-29.1"></script>
 <script src="equipment-rules.js?v=2026-07-29.2"></script>
+<script src="item-economy.js?v=2026-08-01.1"></script>
 <script src="zargota-network.js?v=2026-07-30.2"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.4">
 <script src="gm-delivery.js?v=2026-07-29.8"></script>
@@ -4777,6 +4778,58 @@ window.addEventListener('load', function(){
     background: #c04848; color: #fff; font-family: sans-serif; font-size: 11px;
     min-width: 20px; height: 20px; border-radius: 10px; padding: 0 5px;
     display: inline-flex; align-items: center; justify-content: center;
+  }
+  /* Витрина: игровые ориентиры могущества предметов */
+  .zg-economy-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .zg-shop-title-line { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .zg-power-guide { position: relative; display: inline-flex; }
+  .zg-power-guide > summary {
+    list-style: none; width: 27px; height: 27px; display: inline-grid; place-items: center; padding: 0;
+    border: 1px solid #4a3820; border-radius: 8px; background: linear-gradient(160deg,#1a1509,#100b06);
+    color: #c9aa63; font: 600 13px/1 'Cinzel',serif; cursor: pointer;
+    transition: border-color .15s, color .15s, box-shadow .15s, transform .12s;
+  }
+  .zg-power-guide > summary::-webkit-details-marker { display: none; }
+  .zg-power-guide > summary:hover,
+  .zg-power-guide[open] > summary { border-color: #d4a04a; color: #f0d183; box-shadow: 0 4px 16px #e8c0601a; transform: translateY(-1px); }
+  .zg-power-guide-cloud {
+    position: absolute; z-index: 80; top: calc(100% + 12px); left: 50%; width: min(760px,calc(100vw - 40px));
+    transform: translateX(-50%); box-sizing: border-box; padding: 16px; border: 1px solid #725528; border-radius: 12px;
+    background: radial-gradient(circle at 82% 0,#8f67201a,transparent 35%),linear-gradient(155deg,#171108,#090604 76%);
+    box-shadow: 0 24px 70px #000e,inset 0 1px 0 #efd28314; text-align: left;
+  }
+  .zg-power-guide-cloud::before {
+    content: ''; position: absolute; left: 50%; bottom: 100%; transform: translateX(-50%); border: 7px solid transparent; border-bottom-color: #725528;
+  }
+  .zg-power-guide-head { margin-bottom: 11px; text-align: center; }
+  .zg-power-guide-head b { display: block; color: #ecd08a; font: 600 16px 'Cinzel',serif; letter-spacing: .5px; }
+  .zg-power-guide-head small { display: block; margin-top: 3px; color: #79694c; font: italic 10px/1.4 'Lora',serif; }
+  .zg-power-guide-columns,
+  .zg-power-guide-tier { display: grid; grid-template-columns: 42px 125px minmax(220px,1fr) 92px 128px; gap: 9px; align-items: center; }
+  .zg-power-guide-columns { padding: 0 11px 5px; color: #63553d; font: 7px 'Cinzel',serif; letter-spacing: .8px; text-transform: uppercase; }
+  .zg-power-guide-list { position: relative; display: grid; gap: 5px; }
+  .zg-power-guide-list::before { content: ''; position: absolute; z-index: 0; left: 31px; top: 25px; bottom: 25px; width: 1px; background: linear-gradient(#789653,#6685ae,#af8334,#ad6251,#8460a8); opacity: .55; }
+  .zg-power-guide-tier { position: relative; z-index: 1; min-width: 0; padding: 9px 11px; border: 1px solid #312414; border-left: 2px solid var(--tier,#8a7143); border-radius: 8px; background: linear-gradient(90deg,color-mix(in srgb,var(--tier,#8a7143) 6%,#100c07),#100c07 35%); }
+  .zg-power-guide-level { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--tier,#8a7143); background: #0d0905; color: var(--tier,#d8bd78); font: 700 12px 'Cinzel',serif; transform: rotate(45deg); }
+  .zg-power-guide-level span { transform: rotate(-45deg); }
+  .zg-power-guide-role { min-width: 0; display: grid; grid-template-columns: 28px minmax(0,1fr); align-items: center; column-gap: 7px; }
+  .zg-power-guide-role i { grid-row: 1/3; color: var(--tier,#b99b60); font: normal 22px/1 serif; text-align: center; }
+  .zg-power-guide-role b { color: var(--tier,#d7ba77); font: 600 11px/1.3 'Cinzel',serif; }
+  .zg-power-guide-role small { color: #665a44; font: 8px/1.3 'Lora',serif; }
+  .zg-power-guide-items { min-width: 0; margin: 0; color: #b3a17e; font: 10px/1.45 'Lora',serif; }
+  .zg-power-guide-price { color: #e2c16f; font: 700 10px/1.3 'Cinzel',serif; text-align: right; white-space: nowrap; }
+  .zg-power-guide-market { color: var(--tier,#9d8a60); font: 600 8px/1.35 'Cinzel',serif; text-align: right; }
+  @media (max-width: 560px) {
+    .zg-power-guide { position: static; }
+    .zg-power-guide-cloud { top: calc(100% + 10px); width: calc(100vw - 28px); max-height: 72vh; overflow-y: auto; padding: 13px; }
+    .zg-power-guide-columns { display: none; }
+    .zg-power-guide-tier { grid-template-columns: 36px minmax(0,1fr) auto; gap: 8px; padding: 10px; }
+    .zg-power-guide-level { grid-column: 1; grid-row: 1/3; width: 27px; height: 27px; }
+    .zg-power-guide-role { grid-column: 2; grid-row: 1; }
+    .zg-power-guide-items { grid-column: 2/4; grid-row: 2; }
+    .zg-power-guide-price { grid-column: 3; grid-row: 1; }
+    .zg-power-guide-market { grid-column: 2/4; grid-row: 3; text-align: left; }
+    .zg-power-guide-list::before { left: 25px; }
   }
   /* Кнопка-памятка «Против существ» */
   .beast-guide-btn {
@@ -57670,10 +57723,10 @@ function zgSeedLegacyShopItems() {
   } catch(e) {}
 }
 
-// Компактная витрина v4. Старые автотовары заменяются, созданные вручную сохраняются.
+// Компактная витрина v14. Старые автотовары заменяются, созданные вручную сохраняются.
 function zgSeedShopIfEmpty() {
   try {
-    if (localStorage.getItem('zargota_shop_seeded_v4')) return;
+    if (localStorage.getItem('zargota_shop_seeded_v14')) return;
     var featured = [
       { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
       { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
@@ -57696,13 +57749,17 @@ function zgSeedShopIfEmpty() {
       { id:'shp_featured_19', name:'Ночь в безопасной комнате', icon:'🗝️', image:'images/shop/safe-room-key.png', imgSize:'square', cat:'service', rarity:'common', price:{pl:0,zl:0,sr:5,md:0}, effect:'Безопасный долгий отдых', desc:'Запираемая комната, чистая вода и человек на ночном посту. Еда оплачивается отдельно.' },
       { id:'shp_featured_20', name:'Слиток стали Казад-Дрома', icon:'⛏️', image:'images/shop/kazad-drom-steel.png', imgSize:'square', cat:'material', rarity:'rare', price:{pl:3,zl:5,sr:0,md:0}, effect:'Основа для добротного оружия или брони', desc:'Плотная многослойная сталь с клеймом подгорной кузни. Держит заточку и не боится морской соли.' }
     ];
+    var foundation = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopSeedItems === 'function'
+      ? window.ZargotaItemEconomy.getShopSeedItems()
+      : [];
+    if (!foundation.length) return;
     var existing = loadShopItems();
     var manual = existing.filter(function(item) {
       var id = String(item && item.id || '');
-      return id.indexOf('shp_seed_') !== 0 && id.indexOf('shp_featured_') !== 0;
+      return id.indexOf('shp_seed_') !== 0 && id.indexOf('shp_featured_') !== 0 && id.indexOf('shp_foundation_') !== 0 && id.indexOf('shp_consumable_') !== 0 && id.indexOf('shp_weapon_') !== 0 && id.indexOf('shp_counter_') !== 0 && id.indexOf('shp_armor_') !== 0 && id.indexOf('shp_hunt_') !== 0 && id.indexOf('shp_expedition_') !== 0 && id.indexOf('shp_scroll_') !== 0 && id.indexOf('shp_magiccons_') !== 0 && id.indexOf('shp_craft_') !== 0 && id.indexOf('shp_alcohol_') !== 0 && id.indexOf('shp_mobility_') !== 0 && id.indexOf('shp_artifact_') !== 0 && id.indexOf('shp_potion_') !== 0 && id.indexOf('shp_adornment_') !== 0 && id.indexOf('shp_black_') !== 0 && id.indexOf('shp_poison_') !== 0;
     });
-    saveShopItems(featured.concat(manual));
-    localStorage.setItem('zargota_shop_seeded_v4', '1');
+    saveShopItems(featured.concat(foundation, manual));
+    localStorage.setItem('zargota_shop_seeded_v14', '1');
     var host = document.getElementById('shop-page-inner');
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}
@@ -57959,6 +58016,17 @@ var ZG_ECONOMY = [
     ['Убежище/схрон, месяц','10–50 зл','']
   ]}
 ];
+// Не готовые билды, а понятная игроку шкала мира: что обычно доступно людям
+// разного уровня опыта. Цены опираются на текущую памятку ZG_ECONOMY.
+// После общего аудита предметов, заклинаний, бестиария и прогрессии значения
+// можно заменить здесь, не затрагивая интерфейс и сохранения.
+var ZG_POWER_LADDER = [
+  { level:1, role:'Грибник', symbol:'🍄', color:'#8ca66c', items:'Кинжал · тканевая роба · рюкзак · факел', price:'≈ 4 зл', access:'Открытый рынок', impact:'Быт и самооборона' },
+  { level:2, role:'Стражник', symbol:'🛡️', color:'#7f9ac5', items:'Копьё трактовой стражи · стёганка · малый щит · открытый шлем · верёвка 15 м', price:'≈ 17 зл', access:'Городской рынок', impact:'Строй и защита' },
+  { level:3, role:'Охотник', symbol:'🏹', color:'#b08b5d', items:'Короткий лук · кожаный доспех · кинжал · стальной капкан · верёвка 30 м · сухпаёк', price:'≈ 49 зл', access:'Гильдейский рынок', impact:'Дальний бой и ловушки' },
+  { level:4, role:'Ветеран', symbol:'🪖', color:'#c37b68', items:'Длинный меч · полная кольчуга · средний щит · закрытый шлем · полевая аптечка', price:'≈ 96 зл', access:'Лицензированный оружейник', impact:'Надёжный боевой комплект' },
+  { level:5, role:'Колдун', symbol:'🔮', color:'#a07fd4', items:'Тканевая роба · рунический оберег · сильный свиток · набор магических реагентов · зелье лечения', price:'≈ 214–250+ зл', access:'Гильдия магов / тайный рынок', impact:'Магическая сила и доступ' }
+];
 var _ecoFilter = '';
 var _ecoCurrency = 'mixed'; // mixed | md | sr | zl | pl
 function zgEcoSetCurrency(cur){ _ecoCurrency = cur || 'mixed'; renderShopPage(); }
@@ -58063,6 +58131,23 @@ function zgCurrencyBarHtml() {
       return '<button onclick="zgEcoSetCurrency(\'' + o[0] + '\')" style="padding:6px 14px;border:1px solid ' + (on?'#e8c060':'#2a1e10') + ';border-radius:16px;background:' + (on?'#e8c06018':'transparent') + ';color:' + (on?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.3px">' + o[2] + ' ' + o[1] + '</button>';
     }).join('') + '</div>';
 }
+function zgPowerGuideHtml() {
+  return '<details class="zg-power-guide">' +
+    '<summary title="Сравнить мощь предмета" aria-label="Ориентиры мощи">⚖</summary>' +
+    '<div class="zg-power-guide-cloud">' +
+      '<div class="zg-power-guide-head"><b>Ориентиры мощи</b>' +
+        '<small>Сравни товар с типичным снаряжением персонажей разных уровней.</small></div>' +
+      '<div class="zg-power-guide-columns"><span>Ур.</span><span>Ориентир</span><span>Пример снаряжения</span><span style="text-align:right">Цена</span><span style="text-align:right">Доступ</span></div>' +
+      '<div class="zg-power-guide-list">' + ZG_POWER_LADDER.map(function(tier){
+        return '<article class="zg-power-guide-tier" style="--tier:' + tier.color + '">' +
+          '<span class="zg-power-guide-level"><span>' + tier.level + '</span></span>' +
+          '<span class="zg-power-guide-role"><i>' + escHTML(tier.symbol) + '</i><b>' + escHTML(tier.role) + '</b><small>' + escHTML(tier.impact) + '</small></span>' +
+          '<p class="zg-power-guide-items">' + escHTML(tier.items) + '</p>' +
+          '<strong class="zg-power-guide-price">' + escHTML(tier.price) + '</strong>' +
+          '<span class="zg-power-guide-market">' + escHTML(tier.access) + '</span></article>';
+      }).join('') + '</div>' +
+    '</div></details>';
+}
 function zgEconomyMemoHtml() {
   // Переключатель валюты пересчёта
   var curBar = zgCurrencyBarHtml() +
@@ -58126,7 +58211,7 @@ function renderShopPage() {
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Экономика Зарготы</div>'+
         '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Средние цены по острову. Всё сведено к золоту для сравнения. Нажми на строку — добавить в корзину.</div>'+
       '</div>' + subtabs +
-      '<div style="display:flex;justify-content:flex-end;margin-bottom:14px">'+
+      '<div class="zg-economy-actions">'+
         '<button class="shop-cart-btn" onclick="zgRenderCart()"><span style="font-size:16px">💰</span> Корзина' + (ecoCartInfo.count ? '<span class="shop-cart-badge">' + ecoCartInfo.count + '</span>' : '') + '</button>'+
       '</div>' + zgEconomyMemoHtml();
     return;
@@ -58143,7 +58228,7 @@ function renderShopPage() {
   var head =
     '<div style="text-align:center;margin-bottom:14px">'+
       '<div style="font-size:40px;margin-bottom:6px">💰</div>'+
-      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Товары Зарготы</div>'+
+      '<div class="zg-shop-title-line"><div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Товары Зарготы</div>'+ zgPowerGuideHtml() +'</div>'+
       '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Что бывает в мире и сколько это стоит в среднем. Точная цена — у конкретного торговца.</div>'+
     '</div>' + subtabs;
 
