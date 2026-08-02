@@ -4891,7 +4891,7 @@ window.addEventListener('load', function(){
     background: radial-gradient(circle, color-mix(in srgb, var(--hub,#b88442) 14%, transparent) 0, transparent 68%);
     transition: transform .3s ease;
   }
-  .arena-hub-icon img { width:88px; height:88px; display:block; object-fit:cover; filter:brightness(1.28) contrast(1.1) saturate(1.08); mix-blend-mode:lighten; }
+  .arena-hub-icon img { width:88px; height:88px; display:block; object-fit:contain; filter:brightness(1.28) contrast(1.1) saturate(1.08); }
   .arena-hub-card:hover .arena-hub-icon { transform: scale(1.08); }
   .arena-hub-title { font-family: 'Cinzel', serif; font-size: 20px; color: #f6e6c0; margin-bottom: 8px; letter-spacing: .5px; }
   .arena-hub-desc { font-family: 'Lora', serif; font-size: 13px; color: #a8987c; line-height: 1.5; margin-bottom: 16px; }
@@ -4901,9 +4901,9 @@ window.addEventListener('load', function(){
     font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .3px; color: #b09a72;
     background: #241a0e; border: 1px solid #3a2a1466; border-radius: 5px; padding: 4px 9px;
   }
-  .arena-hub-tag-icon { width:22px; height:22px; display:block; object-fit:cover; filter:brightness(1.35) contrast(1.08) saturate(1.1); mix-blend-mode:lighten; }
-  .zg-shop-tab-icon { width:23px; height:23px; display:inline-block; object-fit:cover; vertical-align:-6px; margin-right:6px; filter:brightness(1.35) contrast(1.08) saturate(1.1); mix-blend-mode:lighten; }
-  .zg-shop-heading-icon { width:55px; height:55px; display:block; object-fit:cover; margin:0 auto 4px; filter:brightness(1.32) contrast(1.1) saturate(1.08); mix-blend-mode:lighten; }
+  .arena-hub-tag-icon { width:22px; height:22px; display:block; object-fit:contain; filter:brightness(1.35) contrast(1.08) saturate(1.1); }
+  .zg-shop-tab-icon { width:23px; height:23px; display:inline-block; object-fit:contain; vertical-align:-6px; margin-right:6px; filter:brightness(1.35) contrast(1.08) saturate(1.1); }
+  .zg-shop-heading-icon { width:55px; height:55px; display:block; object-fit:contain; margin:0 auto 4px; filter:brightness(1.32) contrast(1.1) saturate(1.08); }
   .shop-card-name {
     font-family: 'Cinzel', serif; font-size: 14px; font-weight: 600; color: #f6e6c0;
     text-align: center; margin-bottom: 2px; line-height: 1.25;
@@ -55774,17 +55774,17 @@ function importBeasts(e) {
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">'+
         // Квадрат Арена
         '<button onclick="arenaShowTab(\'battle\')" class="arena-hub-card" style="--hub:#c87878">'+
-          '<div class="arena-hub-icon"><img src="images/ui/arena-shop/arena.webp" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
+          '<div class="arena-hub-icon"><img src="images/ui/arena-shop/arena.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
           '<div class="arena-hub-title">Арена</div>'+
           '<div class="arena-hub-desc">Пошаговый бой, инициатива, состояния бойцов.</div>'+
-          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Бой</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/armory.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Оружейная</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Состояния</span></div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Бой</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Оружейная</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Состояния</span></div>'+
         '</button>'+
         // Квадрат Товары
         '<button onclick="arenaShowTab(\'shop\')" class="arena-hub-card" style="--hub:#6fcb83">'+
-          '<div class="arena-hub-icon"><img src="images/ui/arena-shop/trade.webp" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
+          '<div class="arena-hub-icon"><img src="images/ui/arena-shop/trade.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
           '<div class="arena-hub-title">Товары Зарготы</div>'+
           '<div class="arena-hub-desc">Витрина предметов мира и памятка по экономике.</div>'+
-          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/showcase.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Витрина</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/economy.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Экономика</span></div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/showcase.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Витрина</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Экономика</span></div>'+
         '</button>'+
       '</div>';
   };
@@ -58523,15 +58523,15 @@ function renderShopPage() {
   // Под-табы: Витрина / Экономика
   var subtabs =
     '<div style="display:flex;gap:0;justify-content:center;margin-bottom:22px;border-bottom:1px solid #2a1e10">'+
-      '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/showcase.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">ВИТРИНА</button>'+
-      '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/economy.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">ЭКОНОМИКА</button>'+
+      '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/showcase.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">ВИТРИНА</button>'+
+      '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">ЭКОНОМИКА</button>'+
     '</div>';
 
   if (_shopState.tab === 'economy') {
     var ecoCartInfo = zgCartTotal();
     host.innerHTML =
       '<div style="text-align:center;margin-bottom:18px">'+
-        '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/economy.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">'+
+        '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">'+
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Экономика Зарготы</div>'+
         '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Средние цены по острову. Всё сведено к золоту для сравнения. Нажми на строку — добавить в корзину.</div>'+
       '</div>' + subtabs +
@@ -58550,7 +58550,7 @@ function renderShopPage() {
 
   var head =
     '<div style="text-align:center;margin-bottom:14px">'+
-      '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/trade.webp" alt="" aria-hidden="true" width="192" height="192" decoding="async">'+
+      '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/trade.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="192" height="192" decoding="async">'+
       '<div class="zg-shop-title-line"><div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Товары Зарготы</div>'+ zgPowerGuideHtml() +'</div>'+
       '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Что бывает в мире и сколько это стоит в среднем. Точная цена — у конкретного торговца.</div>'+
     '</div>' + subtabs;
