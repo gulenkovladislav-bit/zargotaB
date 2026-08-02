@@ -21,7 +21,12 @@ var context = {
     {key:'common',label:'Обычное',color:'#888'},
     {key:'rare',label:'Редкое',color:'#08f'}
   ],
-  _shopState:{filter:'',gmStatsOpen:false},
+  SHOP_REGIONS:[
+    {id:'zargota-all',label:'Вся Заргота',includes:['zargota-all','upperland','root-valley','levoshlak']},
+    {id:'root-valley',label:'Корневая Долина',includes:['root-valley']}
+  ],
+  SHOP_MARKETS:[{id:'glupishche-last-rest',region:'root-valley',location:'Глупище',name:'Последний Привал'}],
+  _shopState:{filter:'',gmStatsOpen:false,rarity:'',priceBand:'',priceMin:'',priceMax:'',region:'',market:'',sort:'name',page:1,pageSize:24,search:''},
   escHTML:function(value){return String(value);},
   zgGmUnlocked:function(){return true;},
   Array:Array,
@@ -61,6 +66,41 @@ assert.strictEqual(context.zgShopGmStatsToggleHtml(), '');
 
 assert.match(html, /zgShopGmStatsHtml\(items, filtered\.length\)/);
 assert.match(html, /SHOP_CATS\.map[\s\S]*?\.join\(''\)\+\s*zgShopGmStatsToggleHtml\(\)/);
-assert.match(html, /zargota_shop_seeded_v15/);
+assert.match(html, /zargota_shop_seeded_v17/);
+assert.match(html, /key:'common',\s+label:'Простое'/);
+assert.match(html, /key:'epic',\s+label:'Реликтовое'/);
+assert.doesNotMatch(html.slice(html.indexOf('var SHOP_RARITY ='), html.indexOf('var SHOP_REGIONS =')), /Обычное|Эпическое/);
+assert.match(html, /var _ecoCurrency = 'zl'/);
 assert.match(html, /canonicalIds\[id\]/);
+assert.strictEqual(context.zgShopPriceInGold({price:{pl:1,zl:2,sr:5,md:4}}),12.54);
+context._shopState.region = 'zargota-all';
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'tool',rarity:'common',baseRegion:'root-valley',marketIds:['glupishche-last-rest'],price:{zl:8},name:'Верёвка'}),true);
+context._shopState.market = '';
+context._shopState.priceBand = 'custom';
+context._shopState.priceMin = 7;
+context._shopState.priceMax = 9;
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'tool',rarity:'common',baseRegion:'root-valley',marketIds:['glupishche-last-rest'],price:{zl:8},name:'Верёвка'}),true);
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'tool',rarity:'common',baseRegion:'root-valley',marketIds:['glupishche-last-rest'],price:{zl:12},name:'Верёвка'}),false);
+context._shopState.region = '';
+context._shopState.market = 'glupishche-last-rest';
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'tool',rarity:'common',baseRegion:'root-valley',marketIds:['glupishche-last-rest'],price:{zl:8},name:'Верёвка'}),true);
+assert.match(html, /pageSize:24/);
+assert.match(html, /zgShopPaginationHtml\(_shopState\.page, pageCount, filtered\.length, 'top'\)/);
+assert.match(html, /aria-label="Книга мастеров"/);
+assert.match(html, /window\.zgShopSetBrowseFilter = zgShopSetBrowseFilter/);
+assert.match(html, /window\.zgShopOpenMarketGuide = zgShopOpenMarketGuide/);
+assert.match(html, /window\.zgShopRenderMarketGuideRows = zgShopRenderMarketGuideRows/);
+assert.match(html, /window\.zgShopSelectMarketGuide = zgShopSelectMarketGuide/);
+assert.match(html, /var _ecoPageSize = 36/);
+assert.match(html, /function zgEcoPaginationHtml/);
+assert.match(html, /window\.zgEcoSetPage = zgEcoSetPage/);
+assert.match(html, /entries\.slice\(\(_ecoPage-1\)\*_ecoPageSize,_ecoPage\*_ecoPageSize\)/);
+['arena','trade','battle','armory','statuses','showcase','economy'].forEach(function(icon){
+  assert.match(html,new RegExp('images/ui/arena-shop/' + icon + '\\.webp'));
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..','images','ui','arena-shop',icon + '.webp')),'missing optimized UI icon: ' + icon);
+});
+assert.doesNotMatch(html.slice(html.indexOf('global.renderArenaHub'),html.indexOf('global.arenaShowTab')), /⚔️|💰|🛒|📊|🛡️|💫/);
+assert.match(html, /class="zg-shop-guide-layout"/);
+assert.match(html, /data-guide-market=/);
+assert.match(html, /class="zg-shop-market-detail-crest"/);
 console.log('shop GM stats tests passed');

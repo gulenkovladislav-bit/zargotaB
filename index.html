@@ -4748,6 +4748,33 @@ window.addEventListener('load', function(){
   .shop-card-hero-img { width: 100%; height: 100%; object-fit: cover; border-radius: 13px; display: block; }
   .shop-card-hero { overflow: hidden; }
   .shop-card-hero-wide { width: 100%; max-width: 180px; height: 104px; border-radius: 12px; overflow: hidden; }
+  .zg-shop-catalog-layout { display:grid; grid-template-columns:minmax(170px,205px) minmax(0,1fr); gap:16px; align-items:start; }
+  .zg-shop-gm-sidebar { position:sticky; top:12px; }
+  .zg-shop-guide-layout { display:grid; grid-template-columns:minmax(220px,260px) minmax(0,1fr); gap:16px; min-height:540px; }
+  .zg-shop-guide-sidebar { min-width:0; padding-right:14px; border-right:1px solid #3a2a14; }
+  .zg-shop-guide-list { display:grid; gap:6px; max-height:62vh; overflow:auto; padding-right:4px; scrollbar-color:#5c4320 #0a0704; }
+  .zg-shop-guide-detail { min-width:0; max-height:72vh; overflow:auto; padding:2px 6px 18px 2px; scrollbar-color:#5c4320 #0a0704; }
+  .zg-shop-market-detail-head { display:grid; grid-template-columns:minmax(190px,260px) minmax(0,1fr); gap:24px; align-items:start; }
+  .zg-shop-market-detail-crest { display:block; width:100%; aspect-ratio:1; object-fit:cover; border:1px solid #8d6a2c; border-radius:13px; background:#0b0805; box-shadow:0 12px 34px #000b,inset 0 0 0 1px #d4a04a12; }
+  @media (max-width: 900px) {
+    .zg-shop-catalog-layout { grid-template-columns:1fr; }
+    .zg-shop-gm-sidebar { position:static; }
+    #zg-shop-browse-filters { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+    #zg-shop-browse-filters > * { width:100% !important; }
+    .zg-shop-guide-layout { grid-template-columns:minmax(180px,220px) minmax(0,1fr); }
+    .zg-shop-market-detail-head { grid-template-columns:minmax(150px,200px) minmax(0,1fr); gap:16px; }
+  }
+  @media (max-width: 720px) {
+    .zg-shop-guide-layout { grid-template-columns:1fr; min-height:0; }
+    .zg-shop-guide-sidebar { border-right:0; border-bottom:1px solid #3a2a14; padding:0 0 12px; }
+    .zg-shop-guide-list { max-height:190px; }
+    .zg-shop-guide-detail { max-height:52vh; }
+  }
+  @media (max-width: 560px) {
+    #zg-shop-browse-filters { grid-template-columns:1fr !important; }
+    .zg-shop-market-detail-head { grid-template-columns:1fr; }
+    .zg-shop-market-detail-crest { width:min(240px,100%); margin:0 auto; }
+  }
   /* ── Бестиарий: памятка типов (мастер-деталь) ── */
   .btype-litem { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; user-select: none;
     border: 1px solid #2f2112; border-left: 3px solid var(--btype, #c9a06a); border-radius: 8px; background: #0c0805; transition: background .15s, border-color .15s; }
@@ -4859,21 +4886,24 @@ window.addEventListener('load', function(){
     box-shadow: 0 12px 34px #000000cc, 0 0 24px color-mix(in srgb, var(--hub, #d4a04a) 18%, transparent);
   }
   .arena-hub-icon {
-    width: 84px; height: 84px; margin-bottom: 16px;
+    width: 109px; height: 109px; margin-bottom: 12px;
     display: flex; align-items: center; justify-content: center; font-size: 46px;
-    border-radius: 18px;
-    background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--hub,#b88442) 18%, #1a130a), #100b06);
-    border: 1px solid color-mix(in srgb, var(--hub,#b88442) 32%, #2a1e10);
+    background: radial-gradient(circle, color-mix(in srgb, var(--hub,#b88442) 14%, transparent) 0, transparent 68%);
     transition: transform .3s ease;
   }
+  .arena-hub-icon img { width:88px; height:88px; display:block; object-fit:cover; filter:brightness(1.28) contrast(1.1) saturate(1.08); mix-blend-mode:lighten; }
   .arena-hub-card:hover .arena-hub-icon { transform: scale(1.08); }
   .arena-hub-title { font-family: 'Cinzel', serif; font-size: 20px; color: #f6e6c0; margin-bottom: 8px; letter-spacing: .5px; }
   .arena-hub-desc { font-family: 'Lora', serif; font-size: 13px; color: #a8987c; line-height: 1.5; margin-bottom: 16px; }
   .arena-hub-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
   .arena-hub-tags span {
+    display:inline-flex; align-items:center; gap:5px;
     font-family: 'Cinzel', serif; font-size: 10px; letter-spacing: .3px; color: #b09a72;
     background: #241a0e; border: 1px solid #3a2a1466; border-radius: 5px; padding: 4px 9px;
   }
+  .arena-hub-tag-icon { width:22px; height:22px; display:block; object-fit:cover; filter:brightness(1.35) contrast(1.08) saturate(1.1); mix-blend-mode:lighten; }
+  .zg-shop-tab-icon { width:23px; height:23px; display:inline-block; object-fit:cover; vertical-align:-6px; margin-right:6px; filter:brightness(1.35) contrast(1.08) saturate(1.1); mix-blend-mode:lighten; }
+  .zg-shop-heading-icon { width:55px; height:55px; display:block; object-fit:cover; margin:0 auto 4px; filter:brightness(1.32) contrast(1.1) saturate(1.08); mix-blend-mode:lighten; }
   .shop-card-name {
     font-family: 'Cinzel', serif; font-size: 14px; font-weight: 600; color: #f6e6c0;
     text-align: center; margin-bottom: 2px; line-height: 1.25;
@@ -55744,17 +55774,17 @@ function importBeasts(e) {
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">'+
         // Квадрат Арена
         '<button onclick="arenaShowTab(\'battle\')" class="arena-hub-card" style="--hub:#c87878">'+
-          '<div class="arena-hub-icon">⚔️</div>'+
+          '<div class="arena-hub-icon"><img src="images/ui/arena-shop/arena.webp" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
           '<div class="arena-hub-title">Арена</div>'+
           '<div class="arena-hub-desc">Пошаговый бой, инициатива, состояния бойцов.</div>'+
-          '<div class="arena-hub-tags"><span>⚔️ Бой</span><span>🛡️ Оружейная</span><span>💫 Состояния</span></div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Бой</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/armory.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Оружейная</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Состояния</span></div>'+
         '</button>'+
         // Квадрат Товары
         '<button onclick="arenaShowTab(\'shop\')" class="arena-hub-card" style="--hub:#6fcb83">'+
-          '<div class="arena-hub-icon">💰</div>'+
+          '<div class="arena-hub-icon"><img src="images/ui/arena-shop/trade.webp" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
           '<div class="arena-hub-title">Товары Зарготы</div>'+
           '<div class="arena-hub-desc">Витрина предметов мира и памятка по экономике.</div>'+
-          '<div class="arena-hub-tags"><span>🛒 Витрина</span><span>📊 Экономика</span></div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/showcase.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Витрина</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/economy.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">Экономика</span></div>'+
         '</button>'+
       '</div>';
   };
@@ -57398,12 +57428,14 @@ var SHOP_CATS = [
   { key:'other',    icon:'📦', label:'Разное',      color:'#8a7a5e' }
 ];
 var SHOP_RARITY = [
-  { key:'common',   label:'Обычное',    color:'#8a7a5e' },
+  { key:'common',   label:'Простое',    color:'#8a7a5e' },
   { key:'uncommon', label:'Добротное',  color:'#6fcb83' },
   { key:'rare',     label:'Редкое',     color:'#7a9ae0' },
-  { key:'epic',     label:'Эпическое',  color:'#a07fd4' },
+  { key:'epic',     label:'Реликтовое', color:'#a07fd4' },
   { key:'legend',   label:'Легендарное',color:'#e8c060' }
 ];
+var SHOP_REGIONS = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopRegions === 'function' ? window.ZargotaItemEconomy.getShopRegions() : [];
+var SHOP_MARKETS = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopMarkets === 'function' ? window.ZargotaItemEconomy.getShopMarkets() : [];
 // Пул эмодзи для пикера — сгруппирован по темам
 var SHOP_EMOJI_POOL = [
   { group:'Оружие', list:['⚔️','🗡️','🔪','🏹','🪓','🔨','🛡️','🥊','🔱','🪃','🏏','⛏️','🪝','💣'] },
@@ -57417,7 +57449,7 @@ var SHOP_EMOJI_POOL = [
   { group:'Люди/услуги', list:['🤝','🧙','⚗️','🩺','⚖️','🎭','🎨','🎵','📚','🛠️','🧭','🗺️','✉️','🔍'] },
   { group:'Тёмное/подполье', list:['🩸','☠️','💀','🗝️','🕷️','🐀','🦇','⛓️','🃏','🎲','🕳️','🧿','⚰️'] }
 ];
-var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false };
+var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false, rarity:'', priceBand:'', priceMin:'', priceMax:'', region:'', market:'', sort:'name', page:1, pageSize:24 };
 var _shopEmojiTarget = null; // куда вставлять выбранный эмодзи
 var _shopCart = {}; // itemId -> qty (реальные товары витрины)
 var _ecoCart = {}; // name -> {price:{}, qty} (позиции из экономики)
@@ -57492,12 +57524,16 @@ function zgCartClear() { _shopCart = {}; _ecoCart = {}; zgRenderCart(); zgUpdate
 function zgShopImageSource(item) {
   return item ? String(item.imageThumb || item.image || '') : '';
 }
+function zgShopFullImageSource(item) {
+  return item ? String(item.image || item.imageThumb || '') : '';
+}
 function zgShopVisualMarkup(item, fallback, style) {
   var source = zgShopImageSource(item);
   if (source) return '<img src="' + escHTML(source) + '" alt="' + escHTML(item && item.name || 'Товар') + '" loading="lazy" decoding="async" style="' + (style || 'width:100%;height:100%;object-fit:cover') + '">';
   return zgItemIconMarkup(item && item.icon, fallback || '📦');
 }
 window.zgShopImageSource = zgShopImageSource;
+window.zgShopFullImageSource = zgShopFullImageSource;
 window.zgShopVisualMarkup = zgShopVisualMarkup;
 function zgUpdateCartBtn() {
   // Перерисовываем текущую вкладку магазина, чтобы обновить бейдж на кнопке корзины
@@ -57582,10 +57618,18 @@ function zgCartEcoAdd(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty++; zgRenderCart
 function zgCartEcoRemove(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty--; if (_ecoCart[nm].qty<=0) delete _ecoCart[nm]; zgRenderCart(); zgUpdateCartBtn(); } }
 // Обёртки для inline-onclick (код магазина живёт внутри IIFE арены,
 // поэтому обработчики должны идти через window, иначе _shopState не виден)
-function zgShopSetFilter(f) { _shopState.filter = f || ''; renderShopPage(); }
-function zgShopSetSearch(v) { _shopState.search = v || ''; renderShopPageDebounced(); }
+function zgShopSetFilter(f) { _shopState.filter = f || ''; _shopState.page = 1; renderShopPage(); }
+function zgShopSetSearch(v) { _shopState.search = v || ''; _shopState.page = 1; renderShopPageDebounced(); }
 function zgShopSetTab(t) { _shopState.tab = t || 'showcase'; renderShopPage(); }
 function zgShopToggleGmStats() { _shopState.gmStatsOpen = !_shopState.gmStatsOpen; renderShopPage(); }
+function zgShopSetBrowseFilter(key, value) { if (Object.prototype.hasOwnProperty.call(_shopState, key)) _shopState[key] = value || ''; _shopState.page = 1; renderShopPage(); }
+function zgShopSetPriceLimit(key, value) { if (key === 'priceMin' || key === 'priceMax') _shopState[key] = value === '' ? '' : Math.max(0, Number(value) || 0); _shopState.page = 1; renderShopPage(); }
+function zgShopResetBrowseFilters() { _shopState.rarity = ''; _shopState.priceBand = ''; _shopState.priceMin = ''; _shopState.priceMax = ''; _shopState.region = ''; _shopState.market = ''; _shopState.sort = 'name'; _shopState.page = 1; renderShopPage(); }
+function zgShopSetPage(page) {
+  _shopState.page = Math.max(1, Number(page) || 1);
+  renderShopPage();
+  setTimeout(function(){ var anchor = document.getElementById('zg-shop-results-anchor'); if (anchor && anchor.scrollIntoView) anchor.scrollIntoView({behavior:'smooth',block:'start'}); }, 0);
+}
 
 function loadShopItems() {
   try {
@@ -57724,10 +57768,10 @@ function zgSeedLegacyShopItems() {
   } catch(e) {}
 }
 
-// Компактная витрина v15. Канонические товары обновляются, созданные вручную сохраняются.
+// Компактная витрина v17. Канонические товары обновляются, созданные вручную сохраняются.
 function zgSeedShopIfEmpty() {
   try {
-    if (localStorage.getItem('zargota_shop_seeded_v15')) return;
+    if (localStorage.getItem('zargota_shop_seeded_v17')) return;
     var featured = [
       { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
       { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
@@ -57761,8 +57805,10 @@ function zgSeedShopIfEmpty() {
       var id = String(item && item.id || '');
       return id.indexOf('shp_seed_') !== 0 && id.indexOf('shp_featured_') !== 0 && !canonicalIds[id];
     });
-    saveShopItems(featured.concat(foundation, manual));
-    localStorage.setItem('zargota_shop_seeded_v15', '1');
+    var combined = featured.concat(foundation, manual);
+    if (window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItems === 'function') combined = window.ZargotaItemEconomy.enrichShopItems(combined);
+    saveShopItems(combined);
+    localStorage.setItem('zargota_shop_seeded_v17', '1');
     var host = document.getElementById('shop-page-inner');
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}
@@ -58031,7 +58077,9 @@ var ZG_POWER_LADDER = [
   { level:5, role:'Колдун', symbol:'🔮', color:'#a07fd4', items:'Тканевая роба · рунический оберег · сильный свиток · набор магических реагентов · зелье лечения', price:'≈ 214–250+ зл', access:'Гильдия магов / тайный рынок', impact:'Магическая сила и доступ' }
 ];
 var _ecoFilter = '';
-var _ecoCurrency = 'mixed'; // mixed | md | sr | zl | pl
+var _ecoCurrency = 'zl'; // mixed | md | sr | zl | pl
+var _ecoPage = 1;
+var _ecoPageSize = 36;
 function zgEcoSetCurrency(cur){ _ecoCurrency = cur || 'mixed'; renderShopPage(); }
 // Пересчёт строки цены в выбранную валюту. Возвращает null, если строку нельзя точно пересчитать (диапазон, ×множитель и т.п.)
 function zgEcoConvertPrice(str) {
@@ -58051,7 +58099,15 @@ function zgEcoConvertPrice(str) {
   var str2 = (out % 1 === 0) ? String(out) : String(out).replace(/0+$/,'').replace(/\.$/,'');
   return str2 + ' ' + unit;
 }
-function zgEcoSetFilter(f){ _ecoFilter = f || ''; renderShopPage(); }
+function zgEcoSetFilter(f){ _ecoFilter = f || ''; _ecoPage = 1; renderShopPage(); }
+function zgEcoSetPage(page){
+  _ecoPage = Math.max(1, Number(page) || 1);
+  renderShopPage();
+  setTimeout(function(){
+    var anchor = document.getElementById('zg-economy-results-anchor');
+    if (anchor && typeof anchor.scrollIntoView === 'function') anchor.scrollIntoView({behavior:'smooth',block:'start'});
+  },20);
+}
 // Иконка для позиции экономики по ключевым словам названия
 function zgEcoIcon(name, catIcon) {
   var n = (name || '').toLowerCase();
@@ -58151,6 +58207,23 @@ function zgPowerGuideHtml() {
       }).join('') + '</div>' +
     '</div></details>';
 }
+function zgEcoPaginationHtml(page, pageCount, total, position) {
+  var from = total ? (page - 1) * _ecoPageSize + 1 : 0;
+  var to = Math.min(total,page * _ecoPageSize);
+  var pages = [];
+  for (var i=1;i<=pageCount;i++) if (i===1 || i===pageCount || Math.abs(i-page)<=1) pages.push(i);
+  var buttons = '', previous = 0;
+  pages.forEach(function(value){
+    if (previous && value-previous>1) buttons += '<span style="color:#66583e;padding:0 2px">…</span>';
+    buttons += '<button type="button" onclick="zgEcoSetPage(' + value + ')" aria-current="' + (value===page ? 'page' : 'false') + '" style="min-width:29px;height:29px;padding:0 7px;border:1px solid ' + (value===page ? '#d4a04a' : '#2a1e10') + ';border-radius:7px;background:' + (value===page ? '#d4a04a18' : '#0a0704') + ';color:' + (value===page ? '#e8c060' : '#806f51') + ';font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer">' + value + '</button>';
+    previous = value;
+  });
+  return '<div' + (position==='top' ? ' id="zg-economy-results-anchor"' : '') + ' style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:' + (position==='top' ? '0 0 16px' : '18px 0 0') + '">' +
+    '<span style="margin-right:6px;color:#66583e;font-family:\'Cinzel\',serif;font-size:9px">' + from + '–' + to + ' из ' + total + '</span>' +
+    '<button type="button" aria-label="Предыдущая страница экономики" onclick="zgEcoSetPage(' + (page-1) + ')"' + (page<=1 ? ' disabled' : '') + ' style="width:29px;height:29px;border:1px solid #2a1e10;border-radius:7px;background:#0a0704;color:#806f51;cursor:pointer">←</button>' + buttons +
+    '<button type="button" aria-label="Следующая страница экономики" onclick="zgEcoSetPage(' + (page+1) + ')"' + (page>=pageCount ? ' disabled' : '') + ' style="width:29px;height:29px;border:1px solid #2a1e10;border-radius:7px;background:#0a0704;color:#806f51;cursor:pointer">→</button>' +
+  '</div>';
+}
 function zgEconomyMemoHtml() {
   // Переключатель валюты пересчёта
   var curBar = zgCurrencyBarHtml() +
@@ -58166,9 +58239,25 @@ function zgEconomyMemoHtml() {
     }).join('') + '</div>';
   chips = curBar + chips;
 
-  var sections = ZG_ECONOMY.filter(function(sec){ return !_ecoFilter || sec.cat.replace(/'/g,'') === _ecoFilter; }).map(function(sec){
+  var matchingSections = ZG_ECONOMY.filter(function(sec){ return !_ecoFilter || sec.cat.replace(/'/g,'') === _ecoFilter; });
+  var entries = [];
+  matchingSections.forEach(function(sec){ sec.rows.forEach(function(row){ entries.push({section:sec,row:row}); }); });
+  var pageCount = Math.max(1,Math.ceil(entries.length/_ecoPageSize));
+  _ecoPage = Math.min(pageCount,Math.max(1,Number(_ecoPage)||1));
+  var pageEntries = entries.slice((_ecoPage-1)*_ecoPageSize,_ecoPage*_ecoPageSize);
+  var visibleSections = [];
+  pageEntries.forEach(function(entry){
+    var visible = visibleSections.find(function(section){ return section.source === entry.section; });
+    if (!visible) { visible = {source:entry.section,rows:[]}; visibleSections.push(visible); }
+    visible.rows.push(entry.row);
+  });
+  var paginationTop = zgEcoPaginationHtml(_ecoPage,pageCount,entries.length,'top');
+  var paginationBottom = zgEcoPaginationHtml(_ecoPage,pageCount,entries.length,'bottom');
+
+  var sections = visibleSections.map(function(visible){
+    var sec = visible.source;
     var catIcon = (sec.cat.match(/^(\S+)/) || ['','📦'])[1];
-    var rows = sec.rows.map(function(r){
+    var rows = visible.rows.map(function(r){
       var nm = (r[0] || '').replace(/'/g, '\u2019');
       var pr = (r[1] || '').replace(/'/g, '\u2019');
       var ico = zgEcoIcon(r[0], catIcon);
@@ -58189,7 +58278,7 @@ function zgEconomyMemoHtml() {
     '</div>';
   }).join('');
 
-  return chips + sections +
+  return chips + paginationTop + sections + paginationBottom +
     '<div style="text-align:center;margin-top:20px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic;line-height:1.6">Средние цены. ×2–3 в глуши, дешевле в столице. Торг по Харизме даёт 10–25% скидки.<br>Вдохновлено D&D 5e и средневековьем, адаптировано под Зарготу.</div>';
 }
 
@@ -58215,18 +58304,19 @@ function zgShopGmStatsHtml(items, visibleCount) {
   var shown = Math.max(0, Number(visibleCount) || 0);
   var categoryChips = SHOP_CATS.filter(function(cat){ return stats.categories[cat.key] > 0; }).map(function(cat){
     var active = _shopState.filter === cat.key;
-    return '<button type="button" onclick="zgShopSetFilter(\'' + cat.key + '\')" title="Показать только: ' + escHTML(cat.label) + '" style="display:flex;align-items:center;gap:6px;padding:6px 9px;border:1px solid ' + (active ? cat.color : cat.color + '55') + ';border-radius:7px;background:' + (active ? cat.color + '22' : '#0a0704') + ';color:' + cat.color + ';font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer"><span>' + cat.icon + ' ' + escHTML(cat.label) + '</span><b style="font-size:12px">' + stats.categories[cat.key] + '</b></button>';
+    return '<button type="button" onclick="zgShopSetFilter(\'' + cat.key + '\')" title="Показать только: ' + escHTML(cat.label) + '" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:5px;padding:5px 7px;border:1px solid ' + (active ? cat.color : cat.color + '44') + ';border-radius:6px;background:' + (active ? cat.color + '22' : '#0a0704') + ';color:' + cat.color + ';font-family:\'Cinzel\',serif;font-size:8px;cursor:pointer"><span>' + cat.icon + ' ' + escHTML(cat.label) + '</span><b style="font-size:10px">' + stats.categories[cat.key] + '</b></button>';
   }).join('');
   var rarityChips = SHOP_RARITY.filter(function(rarity){ return stats.rarities[rarity.key] > 0; }).map(function(rarity){
-    return '<span style="display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid ' + rarity.color + '44;border-radius:12px;color:' + rarity.color + ';font-family:\'Cinzel\',serif;font-size:9px"><span>' + escHTML(rarity.label) + '</span><b>' + stats.rarities[rarity.key] + '</b></span>';
+    return '<span style="display:flex;align-items:center;justify-content:space-between;gap:5px;padding:3px 6px;border:1px solid ' + rarity.color + '33;border-radius:6px;color:' + rarity.color + ';font-family:\'Cinzel\',serif;font-size:8px"><span>' + escHTML(rarity.label) + '</span><b>' + stats.rarities[rarity.key] + '</b></span>';
   }).join('');
-  return '<section id="zg-shop-gm-stats" data-total="' + stats.total + '" style="margin:0 0 18px;padding:13px 14px;border:1px solid #d4a04a55;border-left:3px solid #d4a04a;border-radius:9px;background:linear-gradient(135deg,#171006,#0b0805);box-shadow:0 8px 24px #0005">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px">' +
-      '<div><b style="font-family:\'Cinzel\',serif;font-size:12px;color:#e8c060;letter-spacing:.8px">🧭 СТАТИСТИКА ГМа</b><div style="font-size:10px;color:#77664a;margin-top:3px">Состав единого каталога Лавки и Оружейной</div></div>' +
-      '<div style="display:flex;gap:8px;align-items:center;font-family:\'Cinzel\',serif"><span style="color:#9b8968;font-size:10px">ПОКАЗАНО <b style="color:#d8c8a8;font-size:14px">' + shown + '</b></span><span style="color:#9b8968;font-size:10px">ВСЕГО <b style="color:#e8c060;font-size:17px">' + stats.total + '</b></span><button type="button" onclick="zgShopToggleGmStats()" title="Закрыть статистику" aria-label="Закрыть статистику ГМа" style="width:24px;height:24px;padding:0;border:1px solid #d4a04a55;border-radius:6px;background:#0a0704;color:#a89062;cursor:pointer">✕</button></div>' +
+  return '<section id="zg-shop-gm-stats" data-total="' + stats.total + '" style="padding:10px;border:1px solid #d4a04a55;border-left:3px solid #d4a04a;border-radius:9px;background:linear-gradient(135deg,#171006,#0b0805);box-shadow:0 8px 24px #0005">' +
+    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px">' +
+      '<div><b style="font-family:\'Cinzel\',serif;font-size:9px;color:#e8c060;letter-spacing:.5px">🧭 СТАТИСТИКА ГМа</b><div style="font-size:8px;color:#77664a;margin-top:2px;line-height:1.35">Единый каталог</div></div>' +
+      '<button type="button" onclick="zgShopToggleGmStats()" title="Закрыть статистику" aria-label="Закрыть статистику ГМа" style="width:21px;height:21px;padding:0;border:1px solid #d4a04a55;border-radius:5px;background:#0a0704;color:#a89062;cursor:pointer">✕</button>' +
     '</div>' +
-    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px">' + categoryChips + '</div>' +
-    '<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:9px;color:#66583e;font-family:\'Cinzel\',serif;margin-right:2px">РЕДКОСТЬ</span>' + rarityChips + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;font-family:\'Cinzel\',serif"><span style="padding:5px;border:1px solid #3a2a14;border-radius:6px;color:#9b8968;font-size:7px">ПОКАЗАНО<br><b style="color:#d8c8a8;font-size:13px">' + shown + '</b></span><span style="padding:5px;border:1px solid #3a2a14;border-radius:6px;color:#9b8968;font-size:7px">ВСЕГО<br><b style="color:#e8c060;font-size:13px">' + stats.total + '</b></span></div>' +
+    '<div style="display:grid;gap:4px;margin-bottom:8px">' + categoryChips + '</div>' +
+    '<div style="font-size:7px;color:#66583e;font-family:\'Cinzel\',serif;margin-bottom:4px">РЕДКОСТЬ</div><div style="display:grid;gap:4px">' + rarityChips + '</div>' +
   '</section>';
 }
 
@@ -58234,6 +58324,194 @@ function zgShopGmStatsToggleHtml() {
   if (typeof zgGmUnlocked !== 'function' || !zgGmUnlocked()) return '';
   var open = !!_shopState.gmStatsOpen;
   return '<button id="zg-shop-gm-stats-toggle" type="button" onclick="zgShopToggleGmStats()" title="' + (open ? 'Скрыть статистику ГМа' : 'Показать статистику ГМа') + '" aria-label="Статистика ГМа" aria-expanded="' + (open ? 'true' : 'false') + '" style="display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;padding:0;border:1px solid ' + (open ? '#d4a04a' : '#2a1e10') + ';border-radius:50%;background:' + (open ? '#d4a04a18' : 'transparent') + ';color:' + (open ? '#e8c060' : '#7a6a48') + ';font-size:13px;cursor:pointer;flex:0 0 auto">🧭</button>';
+}
+
+var ZG_SHOP_PRICE_BANDS = [
+  {id:'',label:'Любая цена',min:0,max:Infinity},
+  {id:'up-to-5',label:'До 5 зл',min:0,max:5},
+  {id:'5-15',label:'5–15 зл',min:5.01,max:15},
+  {id:'15-40',label:'15–40 зл',min:15.01,max:40},
+  {id:'40-80',label:'40–80 зл',min:40.01,max:80},
+  {id:'80-plus',label:'От 80 зл',min:80.01,max:Infinity},
+  {id:'custom',label:'Своя цена…',min:0,max:Infinity}
+];
+
+function zgShopPriceInGold(item) {
+  var price = item && item.price || {};
+  return (Number(price.pl) || 0) * 10 + (Number(price.zl) || 0) + (Number(price.sr) || 0) / 10 + (Number(price.md) || 0) / 100;
+}
+
+function zgShopRegionById(id) { return SHOP_REGIONS.find(function(region){ return region.id === id; }) || null; }
+function zgShopMarketById(id) { return SHOP_MARKETS.find(function(market){ return market.id === id; }) || null; }
+function zgShopRegionLabel(item) {
+  var region = zgShopRegionById(item && item.baseRegion);
+  return region ? region.label : 'Вся Заргота';
+}
+
+function zgShopItemMatchesBrowseFilters(item) {
+  if (_shopState.filter && item.cat !== _shopState.filter) return false;
+  if (_shopState.rarity && (item.rarity || 'common') !== _shopState.rarity) return false;
+  if (_shopState.priceBand) {
+    var band = ZG_SHOP_PRICE_BANDS.find(function(row){ return row.id === _shopState.priceBand; });
+    var gold = zgShopPriceInGold(item);
+    if (_shopState.priceBand === 'custom') {
+      if (_shopState.priceMin !== '' && gold < Number(_shopState.priceMin)) return false;
+      if (_shopState.priceMax !== '' && gold > Number(_shopState.priceMax)) return false;
+    } else if (band && !(gold >= band.min && gold <= band.max)) return false;
+  }
+  if (_shopState.region) {
+    var selectedRegion = zgShopRegionById(_shopState.region);
+    var includes = selectedRegion && selectedRegion.includes || [_shopState.region];
+    if (includes.indexOf(item.baseRegion || 'zargota-all') < 0) return false;
+  }
+  if (_shopState.market && (!Array.isArray(item.marketIds) || item.marketIds.indexOf(_shopState.market) < 0)) return false;
+  var q = String(_shopState.search || '').trim().toLowerCase();
+  if (q) {
+    var marketNames = (item.marketIds || []).map(function(id){ var market = zgShopMarketById(id); return market ? market.name + ' ' + market.location : ''; }).join(' ');
+    var hay = [item.name,item.desc,item.effect,(item.tags || []).join(' '),zgShopRegionLabel(item),marketNames].join(' ').toLowerCase();
+    if (hay.indexOf(q) < 0) return false;
+  }
+  return true;
+}
+
+function zgShopSortItems(items) {
+  var rarityOrder = {common:1,uncommon:2,rare:3,epic:4,legend:5};
+  return items.slice().sort(function(a, b){
+    if (_shopState.sort === 'price-asc') return zgShopPriceInGold(a) - zgShopPriceInGold(b) || String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+    if (_shopState.sort === 'price-desc') return zgShopPriceInGold(b) - zgShopPriceInGold(a) || String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+    if (_shopState.sort === 'rarity') return (rarityOrder[b.rarity] || 1) - (rarityOrder[a.rarity] || 1) || String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
+  });
+}
+
+function zgShopMarketOptionsHtml() {
+  var grouped = {};
+  SHOP_MARKETS.forEach(function(market){ (grouped[market.region] = grouped[market.region] || []).push(market); });
+  return '<option value="">Все торговые места</option>' + ['root-valley','upperland','levoshlak'].map(function(regionId){
+    var region = zgShopRegionById(regionId);
+    var rows = grouped[regionId] || [];
+    if (!rows.length) return '';
+    return '<optgroup label="' + escHTML(region ? region.label : regionId) + '">' + rows.map(function(market){ return '<option value="' + escHTML(market.id) + '"' + (_shopState.market === market.id ? ' selected' : '') + '>' + escHTML(market.location + ' · ' + market.name) + '</option>'; }).join('') + '</optgroup>';
+  }).join('');
+}
+
+function zgShopBrowseFiltersHtml() {
+  var selectStyle = 'height:32px;min-width:0;background:#0a0704;border:1px solid #2a1e10;border-radius:7px;color:#b9a783;padding:5px 8px;font-family:\'Cinzel\',serif;font-size:9px';
+  var customPrice = _shopState.priceBand === 'custom' ? '<div style="display:flex;gap:4px;grid-column:1/-1"><input aria-label="Цена от" type="number" min="0" step="0.1" value="' + escHTML(String(_shopState.priceMin)) + '" placeholder="от, зл" onchange="zgShopSetPriceLimit(\'priceMin\',this.value)" style="' + selectStyle + ';width:92px"><input aria-label="Цена до" type="number" min="0" step="0.1" value="' + escHTML(String(_shopState.priceMax)) + '" placeholder="до, зл" onchange="zgShopSetPriceLimit(\'priceMax\',this.value)" style="' + selectStyle + ';width:92px"></div>' : '';
+  return '<div id="zg-shop-browse-filters" style="display:grid;grid-template-columns:125px 125px 140px minmax(190px,235px) 125px auto auto;gap:6px;align-items:center;width:min(100%,980px);margin:-10px auto 18px;padding:8px;border:1px solid #241a0e;border-radius:9px;background:#0c0906">' +
+    '<select aria-label="Цена" onchange="zgShopSetBrowseFilter(\'priceBand\',this.value)" style="' + selectStyle + ';width:125px">' + ZG_SHOP_PRICE_BANDS.map(function(band){ return '<option value="' + band.id + '"' + (_shopState.priceBand === band.id ? ' selected' : '') + '>💰 ' + escHTML(band.label) + '</option>'; }).join('') + '</select>' +
+    '<select aria-label="Редкость" onchange="zgShopSetBrowseFilter(\'rarity\',this.value)" style="' + selectStyle + ';width:125px"><option value="">✦ Любая редкость</option>' + SHOP_RARITY.map(function(rarity){ return '<option value="' + rarity.key + '"' + (_shopState.rarity === rarity.key ? ' selected' : '') + '>' + escHTML(rarity.label) + '</option>'; }).join('') + '</select>' +
+    '<select aria-label="Базирование" onchange="zgShopSetBrowseFilter(\'region\',this.value)" style="' + selectStyle + ';width:140px"><option value="">🗺 Любое базирование</option>' + SHOP_REGIONS.map(function(region){ return '<option value="' + region.id + '"' + (_shopState.region === region.id ? ' selected' : '') + '>' + escHTML(region.label) + '</option>'; }).join('') + '</select>' +
+    '<select aria-label="Торговое место" onchange="zgShopSetBrowseFilter(\'market\',this.value)" style="' + selectStyle + ';width:100%">' + zgShopMarketOptionsHtml() + '</select>' +
+    '<select aria-label="Сортировка" onchange="zgShopSetBrowseFilter(\'sort\',this.value)" style="' + selectStyle + ';width:125px"><option value="name"' + (_shopState.sort === 'name' ? ' selected' : '') + '>А–Я</option><option value="price-asc"' + (_shopState.sort === 'price-asc' ? ' selected' : '') + '>Сначала дешёвые</option><option value="price-desc"' + (_shopState.sort === 'price-desc' ? ' selected' : '') + '>Сначала дорогие</option><option value="rarity"' + (_shopState.sort === 'rarity' ? ' selected' : '') + '>Сначала редкие</option></select>' +
+    '<button type="button" onclick="zgShopResetBrowseFilters()" style="height:32px;padding:5px 9px;border:1px solid #4b3820;border-radius:7px;background:transparent;color:#806f51;font-family:\'Cinzel\',serif;font-size:8px;cursor:pointer">Сбросить</button>' +
+    '<button type="button" onclick="zgShopOpenMarketGuide(\'\')" title="Открыть торговый реестр" aria-label="Книга мастеров" style="height:32px;padding:5px 10px;border:1px solid #806328;border-radius:7px;background:#1c1308;color:#e4c66b;font-family:\'Cinzel\',serif;font-size:8px;white-space:nowrap;cursor:pointer">📖 Книга мастеров</button>' + customPrice +
+  '</div>';
+}
+
+function zgShopPaginationHtml(page, pageCount, total, position) {
+  if (pageCount <= 1) return position === 'top' ? '<div id="zg-shop-results-anchor" style="height:1px"></div>' : '';
+  var pages = [];
+  for (var i = 1; i <= pageCount; i++) if (i === 1 || i === pageCount || Math.abs(i - page) <= 1) pages.push(i);
+  var buttons = '', previous = 0;
+  pages.forEach(function(value){
+    if (previous && value - previous > 1) buttons += '<span style="color:#66583e;padding:0 2px">…</span>';
+    buttons += '<button type="button" onclick="zgShopSetPage(' + value + ')" aria-current="' + (value === page ? 'page' : 'false') + '" style="min-width:29px;height:29px;padding:0 7px;border:1px solid ' + (value === page ? '#d4a04a' : '#2a1e10') + ';border-radius:7px;background:' + (value === page ? '#d4a04a18' : '#0a0704') + ';color:' + (value === page ? '#e8c060' : '#806f51') + ';font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer">' + value + '</button>';
+    previous = value;
+  });
+  var from = total ? (page - 1) * _shopState.pageSize + 1 : 0;
+  var to = Math.min(total, page * _shopState.pageSize);
+  return '<div' + (position === 'top' ? ' id="zg-shop-results-anchor"' : '') + ' style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:' + (position === 'top' ? '0 0 16px' : '20px 0 0') + '">' +
+    '<span style="margin-right:6px;color:#66583e;font-family:\'Cinzel\',serif;font-size:9px">' + from + '–' + to + ' из ' + total + '</span>' +
+    '<button type="button" onclick="zgShopSetPage(' + (page - 1) + ')"' + (page <= 1 ? ' disabled' : '') + ' style="width:29px;height:29px;border:1px solid #2a1e10;border-radius:7px;background:#0a0704;color:#806f51;cursor:pointer">←</button>' + buttons +
+    '<button type="button" onclick="zgShopSetPage(' + (page + 1) + ')"' + (page >= pageCount ? ' disabled' : '') + ' style="width:29px;height:29px;border:1px solid #2a1e10;border-radius:7px;background:#0a0704;color:#806f51;cursor:pointer">→</button>' +
+  '</div>';
+}
+
+var _zgShopGuideRegion = '';
+var _zgShopGuideSelected = '';
+
+function zgShopMarketGuideListHtml(rows, selectedId) {
+  return rows.map(function(market){
+    var region = zgShopRegionById(market.region);
+    var active = market.id === selectedId;
+    return '<button type="button" data-guide-market="' + escHTML(market.id) + '" onclick="zgShopSelectMarketGuide(\'' + escHTML(market.id) + '\')" aria-current="' + (active ? 'true' : 'false') + '" style="width:100%;padding:10px 11px;border:1px solid ' + (active ? '#8d6a2c' : '#2f2213') + ';border-left:3px solid ' + (active ? '#d4a04a' : '#59401e') + ';border-radius:7px;background:' + (active ? '#d4a04a14' : '#0d0905') + ';color:' + (active ? '#ead496' : '#ad9a76') + ';text-align:left;cursor:pointer">' +
+      '<span style="display:block;font-family:\'Cinzel\',serif;font-size:10px;line-height:1.35">' + escHTML(market.name) + '</span>' +
+      '<span style="display:block;margin-top:4px;color:#756346;font-family:\'Cinzel\',serif;font-size:7px;line-height:1.35;text-transform:uppercase">' + escHTML((region ? region.label + ' · ' : '') + market.location) + '</span>' +
+    '</button>';
+  }).join('');
+}
+
+function zgShopMarketGuideDetailHtml(market) {
+  var region = zgShopRegionById(market.region);
+  var crest = 'images/shop/market-crests/' + market.id + '.png';
+  return '<article data-guide-detail="' + escHTML(market.id) + '" style="padding:18px;border:1px solid #3a2a14;border-radius:10px;background:radial-gradient(circle at 0 0,#d4a04a0b,transparent 38%),#100b06">' +
+    '<div class="zg-shop-market-detail-head">' +
+      '<img class="zg-shop-market-detail-crest" src="' + escHTML(crest) + '" alt="Гобелен мастерской: ' + escHTML(market.name) + '" decoding="async">' +
+      '<div><div style="font-family:\'Cinzel Decorative\',serif;color:#ead496;font-size:24px;line-height:1.25">' + escHTML(market.name) + '</div>' +
+      '<div style="margin-top:8px;color:#806f51;font-family:\'Cinzel\',serif;font-size:9px;line-height:1.5;text-transform:uppercase">' + escHTML((region ? region.label + ' · ' : '') + market.location + ' · ' + market.kind) + '</div>' +
+      '<p style="margin:18px 0 0;color:#d0c0a2;font-family:\'Lora\',serif;font-size:15px;line-height:1.7">' + escHTML(market.description) + '</p></div>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:20px;padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#ac9975;font-size:12px;line-height:1.55"><div><b style="color:#d9bd75">Владелец</b><br>' + escHTML(market.owner) + '</div><div><b style="color:#d9bd75">Уровень мастерства</b><br>' + escHTML(market.quality) + '</div><div><b style="color:#d9bd75">Режим</b><br>' + escHTML(market.hours) + '</div></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:14px">' +
+      (market.people && market.people.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЛЮДИ</b><div style="margin-top:7px">' + market.people.map(escHTML).join('<br>') + '</div></section>' : '') +
+      (market.stock && market.stock.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЧТО ИСКАТЬ</b><div style="margin-top:7px">' + market.stock.map(function(row){ return '• ' + escHTML(row); }).join('<br>') + '</div></section>' : '') +
+    '</div>' +
+  '</article>';
+}
+
+function zgShopRenderMarketGuideRows(regionId) {
+  _zgShopGuideRegion = String(regionId || '');
+  var rows = SHOP_MARKETS.filter(function(market){ return !regionId || market.region === regionId; });
+  if (!rows.some(function(market){ return market.id === _zgShopGuideSelected; })) _zgShopGuideSelected = rows.length ? rows[0].id : '';
+  var list = document.getElementById('zg-shop-market-guide-list');
+  var detail = document.getElementById('zg-shop-market-guide-detail');
+  if (list) list.innerHTML = zgShopMarketGuideListHtml(rows, _zgShopGuideSelected);
+  if (detail) {
+    var selected = zgShopMarketById(_zgShopGuideSelected);
+    detail.innerHTML = selected ? zgShopMarketGuideDetailHtml(selected) : '<div style="padding:30px;color:#756346;text-align:center">В этом регионе пока нет записей.</div>';
+  }
+  var buttons = document.querySelectorAll('#zg-shop-market-guide [data-guide-region]');
+  Array.prototype.forEach.call(buttons,function(button){
+    var active = button.getAttribute('data-guide-region') === String(regionId || '');
+    button.style.borderColor = active ? '#d4a04a' : '#3a2a14';
+    button.style.color = active ? '#e8c060' : '#806f51';
+    button.style.background = active ? '#d4a04a18' : '#0d0905';
+  });
+}
+
+function zgShopSelectMarketGuide(marketId) {
+  var market = zgShopMarketById(marketId);
+  if (!market) return;
+  _zgShopGuideSelected = market.id;
+  var detail = document.getElementById('zg-shop-market-guide-detail');
+  if (detail) detail.innerHTML = zgShopMarketGuideDetailHtml(market);
+  var buttons = document.querySelectorAll('#zg-shop-market-guide [data-guide-market]');
+  Array.prototype.forEach.call(buttons,function(button){
+    var active = button.getAttribute('data-guide-market') === market.id;
+    button.setAttribute('aria-current',active ? 'true' : 'false');
+    button.style.borderColor = active ? '#8d6a2c' : '#2f2213';
+    button.style.borderLeftColor = active ? '#d4a04a' : '#59401e';
+    button.style.background = active ? '#d4a04a14' : '#0d0905';
+    button.style.color = active ? '#ead496' : '#ad9a76';
+  });
+}
+
+function zgShopOpenMarketGuide(marketId) {
+  var old = document.getElementById('zg-shop-market-guide'); if (old) old.remove();
+  var selected = marketId ? zgShopMarketById(marketId) : null;
+  _zgShopGuideRegion = selected ? selected.region : '';
+  var rows = SHOP_MARKETS.filter(function(market){ return !_zgShopGuideRegion || market.region === _zgShopGuideRegion; });
+  _zgShopGuideSelected = selected ? selected.id : (rows.length ? rows[0].id : '');
+  var bd = document.createElement('div'); bd.id = 'zg-shop-market-guide';
+  bd.style.cssText = 'position:fixed;inset:0;z-index:10020;background:#000c;display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box';
+  bd.addEventListener('click',function(event){ if(event.target===bd)bd.remove(); });
+  var regionFilters = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px">' + [{id:'',label:'Вся Заргота'}].concat(SHOP_REGIONS.filter(function(region){ return region.id !== 'zargota-all' && region.id !== 'mainland'; })).map(function(region){ var active = region.id === _zgShopGuideRegion; return '<button type="button" data-guide-region="' + escHTML(region.id) + '" onclick="zgShopRenderMarketGuideRows(\'' + escHTML(region.id) + '\')" style="padding:5px 8px;border:1px solid ' + (active ? '#d4a04a' : '#3a2a14') + ';border-radius:12px;background:' + (active ? '#d4a04a18' : '#0d0905') + ';color:' + (active ? '#e8c060' : '#806f51') + ';font-family:\'Cinzel\',serif;font-size:7px;cursor:pointer">' + escHTML(region.label) + '</button>'; }).join('') + '</div>';
+  var current = zgShopMarketById(_zgShopGuideSelected);
+  var panel = document.createElement('section'); panel.style.cssText = 'width:min(1240px,100%);max-height:92vh;overflow:hidden;padding:16px;border:2px solid #8d6a2c;border-radius:13px;background:linear-gradient(145deg,#1a1208,#090704);box-shadow:0 25px 80px #000;box-sizing:border-box';
+  panel.innerHTML = '<header style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px"><div><div style="font-family:\'Cinzel Decorative\',serif;color:#e8c060;font-size:20px">Книга мастеров Зарготы</div><div style="color:#756346;font-size:10px;margin-top:4px">Памятка ГМа: профиль, хозяева и характерный товар</div></div><button type="button" onclick="document.getElementById(\'zg-shop-market-guide\').remove()" style="width:32px;height:32px;border:1px solid #49371d;border-radius:8px;background:#100b06;color:#9e895e;cursor:pointer">✕</button></header>' +
+    '<div class="zg-shop-guide-layout"><aside class="zg-shop-guide-sidebar">' + regionFilters + '<div id="zg-shop-market-guide-list" class="zg-shop-guide-list">' + zgShopMarketGuideListHtml(rows,_zgShopGuideSelected) + '</div></aside><main id="zg-shop-market-guide-detail" class="zg-shop-guide-detail">' + (current ? zgShopMarketGuideDetailHtml(current) : '') + '</main></div>';
+  bd.appendChild(panel); document.body.appendChild(bd);
 }
 
 function renderShopPage() {
@@ -58245,15 +58523,15 @@ function renderShopPage() {
   // Под-табы: Витрина / Экономика
   var subtabs =
     '<div style="display:flex;gap:0;justify-content:center;margin-bottom:22px;border-bottom:1px solid #2a1e10">'+
-      '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer">🛒 ВИТРИНА</button>'+
-      '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer">📊 ЭКОНОМИКА</button>'+
+      '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/showcase.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">ВИТРИНА</button>'+
+      '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/economy.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">ЭКОНОМИКА</button>'+
     '</div>';
 
   if (_shopState.tab === 'economy') {
     var ecoCartInfo = zgCartTotal();
     host.innerHTML =
       '<div style="text-align:center;margin-bottom:18px">'+
-        '<div style="font-size:36px;margin-bottom:6px">📊</div>'+
+        '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/economy.webp" alt="" aria-hidden="true" width="72" height="72" decoding="async">'+
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Экономика Зарготы</div>'+
         '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Средние цены по острову. Всё сведено к золоту для сравнения. Нажми на строку — добавить в корзину.</div>'+
       '</div>' + subtabs +
@@ -58264,16 +58542,15 @@ function renderShopPage() {
   }
 
   var items = loadShopItems();
-  var q = (_shopState.search || '').toLowerCase();
-  var filtered = items.filter(function(it) {
-    if (_shopState.filter && it.cat !== _shopState.filter) return false;
-    if (q && ((it.name||'') + ' ' + (it.desc||'')).toLowerCase().indexOf(q) < 0) return false;
-    return true;
-  });
+  var filtered = zgShopSortItems(items.filter(zgShopItemMatchesBrowseFilters));
+  var pageSize = Math.max(1, Number(_shopState.pageSize) || 24);
+  var pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  _shopState.page = Math.min(pageCount, Math.max(1, Number(_shopState.page) || 1));
+  var pageItems = filtered.slice((_shopState.page - 1) * pageSize, _shopState.page * pageSize);
 
   var head =
     '<div style="text-align:center;margin-bottom:14px">'+
-      '<div style="font-size:40px;margin-bottom:6px">💰</div>'+
+      '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/trade.webp" alt="" aria-hidden="true" width="192" height="192" decoding="async">'+
       '<div class="zg-shop-title-line"><div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Товары Зарготы</div>'+ zgPowerGuideHtml() +'</div>'+
       '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Что бывает в мире и сколько это стоит в среднем. Точная цена — у конкретного торговца.</div>'+
     '</div>' + subtabs;
@@ -58292,7 +58569,7 @@ function renderShopPage() {
         return '<button onclick="zgShopSetFilter(\'' + cat.key + '\')" style="padding:6px 12px;border:1px solid ' + (on ? cat.color : '#2a1e10') + ';border-radius:16px;background:' + (on ? cat.color + '18' : 'transparent') + ';color:' + (on ? cat.color : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.5px">' + cat.icon + ' ' + cat.label + '</button>';
       }).join('')+
       zgShopGmStatsToggleHtml()+
-    '</div>';
+    '</div>' + zgShopBrowseFiltersHtml();
 
   var grid;
   if (!filtered.length) {
@@ -58301,7 +58578,7 @@ function renderShopPage() {
       '</div>';
   } else {
     grid = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:16px">' +
-      filtered.map(function(it) {
+      pageItems.map(function(it) {
         var cat = SHOP_CATS.find(function(x){ return x.key === it.cat; }) || SHOP_CATS[SHOP_CATS.length-1];
         var rar = SHOP_RARITY.find(function(x){ return x.key === it.rarity; }) || SHOP_RARITY[0];
         return '<div class="shop-card" onclick="zgShopView(\'' + it.id + '\')" style="--shop-accent:' + cat.color + '">'+
@@ -58310,6 +58587,7 @@ function renderShopPage() {
           // Название + редкость
           '<div class="shop-card-name">' + escHTML(it.name || 'Без имени') + '</div>'+
           '<div style="font-size:9px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;text-align:center;margin-bottom:8px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>'+
+          '<div style="font-size:9px;color:#756548;text-align:center;margin:-3px 0 8px;font-family:\'Lora\',serif">📍 Базирование: ' + escHTML(zgShopRegionLabel(it)) + '</div>'+
           // Мех.чипы (урон/защита/дальность/эффект)
           shopStatChips(it)+
           // Описание
@@ -58323,8 +58601,13 @@ function renderShopPage() {
     '</div>';
   }
 
-  host.innerHTML = head + zgCurrencyBarHtml() + toolbar + zgShopGmStatsHtml(items, filtered.length) + grid +
-    '<div style="text-align:center;margin-top:26px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic">' + items.length + ' товаров на витрине · клик по карточке — просмотр</div>';
+  var paginationTop = zgShopPaginationHtml(_shopState.page, pageCount, filtered.length, 'top');
+  var paginationBottom = zgShopPaginationHtml(_shopState.page, pageCount, filtered.length, 'bottom');
+  var gmStats = zgShopGmStatsHtml(items, filtered.length);
+  var catalog = paginationTop + grid + paginationBottom;
+  if (gmStats) catalog = '<div class="zg-shop-catalog-layout"><aside class="zg-shop-gm-sidebar">' + gmStats + '</aside><main style="min-width:0">' + catalog + '</main></div>';
+  host.innerHTML = head + zgCurrencyBarHtml() + toolbar + catalog +
+    '<div style="text-align:center;margin-top:26px;font-size:10px;color:#5a4a32;font-family:\'Lora\',serif;font-style:italic">' + filtered.length + ' найдено · ' + items.length + ' товаров на витрине · клик по карточке — просмотр</div>';
 }
 var _shopSearchTimer = null;
 function renderShopPageDebounced() {
@@ -58354,13 +58637,20 @@ function zgShopView(itemId) {
     (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 20px) 12px 24px' : 'align-items:center;padding:20px');
   bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
 
-  var imgOrEmoji = zgShopImageSource(it)
-    ? zgShopVisualMarkup(it, cat.icon, 'width:96px;height:96px;object-fit:cover;border-radius:16px;border:1px solid ' + cat.color + '55')
-    : '<div style="width:96px;height:96px;display:flex;align-items:center;justify-content:center;font-size:52px;border-radius:16px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,' + cat.color + ' 16%,#1a130a),#100b06);border:1px solid ' + cat.color + '44;filter:drop-shadow(0 3px 6px #000a)"><span style="width:64px;height:64px;display:block">' + zgItemIconMarkup(it.icon, cat.icon) + '</span></div>';
+  var detailImageSize = isMobile ? 128 : 184;
+  var fullImage = zgShopFullImageSource(it);
+  var imgOrEmoji = fullImage
+    ? '<img src="' + escHTML(fullImage) + '" alt="' + escHTML(it.name || 'Товар') + '" decoding="async" style="width:' + detailImageSize + 'px;height:' + detailImageSize + 'px;object-fit:cover;border-radius:18px;border:1px solid ' + cat.color + '55;box-shadow:0 12px 32px #0009">'
+    : '<div style="width:' + detailImageSize + 'px;height:' + detailImageSize + 'px;display:flex;align-items:center;justify-content:center;font-size:64px;border-radius:18px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,' + cat.color + ' 16%,#1a130a),#100b06);border:1px solid ' + cat.color + '44;filter:drop-shadow(0 3px 6px #000a)"><span style="width:82px;height:82px;display:block">' + zgItemIconMarkup(it.icon, cat.icon) + '</span></div>';
 
   var chips = shopStatChips(it, true);
+  var regionLabel = zgShopRegionLabel(it);
+  var marketLinks = (it.marketIds || []).map(function(id){
+    var market = zgShopMarketById(id);
+    return market ? '<button type="button" onclick="document.getElementById(\'shop-view-popup\').remove();zgShopOpenMarketGuide(\'' + escHTML(market.id) + '\')" style="padding:5px 8px;border:1px solid #5a4320;border-radius:12px;background:#120d07;color:#b89a58;font-family:\'Cinzel\',serif;font-size:8px;cursor:pointer">' + escHTML(market.name) + '</button>' : '';
+  }).join('');
   var panel = document.createElement('div');
-  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + cat.color + ';border-radius:14px;width:100%;max-width:500px;padding:24px;box-shadow:0 24px 80px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:88vh;overflow-y:auto');
+  panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + cat.color + ';border-radius:14px;width:100%;max-width:740px;padding:' + (isMobile ? '20px 16px' : '28px 32px') + ';box-shadow:0 24px 80px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:90vh;overflow-y:auto');
   panel.innerHTML =
     // ⚙ + ✕ в углу
     '<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px">' +
@@ -58368,8 +58658,10 @@ function zgShopView(itemId) {
       '<button onclick="document.getElementById(\'shop-view-popup\').remove()" title="Закрыть" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
     '</div>' +
     '<div style="text-align:center;margin-bottom:8px">' + imgOrEmoji + '</div>' +
-    '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:24px;color:#f6e6c0;margin-bottom:6px">' + escHTML(it.name || 'Без имени') + '</div>' +
+    '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:' + (isMobile ? '24px' : '28px') + ';color:#f6e6c0;margin-bottom:6px">' + escHTML(it.name || 'Без имени') + '</div>' +
     '<div style="text-align:center;font-size:12px;letter-spacing:1.4px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;margin-bottom:16px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>' +
+    '<div style="margin:-7px 0 14px;text-align:center;color:#887653;font-family:\'Lora\',serif;font-size:11px">📍 Базирование: ' + escHTML(regionLabel) + '</div>' +
+    (marketLinks ? '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:0 0 14px">' + marketLinks + '</div>' : '') +
     (chips ? '<div style="margin-bottom:16px">' + chips + '</div>' : '') +
     (it.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:14px 16px;font-family:\'Lora\',serif;font-size:15px;color:#d8c8a8;line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' + escHTML(it.desc) + '</div>' : '') +
     '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:18px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:14px;margin-bottom:14px">💰 ' + shopPriceHtml(it.price) + '</div>' +
@@ -58615,6 +58907,7 @@ function zgShopEdit(itemId) {
       sr: parseInt(panel.querySelector('#shp-sr').value, 10) || 0,
       md: parseInt(panel.querySelector('#shp-md').value, 10) || 0
     };
+    if (window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItem === 'function') rec = window.ZargotaItemEconomy.enrichShopItem(rec);
     var arr = loadShopItems();
     if (it) { var idx = arr.findIndex(function(x){ return x.id === rec.id; }); if (idx >= 0) arr[idx] = rec; else arr.push(rec); }
     else arr.push(rec);
@@ -58723,8 +59016,17 @@ if (typeof window !== 'undefined') {
   window.zgShopAiTemplate = zgShopAiTemplate;
   window.zgShopSetFilter = zgShopSetFilter;
   window.zgShopSetSearch = zgShopSetSearch;
+  window.zgShopToggleGmStats = zgShopToggleGmStats;
+  window.zgShopSetBrowseFilter = zgShopSetBrowseFilter;
+  window.zgShopSetPriceLimit = zgShopSetPriceLimit;
+  window.zgShopResetBrowseFilters = zgShopResetBrowseFilters;
+  window.zgShopSetPage = zgShopSetPage;
+  window.zgShopOpenMarketGuide = zgShopOpenMarketGuide;
+  window.zgShopRenderMarketGuideRows = zgShopRenderMarketGuideRows;
+  window.zgShopSelectMarketGuide = zgShopSelectMarketGuide;
   window.zgEcoSetFilter = zgEcoSetFilter;
   window.zgEcoSetCurrency = zgEcoSetCurrency;
+  window.zgEcoSetPage = zgEcoSetPage;
   window.zgShopSetTab = zgShopSetTab;
   window.zgCartAdd = zgCartAdd;
   window.zgCartRemove = zgCartRemove;

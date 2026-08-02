@@ -1,6 +1,8 @@
 'use strict';
 
 var assert = require('assert');
+var fs = require('fs');
+var path = require('path');
 var economy = require('../item-economy.js');
 
 assert.strictEqual(economy.POWER_MODEL_VERSION, '0.1');
@@ -318,6 +320,22 @@ assert.ok(necromancyItems.every(function(item){return /^images\/shop\/necromancy
 
 var allShopSeedItems = economy.getShopSeedItems();
 assert.strictEqual(new Set(allShopSeedItems.map(function (item) { return item.id; })).size, allShopSeedItems.length);
+var shopRegions = economy.getShopRegions();
+var shopMarkets = economy.getShopMarkets();
+var regionIds = new Set(shopRegions.map(function(region){return region.id;}));
+var marketIds = new Set(shopMarkets.map(function(market){return market.id;}));
+assert.ok(shopRegions.some(function(region){return region.id === 'zargota-all' && region.includes.length === 4;}));
+assert.strictEqual(shopRegions.filter(function(region){return region.label === 'Вся Заргота';}).length,1);
+assert.ok(!shopRegions.some(function(region){return region.id === 'zargota' || region.label === 'Общезарготское';}));
+assert.ok(shopMarkets.some(function(market){return market.id === 'glupishche-last-rest' && /Симур/.test(market.owner);}));
+assert.ok(shopMarkets.some(function(market){return market.id === 'glupishche-hypnoks-eye' && /Дельмарис/.test(market.description);}));
+assert.ok(shopMarkets.some(function(market){return market.id === 'glupishche-tuk-da-bryak' && market.stock.length === 4;}));
+assert.ok(shopMarkets.every(function(market){return fs.existsSync(path.resolve(__dirname,'..','images/shop/market-crests',market.id+'.png'));}));
+assert.ok(allShopSeedItems.every(function(item){return regionIds.has(item.baseRegion);}));
+assert.ok(allShopSeedItems.every(function(item){return Array.isArray(item.marketIds) && item.marketIds.length && item.marketIds.every(function(id){return marketIds.has(id);});}));
+assert.ok(allShopSeedItems.filter(function(item){return item.image;}).every(function(item){return /^images\/shop\/thumbs\/.+\.jpg$/.test(item.imageThumb);}));
+assert.ok(allShopSeedItems.filter(function(item){return item.imageThumb;}).every(function(item){return fs.existsSync(path.resolve(__dirname,'..',item.imageThumb));}));
+assert.ok(economy.getMovementGearItems().every(function(item){return !!item.rarity;}));
 var renderedImages = allShopSeedItems.map(function (item) { return item.image; }).filter(Boolean);
 assert.strictEqual(new Set(renderedImages).size, renderedImages.length);
 

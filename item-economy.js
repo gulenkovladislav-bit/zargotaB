@@ -1226,7 +1226,7 @@
     {id:'shp_mobility_10',name:'Спусковая восьмёрка',icon:'8️⃣',effect:'Контролируемый спуск по верёвке без штрафа за скорость',desc:'Кованая металлическая пластина для торможения каната.',group:'climb',price:{pl:1,zl:0,sr:0,md:0},effects:[{id:'descent-eight',type:'tempo',trigger:'descend-rope',operation:'ignore-penalty',value:1,condition:'secured-rope',frequency:'passive',stacking:'highest'}]},
     {id:'shp_mobility_11',name:'Прыжковая пружина гильдии',icon:'🌀',effect:'Раз за сцену увеличивает безопасный прыжок на 1 клетку',desc:'Тугая стальная пружина крепится между пяткой и голенью.',group:'urban',rarity:'uncommon',price:{pl:2,zl:5,sr:0,md:0},powerTier:2,effects:[{id:'guild-jump-spring',type:'tempo',trigger:'make-running-jump',operation:'add-jump-cells',value:1,frequency:'scene',stacking:'replace'}]},
     {id:'shp_mobility_12',name:'Скользящий канатный блок',icon:'⚙️',effect:'Перемещает груз или человека вдоль натянутого каната',desc:'Двойной ролик с ручным тормозом и карабином.',group:'climb',rarity:'uncommon',price:{pl:3,zl:0,sr:0,md:0},powerTier:2,effects:[{id:'rope-trolley',type:'tempo',trigger:'traverse-tensioned-rope',operation:'create-route',value:6,condition:'rope-anchored-both-ends',actionCost:'long',frequency:'scene',stacking:'replace'}]}
-  ].map(function(item){item.powerTier=item.powerTier||1;item.image='images/shop/mobility-'+item.id.slice(-2)+'.png';return finishBatchItem(item,{cat:'tool',category:'tool',slot:'utility',tags:['mobility'],access:{markets:['city','guild'],legality:'open'}});});
+  ].map(function(item){item.powerTier=item.powerTier||1;item.rarity=item.rarity||(item.powerTier>=2?'uncommon':'common');item.image='images/shop/mobility-'+item.id.slice(-2)+'.png';return finishBatchItem(item,{cat:'tool',category:'tool',slot:'utility',tags:['mobility'],access:{markets:['city','guild'],legality:'open'}});});
 
   var MINOR_ARTIFACT_ITEMS = [
     {id:'shp_artifact_01',name:'Камень сухого кармана',icon:'🪨',artifactLevel:1,effect:'Сохраняет один малый карман сухим в обычной непогоде',desc:'Пористый серый камень впитывает влагу, не становясь тяжелее.'},
@@ -1353,6 +1353,132 @@
 
   function clone(value) {
     return JSON.parse(JSON.stringify(value));
+  }
+
+  var SHOP_REGION_DEFINITIONS = [
+    {id:'zargota-all',label:'Вся Заргота',description:'Общий рынок острова: Верхземье, Корневая Долина, Левошлак и товары без узкой региональной привязки.',includes:['zargota-all','upperland','root-valley','levoshlak']},
+    {id:'upperland',label:'Верхземье',description:'Лицензированная магия, университетские товары, металл Казад-Дрома, городское ремесло и импорт через Рыбный Крюк.',includes:['upperland']},
+    {id:'root-valley',label:'Корневая Долина',description:'Дерево, сельские промыслы, охота, травничество, ярмарки Глупища и морской товар Морелесья.',includes:['root-valley']},
+    {id:'levoshlak',label:'Левошлак',description:'Шахтное и портовое снаряжение, контрабанда, яды, вольная магия и тайные ремёсла.',includes:['levoshlak']},
+    {id:'mainland',label:'Большая Земля',description:'Импорт из Анкастии и Элурада: редкие книги, точные инструменты, дорогие материалы и необычная магия.',includes:['mainland']}
+  ];
+
+  var SHOP_MARKET_DEFINITIONS = [
+    {id:'glupishche-last-rest',region:'root-valley',location:'Глупище',name:'Лавка приключенцев «Последний Привал»',icon:'⚔️',kind:'Лавка приключенцев',quality:'Одна из лучших в Зарготе',owner:'Симур «Тот Самый» Рингол',hours:'Открыта до заката; ночью — только для срочного и дорогого заказа.',description:'Бывшая таверна с дубовыми полами, стойками оружия и чистыми витринами. Симур продаёт снаряжение тем, кто уважает ремесло; грубому торгу предпочитает молчаливый отказ.',people:['Грак Сломщик — молчаливый боец у стойки','Сирвин Тихоход — седой телохранитель у двери'],stock:['Оружие и броня для экспедиций','Походные наборы, ловушки и противоядия','Редкие вещи — штучно и по репутации']},
+    {id:'glupishche-hypnoks-eye',region:'root-valley',location:'Глупище',name:'Волшебная лавка «Глаз Гипнока»',icon:'👁️',kind:'Магическая лавка',quality:'Редкая и специализированная',owner:'Хозяин в красном пальто',hours:'Работает днём; особые сделки — по предварительной договорённости.',description:'Трёхэтажная лавка справа от обелиска, набитая книгами, свитками, морскими реагентами и рукописями. Вывеска с морским существом находится под покровительством Дельмариса; её осквернение вызывает гнев бога глубин.',people:['Молчаливый бронзовокожий лавочник в красном пальто'],stock:['Свитки, книги и магические расходники','Алхимические компоненты моря и прилива','Редкости без гарантированного наличия']},
+    {id:'glupishche-tuk-da-bryak',region:'root-valley',location:'Глупище',name:'Конюшня «Тук да бряк»',icon:'🐴',kind:'Конюшня',quality:'Надёжная, но не лучшая на острове',owner:'Местный конюх',hours:'От рассвета до заката.',description:'Средняя городская конюшня: животные ухожены, цены честные, а характер каждой лошади конюх знает лучше собственного.',people:['Конюх считает каждую клячу родной, кроме той, что укусила мельника'],stock:['Глушак — тяжёлая упряжная, около 32 зл','Шайка — резвая рыжая, около 38 зл','Крошка Дуня — дорожная упряжная, около 29 зл','Философ Бро — вьючный осёл, около 14 зл']},
+    {id:'glupishche-three-ruts',region:'root-valley',location:'Глупище',name:'Двор дилижансов «Три колеи»',icon:'🛞',kind:'Экипажный двор',quality:'Ярмарочный выбор, качество разное',owner:'Союз возчиков Глупища',hours:'Осмотр днём; пробный выезд — до сумерек.',description:'Открытая выставка телег, рабочих повозок и дилижансов у почтового двора. Здесь спорят о колёсах громче, чем на турнире о мечах.',people:['Возчики, плотники и торговцы подержанными экипажами'],stock:['«Квасолёт» — бочечная телега, 12–16 зл','«Бревнобукса» — рабочая повозка, 19–27 зл','«Король Мулов» — тяжёлый склад, 29–35 зл','«Летучий Балаган» — быстрый экипаж, около 70 зл','«Пурпурный дилижанс» — дорожная роскошь, около 85 зл','«Дальний Кров» — жилая карета, около 110 зл','«Долгий Возчик» — грузовой воз, около 45 зл']},
+    {id:'glupishche-root-post',region:'root-valley',location:'Глупище',name:'Почтовый двор «Корневой Узел»',icon:'✉️',kind:'Почта и караванный двор',quality:'Хороший региональный уровень',owner:'Старший смотритель тракта',hours:'Приём писем весь день; обозы уходят на рассвете.',description:'Главный узел сообщений Корневой Долины. Не лучший на острове, зато знает каждый тракт, перевозчика и ненадёжный мост.',people:['Почтари, курьеры и наёмные проводники'],stock:['Карты, тубусы и дорожные метки','Курьерское снаряжение','Место в обозе и доставка писем']},
+    {id:'glupishche-three-strikes',region:'root-valley',location:'Глупище',name:'Кузница «Три удара»',icon:'🔨',kind:'Кузница и простой бронник',quality:'Добротный ремонт, среднее новое снаряжение',owner:'Артель кузнецов Корневой Долины',hours:'С рассвета до вечернего молота.',description:'Рабочая кузница при городском рынке. Из-за нехватки местной руды здесь отлично чинят и перековывают, но лучшие латы и редкие сплавы заказывают из Казад-Дрома.',people:['Подмастерья, ремонтники обозов и один ворчливый бронник'],stock:['Ремонт оружия, брони и экипажей','Обычные клинки, кольчуги и детали','Редкие металлы только под заказ']},
+    {id:'lesorubka-artel-yard',region:'root-valley',location:'Лесорубка',name:'Артельный двор Лесорубки',icon:'🪵',kind:'Ремесленный рынок',quality:'Лучший по дереву и канатам',owner:'Рабочие артели Лесорубки',hours:'С первого гудка лесопилен до заката.',description:'Склады древесины, канатные навесы и лавки плотников у нового тракта. Здесь проще всего найти снаряжение для подъёма, сплава и ремонта.',people:['Лесорубы, плотники, канатчики и речные сплавщики'],stock:['Верёвки, крюки и лестницы','Топоры, тенты и ремонтные наборы','Деревянные детали для повозок']},
+    {id:'morelesie-lighthouse-market',region:'root-valley',location:'Морелесье',name:'Рынок под Маяком',icon:'⚓',kind:'Рыбацкий рынок',quality:'Лучший морской товар Долины',owner:'Община Морелесья',hours:'С первого улова до полудня.',description:'Строгий прибрежный рынок под властью хранителя маяка. Здесь продают снасти, соль, смазки и вещи, которые действительно переживают море.',people:['Рыбаки, смотрители маяка и молчаливые старосты'],stock:['Гарпуны, багры и рыбацкое снаряжение','Соль, ром и морские реагенты','Вощёная одежда и поплавки']},
+    {id:'dorogograd-golden-measure',region:'upperland',location:'Дорогоград',name:'Торговые ряды «Золотая Мера»',icon:'⚖️',kind:'Городской рынок',quality:'Крупнейший открытый рынок Зарготы',owner:'Торговый Совет Дорогограда',hours:'С утра до вечернего колокола.',description:'Лицензированные ряды столицы: широкий выбор, строгие сборы и отдельные прилавки гильдий. Здесь почти всё можно заказать, если происхождение товара выдержит проверку.',people:['Гильдейские приказчики, оценщики и городская стража'],stock:['Городские товары, одежда и инструменты','Стандартное оружие и броня','Заказы из других регионов']},
+    {id:'kazad-drom-thundering-mountain',region:'upperland',location:'Казад-Дром',name:'Гильдия «Гремящая Гора»',icon:'⛏️',kind:'Рудничная гильдия и бронники',quality:'Лучшие металл и тяжёлая работа на острове',owner:'Горрин Камнедер',hours:'Заказы принимают по сменному колоколу.',description:'Гильдия контролирует металл Казад-Дрома и снабжает укрепления, верфи и лучших бронников. Здесь не любят красивых речей, зато отвечают за сплав и заклёпку.',people:['Шахтёры, литейщики, оружейники и тяжёлые бронники'],stock:['Руда, сталь и тяжёлые инструменты','Качественная броня и дробящее оружие','Редкий металл по гильдейскому заказу']},
+    {id:'ztuz-licensed-counter',region:'upperland',location:'Дорогоград',name:'Лицензированная коллегия ЗТУЗ',icon:'📜',kind:'Магическая коллегия',quality:'Лучший легальный выбор знаний',owner:'Университет Зарготы',hours:'По учебным дням и только с документами.',description:'Закрытая и дорогая точка доступа к свиткам, исследованиям и проверенным магическим расходникам. Знание здесь продают вместе с контролем.',people:['Писцы, преподаватели, лицензированные маги и надзиратели'],stock:['Свитки и магические расходники','Точные компоненты и книги','Опознание и лицензирование']},
+    {id:'fishhook-import-row',region:'upperland',location:'Порт-Рыбный Крюк',name:'Заморские ряды Рыбного Крюка',icon:'🚢',kind:'Портовый импортный рынок',quality:'Лучший импорт, цена нестабильна',owner:'Портовые гильдии',hours:'По приходу судов; лучшие партии уходят утром.',description:'Главные ворота Большой Земли. Здесь появляются ткани Анкастии, книги Элурада, точные инструменты и редкости, которых завтра уже может не быть.',people:['Капитаны, оценщики, контрабандисты и портовая стража'],stock:['Импорт из Анкастии и Элурада','Морское снаряжение и редкие материалы','Штучные артефакты с непостоянной ценой']},
+    {id:'strannograd-bog-guild',region:'levoshlak',location:'Странноград',name:'Болотная Гильдия',icon:'🩸',kind:'Теневая торговая сеть',quality:'Лучший чёрный рынок Зарготы',owner:'Голос Гильдии',hours:'Открывается через посредника, а не по вывеске.',description:'Сеть контрабандистов и посредников, контролирующая оружие, яды, артефакты и информацию Левошлака. Покупатель платит не только монетой, но и заметностью.',people:['Посредники, банды, курьеры и неизвестный Голос Гильдии'],stock:['Контрабанда, яды и поддельные документы','Запретные инструменты и информация','Редкие вещи без гарантии происхождения']},
+    {id:'shakhtogorye-black-anvil',region:'levoshlak',location:'Шахтогорье',name:'Чёрная наковальня Шахтогорья',icon:'⚒️',kind:'Шахтный рынок и кузницы',quality:'Грубая, тяжёлая и надёжная работа',owner:'Держатели шахтных участков',hours:'Пока горят плавильни.',description:'Разрозненные кузницы у шахт «чёрного камня». Здесь делают тяжёлые инструменты и оружие без красивой отделки, а часть руды проходит мимо любого учёта.',people:['Рудокопы, наёмники, литейщики и люди держателей'],stock:['Шахтное снаряжение и тяжёлое оружие','Неучтённая руда и чёрный камень','Ремонт без лишних вопросов']},
+    {id:'sandy-acorn-salvage',region:'levoshlak',location:'Порт Песочный Жёлудь',name:'Рынок обломков Песочного Жёлудя',icon:'🪝',kind:'Портовый рынок руин',quality:'Неровное качество, редкие находки',owner:'Банды и остатки портовых гильдий',hours:'С полудня до тех пор, пока хозяин причала не сменился.',description:'Прилавки среди разрушенных причалов и сгоревших верфей. Тут продают корабельный лом, краденый импорт и вещи из трюмов, о которых никто не заявлял.',people:['Разборщики судов, кабатчики, контрабандисты и бывшие корабелы'],stock:['Корабельный лом и снасти','Серый импорт и подержанное оружие','Необычные находки из дальних трюмов']},
+    {id:'levoshlak-tower-vault',region:'levoshlak',location:'Древняя Башня Левошлака',name:'Хранилище Вольной Башни',icon:'🔮',kind:'Тайная магическая лавка',quality:'Сильная магия без лицензий',owner:'Владыка Башни',hours:'Принимает только приглашённых или отчаянных.',description:'Лаборатории и хранилища башни вне законов Зарготы. Здесь встречаются вольная магия, некромантские инструменты и опасные знания с условиями, написанными мелким почерком.',people:['Ученики башни, посредники и слуги без знаков'],stock:['Нелицензированная магия и компоненты','Некромантские инструменты','Редкие ритуальные предметы']}
+  ];
+
+  function shopText(item) {
+    return [item && item.id,item && item.name,item && item.desc,(item && item.tags || []).join(' ')].join(' ').toLowerCase();
+  }
+
+  function inferShopBaseRegion(item) {
+    var text = shopText(item);
+    if (/shp_(black|poison|necromancy)_/.test(text)) return 'levoshlak';
+    if (/левошлак|странноград|шахтогор|гонобесь|острого пика|берега мертвецов|болотн|мещер/.test(text)) return 'levoshlak';
+    if (/верхзем|казад-дром|верхостав|рыбного крюка|дорогоград|университет|зтуз/.test(text)) return 'upperland';
+    if (/глупищ|трёхкорн|морелес|лесоруб|полев|пастуш|камыш|старого сада/.test(text)) return 'root-valley';
+    if (/степного гостя|белого железа|заморск|анкасти|элурад/.test(text)) return 'mainland';
+    if (/shp_foundation_(01|02|03|04|05|06|10|11)/.test(text)) return 'root-valley';
+    if (/shp_foundation_(07|08|09)/.test(text)) return 'upperland';
+    if (/shp_foundation_12/.test(text)) return 'levoshlak';
+    if (/shp_consumable_(01|02|03|04|05|07|09|12|14|16|18)/.test(text)) return 'root-valley';
+    if (/shp_consumable_(06|08|10|11|15|17|19|20)/.test(text)) return 'upperland';
+    if (/shp_weapon_(01|06|07|09|13|16|17|18)/.test(text)) return 'root-valley';
+    if (/shp_weapon_(02|03|08|10|14|19)/.test(text)) return 'upperland';
+    if (/shp_weapon_(04|05|11|12|15)/.test(text)) return 'levoshlak';
+    if (/shp_weapon_20/.test(text)) return 'mainland';
+    if (/shp_armor_(01|02|03|05|07|10|11)/.test(text)) return 'root-valley';
+    if (/shp_armor_(04|06|08|09|12)/.test(text)) return 'upperland';
+    if (/shp_expedition_(01|03|04|05|07|08|09|14|16|19|20)/.test(text)) return 'root-valley';
+    if (/shp_expedition_(02|06|10|11|12|13|15|17|18)/.test(text)) return 'upperland';
+    if (/shp_scroll_/.test(text)) return 'upperland';
+    if (/shp_magiccons_(01|02|04|05|07|10)/.test(text)) return 'upperland';
+    if (/shp_craft_(01|03|06|07|10)/.test(text)) return 'upperland';
+    if (/shp_craft_(02|05|08)/.test(text)) return 'root-valley';
+    if (/shp_craft_(04|09)/.test(text)) return 'levoshlak';
+    if (/shp_mobility_(01|02|03|04|07|08|10|12)/.test(text)) return 'root-valley';
+    if (/shp_potion_(01|04|05|06|07|09|10|14|15)/.test(text)) return 'root-valley';
+    if (/shp_potion_(02|03|08|11|12|13)/.test(text)) return 'upperland';
+    if (/shp_adornment_(01|02|04|06|07|08|09|10)/.test(text)) return 'upperland';
+    if (/shp_adornment_(11|12|14|15)/.test(text)) return 'root-valley';
+    if (/shp_magiccons_(03|06|08|09)|shp_artifact_(08|09|11|12)|shp_adornment_(03|05|13)/.test(text)) return 'mainland';
+    return 'zargota-all';
+  }
+
+  function inferShopMarketIds(item) {
+    var text = shopText(item);
+    var region = item.baseRegion || inferShopBaseRegion(item);
+    var cat = item.cat || item.category || 'other';
+    var legality = item.access && item.access.legality || 'open';
+    var ids = [];
+    function add(id) { if (ids.indexOf(id) < 0) ids.push(id); }
+    if (/shp_armor_(03|11)|shp_foundation_10/.test(text)) add('glupishche-tuk-da-bryak');
+    if (/shp_expedition_(17|19)|shp_mobility_12|shp_armor_11/.test(text)) add('glupishche-three-ruts');
+    if (/shp_consumable_08|shp_weapon_02|shp_armor_(07|08)/.test(text)) add('glupishche-three-strikes');
+    if (/shp_expedition_18|shp_consumable_07|shp_artifact_02|shp_scroll_09|shp_foundation_07/.test(text)) add('glupishche-root-post');
+    if (legality === 'forbidden' || legality === 'restricted' || /black-market|контрабанд/.test(text)) {
+      add('strannograd-bog-guild');
+      if (cat === 'magic' || /necromancy|некромант/.test(text)) add('levoshlak-tower-vault');
+      return ids;
+    }
+    if (region === 'upperland') {
+      if (cat === 'magic' || /свиток|магичес/.test(text)) add('ztuz-licensed-counter');
+      if (cat === 'weapon' || cat === 'armor' || cat === 'material' || /шахт|кузн|металл/.test(text)) add('kazad-drom-thundering-mountain');
+      if (/порт|морск|рыб|гарпун|прилив|доков/.test(text)) add('fishhook-import-row');
+      if (!ids.length || cat === 'food' || cat === 'tool') add('dorogograd-golden-measure');
+    } else if (region === 'root-valley') {
+      if (cat === 'magic' || /свиток|алхим|зель/.test(text)) add('glupishche-hypnoks-eye');
+      if (/лесоруб|верёв|канат|крюк|лестниц|топор|бревн|дерев/.test(text)) add('lesorubka-artel-yard');
+      if (/морелес|рыб|морск|гарпун|багор|соль|поплав/.test(text)) add('morelesie-lighthouse-market');
+      if (cat === 'mount' || /конюх|лошад|упряж/.test(text)) add('glupishche-tuk-da-bryak');
+      if (/картограф|курьер|посыльн|тракт|дорожн/.test(text)) add('glupishche-root-post');
+      if (cat === 'weapon' || cat === 'armor' || cat === 'potion' || cat === 'tool') add('glupishche-last-rest');
+      if (!ids.length) add('glupishche-last-rest');
+    } else if (region === 'levoshlak') {
+      if (cat === 'magic' || /некромант|ритуал|чар/.test(text)) add('levoshlak-tower-vault');
+      if (cat === 'weapon' || cat === 'armor' || cat === 'material' || /шахт|кузн|молот/.test(text)) add('shakhtogorye-black-anvil');
+      if (/порт|морск|кораб|снасть|гарпун|багор/.test(text)) add('sandy-acorn-salvage');
+      if (cat === 'potion' || cat === 'other' || cat === 'contraband' || !ids.length) add('strannograd-bog-guild');
+    } else if (region === 'mainland') {
+      add('fishhook-import-row');
+      if (cat === 'magic') add('ztuz-licensed-counter');
+    } else {
+      if (cat === 'magic') { add('glupishche-hypnoks-eye'); add('ztuz-licensed-counter'); }
+      else if (cat === 'weapon' || cat === 'armor' || cat === 'potion' || cat === 'tool') { add('glupishche-last-rest'); add('dorogograd-golden-measure'); }
+      else if (cat === 'mount') { add('glupishche-tuk-da-bryak'); add('glupishche-three-ruts'); }
+      else add('dorogograd-golden-measure');
+    }
+    return ids;
+  }
+
+  function enrichShopItem(item) {
+    var enriched = clone(item || {});
+    if (enriched.baseRegion === 'zargota') enriched.baseRegion = 'zargota-all';
+    enriched.baseRegion = enriched.baseRegion || inferShopBaseRegion(enriched);
+    enriched.marketIds = Array.isArray(enriched.marketIds) && enriched.marketIds.length ? enriched.marketIds.slice() : inferShopMarketIds(enriched);
+    if (!enriched.imageThumb && /^images\/shop\/[^/]+\.(?:png|jpe?g|webp)$/i.test(String(enriched.image || ''))) {
+      enriched.imageThumb = String(enriched.image).replace(/^images\/shop\/([^/]+)\.[^.]+$/i, 'images/shop/thumbs/$1.jpg');
+    }
+    return enriched;
+  }
+
+  function enrichShopItems(items) {
+    return (Array.isArray(items) ? items : []).map(enrichShopItem);
   }
 
   function priceInGold(price) {
@@ -1803,6 +1929,8 @@
     STACKING_RULES:STACKING_RULES.slice(),
     MARKETS:MARKETS.slice(),
     LEGALITIES:LEGALITIES.slice(),
+    SHOP_REGIONS:clone(SHOP_REGION_DEFINITIONS),
+    SHOP_MARKETS:clone(SHOP_MARKET_DEFINITIONS),
     LEVEL_REQUIREMENTS:clone(LEVEL_REQUIREMENTS),
     LEVEL_BENCHMARKS:clone(LEVEL_BENCHMARKS),
     POWER_TIER_BANDS:clone(POWER_TIER_BANDS),
@@ -1852,7 +1980,11 @@
     getPoisonItems:function () { return clone(POISON_ITEMS); },
     getLoreGoodsItems:function () { return clone(LORE_GOODS_ITEMS); },
     getNecromancyItems:function () { return clone(NECROMANCY_ITEMS); },
-    getShopSeedItems:function () { return clone(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, BLACK_MARKET_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS)); },
+    getShopRegions:function () { return clone(SHOP_REGION_DEFINITIONS); },
+    getShopMarkets:function () { return clone(SHOP_MARKET_DEFINITIONS); },
+    enrichShopItem:enrichShopItem,
+    enrichShopItems:enrichShopItems,
+    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, BLACK_MARKET_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS)); },
     definitionToInventorySnapshot:definitionToInventorySnapshot
   };
 });
