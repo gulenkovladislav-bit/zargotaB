@@ -3259,7 +3259,10 @@
           candidates.some(function(candidate){var tokens=candidate.scene&&Array.isArray(candidate.scene.tokens)?candidate.scene.tokens:[];var index=tokens.findIndex(function(token){return token&&String(token.id)===tokenId;});if(index<0)return false;found={path:candidate.path,scene:candidate.scene,tokens:tokens,index:index,token:tokens[index]};return true;});
           if(!found)throw roomError('Жетон существа не найден на опубликованной сцене.','token-missing');
           if(found.token.type==='hero')throw roomError('Для героя используется управление игрока.','token-invalid');
-          var fromX=Math.max(0,Math.min(100,Number(found.token.x==null?origin.x:found.token.x)||0)),fromY=Math.max(0,Math.min(100,Number(found.token.y==null?origin.y:found.token.y)||0));
+          var requestedFromX=Number(origin.x),requestedFromY=Number(origin.y),
+              storedFromX=Number(found.token.x),storedFromY=Number(found.token.y),
+              fromX=Math.max(0,Math.min(100,isFinite(requestedFromX)?requestedFromX:(isFinite(storedFromX)?storedFromX:0))),
+              fromY=Math.max(0,Math.min(100,isFinite(requestedFromY)?requestedFromY:(isFinite(storedFromY)?storedFromY:0)));
           var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[],entryIndex=-1,spent=movementCells(found.scene||room.scene,fromX,fromY,targetX,targetY);
           if(combat&&combat.active){
             entryIndex=order.findIndex(function(entry){return entry&&String(entry.tokenId||'')===tokenId;});
@@ -3808,7 +3811,6 @@
             entry.economy.movement = combatTurnMovement(entry);
             return entry;
           });
-          var selectedSceneTokens = [];
           sceneParticipants.forEach(function (participant, index) {
             if (!participant || !participant.tokenId) return;
             var name = String(participant.name || 'Существо').trim().slice(0, 80) || 'Существо';
@@ -3829,14 +3831,6 @@
               statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
               economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
             });
-            if (participant.sceneToken && String(participant.sceneToken.id || '') === String(participant.tokenId)) {
-              var cleanSceneToken = sanitizeScene({ tokens:[participant.sceneToken] }).tokens[0];
-              if (cleanSceneToken) {
-                var existingSceneToken = room.scene && Array.isArray(room.scene.tokens) ? room.scene.tokens.filter(function (token) { return token && String(token.id || '') === String(cleanSceneToken.id || ''); })[0] : null;
-                if (/^data:/i.test(String(cleanSceneToken.image || '')) && String(cleanSceneToken.image || '').length > 32000) cleanSceneToken.image = existingSceneToken && existingSceneToken.image || '';
-                selectedSceneTokens.push(cleanSceneToken);
-              }
-            }
           });
           order.forEach(function (entry) {
             var restrictions = combatRestrictions(entry);
@@ -3849,15 +3843,6 @@
           var stamp = now(), startUpdates = {};
           startUpdates.combat={ active:false, phase:'initiative', round:0, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp };
           startUpdates.combatEvent={ id:'initiative-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Бросьте инициативу!', ts:stamp };
-          if (room.scene && selectedSceneTokens.length) {
-            var selectedTokenIds = {};
-            selectedSceneTokens.forEach(function (token) { selectedTokenIds[String(token.id || '')] = true; });
-            var retainedSceneTokens = (Array.isArray(room.scene.tokens) ? room.scene.tokens : []).filter(function (token) { return token && !selectedTokenIds[String(token.id || '')]; });
-            var availableSceneSlots = Math.max(0, 60 - selectedSceneTokens.length);
-            startUpdates['scene/tokens'] = retainedSceneTokens.slice(0, availableSceneSlots).concat(selectedSceneTokens.slice(0, 60));
-            startUpdates['scene/revision'] = stamp;
-            startUpdates['scene/publishedAt'] = firebase.serverTimestamp();
-          }
           startUpdates.updatedAt=stamp;
           return firebase.update(roomRef(session.code), startUpdates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });

@@ -13066,8 +13066,8 @@ document.addEventListener('DOMContentLoaded', function(){
   function combatEntryForToken(token){
     var combat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[];
     if(!combat||!combat.active)return null;
-    if(token.type==='hero'&&token.memberUid)return order.find(function(entry){return entry&&entry.uid===token.memberUid;})||null;
-    return order.find(function(entry){return entry&&entry.tokenId===token.id;})||null;
+    if(token.type==='hero'&&token.memberUid)return order.find(function(entry){return entry&&entry.uid!=null&&String(entry.uid)===String(token.memberUid);})||null;
+    return order.find(function(entry){return entry&&entry.tokenId!=null&&String(entry.tokenId)===String(token.id);})||null;
   }
   w.zgCombatEntryForToken=combatEntryForToken;
   var STATUS_DISPLAY_ALIASES={
@@ -13384,10 +13384,15 @@ document.addEventListener('DOMContentLoaded', function(){
   function finishTokenDrag(ev){
     if (!tokenDrag || (ev && tokenDrag.pointerId !== ev.pointerId)) return;
     var moved = tokenDrag.moved;
+    var movedItems = tokenDrag.items ? tokenDrag.items.slice() : [];
     try { tokenDrag.node.releasePointerCapture(tokenDrag.pointerId); } catch(e) {}
     tokenDrag.node.classList.remove('dragging');
     tokenDrag = null;
-    if (moved) { markDirty('Жетон перемещён'); syncTokenEditor(); }
+    if (moved) {
+      markDirty('Жетон перемещён');
+      movedItems.forEach(function(item){ if(item && item.t) scheduleLiveTokenPublish(item.t); });
+      syncTokenEditor();
+    }
   }
   function beginTokenDrag(ev, token, node){
     if (!isMaster || movementMode || ev.button !== 0) return;
@@ -14538,14 +14543,13 @@ document.addEventListener('DOMContentLoaded', function(){
         var actorToken=draft.tokens.filter(function(item){return actorTokenId?String(item.id)===String(actorTokenId):(item.type==='hero'&&item.memberUid===actorUid);})[0];
         var origin=actorToken?{x:actorToken.x,y:actorToken.y,tokenId:actorToken.id}:{};
         var directCreature=!!(isMaster&&actorToken&&actorToken.type!=='hero');
-        if(directCreature){origin.visualId='gm-move-'+String(actorToken.id||'token').slice(0,28)+'-'+Date.now();animateLastMovement({id:origin.visualId,uid:'',tokenId:actorToken.id,name:tokenName(actorToken),fromX:origin.x,fromY:origin.y,toX:point.x,toY:point.y,duration:Math.max(900,Math.min(4200,Math.round(Math.hypot(point.x-origin.x,point.y-origin.y)*62))),startedAt:Date.now()});}
+        if(directCreature)origin.visualId='gm-move-'+String(actorToken.id||'token').slice(0,28)+'-'+Date.now();
         var operation = directCreature&&w.ZargotaRooms.moveMasterToken
           ? w.ZargotaRooms.moveMasterToken(actorToken.id,point.x,point.y,origin)
           : isMaster && w.ZargotaRooms.requestMovementAs
           ? w.ZargotaRooms.requestMovementAs(actorUid,point.x,point.y,origin)
           : w.ZargotaRooms.requestMovement(point.x,point.y,origin);
         operation.then(function(snapshot){
-          if(directCreature&&actorToken){actorToken.x=point.x;actorToken.y=point.y;lastSnap=snapDraft();}
           if (snapshot) roomState(snapshot);
           if(w.showToast)w.showToast(directCreature?'Существо перемещается':(isMaster?'Тестовый запрос создан':'Запрос движения отправлен мастеру'));
         })
@@ -16669,19 +16673,24 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
   w.zgCombatStart=function(){
     if(combatStartBusy||!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;
-    var tokens=combatSceneTokens(),selected=[],heroOptions={};
-    document.querySelectorAll('#zg-combat-participants .zg-combat-participant.hero').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle'),mode=row.querySelector('.zg-combat-init-mode');if(toggle)heroOptions[toggle.dataset.heroUid]={selected:toggle.checked,mode:mode&&mode.value||'normal'};});
-    document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var tokenIndex=Number(toggle.dataset.tokenIndex),token=tokens[tokenIndex],bonus=row.querySelector('em input[type=number]'),mode=row.querySelector('.zg-combat-init-mode'),group=row.querySelector('.zg-combat-group-name');if(token)selected.push({tokenId:token.id,name:token.name,group:String(group&&group.value||token.name||'Существа').trim(),portrait:token.image||'',kind:token.disposition,sourceRef:token.sourceRef||null,level:token.level||1,bonus:Number(bonus&&bonus.value)||0,mode:mode&&mode.value||'normal',hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[],sceneToken:copyToken(token,tokenIndex)});});
-    combatStartBusy=true;combatBusy(true);combatStartStatus('Синхронизируем выбранных участников…',true);
-    // Starting initiative only needs the selected tokens and combat order.
-    // Publishing the whole scene here used to re-process every image and could
-    // keep this modal locked indefinitely on a slow or broken portrait.
-    combatStartDeadline(w.ZargotaRooms.startCombat(selected,heroOptions),12000).then(function(snapshot){
-      if(snapshot){state=snapshot;roomSnapshot=snapshot;}w.zgCombatConfirmClose();renderInitiativeStage();
-    }).catch(function(error){
-      combatStartStatus(error&&error.code==='combat-timeout'?'Связь не ответила. Можно повторить.':'Не удалось перейти к инициативе.',false);
+    try{
+      var tokens=combatSceneTokens(),selected=[],heroOptions={};
+      document.querySelectorAll('#zg-combat-participants .zg-combat-participant.hero').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle'),mode=row.querySelector('.zg-combat-init-mode');if(toggle)heroOptions[toggle.dataset.heroUid]={selected:toggle.checked,mode:mode&&mode.value||'normal'};});
+      document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var tokenIndex=Number(toggle.dataset.tokenIndex),token=tokens[tokenIndex],bonus=row.querySelector('em input[type=number]'),mode=row.querySelector('.zg-combat-init-mode'),group=row.querySelector('.zg-combat-group-name');if(token)selected.push({tokenId:token.id,name:token.name,group:String(group&&group.value||token.name||'Существа').trim(),portrait:token.image||'',kind:token.disposition,sourceRef:token.sourceRef||null,level:token.level||1,bonus:Number(bonus&&bonus.value)||0,mode:mode&&mode.value||'normal',hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});
+      combatStartBusy=true;combatBusy(true);combatStartStatus('Синхронизируем выбранных участников…',true);
+      combatStartDeadline(w.ZargotaRooms.startCombat(selected,heroOptions),12000).then(function(snapshot){
+        if(snapshot){state=snapshot;roomSnapshot=snapshot;}w.zgCombatConfirmClose();renderInitiativeStage();
+      }).catch(function(error){
+        console.error('Не удалось перейти к инициативе',error);
+        combatStartStatus(error&&error.code==='combat-timeout'?'Связь не ответила. Можно повторить.':'Не удалось перейти к инициативе.',false);
+        if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');
+      }).then(function(){combatStartBusy=false;combatBusy(false);if(!el('zg-combat-confirm')||!el('zg-combat-confirm').classList.contains('open'))combatStartStatus('',false);else if((el('zg-combat-start-status')||{}).classList&&el('zg-combat-start-status').classList.contains('busy'))combatStartStatus('',false);});
+    }catch(error){
+      combatStartBusy=false;combatBusy(false);
+      console.error('Не удалось подготовить инициативу',error);
+      combatStartStatus('Не удалось подготовить инициативу.',false);
       if(w.showToast)w.showToast(error&&error.message||'Не удалось начать бой');
-    }).then(function(){combatStartBusy=false;combatBusy(false);if(!el('zg-combat-confirm')||!el('zg-combat-confirm').classList.contains('open'))combatStartStatus('',false);else if((el('zg-combat-start-status')||{}).classList&&el('zg-combat-start-status').classList.contains('busy'))combatStartStatus('',false);});
+    }
   };
   var combatAdvanceBusy=false,combatAdvanceRetryId='';
   function combatAdvanceError(){
@@ -16710,14 +16719,31 @@ document.addEventListener('DOMContentLoaded', function(){
     combatActionBusy=true;var host=el('zg-combat-economy');if(host)host.classList.add('busy');
     w.ZargotaRooms.useCombatAction(type,turn&&turn.key||'').then(function(){if(w.ZargotaSound&&w.ZargotaSound.click)w.ZargotaSound.click();}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Действие недоступно');}).then(function(){combatActionBusy=false;if(host)host.classList.remove('busy');});
   };
-  var combatAttackTargetKey='',combatAttackWeaponId='',combatAttackBusy=false,combatAttackTool=false,combatAttackError='';
+  var combatAttackTargetKey='',combatAttackTargetTokenId='',combatAttackTargetUid='',combatAttackWeaponId='',combatAttackBusy=false,combatAttackTool=false,combatAttackError='';
+  function combatAttackSameId(left,right){return left!=null&&right!=null&&String(left)===String(right);}
+  function clearCombatAttackTarget(){combatAttackTargetKey='';combatAttackTargetTokenId='';combatAttackTargetUid='';}
+  function rememberCombatAttackTarget(entry,token){
+    combatAttackTargetKey=entry&&entry.key!=null?String(entry.key):'';
+    combatAttackTargetTokenId=entry&&entry.tokenId!=null?String(entry.tokenId):(token&&token.id!=null?String(token.id):'');
+    combatAttackTargetUid=entry&&entry.uid!=null?String(entry.uid):(token&&token.memberUid!=null?String(token.memberUid):'');
+  }
+  function findCombatAttackTarget(order,entry,token){
+    order=Array.isArray(order)?order:[];
+    var key=entry&&entry.key!=null?entry.key:combatAttackTargetKey;
+    var tokenId=entry&&entry.tokenId!=null?entry.tokenId:(token&&token.id!=null?token.id:combatAttackTargetTokenId);
+    var uid=entry&&entry.uid!=null?entry.uid:(token&&token.memberUid!=null?token.memberUid:combatAttackTargetUid);
+    return order.find(function(item){return item&&key!==''&&combatAttackSameId(item.key,key);})||
+      order.find(function(item){return item&&tokenId!==''&&combatAttackSameId(item.tokenId,tokenId);})||
+      order.find(function(item){return item&&uid!==''&&combatAttackSameId(item.uid,uid);})||null;
+  }
   function setCombatAttackTool(on){combatAttackTool=!!on;w.zgCombatAttackToolActive=combatAttackTool;var overlay=el('zg-game-overlay'),cursor=el('zg-action-cursor');if(overlay)overlay.classList.toggle('combat-targeting',combatAttackTool);if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=combatAttackTool?'<img src="'+actionCursorIcons['combat-attack']+'" alt="">':'';cursor.classList.toggle('open',combatAttackTool);if(combatAttackTool&&w.zgPlaceActionCursor)w.zgPlaceActionCursor();}if(combatAttackTool&&w.showToast)w.showToast('Выберите цель атаки на сцене');}
   function selectCombatMapTarget(entry,token,node){
-    if(!entry){combatAttackTargetKey='';combatAttackError='Этот жетон не участвует в бою.';if(w.showToast)w.showToast(combatAttackError);renderCombatAttack(true);return;}
+    var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],current=findCombatAttackTarget(order,entry,token);
+    if(!current){clearCombatAttackTarget();combatAttackError='Этот жетон не участвует в текущем бою.';if(w.showToast)w.showToast(combatAttackError);renderCombatAttack(true);return;}
     var attacker=combatControlledEntry();
-    if(attacker&&entry.key===attacker.key){combatAttackTargetKey='';combatAttackError='Нельзя выбрать себя целью этой атаки.';if(w.showToast)w.showToast(combatAttackError);renderCombatAttack(true);return;}
-    if(Number(entry.hp==null?entry.hpMax:entry.hp)<=0){combatAttackTargetKey='';combatAttackError='Эта цель уже не может быть атакована.';if(w.showToast)w.showToast(combatAttackError);renderCombatAttack(true);return;}
-    combatAttackError='';combatAttackTargetKey=entry.key;setCombatAttackTool(false);
+    if(attacker&&combatAttackSameId(current.key,attacker.key)){clearCombatAttackTarget();combatAttackError='Нельзя выбрать себя целью этой атаки.';if(w.showToast)w.showToast(combatAttackError);renderCombatAttack(true);return;}
+    if(Number(current.hp==null?current.hpMax:current.hp)<=0){clearCombatAttackTarget();combatAttackError='Эта цель уже не может быть атакована.';if(w.showToast)w.showToast(combatAttackError);renderCombatAttack(true);return;}
+    combatAttackError='';rememberCombatAttackTarget(current,token);setCombatAttackTool(false);
     if(node&&node.classList){node.classList.add('combat-target');setTimeout(function(){node.classList.remove('combat-target');},1200);}
     var session=state&&state.session;
     w.zgCombatAttackToggle(true);
@@ -16726,7 +16752,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCombatSelectMapTarget=function(token,node){var entry=w.zgCombatEntryForToken&&w.zgCombatEntryForToken(token);selectCombatMapTarget(entry,token,node);};
   function combatControlledEntry(){
     var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],session=state&&state.session,turn=order[Number(combat&&combat.turnIndex)||0],own=ownMember();
-    return session&&session.role==='master'?turn:order.find(function(entry){return entry&&own&&entry.uid===own.uid;})||null;
+    return session&&session.role==='master'?turn:order.find(function(entry){return entry&&own&&combatAttackSameId(entry.uid,own.uid);})||null;
   }
   function combatClientRangeCells(value){var text=String(value||'').toLowerCase(),matches=text.match(/\d+(?:[.,]\d+)?/g);if(/касани|ближн/.test(text)&&(!matches||!matches.length))return 1;if(!matches||!matches.length)return 1;return Math.max(1,Math.floor(Math.max.apply(Math,matches.map(function(item){return Number(item.replace(',','.'))||0;}))));}
   function combatClientPoint(entry){
@@ -16741,7 +16767,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function combatPlayerAttackError(attacker,target,weapon){
     var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],turn=order[Math.max(0,Math.min(order.length-1,Number(combat&&combat.turnIndex)||0))];
     if(!combat||!combat.active)return 'Сейчас нет активного боя.';
-    if(!turn||!attacker||turn.key!==attacker.key)return 'Сейчас не ход этого героя.';
+    if(!turn||!attacker||!combatAttackSameId(turn.key,attacker.key))return 'Сейчас не ход этого героя.';
     if(Number(attacker.hp==null?attacker.hpMax:attacker.hp)<=0)return 'Герой с 0 HP не может атаковать.';
     if(!target)return 'Выберите цель атаки.';
     var restrictions=combatStatusSummary(attacker);if(restrictions.blocked.long)return (restrictions.notes[0]||'Текущее состояние')+' запрещает атаку.';
@@ -16759,12 +16785,13 @@ document.addEventListener('DOMContentLoaded', function(){
   function renderCombatAttack(force){
     var panel=el('zg-combat-attack'),body=el('zg-combat-attack-body');if(!panel||!body)return;
     var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],attacker=combatControlledEntry(),turn=order[Number(combat&&combat.turnIndex)||0];
-    if(!combat||!combat.active||!attacker||!turn||attacker.key!==turn.key){panel.classList.remove('open');body.__zgCombatSignature='';return;}
-    var targets=order.filter(function(entry){return entry&&entry.key!==attacker.key&&Number(entry.hp==null?entry.hpMax:entry.hp)>0;});
-    if(!targets.some(function(entry){return entry.key===combatAttackTargetKey;}))combatAttackTargetKey='';
+    if(!combat||!combat.active||!attacker||!turn||!combatAttackSameId(attacker.key,turn.key)){panel.classList.remove('open');body.__zgCombatSignature='';return;}
+    var targets=order.filter(function(entry){return entry&&!combatAttackSameId(entry.key,attacker.key)&&Number(entry.hp==null?entry.hpMax:entry.hp)>0;});
+    var selectedTarget=findCombatAttackTarget(targets);
+    if(selectedTarget)rememberCombatAttackTarget(selectedTarget);else clearCombatAttackTarget();
     var weapons=Array.isArray(attacker.weaponProfiles)&&attacker.weaponProfiles.length?attacker.weaponProfiles:[{id:'improvised',name:'Импровизированная атака',damageFormula:'1d4',stat:'str'}];
     if(!weapons.some(function(item){return item&&String(item.id||'')===combatAttackWeaponId;}))combatAttackWeaponId=String(weapons[0]&&weapons[0].id||'');
-    var session=state&&state.session,isPlayer=session&&session.role==='player',selectedTarget=targets.filter(function(target){return target.key===combatAttackTargetKey;})[0],selectedWeapon=weapons.filter(function(item){return item&&String(item.id||'')===combatAttackWeaponId;})[0]||weapons[0];
+    var session=state&&state.session,isPlayer=session&&session.role==='player',selectedWeapon=weapons.filter(function(item){return item&&String(item.id||'')===combatAttackWeaponId;})[0]||weapons[0];
     var signature='';
     try{signature=JSON.stringify({role:session&&session.role||'',attacker:{key:attacker.key,stats:attacker.stats,weaponProfiles:weapons},turn:turn.key,targetKey:combatAttackTargetKey,weaponId:combatAttackWeaponId,targets:targets.map(function(entry){return{key:entry.key,name:entry.name,portrait:combatEntryPortrait(entry),hp:entry.hp,hpMax:entry.hpMax,tempHp:entry.tempHp,ac:entry.ac};}),busy:combatAttackBusy,error:combatAttackError});}catch(ignore){signature=String(combat.updatedAt||'attack');}
     if(force===false&&body.__zgCombatSignature===signature)return;
@@ -16779,18 +16806,18 @@ document.addEventListener('DOMContentLoaded', function(){
     var statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
     var weaponOptions=weapons.map(function(item){return '<option value="'+esc(item.id||'')+'">'+esc(item.name||'Оружие')+' · '+esc(item.damageFormula||'1d4')+'</option>';}).join('');
     var statOptions=Object.keys(statLabels).map(function(key){var value=attacker.stats&&attacker.stats[key]||{},bonus=typeof value==='number'?value:(value.cur!=null&&value.cur!==0?value.cur:value.base||0);return '<option value="'+key+'" '+(key===(weapons[0].stat||'str')?'selected':'')+'>'+statLabels[key]+' '+(Number(bonus)>=0?'+':'')+Number(bonus||0)+'</option>';}).join('');
-    var targetHtml=targets.map(function(target){var portrait=combatEntryPortrait(target),tempHp=Math.max(0,Number(target.tempHp)||0);return '<button type="button" class="zg-combat-attack-target '+(target.key===combatAttackTargetKey?'active':'')+'" onclick="zgCombatAttackTarget('+JSON.stringify(target.key)+')">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i>☠</i>')+'<span><b>'+esc(target.name||'Цель')+'</b><small>HP '+Number(target.hp==null?target.hpMax:target.hp)+(tempHp?' · 🛡 +'+tempHp:'')+' · AC '+Number(target.ac||10)+'</small></span></button>';}).join('');
+    var targetHtml=targets.map(function(target){var portrait=combatEntryPortrait(target),tempHp=Math.max(0,Number(target.tempHp)||0);return '<button type="button" class="zg-combat-attack-target '+(combatAttackSameId(target.key,combatAttackTargetKey)?'active':'')+'" onclick="zgCombatAttackTarget('+JSON.stringify(target.key)+')">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i>☠</i>')+'<span><b>'+esc(target.name||'Цель')+'</b><small>HP '+Number(target.hp==null?target.hpMax:target.hp)+(tempHp?' · 🛡 +'+tempHp:'')+' · AC '+Number(target.ac||10)+'</small></span></button>';}).join('');
     body.innerHTML='<div class="zg-combat-attack-grid"><label>Оружие<select id="zg-combat-attack-weapon">'+weaponOptions+'</select></label><label>Характеристика<select id="zg-combat-attack-stat">'+statOptions+'</select></label><label>Мастерство<select id="zg-combat-attack-mastery"><option value="0">Без бонуса</option><option value="1">Обучен · +1</option><option value="2">Специалист · +2</option><option value="3">Мастер · +3</option></select></label><label>Бросок<select id="zg-combat-attack-mode"><option value="normal">Обычный</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select></label><label>Доп. кубы<select id="zg-combat-attack-bonus-count"><option value="0">Нет</option><option value="1">1 куб</option><option value="2">2 куба</option><option value="3">3 куба</option><option value="4">4 куба</option><option value="5">5 кубов</option></select></label><label>Кость доп. урона<select id="zg-combat-attack-bonus-die"><option value="0">—</option><option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20">d20</option></select></label></div><div class="zg-combat-attack-targets">'+(targetHtml||'<div class="zg-combat-prepare-unavailable">Доступных целей нет.</div>')+'</div>'+(combatAttackError?'<div class="zg-combat-attack-error">'+esc(combatAttackError)+'</div>':'')+'<button type="button" class="zg-combat-attack-submit" onclick="zgCombatAttackSubmit()" '+(!combatAttackTargetKey||combatAttackBusy?'disabled':'')+'>'+(combatAttackBusy?'Бросок…':'Атаковать выбранную цель')+'</button>';
     restoreCombatFormValues(formValues);body.__zgCombatSignature=signature;
   }
   w.zgCombatAttackToggle=function(force){var panel=el('zg-combat-attack');if(!panel)return false;if(force!==true){panel.classList.remove('open');setCombatAttackTool(force===false?false:!combatAttackTool);return combatAttackTool;}if(w.zgVttDeactivateTools)w.zgVttDeactivateTools('combat-attack');renderCombatAttack();panel.classList.add('open');return true;};
-  w.zgCombatAttackTarget=function(key){combatAttackError='';combatAttackTargetKey=String(key||'');renderCombatAttack();};
+  w.zgCombatAttackTarget=function(key){var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],target=order.find(function(entry){return entry&&combatAttackSameId(entry.key,key);});combatAttackError='';if(target)rememberCombatAttackTarget(target);else{clearCombatAttackTarget();combatAttackError='Цель больше не участвует в бою.';}renderCombatAttack();};
   w.zgCombatAttackWeapon=function(id){combatAttackError='';combatAttackWeaponId=String(id||'');renderCombatAttack(true);};
   w.zgCombatAttackSubmit=function(){
     if(combatAttackBusy||!combatAttackTargetKey||!w.ZargotaRooms)return;
     var attacker=combatControlledEntry(),session=state&&state.session;
     if(session&&session.role==='player'){
-      var weapons=attacker&&Array.isArray(attacker.weaponProfiles)&&attacker.weaponProfiles.length?attacker.weaponProfiles:[{id:'improvised',name:'Импровизированная атака',damageFormula:'1d4',stat:'str'}],selected=weapons.filter(function(item){return item&&String(item.id||'')===combatAttackWeaponId;})[0]||weapons[0],combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],target=order.filter(function(entry){return entry&&entry.key===combatAttackTargetKey;})[0];
+      var weapons=attacker&&Array.isArray(attacker.weaponProfiles)&&attacker.weaponProfiles.length?attacker.weaponProfiles:[{id:'improvised',name:'Импровизированная атака',damageFormula:'1d4',stat:'str'}],selected=weapons.filter(function(item){return item&&String(item.id||'')===combatAttackWeaponId;})[0]||weapons[0],combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],target=findCombatAttackTarget(order);
       var localError=combatPlayerAttackError(attacker,target,selected);if(localError){combatAttackError=localError;if(w.showToast)w.showToast(localError);renderCombatAttack(true);return;}
       if(!w.ZargotaRooms.requestAction)return;combatAttackBusy=true;renderCombatAttack();
       w.ZargotaRooms.requestAction('Просит атаковать '+(target&&target.name||'цель')+' оружием «'+(selected.name||'Оружие')+'»','combat-attack','',{targetKey:combatAttackTargetKey,weaponId:selected.id||'',statKey:selected.stat||'str',masteryBonus:0,mode:'normal'}).then(function(snapshot){if(snapshot)state=snapshot;w.zgCombatAttackToggle(false);if(w.showToast)w.showToast('Заявка на атаку отправлена мастеру');}).catch(function(error){combatAttackError=error&&error.message||'Не удалось отправить атаку';if(w.showToast)w.showToast(combatAttackError);}).then(function(){combatAttackBusy=false;renderCombatAttack(true);});return;

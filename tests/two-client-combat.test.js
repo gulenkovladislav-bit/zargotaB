@@ -7,11 +7,16 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const networkPath = path.join(root, 'zargota-network.js');
+const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const syncOutbox = require(path.join(root, 'character-sync-outbox.js'));
 const originalNetwork = fs.readFileSync(networkPath, 'utf8');
 const readyStart = originalNetwork.indexOf('  var ready = Promise.all([');
 const readyEnd = originalNetwork.indexOf('\n\n  w.ZargotaRooms = api;', readyStart);
 assert.ok(readyStart > 0 && readyEnd > readyStart, 'network bootstrap must remain injectable for the two-client harness');
+assert.match(indexHtml, /combatAttackTargetTokenId/, 'combat targeting must preserve the selected scene token identity');
+assert.match(indexHtml, /combatAttackTargetUid/, 'combat targeting must preserve the selected hero identity');
+assert.match(indexHtml, /findCombatAttackTarget\(order,entry,token\)/, 'a scene click must be remapped to the current combat snapshot');
+assert.match(indexHtml, /target=findCombatAttackTarget\(order\)/, 'attack submission must resolve the target from the current combat snapshot');
 const network = originalNetwork.slice(0, readyStart) +
   '  firebase=w.__testFirebase;auth=w.__testAuth;db=w.__testDb;connected=true;var ready=Promise.resolve(auth.currentUser);\n' +
   originalNetwork.slice(readyEnd);
@@ -260,6 +265,16 @@ async function expectCode(operation, code) {
   assert.deepStrictEqual(liveWrite.keys.slice().sort(), ['publishedAt','revision','tokens'], 'live insertion must not replace the whole scene');
   await expectCode(() => player.upsertSceneToken(Object.assign({}, liveEnemyToken, { id:'player-forbidden-token' })), 'master-only');
 
+  snapshot = await master.moveMasterToken(liveEnemyToken.id, 47, 48, {
+    x:44,
+    y:45,
+    visualId:'manual-drag-origin-test'
+  });
+  assert.strictEqual(snapshot.room.lastMovement.fromX, 44, 'GM movement must start at the latest local drag position, even before its scene write is observed');
+  assert.strictEqual(snapshot.room.lastMovement.fromY, 45, 'GM movement must preserve the latest dragged Y coordinate');
+  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === liveEnemyToken.id).x, 47, 'GM movement must persist the target X coordinate');
+  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === liveEnemyToken.id).y, 48, 'GM movement must persist the target Y coordinate');
+
   snapshot = await master.gmAddInventoryItem(playerUid, {
     itemId:'gm-test-sword',
     name:'Клинок двух клиентов',
@@ -371,7 +386,21 @@ async function expectCode(operation, code) {
     assert.strictEqual(snapshot.room.members[playerUid].gmDeliveries[deliveryId].status, 'applied');
   }
 
-  shared.data.rooms[roomCode].scene.tokens = shared.data.rooms[roomCode].scene.tokens.filter((token) => token.id !== enemyTokenId);
+  snapshot = await master.upsertSceneToken({
+    id:enemyTokenId,
+    type:'custom',
+    disposition:'enemy',
+    name:'Учебный противник',
+    image:'images/test/enemy.webp',
+    hidden:false,
+    x:50,
+    y:50,
+    size:64,
+    hp:12,
+    hpMax:12,
+    ac:0,
+    stats:{ str:0, dex:0 }
+  });
   snapshot = await master.startCombat([{
     tokenId:enemyTokenId,
     kind:'enemy',
@@ -383,21 +412,6 @@ async function expectCode(operation, code) {
     tempHp:0,
     ac:0,
     stats:{ str:0, dex:0 },
-    sceneToken:{
-      id:enemyTokenId,
-      type:'custom',
-      disposition:'enemy',
-      name:'Учебный противник',
-      image:'images/test/enemy.webp',
-      hidden:false,
-      x:50,
-      y:50,
-      size:64,
-      hp:12,
-      hpMax:12,
-      ac:0,
-      stats:{ str:0, dex:0 }
-    },
     weaponProfiles:[{
       id:'enemy-claw',
       name:'Коготь',
@@ -416,7 +430,7 @@ async function expectCode(operation, code) {
   }], {});
   assert.strictEqual(snapshot.room.combat.phase, 'initiative');
   assert.strictEqual(snapshot.room.combat.order.length, 2);
-  assert.ok(snapshot.room.scene.tokens.some((token) => token.id === enemyTokenId), 'combat start must publish a selected token for connected players');
+  assert.ok(snapshot.room.scene.tokens.some((token) => token.id === enemyTokenId), 'combat start must preserve the already published live token');
   assert.strictEqual(snapshot.room.scene.layers[0].id, 'published-background', 'combat start must preserve published scene layers');
 
   await player.rollInitiative();

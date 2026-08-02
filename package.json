@@ -3,6 +3,8 @@
   "private": true,
   "scripts": {
     "test:unit": "for test_file in tests/*.test.js; do node \"$test_file\" || exit 1; done",
+    "test:combat": "node tests/run-combat-autotest.js",
+    "test:combat:full": "node tests/run-combat-autotest.js --with-rules",
     "test:firebase-rules": "firebase emulators:exec --project zargota-vtt-rules-test --only database \"node tests/firebase-rules.emulator.mjs\""
   },
   "devDependencies": {
