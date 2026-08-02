@@ -188,6 +188,13 @@ const shared = createSharedFirebase({
               damageType:'Рубящий',
               range:'1 клетка',
               stat:'str'
+            },{
+              id:'hero-bow',
+              name:'Испытательный лук',
+              damageFormula:'1d8',
+              damageType:'Колющий',
+              range:'8 клеток',
+              stat:'dex'
             }],
             statuses:[],
             statusEffects:[]
@@ -442,21 +449,22 @@ async function expectCode(operation, code) {
     'Просит атаковать учебного противника',
     'combat-attack',
     '',
-    { targetKey:`token:${enemyTokenId}`, weaponId:'hero-blade', statKey:'str', masteryBonus:0, mode:'normal' }
+    { targetKey:`token:${enemyTokenId}`, weaponId:'hero-bow', statKey:'dex', masteryBonus:0, mode:'normal' }
   );
   const requestId = snapshot.room.members[playerUid].actionRequest.id;
   assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'pending');
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.details.weaponId, 'hero-bow', 'the player request must preserve a non-first selected weapon');
 
   await master.resolveAction(playerUid, true, { mode:'normal' });
   await player.requestApprovedAttackRoll(requestId);
   snapshot = await master.resolveCombatAttack(`token:${enemyTokenId}`, {
-    weaponId:'hero-blade',
-    statKey:'str',
+    weaponId:'hero-bow',
+    statKey:'dex',
     masteryBonus:0,
     mode:'normal'
   }, `member:${playerUid}`);
   assert.strictEqual(snapshot.room.combatEvent.hit, true);
-  await master.finishApprovedAttackRoll(
+  snapshot = await master.finishApprovedAttackRoll(
     playerUid,
     requestId,
     true,
@@ -465,12 +473,15 @@ async function expectCode(operation, code) {
     true,
     false
   );
-  await player.requestApprovedDamageRoll(requestId);
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'damage-requested', 'a hit must pause before the separate damage roll');
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.resultEventId, snapshot.room.combatEvent.id, 'the player receives the hit event before damage dice');
+  snapshot = await player.requestApprovedDamageRoll(requestId);
+  assert.ok(snapshot.room.members[playerUid].actionRequest.damageRollRequestedAt > 0, 'damage roll has its own timestamp and cannot reuse the hit roll timer');
   snapshot = await master.resolveCombatDamage(`token:${enemyTokenId}`, {
-    weaponId:'hero-blade',
-    statKey:'str'
+    weaponId:'hero-bow',
+    statKey:'dex'
   }, `member:${playerUid}`);
-  assert.strictEqual(snapshot.room.combatEvent.damage, 6, '1d6 + 2 Strength must produce six deterministic damage');
+  assert.strictEqual(snapshot.room.combatEvent.damage, 6, '1d8 + 1 Dexterity must produce six deterministic damage');
   assert.strictEqual(snapshot.room.combat.order[1].hp, 3, 'enemy combat HP must decrease after spell and weapon damage');
   assert.strictEqual(snapshot.room.scene.tokens[0].hp, 3, 'enemy token HP must stay synchronized');
   await master.finishApprovedDamageRoll(playerUid, requestId, true, snapshot.room.combatEvent.id, '');

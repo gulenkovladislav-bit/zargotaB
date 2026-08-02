@@ -1060,8 +1060,11 @@
     return'normal';
   }
 
-  function queueCombatEntryState(room, updates, entry, includeVitals) {
+  function queueCombatEntryState(room, updates, entry, includeVitals, options) {
     if (!entry) return;
+    options = options && typeof options === 'object' ? options : {};
+    var writeMember = options.writeMember !== false;
+    var writeScene = options.writeScene !== false;
     var statuses = Array.isArray(entry.statuses) ? entry.statuses : [];
     var statusEffects = Array.isArray(entry.statusEffects) ? entry.statusEffects : [];
     function write(path) {
@@ -1072,7 +1075,7 @@
         updates[path+'/tempHp'] = Math.max(0, combatNumber(entry.tempHp, 0));
       }
     }
-    if (entry.uid && room && room.members && room.members[entry.uid]) {
+    if (writeMember && entry.uid && room && room.members && room.members[entry.uid]) {
       updates['members/'+entry.uid+'/character/statuses'] = statuses;
       updates['members/'+entry.uid+'/character/statusEffects'] = statusEffects;
       updates['members/'+entry.uid+'/character/deathSaves'] = entry.zeroHp || null;
@@ -1081,7 +1084,7 @@
         updates['members/'+entry.uid+'/character/tempHp'] = Math.max(0, combatNumber(entry.tempHp, 0));
       }
     }
-    if (!entry.tokenId || !room) return;
+    if (!writeScene || !entry.tokenId || !room) return;
     (room.scene && Array.isArray(room.scene.tokens) ? room.scene.tokens : []).forEach(function (token, index) {
       if (token && String(token.id) === String(entry.tokenId)) write('scene/tokens/'+index);
     });
@@ -2345,6 +2348,16 @@
     if(!/^data:image\//i.test(source)||source.length<=targetChars||typeof Image==='undefined'||typeof document==='undefined')return Promise.resolve(source);
     var key=targetChars+'|'+compactSceneImageKey(source);if(compactSceneImageCache[key])return Promise.resolve(compactSceneImageCache[key]);
     return new Promise(function(resolve){
+      var settled=false;
+      function finish(value){
+        if(settled)return;
+        settled=true;
+        clearTimeout(timeout);
+        resolve(value);
+      }
+      // A corrupt/unsupported data URL must never block publishing the whole
+      // scene (and therefore the transition to combat) indefinitely.
+      var timeout=setTimeout(function(){finish(source);},2500);
       var image=new Image();
       image.onload=function(){
         try{
@@ -2357,10 +2370,10 @@
             small.width=Math.max(1,Math.round(canvas.width*shrink));small.height=Math.max(1,Math.round(canvas.height*shrink));
             small.getContext('2d').drawImage(canvas,0,0,small.width,small.height);canvas=small;quality=Math.max(.46,quality-.055);data=canvas.toDataURL('image/webp',quality);
           }
-          compactSceneImageCache[key]=data;resolve(data);
-        }catch(error){resolve(source);}
+          compactSceneImageCache[key]=data;finish(data);
+        }catch(error){finish(source);}
       };
-      image.onerror=function(){resolve(source);};image.src=source;
+      image.onerror=function(){finish(source);};image.src=source;
     });
   }
   function prepareSceneMedia(scene) {
@@ -3649,6 +3662,10 @@
           }
           if (accepted && request.actionKind === 'combat-attack') {
             updates['members/' + requestUid + '/actionRequest/details/mode'] = ['advantage','disadvantage'].indexOf(resolution.mode) >= 0 ? resolution.mode : 'normal';
+            var bonusDieSides=[4,6,8,10,12,20].indexOf(Number(resolution.bonusDieSides))>=0?Number(resolution.bonusDieSides):0;
+            var bonusDiceCount=bonusDieSides?Math.max(0,Math.min(5,Math.floor(Number(resolution.bonusDiceCount)||0))):0;
+            updates['members/' + requestUid + '/actionRequest/details/bonusDieSides'] = bonusDieSides;
+            updates['members/' + requestUid + '/actionRequest/details/bonusDiceCount'] = bonusDiceCount;
           }
           updates['members/' + requestUid + '/messages/' + messageId] = {
             id: messageId, uid: requestUid, kind: accepted ? 'action-approved' : 'action-rejected',
@@ -3708,7 +3725,7 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var request=room.members&&room.members[user.uid]&&room.members[user.uid].actionRequest;
           if(!request||request.id!==requestId||request.status!=='damage-requested'||request.actionKind!=='combat-attack')throw roomError('Ожидание урона не найдено.','request-missing');
-          var nextRequest=Object.assign({},request,{status:'damage-roll-requested',rollRequestedAt:now(),rollError:null});
+          var damageRollStamp=now(),nextRequest=Object.assign({},request,{status:'damage-roll-requested',rollRequestedAt:damageRollStamp,damageRollRequestedAt:damageRollStamp,rollError:null});
           return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid),{actionRequest:nextRequest}).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['player-only','room-not-found','request-missing'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
@@ -3897,8 +3914,19 @@
           syncCombatZeroHp(current,currentBeforeHp,'status-turn',stamp);
           order[next] = current;
           if (tick.changes.length) phaseNotes.push(tick.changes.join('; '));
-          queueCombatEntryState(room,updates,ending,false);
-          queueCombatEntryState(room,updates,current,true);
+          // A player may advance the shared combat cursor, but must never be
+          // forced to write master-owned scene tokens or another member's
+          // character in the same atomic update. Firebase rejects the whole
+          // update when even one of those paths is forbidden.
+          var masterAdvance=session.role==='master';
+          queueCombatEntryState(room,updates,ending,false,{
+            writeMember:masterAdvance||String(ending.uid||'')===String(user.uid),
+            writeScene:masterAdvance
+          });
+          queueCombatEntryState(room,updates,current,true,{
+            writeMember:masterAdvance||String(current.uid||'')===String(user.uid),
+            writeScene:masterAdvance
+          });
           updates['combat/turnIndex']=next;updates['combat/round']=round;updates['combat/order']=order;updates['combat/updatedAt']=stamp;
           updates['combat/appliedTurnOperationIds']=combat.appliedTurnOperationIds;
           updates['combat/lastTurnOperation']=Object.assign({},combat.lastTurnOperation,{toRound:round,toTurn:next});
@@ -4190,6 +4218,11 @@
           status:questStatus,
           importance:questImportance
         };
+      }else if(kind==='image'){
+        payload.saveToJournal=rawPayload.saveToJournal===true;
+        payload.compression=['compact','balanced','quality'].indexOf(String(rawPayload.compression||''))>=0
+          ? String(rawPayload.compression)
+          : 'balanced';
       }
       if(!deliveryFromOutbox){
         deliveryQueueResult=queueGameplayOperation('gm-delivery',deliveryOperationId,{
@@ -4883,9 +4916,10 @@
           var attackTotal=natural+statBonus+masteryBonus+attackerModifiers.attackMod,targetAc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod),critical=natural===20,failed=natural===1,hit=!failed&&(critical||attackTotal>=targetAc);
           economy.long=0;if(restrictions.slowed)economy.short=0;attacker.economy=economy;order[attackerIndex]=attacker;
           var stamp=now(),updates={},statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
+          var creatureRoll=!attacker.uid,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;
           var rollText=second==null?String(natural):(first+' / '+second+' → '+natural),resultText=failed?'автопромах':(critical?'КРИТ':(hit?'попадание':'промах'));
-          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+(attackerModifiers.attackMod?' + состояния '+attackerModifiers.attackMod:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Ожидание урона.':''),attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,statusAttackMod:attackerModifiers.attackMod,targetAc:targetAc,targetStatusAcMod:targetModifiers.acMod,hit:hit,critical:critical,damageFormula:String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,damageType:String(weapon.damageType||''),distanceCells:distance,rangeCells:rangeCells,targetKey:target.key,weapon:weapon.name||'Оружие',ts:stamp,revealAt:stamp+3200};
+          updates.combatEvent={id:'combat-attack-'+stamp,kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+(attackerModifiers.attackMod?' + состояния '+attackerModifiers.attackMod:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(hit?'. Ожидание урона.':''),hiddenText:'Существо атакует цель '+(target.name||'цель')+'. Результат броска скрыт мастером.',creatureRoll:creatureRoll,revealResult:revealResult,attackRoll:natural,attackRolls:second==null?[first]:[first,second],rollMode:mode,attackTotal:attackTotal,statusAttackMod:attackerModifiers.attackMod,targetAc:targetAc,targetStatusAcMod:targetModifiers.acMod,hit:hit,critical:critical,damageFormula:String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,damageType:String(weapon.damageType||''),distanceCells:distance,rangeCells:rangeCells,targetKey:target.key,weapon:weapon.name||'Оружие',ts:stamp,revealAt:stamp+3200};
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
@@ -4916,10 +4950,15 @@
           var attackerModifiers=combatStatusModifiers(attacker);
           var critical=!!options.critical;
           var damageResult=rollFormula(weapon.damageFormula||'1d4',critical);
-          var rawDamage=Math.max(0,damageResult.total+statBonus+attackerModifiers.damageMod),damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
+          var bonusDieSides=[4,6,8,10,12,20].indexOf(Number(options.bonusDieSides))>=0?Number(options.bonusDieSides):0;
+          var bonusDiceCount=bonusDieSides?Math.max(0,Math.min(5,Math.floor(Number(options.bonusDiceCount)||0))):0;
+          var bonusRolls=[],bonusRollCount=bonusDiceCount*(critical?2:1);
+          for(var bonusIndex=0;bonusIndex<bonusRollCount;bonusIndex++)bonusRolls.push(Math.floor(Math.random()*bonusDieSides)+1);
+          var bonusDamage=bonusRolls.reduce(function(sum,value){return sum+value;},0);
+          var rawDamage=Math.max(0,damageResult.total+bonusDamage+statBonus+attackerModifiers.damageMod),damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
           if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
           var vitalsResult=applyVitalsDomainOperation(target,{damage:damage}),before=vitalsResult.beforeHp,absorbed=vitalsResult.absorbed,hpDamage=vitalsResult.hpDamage,after=vitalsResult.hp,tempAfter=vitalsResult.tempHp,reachedZero=vitalsResult.reachedZero;
-          var stamp=now();
+          var stamp=now(),creatureRoll=!attacker.uid,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
           target.hp=after;target.tempHp=tempAfter;syncCombatZeroHp(target,before,attacker.key,stamp);order[targetIndex]=target;
           var updates={};
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;
@@ -4939,7 +4978,7 @@
             Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=after;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=tempAfter;}});});
           }
           var damageNote=immune?' · иммунитет':(resisted&&!vulnerable?' · сопротивление':(vulnerable&&!resisted?' · уязвимость':(resisted&&vulnerable?' · сопротивление и уязвимость нейтрализованы':'')));
-          updates.combatEvent={id:'combat-damage-'+stamp,kind:'combat-damage',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Наносит урон оружием «'+(weapon.name||'оружие')+'» цели '+(target.name||'цель')+'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+(attackerModifiers.damageMod?' · состояния '+attackerModifiers.damageMod:'')+damageNote+').'+(absorbed?' Временные HP поглощают '+absorbed+(hpDamage?' — в здоровье проходит '+hpDamage+'.':'.'):'')+(reachedZero?' Цель достигает 0 HP — на её ходу потребуется ручной бросок борьбы за жизнь.':''),damage:damage,damageRolls:damageResult.rolls||[],damageFormula:damageResult.formula||String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:tempAfter,rawDamage:rawDamage,damageType:damageType,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
+          updates.combatEvent={id:'combat-damage-'+stamp,kind:'combat-damage',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Наносит урон оружием «'+(weapon.name||'оружие')+'» цели '+(target.name||'цель')+'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+(bonusDiceCount?' + '+bonusDiceCount+'d'+bonusDieSides+(critical?' ×2':''):'')+(attackerModifiers.damageMod?' · состояния '+attackerModifiers.damageMod:'')+damageNote+').'+(absorbed?' Временные HP поглощают '+absorbed+(hpDamage?' — в здоровье проходит '+hpDamage+'.':'.'):'')+(reachedZero?' Цель достигает 0 HP — на её ходу потребуется ручной бросок борьбы за жизнь.':''),hiddenText:'Существо наносит урон цели '+(target.name||'цель')+'. Значение броска скрыто мастером.',creatureRoll:creatureRoll,revealResult:revealResult,damage:damage,damageRolls:(damageResult.rolls||[]).concat(bonusRolls),baseDamageRollCount:(damageResult.rolls||[]).length,bonusDieSides:bonusDieSides,bonusDiceCount:bonusDiceCount,damageFormula:damageResult.formula||String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:tempAfter,rawDamage:rawDamage,damageType:damageType,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
@@ -5305,7 +5344,8 @@
       }).catch(function () { return null; });
     },
 
-    beginRoll: function (sides, speakerUid, value, total, outcome, statLabel, clientRollId) {
+    beginRoll: function (sides, speakerUid, value, total, outcome, statLabel, clientRollId, options) {
+      options = options || {};
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || !firebase || !db) return null;
@@ -5321,7 +5361,9 @@
           outcome: outcome === 'critical-success' || outcome === 'critical-fail' ? outcome : '',
           statLabel: String(statLabel || '').slice(0, 30),
           speakerUid: speaker && speaker.uid || user.uid,
-          name: speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок'
+          speakerTokenId: String(options.speakerTokenId || '').slice(0, 128),
+          revealResult: options.revealResult !== false,
+          name: String(options.name || speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок').slice(0, 120)
         };
         if (member) { member.activeRoll = activeRoll; emit(); }
         try { window.dispatchEvent(new CustomEvent('zg-local-roll',{detail:{ownerUid:user.uid,roll:activeRoll}})); } catch(e) {}
@@ -5331,7 +5373,8 @@
       }).catch(function () { return null; });
     },
 
-    beginRollBatch: function (rolls, speakerUid, clientRollId) {
+    beginRollBatch: function (rolls, speakerUid, clientRollId, options) {
+      options = options || {};
       rolls = (Array.isArray(rolls) ? rolls : []).slice(0, 10).map(function (roll) {
         var sides = Math.max(2, Math.min(100, Number(roll && roll.sides) || 20));
         var value = Math.max(1, Math.min(sides, Number(roll && roll.value) || 1));
@@ -5349,7 +5392,8 @@
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
         var activeRoll = { id:String(clientRollId||('roll-'+now()+'-'+Math.random().toString(36).slice(2,6))).slice(0,120), ts:now(), duration:1250, rolls:rolls,
-          speakerUid:speaker && speaker.uid || user.uid, name:speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок' };
+          speakerUid:speaker && speaker.uid || user.uid, speakerTokenId:String(options.speakerTokenId||'').slice(0,128), revealResult:options.revealResult!==false,
+          name:String(options.name||speaker && speaker.character && speaker.character.name||speaker && speaker.name||'Игрок').slice(0,120) };
         if (member) { member.activeRoll = activeRoll; emit(); }
         try { window.dispatchEvent(new CustomEvent('zg-local-roll',{detail:{ownerUid:user.uid,roll:activeRoll}})); } catch(e) {}
         return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/members/' + user.uid), {

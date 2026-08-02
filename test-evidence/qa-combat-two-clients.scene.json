@@ -1,0 +1,165 @@
+{
+  "format": "zargota-scene",
+  "schemaVersion": 1,
+  "exportedAt": "2026-08-01T00:00:00.000Z",
+  "scene": {
+    "name": "QA — бой двух клиентов",
+    "folder": "QA",
+    "created": 0,
+    "revision": 1,
+    "updatedAt": 0,
+    "updatedByDevice": "codex-qa-fixture",
+    "data": {
+      "layers": [
+        {
+          "id": "qa-map",
+          "name": "QA · карта Зарготы",
+          "image": "images/map.jpg",
+          "visible": true,
+          "opacity": 1,
+          "fit": "cover",
+          "scale": 1,
+          "x": 0,
+          "y": 0,
+          "brightness": 1,
+          "contrast": 1,
+          "saturation": 1,
+          "darken": 0,
+          "locked": true
+        }
+      ],
+      "tokens": [
+        {
+          "id": "hero-slot-1",
+          "type": "spawn",
+          "name": "Место героя 1",
+          "x": 38,
+          "y": 58,
+          "size": 46,
+          "visible": true,
+          "hidden": true,
+          "locked": true,
+          "snap": false,
+          "z": 3
+        },
+        {
+          "id": "qa-rat-melee",
+          "type": "custom",
+          "name": "QA Крыса",
+          "disposition": "enemy",
+          "x": 48,
+          "y": 58,
+          "size": 58,
+          "visible": true,
+          "hidden": false,
+          "locked": false,
+          "snap": false,
+          "hp": 12,
+          "hpMax": 12,
+          "tempHp": 0,
+          "ac": 10,
+          "initiative": 1,
+          "speed": 7,
+          "stats": {
+            "str": 1,
+            "dex": 2,
+            "con": 1,
+            "int": -2,
+            "per": 1,
+            "cha": -2
+          },
+          "weaponProfiles": [
+            {
+              "id": "qa-bite",
+              "name": "Укус",
+              "damageFormula": "1d4+1",
+              "damageType": "колющий",
+              "range": "1 клетка",
+              "toHit": 2,
+              "description": "Контроль ближней атаки и урона."
+            }
+          ],
+          "z": 20
+        },
+        {
+          "id": "qa-archer-range",
+          "type": "custom",
+          "name": "QA Стрелок",
+          "disposition": "enemy",
+          "x": 68,
+          "y": 38,
+          "size": 58,
+          "visible": true,
+          "hidden": false,
+          "locked": false,
+          "snap": false,
+          "hp": 10,
+          "hpMax": 10,
+          "tempHp": 0,
+          "ac": 11,
+          "initiative": 2,
+          "speed": 6,
+          "stats": {
+            "str": 0,
+            "dex": 2,
+            "con": 0,
+            "int": 0,
+            "per": 2,
+            "cha": 0
+          },
+          "weaponProfiles": [
+            {
+              "id": "qa-shot",
+              "name": "Тестовый выстрел",
+              "damageFormula": "1d6",
+              "damageType": "колющий",
+              "range": "8 клеток",
+              "toHit": 2,
+              "description": "Контроль дальности и скрытого результата броска существа."
+            }
+          ],
+          "z": 21
+        }
+      ],
+      "regions": [],
+      "view": {
+        "fog": false,
+        "visionMode": "party",
+        "rememberExplored": true,
+        "cinematic": false,
+        "showOtherRequests": false,
+        "allowPlayerInspectAllies": true,
+        "showPublicStatuses": true,
+        "showPublicInjuries": true,
+        "showCreatureRollTotals": true,
+        "worldClockWidget": "hidden",
+        "statusVisibility": {},
+        "minZoom": 0.6,
+        "maxZoom": 2.2,
+        "panLimit": 45
+      },
+      "grid": true,
+      "gridSize": 64,
+      "boardWidth": 20,
+      "boardHeight": 14,
+      "gridAboveTokens": false,
+      "gridColor": "#cab270",
+      "gridOpacity": 0.18,
+      "gridThickness": 1,
+      "gridContrast": 1,
+      "gridSaturation": 1,
+      "snap": false,
+      "gridOx": 0,
+      "gridOy": 0,
+      "x": 0,
+      "y": 0,
+      "zoom": 1,
+      "revision": 1
+    }
+  },
+  "assets": {
+    "embeddedCount": 0,
+    "externalCount": 0,
+    "references": []
+  }
+}
