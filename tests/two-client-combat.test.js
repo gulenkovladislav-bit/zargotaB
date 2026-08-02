@@ -202,6 +202,8 @@ const shared = createSharedFirebase({
         }
       },
       scene:{
+        gridSize:72,
+        layers:[{ id:'published-background', image:'images/maps/training.webp', opacity:0.85 }],
         tokens:[{
           id:enemyTokenId,
           type:'custom',
@@ -234,7 +236,31 @@ async function expectCode(operation, code) {
 }
 
 (async function run() {
-  let snapshot = await master.gmAddInventoryItem(playerUid, {
+  const liveEnemyToken = {
+    id:'enemy-live-added',
+    type:'custom',
+    disposition:'enemy',
+    name:'Серый волк',
+    hp:9,
+    hpMax:9,
+    ac:12,
+    x:42,
+    y:46,
+    snap:false,
+    statuses:[],
+    statusEffects:[]
+  };
+  let snapshot = await master.upsertSceneToken(liveEnemyToken);
+  assert.ok(snapshot.room.scene.tokens.some((token) => token && token.id === liveEnemyToken.id), 'a token added after joining must enter the published scene');
+  assert.ok(shared.data.rooms[roomCode].scene.tokens.some((token) => token && token.id === liveEnemyToken.id), 'the live token must be written to Firebase scene data');
+  assert.strictEqual(shared.data.rooms[roomCode].scene.gridSize, 72, 'a live token update must preserve unpublished scene settings');
+  assert.strictEqual(shared.data.rooms[roomCode].scene.layers[0].id, 'published-background', 'a live token update must preserve the published background');
+  const liveWrite = shared.writes.find((write) => write.kind === 'update' && write.path === `rooms/${roomCode}/scene` && write.keys.includes('tokens'));
+  assert.ok(liveWrite, 'a live token must use a targeted scene update');
+  assert.deepStrictEqual(liveWrite.keys.slice().sort(), ['publishedAt','revision','tokens'], 'live insertion must not replace the whole scene');
+  await expectCode(() => player.upsertSceneToken(Object.assign({}, liveEnemyToken, { id:'player-forbidden-token' })), 'master-only');
+
+  snapshot = await master.gmAddInventoryItem(playerUid, {
     itemId:'gm-test-sword',
     name:'Клинок двух клиентов',
     icon:'⚔',
@@ -345,6 +371,7 @@ async function expectCode(operation, code) {
     assert.strictEqual(snapshot.room.members[playerUid].gmDeliveries[deliveryId].status, 'applied');
   }
 
+  shared.data.rooms[roomCode].scene.tokens = shared.data.rooms[roomCode].scene.tokens.filter((token) => token.id !== enemyTokenId);
   snapshot = await master.startCombat([{
     tokenId:enemyTokenId,
     kind:'enemy',
@@ -356,6 +383,21 @@ async function expectCode(operation, code) {
     tempHp:0,
     ac:0,
     stats:{ str:0, dex:0 },
+    sceneToken:{
+      id:enemyTokenId,
+      type:'custom',
+      disposition:'enemy',
+      name:'Учебный противник',
+      image:'images/test/enemy.webp',
+      hidden:false,
+      x:50,
+      y:50,
+      size:64,
+      hp:12,
+      hpMax:12,
+      ac:0,
+      stats:{ str:0, dex:0 }
+    },
     weaponProfiles:[{
       id:'enemy-claw',
       name:'Коготь',
@@ -374,6 +416,8 @@ async function expectCode(operation, code) {
   }], {});
   assert.strictEqual(snapshot.room.combat.phase, 'initiative');
   assert.strictEqual(snapshot.room.combat.order.length, 2);
+  assert.ok(snapshot.room.scene.tokens.some((token) => token.id === enemyTokenId), 'combat start must publish a selected token for connected players');
+  assert.strictEqual(snapshot.room.scene.layers[0].id, 'published-background', 'combat start must preserve published scene layers');
 
   await player.rollInitiative();
   await master.rollInitiative('training-enemy');
@@ -483,7 +527,7 @@ async function expectCode(operation, code) {
   }, `member:${playerUid}`);
   assert.strictEqual(snapshot.room.combatEvent.damage, 6, '1d8 + 1 Dexterity must produce six deterministic damage');
   assert.strictEqual(snapshot.room.combat.order[1].hp, 3, 'enemy combat HP must decrease after spell and weapon damage');
-  assert.strictEqual(snapshot.room.scene.tokens[0].hp, 3, 'enemy token HP must stay synchronized');
+  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === enemyTokenId).hp, 3, 'enemy token HP must stay synchronized');
   await master.finishApprovedDamageRoll(playerUid, requestId, true, snapshot.room.combatEvent.id, '');
 
   const afterPlayerDamage = snapshot.room.combat.order[1].hp;

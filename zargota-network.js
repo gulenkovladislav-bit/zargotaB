@@ -3104,6 +3104,44 @@
       });
     },
 
+    // Publish a single token into the already visible scene. The scene editor
+    // can contain unfinished background, fog and camera changes, so adding an
+    // enemy during a live session must not replace the whole published scene.
+    upsertSceneToken: function (token) {
+      token = token || {};
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Добавлять жетоны на живую сцену может только мастер.', 'master-only');
+        if (!token.id) throw roomError('У жетона отсутствует идентификатор.', 'scene-token-invalid');
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          if (!room.scene || !Array.isArray(room.scene.tokens)) throw roomError('Сначала покажите сцену игрокам.', 'scene-missing');
+          return prepareSceneMedia({ tokens:[token] }).then(function (preparedScene) {
+            var cleanToken = sanitizeScene({ tokens:preparedScene.tokens }).tokens[0];
+            if (!cleanToken) throw roomError('Не удалось подготовить жетон.', 'scene-token-invalid');
+            var tokens = room.scene.tokens.slice(0, 60), tokenId = String(cleanToken.id);
+            var index = tokens.findIndex(function (item) { return item && String(item.id) === tokenId; });
+            if (index >= 0) tokens[index] = cleanToken;
+            else {
+              if (tokens.length >= 60) throw roomError('На опубликованной сцене достигнут лимит жетонов.', 'scene-token-limit');
+              tokens.push(cleanToken);
+            }
+            return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/scene'), {
+              tokens:tokens,
+              revision:now(),
+              publishedAt:firebase.serverTimestamp()
+            });
+          }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','scene-missing','scene-token-invalid','scene-token-limit','scene-too-large'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     cueCamera: function (x, y, zoom) {
       x = Math.max(0, Math.min(100, Number(x) || 0));
       y = Math.max(0, Math.min(100, Number(y) || 0));
@@ -3770,6 +3808,7 @@
             entry.economy.movement = combatTurnMovement(entry);
             return entry;
           });
+          var selectedSceneTokens = [];
           sceneParticipants.forEach(function (participant, index) {
             if (!participant || !participant.tokenId) return;
             var name = String(participant.name || 'Существо').trim().slice(0, 80) || 'Существо';
@@ -3790,6 +3829,14 @@
               statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
               economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
             });
+            if (participant.sceneToken && String(participant.sceneToken.id || '') === String(participant.tokenId)) {
+              var cleanSceneToken = sanitizeScene({ tokens:[participant.sceneToken] }).tokens[0];
+              if (cleanSceneToken) {
+                var existingSceneToken = room.scene && Array.isArray(room.scene.tokens) ? room.scene.tokens.filter(function (token) { return token && String(token.id || '') === String(cleanSceneToken.id || ''); })[0] : null;
+                if (/^data:/i.test(String(cleanSceneToken.image || '')) && String(cleanSceneToken.image || '').length > 32000) cleanSceneToken.image = existingSceneToken && existingSceneToken.image || '';
+                selectedSceneTokens.push(cleanSceneToken);
+              }
+            }
           });
           order.forEach(function (entry) {
             var restrictions = combatRestrictions(entry);
@@ -3802,6 +3849,15 @@
           var stamp = now(), startUpdates = {};
           startUpdates.combat={ active:false, phase:'initiative', round:0, turnIndex:0, order:order, startedAt:stamp, updatedAt:stamp };
           startUpdates.combatEvent={ id:'initiative-start-'+stamp, kind:'combat', name:'Мир Зарготы', text:'Бросьте инициативу!', ts:stamp };
+          if (room.scene && selectedSceneTokens.length) {
+            var selectedTokenIds = {};
+            selectedSceneTokens.forEach(function (token) { selectedTokenIds[String(token.id || '')] = true; });
+            var retainedSceneTokens = (Array.isArray(room.scene.tokens) ? room.scene.tokens : []).filter(function (token) { return token && !selectedTokenIds[String(token.id || '')]; });
+            var availableSceneSlots = Math.max(0, 60 - selectedSceneTokens.length);
+            startUpdates['scene/tokens'] = retainedSceneTokens.slice(0, availableSceneSlots).concat(selectedSceneTokens.slice(0, 60));
+            startUpdates['scene/revision'] = stamp;
+            startUpdates['scene/publishedAt'] = firebase.serverTimestamp();
+          }
           startUpdates.updatedAt=stamp;
           return firebase.update(roomRef(session.code), startUpdates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
         });
