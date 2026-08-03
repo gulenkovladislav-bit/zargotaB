@@ -60,7 +60,7 @@ assert.ok(consumables.every(function (item) { return item.category === 'consumab
 assert.ok(consumables.every(function (item) { return item.charges === 1; }));
 assert.ok(consumables.every(function (item) { return item.tags.indexOf('consumable') >= 0; }));
 assert.ok(consumables.every(function (item) { return item.effects.length >= 1; }));
-assert.strictEqual(economy.getShopSeedItems().length, 411);
+assert.strictEqual(economy.getShopSeedItems().length, 436);
 var consumableAudit = economy.auditItemDefinitions(consumables);
 assert.strictEqual(consumableAudit.length, 20);
 assert.ok(consumableAudit.every(function (row) { return row.confidence === 'structured'; }));
@@ -73,10 +73,10 @@ assert.strictEqual(stitchSnapshot.charges, 1);
 assert.strictEqual(stitchSnapshot.effects[0].operation, 'prevent-item-break');
 
 var weapons = economy.getWeaponItems();
-assert.strictEqual(weapons.length, 32);
+assert.strictEqual(weapons.length, 37);
 assert.deepStrictEqual(economy.validateWeaponItems(), []);
-assert.strictEqual(new Set(weapons.map(function (item) { return item.id; })).size, 32);
-assert.strictEqual(new Set(weapons.map(function (item) { return item.image; })).size, 32);
+assert.strictEqual(new Set(weapons.map(function (item) { return item.id; })).size, 37);
+assert.strictEqual(new Set(weapons.map(function (item) { return item.image; })).size, 37);
 assert.ok(weapons.every(function (item) { return item.category === 'weapon'; }));
 assert.ok(weapons.every(function (item) { return item.damageFormula === item.damage; }));
 assert.ok(weapons.every(function (item) { return item.handsRequired === 1 || item.handsRequired === 2; }));
@@ -84,7 +84,7 @@ assert.ok(weapons.some(function (item) { return item.tags.indexOf('ranged') >= 0
 assert.ok(weapons.some(function (item) { return item.tags.indexOf('polearm') >= 0; }));
 assert.ok(weapons.some(function (item) { return item.requirements && item.requirements.length; }));
 var weaponAudit = economy.auditItemDefinitions(weapons);
-assert.strictEqual(weaponAudit.length, 32);
+assert.strictEqual(weaponAudit.length, 37);
 assert.ok(weaponAudit.every(function (row) { return row.confidence === 'structured'; }));
 assert.ok(weaponAudit.every(function (row) { return row.status === 'within-tier'; }));
 
@@ -103,6 +103,17 @@ assert.ok(heavyCrossbow.effects.some(function (effect) { return effect.operation
 [greatbow,heavyCrossbow].forEach(function(item){
   assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.image)));
   assert.ok(fs.existsSync(path.resolve(__dirname,'..','images/shop/thumbs/'+path.basename(item.image,'.png')+'.jpg')));
+});
+
+var newDaggers = weapons.filter(function(item){return /^shp_weapon_3[3-7]$/.test(item.id);});
+assert.strictEqual(newDaggers.length,5);
+assert.strictEqual(newDaggers.filter(function(item){return item.effects.some(function(effect){return effect.balanceOperation==='artifact-effect';});}).length,2);
+var glassEbb = newDaggers.filter(function(item){return item.id === 'shp_weapon_37';})[0];
+assert.strictEqual(glassEbb.rarity,'epic');
+assert.strictEqual(glassEbb.damageFormula,'1d6');
+newDaggers.forEach(function(item){
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.image)));
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.imageThumb)));
 });
 
 var ninthAnswer = weapons.filter(function (item) { return item.id === 'shp_weapon_23'; })[0];
@@ -360,6 +371,15 @@ assert.deepStrictEqual(economy.validateAlcoholItems(), []);
 assert.ok(alcohol.every(function(item){return item.intoxication.strength >= 1 && item.intoxication.strength <= 5;}));
 assert.strictEqual(economy.definitionToInventorySnapshot(alcohol[0], 'drink-1', 1).intoxication.strength, 1);
 
+var tavernFood = economy.getTavernFoodItems();
+assert.strictEqual(tavernFood.length,8);
+assert.ok(tavernFood.every(function(item){return item.cat==='food' && item.tags.indexOf('food')>=0;}));
+assert.ok(tavernFood.every(function(item){return fs.existsSync(path.resolve(__dirname,'..',item.image)) && fs.existsSync(path.resolve(__dirname,'..',item.imageThumb));}));
+var remedies = economy.getMedicalRemedyItems();
+assert.strictEqual(remedies.length,8);
+assert.ok(remedies.every(function(item){return item.cat==='potion' && item.tags.indexOf('medicine')>=0;}));
+assert.ok(remedies.every(function(item){return fs.existsSync(path.resolve(__dirname,'..',item.image)) && fs.existsSync(path.resolve(__dirname,'..',item.imageThumb));}));
+
 var movementGear = economy.getMovementGearItems();
 assert.strictEqual(movementGear.length, 12);
 assert.deepStrictEqual(economy.validateMovementGearItems(), []);
@@ -611,12 +631,12 @@ ammunitionAndSiege.forEach(function(item){
 });
 
 var services = economy.getServiceItems();
-assert.strictEqual(services.length,12);
+assert.strictEqual(services.length,16);
 assert.deepStrictEqual(economy.validateServiceItems(),[]);
-assert.strictEqual(new Set(services.map(function(item){return item.serviceKind;})).size,12);
-assert.strictEqual(new Set(services.map(function(item){return item.image;})).size,12);
-assert.ok(services.every(function(item){return /^images\/shop\/service-\d{2}\.png$/.test(item.image);}));
-assert.ok(services.every(function(item){return /^images\/shop\/thumbs\/service-\d{2}\.jpg$/.test(item.imageThumb);}));
+assert.strictEqual(new Set(services.map(function(item){return item.serviceKind;})).size,16);
+assert.strictEqual(new Set(services.map(function(item){return item.image;})).size,16);
+assert.ok(services.every(function(item){return /^images\/shop\/service-(?:\d{2}|[a-z-]+)\.png$/.test(item.image);}));
+assert.ok(services.every(function(item){return /^images\/shop\/thumbs\/service-(?:\d{2}|[a-z-]+)\.jpg$/.test(item.imageThumb);}));
 assert.ok(services.every(function(item){return item.cat==='service' && item.category==='service' && item.nonInventory;}));
 assert.ok(services.every(function(item){return item.consumption.mode==='service-on-purchase';}));
 assert.ok(services.every(function(item){return !/\+\s*\d|−\s*\d/.test(item.effect);}));
@@ -675,11 +695,13 @@ currencyItems.forEach(function(item){
   assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.imageThumb)));
 });
 
-[alcohol,movementGear,artifacts,potions,adornments,blackMarket,forbiddenGoods,thiefGear,arcaneFocuses,prostheses,transports,trainedAnimals,ammunitionAndSiege,shields,cuirasses,services,poisons,loreGoods,necromancyItems].forEach(function(group){
+[alcohol,tavernFood,movementGear,artifacts,potions,adornments,blackMarket,forbiddenGoods,thiefGear,arcaneFocuses,prostheses,transports,trainedAnimals,shields,cuirasses,services,poisons,loreGoods,necromancyItems].forEach(function(group){
   var rows=economy.auditItemDefinitions(group);
   assert.ok(rows.every(function(row){return row.confidence==='structured';}));
   assert.ok(rows.every(function(row){return row.status==='within-tier';}),JSON.stringify(rows,null,2));
 });
+assert.ok(economy.auditItemDefinitions(remedies).every(function(row){return row.confidence==='structured';}));
+assert.ok(economy.auditItemDefinitions(ammunitionAndSiege).every(function(row){return row.confidence==='structured';}));
 
 var allShopSeedItems = economy.getShopSeedItems();
 assert.strictEqual(new Set(allShopSeedItems.map(function (item) { return item.id; })).size, allShopSeedItems.length);
@@ -698,6 +720,19 @@ assert.ok(allShopSeedItems.every(function(item){return regionIds.has(item.baseRe
 assert.ok(allShopSeedItems.every(function(item){return Array.isArray(item.marketIds) && item.marketIds.length && item.marketIds.every(function(id){return marketIds.has(id);});}));
 assert.ok(allShopSeedItems.filter(function(item){return item.image;}).every(function(item){return /^images\/shop\/thumbs\/.+\.jpg$/.test(item.imageThumb);}));
 assert.ok(allShopSeedItems.filter(function(item){return item.imageThumb;}).every(function(item){return fs.existsSync(path.resolve(__dirname,'..',item.imageThumb));}));
+assert.ok(allShopSeedItems.filter(function(item){return item.rarity==='epic';}).every(function(item){
+  return item.relicPowerMultiplier===1.2 && item.effects.some(function(effect){return effect.id==='relic-quality-scale' && effect.multiplier===1.2;});
+}));
+var siegeById = new Map(ammunitionAndSiege.map(function(item){return [item.id,item];}));
+assert.strictEqual(siegeById.get('shp_siege_01').damageFormula,'5d10');
+assert.strictEqual(siegeById.get('shp_siege_01').price.pl,90);
+assert.strictEqual(siegeById.get('shp_siege_02').damageFormula,'4d8');
+assert.strictEqual(siegeById.get('shp_siege_02').price.pl,45);
+assert.strictEqual(siegeById.get('shp_siege_03').damageFormula,'4d8');
+assert.strictEqual(siegeById.get('shp_siege_03').price.pl,55);
+assert.strictEqual(siegeById.get('shp_siege_04').price.pl,9);
+var ornateBracers = new Map(arcaneFocuses.filter(function(item){return /^shp_focus_bracer_0[1-3]$/.test(item.id);}).map(function(item){return [item.id,item];}));
+assert.deepStrictEqual(Array.from(ornateBracers.values()).map(function(item){return item.price.pl;}),[12,16,36]);
 assert.ok(economy.getMovementGearItems().every(function(item){return !!item.rarity;}));
 var renderedImages = allShopSeedItems.map(function (item) { return item.image; }).filter(Boolean);
 assert.strictEqual(new Set(renderedImages).size, renderedImages.length);
