@@ -43,6 +43,25 @@ window.__zgpScriptStarted = true;
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  function coinIcon(key, size) {
+    return typeof global.zgCoinIconHtml === 'function' ? global.zgCoinIconHtml(key, size || 16) : '';
+  }
+
+  function coinStack(size) {
+    return typeof global.zgCoinStackHtml === 'function' ? global.zgCoinStackHtml(size || 16) : '';
+  }
+
+  function priceHtml(price) {
+    price = price || {};
+    var parts = [];
+    [['pl','пл'],['zl','зл'],['sr','ср'],['md','мд']].forEach(function(entry) {
+      if (!price[entry[0]]) return;
+      if (typeof global.zgCoinAmountHtml === 'function') parts.push(global.zgCoinAmountHtml(entry[0], price[entry[0]]));
+      else parts.push(esc(price[entry[0]] + ' ' + entry[1]));
+    });
+    return parts.join(' ') || 'бесплатно';
+  }
+
   function sameId(a, b) {
     return String(a) === String(b);
   }
@@ -474,14 +493,14 @@ window.__zgpScriptStarted = true;
           (item.effect ? '\n' + item.effect : (item.desc ? '\n' + item.desc : '')) +
           '\nНажмите, чтобы открыть карточку Товаров';
         tags.push('<div class="zgp-tag item clickable" data-tooltip="' + esc(itemTip) +
-          '" onclick="zgProgressionViewItem(' + level + ',' + index + ')">💰<span>' +
+          '" onclick="zgProgressionViewItem(' + level + ',' + index + ')">📦<span>' +
           esc(item.name || 'Предмет') + '</span><button onclick="event.stopPropagation();zgProgressionRemovePlan(' +
           level + ',\'item\',' + index + ')">×</button></div>');
       });
       entry.gold.forEach(function(gold, index) {
         var label = (gold.amount > 0 ? '+' : '') + gold.amount + ' зл';
         tags.push('<div class="zgp-tag item" data-tooltip="' + esc(label + (gold.note ? '\n' + gold.note : '')) +
-          '">🪙<span>' + label + '</span><button onclick="event.stopPropagation();zgProgressionRemovePlan(' +
+          '">' + coinIcon('zl',16) + '<span>' + label + '</span><button onclick="event.stopPropagation();zgProgressionRemovePlan(' +
           level + ',\'gold\',' + index + ')">×</button></div>');
       });
       entry.notes.forEach(function(note, index) {
@@ -511,10 +530,10 @@ window.__zgpScriptStarted = true;
       rows.push({ icon:'🏹', text:(spell && spell.name) || 'Навык', kind:'spell', key:index });
     });
     entry.items.forEach(function(item, index) {
-      rows.push({ icon:item.icon || '💰', text:item.name || 'Предмет', kind:'item', key:index });
+      rows.push({ icon:item.icon || '📦', text:item.name || 'Предмет', kind:'item', key:index });
     });
     entry.gold.forEach(function(gold, index) {
-      rows.push({ icon:'🪙', text:(gold.amount > 0 ? '+' : '') + gold.amount + ' зл' +
+      rows.push({ icon:coinIcon('zl',16), text:(gold.amount > 0 ? '+' : '') + gold.amount + ' зл' +
         (gold.note ? ' · ' + gold.note : ''), kind:'gold', key:index });
     });
     entry.notes.forEach(function(note, index) {
@@ -547,8 +566,8 @@ window.__zgpScriptStarted = true;
         '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'stats\')"><span>' + STAT_ICONS.str + '</span>Повысить стат<small>' +
           entryPointCount(entry) + '/' + levelAllowance(character, ui.level) + '</small></button>' +
         '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'spells\')"><span>🏹</span>Выбрать навык<small>из Каталога</small></button>' +
-        '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'items\')"><span>💰</span>Купить предмет<small>из Товаров</small></button>' +
-        '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'gold\')"><span>🪙</span>Добавить золото<small>доход / трата</small></button>' +
+        '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'items\')"><span>📦</span>Купить предмет<small>из Товаров</small></button>' +
+        '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'gold\')"><span>' + coinIcon('zl',18) + '</span>Добавить золото<small>доход / трата</small></button>' +
         '<button class="zgp-menu-item" onclick="zgProgressionMenuSection(\'notes\')"><span>🪶</span>Добавить заметку</button>' +
         '</div></div>';
     }
@@ -584,11 +603,11 @@ window.__zgpScriptStarted = true;
       (levelAllowance(character, ui.level) - entryPointCount(selected)) + '</b></div>' +
       '<div class="zgp-bottom-cell">Запланировано до ур. ' + target + ':' +
       '<div class="zgp-bottom-icons"><span>' + STAT_ICONS.str + ' <strong>' + totals.stats + '</strong></span><span>🏹 <strong>' +
-      totals.spells + '</strong></span><span>💰 <strong>' + totals.items + '</strong></span><span>🪙 <strong>' +
+      totals.spells + '</strong></span><span>📦 <strong>' + totals.items + '</strong></span><span>' + coinIcon('zl',15) + ' <strong>' +
       (totals.gold > 0 ? '+' : '') + totals.gold + '</strong></span><span>🪶 <strong>' +
       totals.notes + '</strong></span></div></div>' +
       '<div class="zgp-bottom-cell">Монеты после плана:<b style="color:' + (remaining < 0 ? '#c86c66' : '#dcc071') + '">' +
-      (remaining < 0 ? 'не хватает ' : '') + priceText(copperAsPrice(Math.abs(remaining))) + '</b></div>' +
+      (remaining < 0 ? 'не хватает ' : '') + priceHtml(copperAsPrice(Math.abs(remaining))) + '</b></div>' +
       '<div class="zgp-bottom-cell">Следующее решение:<b>ур. ' + next + '</b></div></div>';
   }
 
@@ -904,9 +923,9 @@ window.__zgpScriptStarted = true;
         return '<div class="zgp-statline"><span>' + STAT_ICONS[key] + '</span><span>' + STAT_LABELS[key] + '</span>' +
           '<strong>' + now + (future !== now ? '<span class="zgp-arrow">→</span><span class="zgp-future">' + future + '</span>' : '') + '</strong></div>';
       }).join('') + '</div>' +
-      '<div class="zgp-money">🪙 Сейчас: <b>' + priceText(copperAsPrice(currentCoins)) + '</b><br>' +
+      '<div class="zgp-money">' + coinStack(16) + ' Сейчас: <b>' + priceHtml(copperAsPrice(currentCoins)) + '</b><br>' +
       'После плана: <b style="color:' + (remaining < 0 ? '#c86c66' : '#7dbb83') + '">' +
-      (remaining < 0 ? 'не хватает ' + priceText(copperAsPrice(-remaining)) : priceText(copperAsPrice(remaining))) +
+      (remaining < 0 ? 'не хватает ' + priceHtml(copperAsPrice(-remaining)) : priceHtml(copperAsPrice(remaining))) +
       '</b></div>';
   }
 
@@ -991,7 +1010,7 @@ window.__zgpScriptStarted = true;
       return '<button class="zgp-choice ' + (picked ? 'picked' : '') + '" ' + (!editable ? 'disabled' : '') +
         ' onclick="zgProgressionToggleItem(\'' + esc(item.id) + '\')"><span class="art">' + art + '</span>' +
         '<span class="txt"><span class="nm">' + esc(item.name || 'Без имени') + '</span>' +
-        '<span class="why">' + esc(priceText(item.price)) + ' · ' + esc(item.effect || item.desc || 'товар') + '</span></span>' +
+        '<span class="why">' + priceHtml(item.price) + ' · ' + esc(item.effect || item.desc || 'товар') + '</span></span>' +
         '<span class="zgp-choice-info" onclick="event.stopPropagation();zgProgressionViewShopId(\'' +
         encodeURIComponent(String(item.id)) + '\',true)">ⓘ</span><span>' + (picked ? '✓' : '+') + '</span></button>';
     }).join('');
@@ -1004,9 +1023,9 @@ window.__zgpScriptStarted = true;
     return '<div class="zgp-panel zgp-notes">' +
       (editable ? '<input id="zgp-gold-amount" class="zgp-search" type="number" step="1" placeholder="+50 доход или −20 трата">' +
         '<input id="zgp-gold-note" class="zgp-search" placeholder="Комментарий, необязательно">' +
-        '<div class="zgp-note-actions"><button class="zgp-tab on" onclick="zgProgressionAddGold()">🪙 Добавить в план</button></div>' : '') +
+        '<div class="zgp-note-actions"><button class="zgp-tab on" onclick="zgProgressionAddGold()">' + coinIcon('zl',16) + ' Добавить в план</button></div>' : '') +
       entry.gold.map(function(gold, index) {
-        return '<div class="zgp-note-chip"><span>🪙</span><span>' +
+        return '<div class="zgp-note-chip"><span>' + coinIcon('zl',16) + '</span><span>' +
           (gold.amount > 0 ? '+' : '') + gold.amount + ' зл' + (gold.note ? ' · ' + esc(gold.note) : '') +
           '</span><button onclick="zgProgressionRemovePlan(' + ui.level + ',\'gold\',' + index + ')">✕</button></div>';
       }).join('') +
@@ -1212,7 +1231,7 @@ window.__zgpScriptStarted = true;
     overlay.innerHTML = '<div class="zgp-preview-card"><div class="zgp-preview-top"><h3>' + esc(title) +
       '</h3><button onclick="zgProgressionClosePreview()">×</button></div>' +
       '<div class="zgp-preview-badges">' + badges.map(function(badge) {
-        return badge ? '<span>' + esc(badge) + '</span>' : '';
+        return badge && badge.html ? '<span>' + badge.html + '</span>' : (badge ? '<span>' + esc(badge) + '</span>' : '');
       }).join('') + '</div>' + blocks.filter(function(block) { return block && block.text; }).map(function(block) {
         return '<div class="zgp-preview-block"><b>' + esc(block.label) + '</b>' + esc(block.text) + '</div>';
       }).join('') + '</div>';
@@ -1241,7 +1260,7 @@ window.__zgpScriptStarted = true;
     previewCard(item.name || 'Предмет', [
       item.cat || item.type || 'Товар',
       item.rarity || '',
-      priceText(item.price)
+      { html:priceHtml(item.price) }
     ], [
       { label:'УРОН', text:item.damage ? item.damage + (item.damageType ? ' · ' + item.damageType : '') : '' },
       { label:'ДАЛЬНОСТЬ', text:item.range || '' },
