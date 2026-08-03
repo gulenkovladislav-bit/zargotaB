@@ -3,7 +3,7 @@
 These files are currently stored as their original Pixabay MP3 downloads and
 have not been transcoded or edited.
 
-All five source pages identify the files as free for use under the Pixabay
+All source pages identify the files as free for use under the Pixabay
 Content License:
 
 - `attack-swing.mp3` — "Sword Slash and Swing" by DavidDumaisAudio
@@ -40,5 +40,27 @@ Content License:
   - https://pixabay.com/sound-effects/film-special-effects-magical-whoosh-148459/
 - `attack-magic.mp3` — "Abstract Magic Whoosh 03" by DavidDumaisAudio
   - https://pixabay.com/sound-effects/abstract-magic-whoosh-03-204485/
+- `turn-start-medieval-war.mp3` — "Medieval_war" by MagiaZ
+  - https://pixabay.com/sound-effects/film-special-effects-medieval-war-407339/
+- `round-start-warrior-kick.mp3` — "Warrior KICK" by Freesound community
+  - https://pixabay.com/sound-effects/film-special-effects-warrior-kick-45949/
+- `gm-action-request-paper.mp3` — "Videogame paper SFX 2" by OxidVideos
+  - https://pixabay.com/sound-effects/technology-videogame-paper-sfx-2-449927/
+- `gm-action-approved-pencil.mp3` — "pencil_check_mark_2" by Freesound community
+  - https://pixabay.com/sound-effects/film-special-effects-pencil-check-mark-2-105940/
+- `status-cleanse-holy.mp3` — "Holy Healing Spell" by Coghezzi
+  - https://pixabay.com/sound-effects/film-special-effects-holy-healing-spell-533279/
+- `map-ping.mp3` — "New Notification 014" by Universfield
+  - https://pixabay.com/sound-effects/film-special-effects-new-notification-014-363678/
+- `item-reward-bag.mp3` — "Open Bag Sound" by Freesound community
+  - https://pixabay.com/sound-effects/film-special-effects-open-bag-sound-39216/
+- `reserve-trailer-dark.mp3` — "A Trailer - 15 sec" by LiteSaturation
+  - https://pixabay.com/sound-effects/musical-a-trailer-15-sec-221207/
+- `reserve-trailer-inspiring.mp3` — "Inspiring Trailer - 15 sec" by LiteSaturation
+  - https://pixabay.com/sound-effects/film-special-effects-inspiring-trailer-15-sec-203615/
+- `combat-block-sword.mp3` — "Sword Block - The Ballad of Blades" by VoiceBosch
+  - https://pixabay.com/sound-effects/film-special-effects-sword-block-the-ballad-of-blades-257226/
+- `attack-slash.mp3` — "Slash" by Chromascension
+  - https://pixabay.com/sound-effects/film-special-effects-slash-542396/
 
 License summary: https://pixabay.com/service/license-summary/
