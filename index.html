@@ -9214,8 +9214,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-07-30.1';
+var ZG_APP_VERSION = '2026-08-03.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-08-03.1', notes: 'Попадание и крит получили по одному чистому звуку удара без дополнительного UI-пика и синтетического арпеджио; крит заклинания больше не проигрывает обычное попадание перед критом.' },
   { v: '2026-07-30.1', notes: 'При 0 HP борьба за жизнь больше не бросается автоматически: игрок или мастер нажимает отдельный d20, видит правило, успехи и провалы; без обязательного броска ход завершить нельзя.' },
   { v: '2026-07-27.1', notes: 'В лист персонажа добавлен планировщик прокачки: прогноз уровней, совместимость навыков из Каталога, предметы из Товаров и безопасное применение изменений в лист и Арену.' },
   { v: '2026-07-24.1', notes: 'При входе в сессию локальный лист героя теперь защищён от старого снимка Firebase: сначала локальные данные записываются в комнату, и только затем включается двусторонняя синхронизация.' },
@@ -9438,6 +9439,9 @@ document.addEventListener('DOMContentLoaded', function(){
   var comp = null;      // DynamicsCompressorNode - защита от клиппинга
   var amb = null;       // узлы атмосферного эмбиента (дрон + ветер)
   var muted = false;
+  var toneGroups = Object.create(null);
+  var sampleBuffers = Object.create(null);
+  var sampleLoads = Object.create(null);
   try { muted = localStorage.getItem('zargota_sound_muted') === '1'; } catch(e) {}
 
   function ensure() {
@@ -9463,6 +9467,22 @@ document.addEventListener('DOMContentLoaded', function(){
     return ctx;
   }
 
+  function forgetTone(group, osc) {
+    var nodes = toneGroups[group];
+    if (!nodes) return;
+    var index = nodes.indexOf(osc);
+    if (index >= 0) nodes.splice(index, 1);
+    if (!nodes.length) delete toneGroups[group];
+  }
+
+  function stopToneGroup(group) {
+    var nodes = (toneGroups[group] || []).slice();
+    delete toneGroups[group];
+    nodes.forEach(function(osc) {
+      try { osc.stop(); } catch(e) {}
+    });
+  }
+
   // Короткий тон с огибающей — основной строительный блок
   function tone(freq, dur, opts) {
     var c = ensure();
@@ -9482,9 +9502,50 @@ document.addEventListener('DOMContentLoaded', function(){
       g.gain.linearRampToValueAtTime(vol, t0 + (opts.attack || 0.004));
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
       osc.connect(g).connect(master);
+      if (opts.group) {
+        (toneGroups[opts.group] || (toneGroups[opts.group] = [])).push(osc);
+        osc.onended = function() { forgetTone(opts.group, osc); };
+      }
       osc.start(t0);
       osc.stop(t0 + dur + 0.05);
     } catch(e) {}
+  }
+
+  function loadSample(path) {
+    var c = ensure();
+    if (!c || typeof fetch !== 'function') return Promise.reject(new Error('Audio unavailable'));
+    if (sampleBuffers[path]) return Promise.resolve(sampleBuffers[path]);
+    if (sampleLoads[path]) return sampleLoads[path];
+    sampleLoads[path] = fetch(path, { cache:'force-cache' }).then(function(response) {
+      if (!response.ok) throw new Error('Sound HTTP ' + response.status);
+      return response.arrayBuffer();
+    }).then(function(bytes) {
+      return c.decodeAudioData(bytes);
+    }).then(function(buffer) {
+      sampleBuffers[path] = buffer;
+      delete sampleLoads[path];
+      return buffer;
+    }).catch(function(error) {
+      delete sampleLoads[path];
+      throw error;
+    });
+    return sampleLoads[path];
+  }
+
+  function playSample(path, volume, fallback) {
+    var c = ensure();
+    if (!c) return;
+    loadSample(path).then(function(buffer) {
+      if (muted || !ctx) return;
+      var src = ctx.createBufferSource();
+      var gain = ctx.createGain();
+      gain.gain.value = volume == null ? 1 : volume;
+      src.buffer = buffer;
+      src.connect(gain).connect(master);
+      src.start();
+    }).catch(function() {
+      if (typeof fallback === 'function') fallback();
+    });
   }
 
   // Волна эмбиента: плавно набегает и затухает (~5.5 с)
@@ -9541,8 +9602,9 @@ document.addEventListener('DOMContentLoaded', function(){
     // ═══ Бросок d20 ═══
     // Реальный звук катающихся кубиков: серия тиков с затухающей скоростью,
     // потом финальный "стоп" и тон в зависимости от результата.
-    diceRoll: function(result) {
+    diceRoll: function(result, options) {
       ensure();
+      options = options || {};
       // 5-8 тиков с возрастающими интервалами (кубик замедляется)
       var bounces = 6 + Math.floor(Math.random() * 3);
       var t = 0;
@@ -9554,6 +9616,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
       // Финальный стук — "встал"
       tick(t, 900, 0.35);
+      if (options.resultTone === false) return;
       // Через 100мс — итоговый тон
       var finalDelay = t + 0.12;
       if (result === 20) {
@@ -9630,16 +9693,16 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // ═══ Исходы атаки ═══
     hit: function() {
-      // Удар — быстрое "чпок"
-      tone(220, 0.08, { type:'square', vol:0.22, freqEnd:110 });
-      tone(440, 0.06, { delay:0.01, type:'sawtooth', vol:0.14, freqEnd:220 });
+      stopToneGroup('ui');
+      playSample('audio/vtt-actions/hit-body-soft.mp3', 0.9, function() {
+        tone(170, 0.09, { type:'triangle', vol:0.24, freqEnd:90 });
+      });
     },
     crit: function() {
-      // Яркий удар + восходящее арпеджио
-      tone(130, 0.1, { type:'sawtooth', vol:0.3, freqEnd:70 });
-      tone(880,  0.1,  { delay:0.04, type:'triangle', vol:0.25 });
-      tone(1320, 0.12, { delay:0.12, type:'triangle', vol:0.28 });
-      tone(1760, 0.2,  { delay:0.22, type:'triangle', vol:0.3 });
+      stopToneGroup('ui');
+      playSample('audio/vtt-actions/hit-body-heavy.mp3', 0.92, function() {
+        tone(105, 0.16, { type:'triangle', vol:0.3, freqEnd:55 });
+      });
     },
     miss: function() {
       // Свист мимо — короткий нисходящий
@@ -9689,10 +9752,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // ═══ UI ═══
     buttonTap: function() {
-      tone(880, 0.04, { type:'sine', vol:0.12 });
+      tone(880, 0.04, { type:'sine', vol:0.12, group:'ui' });
     },
     buttonSoft: function() {
-      tone(660, 0.04, { type:'sine', vol:0.09 });
+      tone(660, 0.04, { type:'sine', vol:0.09, group:'ui' });
     },
 
     // ═══ Атмосфера (эмбиент-дрон + ветер, набегает волнами) ═══
@@ -9751,7 +9814,11 @@ document.addEventListener('DOMContentLoaded', function(){
   // Авто-активация AudioContext при первом взаимодействии пользователя
   // Важно для iOS Safari и Chrome (autoplay policy)
   function primeAudio() {
-    if (!muted) ensure();
+    if (!muted) {
+      ensure();
+      loadSample('audio/vtt-actions/hit-body-soft.mp3').catch(function(){});
+      loadSample('audio/vtt-actions/hit-body-heavy.mp3').catch(function(){});
+    }
     w.removeEventListener('pointerdown', primeAudio);
     w.removeEventListener('keydown', primeAudio);
     w.removeEventListener('touchstart', primeAudio);
@@ -50460,7 +50527,7 @@ function importBeasts(e) {
     // и потом hit/crit/miss с паузой
     if (typeof window !== 'undefined' && window.ZargotaSound) {
       try {
-        window.ZargotaSound.diceRoll(attackRoll);
+        window.ZargotaSound.diceRoll(attackRoll, { resultTone:false });
         setTimeout(function() {
           if (natural20) window.ZargotaSound.crit();
           else if (hit) window.ZargotaSound.hit();
@@ -56464,7 +56531,7 @@ function resolveSpellActionDirect(battle, actor, target, action) {
     var hit = !isFumble && (isCrit || attackTotal >= targetAC);
 
     // Звук броска кубика — катящийся d20
-    if (window.ZargotaSound) { try { window.ZargotaSound.diceRoll && window.ZargotaSound.diceRoll(d20); } catch(e) {} }
+    if (window.ZargotaSound) { try { window.ZargotaSound.diceRoll && window.ZargotaSound.diceRoll(d20, { resultTone:false }); } catch(e) {} }
 
     if (hit) {
       var dmgFormulaActual = damageFormula;
@@ -56500,8 +56567,11 @@ function resolveSpellActionDirect(battle, actor, target, action) {
         spellName: action.name, damageType: damageType
       });
       // Hit-звук с задержкой после катания кубика
-      setTimeout(function(){ if (window.ZargotaSound && window.ZargotaSound.hit) window.ZargotaSound.hit(); }, 420);
-      if (isCrit) setTimeout(function(){ if (window.ZargotaSound && window.ZargotaSound.crit) window.ZargotaSound.crit(); }, 480);
+      setTimeout(function(){
+        if (!window.ZargotaSound) return;
+        if (isCrit && window.ZargotaSound.crit) window.ZargotaSound.crit();
+        else if (window.ZargotaSound.hit) window.ZargotaSound.hit();
+      }, 420);
 
       // Отдельный сейв на статус
       if (statuses.length && action.saveStat) {
