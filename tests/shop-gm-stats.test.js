@@ -26,7 +26,7 @@ var context = {
     {id:'root-valley',label:'Корневая Долина',includes:['root-valley']}
   ],
   SHOP_MARKETS:[{id:'glupishche-last-rest',region:'root-valley',location:'Глупище',name:'Последний Привал'}],
-  _shopState:{filter:'',gmStatsOpen:false,rarity:'',priceBand:'',priceMin:'',priceMax:'',region:'',market:'',sort:'name',page:1,pageSize:24,search:''},
+  _shopState:{filter:'',categoryFilters:{},gmStatsOpen:false,rarity:'',priceBand:'',priceMin:'',priceMax:'',region:'',market:'',sort:'name',page:1,pageSize:24,search:''},
   escHTML:function(value){return String(value);},
   zgGmUnlocked:function(){return true;},
   Array:Array,
@@ -66,7 +66,7 @@ assert.strictEqual(context.zgShopGmStatsToggleHtml(), '');
 
 assert.match(html, /zgShopGmStatsHtml\(items, filtered\.length\)/);
 assert.match(html, /SHOP_CATS\.map[\s\S]*?\.join\(''\)\+\s*zgShopGmStatsToggleHtml\(\)/);
-assert.match(html, /zargota_shop_seeded_v41/);
+assert.match(html, /zargota_shop_seeded_v42/);
 assert.match(html, /key:'common',\s+label:'Простое'/);
 assert.match(html, /key:'epic',\s+label:'Реликтовое'/);
 assert.doesNotMatch(html.slice(html.indexOf('var SHOP_RARITY ='), html.indexOf('var SHOP_REGIONS =')), /Обычное|Эпическое/);
@@ -84,10 +84,33 @@ assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'tool',rarity:'co
 context._shopState.region = '';
 context._shopState.market = 'glupishche-last-rest';
 assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'tool',rarity:'common',baseRegion:'root-valley',marketIds:['glupishche-last-rest'],price:{zl:8},name:'Верёвка'}),true);
+context._shopState.market = '';
+context._shopState.priceBand = '';
+context._shopState.priceMin = '';
+context._shopState.priceMax = '';
+context._shopState.filter = 'weapon';
+context._shopState.categoryFilters = {use:'thrown',size:'small'};
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'weapon',rarity:'common',price:{zl:3},name:'Метательный кинжал',delivery:'throw'}),true);
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'weapon',rarity:'common',price:{zl:3},name:'Большой лук'}),false);
+context._shopState.filter = 'magic';
+context._shopState.categoryFilters = {focusKind:'staff',damageType:'lightning'};
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'magic',rarity:'rare',price:{zl:40},name:'Грозовой посох',focusKind:'staff',damageAffinity:'lightning'}),true);
+assert.strictEqual(context.zgShopItemMatchesBrowseFilters({cat:'magic',rarity:'rare',price:{zl:40},name:'Огненная палочка',focusKind:'wand',damageAffinity:'fire'}),false);
+assert.deepStrictEqual(Array.from(context.zgShopMagicDamageTypes({damageAffinity:'fire',damageType:'Огонь'})),['fire']);
+assert.strictEqual(context.zgShopPotionRole({name:'Масло ледяной кромки'}),'coating');
+assert.strictEqual(context.zgShopPotionRole({name:'Яд стеклянной осы',effect:'Следующее попадание: 1d6 ядом'}),'harmful');
+context._shopState.filter = '';
+context._shopState.categoryFilters = {};
 assert.match(html, /pageSize:24/);
 assert.match(html, /zgShopPaginationHtml\(_shopState\.page, pageCount, filtered\.length, 'top'\)/);
 assert.match(html, /aria-label="Книга мастеров"/);
 assert.match(html, /window\.zgShopSetBrowseFilter = zgShopSetBrowseFilter/);
+assert.match(html, /zgShopCategoryFiltersHtml\(items\) \+ zgShopBrowseFiltersHtml\(\)/);
+assert.match(html, /window\.zgShopSetCategoryFilter = zgShopSetCategoryFilter/);
+assert.match(html, /window\.zgShopClearCategoryFilters = zgShopClearCategoryFilters/);
+assert.match(html, /label:'Форма применения'/);
+assert.match(html, /label:'Категория чар'/);
+assert.match(html, /label:'Тип урона'/);
 assert.match(html, /window\.zgShopOpenMarketGuide = zgShopOpenMarketGuide/);
 assert.match(html, /window\.zgShopRenderMarketGuideRows = zgShopRenderMarketGuideRows/);
 assert.match(html, /window\.zgShopSelectMarketGuide = zgShopSelectMarketGuide/);

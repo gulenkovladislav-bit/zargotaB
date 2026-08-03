@@ -57548,7 +57548,7 @@ var SHOP_EMOJI_POOL = [
   { group:'Люди/услуги', list:['🤝','🧙','⚗️','🩺','⚖️','🎭','🎨','🎵','📚','🛠️','🧭','🗺️','✉️','🔍'] },
   { group:'Тёмное/подполье', list:['🩸','☠️','💀','🗝️','🕷️','🐀','🦇','⛓️','🃏','🎲','🕳️','🧿','⚰️'] }
 ];
-var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false, rarity:'', priceBand:'', priceMin:'', priceMax:'', region:'', market:'', sort:'name', page:1, pageSize:24 };
+var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false, rarity:'', priceBand:'', priceMin:'', priceMax:'', region:'', market:'', sort:'name', categoryFilters:{}, page:1, pageSize:24 };
 var _shopEmojiTarget = null; // куда вставлять выбранный эмодзи
 var _shopCart = {}; // itemId -> qty (реальные товары витрины)
 var _ecoCart = {}; // name -> {price:{}, qty} (позиции из экономики)
@@ -57716,13 +57716,15 @@ function zgCartEcoAdd(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty++; zgRenderCart
 function zgCartEcoRemove(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty--; if (_ecoCart[nm].qty<=0) delete _ecoCart[nm]; zgRenderCart(); zgUpdateCartBtn(); } }
 // Обёртки для inline-onclick (код магазина живёт внутри IIFE арены,
 // поэтому обработчики должны идти через window, иначе _shopState не виден)
-function zgShopSetFilter(f) { _shopState.filter = f || ''; _shopState.page = 1; renderShopPage(); }
+function zgShopSetFilter(f) { var next = f || ''; if (_shopState.filter !== next) _shopState.categoryFilters = {}; _shopState.filter = next; _shopState.page = 1; renderShopPage(); }
 function zgShopSetSearch(v) { _shopState.search = v || ''; _shopState.page = 1; renderShopPageDebounced(); }
 function zgShopSetTab(t) { _shopState.tab = t || 'showcase'; renderShopPage(); }
 function zgShopToggleGmStats() { _shopState.gmStatsOpen = !_shopState.gmStatsOpen; renderShopPage(); }
 function zgShopSetBrowseFilter(key, value) { if (Object.prototype.hasOwnProperty.call(_shopState, key)) _shopState[key] = value || ''; _shopState.page = 1; renderShopPage(); }
+function zgShopSetCategoryFilter(key, value) { _shopState.categoryFilters = _shopState.categoryFilters || {}; if (value) _shopState.categoryFilters[key] = value; else delete _shopState.categoryFilters[key]; _shopState.page = 1; renderShopPage(); }
+function zgShopClearCategoryFilters() { _shopState.categoryFilters = {}; _shopState.page = 1; renderShopPage(); }
 function zgShopSetPriceLimit(key, value) { if (key === 'priceMin' || key === 'priceMax') _shopState[key] = value === '' ? '' : Math.max(0, Number(value) || 0); _shopState.page = 1; renderShopPage(); }
-function zgShopResetBrowseFilters() { _shopState.rarity = ''; _shopState.priceBand = ''; _shopState.priceMin = ''; _shopState.priceMax = ''; _shopState.region = ''; _shopState.market = ''; _shopState.sort = 'name'; _shopState.page = 1; renderShopPage(); }
+function zgShopResetBrowseFilters() { _shopState.rarity = ''; _shopState.priceBand = ''; _shopState.priceMin = ''; _shopState.priceMax = ''; _shopState.region = ''; _shopState.market = ''; _shopState.sort = 'name'; _shopState.categoryFilters = {}; _shopState.page = 1; renderShopPage(); }
 function zgShopSetPage(page) {
   _shopState.page = Math.max(1, Number(page) || 1);
   renderShopPage();
@@ -57869,7 +57871,7 @@ function zgSeedLegacyShopItems() {
 // Компактная витрина v18. Канонические товары обновляются, созданные вручную сохраняются.
 function zgSeedShopIfEmpty() {
   try {
-    if (localStorage.getItem('zargota_shop_seeded_v41')) return;
+    if (localStorage.getItem('zargota_shop_seeded_v42')) return;
     var featured = [
       { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
       { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
@@ -57906,7 +57908,7 @@ function zgSeedShopIfEmpty() {
     var combined = featured.concat(foundation, manual);
     if (window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItems === 'function') combined = window.ZargotaItemEconomy.enrichShopItems(combined);
     saveShopItems(combined);
-    localStorage.setItem('zargota_shop_seeded_v41', '1');
+    localStorage.setItem('zargota_shop_seeded_v42', '1');
     var host = document.getElementById('shop-page-inner');
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}
@@ -58449,8 +58451,193 @@ function zgShopRegionLabel(item) {
   return region ? region.label : 'Вся Заргота';
 }
 
+function zgShopFacetText(item) {
+  item = item || {};
+  var tags = Array.isArray(item.tags) ? item.tags.join(' ') : (item.tags || '');
+  return [item.name,item.category,item.kind,item.group,item.goodsGroup,item.focusKind,item.focusRole,item.potionTier,item.role,item.transportKind,item.serviceKind,item.contrabandKind,item.slot,item.range,item.damageType,item.delivery,item.effect,item.desc,tags].join(' ').toLowerCase();
+}
+function zgShopFacetValues(value) { return Array.isArray(value) ? value.filter(Boolean) : (value ? [value] : []); }
+function zgShopWeaponUse(item) {
+  var text = zgShopFacetText(item);
+  if (/siege|осад|баллист|катапульт/.test(text)) return 'siege';
+  if (item.delivery === 'throw' || /throw|thrown|метател|дротик|болас|сеть метательная/.test(text)) return 'thrown';
+  if (/ranged|дальн|лук|арбалет|пращ/.test(text)) return 'ranged';
+  return 'melee';
+}
+function zgShopWeaponSize(item) {
+  var text = zgShopFacetText(item);
+  if (zgShopWeaponUse(item) === 'siege') return 'oversized';
+  if (Number(item.handsRequired) >= 2 || /two-handed|двуруч|большой лук|тяжёлый арбалет|бердыш|алебард/.test(text)) return 'large';
+  if (/concealable|dagger|knife|sling|кинжал|нож|стилет|дротик|пращ/.test(text)) return 'small';
+  return 'one-handed';
+}
+function zgShopWeaponFamily(item) {
+  var text = zgShopFacetText(item);
+  if (/crossbow|арбалет/.test(text)) return 'crossbow';
+  if (/bow|лук/.test(text)) return 'bow';
+  if (/sword|blade|сабл|меч|фальшион/.test(text)) return 'sword';
+  if (/axe|топор|секир|бердыш/.test(text)) return 'axe';
+  if (/spear|polearm|копь|рогатин|алебард|гарпун|трёхзуб/.test(text)) return 'polearm';
+  if (/hammer|mace|club|молот|молоток|булав|кистень|цеп|клевец/.test(text)) return 'blunt';
+  if (/dagger|knife|кинжал|нож|стилет/.test(text)) return 'knife';
+  if (/sling|пращ/.test(text)) return 'sling';
+  return 'other';
+}
+function zgShopArmorKind(item) {
+  var text = zgShopFacetText(item);
+  if (/shield|щит/.test(text)) return 'shield';
+  if (item.armorFamily === 'cuirass' || /cuirass|кирас/.test(text)) return 'cuirass';
+  if (item.category === 'clothing' || /clothing|плащ|сапог|одежд|перчат|маск/.test(text)) return 'clothing';
+  if (/heavy|тяжёл|латн|пластин/.test(text)) return 'heavy';
+  if (/light|лёгк|стёган/.test(text)) return 'light';
+  return 'armor';
+}
+function zgShopPotionRole(item) {
+  var role = String(item.role || '').toLowerCase();
+  var text = zgShopFacetText(item);
+  if (role) return role;
+  if (/масло|мазь|смазк/.test(text)) return 'coating';
+  if (/цель|следующее попадание|провал спасброска|отрав|ядом|теряет реакцию|не восстанавливает hp|не может говорить/.test(text)) return 'harmful';
+  if (/леч|восстанов|healing/.test(text)) return 'healing';
+  if (/сопротив|защит|кож/.test(text)) return 'defense';
+  if (/движ|шаг|скорост|падени/.test(text)) return 'mobility';
+  if (/невид|скрыт/.test(text)) return 'stealth';
+  if (/очищ|противояд|снять/.test(text)) return 'cleanse';
+  if (/слух|зрени|памят|развед/.test(text)) return 'scouting';
+  if (/голос|харизм|социал/.test(text)) return 'social';
+  return 'other';
+}
+function zgShopPowerBand(item) {
+  var tier = Number(item.powerTier);
+  if (!isFinite(tier)) tier = Number(item.potionTier);
+  if (!isFinite(tier)) return 'unspecified';
+  if (tier <= 1) return 'low';
+  if (tier === 2) return 'medium';
+  return 'high';
+}
+function zgShopMagicKind(item) {
+  var text = zgShopFacetText(item);
+  if (item.focusKind || /arcane-focus/.test(text)) return 'focus';
+  if (/scroll|свиток/.test(text)) return 'scroll';
+  if (item.category === 'artifact' || /artifact|артефакт/.test(text)) return 'artifact';
+  if (item.category === 'accessory' || /accessory|ring|amulet|charm|кольц|амулет|оберег|горжет|пояс/.test(text)) return 'accessory';
+  if (item.category === 'consumable' || /consumable|расход/.test(text)) return 'consumable';
+  if (item.category === 'weapon') return 'weapon';
+  return 'other';
+}
+function zgShopMagicForm(item) {
+  var form = String(item.spellForm || '').toLowerCase();
+  if (form) return form;
+  var text = zgShopFacetText(item);
+  if (/touch|касани|прикоснов/.test(text)) return 'touch';
+  if (/area|aoe|област|зональ/.test(text)) return 'area';
+  if (/concentration|концентрац/.test(text)) return 'concentration';
+  if (/line|линейн|луч|directed|направлен/.test(text)) return 'directed';
+  return '';
+}
+function zgShopMagicCategories(item) {
+  var values = [], explicit = String(item.spellCategory || '').toLowerCase();
+  if (explicit) values.push(explicit);
+  (item.effects || []).forEach(function(effect){
+    var type = String(effect && effect.type || '').toLowerCase();
+    var mapped = {damage:'damage',defense:'protection',control:'control',support:'support',scouting:'information',tempo:'movement'}[type];
+    if (mapped && values.indexOf(mapped) < 0) values.push(mapped);
+  });
+  return values;
+}
+function zgShopMagicDamageTypes(item) {
+  var values = [];
+  function add(value){
+    value=String(value||'').trim().toLowerCase();
+    var aliases = {
+      'огонь':'fire','огненный':'fire','огнём':'fire','fire':'fire',
+      'молния':'lightning','электро':'lightning','электрический':'lightning','lightning':'lightning',
+      'холод':'cold','холодный':'cold','cold':'cold',
+      'некротика':'necrotic','некротический':'necrotic','necrotic':'necrotic',
+      'яд':'poison','ядовитый':'poison','poison':'poison',
+      'кислота':'acid','кислотный':'acid','acid':'acid',
+      'звук':'sound','звуковой':'sound','sound':'sound',
+      'лучевой':'radiant','radiant':'radiant','святой':'holy','holy':'holy',
+      'психический':'psychic','psychic':'psychic','хаос':'chaos','chaos':'chaos'
+    };
+    value = aliases[value] || value;
+    if(value&&values.indexOf(value)<0) values.push(value);
+  }
+  add(item.damageAffinity); add(item.damageType);
+  (item.effects || []).forEach(function(effect){ add(effect && effect.damageType); });
+  return values;
+}
+function zgShopGenericKind(item, category) {
+  var text = zgShopFacetText(item);
+  if (category === 'food') return item.intoxication || /alcohol|пиво|вино|настойк|водк|эль/.test(text) ? 'alcohol' : (/food|еда|хлеб|сыр|мяс|паёк/.test(text) ? 'food' : 'household');
+  if (category === 'tool') {
+    if (/thief|lockpick|вор|отмыч|маскиров/.test(text)) return 'thief';
+    if (/climb|верёв|скалолаз/.test(text)) return 'climbing';
+    if (/music|лютн|флейт|барабан/.test(text)) return 'music';
+    if (/craft|кузнеч|ремесл|алхими/.test(text)) return 'craft';
+    return 'expedition';
+  }
+  if (category === 'mount') return item.transportKind || (/saddle|седл/.test(text)?'saddle':(/animal|голуб|ястреб|собак|лошад|осёл/.test(text)?'animal':'vehicle'));
+  if (category === 'material') return item.crafting && item.crafting.grade ? 'grade-'+item.crafting.grade : (/алхими|реагент|пыль|смол|глин/.test(text)?'alchemy':'raw');
+  if (category === 'contraband') return /poison|яд/.test(text)?'poison':(/drug|narcotic|дурман|лукавк/.test(text)?'drug':(/document|паспорт|печать/.test(text)?'documents':'underworld-tool'));
+  if (category === 'service') return item.serviceKind || (/леч|хирург|врач/.test(text)?'medical':(/перевоз|почт|гонец|проводник/.test(text)?'travel':(/ремонт|кузнец/.test(text)?'craft':'professional')));
+  if (category === 'property') return /room|комнат|койк/.test(text)?'room':(/house|дом|хижин/.test(text)?'home':'estate');
+  return item.goodsGroup || item.category || 'other';
+}
+var ZG_SHOP_FACET_LABELS = {
+  melee:'Ближнее',ranged:'Дальнобойное',thrown:'Метательное',siege:'Осадное',small:'Малое','one-handed':'Одноручное',large:'Большое / двуручное',oversized:'Сверхтяжёлое',
+  sword:'Мечи и сабли',axe:'Топоры',bow:'Луки',crossbow:'Арбалеты',polearm:'Древковое',blunt:'Дробящее',knife:'Клинки',sling:'Пращи',other:'Прочее',
+  shield:'Щиты',cuirass:'Кирасы',clothing:'Одежда',heavy:'Тяжёлая броня',light:'Лёгкая броня',armor:'Прочая броня',
+  healing:'Лечение',defense:'Защита',mobility:'Движение',stealth:'Скрытность',cleanse:'Очищение',scouting:'Разведка',social:'Общение',coating:'Масла и мази',harmful:'Вредящие смеси',low:'Начальная ступень',medium:'Средняя ступень',high:'Высшая ступень',unspecified:'Без ступени',
+  focus:'Фокусы',scroll:'Свитки',artifact:'Артефакты',accessory:'Украшения и одежда',consumable:'Расходники',weapon:'Боевое магическое',staff:'Посохи',wand:'Палочки',scepter:'Скипетры',bracer:'Наручи',glove:'Перчатки',
+  directed:'Направленное',concentration:'Концентрация',touch:'Касание',area:'Область',control:'Контроль',protection:'Защита',support:'Поддержка',information:'Информация',movement:'Движение',summon:'Призыв',damage:'Урон',
+  alcohol:'Алкоголь',food:'Пища',household:'Быт',thief:'Воровское',climbing:'Скалолазное',music:'Музыкальное',craft:'Ремесленное',expedition:'Походное',horse:'Лошади',wagon:'Повозки и кареты',boat:'Лодки',saddle:'Сёдла',animal:'Животные',vehicle:'Транспорт',alchemy:'Алхимия',raw:'Сырьё',poison:'Яды',drug:'Дурманы',documents:'Документы','underworld-tool':'Подпольные инструменты',medical:'Лечение',travel:'Дорога и доставка',professional:'Профессиональные',room:'Комнаты',home:'Дома',estate:'Владения',
+  head:'Голова',chest:'Корпус',body:'Корпус',shieldHand:'Щитовая рука',mainHand:'Основная рука',offHand:'Дополнительная рука',hands:'Руки',feet:'Обувь',neck:'Шея',waist:'Пояс',
+  exploration:'Исследование',utility:'Полезные эффекты','coastal-pilot':'Лоцман','guarded-caravan':'Охраняемый караван','magic-identification':'Опознание магии','medical-examination':'Осмотр лекаря','prosthesis-fitting':'Подгонка протеза','regional-guide':'Проводник',repair:'Ремонт','secret-broker':'Тайный посредник','stable-care':'Уход за животным','urgent-mail':'Срочная почта','vehicle-delivery':'Доставка транспорта',appraisal:'Оценка'
+};
+function zgShopFacetLabel(value) {
+  var damageLabels = {fire:'Огонь',lightning:'Молния',cold:'Холод',necrotic:'Некротика',holy:'Святой',psychic:'Психический',poison:'Яд',acid:'Кислота',sound:'Звук',radiant:'Лучевой',chaos:'Хаос','огненный':'Огонь','электрический':'Молния','холодный':'Холод','некротический':'Некротика','святой':'Святой','психический':'Психический','звуковой':'Звук'};
+  return ZG_SHOP_FACET_LABELS[value] || damageLabels[value] || String(value || '').replace(/^grade-/,'Качество ');
+}
+function zgShopCategoryFacetDefinitions(category) {
+  if (category === 'weapon') return [{key:'use',label:'Применение',values:function(item){return [zgShopWeaponUse(item)];}},{key:'size',label:'Размер и хват',values:function(item){return [zgShopWeaponSize(item)];}},{key:'family',label:'Семейство',values:function(item){return [zgShopWeaponFamily(item)];}}];
+  if (category === 'armor') return [{key:'armorKind',label:'Вид защиты',values:function(item){return [zgShopArmorKind(item)];}},{key:'armorSlot',label:'Часть тела',values:function(item){return zgShopFacetValues(item.slot);}}];
+  if (category === 'potion') return [{key:'potionRole',label:'Назначение',values:function(item){return [zgShopPotionRole(item)];}},{key:'power',label:'Ступень силы',values:function(item){return [zgShopPowerBand(item)];}}];
+  if (category === 'magic') return [{key:'magicKind',label:'Вид предмета',values:function(item){return [zgShopMagicKind(item)];}},{key:'focusKind',label:'Вид фокуса',values:function(item){return zgShopFacetValues(item.focusKind);}},{key:'spellForm',label:'Форма применения',values:function(item){return zgShopFacetValues(zgShopMagicForm(item));}},{key:'spellCategory',label:'Категория чар',values:zgShopMagicCategories},{key:'damageType',label:'Тип урона',values:zgShopMagicDamageTypes}];
+  if (['food','tool','mount','property','service','material','contraband','other'].indexOf(category) >= 0) return [{key:'categoryKind',label:'Вид внутри раздела',values:function(item){return [zgShopGenericKind(item,category)];}}];
+  return [];
+}
+function zgShopItemMatchesCategoryFilters(item) {
+  if (!_shopState.filter) return true;
+  var active = _shopState.categoryFilters || {};
+  return zgShopCategoryFacetDefinitions(_shopState.filter).every(function(facet){
+    var selected = active[facet.key];
+    return !selected || zgShopFacetValues(facet.values(item)).indexOf(selected) >= 0;
+  });
+}
+
+function zgShopCategoryFiltersHtml(items) {
+  var category = _shopState.filter;
+  if (!category) return '';
+  var rows = (items || []).filter(function(item){return item.cat===category;});
+  var definitions = zgShopCategoryFacetDefinitions(category);
+  var selectStyle = 'height:34px;min-width:135px;background:#0a0704;border:1px solid #49351c;border-radius:8px;color:#d0bb8d;padding:5px 8px;font-family:\'Cinzel\',serif;font-size:8px';
+  var selects = definitions.map(function(facet){
+    var counts = {};
+    rows.forEach(function(item){zgShopFacetValues(facet.values(item)).forEach(function(value){counts[value]=(counts[value]||0)+1;});});
+    var values = Object.keys(counts).filter(function(value){return value&&counts[value]>0;}).sort(function(a,b){return zgShopFacetLabel(a).localeCompare(zgShopFacetLabel(b),'ru');});
+    if (values.length < 2) return '';
+    var selected = (_shopState.categoryFilters||{})[facet.key] || '';
+    return '<select data-shop-category-filter="' + facet.key + '" aria-label="' + escHTML(facet.label) + '" onchange="zgShopSetCategoryFilter(\'' + facet.key + '\',this.value)" style="' + selectStyle + '"><option value="">' + escHTML(facet.label) + ' · все</option>' + values.map(function(value){return '<option value="' + escHTML(value) + '"' + (selected===value?' selected':'') + '>' + escHTML(zgShopFacetLabel(value)) + ' · ' + counts[value] + '</option>';}).join('') + '</select>';
+  }).join('');
+  if (!selects) return '';
+  var cat = SHOP_CATS.find(function(row){return row.key===category;}) || {icon:'📦',label:'Раздел',color:'#8a7a5e'};
+  return '<div id="zg-shop-category-filters" data-category="' + escHTML(category) + '" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;width:min(100%,980px);margin:-12px auto 18px;padding:9px 10px;border:1px solid ' + cat.color + '55;border-left:3px solid ' + cat.color + ';border-radius:9px;background:linear-gradient(90deg,' + cat.color + '0d,#0c0906 32%)"><span style="margin-right:3px;color:' + cat.color + ';font-family:\'Cinzel\',serif;font-size:9px;white-space:nowrap">' + cat.icon + ' ВНУТРИ: ' + escHTML(cat.label) + '</span>' + selects + '<button type="button" onclick="zgShopClearCategoryFilters()" style="height:30px;padding:4px 8px;border:1px solid #49351c;border-radius:7px;background:transparent;color:#806f51;font-family:\'Cinzel\',serif;font-size:8px;cursor:pointer">Очистить</button></div>';
+}
+
 function zgShopItemMatchesBrowseFilters(item) {
   if (_shopState.filter && item.cat !== _shopState.filter) return false;
+  if (!zgShopItemMatchesCategoryFilters(item)) return false;
   if (_shopState.rarity && (item.rarity || 'common') !== _shopState.rarity) return false;
   if (_shopState.priceBand) {
     var band = ZG_SHOP_PRICE_BANDS.find(function(row){ return row.id === _shopState.priceBand; });
@@ -58682,7 +58869,7 @@ function renderShopPage() {
         return '<button onclick="zgShopSetFilter(\'' + cat.key + '\')" style="padding:6px 12px;border:1px solid ' + (on ? cat.color : '#2a1e10') + ';border-radius:16px;background:' + (on ? cat.color + '18' : 'transparent') + ';color:' + (on ? cat.color : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.5px">' + cat.icon + ' ' + cat.label + '</button>';
       }).join('')+
       zgShopGmStatsToggleHtml()+
-    '</div>' + zgShopBrowseFiltersHtml();
+    '</div>' + zgShopCategoryFiltersHtml(items) + zgShopBrowseFiltersHtml();
 
   var grid;
   if (!filtered.length) {
@@ -59134,6 +59321,8 @@ if (typeof window !== 'undefined') {
   window.zgShopSetSearch = zgShopSetSearch;
   window.zgShopToggleGmStats = zgShopToggleGmStats;
   window.zgShopSetBrowseFilter = zgShopSetBrowseFilter;
+  window.zgShopSetCategoryFilter = zgShopSetCategoryFilter;
+  window.zgShopClearCategoryFilters = zgShopClearCategoryFilters;
   window.zgShopSetPriceLimit = zgShopSetPriceLimit;
   window.zgShopResetBrowseFilters = zgShopResetBrowseFilters;
   window.zgShopSetPage = zgShopSetPage;

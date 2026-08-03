@@ -1473,6 +1473,21 @@
     return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:[],access:item.access});
   });
 
+  var SPELL_DAMAGE_ITEMS = [
+    {id:'shp_spell_damage_01',name:'Амулет грозового отвода',icon:'⚡',image:'images/shop/spell-damage-amulet-storm-diversion.png',imageThumb:'images/shop/thumbs/spell-damage-amulet-storm-diversion.jpg',damageAffinity:'lightning',slot:'amulet',powerTier:3,rarity:'epic',price:{pl:18,zl:0,sr:0,md:0},effect:'Раз за бой · молния перескакивает на другую цель в соседней клетке и наносит половину исходного урона',desc:'Реликтовая оправа из белой, серой и тёмной стали держит толстую стеклянную капсулу. Внутри между двумя иглами без конца бьют крошечные молнии. Вторичная цель должна находиться рядом с уже поражённой и не может запустить новый переход.',effects:[{id:'storm-diversion-chain',type:'damage',trigger:'caster-deals-lightning-spell-damage',operation:'deal-half-original-damage-to-adjacent-secondary-target',balanceOperation:'artifact-effect',value:3,damageType:'lightning',damageScale:0.5,targetLimit:1,rangeFromOriginalTargetCells:1,rounding:'down',condition:'secondary-target-was-not-hit-by-the-spell;damage-does-not-chain-again',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'upperland',marketIds:['ztuz-licensed-counter','dorogograd-golden-measure'],access:{markets:['licensed','guild'],legality:'restricted'}},
+    {id:'shp_spell_damage_02',name:'Напульсник угольного следа',icon:'▰',image:'images/shop/spell-damage-wristband-charcoal-trail.png',imageThumb:'images/shop/thumbs/spell-damage-wristband-charcoal-trail.jpg',damageAffinity:'fire',slot:'wrists',powerTier:2,rarity:'rare',price:{pl:6,zl:5,sr:0,md:0},effect:'Раз за бой · огненные чары оставляют под одной поражённой целью горящую клетку до начала твоего следующего хода',desc:'Обугленная кожа зажата между чёрными рёбрами и тонким медным каналом. Первое существо, которое войдёт в отмеченную клетку или закончит там ход, получает 1d4 огненного урона, после чего след гаснет.',effects:[{id:'charcoal-trail-burning-cell',type:'damage',trigger:'caster-deals-fire-spell-damage',operation:'create-burning-cell',balanceOperation:'artifact-effect',dice:'1d4',value:1,damageType:'fire',areaCells:'1x1',targetLimit:1,maxTriggers:1,duration:'until-caster-next-turn-start-or-triggered',condition:'cell-under-one-target-damaged-by-the-spell',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'root-valley',marketIds:['glupishche-hypnoks-eye','glupishche-three-strikes']},
+    {id:'shp_spell_damage_03',name:'Горжет погребального дыхания',icon:'◒',image:'images/shop/spell-damage-gorget-funeral-breath.png',imageThumb:'images/shop/thumbs/spell-damage-gorget-funeral-breath.jpg',damageAffinity:'necrotic',slot:'amulet',powerTier:2,rarity:'rare',price:{pl:7,zl:0,sr:0,md:0},effect:'Раз за бой · когда ты наносишь некротический урон заклинанием, получи 1d4 временных HP',desc:'Низкий ворот из могильного серебра и тёмного железа хранит у горла запаянную бусину с серым дымом. Временные HP получает именно владелец горжета, а не повреждённая цель.',effects:[{id:'funeral-breath-temporary-hp',type:'support',trigger:'caster-deals-necrotic-spell-damage',operation:'grant-temporary-hp-dice-to-caster',balanceOperation:'artifact-effect',dice:'1d4',value:1,damageType:'necrotic',target:'caster',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'levoshlak',marketIds:['levoshlak-tower-vault','strannograd-bog-guild']}
+  ].map(function(item){
+    item.cat='magic';
+    item.category='accessory';
+    item.charges=1;
+    item.maxCharges=1;
+    item.recharge='next-combat';
+    item.tags=['magic','spell-damage',item.damageAffinity];
+    item.access=item.access||{markets:['guild','licensed'],legality:'open'};
+    return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:[],access:item.access});
+  });
+
   var BLACK_MARKET_ITEMS = [
     {id:'shp_black_01',name:'Ключевой воск взломщика',icon:'🕯️',tier:1,legality:'restricted',effect:'+1 к созданию слепка простого ключа',desc:'Мягкий чёрный воск в плоской жестяной коробочке.'},
     {id:'shp_black_02',name:'Печать чужого курьера',icon:'📯',tier:1,legality:'forbidden',effect:'+1 к выдаче себя за низового посыльного',desc:'Набор поддельных сургучных печатей без гербов знати.'},
@@ -2322,6 +2337,23 @@
     return errors;
   }
 
+  function validateSpellDamageItems() {
+    var errors = validateItemCollection(SPELL_DAMAGE_ITEMS);
+    var expectedAffinities = ['lightning','fire','necrotic'];
+    if (SPELL_DAMAGE_ITEMS.length !== expectedAffinities.length) errors.push('spell damage: expected three items');
+    expectedAffinities.forEach(function(affinity){if(SPELL_DAMAGE_ITEMS.filter(function(item){return item.damageAffinity===affinity;}).length!==1) errors.push('spell damage: expected one '+affinity+' item');});
+    SPELL_DAMAGE_ITEMS.forEach(function(item){
+      if (item.charges !== 1 || item.maxCharges !== 1 || item.recharge !== 'next-combat') errors.push(item.id + ': expected one charge per combat');
+      if (!/Раз за бой/.test(item.effect)) errors.push(item.id + ': cooldown must be visible in effect text');
+      if (!item.effects.length || item.effects.some(function(effect){return effect.frequency!=='combat'||effect.charges!==1||effect.recharge!=='next-combat';})) errors.push(item.id + ': structured cooldown mismatch');
+    });
+    var stormItem = SPELL_DAMAGE_ITEMS.filter(function(item){return item.damageAffinity==='lightning';})[0];
+    var gorgetItem = SPELL_DAMAGE_ITEMS.filter(function(item){return item.damageAffinity==='necrotic';})[0];
+    if (stormItem && (stormItem.rarity!=='epic'||stormItem.effects[0].damageScale!==0.5||stormItem.effects[0].rangeFromOriginalTargetCells!==1)) errors.push(stormItem.id + ': relic chain-lightning rules mismatch');
+    if (gorgetItem && gorgetItem.effects[0].target!=='caster') errors.push(gorgetItem.id + ': temporary HP must go to the wearer');
+    return errors;
+  }
+
   function validateBlackMarketItems() {
     var errors = validateItemCollection(BLACK_MARKET_ITEMS);
     BLACK_MARKET_ITEMS.forEach(function(item){if(item.access.markets.indexOf('secret')<0) errors.push(item.id + ': black market item must use secret market');});
@@ -2585,6 +2617,7 @@
     validateMagicAdornmentItems:validateMagicAdornmentItems,
     validateSpellFormItems:validateSpellFormItems,
     validateSpellCategoryItems:validateSpellCategoryItems,
+    validateSpellDamageItems:validateSpellDamageItems,
     validateBlackMarketItems:validateBlackMarketItems,
     validateForbiddenGoodsItems:validateForbiddenGoodsItems,
     validateThiefGearItems:validateThiefGearItems,
@@ -2617,6 +2650,7 @@
     getMagicAdornmentItems:function () { return clone(MAGIC_ADORNMENT_ITEMS); },
     getSpellFormItems:function () { return clone(SPELL_FORM_ITEMS); },
     getSpellCategoryItems:function () { return clone(SPELL_CATEGORY_ITEMS); },
+    getSpellDamageItems:function () { return clone(SPELL_DAMAGE_ITEMS); },
     getBlackMarketItems:function () { return clone(BLACK_MARKET_ITEMS); },
     getForbiddenGoodsItems:function () { return clone(FORBIDDEN_GOODS_ITEMS); },
     getThiefGearItems:function () { return clone(THIEF_GEAR_ITEMS); },
@@ -2635,7 +2669,7 @@
     getShopMarkets:function () { return clone(SHOP_MARKET_DEFINITIONS); },
     enrichShopItem:enrichShopItem,
     enrichShopItems:enrichShopItems,
-    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, SPELL_CATEGORY_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
+    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, SPELL_CATEGORY_ITEMS, SPELL_DAMAGE_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
     definitionToInventorySnapshot:definitionToInventorySnapshot
   };
 });

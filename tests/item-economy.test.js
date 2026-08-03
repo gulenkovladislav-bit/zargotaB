@@ -60,7 +60,7 @@ assert.ok(consumables.every(function (item) { return item.category === 'consumab
 assert.ok(consumables.every(function (item) { return item.charges === 1; }));
 assert.ok(consumables.every(function (item) { return item.tags.indexOf('consumable') >= 0; }));
 assert.ok(consumables.every(function (item) { return item.effects.length >= 1; }));
-assert.strictEqual(economy.getShopSeedItems().length, 408);
+assert.strictEqual(economy.getShopSeedItems().length, 411);
 var consumableAudit = economy.auditItemDefinitions(consumables);
 assert.strictEqual(consumableAudit.length, 20);
 assert.ok(consumableAudit.every(function (row) { return row.confidence === 'structured'; }));
@@ -438,6 +438,25 @@ assert.strictEqual(movementCategoryItem.effects[0].distanceScale,0.5);
 assert.strictEqual(movementCategoryItem.effects[0].minimumCells,2);
 assert.match(movementCategoryItem.effect,/без ответного удара/);
 assert.ok(economy.auditItemDefinitions(spellCategoryItems).every(function(row){return row.status==='within-tier'&&row.confidence==='structured';}));
+
+var spellDamageItems = economy.getSpellDamageItems();
+assert.strictEqual(spellDamageItems.length,3);
+assert.deepStrictEqual(economy.validateSpellDamageItems(),[]);
+assert.deepStrictEqual(spellDamageItems.map(function(item){return item.damageAffinity;}).sort(),['fire','lightning','necrotic']);
+assert.ok(spellDamageItems.every(function(item){return item.charges===1&&item.maxCharges===1&&item.recharge==='next-combat';}));
+assert.ok(spellDamageItems.every(function(item){return item.effects.every(function(effect){return effect.frequency==='combat'&&effect.charges===1&&effect.recharge==='next-combat';});}));
+assert.ok(spellDamageItems.every(function(item){return /^images\/shop\/spell-damage-[a-z-]+\.png$/.test(item.image)&&/^images\/shop\/thumbs\/spell-damage-[a-z-]+\.jpg$/.test(item.imageThumb);}));
+spellDamageItems.forEach(function(item){
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.image)));
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.imageThumb)));
+});
+var stormDiversion = spellDamageItems.filter(function(item){return item.damageAffinity==='lightning';})[0];
+assert.strictEqual(stormDiversion.rarity,'epic');
+assert.strictEqual(stormDiversion.effects[0].damageScale,0.5);
+assert.strictEqual(stormDiversion.effects[0].rangeFromOriginalTargetCells,1);
+var funeralGorget = spellDamageItems.filter(function(item){return item.damageAffinity==='necrotic';})[0];
+assert.strictEqual(funeralGorget.effects[0].target,'caster');
+assert.match(funeralGorget.desc,/владелец/);
 
 var blackMarket = economy.getBlackMarketItems();
 assert.strictEqual(blackMarket.length, 15);
