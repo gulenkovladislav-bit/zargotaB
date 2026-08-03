@@ -1438,6 +1438,24 @@
     {id:'shp_adornment_15',name:'Оберег порога',icon:'⛩️',kind:'charm',tier:3,effect:'Раз за отдых создаёт на пороге сигнал против нежити или демона',desc:'Связка соли, серебряной проволоки и обожжённого дерева.'}
   ].map(function(item){item.powerTier=item.tier;item.rarity=item.tier===1?'uncommon':'rare';item.price={pl:item.tier*5,zl:0,sr:0,md:0};item.slot=item.kind==='ring'?'ring':item.kind==='amulet'?'amulet':'utility';item.image='images/shop/'+item.kind+'-'+item.id.slice(-2)+'.png';item.effects=[{id:'adornment-'+item.id,type:item.tier===1?'world':item.tier===2?'scouting':'defense',trigger:item.tier===1?'while-worn':'invoke-adornment',operation:'artifact-effect',value:item.tier,condition:item.tier===1?'narrow-purpose':null,frequency:item.tier===1?'passive':item.tier===2?'scene':'charge',charges:item.tier===3?1:null,stacking:'unique-source'}];return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:['magic',item.kind],access:{markets:['guild','licensed'],legality:'open'}});});
 
+  // Простые усилители формы заклинания. Это настольные заряды, а не таймеры:
+  // каждый предмет срабатывает один раз за бой и восстанавливается перед следующим.
+  var SPELL_FORM_ITEMS = [
+    {id:'shp_spell_form_01',name:'Кольцо направляющей грани',icon:'💍',image:'images/shop/spell-form-ring-directed.png',imageThumb:'images/shop/thumbs/spell-form-ring-directed.jpg',spellForm:'directed',slot:'ring',powerTier:2,rarity:'uncommon',price:{pl:4,zl:5,sr:0,md:0},effect:'Раз за бой · после броска добавь 1d4 к попаданию направленным заклинанием',desc:'Разомкнутая оправа стягивает отблеск в одну точку. Решение принимают после броска, но до объявления результата.',effects:[{id:'guiding-edge-directed-spell',type:'support',trigger:'caster-rolls-directed-spell-attack',operation:'add-die-to-spell-attack-roll',balanceOperation:'artifact-effect',dice:'1d4',value:1,condition:'after-roll-before-outcome',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'upperland',marketIds:['ztuz-licensed-counter','dorogograd-golden-measure']},
+    {id:'shp_spell_form_02',name:'Наручи удержанного узла',icon:'⭕',image:'images/shop/spell-form-bracers-concentration.png',imageThumb:'images/shop/thumbs/spell-form-bracers-concentration.jpg',spellForm:'concentration',slot:'wrists',powerTier:2,rarity:'uncommon',price:{pl:5,zl:5,sr:0,md:0},effect:'Раз за бой · добавь 1d6 к проверке сохранения концентрации',desc:'Переплетённые жилы затягиваются при ударе и помогают не распустить уже удерживаемое заклинание.',effects:[{id:'held-knot-concentration',type:'defense',trigger:'caster-makes-concentration-check',operation:'add-die-to-concentration-check',balanceOperation:'artifact-effect',dice:'1d6',value:1,frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'root-valley',marketIds:['glupishche-hypnoks-eye','lesorubka-artel-yard']},
+    {id:'shp_spell_form_03',name:'Перчатки полного касания',icon:'🧤',image:'images/shop/spell-form-gloves-touch.png',imageThumb:'images/shop/thumbs/spell-form-gloves-touch.jpg',spellForm:'touch',slot:'hands',powerTier:2,rarity:'rare',price:{pl:6,zl:5,sr:0,md:0},effect:'Раз за бой · добавь 1d6 к урону или лечению заклинания прикосновения',desc:'Серебряный шов доводит импульс до самых кончиков пальцев. Кубик следует исходному действию заклинания: ранит либо лечит.',effects:[{id:'full-touch-spell',type:'support',trigger:'caster-resolves-touch-spell-damage-or-healing',operation:'add-die-to-touch-spell-damage-or-healing',balanceOperation:'artifact-effect',dice:'1d6',value:1,condition:'same-damage-or-healing-mode-as-spell',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'root-valley',marketIds:['glupishche-hypnoks-eye','glupishche-last-rest']},
+    {id:'shp_spell_form_04',name:'Амулет сосредоточенной области',icon:'◉',image:'images/shop/spell-form-amulet-area.png',imageThumb:'images/shop/thumbs/spell-form-amulet-area.jpg',spellForm:'area',slot:'amulet',powerTier:2,rarity:'rare',price:{pl:7,zl:5,sr:0,md:0},effect:'Раз за бой · одна выбранная цель области получает ещё 1d6 урона',desc:'Широкий диск собирает часть рассеянной силы в одну отмеченную точку. Остальные цели получают обычный эффект заклинания.',effects:[{id:'focused-area-spell',type:'damage',trigger:'caster-deals-damage-with-area-spell',operation:'add-damage-die-to-one-chosen-area-target',balanceOperation:'artifact-effect',dice:'1d6',value:1,targetLimit:1,condition:'chosen-target-is-affected-by-the-spell',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'levoshlak',marketIds:['levoshlak-tower-vault','glupishche-hypnoks-eye']}
+  ].map(function(item){
+    item.cat='magic';
+    item.category='accessory';
+    item.charges=1;
+    item.maxCharges=1;
+    item.recharge='next-combat';
+    item.tags=['magic','spell-form',item.spellForm];
+    item.access={markets:['guild','licensed'],legality:'open'};
+    return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:[],access:item.access});
+  });
+
   var BLACK_MARKET_ITEMS = [
     {id:'shp_black_01',name:'Ключевой воск взломщика',icon:'🕯️',tier:1,legality:'restricted',effect:'+1 к созданию слепка простого ключа',desc:'Мягкий чёрный воск в плоской жестяной коробочке.'},
     {id:'shp_black_02',name:'Печать чужого курьера',icon:'📯',tier:1,legality:'forbidden',effect:'+1 к выдаче себя за низового посыльного',desc:'Набор поддельных сургучных печатей без гербов знати.'},
@@ -2253,6 +2271,21 @@
     return errors;
   }
 
+  function validateSpellFormItems() {
+    var errors = validateItemCollection(SPELL_FORM_ITEMS);
+    var expectedForms = ['directed','concentration','touch','area'];
+    if (SPELL_FORM_ITEMS.length !== expectedForms.length) errors.push('spell forms: expected four items');
+    expectedForms.forEach(function(form){if(SPELL_FORM_ITEMS.filter(function(item){return item.spellForm===form;}).length!==1) errors.push('spell forms: expected one '+form+' item');});
+    SPELL_FORM_ITEMS.forEach(function(item){
+      if (item.charges !== 1 || item.maxCharges !== 1 || item.recharge !== 'next-combat') errors.push(item.id + ': expected one charge per combat');
+      if (!/Раз за бой/.test(item.effect)) errors.push(item.id + ': cooldown must be visible in effect text');
+      if (!item.effects.length || item.effects.some(function(effect){return effect.frequency!=='combat'||effect.charges!==1||effect.recharge!=='next-combat';})) errors.push(item.id + ': structured cooldown mismatch');
+    });
+    var areaItem = SPELL_FORM_ITEMS.filter(function(item){return item.spellForm==='area';})[0];
+    if (areaItem && areaItem.effects[0].targetLimit !== 1) errors.push(areaItem.id + ': area bonus must affect one target only');
+    return errors;
+  }
+
   function validateBlackMarketItems() {
     var errors = validateItemCollection(BLACK_MARKET_ITEMS);
     BLACK_MARKET_ITEMS.forEach(function(item){if(item.access.markets.indexOf('secret')<0) errors.push(item.id + ': black market item must use secret market');});
@@ -2463,6 +2496,8 @@
       range:item.range || '',
       acBonus:Number(item.acBonus || item.defense) || 0,
       charges:item.charges == null ? null : Math.max(0, Number(item.charges) || 0),
+      maxCharges:item.maxCharges == null ? null : Math.max(0, Number(item.maxCharges) || 0),
+      recharge:item.recharge || '',
       spellRefId:item.spellRefId == null ? null : Number(item.spellRefId),
       spellLevel:item.spellLevel == null ? null : Number(item.spellLevel),
       consumption:item.consumption || null,
@@ -2512,6 +2547,7 @@
     validateMinorArtifactItems:validateMinorArtifactItems,
     validatePotionItems:validatePotionItems,
     validateMagicAdornmentItems:validateMagicAdornmentItems,
+    validateSpellFormItems:validateSpellFormItems,
     validateBlackMarketItems:validateBlackMarketItems,
     validateForbiddenGoodsItems:validateForbiddenGoodsItems,
     validateThiefGearItems:validateThiefGearItems,
@@ -2542,6 +2578,7 @@
     getMinorArtifactItems:function () { return clone(MINOR_ARTIFACT_ITEMS); },
     getPotionItems:function () { return clone(POTION_ITEMS); },
     getMagicAdornmentItems:function () { return clone(MAGIC_ADORNMENT_ITEMS); },
+    getSpellFormItems:function () { return clone(SPELL_FORM_ITEMS); },
     getBlackMarketItems:function () { return clone(BLACK_MARKET_ITEMS); },
     getForbiddenGoodsItems:function () { return clone(FORBIDDEN_GOODS_ITEMS); },
     getThiefGearItems:function () { return clone(THIEF_GEAR_ITEMS); },
@@ -2560,7 +2597,7 @@
     getShopMarkets:function () { return clone(SHOP_MARKET_DEFINITIONS); },
     enrichShopItem:enrichShopItem,
     enrichShopItems:enrichShopItems,
-    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
+    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
     definitionToInventorySnapshot:definitionToInventorySnapshot
   };
 });

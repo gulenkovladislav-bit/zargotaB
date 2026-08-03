@@ -57869,7 +57869,7 @@ function zgSeedLegacyShopItems() {
 // Компактная витрина v18. Канонические товары обновляются, созданные вручную сохраняются.
 function zgSeedShopIfEmpty() {
   try {
-    if (localStorage.getItem('zargota_shop_seeded_v39')) return;
+    if (localStorage.getItem('zargota_shop_seeded_v40')) return;
     var featured = [
       { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
       { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
@@ -57906,7 +57906,7 @@ function zgSeedShopIfEmpty() {
     var combined = featured.concat(foundation, manual);
     if (window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItems === 'function') combined = window.ZargotaItemEconomy.enrichShopItems(combined);
     saveShopItems(combined);
-    localStorage.setItem('zargota_shop_seeded_v39', '1');
+    localStorage.setItem('zargota_shop_seeded_v40', '1');
     var host = document.getElementById('shop-page-inner');
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}

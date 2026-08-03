@@ -60,7 +60,7 @@ assert.ok(consumables.every(function (item) { return item.category === 'consumab
 assert.ok(consumables.every(function (item) { return item.charges === 1; }));
 assert.ok(consumables.every(function (item) { return item.tags.indexOf('consumable') >= 0; }));
 assert.ok(consumables.every(function (item) { return item.effects.length >= 1; }));
-assert.strictEqual(economy.getShopSeedItems().length, 399);
+assert.strictEqual(economy.getShopSeedItems().length, 403);
 var consumableAudit = economy.auditItemDefinitions(consumables);
 assert.strictEqual(consumableAudit.length, 20);
 assert.ok(consumableAudit.every(function (row) { return row.confidence === 'structured'; }));
@@ -400,6 +400,24 @@ assert.deepStrictEqual(economy.validateMagicAdornmentItems(), []);
 assert.ok(adornments.every(function(item){return /^images\/shop\/(ring|amulet|charm)-\d{2}\.png$/.test(item.image); }));
 assert.strictEqual(new Set(adornments.map(function(item){return item.image;})).size,15);
 ['ring','amulet','charm'].forEach(function(kind){assert.strictEqual(adornments.filter(function(item){return item.kind===kind;}).length,5);});
+
+var spellFormItems = economy.getSpellFormItems();
+assert.strictEqual(spellFormItems.length,4);
+assert.deepStrictEqual(economy.validateSpellFormItems(),[]);
+assert.deepStrictEqual(spellFormItems.map(function(item){return item.spellForm;}).sort(),['area','concentration','directed','touch']);
+assert.ok(spellFormItems.every(function(item){return item.charges===1&&item.maxCharges===1&&item.recharge==='next-combat';}));
+assert.ok(spellFormItems.every(function(item){return item.effects.every(function(effect){return effect.frequency==='combat'&&effect.charges===1&&effect.recharge==='next-combat';});}));
+assert.ok(spellFormItems.every(function(item){return /^images\/shop\/spell-form-[a-z-]+\.png$/.test(item.image)&&/^images\/shop\/thumbs\/spell-form-[a-z-]+\.jpg$/.test(item.imageThumb);}));
+spellFormItems.forEach(function(item){
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.image)));
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.imageThumb)));
+});
+var areaSpellFormItem = spellFormItems.filter(function(item){return item.spellForm==='area';})[0];
+assert.strictEqual(areaSpellFormItem.effects[0].targetLimit,1);
+var spellFormSnapshot = economy.definitionToInventorySnapshot(spellFormItems[0],'spell-form-ring-1',1);
+assert.strictEqual(spellFormSnapshot.charges,1);
+assert.strictEqual(spellFormSnapshot.maxCharges,1);
+assert.strictEqual(spellFormSnapshot.recharge,'next-combat');
 
 var blackMarket = economy.getBlackMarketItems();
 assert.strictEqual(blackMarket.length, 15);

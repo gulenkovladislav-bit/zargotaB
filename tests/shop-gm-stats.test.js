@@ -66,7 +66,7 @@ assert.strictEqual(context.zgShopGmStatsToggleHtml(), '');
 
 assert.match(html, /zgShopGmStatsHtml\(items, filtered\.length\)/);
 assert.match(html, /SHOP_CATS\.map[\s\S]*?\.join\(''\)\+\s*zgShopGmStatsToggleHtml\(\)/);
-assert.match(html, /zargota_shop_seeded_v39/);
+assert.match(html, /zargota_shop_seeded_v40/);
 assert.match(html, /key:'common',\s+label:'Простое'/);
 assert.match(html, /key:'epic',\s+label:'Реликтовое'/);
 assert.doesNotMatch(html.slice(html.indexOf('var SHOP_RARITY ='), html.indexOf('var SHOP_REGIONS =')), /Обычное|Эпическое/);
