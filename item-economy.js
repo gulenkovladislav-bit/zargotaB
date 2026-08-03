@@ -1456,6 +1456,23 @@
     return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:[],access:item.access});
   });
 
+  var SPELL_CATEGORY_ITEMS = [
+    {id:'shp_spell_category_01',name:'Кольцо властного узла',icon:'💍',image:'images/shop/spell-category-ring-control.png',imageThumb:'images/shop/thumbs/spell-category-ring-control.jpg',spellCategory:'control',slot:'ring',powerTier:2,rarity:'rare',price:{pl:8,zl:0,sr:0,md:0},effect:'Раз за бой · одна цель получает Помеху на первый спасбросок против твоего контрольного заклинания',desc:'Чёрный узел сжимает камень в миг сотворения чар. Если заклинание затрагивает несколько существ, владелец заранее выбирает только одно.',effects:[{id:'master-knot-control-spell',type:'control',trigger:'caster-applies-control-spell-before-first-save',operation:'impose-disadvantage',balanceOperation:'artifact-effect',value:1,targetLimit:1,condition:'first-save-of-one-chosen-target',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'levoshlak',marketIds:['levoshlak-tower-vault','glupishche-hypnoks-eye']},
+    {id:'shp_spell_category_02',name:'Наручи встречного заслона',icon:'🛡️',image:'images/shop/spell-category-bracers-protection.png',imageThumb:'images/shop/thumbs/spell-category-bracers-protection.jpg',spellCategory:'protection',slot:'wrists',powerTier:2,rarity:'uncommon',price:{pl:5,zl:5,sr:0,md:0},effect:'Раз за бой · реакцией снизь получаемый магический урон на 1d6',desc:'Наложенные друг на друга пластины принимают часть удара на запертый под скобой кристалл.',effects:[{id:'counter-ward-magic-damage',type:'defense',trigger:'wearer-receives-magical-damage',operation:'reduce-damage-dice',balanceOperation:'artifact-effect',dice:'1d6',value:1,actionCost:'reaction',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'upperland',marketIds:['ztuz-licensed-counter','kazad-drom-thundering-mountain']},
+    {id:'shp_spell_category_03',name:'Перчатки второго пульса',icon:'🧤',image:'images/shop/spell-category-gloves-healing.png',imageThumb:'images/shop/thumbs/spell-category-gloves-healing.jpg',spellCategory:'healing',slot:'hands',powerTier:2,rarity:'uncommon',price:{pl:5,zl:0,sr:0,md:0},effect:'Раз за бой · перебрось один кубик лечения и оставь лучший результат',desc:'Золотой шов коротко вспыхивает после слабого импульса, позволяя провести его через ладонь ещё раз.',effects:[{id:'second-pulse-healing-die',type:'support',trigger:'caster-rolls-healing-spell-dice',operation:'reroll-one-healing-die-keep-higher',balanceOperation:'artifact-effect',value:1,frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'root-valley',marketIds:['glupishche-hypnoks-eye','glupishche-last-rest']},
+    {id:'shp_spell_category_04',name:'Амулет первого следа',icon:'◌',image:'images/shop/spell-category-amulet-summon.png',imageThumb:'images/shop/thumbs/spell-category-amulet-summon.jpg',spellCategory:'summon',slot:'amulet',powerTier:2,rarity:'uncommon',price:{pl:5,zl:5,sr:0,md:0},effect:'Раз за бой · одно призванное тобой существо получает 1d6 временных HP',desc:'Пустая бронзовая ниша встречает первый шаг существа в мире Зарготы. При множественном призыве владелец выбирает одного.',effects:[{id:'first-trace-summoned-creature',type:'support',trigger:'caster-summons-one-or-more-creatures',operation:'grant-temporary-hp-dice',balanceOperation:'artifact-effect',dice:'1d6',value:1,targetLimit:1,condition:'one-chosen-creature-summoned-by-wearer',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'root-valley',marketIds:['glupishche-hypnoks-eye','morelesie-lighthouse-market']},
+    {id:'shp_spell_category_05',name:'Пояс сорванного шага',icon:'➶',image:'images/shop/spell-category-belt-movement.png',imageThumb:'images/shop/thumbs/spell-category-belt-movement.jpg',spellCategory:'movement',slot:'belt',powerTier:3,rarity:'rare',price:{pl:8,zl:5,sr:0,md:0},effect:'Раз за бой · после заклинания движения пройди ещё половину его дистанции, минимум 2 клетки, без ответного удара',desc:'Составные пластины продолжают путь уже после окончания чар. Дополнительный шаг проходит только по доступному маршруту и не переносит сквозь преграды.',effects:[{id:'broken-step-movement-spell',type:'tempo',trigger:'movement-spell-moves-wearer-on-battlefield',operation:'move-extra-fraction-without-opportunity-attack',balanceOperation:'artifact-effect',value:2,distanceScale:0.5,minimumCells:2,condition:'legal-path-no-barrier-crossing',frequency:'combat',charges:1,recharge:'next-combat',stacking:'replace'}],baseRegion:'upperland',marketIds:['dorogograd-golden-measure','ztuz-licensed-counter']}
+  ].map(function(item){
+    item.cat='magic';
+    item.category='accessory';
+    item.charges=1;
+    item.maxCharges=1;
+    item.recharge='next-combat';
+    item.tags=['magic','spell-category',item.spellCategory];
+    item.access={markets:['guild','licensed'],legality:'open'};
+    return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:[],access:item.access});
+  });
+
   var BLACK_MARKET_ITEMS = [
     {id:'shp_black_01',name:'Ключевой воск взломщика',icon:'🕯️',tier:1,legality:'restricted',effect:'+1 к созданию слепка простого ключа',desc:'Мягкий чёрный воск в плоской жестяной коробочке.'},
     {id:'shp_black_02',name:'Печать чужого курьера',icon:'📯',tier:1,legality:'forbidden',effect:'+1 к выдаче себя за низового посыльного',desc:'Набор поддельных сургучных печатей без гербов знати.'},
@@ -2286,6 +2303,25 @@
     return errors;
   }
 
+  function validateSpellCategoryItems() {
+    var errors = validateItemCollection(SPELL_CATEGORY_ITEMS);
+    var expectedCategories = ['control','protection','healing','summon','movement'];
+    if (SPELL_CATEGORY_ITEMS.length !== expectedCategories.length) errors.push('spell categories: expected five items');
+    expectedCategories.forEach(function(category){if(SPELL_CATEGORY_ITEMS.filter(function(item){return item.spellCategory===category;}).length!==1) errors.push('spell categories: expected one '+category+' item');});
+    SPELL_CATEGORY_ITEMS.forEach(function(item){
+      if (item.charges !== 1 || item.maxCharges !== 1 || item.recharge !== 'next-combat') errors.push(item.id + ': expected one charge per combat');
+      if (!/Раз за бой/.test(item.effect)) errors.push(item.id + ': cooldown must be visible in effect text');
+      if (!item.effects.length || item.effects.some(function(effect){return effect.frequency!=='combat'||effect.charges!==1||effect.recharge!=='next-combat';})) errors.push(item.id + ': structured cooldown mismatch');
+    });
+    var controlItem = SPELL_CATEGORY_ITEMS.filter(function(item){return item.spellCategory==='control';})[0];
+    var summonItem = SPELL_CATEGORY_ITEMS.filter(function(item){return item.spellCategory==='summon';})[0];
+    var movementItem = SPELL_CATEGORY_ITEMS.filter(function(item){return item.spellCategory==='movement';})[0];
+    if (controlItem && controlItem.effects[0].targetLimit !== 1) errors.push(controlItem.id + ': control bonus must affect one target only');
+    if (summonItem && summonItem.effects[0].targetLimit !== 1) errors.push(summonItem.id + ': summon bonus must affect one creature only');
+    if (movementItem && (movementItem.effects[0].distanceScale !== 0.5 || movementItem.effects[0].minimumCells !== 2)) errors.push(movementItem.id + ': movement distance mismatch');
+    return errors;
+  }
+
   function validateBlackMarketItems() {
     var errors = validateItemCollection(BLACK_MARKET_ITEMS);
     BLACK_MARKET_ITEMS.forEach(function(item){if(item.access.markets.indexOf('secret')<0) errors.push(item.id + ': black market item must use secret market');});
@@ -2548,6 +2584,7 @@
     validatePotionItems:validatePotionItems,
     validateMagicAdornmentItems:validateMagicAdornmentItems,
     validateSpellFormItems:validateSpellFormItems,
+    validateSpellCategoryItems:validateSpellCategoryItems,
     validateBlackMarketItems:validateBlackMarketItems,
     validateForbiddenGoodsItems:validateForbiddenGoodsItems,
     validateThiefGearItems:validateThiefGearItems,
@@ -2579,6 +2616,7 @@
     getPotionItems:function () { return clone(POTION_ITEMS); },
     getMagicAdornmentItems:function () { return clone(MAGIC_ADORNMENT_ITEMS); },
     getSpellFormItems:function () { return clone(SPELL_FORM_ITEMS); },
+    getSpellCategoryItems:function () { return clone(SPELL_CATEGORY_ITEMS); },
     getBlackMarketItems:function () { return clone(BLACK_MARKET_ITEMS); },
     getForbiddenGoodsItems:function () { return clone(FORBIDDEN_GOODS_ITEMS); },
     getThiefGearItems:function () { return clone(THIEF_GEAR_ITEMS); },
@@ -2597,7 +2635,7 @@
     getShopMarkets:function () { return clone(SHOP_MARKET_DEFINITIONS); },
     enrichShopItem:enrichShopItem,
     enrichShopItems:enrichShopItems,
-    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
+    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, SPELL_CATEGORY_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
     definitionToInventorySnapshot:definitionToInventorySnapshot
   };
 });

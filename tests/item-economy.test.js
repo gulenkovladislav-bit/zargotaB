@@ -60,7 +60,7 @@ assert.ok(consumables.every(function (item) { return item.category === 'consumab
 assert.ok(consumables.every(function (item) { return item.charges === 1; }));
 assert.ok(consumables.every(function (item) { return item.tags.indexOf('consumable') >= 0; }));
 assert.ok(consumables.every(function (item) { return item.effects.length >= 1; }));
-assert.strictEqual(economy.getShopSeedItems().length, 403);
+assert.strictEqual(economy.getShopSeedItems().length, 408);
 var consumableAudit = economy.auditItemDefinitions(consumables);
 assert.strictEqual(consumableAudit.length, 20);
 assert.ok(consumableAudit.every(function (row) { return row.confidence === 'structured'; }));
@@ -418,6 +418,26 @@ var spellFormSnapshot = economy.definitionToInventorySnapshot(spellFormItems[0],
 assert.strictEqual(spellFormSnapshot.charges,1);
 assert.strictEqual(spellFormSnapshot.maxCharges,1);
 assert.strictEqual(spellFormSnapshot.recharge,'next-combat');
+
+var spellCategoryItems = economy.getSpellCategoryItems();
+assert.strictEqual(spellCategoryItems.length,5);
+assert.deepStrictEqual(economy.validateSpellCategoryItems(),[]);
+assert.deepStrictEqual(spellCategoryItems.map(function(item){return item.spellCategory;}).sort(),['control','healing','movement','protection','summon']);
+assert.ok(spellCategoryItems.every(function(item){return item.charges===1&&item.maxCharges===1&&item.recharge==='next-combat';}));
+assert.ok(spellCategoryItems.every(function(item){return item.effects.every(function(effect){return effect.frequency==='combat'&&effect.charges===1&&effect.recharge==='next-combat';});}));
+assert.ok(spellCategoryItems.every(function(item){return /^images\/shop\/spell-category-[a-z-]+\.png$/.test(item.image)&&/^images\/shop\/thumbs\/spell-category-[a-z-]+\.jpg$/.test(item.imageThumb);}));
+spellCategoryItems.forEach(function(item){
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.image)));
+  assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.imageThumb)));
+});
+var controlCategoryItem = spellCategoryItems.filter(function(item){return item.spellCategory==='control';})[0];
+assert.strictEqual(controlCategoryItem.effects[0].operation,'impose-disadvantage');
+assert.strictEqual(controlCategoryItem.effects[0].targetLimit,1);
+var movementCategoryItem = spellCategoryItems.filter(function(item){return item.spellCategory==='movement';})[0];
+assert.strictEqual(movementCategoryItem.effects[0].distanceScale,0.5);
+assert.strictEqual(movementCategoryItem.effects[0].minimumCells,2);
+assert.match(movementCategoryItem.effect,/без ответного удара/);
+assert.ok(economy.auditItemDefinitions(spellCategoryItems).every(function(row){return row.status==='within-tier'&&row.confidence==='structured';}));
 
 var blackMarket = economy.getBlackMarketItems();
 assert.strictEqual(blackMarket.length, 15);
