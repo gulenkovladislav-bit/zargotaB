@@ -12,7 +12,7 @@
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
 <script src="gameplay-operation-outbox.js?v=2026-07-29.1"></script>
 <script src="equipment-rules.js?v=2026-07-29.2"></script>
-<script src="item-economy.js?v=2026-08-01.1"></script>
+<script src="item-economy.js?v=2026-08-03.1"></script>
 <script src="zargota-network.js?v=2026-07-30.2"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.4">
 <script src="gm-delivery.js?v=2026-07-29.8"></script>
@@ -51,6 +51,38 @@ window.zgStatIcon = function(key, className) {
   if (!src) return '';
   var cls = 'zg-stat-icon' + (className ? ' ' + String(className).replace(/[^a-zA-Z0-9 _-]/g, '') : '');
   return '<img class="' + cls + '" src="' + src + '" alt="" aria-hidden="true" loading="lazy" decoding="async">';
+};
+
+window.ZG_COIN_ASSETS = Object.freeze({
+  md:{label:'Медь',unit:'мд',src:'images/ui/coins/copper-sm.webp',color:'#c98850'},
+  sr:{label:'Серебро',unit:'ср',src:'images/ui/coins/silver-sm.webp',color:'#b8bcc8'},
+  zl:{label:'Золото',unit:'зл',src:'images/ui/coins/gold-sm.webp',color:'#e8c060'},
+  pl:{label:'Платина',unit:'пл',src:'images/ui/coins/platinum-sm.webp',color:'#e8eef8'}
+});
+window.zgCoinIconHtml = function(key, size, extraClass) {
+  var coin = window.ZG_COIN_ASSETS[String(key || '').toLowerCase()];
+  if (!coin) return '';
+  var px = Math.max(12, Number(size) || 18);
+  var cls = extraClass ? ' ' + String(extraClass).replace(/[^a-zA-Z0-9 _-]/g, '') : '';
+  return '<img class="zg-coin-icon' + cls + '" src="' + coin.src + '" alt="" aria-hidden="true" width="64" height="64" loading="lazy" decoding="async" style="width:' + px + 'px;height:' + px + 'px;object-fit:contain;vertical-align:' + (px >= 20 ? '-6' : '-4') + 'px;display:inline-block;flex:none">';
+};
+window.zgCoinStackHtml = function(size) {
+  var px = Math.max(12, Number(size) || 18);
+  return '<span aria-hidden="true" style="display:inline-flex;align-items:center;width:' + Math.round(px * 1.75) + 'px;height:' + px + 'px;vertical-align:' + (px >= 20 ? '-5' : '-4') + 'px">' +
+    ['md','sr','zl','pl'].map(function(key,index){ return '<span style="display:inline-flex;margin-left:' + (index ? Math.round(px * -.58) : 0) + 'px;filter:drop-shadow(0 1px 1px #000c)">' + window.zgCoinIconHtml(key,px) + '</span>'; }).join('') + '</span>';
+};
+window.zgCoinAmountHtml = function(key, value) {
+  var coin = window.ZG_COIN_ASSETS[String(key || '').toLowerCase()];
+  return coin ? '<span style="color:' + coin.color + ';white-space:nowrap">' + window.zgCoinIconHtml(key,16) + ' ' + value + ' ' + coin.unit + '</span>' : '';
+};
+window.zgCurrencyTextHtml = function(value) {
+  var safe = String(value == null ? '' : value)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  var unitKey = {пл:'pl',зл:'zl',ср:'sr',мд:'md'};
+  return safe.replace(/(~?\s*[+−-]?[\d\s.,]+(?:[–—-][\d\s.,]+)?\+?)\s*(пл|зл|ср|мд)\b/gi, function(_, amount, unit) {
+    var normalized = unit.toLowerCase();
+    return window.zgCoinIconHtml(unitKey[normalized],15) + ' ' + amount.trim() + ' ' + normalized;
+  });
 };
 </script>
 <script>
@@ -27016,13 +27048,11 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       <button class="back-to-home" onclick="showPage(&#39;home&#39;)" style="border-radius:0;border-right:1px solid var(--border);padding:0 16px;height:42px;flex-shrink:0;margin:0">← Главная</button>
       <button id="arena-tab-battle" onclick="renderArenaHub()" style="background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">☰ ХАБ</button>
       <button id="arena-tab-field" onclick="arenaShowTab(&#39;battle&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid var(--gold);padding:0 18px;height:42px;color:var(--gold);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">⚔️ АРЕНА</button>
-      <button id="arena-tab-armory" onclick="arenaShowTab(&#39;armory&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">⚔️ ОРУЖЕЙНАЯ</button>
       <button id="arena-tab-statuses" onclick="arenaShowTab(&#39;statuses&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">💫 СОСТОЯНИЯ</button>
-      <button id="arena-tab-shop" onclick="arenaShowTab(&#39;shop&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">💰 ТОВАРЫ</button>
+      <button id="arena-tab-shop" onclick="arenaShowTab(&#39;shop&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer"><img src="images/ui/coins/gold-sm.webp" alt="" aria-hidden="true" width="64" height="64" decoding="async" style="width:16px;height:16px;object-fit:contain;vertical-align:-4px;margin-right:4px"> ТОВАРЫ</button>
     </div>
     <div id="arena-hub-inner" style="padding:40px 20px 60px;max-width:820px;margin:0 auto"></div>
     <div id="arena-page-inner"></div>
-    <div id="armory-page-inner" style="display:none;padding:16px 20px;max-width:1300px;margin:0 auto"></div>
     <div id="statuses-page-inner" style="display:none;padding:16px 20px;max-width:1300px;margin:0 auto"></div>
     <div id="shop-page-inner" style="display:none;padding:24px 20px 60px;max-width:1100px;margin:0 auto"></div>
   </div>
@@ -42221,7 +42251,7 @@ function changeInvQty(id, idx, delta) {
 
 var INV_EMOJI_SET = [
   '📦','🧪','⚗️','🍷','🍺','🥃','☕','🍯','🥖','🧀','🍎','🍇','🍄',
-  '💎','💰','🪙','💍','📿','🔑','🗝️','🕯️','🔮','🪬','🗿','🪨','🦴','🪶',
+  '💎','💍','📿','🔑','🗝️','🕯️','🔮','🪬','🗿','🪨','🦴','🪶',
   '📜','📖','📕','📗','🗺️','✉️','🎭','🎴','🪕','🎺','🪈','🎻',
   '🏹','🗡️','⚔️','🪓','🔨','🪚','🛡️','🧥','👑','🎩','🧤','👢','⛑️','🧣',
   '🧿','☠️','💀','🕸️','🦇','🐍','🐉','🦂','🕷️','🦴','🪦','⚰️','🔥','❄️','⚡','💧','🌿','🌱','🍀','🪷','🌹','🍁','🪵'
@@ -42257,6 +42287,9 @@ function zgItemIconPath(value) {
 }
 
 function zgItemIconMarkup(value, fallback, extraStyle) {
+  if (value === '\uD83D\uDCB0' || value === '\uD83E\uDE99') {
+    return typeof zgCoinStackHtml === 'function' ? zgCoinStackHtml(20) : escHTML(fallback || '📦');
+  }
   var path = zgItemIconPath(value);
   if (path) {
     return '<img src="' + escHTML(path) + '" alt="" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:contain;display:block;' + (extraStyle || '') + '">';
@@ -44661,15 +44694,15 @@ function buildCoinsWidget(c) {
 
   var coins = c.coins;
   var types = [
-    { key: 'platinum', label: 'ПЛ', color: '#b8c4d4', title: 'Платина' },
-    { key: 'gold',     label: 'ЗЛ', color: '#e8c060', title: 'Золото' },
-    { key: 'silver',   label: 'СР', color: '#c0c4c8', title: 'Серебро' },
-    { key: 'copper',   label: 'МД', color: '#c08050', title: 'Медь' }
+    { key: 'platinum', coin: 'pl', label: 'ПЛ', color: '#b8c4d4', title: 'Платина' },
+    { key: 'gold',     coin: 'zl', label: 'ЗЛ', color: '#e8c060', title: 'Золото' },
+    { key: 'silver',   coin: 'sr', label: 'СР', color: '#c0c4c8', title: 'Серебро' },
+    { key: 'copper',   coin: 'md', label: 'МД', color: '#c08050', title: 'Медь' }
   ];
   var row = types.map(function(t) {
     var val = parseInt(coins[t.key], 10) || 0;
     return '<div style="display:flex;align-items:center;gap:2px;min-width:0" title="' + t.title + '">' +
-      '<span style="font-family:\'Cinzel\',serif;font-size:8.5px;color:' + t.color + ';letter-spacing:.8px;width:18px;flex-shrink:0;text-align:center;font-weight:600">' + t.label + '</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:3px;font-family:\'Cinzel\',serif;font-size:8px;color:' + t.color + ';letter-spacing:.5px;width:37px;flex-shrink:0;font-weight:600">' + zgCoinIconHtml(t.coin,22) + '<span>' + t.label + '</span></span>' +
       '<button onclick="addCoin(' + c.id + ',\'' + t.key + '\',-1)" style="width:20px;height:24px;border:1px solid ' + t.color + '33;border-radius:3px 0 0 3px;background:transparent;color:' + t.color + '99;cursor:pointer;font-size:12px;line-height:1;padding:0;flex-shrink:0">−</button>' +
       '<input type="number" value="' + val + '" onchange="setCoin(' + c.id + ',\'' + t.key + '\',this.value)" onfocus="this.select()" ' +
         'style="width:46px;text-align:center;padding:0;border:1px solid ' + t.color + '44;border-left:none;border-right:none;border-radius:0;background:#0a0704;color:' + t.color + ';font-family:\'Cinzel\',serif;font-size:12px;font-weight:700;box-sizing:border-box;height:24px;flex-shrink:0">' +
@@ -44678,7 +44711,6 @@ function buildCoinsWidget(c) {
   }).join('');
   // Компактнее: фиксированная высота, узкие инпуты, gap 10px между четырьмя группами
   return '<div style="background:#0e0a0666;border:1px solid var(--border);border-radius:4px;padding:5px 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
-    '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1px;flex-shrink:0">🪙</span>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap">' + row + '</div>' +
   '</div>';
 }
@@ -47376,7 +47408,7 @@ function openBeastDetail(id) {
         (attacksHTML ? '<div class="beast-section-title">⚔ Атаки</div>' + attacksHTML : '') +
         (traitsHTML ? '<div class="beast-section-title">🧬 Черты и способности</div>' + traitsHTML : '') +
         (b.behavior ? '<div class="beast-section-title">🎭 Поведение</div><div style="font-size:13px;color:var(--muted);line-height:1.6;padding:0 4px">'+escHTML(b.behavior)+'</div>' : '') +
-        (lootHTML ? '<div class="beast-section-title">💰 Лут</div>' + lootHTML : '') +
+        (lootHTML ? '<div class="beast-section-title">' + zgCoinStackHtml(16) + ' Лут</div>' + lootHTML : '') +
         (b.lore ? '<div class="beast-section-title">📜 Лор</div><div class="beast-lore-text">'+escHTML(b.lore)+'</div>' : '') +
         (b.variants ? '<div class="beast-section-title">🔀 Вариации / Подвиды</div><div style="font-size:13px;color:var(--muted);line-height:1.6;padding:0 4px">'+escHTML(b.variants)+'</div>' : '') +
       '</div>' +
@@ -47634,7 +47666,7 @@ function renderBeastEditor() {
     '<textarea class="be-textarea" id="be-behavior" placeholder="Как ведёт себя в бою, реагирует на угрозы...">'+escHTML(b.behavior||'')+'</textarea>' +
 
     // Loot
-    '<div class="be-section-title">💰 Лут</div>' +
+    '<div class="be-section-title">' + zgCoinStackHtml(16) + ' Лут</div>' +
     '<div id="be-loot">'+lootHTML+'</div>' +
     '<div id="beast-loot-picker-area"></div>' +
     '<button class="be-add-btn" onclick="beastOpenLootPicker()">+ Добавить предмет в лут</button>' +
@@ -47811,7 +47843,7 @@ function beastOpenLootPicker() {
     '<input id="beast-loot-search" placeholder="🔍 Поиск по названию..." value="'+escHTML(searchQ)+'" oninput="window._beastLootSearch=this.value;window._beastLootRefresh()" style="width:100%;padding:7px 10px;border:1px solid #2a2a2a;border-radius:6px;background:#0a0704;color:#d4c9a8;font-size:12px;margin-bottom:10px;box-sizing:border-box">';
     modal.innerHTML = '<div onclick="event.stopPropagation()" style="width:min(700px,96vw);background:linear-gradient(170deg,#1c1308,#0e0a06);border:1px solid #4a3a1a;border-radius:14px;padding:20px;box-shadow:0 32px 80px #000000c0">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
-        '<div style="font-family:Cinzel Decorative,serif;font-size:15px;color:#d4a84b">💰 Добавить в лут</div>' +
+        '<div style="font-family:Cinzel Decorative,serif;font-size:15px;color:#d4a84b">' + zgCoinStackHtml(17) + ' Добавить в лут</div>' +
         '<button onclick="document.getElementById(\'beast-loot-modal\').remove()" style="background:transparent;border:none;color:#666;cursor:pointer;font-size:18px">✕</button>' +
       '</div>' +
       filterPills +
@@ -55742,7 +55774,6 @@ function importBeasts(e) {
     // group: 'none' (hub) | 'arena' | 'shop'
     var map = {
       'arena-tab-field':    ['arena'],
-      'arena-tab-armory':   ['arena'],
       'arena-tab-statuses': ['arena'],
       'arena-tab-shop':     ['shop']
     };
@@ -55755,13 +55786,12 @@ function importBeasts(e) {
   global.renderArenaHub = function() {
     var hub = document.getElementById('arena-hub-inner');
     var battleInner = document.getElementById('arena-page-inner');
-    var armoryInner = document.getElementById('armory-page-inner');
     var statusInner = document.getElementById('statuses-page-inner');
     var shopInner   = document.getElementById('shop-page-inner');
-    [battleInner, armoryInner, statusInner, shopInner].forEach(function(el){ if (el) el.style.display = 'none'; });
+    [battleInner, statusInner, shopInner].forEach(function(el){ if (el) el.style.display = 'none'; });
     // В хабе — прячем все под-вкладки, оставляем только ХАБ
     zgSetArenaTabGroup('none');
-    ['arena-tab-field','arena-tab-armory','arena-tab-statuses','arena-tab-shop'].forEach(function(id){
+    ['arena-tab-field','arena-tab-statuses','arena-tab-shop'].forEach(function(id){
       var t = document.getElementById(id); if (t) { t.style.borderBottom = '2px solid transparent'; t.style.color = 'var(--muted)'; }
     });
     if (!hub) return;
@@ -55777,40 +55807,39 @@ function importBeasts(e) {
           '<div class="arena-hub-icon"><img src="images/ui/arena-shop/arena.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
           '<div class="arena-hub-title">Арена</div>'+
           '<div class="arena-hub-desc">Пошаговый бой, инициатива, состояния бойцов.</div>'+
-          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Бой</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Оружейная</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Состояния</span></div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Бой</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Состояния</span></div>'+
         '</button>'+
         // Квадрат Товары
         '<button onclick="arenaShowTab(\'shop\')" class="arena-hub-card" style="--hub:#6fcb83">'+
           '<div class="arena-hub-icon"><img src="images/ui/arena-shop/trade.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
           '<div class="arena-hub-title">Товары Зарготы</div>'+
-          '<div class="arena-hub-desc">Витрина предметов мира и памятка по экономике.</div>'+
-          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/showcase.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Витрина</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Экономика</span></div>'+
+          '<div class="arena-hub-desc">Витрина предметов мира, комплекты снаряжения и памятка по экономике.</div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/showcase.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Витрина</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Комплекты</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Экономика</span></div>'+
         '</button>'+
       '</div>';
   };
   global.arenaShowTab = function(tab) {
+    // Старые вызовы Оружейной ведут в единый каталог, к комплектам снаряжения.
+    if (tab === 'armory') {
+      _shopState.tab = 'loadouts';
+      tab = 'shop';
+    }
     var hub = document.getElementById('arena-hub-inner');
     if (hub) hub.style.display = 'none';
     // Показываем нужную группу вкладок
     zgSetArenaTabGroup(tab === 'shop' ? 'shop' : 'arena');
     var battleInner  = document.getElementById('arena-page-inner');
-    var armoryInner  = document.getElementById('armory-page-inner');
     var statusInner  = document.getElementById('statuses-page-inner');
     var shopInner    = document.getElementById('shop-page-inner');
     var tabBattle    = document.getElementById('arena-tab-field');
-    var tabArmory    = document.getElementById('arena-tab-armory');
     var tabStatuses  = document.getElementById('arena-tab-statuses');
     var tabShop      = document.getElementById('arena-tab-shop');
     if (!battleInner) return;
-    var all = [battleInner, armoryInner, statusInner, shopInner].filter(Boolean);
-    var allTabs = [tabBattle, tabArmory, tabStatuses, tabShop].filter(Boolean);
+    var all = [battleInner, statusInner, shopInner].filter(Boolean);
+    var allTabs = [tabBattle, tabStatuses, tabShop].filter(Boolean);
     all.forEach(function(el){ el.style.display = 'none'; });
     allTabs.forEach(function(t){ t.style.borderBottom = '2px solid transparent'; t.style.color = 'var(--muted)'; });
-    if (tab === 'armory') {
-      if (armoryInner) armoryInner.style.display = 'block';
-      if (tabArmory) { tabArmory.style.borderBottom = '2px solid var(--gold)'; tabArmory.style.color = 'var(--gold)'; }
-      if (typeof renderArmoryPage === 'function') renderArmoryPage();
-    } else if (tab === 'statuses') {
+    if (tab === 'statuses') {
       if (statusInner) statusInner.style.display = 'block';
       if (tabStatuses) { tabStatuses.style.borderBottom = '2px solid var(--gold)'; tabStatuses.style.color = 'var(--gold)'; }
       if (typeof renderStatusesPage === 'function') renderStatusesPage();
@@ -57445,7 +57474,7 @@ var SHOP_EMOJI_POOL = [
   { group:'Существа/маунты', list:['🐴','🐎','🦄','🐫','🐂','🐐','🦅','🐺','🐗','🦌','🐉','🕊️','🦂','🐍'] },
   { group:'Здания/жильё', list:['🏠','🏡','🏰','🏯','⛺','🛖','🏚️','🏛️','🕍','⛪','🏭','🚪','🛏️','🪑'] },
   { group:'Материалы/инструмент', list:['⛏️','🪓','🔧','🪛','🧰','⚙️','🔩','🧵','🪵','🪨','🧱','⚗️','🔗','🪤'] },
-  { group:'Деньги/торговля', list:['💰','🪙','💵','💴','📦','🎁','🧾','⚖️','🗝️','🔑','📇','🏷️'] },
+  { group:'Торговля', list:['📦','🎁','🧾','⚖️','🗝️','🔑','📇','🏷️'] },
   { group:'Люди/услуги', list:['🤝','🧙','⚗️','🩺','⚖️','🎭','🎨','🎵','📚','🛠️','🧭','🗺️','✉️','🔍'] },
   { group:'Тёмное/подполье', list:['🩸','☠️','💀','🗝️','🕷️','🐀','🦇','⛓️','🃏','🎲','🕳️','🧿','⚰️'] }
 ];
@@ -57506,12 +57535,11 @@ function zgCartTotalStr(coins) {
   var cur = (typeof _ecoCurrency !== 'undefined') ? _ecoCurrency : 'mixed';
   if (cur === 'mixed') return shopPriceHtml(coins);
   var totalMd = (coins.pl||0)*1000 + (coins.zl||0)*100 + (coins.sr||0)*10 + (coins.md||0);
-  var unit = { md:'мд', sr:'ср', zl:'зл', pl:'пл' }[cur];
   var div  = { md:1, sr:10, zl:100, pl:1000 }[cur];
   var val = totalMd / div;
   var out = Math.round(val*100)/100;
   var str = (out % 1 === 0) ? String(out) : String(out).replace(/0+$/,'').replace(/\.$/,'');
-  return str + ' ' + unit;
+  return zgCoinAmountHtml(cur, str);
 }
 function zgCartAdd(id) {
   _shopCart[id] = (_shopCart[id]||0) + 1;
@@ -57564,7 +57592,7 @@ function zgRenderCart() {
       '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#241a0e;border:1px solid #3a2a14;border-radius:8px;flex-shrink:0">' + thumb + '</div>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:#f6e6c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(it.name || '') + '</div>' +
-        '<div style="font-size:11px;color:#a8987c">💰 ' + shopPriceHtml(it.price) + '</div>' +
+        '<div style="font-size:11px;color:#a8987c">' + shopPriceHtml(it.price) + '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
         '<button onclick="zgCartRemove(\'' + id + '\')" style="width:26px;height:26px;border:1px solid #2a1e10;background:#241a0e;color:#c08080;border-radius:6px;cursor:pointer;font-size:14px">−</button>' +
@@ -57582,7 +57610,7 @@ function zgRenderCart() {
       '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:#241a0e;border:1px solid #3a2a14;border-radius:8px;flex-shrink:0;font-size:22px">' + (e.icon || '📊') + '</div>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:13px;color:#f6e6c0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(nm) + '</div>' +
-        '<div style="font-size:11px;color:#a8987c">💰 ' + escHTML(e.raw || shopPriceHtml(e.price)) + '</div>' +
+        '<div style="font-size:11px;color:#a8987c">' + (e.raw ? zgCurrencyTextHtml(e.raw) : shopPriceHtml(e.price)) + '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0">' +
         '<button onclick="zgCartEcoRemove(\'' + nm.replace(/'/g,'\u2019') + '\')" style="width:26px;height:26px;border:1px solid #2a1e10;background:#241a0e;color:#c08080;border-radius:6px;cursor:pointer;font-size:14px">−</button>' +
@@ -57608,7 +57636,7 @@ function zgRenderCart() {
       '</div>' +
       '<div style="display:flex;gap:8px;margin-top:16px">' +
         '<button onclick="zgCartClear()" style="flex:1;padding:10px;border:1px solid #c0404066;background:#c0404014;color:#c08080;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:7px">🗑 Очистить</button>' +
-        '<button onclick="if(typeof showToast===\'function\')showToast(\'✅ Покупка оформлена (' + info.count + ' предм.)\');zgCartClear();document.getElementById(\'shop-cart-popup\').remove()" style="flex:2;padding:10px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:7px">💰 Купить всё</button>' +
+        '<button onclick="if(typeof showToast===\'function\')showToast(\'✅ Покупка оформлена (' + info.count + ' предм.)\');zgCartClear();document.getElementById(\'shop-cart-popup\').remove()" style="flex:2;padding:10px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:7px">' + zgCoinStackHtml(17) + ' Купить всё</button>' +
       '</div>'
       : '<div style="text-align:center;padding:40px 20px;color:#7a6a48;font-family:\'Lora\',serif;font-style:italic;font-size:13px">Корзина пуста. Добавляй товары с витрины кнопкой «🛒 в корзину» или строки из экономики.</div>');
   bd.appendChild(panel);
@@ -57768,10 +57796,10 @@ function zgSeedLegacyShopItems() {
   } catch(e) {}
 }
 
-// Компактная витрина v17. Канонические товары обновляются, созданные вручную сохраняются.
+// Компактная витрина v18. Канонические товары обновляются, созданные вручную сохраняются.
 function zgSeedShopIfEmpty() {
   try {
-    if (localStorage.getItem('zargota_shop_seeded_v17')) return;
+    if (localStorage.getItem('zargota_shop_seeded_v39')) return;
     var featured = [
       { id:'shp_featured_01', name:'Кинжал странника', icon:'🗡️', image:'images/shop/wanderer-dagger.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:2,sr:0,md:0}, damage:'1d4', damageType:'Колющий', range:'Ближняя / 1 клетка', effect:'Легко спрятать', desc:'Надёжный дорожный клинок в потёртых ножнах. Не роскошь, а последний довод путника.' },
       { id:'shp_featured_02', name:'Копьё трактовой стражи', icon:'🔱', image:'images/shop/road-guard-spear.png', imgSize:'square', cat:'weapon', rarity:'common', price:{pl:0,zl:4,sr:0,md:0}, damage:'1d6', damageType:'Колющий', range:'Ближняя / 1–2 клетки', effect:'Держит врага на расстоянии', desc:'Крепкое ясеневое древко и простой листовидный наконечник. Такими держат дорогу и строй.' },
@@ -57808,7 +57836,7 @@ function zgSeedShopIfEmpty() {
     var combined = featured.concat(foundation, manual);
     if (window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItems === 'function') combined = window.ZargotaItemEconomy.enrichShopItems(combined);
     saveShopItems(combined);
-    localStorage.setItem('zargota_shop_seeded_v17', '1');
+    localStorage.setItem('zargota_shop_seeded_v39', '1');
     var host = document.getElementById('shop-page-inner');
     if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
   } catch(e) {}
@@ -57828,19 +57856,17 @@ function shopPriceHtml(p) {
   if (typeof _ecoCurrency !== 'undefined' && _ecoCurrency && _ecoCurrency !== 'mixed') {
     var totalMd = (p.pl||0)*1000 + (p.zl||0)*100 + (p.sr||0)*10 + (p.md||0);
     if (totalMd > 0) {
-      var unit = { md:'мд', sr:'ср', zl:'зл', pl:'пл' }[_ecoCurrency];
       var div  = { md:1, sr:10, zl:100, pl:1000 }[_ecoCurrency];
       var val = Math.round((totalMd / div) * 100) / 100;
       var vstr = (val % 1 === 0) ? String(val) : String(val);
-      var col = { md:'#c98850', sr:'#b8bcc8', zl:'#e8c060', pl:'#e8e8f0' }[_ecoCurrency];
-      return '<span style="color:' + col + '">' + vstr + ' ' + unit + '</span>';
+      return zgCoinAmountHtml(_ecoCurrency, vstr);
     }
   }
   var parts = [];
-  if (p.pl) parts.push('<span style="color:#e8e8f0">' + p.pl + ' пл</span>');
-  if (p.zl) parts.push('<span style="color:#e8c060">' + p.zl + ' зл</span>');
-  if (p.sr) parts.push('<span style="color:#b8bcc8">' + p.sr + ' ср</span>');
-  if (p.md) parts.push('<span style="color:#c98850">' + p.md + ' мд</span>');
+  if (p.pl) parts.push(zgCoinAmountHtml('pl', p.pl));
+  if (p.zl) parts.push(zgCoinAmountHtml('zl', p.zl));
+  if (p.sr) parts.push(zgCoinAmountHtml('sr', p.sr));
+  if (p.md) parts.push(zgCoinAmountHtml('md', p.md));
   return parts.length ? parts.join(' · ') : '<span style="color:#7a6a48">цена по ситуации</span>';
 }
 // Короткая сводка мех.параметров под картинкой (тип урона, защита, кубик и т.д.)
@@ -57856,7 +57882,7 @@ function shopStatChips(it, big) {
 
 // Экономика Зарготы — данные памятки (сгруппировано по разделам)
 var ZG_ECONOMY = [
-  { cat:'💰 Валюта', color:'#e8c060', rows:[
+  { cat:'Валюта', color:'#e8c060', rows:[
     ['Медь (мд)','0.01 зл','100 мд = 1 зл'],
     ['Серебро (ср)','0.1 зл','10 ср = 1 зл'],
     ['Золото (зл)','1 зл','базовая единица'],
@@ -58091,13 +58117,12 @@ function zgEcoConvertPrice(str) {
   if (!p) return null;
   // всё в медь (базовая мелкая): 1 зл=100 мд, 1 ср=10 мд, 1 пл=1000 мд
   var totalMd = (p.pl||0)*1000 + (p.zl||0)*100 + (p.sr||0)*10 + (p.md||0);
-  var unit = { md:'мд', sr:'ср', zl:'зл', pl:'пл' }[_ecoCurrency];
   var div  = { md:1, sr:10, zl:100, pl:1000 }[_ecoCurrency];
   var val = totalMd / div;
   // округление: целое — без дробей, иначе до 2 знаков без хвостовых нулей
   var out = (Math.round(val*100)/100);
   var str2 = (out % 1 === 0) ? String(out) : String(out).replace(/0+$/,'').replace(/\.$/,'');
-  return str2 + ' ' + unit;
+  return zgCoinAmountHtml(_ecoCurrency, str2);
 }
 function zgEcoSetFilter(f){ _ecoFilter = f || ''; _ecoPage = 1; renderShopPage(); }
 function zgEcoSetPage(page){
@@ -58111,6 +58136,10 @@ function zgEcoSetPage(page){
 // Иконка для позиции экономики по ключевым словам названия
 function zgEcoIcon(name, catIcon) {
   var n = (name || '').toLowerCase();
+  if (/^медь\s*\(/.test(n)) return zgCoinIconHtml('md',24);
+  if (/^серебро\s*\(/.test(n)) return zgCoinIconHtml('sr',24);
+  if (/^золото\s*\(/.test(n)) return zgCoinIconHtml('zl',24);
+  if (/^платина\s*\(/.test(n)) return zgCoinIconHtml('pl',24);
   var map = [
     // валюта
     ['медь','🟤'],['серебро, слиток','🥈'],['серебро','🥈'],['золото','🟡'],['платина','⚪'],
@@ -58183,11 +58212,12 @@ function zgEcoIcon(name, catIcon) {
 }
 // Переключатель валюты (общий для витрины и экономики)
 function zgCurrencyBarHtml() {
-  var curOpts = [['mixed','Смешанно','💰'],['md','Медь','🟤'],['sr','Серебро','🥈'],['zl','Золото','🟡'],['pl','Платина','⚪']];
+  var curOpts = [['mixed','Смешанно'],['md','Медь'],['sr','Серебро'],['zl','Золото'],['pl','Платина']];
   return '<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:6px">' +
     curOpts.map(function(o){
       var on = _ecoCurrency === o[0];
-      return '<button onclick="zgEcoSetCurrency(\'' + o[0] + '\')" style="padding:6px 14px;border:1px solid ' + (on?'#e8c060':'#2a1e10') + ';border-radius:16px;background:' + (on?'#e8c06018':'transparent') + ';color:' + (on?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.3px">' + o[2] + ' ' + o[1] + '</button>';
+      var icon = o[0] === 'mixed' ? zgCoinStackHtml(16) : zgCoinIconHtml(o[0],18);
+      return '<button onclick="zgEcoSetCurrency(\'' + o[0] + '\')" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border:1px solid ' + (on?'#e8c060':'#2a1e10') + ';border-radius:16px;background:' + (on?'#e8c06018':'transparent') + ';color:' + (on?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.3px">' + icon + ' ' + o[1] + '</button>';
     }).join('') + '</div>';
 }
 function zgPowerGuideHtml() {
@@ -58202,7 +58232,7 @@ function zgPowerGuideHtml() {
           '<span class="zg-power-guide-level"><span>' + tier.level + '</span></span>' +
           '<span class="zg-power-guide-role"><i>' + escHTML(tier.symbol) + '</i><b>' + escHTML(tier.role) + '</b><small>' + escHTML(tier.impact) + '</small></span>' +
           '<p class="zg-power-guide-items">' + escHTML(tier.items) + '</p>' +
-          '<strong class="zg-power-guide-price">' + escHTML(tier.price) + '</strong>' +
+          '<strong class="zg-power-guide-price">' + zgCurrencyTextHtml(tier.price) + '</strong>' +
           '<span class="zg-power-guide-market">' + escHTML(tier.access) + '</span></article>';
       }).join('') + '</div>' +
     '</div></details>';
@@ -58235,7 +58265,8 @@ function zgEconomyMemoHtml() {
     '<button onclick="zgEcoSetFilter(\'\')" style="padding:6px 12px;border:1px solid ' + (!_ecoFilter?'#d4a04a':'#2a1e10') + ';border-radius:16px;background:' + (!_ecoFilter?'#d4a04a14':'transparent') + ';color:' + (!_ecoFilter?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">Всё</button>' +
     ZG_ECONOMY.map(function(sec){
       var on = _ecoFilter === sec.cat;
-      return '<button onclick="zgEcoSetFilter(\'' + sec.cat.replace(/'/g,'') + '\')" style="padding:6px 12px;border:1px solid ' + (on?sec.color:'#2a1e10') + ';border-radius:16px;background:' + (on?sec.color+'18':'transparent') + ';color:' + (on?sec.color:'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + sec.cat + '</button>';
+      var label = sec.cat === 'Валюта' ? zgCoinStackHtml(15) + ' Валюта' : sec.cat;
+      return '<button onclick="zgEcoSetFilter(\'' + sec.cat.replace(/'/g,'') + '\')" style="padding:6px 12px;border:1px solid ' + (on?sec.color:'#2a1e10') + ';border-radius:16px;background:' + (on?sec.color+'18':'transparent') + ';color:' + (on?sec.color:'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + label + '</button>';
     }).join('') + '</div>';
   chips = curBar + chips;
 
@@ -58263,8 +58294,8 @@ function zgEconomyMemoHtml() {
       var ico = zgEcoIcon(r[0], catIcon);
       var conv = zgEcoConvertPrice(r[1]);
       var priceDisplay = conv
-        ? '<span style="color:#e8c060">' + escHTML(conv) + '</span>'
-        : escHTML(r[1]) + (_ecoCurrency !== 'mixed' ? ' <span style="color:#5a4a32;font-size:10px">≈</span>' : '');
+        ? '<span style="color:#e8c060">' + conv + '</span>'
+        : zgCurrencyTextHtml(r[1]) + (_ecoCurrency !== 'mixed' ? ' <span style="color:#5a4a32;font-size:10px">≈</span>' : '');
       return '<div class="eco-row" onclick="zgCartAddEco(\'' + nm + '\',\'' + pr + '\')" title="Добавить в корзину" style="display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;padding:7px 12px;border-bottom:1px solid #1a1309;align-items:center;cursor:pointer">' +
         '<div class="eco-ico">' + ico + '</div>' +
         '<div style="font-family:\'Lora\',serif;font-size:13px;color:#d8c8a8">' + escHTML(r[0]) + (r[2] ? ' <span style="color:#6a5a40;font-size:11px">· ' + escHTML(r[2]) + '</span>' : '') + '</div>' +
@@ -58273,7 +58304,7 @@ function zgEconomyMemoHtml() {
       '</div>';
     }).join('');
     return '<div style="margin-bottom:16px;border:1px solid ' + sec.color + '33;border-left:3px solid ' + sec.color + ';border-radius:8px;background:#0c0805;overflow:hidden">' +
-      '<div style="padding:12px 14px;font-family:\'Cinzel\',serif;font-size:14px;color:' + sec.color + ';letter-spacing:.5px;border-bottom:1px solid ' + sec.color + '22">' + sec.cat + '</div>' +
+      '<div style="padding:12px 14px;font-family:\'Cinzel\',serif;font-size:14px;color:' + sec.color + ';letter-spacing:.5px;border-bottom:1px solid ' + sec.color + '22">' + (sec.cat === 'Валюта' ? zgCoinStackHtml(17) + ' Валюта' : sec.cat) + '</div>' +
       '<div>' + rows + '</div>' +
     '</div>';
   }).join('');
@@ -58399,7 +58430,7 @@ function zgShopBrowseFiltersHtml() {
   var selectStyle = 'height:32px;min-width:0;background:#0a0704;border:1px solid #2a1e10;border-radius:7px;color:#b9a783;padding:5px 8px;font-family:\'Cinzel\',serif;font-size:9px';
   var customPrice = _shopState.priceBand === 'custom' ? '<div style="display:flex;gap:4px;grid-column:1/-1"><input aria-label="Цена от" type="number" min="0" step="0.1" value="' + escHTML(String(_shopState.priceMin)) + '" placeholder="от, зл" onchange="zgShopSetPriceLimit(\'priceMin\',this.value)" style="' + selectStyle + ';width:92px"><input aria-label="Цена до" type="number" min="0" step="0.1" value="' + escHTML(String(_shopState.priceMax)) + '" placeholder="до, зл" onchange="zgShopSetPriceLimit(\'priceMax\',this.value)" style="' + selectStyle + ';width:92px"></div>' : '';
   return '<div id="zg-shop-browse-filters" style="display:grid;grid-template-columns:125px 125px 140px minmax(190px,235px) 125px auto auto;gap:6px;align-items:center;width:min(100%,980px);margin:-10px auto 18px;padding:8px;border:1px solid #241a0e;border-radius:9px;background:#0c0906">' +
-    '<select aria-label="Цена" onchange="zgShopSetBrowseFilter(\'priceBand\',this.value)" style="' + selectStyle + ';width:125px">' + ZG_SHOP_PRICE_BANDS.map(function(band){ return '<option value="' + band.id + '"' + (_shopState.priceBand === band.id ? ' selected' : '') + '>💰 ' + escHTML(band.label) + '</option>'; }).join('') + '</select>' +
+    '<select aria-label="Цена" onchange="zgShopSetBrowseFilter(\'priceBand\',this.value)" style="' + selectStyle + ';width:125px">' + ZG_SHOP_PRICE_BANDS.map(function(band){ return '<option value="' + band.id + '"' + (_shopState.priceBand === band.id ? ' selected' : '') + '>Цена · ' + escHTML(band.label) + '</option>'; }).join('') + '</select>' +
     '<select aria-label="Редкость" onchange="zgShopSetBrowseFilter(\'rarity\',this.value)" style="' + selectStyle + ';width:125px"><option value="">✦ Любая редкость</option>' + SHOP_RARITY.map(function(rarity){ return '<option value="' + rarity.key + '"' + (_shopState.rarity === rarity.key ? ' selected' : '') + '>' + escHTML(rarity.label) + '</option>'; }).join('') + '</select>' +
     '<select aria-label="Базирование" onchange="zgShopSetBrowseFilter(\'region\',this.value)" style="' + selectStyle + ';width:140px"><option value="">🗺 Любое базирование</option>' + SHOP_REGIONS.map(function(region){ return '<option value="' + region.id + '"' + (_shopState.region === region.id ? ' selected' : '') + '>' + escHTML(region.label) + '</option>'; }).join('') + '</select>' +
     '<select aria-label="Торговое место" onchange="zgShopSetBrowseFilter(\'market\',this.value)" style="' + selectStyle + ';width:100%">' + zgShopMarketOptionsHtml() + '</select>' +
@@ -58455,7 +58486,7 @@ function zgShopMarketGuideDetailHtml(market) {
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:20px;padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#ac9975;font-size:12px;line-height:1.55"><div><b style="color:#d9bd75">Владелец</b><br>' + escHTML(market.owner) + '</div><div><b style="color:#d9bd75">Уровень мастерства</b><br>' + escHTML(market.quality) + '</div><div><b style="color:#d9bd75">Режим</b><br>' + escHTML(market.hours) + '</div></div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:14px">' +
       (market.people && market.people.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЛЮДИ</b><div style="margin-top:7px">' + market.people.map(escHTML).join('<br>') + '</div></section>' : '') +
-      (market.stock && market.stock.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЧТО ИСКАТЬ</b><div style="margin-top:7px">' + market.stock.map(function(row){ return '• ' + escHTML(row); }).join('<br>') + '</div></section>' : '') +
+      (market.stock && market.stock.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЧТО ИСКАТЬ</b><div style="margin-top:7px">' + market.stock.map(function(row){ return '• ' + zgCurrencyTextHtml(row); }).join('<br>') + '</div></section>' : '') +
     '</div>' +
   '</article>';
 }
@@ -58520,12 +58551,24 @@ function renderShopPage() {
   try { zgHydrateShopFromIdb(); } catch(e) {}
   if (!_shopState.tab) _shopState.tab = 'showcase';
 
-  // Под-табы: Витрина / Экономика
+  // Под-табы единого каталога: витрина, комплекты снаряжения и экономика.
   var subtabs =
     '<div style="display:flex;gap:0;justify-content:center;margin-bottom:22px;border-bottom:1px solid #2a1e10">'+
       '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/showcase.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">ВИТРИНА</button>'+
+      '<button onclick="zgShopSetTab(\'loadouts\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='loadouts'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='loadouts'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">КОМПЛЕКТЫ</button>'+
       '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">ЭКОНОМИКА</button>'+
     '</div>';
+
+  if (_shopState.tab === 'loadouts') {
+    host.innerHTML =
+      '<div style="text-align:center;margin-bottom:18px">'+
+        '<img class="zg-shop-heading-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">'+
+        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#e8c060;letter-spacing:1.5px">Комплекты снаряжения</div>'+
+        '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Собирай готовые наборы из тех же предметов, что представлены на Витрине.</div>'+
+      '</div>' + subtabs + '<div id="shop-loadouts-inner"></div>';
+    if (typeof globalThis.renderArmoryLoadouts === 'function') globalThis.renderArmoryLoadouts();
+    return;
+  }
 
   if (_shopState.tab === 'economy') {
     var ecoCartInfo = zgCartTotal();
@@ -58536,7 +58579,7 @@ function renderShopPage() {
         '<div style="font-size:11px;color:#7a6a48;margin-top:6px;letter-spacing:.8px;font-family:\'Lora\',serif;font-style:italic">Средние цены по острову. Всё сведено к золоту для сравнения. Нажми на строку — добавить в корзину.</div>'+
       '</div>' + subtabs +
       '<div class="zg-economy-actions">'+
-        '<button class="shop-cart-btn" onclick="zgRenderCart()"><span style="font-size:16px">💰</span> Корзина' + (ecoCartInfo.count ? '<span class="shop-cart-badge">' + ecoCartInfo.count + '</span>' : '') + '</button>'+
+        '<button class="shop-cart-btn" onclick="zgRenderCart()">' + zgCoinStackHtml(17) + ' Корзина' + (ecoCartInfo.count ? '<span class="shop-cart-badge">' + ecoCartInfo.count + '</span>' : '') + '</button>'+
       '</div>' + zgEconomyMemoHtml();
     return;
   }
@@ -58560,7 +58603,7 @@ function renderShopPage() {
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'+
       '<input type="text" value="' + escHTML(_shopState.search||'') + '" placeholder="🔍 Поиск товара..." oninput="zgShopSetSearch(this.value)" style="flex:1;min-width:200px;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#c8b89c;padding:10px 14px;font-family:\'Lora\',serif;font-size:13px">'+
       '<button class="btn btn-gold btn-sm" onclick="zgShopEdit(null)" style="padding:9px 16px">＋ Товар</button>'+
-      '<button class="shop-cart-btn" onclick="zgRenderCart()"><span style="font-size:16px">💰</span> Корзина' + (cartInfo.count ? '<span class="shop-cart-badge">' + cartInfo.count + '</span>' : '') + '</button>'+
+      '<button class="shop-cart-btn" onclick="zgRenderCart()">' + zgCoinStackHtml(17) + ' Корзина' + (cartInfo.count ? '<span class="shop-cart-badge">' + cartInfo.count + '</span>' : '') + '</button>'+
     '</div>'+
     '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px">'+
       '<button onclick="zgShopSetFilter(\'\')" style="padding:6px 12px;border:1px solid ' + (!_shopState.filter ? '#d4a04a' : '#2a1e10') + ';border-radius:16px;background:' + (!_shopState.filter ? '#d4a04a14' : 'transparent') + ';color:' + (!_shopState.filter ? '#e8c060' : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif;letter-spacing:.5px">Все</button>'+
@@ -58593,7 +58636,7 @@ function renderShopPage() {
           // Описание
           (it.desc ? '<div class="shop-card-desc">' + escHTML(it.desc) + '</div>' : '')+
           // Цена
-          '<div class="shop-card-price">💰 ' + shopPriceHtml(it.price) + '</div>'+
+          '<div class="shop-card-price">' + shopPriceHtml(it.price) + '</div>'+
           // Кнопка в корзину
           '<button onclick="event.stopPropagation();zgCartAdd(\'' + it.id + '\')" class="shop-card-cart">🛒 в корзину</button>'+
         '</div>';
@@ -58664,7 +58707,7 @@ function zgShopView(itemId) {
     (marketLinks ? '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:0 0 14px">' + marketLinks + '</div>' : '') +
     (chips ? '<div style="margin-bottom:16px">' + chips + '</div>' : '') +
     (it.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:14px 16px;font-family:\'Lora\',serif;font-size:15px;color:#d8c8a8;line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' + escHTML(it.desc) + '</div>' : '') +
-    '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:18px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:14px;margin-bottom:14px">💰 ' + shopPriceHtml(it.price) + '</div>' +
+    '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:18px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:14px;margin-bottom:14px">' + shopPriceHtml(it.price) + '</div>' +
     '<button onclick="zgCartAdd(\'' + it.id + '\')" style="width:100%;padding:13px;border:1px solid #e8c060;background:#e8c06018;color:#e8c060;font-family:\'Cinzel\',serif;font-size:14px;letter-spacing:.5px;cursor:pointer;border-radius:8px">🛒 Добавить в корзину</button>';
   bd.appendChild(panel);
   document.body.appendChild(bd);
@@ -58688,7 +58731,7 @@ function zgShopEdit(itemId) {
   var fieldLbl = 'font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px';
   var inp = 'width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#c8b89c;padding:8px 10px;font-family:\'Lora\',serif;font-size:13px';
   panel.innerHTML =
-    '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#6fcb83;letter-spacing:1px;margin-bottom:14px;text-align:center">💰 ' + (it ? 'Редактировать товар' : 'Новый товар') + '</div>'+
+    '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#6fcb83;letter-spacing:1px;margin-bottom:14px;text-align:center">' + zgCoinStackHtml(18) + ' ' + (it ? 'Редактировать товар' : 'Новый товар') + '</div>'+
     // Иконка/фото (большая, с кнопкой пикера и загрузки) + название
     '<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch">'+
       '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+
@@ -58923,7 +58966,7 @@ function zgShopEdit(itemId) {
     } catch(ignore) {}
     bd.remove();
     renderShopPage();
-    if (typeof showToast === 'function') showToast('💰 Сохранено');
+    if (typeof showToast === 'function') showToast('Сохранено');
   });
   setTimeout(function(){ try { panel.querySelector('#shp-name').focus(); } catch(e){} }, 60);
 }
@@ -59008,6 +59051,9 @@ function zgShopRemove(itemId) {
 }
 if (typeof window !== 'undefined') {
   window.renderShopPage = renderShopPage;
+  // Совместимый мост для редактора комплектов: источник предметов остаётся один.
+  window.loadShopItems = loadShopItems;
+  window.saveShopItems = saveShopItems;
   window.zgShopView = zgShopView;
   window.zgShopEdit = zgShopEdit;
   window.zgShopRemove = zgShopRemove;
@@ -59661,7 +59707,7 @@ global.getStatusCombatMods = function(combatant) {
     '🕯️':'Свеча'
   };
 
-  var S = { tab: 'items', filterCat: 'all', editItem: null, editSet: null, search: '', page: 0 };
+  var S = { tab: 'items', surface: 'legacy', filterCat: 'all', editItem: null, editSet: null, search: '', page: 0 };
   var armoryIconPickerOpen = false;
 
   function uid() { return 'i' + Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
@@ -59898,7 +59944,7 @@ global.getStatusCombatMods = function(combatant) {
     }
     if (category === 'item') {
       if (/изумруд|рубин|сапфир|кристалл|самоцвет|камень/.test(hay)) return '💎';
-      if (/монет|золото|серебро|жетон/.test(hay)) return '🪙';
+      if (/монет|золото|серебро|жетон/.test(hay)) return zgCoinStackHtml(24);
       if (/короб|ящик|сундук/.test(hay)) return '📦';
       return '📦';
     }
@@ -59959,15 +60005,17 @@ global.getStatusCombatMods = function(combatant) {
     if (item.charges) lines.push('Заряды: ' + item.charges);
     if (item.effects) lines.push('Свойства: ' + item.effects);
     if (item.description) lines.push('Особенности: ' + item.description);
-    if (item.priceCu || item.priceAg || item.priceGo || item.pricePl) {
-      var prices = [];
-      if (item.priceCu) prices.push(item.priceCu + ' мед');
-      if (item.priceAg) prices.push(item.priceAg + ' сер');
-      if (item.priceGo) prices.push(item.priceGo + ' зол');
-      if (item.pricePl) prices.push(item.pricePl + ' пл');
-      lines.push('Цена: ' + prices.join(', '));
-    }
     return lines.join('\n');
+  }
+
+  function armoryPriceHtml(item, size) {
+    var prices = [];
+    if (item.pricePl) prices.push(zgCoinAmountHtml('pl', item.pricePl));
+    if (item.priceGo) prices.push(zgCoinAmountHtml('zl', item.priceGo));
+    if (item.priceAg) prices.push(zgCoinAmountHtml('sr', item.priceAg));
+    if (item.priceCu) prices.push(zgCoinAmountHtml('md', item.priceCu));
+    if (!prices.length) return '';
+    return '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-family:Cinzel,serif;font-size:' + (size || 12) + 'px">' + prices.join('') + '</div>';
   }
 
   function armoryCloseItemPreview() {
@@ -60003,6 +60051,7 @@ global.getStatusCombatMods = function(combatant) {
         '</div>' +
         '<div style="font-size:12px;color:#7f6c52;font-family:Cinzel,serif;letter-spacing:3px;margin-bottom:8px">ОПИСАНИЕ</div>' +
         '<div style="padding:22px;border:1px solid #3a2918;border-radius:14px;background:#0b0704;color:#e8d7b7;font-family:Lora,serif;font-size:18px;line-height:1.6;white-space:pre-wrap;box-shadow:inset 0 1px 0 #ffffff05">' + esc(desc || 'Описание пока не заполнено.') + '</div>' +
+        (armoryPriceHtml(item,15) ? '<div style="margin-top:14px;padding:14px 18px;border:1px solid #3a2918;border-radius:12px;background:#0b0704">' + armoryPriceHtml(item,15) + '</div>' : '') +
       '</div>';
     document.body.appendChild(overlay);
   }
@@ -60133,10 +60182,10 @@ global.getStatusCombatMods = function(combatant) {
       html += '<div style="margin-top:auto;font-size:14px;color:#a69584;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;line-height:1.58;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">' + esc(item.description) + '</div>';
     }
     var _pc = [];
-    if (item.pricePl > 0) _pc.push('<span style="padding:3px 9px;border:1px solid #5ad4e855;border-radius:6px;background:#5ad4e810;font-size:11px;color:#90e8f8;font-weight:600">' + item.pricePl + ' <span style="color:#568a96;font-size:9px;font-weight:400">пл</span></span>');
-    if (item.priceGo > 0) _pc.push('<span style="padding:3px 9px;border:1px solid #d4a84b55;border-radius:6px;background:#d4a84b10;font-size:11px;color:#e8c060;font-weight:600">' + item.priceGo + ' <span style="color:#8a7030;font-size:9px;font-weight:400">зол</span></span>');
-    if (item.priceAg > 0) _pc.push('<span style="padding:3px 9px;border:1px solid #a0a8c055;border-radius:6px;background:#a0a8c010;font-size:11px;color:#d0d8e8;font-weight:600">' + item.priceAg + ' <span style="color:#606870;font-size:9px;font-weight:400">сер</span></span>');
-    if (item.priceCu > 0) _pc.push('<span style="padding:3px 9px;border:1px solid #c0784055;border-radius:6px;background:#c0784010;font-size:11px;color:#e0a070;font-weight:600">' + item.priceCu + ' <span style="color:#805030;font-size:9px;font-weight:400">мед</span></span>');
+    if (item.pricePl > 0) _pc.push(zgCoinAmountHtml('pl', item.pricePl));
+    if (item.priceGo > 0) _pc.push(zgCoinAmountHtml('zl', item.priceGo));
+    if (item.priceAg > 0) _pc.push(zgCoinAmountHtml('sr', item.priceAg));
+    if (item.priceCu > 0) _pc.push(zgCoinAmountHtml('md', item.priceCu));
     if (_pc.length) {
       html += '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">' + _pc.join('') + '</div>';
     }
@@ -60361,8 +60410,11 @@ global.getStatusCombatMods = function(combatant) {
   }
 
   // ── MAIN RENDER ──
-  function renderArmoryPage() {
-    var host = document.getElementById('armory-page-inner');
+  function renderArmoryPage(surface) {
+    if (surface) S.surface = surface;
+    var inShop = S.surface === 'shop';
+    if (inShop && S.tab !== 'sets' && S.tab !== 'editor_set') S.tab = 'sets';
+    var host = document.getElementById(inShop ? 'shop-loadouts-inner' : 'armory-page-inner');
     if (!host) return;
     var items = loadItems();
     var sets  = loadSets();
@@ -60447,12 +60499,22 @@ global.getStatusCombatMods = function(combatant) {
       body = renderSetEditor(S.editSet);
     }
 
+    if (inShop) {
+      host.innerHTML = body;
+      return;
+    }
     host.innerHTML =
       '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">' +
         '<div style="font-size:34px">⚔️</div>' +
         '<div style="font-size:20px;color:#d4a84b;font-family:Cinzel Decorative,serif">Оружейная</div>' +
         '<div style="font-size:11px;color:#555;margin-left:auto;font-family:Cinzel,serif">' + items.length + ' предм. · ' + sets.length + ' сетов</div>' +
       '</div>' + tabBar + body;
+  }
+
+  function renderArmoryLoadouts() {
+    S.surface = 'shop';
+    if (S.tab !== 'editor_set') S.tab = 'sets';
+    renderArmoryPage('shop');
   }
 
   // ── ACTIONS ──
@@ -60533,10 +60595,10 @@ global.getStatusCombatMods = function(combatant) {
     h += '</div>';
     h += fld('Описание', '<textarea id="ei-desc" rows="2" style="width:100%;padding:8px 10px;border:1px solid #333;border-radius:6px;background:#0a0704;color:#d4c9a8;font-size:12px;resize:vertical">' + esc(item.description || '') + '</textarea>');
     h += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:10px">';
-    h += fld('Медь', makeInput('ei-price-cu', item.priceCu||0, '0', 'number'));
-    h += fld('Серебро', makeInput('ei-price-ag', item.priceAg||0, '0', 'number'));
-    h += fld('Золото', makeInput('ei-price-go', item.priceGo||0, '0', 'number'));
-    h += fld('Платина', makeInput('ei-price-pl', item.pricePl||0, '0', 'number'));
+    h += fld(zgCoinIconHtml('md',16) + ' Медь', makeInput('ei-price-cu', item.priceCu||0, '0', 'number'));
+    h += fld(zgCoinIconHtml('sr',16) + ' Серебро', makeInput('ei-price-ag', item.priceAg||0, '0', 'number'));
+    h += fld(zgCoinIconHtml('zl',16) + ' Золото', makeInput('ei-price-go', item.priceGo||0, '0', 'number'));
+    h += fld(zgCoinIconHtml('pl',16) + ' Платина', makeInput('ei-price-pl', item.pricePl||0, '0', 'number'));
     h += '</div>';
     h += '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">';
     h += '<button class="btn btn-gold btn-sm" onclick="armoryCommitItem()">💾 Сохранить</button>';
@@ -60870,6 +60932,7 @@ global.getStatusCombatMods = function(combatant) {
   }
 
   global.renderArmoryPage    = renderArmoryPage;
+  global.renderArmoryLoadouts = renderArmoryLoadouts;
   global.armoryState         = S;
   global.armoryNewItem       = armoryNewItem;
   global.armoryEditItem      = armoryEditItem;

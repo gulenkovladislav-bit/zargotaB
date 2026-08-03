@@ -66,7 +66,7 @@ assert.strictEqual(context.zgShopGmStatsToggleHtml(), '');
 
 assert.match(html, /zgShopGmStatsHtml\(items, filtered\.length\)/);
 assert.match(html, /SHOP_CATS\.map[\s\S]*?\.join\(''\)\+\s*zgShopGmStatsToggleHtml\(\)/);
-assert.match(html, /zargota_shop_seeded_v17/);
+assert.match(html, /zargota_shop_seeded_v39/);
 assert.match(html, /key:'common',\s+label:'Простое'/);
 assert.match(html, /key:'epic',\s+label:'Реликтовое'/);
 assert.doesNotMatch(html.slice(html.indexOf('var SHOP_RARITY ='), html.indexOf('var SHOP_REGIONS =')), /Обычное|Эпическое/);
@@ -99,8 +99,33 @@ assert.match(html, /entries\.slice\(\(_ecoPage-1\)\*_ecoPageSize,_ecoPage\*_ecoP
   assert.match(html,new RegExp('images/ui/arena-shop/' + icon + '\\.webp'));
   assert.ok(fs.existsSync(path.resolve(__dirname,'..','images','ui','arena-shop',icon + '.webp')),'missing optimized UI icon: ' + icon);
 });
+['copper','silver','gold','platinum'].forEach(function(coin){
+  var coinPath = path.resolve(__dirname,'..','images','ui','coins',coin + '-sm.webp');
+  assert.ok(fs.existsSync(coinPath),'missing optimized coin icon: ' + coin);
+  assert.ok(fs.statSync(coinPath).size < 5000,'coin icon must stay lightweight: ' + coin);
+});
+var coinWidget = html.slice(html.indexOf('function buildCoinsWidget'),html.indexOf('function setCoin'));
+['pl','zl','sr','md'].forEach(function(coin){
+  assert.match(coinWidget,new RegExp("coin: '" + coin + "'"));
+});
+assert.doesNotMatch(coinWidget,/[💰🪙]/u);
+assert.match(html,/window\.zgCurrencyTextHtml/);
+assert.match(html,/value === '\\uD83D\\uDCB0'.*value === '\\uD83E\\uDE99'/);
+assert.doesNotMatch(html,/[💰🪙]/u);
+var progression = fs.readFileSync(path.resolve(__dirname,'..','zargota-progression.js'),'utf8');
+assert.match(progression,/coinIcon\('zl',16\)/);
+assert.match(progression,/priceHtml\(item\.price\)/);
+assert.doesNotMatch(progression,/[💰🪙]/u);
 assert.doesNotMatch(html.slice(html.indexOf('global.renderArenaHub'),html.indexOf('global.arenaShowTab')), /⚔️|💰|🛒|📊|🛡️|💫/);
 assert.match(html, /class="zg-shop-guide-layout"/);
 assert.match(html, /data-guide-market=/);
 assert.match(html, /class="zg-shop-market-detail-crest"/);
+assert.doesNotMatch(html, /id="arena-tab-armory"/, 'Armory must not remain a separate Arena tab');
+assert.match(html, /if \(tab === 'armory'\) \{\s*_shopState\.tab = 'loadouts';\s*tab = 'shop';/, 'legacy Armory navigation must redirect into Shop loadouts');
+assert.match(html, /zgShopSetTab\(\\'loadouts\\'\)/, 'Shop must expose the loadouts subtab');
+assert.match(html, /id="shop-loadouts-inner"/);
+assert.match(html, /function renderArmoryLoadouts\(\)/);
+assert.match(html, /global\.renderArmoryLoadouts = renderArmoryLoadouts/);
+assert.match(html, /window\.loadShopItems = loadShopItems/);
+assert.match(html, /window\.saveShopItems = saveShopItems/);
 console.log('shop GM stats tests passed');
