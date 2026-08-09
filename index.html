@@ -15,7 +15,7 @@
 <script src="item-economy.js?v=2026-08-03.1"></script>
 <script src="zargota-network.js?v=2026-07-30.2"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.4">
-<script src="gm-delivery.js?v=2026-07-29.8"></script>
+<script src="gm-delivery.js?v=2026-08-09.1"></script>
 <script>
 (function(w){
   var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
@@ -9214,8 +9214,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-08-03.1';
+var ZG_APP_VERSION = '2026-08-09.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-08-09.1', notes: 'Режим сессии получил отдельные звуки личного хода, нового раунда, заявки мастеру, решения игроку, очищения статуса, пинга карты и получения предмета без повторов при синхронизации комнаты.' },
   { v: '2026-08-03.1', notes: 'Попадание и крит получили по одному чистому звуку удара без дополнительного UI-пика и синтетического арпеджио; крит заклинания больше не проигрывает обычное попадание перед критом.' },
   { v: '2026-07-30.1', notes: 'При 0 HP борьба за жизнь больше не бросается автоматически: игрок или мастер нажимает отдельный d20, видит правило, успехи и провалы; без обязательного броска ход завершить нельзя.' },
   { v: '2026-07-27.1', notes: 'В лист персонажа добавлен планировщик прокачки: прогноз уровней, совместимость навыков из Каталога, предметы из Товаров и безопасное применение изменений в лист и Арену.' },
@@ -9733,12 +9734,48 @@ document.addEventListener('DOMContentLoaded', function(){
 
     // ═══ Navigation / flow ═══
     turn: function() {
-      tone(659, 0.08, { type:'sine', vol:0.18 });
+      playSample('audio/vtt-actions/turn-start-medieval-war.mp3', 0.38, function() {
+        tone(659, 0.08, { type:'sine', vol:0.18 });
+      });
     },
     round: function() {
-      tone(440, 0.1, { type:'triangle', vol:0.22 });
-      tone(659, 0.14, { delay:0.08, type:'triangle', vol:0.24 });
-      tone(880, 0.18, { delay:0.18, type:'triangle', vol:0.22 });
+      playSample('audio/vtt-actions/round-start-warrior-kick.mp3', 0.5, function() {
+        tone(440, 0.1, { type:'triangle', vol:0.22 });
+        tone(659, 0.14, { delay:0.08, type:'triangle', vol:0.24 });
+        tone(880, 0.18, { delay:0.18, type:'triangle', vol:0.22 });
+      });
+    },
+    gmActionRequest: function() {
+      playSample('audio/vtt-actions/gm-action-request-paper.mp3', 0.5, function() {
+        tone(720, 0.09, { type:'triangle', vol:0.13 });
+      });
+    },
+    actionResolved: function(accepted) {
+      playSample('audio/vtt-actions/gm-action-approved-pencil.mp3', 0.5, function() {
+        tone(accepted ? 720 : 260, 0.12, { type:accepted ? 'triangle' : 'sine', vol:0.16, freqEnd:accepted ? 880 : 180 });
+      });
+    },
+    statusCleanse: function() {
+      playSample('audio/vtt-actions/status-cleanse-holy.mp3', 0.58, function() {
+        tone(620, 0.16, { type:'sine', vol:0.18 });
+        tone(980, 0.24, { delay:0.08, type:'triangle', vol:0.16 });
+      });
+    },
+    mapPing: function() {
+      playSample('audio/vtt-actions/map-ping.mp3', 0.42, function() {
+        tone(840, 0.1, { type:'sine', vol:0.14 });
+      });
+    },
+    itemReward: function() {
+      playSample('audio/vtt-actions/item-reward-bag.mp3', 0.55, function() {
+        tone(520, 0.1, { type:'triangle', vol:0.15 });
+      });
+    },
+    combatBlock: function() {
+      playSample('audio/vtt-actions/combat-block-sword.mp3', 0.72);
+    },
+    attackSlash: function() {
+      playSample('audio/vtt-actions/attack-slash.mp3', 0.7);
     },
 
     // Один весомый аккорд подтверждения героя вместо двух обычных кликов.
@@ -9818,6 +9855,15 @@ document.addEventListener('DOMContentLoaded', function(){
       ensure();
       loadSample('audio/vtt-actions/hit-body-soft.mp3').catch(function(){});
       loadSample('audio/vtt-actions/hit-body-heavy.mp3').catch(function(){});
+      [
+        'audio/vtt-actions/turn-start-medieval-war.mp3',
+        'audio/vtt-actions/round-start-warrior-kick.mp3',
+        'audio/vtt-actions/gm-action-request-paper.mp3',
+        'audio/vtt-actions/gm-action-approved-pencil.mp3',
+        'audio/vtt-actions/status-cleanse-holy.mp3',
+        'audio/vtt-actions/map-ping.mp3',
+        'audio/vtt-actions/item-reward-bag.mp3'
+      ].forEach(function(path){ loadSample(path).catch(function(){}); });
     }
     w.removeEventListener('pointerdown', primeAudio);
     w.removeEventListener('keydown', primeAudio);
@@ -12756,6 +12802,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var layer=el('zg-ping-layer');if(!layer)return;
     var marker=document.createElement('span'),pingUid=String(ping.uid||'');
     marker.className='zg-room-ping';marker.style.left=clamp(ping.x,0,100)+'%';marker.style.top=clamp(ping.y,0,100)+'%';setPingColorVars(marker,pingUid);marker.innerHTML='<i></i><b>✦</b>';layer.appendChild(marker);
+    try{if(w.ZargotaSound&&w.ZargotaSound.mapPing)w.ZargotaSound.mapPing();}catch(ignore){}
     setTimeout(function(){if(marker.parentNode)marker.parentNode.removeChild(marker);},1800);
     if(ping.focus&&!isMaster)offerCameraFocus({id:'ping-focus-'+ping.id,x:ping.x,y:ping.y,zoom:ping.zoom,source:'ping'});
   }
@@ -14951,6 +14998,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var lastApprovedAttackResult = '';
   var lastApprovedAttackStageResult = '';
   var approvedAttackStageAnimating = '';
+  var sessionSoundState = {roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',masterRequests:{}};
   var BAG_CAL_STORAGE_KEY='zargota_backpack_calibration_v3';
   var bagCalSelected='interface',bagCalDrag=null;
   var BAG_CAL_BACKGROUNDS={
@@ -16461,8 +16509,49 @@ document.addEventListener('DOMContentLoaded', function(){
     tabs[nextIndex].focus();
     tabs[nextIndex].click();
   });
+  function syncSessionSounds(snapshot){
+    if(!snapshot||!snapshot.room||!snapshot.session)return;
+    var room=snapshot.room,session=snapshot.session,roomCode=String(room.code||session.code||'');
+    var combat=room.combat||{},active=!!combat.active,order=active&&Array.isArray(combat.order)?combat.order:[];
+    var turn=order[Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0))]||null;
+    var round=Math.max(0,Number(combat.round)||0),turnKey=String(turn&&(turn.key||turn.uid||turn.name)||'');
+    var ownMember=room.members&&room.members[session.uid],ownRequest=ownMember&&ownMember.actionRequest;
+    var ownAction=ownRequest?String(ownRequest.id||'')+':'+String(ownRequest.status||''):'';
+    var pendingRequests={};
+    if(session.role==='master')Object.keys(room.members||{}).forEach(function(uid){
+      var request=room.members[uid]&&room.members[uid].actionRequest;
+      if(request&&request.id&&request.status==='pending')pendingRequests[String(request.id)]=true;
+    });
+    if(!sessionSoundState.ready||sessionSoundState.roomCode!==roomCode){
+      sessionSoundState={roomCode:roomCode,ready:true,combatActive:active,round:round,turnKey:turnKey,ownAction:ownAction,masterRequests:pendingRequests};
+      return;
+    }
+    try{
+      if(session.role==='master'){
+        var hasNewRequest=false;
+        Object.keys(pendingRequests).forEach(function(id){if(!sessionSoundState.masterRequests[id])hasNewRequest=true;sessionSoundState.masterRequests[id]=true;});
+        if(hasNewRequest&&w.ZargotaSound&&w.ZargotaSound.gmActionRequest)w.ZargotaSound.gmActionRequest();
+      }
+      if(session.role==='player'&&ownAction&&ownAction!==sessionSoundState.ownAction&&ownRequest&&(ownRequest.status==='approved'||ownRequest.status==='rejected')){
+        if(w.ZargotaSound&&w.ZargotaSound.actionResolved)w.ZargotaSound.actionResolved(ownRequest.status==='approved');
+      }
+      if(active){
+        var ownTurn=session.role==='player'&&turn&&String(turn.uid||'')===String(session.uid||'');
+        if(sessionSoundState.combatActive&&round!==sessionSoundState.round){
+          if(w.ZargotaSound&&w.ZargotaSound.round)w.ZargotaSound.round();
+        }else if((!sessionSoundState.combatActive||turnKey!==sessionSoundState.turnKey)&&ownTurn){
+          if(w.ZargotaSound&&w.ZargotaSound.turn)w.ZargotaSound.turn();
+        }
+      }
+    }catch(ignore){}
+    sessionSoundState.combatActive=active;
+    sessionSoundState.round=round;
+    sessionSoundState.turnKey=turnKey;
+    sessionSoundState.ownAction=ownAction;
+  }
   function render(snapshot){
     state = snapshot;
+    syncSessionSounds(snapshot);
     var connection=el('zg-session-connection');if(connection){var reconnecting=!!(snapshot&&snapshot.session&&!snapshot.online);connection.classList.toggle('show',reconnecting);connection.textContent=reconnecting?'Связь потеряна · переподключаемся…':'';}
     renderParty();
     renderJournal();
@@ -16528,10 +16617,10 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){if(visual.parentNode)visual.remove();},1900);
   }
   function animateCombatVisual(){
-    var event=state&&state.room&&state.room.combatEvent,kind=String(event&&event.kind||''),isDamage=kind==='combat-damage',isAbility=kind==='combat-ability';
-    if(!event||!event.id||event.id===lastCombatVisual||(kind.indexOf('combat-attack')<0&&kind!=='combat-critical'&&!isDamage&&!isAbility))return;
+    var event=state&&state.room&&state.room.combatEvent,kind=String(event&&event.kind||''),isDamage=kind==='combat-damage',isAbility=kind==='combat-ability',isSave=kind.indexOf('combat-save')===0;
+    if(!event||!event.id||event.id===lastCombatVisual||(kind.indexOf('combat-attack')<0&&kind!=='combat-critical'&&!isDamage&&!isAbility&&!isSave))return;
     var wait=Math.max(0,Number(event.revealAt||0)-Date.now());if(wait>20){clearTimeout(animateCombatVisual.timer);animateCombatVisual.timer=setTimeout(animateCombatVisual,wait+20);return;}
-    lastCombatVisual=event.id;if(isAbility){animateCombatAbilityVisual(event);return;}var target=combatNodeForKey(event.targetKey);if(!target)return;
+    lastCombatVisual=event.id;if(isAbility){animateCombatAbilityVisual(event);return;}if(isSave){if(event.removedStatus&&w.ZargotaSound&&w.ZargotaSound.statusCleanse)w.ZargotaSound.statusCleanse();return;}var target=combatNodeForKey(event.targetKey);if(!target)return;
     var hideResult=event.revealResult===false&&state&&state.session&&state.session.role!=='master';
     var hit=isDamage||event.hit,critical=kind==='combat-critical'||event.critical===true;
     target.classList.add(hit?'combat-hit':'combat-miss');
@@ -16571,7 +16660,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
     }
     target.classList.add(visualClass);target.appendChild(burst);if(particles)target.appendChild(particles);
-    try{if(w.ZargotaSound){if(kind==='gm-damage'&&w.ZargotaSound.damage)w.ZargotaSound.damage();else if((kind==='gm-heal'||kind==='gm-temp-hp')&&w.ZargotaSound.heal)w.ZargotaSound.heal();else if(kind==='gm-status'&&w.ZargotaSound.status)w.ZargotaSound.status();}}catch(ignore){}
+    try{if(w.ZargotaSound){if(kind==='gm-damage'&&w.ZargotaSound.damage)w.ZargotaSound.damage();else if((kind==='gm-heal'||kind==='gm-temp-hp')&&w.ZargotaSound.heal)w.ZargotaSound.heal();else if(kind==='gm-status'&&event.statusEnabled&&w.ZargotaSound.status)w.ZargotaSound.status();else if(kind==='gm-status'&&!event.statusEnabled&&w.ZargotaSound.statusCleanse)w.ZargotaSound.statusCleanse();}}catch(ignore){}
     setTimeout(function(){target.classList.remove(visualClass);if(burst.parentNode)burst.remove();if(particles&&particles.parentNode)particles.remove();},1850);
   }
   function gmVisualTarget(event){

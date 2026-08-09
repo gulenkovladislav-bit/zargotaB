@@ -1364,6 +1364,7 @@
     if (!delivery || delivery.status !== 'pending' || applying[delivery.id]) return;
     applying[delivery.id] = true;
     applyDelivery(delivery, member).then(function () {
+      if (delivery.kind === 'item' && w.ZargotaSound && w.ZargotaSound.itemReward) w.ZargotaSound.itemReward();
       if (delivery.showPopup !== false) enqueuePopup(delivery);
       else if (w.showToast) w.showToast('Получено: ' + (delivery.title || kindLabel(delivery.kind)));
       if (w.zgVttRefreshDrawer) w.zgVttRefreshDrawer();
