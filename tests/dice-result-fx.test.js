@@ -135,7 +135,12 @@ assert.match(scoreCueSource, /maxDuration:finalDuration,playbackRate:1/, 'all re
 assert.match(html, /scoreFx\.step\(roll\.id,sequenceIndex,running,entry\.value\)/, 'each sequential visible addition advances the score phrase');
 assert.match(html, /finishScoreFx\(\)/, 'the final displayed total resolves the score phrase');
 assert.match(html, /scoreFx\.begin\(roll\.id,rolls,total,totalNode,\{hidden:hideResult,contest:isContest,soundKind:roll\.scoreKind,resultSound:diceResultSoundKind\(roll\.resultSound,rolls\)\}\)/, 'the renderer forwards score and decisive-die outcome semantics into the effect');
-assert.match(html, /batchSoundOptions=\{resultSound:diceResultSoundKind\('',rolls\)\}/, 'free and batch throws explicitly choose their result sound');
+assert.match(html, /function dicePanelResultSoundKind\(rolls\)/, 'the dice panel owns its outcome helper inside the same isolated module');
+assert.match(html, /batchSoundOptions=\{resultSound:dicePanelResultSoundKind\(rolls\)\}/, 'free and batch throws explicitly choose their result sound');
+const dicePanelStart = html.lastIndexOf('(function(w){', html.indexOf('  function ownChar(){'));
+const dicePanelEnd = html.indexOf('})(window);', html.indexOf('  function ownChar(){'));
+const dicePanelSource = html.slice(dicePanelStart, dicePanelEnd);
+assert.doesNotMatch(dicePanelSource, /\bdiceResultSoundKind\(/, 'the dice panel cannot call the private helper from the preceding VTT module');
 assert.doesNotMatch(html.slice(html.indexOf('  function animateRoll('), html.indexOf('  function alignDicePanel', html.indexOf('  function animateRoll('))), /ZargotaSound&&w\.ZargotaSound\.diceResult/, 'single panel rolls no longer stack the old synthetic common finale');
 assert.match(html, /damageRollOptions=Object\.assign\(\{\},rollOptions\|\|\{\},\{scoreKind:'damage'\}\)/, 'combat damage explicitly marks its roll instead of inferring from labels');
 assert.match(network, /scoreKind:String\(options\.scoreKind\|\|''\)\.toLowerCase\(\)==='damage'\?'damage':'normal'/, 'Firebase transports the semantic score kind for remote viewers');

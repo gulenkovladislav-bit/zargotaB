@@ -20195,6 +20195,12 @@ document.addEventListener('DOMContentLoaded', function(){
   // Анимация броска: перебор цифр ~0.9с (звук катящегося кубика) → результат с «ударом»
   var MAX_DICE_BATCH=12;
   var animT=null, rolling=false, diceDrag=null, selectedStat='plain', selectedD20Mode='normal', selectedDice={},freeRollMode=false,diceThrowLockUntil=0,diceThrowUnlockTimer=0,lastDiceThrowBusyNotice=0;
+  function dicePanelResultSoundKind(rolls){
+    rolls=Array.isArray(rolls)?rolls:[];
+    var candidates=rolls.filter(function(item){return item&&item.kept!==false;});
+    var decisive=candidates.length===1?candidates[0]:(rolls.length===1?rolls[0]:null);
+    return decisive&&(decisive.outcome==='critical-success'||decisive.outcome==='critical-fail')?decisive.outcome:'normal';
+  }
   function animateRoll(sides, finalHtml, finalValue, announceText, totalValue, statLabel){
     var r=el('zg-dice-result');
     if(rolling)return; rolling=true;
@@ -20284,7 +20290,7 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     var ov=el('zg-game-overlay'),speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
     var clientRollId='roll-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
-    var batchSoundOptions={resultSound:diceResultSoundKind('',rolls)};
+    var batchSoundOptions={resultSound:dicePanelResultSoundKind(rolls)};
     try{if(w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,speaker,clientRollId,throwMotion,batchSoundOptions);}catch(e){}
     try{if(w.ZargotaSound&&w.ZargotaSound.combatDiceRoll)w.ZargotaSound.combatDiceRoll();else if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
     if(throwMotion){setTimeout(function(){try{if(w.ZargotaSound&&w.ZargotaSound.diceSoftImpact)w.ZargotaSound.diceSoftImpact(false);}catch(e){}},730);setTimeout(function(){try{if(w.ZargotaSound&&w.ZargotaSound.diceSoftImpact)w.ZargotaSound.diceSoftImpact(true);}catch(e){}},1010);}
