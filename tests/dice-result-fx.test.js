@@ -68,9 +68,9 @@ assert.deepEqual(soundCues.map(cue => cue.soundKind), ['normal', 'normal', 'norm
 assert.deepEqual(soundCues.map(cue => cue.resultSound), ['normal', 'normal', 'normal'], 'ordinary rolls also carry an explicit neutral d20 outcome sound');
 
 const criticalCueStart = soundCues.length;
-assert.ok(fx.begin('roll-critical', [{ sides: 20, value: 20, outcome: 'critical-success' }], 20, null, { resultSound: 'critical-success' }));
+assert.ok(fx.begin('roll-critical', [{ sides: 20, value: 20, outcome: 'critical-success' }], 20, null, {}));
 fx.finish('roll-critical');
-assert.deepEqual(soundCues.slice(criticalCueStart).map(cue => cue.resultSound), ['critical-success', 'critical-success'], 'critical outcome semantics survive from preload through the final cue');
+assert.deepEqual(soundCues.slice(criticalCueStart).map(cue => cue.resultSound), ['critical-success', 'critical-success'], 'critical outcome is inferred from the decisive die even when a caller omits options');
 
 const powerCueStart = soundCues.length;
 const activeClasses = new Set();
@@ -102,6 +102,8 @@ assert.deepEqual(soundCues.slice(damageCueStart).map(cue => cue.soundKind), ['da
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const network = fs.readFileSync(path.join(__dirname, '..', 'zargota-network.js'), 'utf8');
 assert.match(html, /dice-result-fx\.js\?v=/, 'result effect module is loaded by the game');
+assert.match(html, /dice-result-fx\.js\?v=2026-08-11\.7/, 'the fixed outcome router has a fresh browser cache key');
+assert.match(html, /zargota-network\.js\?v=2026-08-11\.1/, 'the fixed Firebase outcome transport has a fresh browser cache key');
 assert.match(html, /diceScoreCue: function\(cue\)/, 'the shared sound engine owns recorded score cues');
 assert.match(html, /diceScoreGearClick:'audio\/vtt-actions\/dice-score-gear-click\.mp3'/, 'counting uses the selected Gear Click recording');
 assert.match(html, /diceScoreThresholdRise:'audio\/vtt-actions\/dice-score-threshold-rise\.mp3'/, 'ordinary finals use the selected Rise Ding recording');
@@ -132,7 +134,9 @@ assert.match(scoreCueSource, /maxDuration:finalDuration,playbackRate:1/, 'all re
 });
 assert.match(html, /scoreFx\.step\(roll\.id,sequenceIndex,running,entry\.value\)/, 'each sequential visible addition advances the score phrase');
 assert.match(html, /finishScoreFx\(\)/, 'the final displayed total resolves the score phrase');
-assert.match(html, /scoreFx\.begin\(roll\.id,rolls,total,totalNode,\{hidden:hideResult,contest:isContest,soundKind:roll\.scoreKind,resultSound:diceResultSoundKind\(roll\.resultSound\)\}\)/, 'the renderer forwards score and d20 outcome semantics into the effect');
+assert.match(html, /scoreFx\.begin\(roll\.id,rolls,total,totalNode,\{hidden:hideResult,contest:isContest,soundKind:roll\.scoreKind,resultSound:diceResultSoundKind\(roll\.resultSound,rolls\)\}\)/, 'the renderer forwards score and decisive-die outcome semantics into the effect');
+assert.match(html, /batchSoundOptions=\{resultSound:diceResultSoundKind\('',rolls\)\}/, 'free and batch throws explicitly choose their result sound');
+assert.doesNotMatch(html.slice(html.indexOf('  function animateRoll('), html.indexOf('  function alignDicePanel', html.indexOf('  function animateRoll('))), /ZargotaSound&&w\.ZargotaSound\.diceResult/, 'single panel rolls no longer stack the old synthetic common finale');
 assert.match(html, /damageRollOptions=Object\.assign\(\{\},rollOptions\|\|\{\},\{scoreKind:'damage'\}\)/, 'combat damage explicitly marks its roll instead of inferring from labels');
 assert.match(network, /scoreKind:String\(options\.scoreKind\|\|''\)\.toLowerCase\(\)==='damage'\?'damage':'normal'/, 'Firebase transports the semantic score kind for remote viewers');
 assert.match(network, /resultSound:\['success','fail','critical-success','critical-fail','silent'\]/, 'Firebase transports the validated d20 outcome sound for remote viewers');

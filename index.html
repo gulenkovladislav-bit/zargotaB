@@ -14,11 +14,11 @@
 <script src="equipment-rules.js?v=2026-07-29.2"></script>
 <script src="item-economy.js?v=2026-08-03.1"></script>
 <script src="combat-playback.js?v=2026-08-09.3"></script>
-<script src="dice-result-fx.js?v=2026-08-11.6"></script>
+<script src="dice-result-fx.js?v=2026-08-11.7"></script>
 <script src="combat-vfx-presets.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-runtime.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-09.3"></script>
-<script src="zargota-network.js?v=2026-08-09.4"></script>
+<script src="zargota-network.js?v=2026-08-11.1"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-07-29.4">
 <script src="gm-delivery.js?v=2026-08-09.2"></script>
 <script>
@@ -16812,9 +16812,13 @@ document.addEventListener('DOMContentLoaded', function(){
     mode=String(mode||'').toLowerCase();
     return mode==='advantage'||mode==='disadvantage'?mode:'';
   }
-  function diceResultSoundKind(value){
+  function diceResultSoundKind(value,rolls){
     value=String(value||'').toLowerCase();
-    return ['success','fail','critical-success','critical-fail','silent'].indexOf(value)>=0?value:'normal';
+    if(['success','fail','critical-success','critical-fail','silent'].indexOf(value)>=0)return value;
+    rolls=Array.isArray(rolls)?rolls:[];
+    var candidates=rolls.filter(function(item){return item&&item.kept!==false;});
+    var decisive=candidates.length===1?candidates[0]:(rolls.length===1?rolls[0]:null);
+    return decisive&&(decisive.outcome==='critical-success'||decisive.outcome==='critical-fail')?decisive.outcome:'normal';
   }
   function shuffledDiceTotalEntries(rolls){
     var entries=(Array.isArray(rolls)?rolls:[]).map(function(item,index){return{item:item,index:index,value:Number(item&&item.total==null?item&&item.value:item&&item.total)||0};});
@@ -16931,7 +16935,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if(localThrow&&throwBounds){totalNode.classList.add('local-total');totalNode.style.left=(((groupCenterX-throwBounds.left)/throwBounds.width)*100)+'%';totalNode.style.top=(((groupCenterY-throwBounds.top)/throwBounds.height)*100)+'%';}
         else{totalNode.style.left=rollLeft;totalNode.style.top=rollTop;}
         totalNode.innerHTML=hideResult?'<small hidden></small><b>…</b><em>РЕЗУЛЬТАТ СКРЫТ</em>':'<small'+(rolls.length===1&&!isContest&&!singleModifier?' hidden':'')+'>'+expression+'</small><b>…</b><em>ИТОГО</em>';host.appendChild(totalNode);
-        var scoreFx=w.ZargotaDiceResultFx,scoreFxStarted=scoreFx&&scoreFx.begin?scoreFx.begin(roll.id,rolls,total,totalNode,{hidden:hideResult,contest:isContest,soundKind:roll.scoreKind,resultSound:diceResultSoundKind(roll.resultSound)}):false;
+        var scoreFx=w.ZargotaDiceResultFx,scoreFxStarted=scoreFx&&scoreFx.begin?scoreFx.begin(roll.id,rolls,total,totalNode,{hidden:hideResult,contest:isContest,soundKind:roll.scoreKind,resultSound:diceResultSoundKind(roll.resultSound,rolls)}):false;
         function finishScoreFx(){if(scoreFxStarted&&scoreFx&&scoreFx.finish)scoreFx.finish(roll.id);}
         setTimeout(function(){
           totalNode.classList.add('calculating');var valueNode=totalNode.querySelector('b'),step=0,running=0;
@@ -16956,7 +16960,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }else if(!showTotal&&w.ZargotaDiceResultFx&&w.ZargotaDiceResultFx.begin){
         var quietTotal=Number(rolls[0].total==null?rolls[0].value:rolls[0].total)||0;
         var quietDie=host.querySelector('[data-roll-id="'+String(roll.id+'-0').replace(/"/g,'')+'"]');
-        var quietFx=w.ZargotaDiceResultFx,quietStarted=quietFx.begin(roll.id,rolls,quietTotal,quietDie,{hidden:hideResult,contest:false,soundKind:roll.scoreKind,resultSound:diceResultSoundKind(roll.resultSound)});
+        var quietFx=w.ZargotaDiceResultFx,quietStarted=quietFx.begin(roll.id,rolls,quietTotal,quietDie,{hidden:hideResult,contest:false,soundKind:roll.scoreKind,resultSound:diceResultSoundKind(roll.resultSound,rolls)});
         if(quietStarted)setTimeout(function(){quietFx.finish(roll.id);},settleDelay+220);
       }
     });
@@ -16966,7 +16970,7 @@ document.addEventListener('DOMContentLoaded', function(){
     // Реальный объёмный кубик продолжает траекторию drag-призрака. Старый
     // плоский слой должен исчезнуть в тот же кадр, а не лететь рядом вторым.
     if(motion&&typeof finishApprovedDiceGhost==='function')finishApprovedDiceGhost();
-    var activeRoll={id:clientRollId,ts:now,duration:motion?1960:1250,rolls:rolls,speakerUid:speaker||ownerUid,scoreKind:String(options&&options.scoreKind||'').toLowerCase()==='damage'?'damage':'normal',resultSound:diceResultSoundKind(options&&options.resultSound)};
+    var activeRoll={id:clientRollId,ts:now,duration:motion?1960:1250,rolls:rolls,speakerUid:speaker||ownerUid,scoreKind:String(options&&options.scoreKind||'').toLowerCase()==='damage'?'damage':'normal',resultSound:diceResultSoundKind(options&&options.resultSound,rolls)};
     localPhysicalRolls[clientRollId]=now+9000;if(motion)localThrowMotions[clientRollId]=motion;localRollVisuals[ownerUid]={roll:activeRoll};
     delete seenRollVisuals[clientRollId];delete renderedRollVisuals[clientRollId];
     renderRollAnimations();
@@ -20196,8 +20200,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if(rolling)return; rolling=true;
     var ov=el('zg-game-overlay');
     var speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
-    var outcome=sides===20&&finalValue===20?'critical-success':(sides===20&&finalValue===1?'critical-fail':'');
-    if(w.ZargotaRooms&&w.ZargotaRooms.beginRoll)w.ZargotaRooms.beginRoll(sides,speaker,finalValue,totalValue==null?finalValue:totalValue,outcome,statLabel||'');
+    var outcome=sides===20&&finalValue===20?'critical-success':(sides===20&&finalValue===1?'critical-fail':''),resultSound=outcome||'normal',singleRollId='roll-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),singleRollOptions={resultSound:resultSound};
+    if(w.ZargotaRooms&&w.ZargotaRooms.beginRoll)w.ZargotaRooms.beginRoll(sides,speaker,finalValue,totalValue==null?finalValue:totalValue,outcome,statLabel||'',singleRollId,singleRollOptions);
     try{if(w.ZargotaSound&&w.ZargotaSound.combatDiceRoll)w.ZargotaSound.combatDiceRoll();else if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
     if(r)r.classList.add('rolling');
     if(animT)stopDicePreview(animT);animT=null;
@@ -20205,7 +20209,8 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){
       if(animT)stopDicePreview(animT);animT=null;rolling=false;
       if(r){r.classList.remove('rolling');r.innerHTML=finalHtml;r.classList.add('land');setTimeout(function(){r.classList.remove('land');},700);}
-      try{if(w.ZargotaSound&&w.ZargotaSound.diceResult)w.ZargotaSound.diceResult(finalValue,sides);}catch(e){}
+      /* The world-roll score sequence owns the recorded finale. The old
+         synthetic diceResult here produced a second, misleading common cue. */
       if(announceText&&w.ZargotaRooms&&w.ZargotaRooms.announceRoll)setTimeout(function(){
         w.ZargotaRooms.announceRoll(announceText,speaker);
       },1500);
@@ -20279,10 +20284,11 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     var ov=el('zg-game-overlay'),speaker=ov&&ov.classList.contains('gm')&&!ov.classList.contains('gm-vision')?w.zgPossessedPlayerUid:'';
     var clientRollId='roll-'+Date.now()+'-'+Math.random().toString(36).slice(2,6);
-    try{if(w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,speaker,clientRollId,throwMotion);}catch(e){}
+    var batchSoundOptions={resultSound:diceResultSoundKind('',rolls)};
+    try{if(w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,speaker,clientRollId,throwMotion,batchSoundOptions);}catch(e){}
     try{if(w.ZargotaSound&&w.ZargotaSound.combatDiceRoll)w.ZargotaSound.combatDiceRoll();else if(w.ZargotaSound&&w.ZargotaSound.diceRollStart)w.ZargotaSound.diceRollStart();}catch(e){}
     if(throwMotion){setTimeout(function(){try{if(w.ZargotaSound&&w.ZargotaSound.diceSoftImpact)w.ZargotaSound.diceSoftImpact(false);}catch(e){}},730);setTimeout(function(){try{if(w.ZargotaSound&&w.ZargotaSound.diceSoftImpact)w.ZargotaSound.diceSoftImpact(true);}catch(e){}},1010);}
-    if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker,clientRollId);
+    if(w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch)w.ZargotaRooms.beginRollBatch(rolls,speaker,clientRollId,batchSoundOptions);
     var keptRoll=contested?rolls.find(function(item){return item.kept;}):null;
     var grandTotal=contested?Number(keptRoll.total||0):rolls.reduce(function(sum,item){return sum+Number(item.total||0);},0);
     var actionText=isFreeRoll?'Свободный бросок · ':(contested||rolls.length===1?'Кидает кубик: ':'Кидает кубики: ');

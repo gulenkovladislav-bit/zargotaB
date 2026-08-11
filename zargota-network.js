@@ -6303,7 +6303,7 @@
           speakerUid: speaker && speaker.uid || user.uid,
           speakerTokenId: String(options.speakerTokenId || '').slice(0, 128),
           scoreKind: String(options.scoreKind || '').toLowerCase() === 'damage' ? 'damage' : 'normal',
-          resultSound: ['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound || '').toLowerCase()) >= 0 ? String(options.resultSound).toLowerCase() : 'normal',
+          resultSound: ['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound || '').toLowerCase()) >= 0 ? String(options.resultSound).toLowerCase() : (outcome === 'critical-success' || outcome === 'critical-fail' ? outcome : 'normal'),
           revealResult: options.revealResult !== false,
           name: String(options.name || speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок').slice(0, 120)
         };
@@ -6329,12 +6329,13 @@
         };
       });
       if (!rolls.length) return Promise.resolve(api.getSnapshot());
+      var decisiveRolls=rolls.filter(function(roll){return roll&&roll.kept!==false;}),decisiveRoll=decisiveRolls.length===1?decisiveRolls[0]:(rolls.length===1?rolls[0]:null),inferredResultSound=decisiveRoll&&(decisiveRoll.outcome==='critical-success'||decisiveRoll.outcome==='critical-fail')?decisiveRoll.outcome:'normal';
       return ensureReady().then(function (user) {
         var session = readSession(); if (!session || !firebase || !db) return null;
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
         var activeRoll = { id:String(clientRollId||('roll-'+now()+'-'+Math.random().toString(36).slice(2,6))).slice(0,120), ts:now(), duration:1250, rolls:rolls,
-          speakerUid:speaker && speaker.uid || user.uid, speakerTokenId:String(options.speakerTokenId||'').slice(0,128), scoreKind:String(options.scoreKind||'').toLowerCase()==='damage'?'damage':'normal', resultSound:['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound||'').toLowerCase())>=0?String(options.resultSound).toLowerCase():'normal', revealResult:options.revealResult!==false,
+          speakerUid:speaker && speaker.uid || user.uid, speakerTokenId:String(options.speakerTokenId||'').slice(0,128), scoreKind:String(options.scoreKind||'').toLowerCase()==='damage'?'damage':'normal', resultSound:['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound||'').toLowerCase())>=0?String(options.resultSound).toLowerCase():inferredResultSound, revealResult:options.revealResult!==false,
           name:String(options.name||speaker && speaker.character && speaker.character.name||speaker && speaker.name||'Игрок').slice(0,120) };
         if (member) { member.activeRoll = activeRoll; emit(); }
         try { window.dispatchEvent(new CustomEvent('zg-local-roll',{detail:{ownerUid:user.uid,roll:activeRoll}})); } catch(e) {}

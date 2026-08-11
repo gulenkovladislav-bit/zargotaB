@@ -125,7 +125,10 @@
   function begin(id,rolls,total,node,options){
     id=String(id||'');if(!id||active[id]||completed[id])return false;
     var result=grade(rolls,total,options),soundKind=String(options&&options.soundKind||'').toLowerCase()==='damage'?'damage':'normal',resultSound=String(options&&options.resultSound||'').toLowerCase();
-    if(['success','fail','critical-success','critical-fail','silent'].indexOf(resultSound)<0)resultSound='normal';
+    if(['success','fail','critical-success','critical-fail','silent'].indexOf(resultSound)<0){
+      var candidates=(Array.isArray(rolls)?rolls:[]).filter(function(item){return item&&item.kept!==false;}),decisive=candidates.length===1?candidates[0]:(rolls&&rolls.length===1?rolls[0]:null);
+      resultSound=decisive&&(decisive.outcome==='critical-success'||decisive.outcome==='critical-fail')?decisive.outcome:'normal';
+    }
     var state={id:id,result:result,node:node||null,steps:Object.create(null),finished:false,soundKind:soundKind,resultSound:resultSound};
     active[id]=state;decorate(state.node,result);
     emitSound({id:id,phase:'begin',soundKind:soundKind,resultSound:resultSound,hidden:result.hidden,band:result.band,tier:result.tier,quality:result.quality,count:result.count,total:result.total,magnitude:result.magnitude,surpriseBits:result.surpriseBits});

@@ -29,6 +29,7 @@ const checks = [
   ['До 12 кубиков и последовательный подсчёт', 'tests/dice-batch-sequence.test.js'],
   ['Плавный полёт и приземление кубиков', 'tests/dice-flight-continuity.test.js'],
   ['Звук и частицы результата кубиков', 'tests/dice-result-fx.test.js'],
+  ['Реальный выбор звука по исходу d20', 'tests/d20-outcome-audio-runtime.test.js'],
   ['Локальные MP3 в file-режиме Мастерской', 'tests/file-audio-sample.test.js'],
   ['Один авторский звук для всех бросков', 'tests/all-dice-sound-routing.test.js'],
   ['Лист героя и видимость HP', 'tests/character-sheet-hp-visibility.test.js'],
