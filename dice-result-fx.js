@@ -61,11 +61,15 @@
 .zg-roll-total.dice-score-strong{--dice-score-color:#e4c86f;--dice-score-glow:rgba(228,200,111,.4)}\
 .zg-roll-total.dice-score-excellent,.zg-roll-total.dice-score-perfect,.zg-roll-total.dice-score-exceptional{--dice-score-color:#fff0a8;--dice-score-glow:rgba(255,220,92,.54)}\
 .zg-roll-total.dice-score-legendary{--dice-score-color:#fff7c8;--dice-score-glow:rgba(255,223,83,.72)}\
-.zg-roll-total.dice-score-band-2{--dice-score-color:#efc16b;--dice-score-glow:rgba(211,143,47,.48)}\
-.zg-roll-total.dice-score-band-3{--dice-score-color:#e39758;--dice-score-glow:rgba(192,83,38,.52)}\
-.zg-roll-total.dice-score-band-4{--dice-score-color:#d06450;--dice-score-glow:rgba(158,38,40,.58)}\
-.zg-roll-total.dice-score-band-5{--dice-score-color:#bd3b4a;--dice-score-glow:rgba(126,18,43,.68)}\
-.zg-roll-total.dice-score-band-6{--dice-score-color:#941f3f;--dice-score-glow:rgba(112,7,38,.8)}\
+.zg-roll-total.dice-score-band-1{--dice-score-color:#f3eee4;--dice-score-glow:rgba(238,229,211,.34)}\
+.zg-roll-total.dice-score-band-2{--dice-score-color:#f0ce86;--dice-score-glow:rgba(222,165,67,.44)}\
+.zg-roll-total.dice-score-band-3{--dice-score-color:#e99a52;--dice-score-glow:rgba(199,96,35,.52)}\
+.zg-roll-total.dice-score-band-4{--dice-score-color:#d56849;--dice-score-glow:rgba(163,50,35,.6)}\
+.zg-roll-total.dice-score-band-5{--dice-score-color:#b83b47;--dice-score-glow:rgba(126,18,43,.68)}\
+.zg-roll-total.dice-score-band-6{--dice-score-color:#861a38;--dice-score-glow:rgba(103,5,34,.82)}\
+.zg-roll-total.dice-score-d20{--dice-score-color:#f3eee4;--dice-score-glow:rgba(238,229,211,.34)}\
+.zg-roll-total.dice-score-d20-critical-success{--dice-score-color:#fff0a8;--dice-score-glow:rgba(255,220,92,.58)}\
+.zg-roll-total.dice-score-d20-critical-fail{--dice-score-color:#ff3045;--dice-score-glow:rgba(214,0,28,.82)}\
 .zg-roll-total.dice-score-active b{color:var(--dice-score-color,#d9bd78)!important;text-shadow:0 2px 7px #000,0 0 12px var(--dice-score-glow),0 0 24px var(--dice-score-glow);transition:color .22s ease,text-shadow .22s ease}\
 .zg-roll-total.dice-score-active em{color:var(--dice-score-color,#d9bd78);transition:color .22s ease}\
 .zg-roll-total.dice-score-final{animation:zgDiceScoreCard .62s cubic-bezier(.18,.75,.22,1) both}\
@@ -77,13 +81,13 @@
 .zg-dice-score-particle.shard{border-radius:50% 0 50% 0;background:#ffd0bb;box-shadow:0 0 7px currentColor,0 0 18px var(--dice-score-glow)}\
 .zg-roll-total.ready.dice-score-might-title b{animation:zgDicePowerNumberYield 1.2s cubic-bezier(.32,0,.2,1) .22s both!important}\
 .zg-roll-total.ready.dice-score-might-title em{animation:zgDicePowerMetaYield .55s ease .72s both!important}\
-.zg-dice-score-title{position:absolute;left:50%;top:50%;z-index:6;transform:translate(-50%,-50%);white-space:nowrap;color:#e05268;font:900 20px/1.1 Cinzel,serif;letter-spacing:3.8px;text-shadow:0 2px 5px #160006,0 0 9px #7c102d,0 0 25px #b8254c;opacity:0;animation:zgDicePowerTitle 1.6s cubic-bezier(.15,.72,.2,1) 1.52s both}\
+.zg-dice-score-title{position:absolute;left:50%;top:50%;z-index:6;transform:translate(-50%,-50%);white-space:nowrap;color:#e05268;font:900 20px/1.1 Cinzel,serif;letter-spacing:3.8px;text-shadow:0 2px 5px #160006,0 0 9px #7c102d,0 0 25px #b8254c;opacity:0;animation:zgDicePowerTitle 3.2s cubic-bezier(.15,.72,.2,1) 1.45s both}\
 @keyframes zgDiceScoreParticle{0%{opacity:0;transform:rotate(var(--p-angle)) translateX(0) scale(.25)}16%,56%{opacity:1}100%{opacity:0;transform:rotate(var(--p-angle)) translateX(var(--p-distance,42px)) scale(.1)}}\
 @keyframes zgDiceScoreRing{0%{opacity:.62;transform:scale(.35)}100%{opacity:0;transform:scale(var(--dice-score-ring-scale,2.6))}}\
 @keyframes zgDiceScoreCard{0%{filter:none;transform:translateX(-50%) scale(1)}38%{filter:drop-shadow(0 0 18px var(--dice-score-glow));transform:translateX(-50%) scale(var(--dice-score-card-peak,1.075))}100%{filter:none;transform:translateX(-50%) scale(1)}}\
 @keyframes zgDicePowerNumberYield{0%,55%{opacity:1;visibility:visible;transform:scale(1)}99%,100%{opacity:0;visibility:hidden;transform:scale(.82)}}\
 @keyframes zgDicePowerMetaYield{0%,34%{opacity:1;visibility:visible}99%,100%{opacity:0;visibility:hidden}}\
-@keyframes zgDicePowerTitle{0%{opacity:0;letter-spacing:9px;transform:translate(-50%,-50%) scale(.68)}12%{opacity:.12}44%,78%{opacity:1}100%{opacity:.94;letter-spacing:3.8px;transform:translate(-50%,-50%) scale(1)}}\
+@keyframes zgDicePowerTitle{0%{opacity:0;letter-spacing:9px;transform:translate(-50%,-50%) scale(.68)}8%{opacity:.18}22%,82%{opacity:1;letter-spacing:3.8px;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;letter-spacing:3.8px;transform:translate(-50%,-50%) scale(.96)}}\
 @media (prefers-reduced-motion:reduce){.zg-roll-total.dice-score-final,.zg-roll-total.dice-score-might-title b,.zg-roll-total.dice-score-might-title em,.zg-dice-score-burst::before,.zg-dice-score-burst::after,.zg-dice-score-particle,.zg-dice-score-title{animation-duration:.01ms!important;animation-delay:0ms!important}}';
     w.document.head.appendChild(style);
   }
@@ -124,14 +128,17 @@
   }
   function begin(id,rolls,total,node,options){
     id=String(id||'');if(!id||active[id]||completed[id])return false;
-    var result=grade(rolls,total,options),soundKind=String(options&&options.soundKind||'').toLowerCase()==='damage'?'damage':'normal',resultSound=String(options&&options.resultSound||'').toLowerCase();
+    var inferredDamage=(Array.isArray(rolls)?rolls:[]).some(function(item){return String(item&&item.statLabel||'').trim().toLowerCase()==='урон';});
+    var result=grade(rolls,total,options),soundKind=String(options&&options.soundKind||'').toLowerCase()==='damage'||inferredDamage?'damage':'normal',resultSound=String(options&&options.resultSound||'').toLowerCase();
     if(['success','fail','critical-success','critical-fail','silent'].indexOf(resultSound)<0){
       var candidates=(Array.isArray(rolls)?rolls:[]).filter(function(item){return item&&item.kept!==false;}),decisive=candidates.length===1?candidates[0]:(rolls&&rolls.length===1?rolls[0]:null);
       resultSound=decisive&&(decisive.outcome==='critical-success'||decisive.outcome==='critical-fail')?decisive.outcome:'normal';
     }
-    var state={id:id,result:result,node:node||null,steps:Object.create(null),finished:false,soundKind:soundKind,resultSound:resultSound};
+    var semanticRolls=meaningfulRolls(rolls),semanticD20=soundKind!=='damage'&&semanticRolls.length===1&&Number(semanticRolls[0]&&semanticRolls[0].sides)===20;
+    var finalDelayMs=Math.max(0,Number(options&&options.finalDelayMs)||0),state={id:id,result:result,node:node||null,steps:Object.create(null),finished:false,soundKind:soundKind,resultSound:resultSound,semanticD20:semanticD20,finalDelayMs:finalDelayMs};
     active[id]=state;decorate(state.node,result);
-    emitSound({id:id,phase:'begin',soundKind:soundKind,resultSound:resultSound,hidden:result.hidden,band:result.band,tier:result.tier,quality:result.quality,count:result.count,total:result.total,magnitude:result.magnitude,surpriseBits:result.surpriseBits});
+    if(semanticD20&&state.node&&state.node.classList){state.node.classList.add('dice-score-d20');if(resultSound==='critical-success'||resultSound==='critical-fail')state.node.classList.add('dice-score-d20-'+resultSound);}
+    emitSound({id:id,phase:'begin',soundKind:soundKind,resultSound:resultSound,hidden:result.hidden,band:result.band,tier:result.tier,quality:result.quality,count:result.count,total:result.total,magnitude:result.magnitude,surpriseBits:result.surpriseBits,finalDelayMs:finalDelayMs});
     return result;
   }
   function step(id,index,running,value){
@@ -148,10 +155,10 @@
   function finish(id){
     id=String(id||'');var state=active[id];if(!state||state.finished||completed[id])return false;
     state.finished=true;completed[id]=Date.now();
-    emitSound({id:state.id,phase:'final',soundKind:state.soundKind,resultSound:state.resultSound,hidden:state.result.hidden,band:state.result.band,tier:state.result.tier,quality:state.result.quality,total:state.result.total,magnitude:state.result.magnitude,surpriseBits:state.result.surpriseBits,exactMax:state.result.exactMax,exactMin:state.result.exactMin});
     applyVisualBand(state.node,state.result.band,state.result.bandKey);
     if(state.node&&state.node.classList)state.node.classList.add('dice-score-final');
-    burst(state.node,state.result,'final',0);appendPowerTitle(state.node,state.result);delete active[id];
+    burst(state.node,state.result,'final',0);appendPowerTitle(state.node,state.result);
+    emitSound({id:state.id,phase:'final',soundKind:state.soundKind,resultSound:state.resultSound,hidden:state.result.hidden,band:state.result.band,tier:state.result.tier,quality:state.result.quality,total:state.result.total,magnitude:state.result.magnitude,surpriseBits:state.result.surpriseBits,exactMax:state.result.exactMax,exactMin:state.result.exactMin});delete active[id];
     var cleanupTimer=setTimeout(function(){delete completed[id];},30000);
     if(cleanupTimer&&typeof cleanupTimer.unref==='function')cleanupTimer.unref();
     return state.result;

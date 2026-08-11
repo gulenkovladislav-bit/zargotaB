@@ -61,7 +61,7 @@ Content License:
   - https://pixabay.com/sound-effects/film-special-effects-warrior-kick-45949/
 - `gm-action-request-paper.mp3` — "Videogame paper SFX 2" by OxidVideos
   - https://pixabay.com/sound-effects/technology-videogame-paper-sfx-2-449927/
-  - Temporary routing tags: `PLACEHOLDER_ACTION_REQUEST_PLAYER` and `PLACEHOLDER_ACTION_REQUEST_GM`. Both deliberately point to this file until custom submission/notification sounds replace them.
+  - Temporary routing tags: `PLACEHOLDER_ACTION_REQUEST_PLAYER`, `PLACEHOLDER_ACTION_REQUEST_GM`, and `PLACEHOLDER_GM_DELIVERY_RECEIVED_PLAYER`. They deliberately point to this file until custom submission/notification/card-receipt sounds replace them.
 - `gm-action-approved-pencil.mp3` — "pencil_check_mark_2" by Freesound community
   - https://pixabay.com/sound-effects/film-special-effects-pencil-check-mark-2-105940/
 - `status-cleanse-holy.mp3` — "Holy Healing Spell" by Coghezzi

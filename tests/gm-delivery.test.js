@@ -77,16 +77,28 @@ assert.match(delivery, /MAX_SOURCE_IMAGE_BYTES = 12 \* 1024 \* 1024/);
 assert.match(delivery, /var drafts = Object\.create\(null\)/);
 assert.match(delivery, /var activeView = 'home'/);
 assert.match(delivery, /function renderHome\(host, members\)/);
-assert.match(delivery, /КАРТОТЕКА МАСТЕРА/);
+assert.match(delivery, /ХРАНИЛИЩЕ СЕССИИ/);
 assert.match(delivery, /function allPreparedArtifacts\(\)/);
 assert.match(delivery, /zgGmDeliveryOpenHistory/);
 assert.match(delivery, /zgGmDeliveryArchive/);
+assert.match(delivery, /function historyShelfMarkup\(\)/, 'history renders its own cleanup toolbar and confirmation state');
+assert.match(delivery, /zgGmDeliveryHistoryDeleteRequest/, 'individual history entries can be removed');
+assert.match(delivery, /zgGmDeliveryHistoryClearRequest/, 'the full local delivery log can be cleared');
+assert.match(delivery, /zgGmDeliveryHistoryCleanupConfirm/, 'history cleanup requires explicit confirmation');
+assert.match(delivery, /Карточки в картотеке и уже выданные игрокам/, 'cleanup explains that delivered data and saved cards are preserved');
 assert.match(delivery, /w\.zgImageStore\.makePortable\(file/);
 assert.match(delivery, /w\.zgGmDeliveryStart = function \(kind\)/);
 assert.match(delivery, /activeView = 'compose'/);
 assert.match(delivery, /w\.zgGmDeliveryHome = function \(\)/);
 assert.match(delivery, /function rememberPanelDraft\(\)/);
+assert.match(delivery, /function showGmSentNotice\(value, members, queued\)/, 'successful sends have a dedicated top confirmation notice');
+assert.match(delivery, /setTimeout\(function \(\) \{ notice\.classList\.remove\('open'\); \}, queued \? 3000 : 2400\)/, 'the GM notice remains visible between one and three seconds');
+assert.match(delivery, /function claimDeliveryPresentation\(deliveryId\)/, 'player card presentation is claimed by stable delivery id');
+assert.match(delivery, /sessionStorage\.setItem\(PRESENTED_KEY/, 'receipt claims survive repeated Firebase renders in the current client tab');
 assert.match(delivery, /if \(!options\.skipRemember\) rememberPanelDraft\(\)/);
+assert.match(delivery, /function deliveryEditorActive\(\)/, 'delivery form detects when the GM is actively editing a field');
+assert.match(delivery, /if \(deliveryEditorActive\(\)\) pendingMasterPanelRefresh = true;/, 'room snapshots must not replace an active delivery field');
+assert.match(delivery, /if \(!pendingMasterPanelRefresh \|\| deliveryEditorActive\(\)\) return;/, 'the deferred refresh waits until text editing really ends');
 assert.match(delivery, /function safeQuestId\(value\)/);
 assert.match(delivery, /function upsertQuestJournalEntry\(journal, delivery\)/);
 assert.match(delivery, /id="zg-gm-delivery-quest-status"/);
@@ -95,13 +107,24 @@ assert.match(delivery, /id="zg-gm-delivery-quest-icon"/);
 assert.match(delivery, /function questIconOptions\(value\)/);
 assert.match(delivery, /w\.zgGmDeliveryOpenForMember = function \(memberUid, kind\)/);
 assert.match(delivery, /activeTemplateIds/);
-assert.match(delivery, /Обновить заготовку/);
+assert.match(delivery, /Обновить в хранилище/);
 assert.match(delivery, /function requestAssetLibrary\(force\)/);
-assert.match(delivery, /w\.zgImageStore\.listAll/);
+assert.match(delivery, /w\.zgImageStore\.listMetadata \|\| w\.zgImageStore\.listAll/, 'the library prefers lightweight IndexedDB metadata instead of retaining every Blob');
 assert.match(delivery, /w\.zgImageStore\.put\(file, 'deliveries'/);
 assert.match(delivery, /zgGmDeliveryUseAsset/);
 assert.match(delivery, /zgGmDeliveryRefreshAssets/);
 assert.match(delivery, /published !== true/);
+assert.match(delivery, /var assetVisibleLimit = 24/, 'the image library renders in bounded batches');
+assert.match(delivery, /loading="lazy" decoding="async"/, 'library thumbnails load lazily');
+assert.match(delivery, /id="zg-gm-delivery-assets-search"/, 'the image library has an instant search');
+assert.match(delivery, /function refreshAssetListDom\(\)/, 'search and filters update only the asset list instead of rebuilding the editor');
+assert.match(delivery, /function assetReferenced\(path\)/, 'cleanup checks active and saved delivery references');
+assert.match(delivery, /function assetCleanupCandidates\(mode\)/, 'cleanup separates cache files from unused local originals');
+assert.match(delivery, /asset\.published === true && String\(asset\.path \|\| ''\)\.indexOf\('images\/deliveries\/'\) === 0/, 'bulk cleanup cannot remove portraits, shop art or assets owned by another section');
+assert.match(delivery, /w\.zgGmDeliveryAssetCleanupConfirm/, 'asset deletion requires a custom confirmation step');
+assert.match(delivery, /w\.zgImageStore\.remove/, 'confirmed cleanup removes records through the shared image store');
+assert.match(html, /function listMetadata\(cb\)/, 'the shared image store exposes a metadata-only listing for large libraries');
+assert.match(html, /size: Number\(value\.blob && value\.blob\.size\)/, 'metadata retains file size without retaining the Blob in UI state');
 assert.match(delivery, /id="zg-gm-delivery-presentation"/);
 assert.match(delivery, /presentation-cinematic/);
 assert.match(delivery, /id="zg-gm-delivery-private"/);
@@ -115,7 +138,15 @@ assert.match(delivery, /zgGmDeliveryLibrarySort/);
 assert.match(delivery, /zgGmDeliveryShelf/);
 assert.match(delivery, /zgGmDeliveryRepeat/);
 assert.match(delivery, /Изображение уже очищено из локальной истории/);
-assert.match(delivery, /activeTarget === '__all__' \? 'Выдать группе'/);
+assert.match(delivery, /var activeTargets = \[\]/, 'recipient selection supports more than one player');
+assert.match(delivery, /function targetCardsMarkup\(members\)/, 'recipients render as visual cards instead of a select');
+assert.match(delivery, /zgGmDeliveryTargetToggle/, 'each player has an independent check toggle');
+assert.match(delivery, /zgGmDeliveryTargetAll/, 'the whole group can be selected in one action');
+assert.match(delivery, /targetMembers\(activeTargets\)/, 'the selected recipient set is passed to the existing atomic batch send');
+assert.match(delivery, /ХРАНИЛИЩЕ СЕССИИ/, 'prepared session cards are exposed as the top-level storage action');
+assert.match(delivery, /ДОБАВИТЬ ИЗ ДРУГИХ РАЗДЕЛОВ/, 'external sources stay in a separate bottom section');
+assert.match(delivery, /String\(raw\.imageThumb \|\| raw\.image \|\| ''\)/, 'shop imports prefer the compressed catalog thumbnail');
+assert.match(delivery, /loading="lazy" decoding="async"/, 'item thumbnails are decoded lazily');
 assert.match(delivery, /w\.ZargotaRooms\.gmSendDeliveries\(memberUids, value\)/);
 assert.match(delivery, /snapshot\s*&&\s*snapshot\.queuedOperation/);
 assert.match(delivery, /выдача сохранена и отправится автоматически/);
@@ -197,21 +228,47 @@ vm.runInNewContext(
 assert.strictEqual(questContext.result.mode, 'stale');
 assert.strictEqual(questContext.result.journal[0].title, 'Вернуться к руинам');
 
+var imageJournalContext = { result:null };
+vm.runInNewContext(
+  delivery.slice(questHelperStart, questHelperEnd) +
+    delivery.slice(questUpsertStart, questUpsertEnd) +
+    '; result=upsertImageJournalEntry([], {id:"delivery-image-1",createdAt:300,title:"Сводка",text:"Подпись под фото",image:"data:image/webp;base64,AAAA"});',
+  imageJournalContext
+);
+assert.strictEqual(imageJournalContext.result.mode, 'created');
+assert.strictEqual(imageJournalContext.result.journal[0].kind, 'image');
+assert.strictEqual(imageJournalContext.result.journal[0].image, 'data:image/webp;base64,AAAA');
+assert.strictEqual(imageJournalContext.result.journal[0].text, 'Подпись под фото');
+assert.match(delivery, /Сохранить письмо в журнале героя/, 'GM text deliveries can become persistent letters');
+assert.match(delivery, /function upsertTextJournalEntry\(journal, delivery\)/, 'letters use a stable journal upsert path');
+assert.match(delivery, /persistText = delivery\.kind === 'text'/, 'text persistence is explicit and does not affect transient notices');
+
 assert.match(styles, /\.zg-player-delivery-popup\.mood-calm/);
 assert.match(styles, /\.zg-player-delivery-popup\.mood-solemn/);
 assert.match(styles, /\.zg-player-delivery-popup\.mood-ominous/);
 assert.match(styles, /\.zg-game-overlay\.gm\.gm-edit-mode \.zg-gm-delivery-button\{display:none\}/);
 assert.match(styles, /\.zg-gm-delivery-preview-card/);
+assert.match(styles, /\.zg-gm-delivery-sent-notice/);
+assert.match(styles, /\.zg-gm-delivery-target-card\.selected/, 'selected recipients have a visible checked card state');
+assert.match(styles, /\.zg-gm-delivery-template-grid/, 'prepared cards use a compact grid');
+assert.match(styles, /\.zg-gm-delivery-sources>div\{display:grid;grid-template-columns:repeat\(3/, 'item sources use square visual cards');
+assert.match(styles, /z-index:16080/, 'the GM confirmation stays above the session map layers');
 assert.match(styles, /\.zg-gm-delivery-library-tools/);
 assert.match(styles, /\.zg-gm-delivery-history/);
+assert.match(styles, /\.zg-gm-delivery-history-confirm/);
+assert.match(styles, /\.zg-gm-delivery-history article>footer button\.remove/);
 assert.match(styles, /\.zg-gm-delivery-shelves/);
 assert.match(styles, /\.zg-gm-delivery-import/);
 assert.match(styles, /\.zg-gm-delivery-bundle/);
 assert.match(styles, /\.zg-delivery-popup-bundle/);
 assert.match(styles, /\.zg-gm-delivery-assets/);
+assert.match(styles, /\.zg-gm-delivery-assets-list/);
+assert.match(styles, /content-visibility:auto/, 'offscreen asset cards skip browser rendering work');
+assert.match(styles, /\.zg-gm-delivery-cleanup/);
 assert.match(styles, /\.zg-gm-delivery-home-actions/);
 assert.match(styles, /\.zg-gm-delivery-home-library>div/);
 assert.match(styles, /\.zg-gm-delivery-back/);
+assert.match(styles, /user-select:text;-webkit-user-select:text;touch-action:auto/, 'delivery fields explicitly allow holding, selecting and editing text');
 assert.match(styles, /\.zg-player-delivery-popup\.presentation-cinematic/);
 
 assert.match(todo, /Этап 1\. Единый канал выдачи/);
@@ -287,6 +344,22 @@ assert.ok(applyDeliveryStart >= 0 && applyDeliveryEnd > applyDeliveryStart);
   assert.strictEqual(deliveryCharacter.journalEntries[0].image, 'images/journal/well.webp');
   assert.strictEqual(saveReasons[1], 'journal-add');
   assert.deepStrictEqual(acknowledged[2], {id:'delivery-quest-live',status:'applied'});
+
+  var letterDelivery = {
+    id:'delivery-letter-live',
+    kind:'text',
+    title:'Письмо из обители',
+    text:'Приходи до заката.',
+    image:'images/journal/seal.webp',
+    createdAt:800,
+    payload:{saveToJournal:true,playerCanDelete:true}
+  };
+  await applyContext.result.applyDelivery(letterDelivery, member);
+  assert.strictEqual(deliveryCharacter.journalEntries.length, 2, 'persistent text delivery must create a journal letter');
+  assert.strictEqual(deliveryCharacter.journalEntries[1].kind, 'note');
+  assert.strictEqual(deliveryCharacter.journalEntries[1].playerCanDelete, true);
+  assert.strictEqual(deliveryCharacter.journalEntries[1].image, 'images/journal/seal.webp');
+  assert.strictEqual(saveReasons[2], 'journal-add');
   console.log('gm delivery contract passed');
 })().catch(function(error){
   console.error(error);

@@ -16,7 +16,8 @@ assert.match(html, /w\.zgOpenDiceTestScene = function\(mode\)\{[\s\S]*?w\.zgLoca
 assert.match(html, /if\(settings&&!settings\.classList\.contains\('open'\)&&w\.zgGameSettings\)w\.zgGameSettings\(\)/, 'the home button should expose the combat lab controls immediately');
 assert.match(html, /if\(mode==='combat'&&w\.zgSceneQaActiveCombat\)w\.zgSceneQaActiveCombat\(\)/, 'combat mode should start the local fight');
 assert.match(html, /if\(mode==='free'&&w\.zgQaSessionFreeRoom\)w\.zgQaSessionFreeRoom\(\)/, 'free-room mode should explicitly clear combat state');
-assert.match(html, /host\.hidden=!\(w\.zgLocalCombatQaActive&&w\.zgLocalCombatQaActive\(\)\)/, 'QA controls should follow the local QA state');
+assert.match(html, /host\.hidden=!isMaster\|\|!\(w\.zgLocalCombatQaActive&&w\.zgLocalCombatQaActive\(\)\)/, 'QA controls should follow the local QA state and remain unavailable to players');
+assert.match(html, /w\.zgCombatFxBrowserOpen=function\(\)\{\s*if\(!isMaster\)return false;/, 'the live effects laboratory is GM-only even when called directly');
 assert.match(html, /room\.code==='TEST'/, 'the battle adapter must remain restricted to the isolated TEST room');
 assert.match(html, /images\/vtt-test\/combat-workshop\.webp/, 'the workshop should use its dedicated optimized battlefield');
 assert.match(html, /w\.zgQaWorkshopBackground=function\(kind\)/, 'the workshop should allow switching its background');

@@ -68,7 +68,10 @@ assert.deepEqual(soundCues.map(cue => cue.soundKind), ['normal', 'normal', 'norm
 assert.deepEqual(soundCues.map(cue => cue.resultSound), ['normal', 'normal', 'normal'], 'ordinary rolls also carry an explicit neutral d20 outcome sound');
 
 const criticalCueStart = soundCues.length;
-assert.ok(fx.begin('roll-critical', [{ sides: 20, value: 20, outcome: 'critical-success' }], 20, null, {}));
+const criticalClasses = new Set();
+const criticalNode = {classList:{add(...names){names.forEach(name => criticalClasses.add(name));},remove(...names){names.forEach(name => criticalClasses.delete(name));}},dataset:{},style:{setProperty(){}}};
+assert.ok(fx.begin('roll-critical', [{ sides: 20, value: 20, outcome: 'critical-success' }], 20, criticalNode, {}));
+assert.ok(criticalClasses.has('dice-score-d20-critical-success'), 'a critical d20 uses semantic success color instead of the numeric orange band');
 fx.finish('roll-critical');
 assert.deepEqual(soundCues.slice(criticalCueStart).map(cue => cue.resultSound), ['critical-success', 'critical-success'], 'critical outcome is inferred from the decisive die even when a caller omits options');
 
@@ -99,11 +102,17 @@ fx.step('roll-damage', 0, 6, 6);
 fx.finish('roll-damage');
 assert.deepEqual(soundCues.slice(damageCueStart).map(cue => cue.soundKind), ['damage', 'damage', 'damage'], 'the explicit damage kind survives from counting through the final cue');
 
+const inferredDamageCueStart = soundCues.length;
+assert.ok(fx.begin('roll-damage-inferred', [{ sides: 6, value: 5, total: 5, statLabel: 'Урон' }], 5, null, {}));
+fx.step('roll-damage-inferred', 0, 5, 5);
+fx.finish('roll-damage-inferred');
+assert.deepEqual(soundCues.slice(inferredDamageCueStart).map(cue => cue.soundKind), ['damage', 'damage', 'damage'], 'damage labels recover the semantic final when an intermediate caller drops scoreKind');
+
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const network = fs.readFileSync(path.join(__dirname, '..', 'zargota-network.js'), 'utf8');
 assert.match(html, /dice-result-fx\.js\?v=/, 'result effect module is loaded by the game');
-assert.match(html, /dice-result-fx\.js\?v=2026-08-11\.7/, 'the fixed outcome router has a fresh browser cache key');
-assert.match(html, /zargota-network\.js\?v=2026-08-11\.1/, 'the fixed Firebase outcome transport has a fresh browser cache key');
+assert.match(html, /dice-result-fx\.js\?v=2026-08-11\.13/, 'the synchronized final-sound scheduler has a fresh browser cache key');
+assert.match(html, /zargota-network\.js\?v=2026-08-12\.3/, 'the current Firebase transport has a fresh browser cache key');
 assert.match(html, /diceScoreCue: function\(cue\)/, 'the shared sound engine owns recorded score cues');
 assert.match(html, /diceScoreGearClick:'audio\/vtt-actions\/dice-score-gear-click\.mp3'/, 'counting uses the selected Gear Click recording');
 assert.match(html, /diceScoreThresholdRise:'audio\/vtt-actions\/dice-score-threshold-rise\.mp3'/, 'ordinary finals use the selected Rise Ding recording');
@@ -114,12 +123,14 @@ assert.match(html, /d20CheckFailure:'audio\/vtt-actions\/d20-check-failure-wood\
 assert.match(html, /d20AttackMiss:'audio\/vtt-actions\/d20-attack-miss-sword\.mp3'/, 'ordinary physical misses use the selected sword recording');
 const scoreCueSource = html.slice(html.indexOf('diceScoreCue: function(cue)'), html.indexOf('// Негромкое раскрытие', html.indexOf('diceScoreCue: function(cue)')));
 assert.doesNotMatch(scoreCueSource, /\btone\(/, 'the score phrase no longer synthesizes oscillators');
-assert.match(scoreCueSource, /stepRate=\.92\+progress\*\.22/, 'Gear Click accelerates gradually with the count');
+assert.match(scoreCueSource, /if\(soundKind==='damage'\)progress\*=\.5;[\s\S]*?stepRate=\.92\+progress\*\.22/, 'damage Gear Click acceleration follows the twice-smoother visual count');
 assert.doesNotMatch(scoreCueSource, /phase==='threshold'|phase==='band'/, 'the count has no redundant middle rising phase');
-assert.match(scoreCueSource, /damageFinal\?sampleSources\.diceScoreFinalTom:resultSound==='critical-success'\?sampleSources\.d20CriticalSuccess/, 'damage and critical results choose mutually exclusive semantic finals');
-assert.match(scoreCueSource, /resultSound==='critical-fail'\?\.27/, 'the critical-failure gong is intentionally quieter');
-assert.match(scoreCueSource, /resultSound==='silent'\)return/, 'ordinary attack misses can defer their sound to the semantic combat event');
-assert.match(scoreCueSource, /maxDuration:finalDuration,playbackRate:1/, 'all recorded finals preserve their natural pitch');
+assert.match(scoreCueSource, /damageFinal\?sampleSources\.diceScoreFinalTom:outcome==='critical-success'\?sampleSources\.d20CriticalSuccess/, 'damage and critical results choose mutually exclusive semantic finals');
+assert.match(scoreCueSource, /outcome==='critical-fail'\?\.27/, 'the critical-failure gong is intentionally quieter');
+assert.match(scoreCueSource, /silentFinal\?'':damageFinal/, 'ordinary attack misses can defer their sound to the semantic combat event');
+assert.match(scoreCueSource, /maxDuration:target\.finalSpec\.duration,playbackRate:1/, 'all recorded finals preserve their natural pitch');
+assert.match(scoreCueSource, /impactLeadMs:damageFinal\?0:outcome==='critical-success'\?1420:outcome==='critical-fail'\?170:outcome==='fail'\?720:1780/, 'each recorded final is aligned by its measured internal impact position');
+assert.match(scoreCueSource, /finalDelayMs-finalSpec\.impactLeadMs/, 'the recorded rise begins early enough for its impact to meet the visual total');
 [
   'dice-score-gear-click.mp3',
   'dice-score-threshold-rise.mp3',
@@ -134,27 +145,41 @@ assert.match(scoreCueSource, /maxDuration:finalDuration,playbackRate:1/, 'all re
 });
 assert.match(html, /scoreFx\.step\(roll\.id,sequenceIndex,running,entry\.value\)/, 'each sequential visible addition advances the score phrase');
 assert.match(html, /finishScoreFx\(\)/, 'the final displayed total resolves the score phrase');
-assert.match(html, /scoreFx\.begin\(roll\.id,rolls,total,totalNode,\{hidden:hideResult,contest:isContest,soundKind:roll\.scoreKind,resultSound:diceResultSoundKind\(roll\.resultSound,rolls\)\}\)/, 'the renderer forwards score and decisive-die outcome semantics into the effect');
+assert.match(html, /totalFinalDelayMs=diceTotalFinalDelay[\s\S]*?finalDelayMs:totalFinalDelayMs/, 'the renderer forwards visual impact timing with score and outcome semantics');
+assert.match(html, /totalDisplayLifetime=diceTotalDisplayLifetime\(rollLifetime,totalFinalDelayMs,!hideResult&&!totalOutcome\)/, 'only visible noncritical totals receive the thirty-percent longer digit hold');
 assert.match(html, /function dicePanelResultSoundKind\(rolls\)/, 'the dice panel owns its outcome helper inside the same isolated module');
-assert.match(html, /batchSoundOptions=\{resultSound:dicePanelResultSoundKind\(rolls\)\}/, 'free and batch throws explicitly choose their result sound');
+assert.match(html, /function dicePanelScoreKind\(rolls,isFreeRoll\)/, 'the dice panel explicitly classifies Plan B damage batches');
+assert.match(html, /batchSoundOptions=\{scoreKind:dicePanelScoreKind\(rolls,isFreeRoll\),resultSound:dicePanelResultSoundKind\(rolls\)\}/, 'free and batch throws explicitly choose their score and result sound semantics');
+assert.match(html, /scoreKind:diceScoreKind\(options&&options\.scoreKind,rolls\)/, 'local damage rolls recover their score kind from roll semantics');
 const dicePanelStart = html.lastIndexOf('(function(w){', html.indexOf('  function ownChar(){'));
 const dicePanelEnd = html.indexOf('})(window);', html.indexOf('  function ownChar(){'));
 const dicePanelSource = html.slice(dicePanelStart, dicePanelEnd);
 assert.doesNotMatch(dicePanelSource, /\bdiceResultSoundKind\(/, 'the dice panel cannot call the private helper from the preceding VTT module');
 assert.doesNotMatch(html.slice(html.indexOf('  function animateRoll('), html.indexOf('  function alignDicePanel', html.indexOf('  function animateRoll('))), /ZargotaSound&&w\.ZargotaSound\.diceResult/, 'single panel rolls no longer stack the old synthetic common finale');
 assert.match(html, /damageRollOptions=Object\.assign\(\{\},rollOptions\|\|\{\},\{scoreKind:'damage'\}\)/, 'combat damage explicitly marks its roll instead of inferring from labels');
-assert.match(network, /scoreKind:String\(options\.scoreKind\|\|''\)\.toLowerCase\(\)==='damage'\?'damage':'normal'/, 'Firebase transports the semantic score kind for remote viewers');
+assert.match(network, /inferredScoreKind=rolls\.some\(/, 'Firebase batch transport recovers damage semantics when its option is missing');
 assert.match(network, /resultSound:\['success','fail','critical-success','critical-fail','silent'\]/, 'Firebase transports the validated d20 outcome sound for remote viewers');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'dice-result-fx.js'), 'utf8');
-assert.match(source, /dice-score-band-6[^{]*\{--dice-score-color:#941f3f/, 'the highest total band shifts the result into burgundy');
+assert.match(source, /dice-score-band-1[^{]*\{--dice-score-color:#f3eee4/, 'single-digit totals stay warm white regardless of die quality');
+assert.match(source, /dice-score-band-3[^{]*\{--dice-score-color:#e99a52/, 'middle totals shift into orange');
+assert.match(source, /dice-score-band-6[^{]*\{--dice-score-color:#861a38/, 'the highest total band shifts the result into burgundy');
+assert.match(source, /dice-score-d20\{--dice-score-color:#f3eee4/, 'ordinary d20 totals stay light instead of using the damage scale');
+assert.match(source, /dice-score-d20-critical-fail\{--dice-score-color:#ff3045/, 'critical d20 failures use a stronger saturated red result');
+assert.match(html, /zg-roll-total-outcome\.fail\{color:#ff3045/, 'the critical-failure phrase uses the same stronger red');
 assert.match(source, /dice-score-active b\{color:var\(--dice-score-color[^}]*!important/, 'the active total number itself follows the score-band color');
+assert.match(source, /classList\.add\('dice-score-final'\)[\s\S]*?emitSound\(\{id:state\.id,phase:'final'/, 'the final visual state is committed before its fallback sound cue');
 assert.match(source, /Math\.min\(52,6\+result\.band\*3/, 'particle density scales through every ten-point power band');
 assert.match(source, /title\.textContent=result\.powerLabel/, 'the might title is attached only after the final score effect resolves');
 assert.match(source, /dice-score-title\{position:absolute;left:50%;top:50%[\s\S]*?font:900 20px/, 'the might title replaces the final digits in the centre at a larger size');
 assert.match(source, /ready\.dice-score-might-title b\{animation:zgDicePowerNumberYield 1\.2s[^}]* \.22s both!important\}/, 'the large result is held before its slower fade');
 assert.match(source, /ready\.dice-score-might-title em\{animation:zgDicePowerMetaYield \.55s ease \.72s both!important\}/, 'the ordinary total caption leaves the centre smoothly');
 assert.match(source, /zgDicePowerNumberYield\{0%,55%\{opacity:1;visibility:visible[\s\S]*?99%,100%\{opacity:0;visibility:hidden/, 'the final number remains fully visible through more than half of its transition');
-assert.match(source, /zgDicePowerTitle 1\.6s[^}]* 1\.52s both/, 'the might title waits for a clean pause after the number');
+assert.match(source, /zgDicePowerTitle 3\.2s[^}]* 1\.45s both/, 'the might title waits for the number and then remains readable');
+assert.match(source, /22%,82%\{opacity:1/, 'the might title holds at full opacity instead of flashing');
+assert.match(html, /finished&&!finished\.hidden&&finished\.powerLabel\)scheduleTotalRemoval\(5000\)/, 'the power title receives its own lifetime from the completed score');
+assert.match(html, /function diceResultScreenAnchor\(token,host,rollLeft,rollTop,localThrow,groupCenterX,groupCenterY\)/, 'the top-level result portal preserves the throw position in viewport coordinates');
+assert.match(html, /showTotal=hideResult\|\|isContest\|\|rolls\.length>1\|\|Number\(rolls\[0\]\.value\)!==1\|\|!!totalOutcome/, 'a natural-one d20 still creates its final total');
+assert.match(html, /КРИТИЧЕСКИЙ УСПЕХ[\s\S]*?КРИТИЧЕСКИЙ ПРОВАЛ/, 'critical d20 labels are rendered in the final total card');
 
 console.log('dice result sound and particles passed');

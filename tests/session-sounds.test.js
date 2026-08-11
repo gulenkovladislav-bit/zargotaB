@@ -24,6 +24,11 @@ assert.match(html, /w\.ZargotaSound\.mapPing\(\)/);
 assert.match(html, /!event\.statusEnabled&&w\.ZargotaSound\.statusCleanse/);
 assert.match(html, /event\.removedStatus&&w\.ZargotaSound&&w\.ZargotaSound\.statusCleanse/);
 assert.match(delivery, /delivery\.kind === 'item'.*w\.ZargotaSound\.itemReward/);
+assert.match(delivery, /w\.ZargotaSound\.playerDeliveryReceived/, 'non-item cards use the dedicated player receipt cue');
+assert.match(delivery, /!queued && w\.ZargotaSound && w\.ZargotaSound\.gmDeliverySent/, 'the GM hears confirmation only after a room write, not while an offline send is queued');
+assert.match(html, /gmDeliverySent:'audio\/vtt-actions\/gm-action-approved-pencil\.mp3'/, 'GM delivery confirmation uses the existing pencil stroke');
+assert.match(html, /playerDeliveryReceivedPlaceholder:'audio\/vtt-actions\/gm-action-request-paper\.mp3'/, 'player delivery receipt temporarily reuses the verified paper sample');
+assert.match(html, /AUDIO_TAG: PLACEHOLDER_GM_DELIVERY_RECEIVED_PLAYER/, 'the player receipt placeholder remains easy to replace with a custom sound');
 
 var start = html.indexOf('  function syncSessionSounds(snapshot){');
 var end = html.indexOf('  function render(snapshot){', start);
@@ -36,7 +41,7 @@ var context = {
   String:String,
   Object:Object,
   Array:Array,
-  sessionSoundState:{roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',masterRequests:{}},
+  sessionSoundState:{roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',ownMovement:'',masterRequests:{}},
   w:{ZargotaSound:{
     turn:function(){calls.push('turn');},
     round:function(){calls.push('round');},
@@ -66,15 +71,29 @@ context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-a',status:'
 context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-a',status:'approved'}));
 context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-a',status:'approved'}));
 assert.deepStrictEqual(calls, ['turn','round','submitted','approved'], 'the sender hears one submission cue and one later resolution cue');
+context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-muted',status:'pending'}));
+context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-muted',status:'rejected',notifyPlayer:false}));
+assert.deepStrictEqual(calls, ['turn','round','submitted','approved','submitted'], 'a GM-muted final decision must not leak a result sound to the player');
+
+var movementBase = playerSnapshot(2, 'player-a', {id:'request-muted',status:'rejected',notifyPlayer:false});
+movementBase.room.members['player-a'].movementRequest = {id:'move-a',status:'pending'};
+context.syncSessionSounds(movementBase);
+movementBase.room.members['player-a'].movementRequest = {id:'move-a',status:'approved'};
+context.syncSessionSounds(movementBase);
+assert.deepStrictEqual(calls.slice(-2), ['submitted','approved'], 'movement requests reuse the same paper submission and resolution cues');
 
 calls.length = 0;
-context.sessionSoundState = {roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',masterRequests:{}};
+context.sessionSoundState = {roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',ownMovement:'',masterRequests:{}};
 var masterBase = {session:{uid:'gm',role:'master',code:'ROOM-2'},room:{code:'ROOM-2',members:{gm:{}},combat:{active:false}}};
 context.syncSessionSounds(masterBase);
 var masterPending = {session:masterBase.session,room:{code:'ROOM-2',members:{gm:{},'player-b':{actionRequest:{id:'request-b',status:'pending'}}},combat:{active:false}}};
 context.syncSessionSounds(masterPending);
 context.syncSessionSounds(masterPending);
 assert.deepStrictEqual(calls, ['request'], 'the GM hears each pending request only once');
+var masterMovePending = {session:masterBase.session,room:{code:'ROOM-2',members:{gm:{},'player-b':{actionRequest:{id:'request-b',status:'pending'},movementRequest:{id:'move-b',status:'pending'}}},combat:{active:false}}};
+context.syncSessionSounds(masterMovePending);
+context.syncSessionSounds(masterMovePending);
+assert.deepStrictEqual(calls, ['request','request'], 'the GM hears a movement request once through the same paper cue');
 assert.match(html, /AUDIO_TAG: PLACEHOLDER_ACTION_REQUEST_PLAYER/, 'player placeholder remains easy to replace');
 assert.match(html, /AUDIO_TAG: PLACEHOLDER_ACTION_REQUEST_GM/, 'GM placeholder remains easy to replace');
 

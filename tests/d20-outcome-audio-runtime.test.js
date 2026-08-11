@@ -12,6 +12,7 @@ assert.ok(start >= 0 && end > start, 'recorded outcome selector must remain extr
 const method = html.slice(start, end).trim().replace(/,$/, '');
 
 const played = [];
+const scheduled = [];
 const context = {
   Math, Number, String,
   location:{protocol:'http:'},
@@ -28,6 +29,8 @@ const context = {
   stopToneGroup(){},
   stopSampleGroup(){},
   loadSample(){return Promise.resolve();},
+  setTimeout(callback, delay){const timer={callback, delay, cancelled:false};scheduled.push(timer);return timer;},
+  clearTimeout(timer){if(timer)timer.cancelled=true;},
   playSample(source, volume, fallback, options){played.push({source, volume, options});}
 };
 vm.createContext(context);
@@ -49,6 +52,22 @@ assert.equal(criticalFailure.source, 'gong.mp3', 'critical failure chooses Gong 
 assert.equal(criticalFailure.volume, 0.27, 'critical-failure gong remains intentionally quiet');
 assert.equal(resolveFinal('damage', 'normal', 'damage').source, 'tom.mp3', 'damage owns Huge Tom instead of a d20 cue');
 assert.equal(resolveFinal('silent', 'silent'), null, 'ordinary attack miss defers its sound to the semantic miss event');
+
+function scheduledFinal(id, resultSound, soundKind) {
+  played.length = 0;scheduled.length = 0;
+  const cue = {id, resultSound, soundKind:soundKind || 'normal', hidden:false, band:2, magnitude:1, count:1, total:12, finalDelayMs:2400};
+  context.handler.diceScoreCue(Object.assign({phase:'begin'}, cue));
+  return {cue, timer:scheduled[0]};
+}
+assert.equal(scheduledFinal('sync-rise', 'normal').timer.delay, 620, 'Rise Ding starts early so its 1.78s impact lands on the visual total');
+assert.equal(scheduledFinal('sync-fairy', 'critical-success').timer.delay, 980, 'critical-success magic peaks with the visual total');
+assert.equal(scheduledFinal('sync-gong', 'critical-fail').timer.delay, 2230, 'critical-failure gong peak is aligned to the visual total');
+assert.equal(scheduledFinal('sync-wood', 'fail').timer.delay, 1680, 'the delayed Wood Hit impact is aligned to the visual total');
+assert.equal(scheduledFinal('sync-tom', 'normal', 'damage').timer.delay, 2400, 'Huge Tom begins directly on the damage total impact');
+const once = scheduledFinal('sync-once', 'normal');
+once.timer.callback();
+context.handler.diceScoreCue(Object.assign({phase:'final'}, once.cue));
+assert.equal(played.length, 1, 'a prestarted final sound is not replayed when the visual result resolves');
 
 assert.equal(new Set(['rise.mp3','wood.mp3','fairy.wav','gong.mp3','tom.mp3']).size, 5);
 console.log('d20 outcome audio runtime selection passed');

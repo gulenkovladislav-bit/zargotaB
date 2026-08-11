@@ -21,7 +21,9 @@ assert.match(render, /--local-bounce-y/, 'physical throws receive a first reboun
 assert.match(render, /--local-second-bounce-y/, 'physical throws receive a smaller settling rebound');
 assert.match(render, /--local-third-bounce-y/, 'physical throws receive a third final rebound');
 assert.match(render, /finalSpin=startSpin\+spinDirection\*\(1620\+index\*109\)/, 'physical dice keep spinning for at least four and a half turns');
-assert.match(render, /settleDelay=localThrow\?1580:/, 'physical flight keeps the requested fast duration');
+assert.match(render, /criticalDurationScale=hasCritical\?1\.35:1/, 'critical success and failure own one exact thirty-five-percent duration scale');
+assert.match(render, /baseSettleDelay=localThrow\?1580:[\s\S]*?settleDelay=Math\.round\(baseSettleDelay\*criticalDurationScale\)/, 'critical physical flight is thirty-five percent longer while ordinary flight stays unchanged');
+assert.match(render, /baseRollLifetime=hasCritical\?Math\.round\(7000\*criticalDurationScale\)/, 'the complete critical result remains visible for the matching longer lifetime');
 assert.match(render, /releaseX\+localThrow\.x\*1\.35/, 'the horizontal throw vector travels thirty-five percent farther');
 assert.match(render, /releaseY\+localThrow\.y\*1\.35/, 'the vertical throw vector travels thirty-five percent farther');
 assert.match(render, /--dice-flight-duration',settleDelay\+'ms'/, 'visual flight and result reveal share one duration');
@@ -57,7 +59,12 @@ assert.doesNotMatch(styles, /78%[^}]*--dice-spin-second[^}]*88%[^}]*--dice-spin-
 assert.match(styles, /\.zg-token-roll\.landed img\{filter:/, 'landing only changes the glow and does not restart rotation');
 assert.match(styles, /zgCritSuccessDie[\s\S]*rotate\(var\(--dice-spin-final/, 'critical success starts from the actual landing angle');
 assert.match(styles, /zgCritFailDie[\s\S]*rotate\(var\(--dice-spin-final/, 'critical failure starts from the actual landing angle');
+assert.match(styles, /critical-success img\{animation:zgCritSuccessDie 1\.22s/, 'critical-success landing motion is extended by thirty-five percent');
+assert.match(styles, /critical-fail img\{animation:zgCritFailDie \.97s/, 'critical-failure landing motion is extended by thirty-five percent');
 assert.match(styles, /zgContestWinner[\s\S]*rotate\(var\(--dice-spin-final/, 'advantage winner preserves the actual landing angle');
 assert.match(styles, /zgContestLoser[\s\S]*rotate\(var\(--dice-spin-final/, 'advantage loser preserves the actual landing angle');
+assert.match(styles, /world-roll\.local-thrown\.contest-resolve\.contest-winner img\{animation:zgContestWinner/, 'the kept local die texture overrides the completed throw and travels with its number');
+assert.match(styles, /world-roll\.local-thrown\.critical-fail\.contest-resolve\.contest-winner img\{animation:zgContestWinnerFail/, 'the local critical-failure texture keeps its longer contest motion');
+assert.match(styles, /world-roll\.local-thrown\.critical-success\.contest-resolve\.contest-winner img\{animation:zgContestWinner/, 'the local critical-success texture keeps its longer contest motion');
 
 console.log('dice flight continuity passed');

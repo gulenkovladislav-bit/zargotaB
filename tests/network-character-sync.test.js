@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-11\.1/, 'network cache key must change with the current session and outcome-sound contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-12\.3/, 'network cache key must change with the current session and journal-image contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -384,6 +384,10 @@ assert.match(html, /zgGmInterventionOpenHero\(\\'journal\\'\)/);
 assert.match(html, /w\.zgGmInterventionMinimize=function/);
 assert.match(html, /class="zg-gm-intervention-orb"/);
 assert.match(html, /\.zg-gm-intervention\.minimized\{/);
+assert.match(html, /id="zg-gm-intervention-resize"/, 'the GM panel exposes a dedicated resize handle');
+assert.match(html, /width:saved\.width,height:saved\.height/, 'the GM panel persists its user-selected dimensions');
+assert.match(html, /gmPanelResize\.panel\.style\.width/, 'dragging the resize handle updates panel width');
+assert.match(html, /gmPanelResize\.panel\.style\.height/, 'dragging the resize handle updates panel height');
 assert.match(html, /z-index:75/);
 assert.match(html, /function combatEntryForToken\(token\)[\s\S]*if\(!token\|\|!combat\|\|!combat\.active\)return null;/, 'opening the GM panel without a selected token must stay safe');
 var tokenDragStart = html.indexOf('function beginTokenDrag');
@@ -408,6 +412,9 @@ assert.match(html, /zgGmInterventionTab\(\\'entity\\'\)/);
 assert.match(html, /zgGmInterventionTab\(\\'statuses\\'\)/);
 assert.match(html, /zgGmInterventionTab\(\\'visual\\'\)/);
 assert.match(html, /zgGmInterventionTab\(\\'delivery\\'\)/);
+assert.match(html, /class="zg-gm-tool-panes"/, 'the GM panel keeps persistent tab panes instead of rebuilding the entire window');
+assert.match(html, /renderGmIntervention\(true\)/, 'tab changes reuse an already-rendered pane');
+assert.doesNotMatch(html, /\.zg-gm-tool-content\{animation:/, 'tab content must not replay a fade animation on every click');
 assert.match(html, /w\.zgGmVisualTrigger=function/);
 assert.match(html, /state&&state\.room&&state\.room\.visualEvent/);
 assert.match(html, /function animateGmVisualEvent/);
@@ -539,6 +546,11 @@ assert.match(network, /enableCharacterInbound\(session,\s*\{\s*uid:session\.uid\
 var journeySyncStart = html.indexOf('  function localCharacter(snapshot)');
 var journeySyncEnd = html.indexOf('  // «Да» — закрепляем локальный лист', journeySyncStart);
 var journeySyncBlock = html.slice(journeySyncStart, journeySyncEnd);
+var beginJourneyStart = html.indexOf('  function beginJourney(c, waitsForParty)');
+var beginJourneyEnd = html.indexOf('  function localCharacter(snapshot)', beginJourneyStart);
+var beginJourneyBlock = html.slice(beginJourneyStart, beginJourneyEnd);
+assert.match(beginJourneyBlock, /journeyPresentationKey === presentationKey && jo && jo\.classList\.contains\('open'\)/, 'the same Firebase journey snapshot must not recreate an already visible hero portrait');
+assert.match(beginJourneyBlock, /journeyCharacter = c;\s*return false;/, 'a duplicate journey render refreshes its character reference without restarting the animation');
 assert.match(journeySyncBlock, /var id = member && member\.characterId/);
 assert.match(journeySyncBlock, /String\(chars\[i\]\.id\) === String\(id\)/);
 assert.match(journeySyncBlock, /room\.phase === 'character-select'/);
@@ -571,6 +583,7 @@ assert.ok(
   'confirmed local character must be read before Firebase attach'
 );
 assert.match(journeyStartBlock, /journeyStartPromise/);
+assert.match(html, /journeyPresentationKey = '';/, 'closing the journey clears its presentation identity for a future entry');
 assert.match(html, /Локальный лист изменился во время подготовки входа/);
 assert.match(html, /savePlan\.changedIds\.length===1/);
 assert.match(html, /savePlan\.removedIds&&savePlan\.removedIds\.length/);
@@ -650,6 +663,14 @@ assert.ok(
   drawerRenderBlock.lastIndexOf('bagCalApply()') > drawerRenderBlock.indexOf("nextBodyHtml = inventoryPanel()"),
   'saved backpack calibration must be applied after inventory markup is rendered'
 );
+assert.match(html, /function bagCalCanEdit\(\)\{\s*var session=state&&state\.session;\s*return !session\|\|session\.role==='master';\s*\}/);
+assert.match(html, /function bagCalSyncAccess\(\)[\s\S]*?panel\.hidden=!allowed;[\s\S]*?button\.hidden=!allowed;[\s\S]*?drawer\.classList\.remove\('calibrating'\)/);
+assert.match(html, /w\.zgBagCalToggle=function\(ev,force\)\{[\s\S]*?if\(!bagCalSyncAccess\(\)\)return false;/);
+assert.ok(
+  drawerRenderBlock.indexOf('bagCalSyncAccess()') < drawerRenderBlock.indexOf('if (!activePanel) return'),
+  'player-only bag calibration controls must be hidden even while the drawer is closed'
+);
+assert.match(html, /\.zg-bag-calibrator\[hidden\],\.zg-bag-cal-floating\[hidden\]\{display:none!important\}/);
 assert.match(html, /w\.zgVttSetInventoryNotice=function\(uid,kind,text\)/);
 assert.match(html, /function commitInventoryMutation\(member,character,before,reason,successText\)/);
 assert.match(html, /'loading','Сохраняем…'/);
@@ -714,6 +735,8 @@ assert.match(html, /lastDrawerRenderSignature = ''/);
 assert.match(html, /function syncBackpackArt\(drawer,skin\)/);
 assert.match(html, /width:min\(670px,calc\(\(100vh - 32px\)\*\.72\),calc\(100vw - 18px\)\)/);
 assert.match(html, /background:none/);
+assert.match(html, /\.zg-vtt-drawer\.backpack-skin\{[^}]*pointer-events:none\}/, 'the decorative backpack frame must not intercept toolbar clicks');
+assert.match(html, /\.zg-vtt-drawer\.backpack-skin \.zg-bag-interface,\.zg-vtt-drawer\.backpack-skin>\.zg-vtt-panel-close\{pointer-events:auto\}/, 'backpack content and its close button must remain interactive');
 assert.match(html, /class="zg-state-board"/);
 assert.match(html, /class="zg-state-hp"/);
 assert.match(html, /class="zg-state-vitals"/);
@@ -939,7 +962,7 @@ var snapshotContext = {
     notes: [{ text:'Сохранить текст', attachment:'data:image/png;base64,nested' }],
     journalEntries: [
       { journalId:'journal-safe_1', questId:'ruins-main', title:'Запись', text:'Текст', icon:'⚔', image:'images/journal/ruins.webp', kind:'quest', status:'active', importance:'secondary', questUpdatedAt:175, createdAt:100, updatedAt:200, updatedBy:'player-1', deletedAt:250 },
-      { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', createdAt:300 },
+      { journalId:'bad/key', title:'Плохой id', text:'Не попадёт', image:'data:image/webp;base64,AAAA', kind:'image', createdAt:300 },
       { journalId:'journal-data', title:'data:text/plain,hidden', text:'blob:hidden', image:'javascript:alert(1)', createdAt:-1, updatedAt:'oops', updatedBy:'data:text/plain,uid' }
     ],
     portrait: 'data:image/png;base64,portrait',
@@ -1001,6 +1024,7 @@ assert.strictEqual(snapshotContext.result.journalEntries[0].importance, 'seconda
 assert.strictEqual(snapshotContext.result.journalEntries[0].questUpdatedAt, 175);
 assert.strictEqual(snapshotContext.result.journalEntries[0].deletedAt, 250);
 assert.strictEqual(snapshotContext.result.journalEntries[1].journalId, 'badkey');
+assert.strictEqual(snapshotContext.result.journalEntries[1].image, 'data:image/webp;base64,AAAA', 'portable GM covers remain visible on another session client');
 assert.strictEqual(snapshotContext.result.journalEntries[2].title, '');
 assert.strictEqual(snapshotContext.result.journalEntries[2].text, '');
 assert.strictEqual(snapshotContext.result.journalEntries[2].image, '', 'dangerous journal image schemes must not enter the room snapshot');
@@ -1198,6 +1222,13 @@ assert.strictEqual(journalHelperContext.result.character.journalEntries[1].icon,
 assert.strictEqual(journalHelperContext.result.character.journalEntries[1].image, '');
 assert.strictEqual(journalHelperContext.result.character.revision, 5);
 assert.strictEqual(journalHelperContext.result.character.syncOperationId, 'journal-op-1');
+var portableJournalImageContext = { result:null };
+vm.runInNewContext(
+  inventoryHelperSource +
+    '; result=normalizeJournalOperationEntry({journalId:"gm-image",title:"Газета",image:"data:image/png;base64,AAAA"},"fallback",{updatedAt:501,updatedBy:"gm"});',
+  portableJournalImageContext
+);
+assert.strictEqual(portableJournalImageContext.result.image, 'data:image/png;base64,AAAA', 'portable journal covers survive room synchronization');
 var journalReplaceContext = { result:null };
 vm.runInNewContext(
   inventoryHelperSource +

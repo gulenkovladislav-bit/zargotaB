@@ -619,6 +619,7 @@ async function expectCode(operation, code) {
   );
   assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'damage-requested', 'a hit must pause before the separate damage roll');
   assert.strictEqual(snapshot.room.members[playerUid].actionRequest.resultEventId, snapshot.room.combatEvent.id, 'the player receives the hit event before damage dice');
+  assert.ok(snapshot.room.combatEvent.revealAt >= snapshot.room.members[playerUid].actionRequest.resolvedAt + 2750, 'the hit reaction must remain after the approved d20 final result');
   snapshot = await master.requestApprovedDamageRoll(requestId, playerUid);
   assert.ok(snapshot.room.members[playerUid].actionRequest.damageRollRequestedAt > 0, 'damage roll has its own timestamp and cannot reuse the hit roll timer');
   snapshot = await master.resolveCombatDamage(`token:${enemyTokenId}`, {
@@ -1120,6 +1121,31 @@ async function expectCode(operation, code) {
   assert.strictEqual(intentSnapshot.room.combat.pendingReactionAction.participantKey, 'token:intent-enemy', 'the GM creature reaction remains visible until its manual effect is resolved');
   intentSnapshot = await intentMaster.finishPendingReaction(intentSnapshot.room.combat.pendingReactionAction.id, 'Защита учтена');
   assert.strictEqual(intentSnapshot.room.combat.pendingReactionAction, null, 'the GM can explicitly finish its creature reaction');
+
+  const customRoomCode = 'CUSTOM1';
+  const customShared = createSharedFirebase({rooms:{[customRoomCode]:{
+    code:customRoomCode,phase:'session',masterUid,
+    members:{
+      [masterUid]:{uid:masterUid,role:'master',name:'ГМ'},
+      [playerUid]:{uid:playerUid,role:'player',name:'Игрок',character:{id:'custom-hero',name:'Исследователь',hpCur:10,hpMax:10,stats:{str:0,dex:1,int:2,cha:0,per:3,con:1},statuses:[],statusEffects:[]}}
+    },updatedAt:1
+  }}});
+  const customMaster = createClient(customShared, masterUid, 'master', customRoomCode);
+  const customPlayer = createClient(customShared, playerUid, 'player', customRoomCode);
+  const longCustomText = 'Пытается внимательно разобрать древний механизм, сопоставляя потёртые руны, положение шестерёнок и следы недавнего вмешательства. '.repeat(4).trim();
+  let customSnapshot = await customPlayer.requestAction(longCustomText, 'custom', '', {x:48,y:36,tokenId:'ancient-device'});
+  const customRequestId = customSnapshot.room.members[playerUid].actionRequest.id;
+  assert.ok(customSnapshot.room.members[playerUid].actionRequest.text.length > 300, 'custom action text survives beyond the old 300-character limit');
+  customSnapshot = await customMaster.configureCombatIntent(playerUid, {mode:'check',actorStat:'per',dc:15});
+  assert.strictEqual(customSnapshot.room.members[playerUid].actionRequest.status, 'roll-requested', 'the GM can request a characteristic check outside combat');
+  assert.strictEqual(customSnapshot.room.members[playerUid].actionRequest.resolution.actorStat, 'per');
+  assert.ok(customSnapshot.room.combat == null, 'a free-room custom check does not create or require combat state');
+  queueDeterministicRandom(0.7);
+  customSnapshot = await customPlayer.rollCombatIntent(customRequestId);
+  assert.strictEqual(customSnapshot.room.members[playerUid].actionRequest.status, 'roll-result', 'the free-room player result returns to the same request');
+  assert.strictEqual(customSnapshot.room.members[playerUid].actionRequest.result.actorModifier, 3, 'the check uses the requested character stat');
+  customSnapshot = await customMaster.finishCombatIntent(playerUid, true);
+  assert.strictEqual(customSnapshot.room.members[playerUid].actionRequest.status, 'approved', 'the GM can accept the free-room check result');
   console.log('two-client combat scenario passed');
 })().catch((error) => {
   console.error(error);

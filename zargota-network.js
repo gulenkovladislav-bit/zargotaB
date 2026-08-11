@@ -1341,6 +1341,7 @@
     return{
       calendarId:String(clock.calendarId||'zargota-lvk').slice(0,40),
       displayMode:clock.displayMode==='phase'?'phase':'exact',
+      widgetMode:['always','brief','hidden'].indexOf(clock.widgetMode)>=0?clock.widgetMode:'always',
       totalMinutes:totalMinutes,
       day:Math.floor(totalMinutes/1440)+1,
       minuteOfDay:totalMinutes%1440,
@@ -1812,7 +1813,9 @@
       return text.slice(0, limit || 2000);
     }
     function cleanJournalImage(value) {
-      var image = String(value == null ? '' : value).trim().slice(0, 2000);
+      var image = portableImageData(value, 300000);
+      if (image) return image;
+      image = String(value == null ? '' : value).trim().slice(0, 2000);
       return /^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(image) ? image : '';
     }
     function displayEntry(value) {
@@ -1867,6 +1870,7 @@
           createdAt:Math.max(0, Number(raw.createdAt) || 0),
           updatedAt:Math.max(0, Number(raw.updatedAt) || 0),
           updatedBy:cleanText(raw.updatedBy, 120),
+          playerCanDelete:raw.playerCanDelete === true,
           deletedAt:Math.max(0, Number(raw.deletedAt) || 0)
         };
       }).filter(Boolean);
@@ -2152,8 +2156,11 @@
     entry = entry && typeof entry === 'object' ? entry : {};
     var journalId = String(entry.journalId || fallbackId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 120);
     var stamp = Math.max(0, Number(metadata && metadata.updatedAt) || now());
-    var image = String(entry.image || '').trim().slice(0, 2000);
-    if (!/^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(image)) image = '';
+    var image = String(entry.imageThumb || entry.image || '').trim();
+    if (!(image.length <= 300000 && /^data:image\/(?:png|jpe?g|webp);base64,[a-z0-9+/=]+$/i.test(image))) {
+      image = String(entry.image || '').trim().slice(0, 2000);
+      if (!/^(?:https?:\/\/|\/?(?:images|assets)\/)[^"'<>]*$/i.test(image)) image = '';
+    }
     return {
       journalId:journalId,
       questId:String(entry.questId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100),
@@ -2168,6 +2175,7 @@
       createdAt:Math.max(0, Number(entry.createdAt) || stamp),
       updatedAt:stamp,
       updatedBy:String(metadata && metadata.updatedBy || entry.updatedBy || '').slice(0, 120),
+      playerCanDelete:entry.playerCanDelete === true,
       deletedAt:Math.max(0, Number(entry.deletedAt) || 0)
     };
   }
@@ -2607,6 +2615,10 @@
     );
   }
 
+  function isManualCheckActionKind(kind) {
+    return ['combat-intent','custom','inspect','interact','take','search','speak','attack'].indexOf(String(kind||'')) >= 0;
+  }
+
   var api = {
     mode: 'firebase',
     maxPlayers: MAX_PLAYERS,
@@ -2648,6 +2660,7 @@
             worldClock: {
               calendarId: 'zargota-lvk',
               displayMode: 'exact',
+              widgetMode: 'always',
               totalMinutes: 0,
               day: 1,
               minuteOfDay: 0,
@@ -3583,7 +3596,7 @@
     },
 
     requestAction: function (text, actionKind, speakerUid, details) {
-      text = String(text || '').trim().slice(0, 300);
+      text = String(text || '').trim().slice(0, 1200);
       actionKind = String(actionKind || 'custom').slice(0, 40);
       speakerUid = String(speakerUid || '').slice(0, 128);
       details = details && typeof details === 'object' ? details : null;
@@ -3695,7 +3708,7 @@
             });
             return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
           }
-          if (member.actionRequest && (member.actionRequest.status === 'pending' || abilityFromOutbox || member.actionRequest.actionKind === 'combat-intent' && ['roll-requested','roll-result'].indexOf(member.actionRequest.status) >= 0)) {
+          if (member.actionRequest && (member.actionRequest.status === 'pending' || abilityFromOutbox || isManualCheckActionKind(member.actionRequest.actionKind) && ['roll-requested','roll-result'].indexOf(member.actionRequest.status) >= 0)) {
             throw roomError('Предыдущая заявка ещё ждёт решения мастера.', 'request-pending');
           }
           var request = {
@@ -3809,28 +3822,33 @@
           if (room.masterUid !== user.uid) { abortCode = 'master-only'; return; }
           var member = room.members && room.members[requestUid], request = member && member.actionRequest;
           var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order.slice() : [];
-          if (!request || request.actionKind !== 'combat-intent' || request.status !== 'pending' || !request.intent) { abortCode = 'request-missing'; return; }
-          if (!combat || !combat.active || !order.length) { abortCode = 'combat-missing'; return; }
-          var index = order.findIndex(function (entry) { return entry && String(entry.key || '') === String(request.intent.participantKey || ''); });
-          var turnIndex = Math.max(0, Math.min(order.length - 1, Number(combat.turnIndex) || 0));
-          if (index < 0) { abortCode = 'combat-participant-missing'; return; }
-          if (index !== turnIndex) { abortCode = 'combat-not-turn'; return; }
-          var entry = combatEntryWithRoomStatuses(room, Object.assign({}, order[index]));
-          var economy = Object.assign({long:1,short:1,reaction:1}, entry.economy || {}), restrictions = combatRestrictions(entry);
-          if (restrictions.blocked.short) { abortCode = 'combat-status-blocked'; return; }
-          if (Number(economy.short || 0) < 1) { abortCode = 'combat-action-spent'; return; }
-          var targetIndex = request.intent.targetKey ? order.findIndex(function (target) { return target && String(target.key || '') === String(request.intent.targetKey); }) : -1;
-          if ((mode === 'contest' || mode === 'save') && targetIndex < 0) { abortCode = 'combat-target-invalid'; return; }
-          economy.short = Math.max(0, Number(economy.short || 0) - 1);
-          if (restrictions.slowed) economy.long = 0;
-          entry.economy = economy; order[index] = entry;
+          var combatIntentRequest=!!(request&&request.actionKind==='combat-intent'),manualActionRequest=!!(request&&isManualCheckActionKind(request.actionKind));
+          if (!request || !manualActionRequest || request.status !== 'pending' || combatIntentRequest&&!request.intent) { abortCode = 'request-missing'; return; }
+          var entry={name:request.name||member&&member.name||'Герой',portrait:request.portrait||'',stats:member&&member.character&&member.character.stats||{}},targetKey='';
+          if(combatIntentRequest){
+            if (!combat || !combat.active || !order.length) { abortCode = 'combat-missing'; return; }
+            var index = order.findIndex(function (row) { return row && String(row.key || '') === String(request.intent.participantKey || ''); });
+            var turnIndex = Math.max(0, Math.min(order.length - 1, Number(combat.turnIndex) || 0));
+            if (index < 0) { abortCode = 'combat-participant-missing'; return; }
+            if (index !== turnIndex) { abortCode = 'combat-not-turn'; return; }
+            entry = combatEntryWithRoomStatuses(room, Object.assign({}, order[index]));
+            var economy = Object.assign({long:1,short:1,reaction:1}, entry.economy || {}), restrictions = combatRestrictions(entry);
+            if (restrictions.blocked.short) { abortCode = 'combat-status-blocked'; return; }
+            if (Number(economy.short || 0) < 1) { abortCode = 'combat-action-spent'; return; }
+            targetKey=request.intent.targetKey||'';
+            var targetIndex = targetKey ? order.findIndex(function (target) { return target && String(target.key || '') === String(targetKey); }) : -1;
+            if ((mode === 'contest' || mode === 'save') && targetIndex < 0) { abortCode = 'combat-target-invalid'; return; }
+            economy.short = Math.max(0, Number(economy.short || 0) - 1);
+            if (restrictions.slowed) economy.long = 0;
+            entry.economy = economy; order[index] = entry;
+          }else mode='check';
           request = Object.assign({}, request, {
             status:'roll-requested', stage:'waiting-roll', rollRequestedAt:stamp,
-            resolution:{mode:mode,actorStat:actorStat,targetStat:targetStat,dc:dc,targetKey:request.intent.targetKey||'',configuredAt:stamp,configuredBy:user.uid},
-            resolutionOperationId:'combat-intent-roll-' + request.id
+            resolution:{mode:mode,actorStat:actorStat,targetStat:targetStat,dc:dc,targetKey:targetKey,configuredAt:stamp,configuredBy:user.uid},
+            resolutionOperationId:'action-check-roll-' + request.id
           });
-          member.actionRequest = request; room.combat.order = order; room.combat.updatedAt = stamp;
-          room.combatEvent = {id:'combat-intent-check-'+request.id,kind:'combat-intent-check',name:request.name||entry.name||'Герой',portrait:request.portrait||entry.portrait||'',text:'Мастер назначает '+(mode==='contest'?'встречную проверку':mode==='save'?'спасбросок цели':'проверку')+' для действия: '+request.text,actionType:'short',manualResolution:true,ts:stamp};
+          member.actionRequest = request;if(combatIntentRequest){room.combat.order = order;room.combat.updatedAt = stamp;}
+          room.combatEvent = {id:'action-check-'+request.id,kind:'combat-intent-check',name:request.name||entry.name||'Герой',portrait:request.portrait||entry.portrait||'',text:'Мастер назначает '+(mode==='contest'?'встречную проверку':mode==='save'?'спасбросок цели':'проверку')+' для действия: '+request.text,actionType:combatIntentRequest?'short':'free',manualResolution:true,ts:stamp};
           room.updatedAt = stamp; return room;
         }).then(function (result) {
           if (!result || !result.committed) {
@@ -3857,12 +3875,16 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if(session.role==='master'&&room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
           var member = room.members && room.members[requestUid], request = member && member.actionRequest;
-          if (!request || request.id !== requestId || request.actionKind !== 'combat-intent' || request.status !== 'roll-requested' || !request.resolution) throw roomError('Эта проверка уже выполнена или отменена.', 'request-missing');
+          var combatIntentRequest=!!(request&&request.actionKind==='combat-intent'),manualActionRequest=!!(request&&isManualCheckActionKind(request.actionKind));
+          if (!request || request.id !== requestId || !manualActionRequest || request.status !== 'roll-requested' || !request.resolution) throw roomError('Эта проверка уже выполнена или отменена.', 'request-missing');
           var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order.slice() : [];
-          if (!combat || !combat.active) throw roomError('Бой уже завершён.', 'combat-missing');
-          var actorIndex = order.findIndex(function (entry) { return entry && String(entry.key || '') === String(request.intent && request.intent.participantKey || ''); });
-          if (actorIndex < 0) throw roomError('Участник боя больше не найден.', 'combat-participant-missing');
-          var actor = combatEntryWithRoomStatuses(room, Object.assign({}, order[actorIndex])), resolution = request.resolution;
+          var actor=null,resolution=request.resolution;
+          if(combatIntentRequest){
+            if (!combat || !combat.active) throw roomError('Бой уже завершён.', 'combat-missing');
+            var actorIndex = order.findIndex(function (entry) { return entry && String(entry.key || '') === String(request.intent && request.intent.participantKey || ''); });
+            if (actorIndex < 0) throw roomError('Участник боя больше не найден.', 'combat-participant-missing');
+            actor = combatEntryWithRoomStatuses(room, Object.assign({}, order[actorIndex]));
+          }else actor={name:request.name||member&&member.name||'Герой',portrait:request.portrait||'',stats:member&&member.character&&member.character.stats||{}};
           var targetIndex = resolution.targetKey ? order.findIndex(function (entry) { return entry && String(entry.key || '') === String(resolution.targetKey); }) : -1;
           var target = targetIndex >= 0 ? combatEntryWithRoomStatuses(room, Object.assign({}, order[targetIndex])) : null;
           if ((resolution.mode === 'contest' || resolution.mode === 'save') && !target) throw roomError('Цель проверки больше недоступна.', 'combat-target-invalid');
@@ -3876,13 +3898,13 @@
           var result = {mode:resolution.mode,actorRoll:actorNatural,actorModifier:actorModifier,actorTotal:actorTotal,targetRoll:targetNatural,targetModifier:targetModifier,targetTotal:targetTotal,dc:resolution.dc,success:!!success,rolls:rolls,rolledAt:stamp};
           var nextRequest = Object.assign({}, request, {status:'roll-result',stage:'roll-result',result:result,resultAt:stamp});
           return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),function(current){
-            if(!current||current.id!==request.id||current.actionKind!=='combat-intent'||current.status!=='roll-requested')return;
+            if(!current||current.id!==request.id||!isManualCheckActionKind(current.actionKind)||current.status!=='roll-requested')return;
             return nextRequest;
           }).then(function(transaction){
             if(!transaction||!transaction.committed)throw roomError('Эта проверка уже выполнена или отменена.','request-missing');
             var updates = {};
             updates.combatEvent = {id:'combat-intent-result-'+request.id,kind:success?'combat-intent-success':'combat-intent-fail',name:request.name||actor.name||'Герой',portrait:request.portrait||actor.portrait||'',text:(success?'Успех: ':'Провал: ')+request.text+'. ГМ решает итог.',rolls:rolls,success:!!success,manualResolution:true,ts:stamp};
-            updates['combat/updatedAt'] = stamp; updates.updatedAt = stamp;
+            if(combat&&combat.active)updates['combat/updatedAt'] = stamp;updates.updatedAt = stamp;
             return firebase.update(roomRef(session.code), updates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
           });
         });
@@ -3892,8 +3914,9 @@
       });
     },
 
-    finishCombatIntent: function (requestUid, accepted) {
+    finishCombatIntent: function (requestUid, accepted, notifyPlayer) {
       requestUid = String(requestUid || '').slice(0, 128);
+      notifyPlayer = notifyPlayer !== false;
       return ensureReady().then(function (user) {
         var session = readSession();
         if (!session || session.role !== 'master') throw roomError('Завершать проверку может только мастер.', 'master-only');
@@ -3901,18 +3924,18 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
           var member = room.members && room.members[requestUid], request = member && member.actionRequest;
-          if (!request || request.actionKind !== 'combat-intent' || ['roll-requested','roll-result'].indexOf(request.status) < 0) throw roomError('Эта заявка уже завершена.', 'request-missing');
+          if (!request || !isManualCheckActionKind(request.actionKind) || ['roll-requested','roll-result'].indexOf(request.status) < 0) throw roomError('Эта заявка уже завершена.', 'request-missing');
           if (accepted && request.status !== 'roll-result') throw roomError('Сначала дождитесь броска игрока.', 'roll-required');
           var stamp = now(), finalStatus = accepted ? 'approved' : 'rejected';
           return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),function(current){
-            if(!current||current.id!==request.id||current.actionKind!=='combat-intent'||['roll-requested','roll-result'].indexOf(current.status)<0)return;
+            if(!current||current.id!==request.id||!isManualCheckActionKind(current.actionKind)||['roll-requested','roll-result'].indexOf(current.status)<0)return;
             if(accepted&&current.status!=='roll-result')return;
-            return Object.assign({},current,{status:finalStatus,stage:'resolved',resolvedAt:stamp,manualOutcome:true});
+            return Object.assign({},current,{status:finalStatus,stage:'resolved',resolvedAt:stamp,manualOutcome:true,notifyPlayer:notifyPlayer,finalOutcome:accepted?'success':'failure'});
           }).then(function(transaction){
             if(!transaction||!transaction.committed)throw roomError('Эта заявка уже завершена.','request-missing');
             var updates = {};
             updates.combatEvent = {id:'combat-intent-finish-'+request.id,kind:accepted?'combat-intent-applied':'combat-intent-dismissed',name:request.name||'Герой',portrait:request.portrait||'',text:(accepted?'ГМ принимает результат: ':'ГМ закрывает без эффекта: ')+request.text,success:request.result&&request.result.success,manualResolution:true,ts:stamp};
-            updates['members/'+requestUid+'/messages/action-intent-'+stamp] = {id:'action-intent-'+stamp,uid:requestUid,kind:accepted?'action-approved':'action-rejected',name:request.name||member.name||'Герой',portrait:request.portrait||'',text:(accepted?'Мастер принимает результат: ':'Мастер закрывает без эффекта: ')+request.text,ts:stamp};
+            if(notifyPlayer)updates['members/'+requestUid+'/messages/action-intent-'+stamp] = {id:'action-intent-'+stamp,uid:requestUid,kind:accepted?'action-approved':'action-rejected',name:request.name||member.name||'Герой',portrait:request.portrait||'',text:(accepted?'Успех · мастер принимает результат: ':'Провал · мастер отклоняет результат: ')+request.text,ts:stamp};
             updates.updatedAt = stamp;
             return firebase.update(roomRef(session.code), updates).then(function () { return refreshRoom(session.code).then(function () { return api.getSnapshot(); }); });
           });
@@ -4211,10 +4234,13 @@
           if(!room)throw roomError('Комната больше недоступна.','room-not-found');
           var request=room.members&&room.members[requestUid]&&room.members[requestUid].actionRequest;
           if(!request||request.id!==requestId)return api.getSnapshot();
-          var newStatus=accepted?(isHit?'damage-requested':'resolved'):'approved';
-          var update={status:newStatus,resolvedAt:accepted?now():null,resultEventId:accepted?String(eventId||''):null,rollError:accepted?null:String(errorText||'Не удалось выполнить атаку').slice(0,180)};
+          var newStatus=accepted?(isHit?'damage-requested':'resolved'):'approved',finishedAt=accepted?now():null;
+          var update={status:newStatus,resolvedAt:finishedAt,resultEventId:accepted?String(eventId||''):null,rollError:accepted?null:String(errorText||'Не удалось выполнить атаку').slice(0,180)};
           if(accepted&&isHit)update['details/critical']=!!isCritical;
-          return firebase.update(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),update).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
+          var roomUpdate={};Object.keys(update).forEach(function(key){roomUpdate['members/'+requestUid+'/actionRequest/'+key]=update[key];});
+          var resultEvent=room.combatEvent&&String(room.combatEvent.id||'')===String(eventId||'')?room.combatEvent:null;
+          if(accepted&&resultEvent){var contestMode=resultEvent.rollMode==='advantage'||resultEvent.rollMode==='disadvantage',resultDelay=resultEvent.critical===true||String(resultEvent.kind||'')==='combat-critical'?3300:(contestMode?3050:2750);roomUpdate['combatEvent/revealAt']=Math.max(Number(resultEvent.revealAt)||0,finishedAt+resultDelay);}
+          return firebase.update(roomRef(session.code),roomUpdate).then(function(){return refreshRoom(session.code);}).then(function(){return api.getSnapshot();});
         });
       }).catch(function(error){if(error&&['master-only','room-not-found'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
@@ -4805,6 +4831,26 @@
       });
     },
 
+    gmUpdateJournalEntry: function (memberUid, journalId, patch) {
+      memberUid=String(memberUid||'').slice(0,128);journalId=String(journalId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,120);patch=patch&&typeof patch==='object'?patch:{};
+      if(!memberUid||!journalId)return Promise.reject(roomError('Запись журнала не выбрана.','journal-entry-invalid'));
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Редактировать мастерские записи может только мастер.','master-only');
+        var stamp=now(),abortCode='',characterRef=firebase.ref(db,'rooms/'+session.code+'/members/'+memberUid+'/character');
+        return firebase.runTransaction(characterRef,function(current){
+          if(!current||!Array.isArray(current.journalEntries)){abortCode='character-missing';return;}
+          var index=current.journalEntries.findIndex(function(entry){return entry&&String(entry.journalId||'')===journalId;});if(index<0){abortCode='request-missing';return;}
+          var entries=current.journalEntries.slice(),existing=entries[index];
+          entries[index]=normalizeJournalOperationEntry(Object.assign({},existing,{title:String(patch.title==null?existing.title:patch.title),text:String(patch.text==null?existing.text:patch.text),playerCanDelete:patch.playerCanDelete===true}),journalId,{updatedAt:stamp,updatedBy:'gm'});
+          var applied=applyJournalDomainOperation(current,{type:'replace',entries:entries},{updatedAt:stamp,updatedBy:user.uid,source:'gm-journal-update',operationId:'gm-journal-update-'+journalId+'-'+stamp});
+          if(!applied.ok){abortCode=applied.error;return;}return applied.character;
+        }).then(function(result){
+          if(!result||!result.committed)throw roomError(abortCode==='request-missing'?'Запись больше не найдена.':'Лист игрока недоступен. Повторите попытку.',abortCode||'character-missing');
+          return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+        });
+      }).catch(function(error){if(error&&['master-only','character-missing','request-missing','journal-entry-invalid'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+    },
+
     gmSendDelivery: function (memberUid, value) {
       return api.gmSendDeliveries([memberUid],value);
     },
@@ -4884,11 +4930,16 @@
           status:questStatus,
           importance:questImportance
         };
+        payload.playerCanDelete=rawPayload.playerCanDelete!==false;
       }else if(kind==='image'){
         payload.saveToJournal=rawPayload.saveToJournal===true;
+        payload.playerCanDelete=rawPayload.playerCanDelete!==false;
         payload.compression=['compact','balanced','quality'].indexOf(String(rawPayload.compression||''))>=0
           ? String(rawPayload.compression)
           : 'balanced';
+      }else if(kind==='text'){
+        payload.saveToJournal=rawPayload.saveToJournal!==false;
+        payload.playerCanDelete=rawPayload.playerCanDelete!==false;
       }
       if(!deliveryFromOutbox){
         deliveryQueueResult=queueGameplayOperation('gm-delivery',deliveryOperationId,{
@@ -5520,6 +5571,24 @@
             createdBy:user.uid
           };
           return firebase.update(roomRef(session.code),{worldClockPulse:pulse,updatedAt:stamp}).then(function(){
+            return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['master-only','room-not-found'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    gmSetWorldClockWidget: function (mode) {
+      mode=mode==='brief'?'brief':'always';
+      return ensureReady().then(function(user){
+        var session=readSession();if(!session||session.role!=='master')throw roomError('Видимостью часов управляет только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var stamp=now(),clock=normalizeWorldClock(room.worldClock);
+          return firebase.update(roomRef(session.code),{worldClock:Object.assign({},clock,{widgetMode:mode,updatedAt:stamp,updatedBy:user.uid}),updatedAt:stamp}).then(function(){
             return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
           });
         });
@@ -6302,7 +6371,7 @@
           statLabel: String(statLabel || '').slice(0, 30),
           speakerUid: speaker && speaker.uid || user.uid,
           speakerTokenId: String(options.speakerTokenId || '').slice(0, 128),
-          scoreKind: String(options.scoreKind || '').toLowerCase() === 'damage' ? 'damage' : 'normal',
+          scoreKind: String(options.scoreKind || '').toLowerCase() === 'damage' || String(statLabel || '').trim().toLowerCase() === 'урон' ? 'damage' : 'normal',
           resultSound: ['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound || '').toLowerCase()) >= 0 ? String(options.resultSound).toLowerCase() : (outcome === 'critical-success' || outcome === 'critical-fail' ? outcome : 'normal'),
           revealResult: options.revealResult !== false,
           name: String(options.name || speaker && speaker.character && speaker.character.name || speaker && speaker.name || 'Игрок').slice(0, 120)
@@ -6329,13 +6398,13 @@
         };
       });
       if (!rolls.length) return Promise.resolve(api.getSnapshot());
-      var decisiveRolls=rolls.filter(function(roll){return roll&&roll.kept!==false;}),decisiveRoll=decisiveRolls.length===1?decisiveRolls[0]:(rolls.length===1?rolls[0]:null),inferredResultSound=decisiveRoll&&(decisiveRoll.outcome==='critical-success'||decisiveRoll.outcome==='critical-fail')?decisiveRoll.outcome:'normal';
+      var decisiveRolls=rolls.filter(function(roll){return roll&&roll.kept!==false;}),decisiveRoll=decisiveRolls.length===1?decisiveRolls[0]:(rolls.length===1?rolls[0]:null),inferredResultSound=decisiveRoll&&(decisiveRoll.outcome==='critical-success'||decisiveRoll.outcome==='critical-fail')?decisiveRoll.outcome:'normal',inferredScoreKind=rolls.some(function(roll){return String(roll&&roll.statLabel||'').trim().toLowerCase()==='урон';})?'damage':'normal';
       return ensureReady().then(function (user) {
         var session = readSession(); if (!session || !firebase || !db) return null;
         var member = currentRoom && currentRoom.members && currentRoom.members[user.uid];
         var speaker = session.role === 'master' && speakerUid && currentRoom && currentRoom.members && currentRoom.members[speakerUid] || member;
         var activeRoll = { id:String(clientRollId||('roll-'+now()+'-'+Math.random().toString(36).slice(2,6))).slice(0,120), ts:now(), duration:1250, rolls:rolls,
-          speakerUid:speaker && speaker.uid || user.uid, speakerTokenId:String(options.speakerTokenId||'').slice(0,128), scoreKind:String(options.scoreKind||'').toLowerCase()==='damage'?'damage':'normal', resultSound:['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound||'').toLowerCase())>=0?String(options.resultSound).toLowerCase():inferredResultSound, revealResult:options.revealResult!==false,
+          speakerUid:speaker && speaker.uid || user.uid, speakerTokenId:String(options.speakerTokenId||'').slice(0,128), scoreKind:String(options.scoreKind||'').toLowerCase()==='damage'?'damage':inferredScoreKind, resultSound:['success','fail','critical-success','critical-fail','silent'].indexOf(String(options.resultSound||'').toLowerCase())>=0?String(options.resultSound).toLowerCase():inferredResultSound, revealResult:options.revealResult!==false,
           name:String(options.name||speaker && speaker.character && speaker.character.name||speaker && speaker.name||'Игрок').slice(0,120) };
         if (member) { member.activeRoll = activeRoll; emit(); }
         try { window.dispatchEvent(new CustomEvent('zg-local-roll',{detail:{ownerUid:user.uid,roll:activeRoll}})); } catch(e) {}

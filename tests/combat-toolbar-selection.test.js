@@ -83,7 +83,7 @@ assert.match(html, /data-combat-tool="'\+type\+'" aria-pressed="false"/, 'long, 
 assert.match(html, /data-combat-tool="prepare" aria-pressed="false"/, 'prepare button participates in the shared selection contract');
 assert.match(html, /data-combat-tool="sheet" aria-pressed="false"/, 'creature sheet participates in the shared selection contract');
 assert.match(html, /\.zg-combat-economy button\.tool-selected:not\(:disabled\)\{[^}]*box-shadow:/, 'selected tool receives a visible gold surface and outline');
-assert.match(html, /\.zg-action-cursor:before\{[^}]*border:1px solid #f0cb70/, 'custom cursor has a precise visible reticle');
+assert.match(html, /\.zg-action-cursor:before\{[^}]*width:22px;[^}]*height:22px;[^}]*border:2px solid #f0cb70/, 'custom cursor has a precise, visible reticle instead of a micro-dot');
 assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex/, 'combat targeting uses a scene-anchored reticle at the actual target point');
 assert.match(html, /\.zg-game-overlay\.combat-targeting \.zg-vtt-scene[^}]*cursor:none!important/, 'native crosshair cannot overlap the scene-anchored combat reticle');
 assert.match(html, /cursor\.classList\.remove\('open','over-range'\)/, 'combat targeting removes the detached sword cursor before showing its range reticle');

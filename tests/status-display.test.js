@@ -241,6 +241,13 @@ assert.doesNotMatch(html, /activeStatuses=collectDisplayStatuses\(/);
 assert.match(html, /class="zg-state-effect-row"[^>]*onclick="zgVttStatusInfo/);
 assert.match(html, /w\.zgVttStatusInfo=function\(index\)/);
 assert.match(html, /className='zg-vtt-status-info'/);
+assert.match(html, /badge=document\.createElement\('span'\)/, 'map status controls must not nest a button inside the token button');
+assert.match(html, /badge\.setAttribute\('aria-haspopup','dialog'\)/, 'map status controls must expose their details dialog');
+assert.match(html, /badge\.addEventListener\('pointerdown',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);\}\)/, 'status interaction must not start token movement');
+assert.match(html, /badge\.addEventListener\('pointerup',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);openStatus\(ev\);\}\)/, 'status interaction must open reliably for the owning player before the token click handler');
+assert.match(html, /node\.style\.zIndex = String\(ownToken\?100000:token\.z\)/, 'the owning player token must stay above neighboring scene tokens');
+assert.match(html, /String\(token\.memberUid\|\|''\)===String\(ownSession\.uid\|\|''\)/, 'own-token elevation must survive numeric or string identity snapshots');
+assert.match(html, /ev\.key==='Enter'\|\|ev\.key===' '/, 'map status controls must open from the keyboard');
 assert.doesNotMatch(
   html.slice(html.indexOf('var effectsHtml=activeStatuses.map'),html.indexOf('var injurySource=',html.indexOf('var effectsHtml=activeStatuses.map'))),
   /status\.description|zgStatusDurationText|zgStatusSourceText/,

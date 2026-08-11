@@ -41,6 +41,7 @@ const visualStart = html.indexOf('  function animateCombatVisual()');
 const visualEnd = html.indexOf('  function animateGmAdjustmentVisual()', visualStart);
 const visualBlock = html.slice(visualStart, visualEnd);
 assert.match(visualBlock, /playCombatOutcomeSound\(event,isDamage,hideResult\)/, 'attack reveal and damage impact use the semantic exactly-once router without leaking hidden outcomes');
+assert.match(visualBlock, /if\(combatAttackRequestAwaitingResult\(event\)\)return;[\s\S]*?scheduleCombatPresentationReveal\(event\)/, 'an approved attack cannot queue its token impact before the dice-result stage is released');
 assert.doesNotMatch(visualBlock, /if\(hit&&w\.ZargotaSound&&w\.ZargotaSound\.damage\)/, 'hit confirmation must not play damage audio before damage dice');
 assert.match(visualBlock, /playLabel=claimCombatPlaybackEvent\(event,'label'\),playHitFx=claimCombatPlaybackEvent\(event,'hitFx'\)/, 'labels and hit FX must own independent exactly-once channels');
 assert.match(html, /claimCombatPlaybackEvent\(event,'damage-impact-sound'\)/, 'damage impact owns an explicit exactly-once channel');
@@ -53,6 +54,8 @@ assert.match(html, /html\.zg-combat-motion-anchored \.zg-vtt-token\.combat-hit/,
 });
 assert.match(network, /attackEventId='combat-hit-result-'\+attackOperationId/, 'attack playback id is stable for exactly-once retries');
 assert.match(network, /damageEventId='combat-damage-result-'\+damageOperationId/, 'damage playback id is stable and separate from the hit phase');
+assert.match(network, /roomUpdate\['combatEvent\/revealAt'\]=Math\.max\(Number\(resultEvent\.revealAt\)\|\|0,finishedAt\+resultDelay\)/, 'approved attack reveal timing is re-anchored to the finished request update');
+assert.match(html, /finishApprovedAttackRoll:function[\s\S]*?event\.revealAt=Math\.max\(Number\(event\.revealAt\)\|\|0,finishedAt\+resultDelay\)/, 'local combat QA preserves the same dice-before-impact request order');
 assert.match(network, /abilityEventId='combat-ability-'\+stamp\+'-'\+Math\.random\(\)/, 'combat-ability events need collision-resistant ids');
 ['combat-action','combat-prepare','combat-concentration'].forEach(function(prefix){
   assert.match(network, new RegExp("eventId='"+prefix+"-'\\+stamp\\+'-'\\+Math\\.random\\(\\)"), prefix+' events need collision-resistant ids');

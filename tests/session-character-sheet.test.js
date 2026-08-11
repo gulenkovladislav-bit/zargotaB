@@ -105,10 +105,16 @@ assert.match(html, /zgVttJournalFilter\(\\'quest\\'\)/);
 assert.match(html, /journalFilter=\['all','quest','note','place'\]/);
 assert.match(html, /class="zg-journal3-paper-art /);
 assert.match(html, /object-fit:contain/);
+assert.match(html, /data:image\\\/\(\?:png\|jpe\?g\|webp\);base64/, 'portable GM illustrations are accepted by the player journal renderer');
+assert.match(html, /zg-journal3-newspaper-head/, 'saved GM illustrations use the newspaper-cover journal layout');
+assert.match(html, /Вестник Зарготы/);
 assert.match(html, /id="zg-journal-editor-kind"/);
 assert.match(html, /id="zg-journal-editor-icons"/);
 assert.match(html, /zgVttJournalConfirmRemove/);
 assert.match(html, /zg-journal-delete-backdrop/);
+assert.match(html, /selected\.editable\|\|selected\.playerCanDelete/, 'players may delete GM journal records only when the GM permits it');
+assert.match(html, /zgVttJournalMasterEdit/, 'the GM can edit delivered journal records');
+assert.match(html, /gmUpdateJournalEntry/, 'journal permission edits use the synchronized room API');
 assert.match(html, /appendLegacyGoalRecord\(c\.currentGoal,'current'\)/);
 assert.match(html, /zgVttJournalOpenGoal/);
 assert.match(html, /data-journal-id="'\+esc\(goal\.id\)/);
@@ -133,5 +139,8 @@ assert.match(html, /function openCharSheet\(id\) \{\s*if \(window\.zgSessionChar
 assert.match(html, /function openCharEditor\(id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
 assert.match(html, /function deleteChar\(id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
 assert.match(html, /function charTransferMenu\(e, id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
+assert.match(html, /function itemEditorDirty\(\)/, 'the item editor tracks unsaved changes');
+assert.match(html, /Закрыть без сохранения изменений\?/, 'closing a dirty item editor requires confirmation');
+assert.doesNotMatch(html, /backdrop\.onclick\s*=\s*function/, 'clicking outside the item editor must not discard the draft');
 
 console.log('session character sheet contract passed');
