@@ -52,7 +52,7 @@ var context = {
   Object:Object,
   String:String,
   Math:Math,
-  TOKEN_STATUS_DEFS:{},
+  TOKEN_STATUS_DEFS:{dead:['☠','#a85d57','Мёртв']},
   gmStatusCatalog:function(){ return mechanics; }
 };
 vm.runInNewContext(html.slice(start, end), context);
@@ -60,6 +60,14 @@ vm.runInNewContext(html.slice(start, end), context);
 assert.strictEqual(context.normalizeStatusDisplayKey('STUN'), 'stun');
 assert.strictEqual(context.normalizeStatusDisplayKey('Оглушён'), 'stun');
 assert.strictEqual(context.normalizeStatusDisplayKey('Горит'), 'burn');
+assert.strictEqual(context.normalizeStatusDisplayKey('Мёртв'), 'dead');
+
+var deadDisplay = context.collectDisplayStatuses({
+  deathSaves:{state:'dead',gmOutcome:'death'}
+}, {isMaster:false});
+assert.strictEqual(deadDisplay.length, 1, 'confirmed death must derive one public status without a Firebase schema change');
+assert.strictEqual(deadDisplay[0].key, 'dead');
+assert.strictEqual(deadDisplay[0].label, 'Мёртв');
 
 var deduped = context.collectDisplayStatuses({
   statuses:['STUN', 'burn'],
@@ -239,6 +247,12 @@ assert.doesNotMatch(
   'compact status rows must render names only; full details belong in the dialog'
 );
 assert.match(html, /className='zg-vtt-token-status-visuals'/);
+assert.match(html, /function statusSurfaceMarkup\(statuses,surface\)/, 'one renderer must serve all portrait status surfaces');
+assert.match(html, /zgStatusSurfaceMarkup=statusSurfaceMarkup/, 'portrait modules must use the public read-only visual adapter');
+assert.match(html, /w\.zgStatusSurfaceMarkup\?w\.zgStatusSurfaceMarkup\(activeStatuses,'state'\):''/, 'the large State portrait must show active status art');
+assert.match(html, /portraitStatusMarkup\(entry,c,'party'\)/, 'initiative portraits must show active status art');
+assert.match(html, /zgStatusSurfaceMarkup\(w\.zgCollectDisplayStatuses\(c,\{isMaster:isMaster\}\),'sheet'\)/, 'the character sheet portrait must show active status art');
+assert.match(html, /if\(w\.zgSyncTokenEffectSize\)w\.zgSyncTokenEffectSize\(node\)/, 'token status art must follow the actual token size');
 assert.match(html, /aria-label="Уменьшить стаки"/);
 assert.match(html, /aria-label="Увеличить длительность"/);
 assert.match(html, /zgGmInterventionStatusRemoveConfirm/);
@@ -260,5 +274,21 @@ assert.doesNotMatch(
   /setInterval|setTimeout|firebase|markDirty/,
   'token status visuals must not create timer loops or network writes'
 );
+
+var statusAtlases = {control:[1280,512],dot:[768,256],debuff:[1280,256],buff:[1280,256]};
+Object.keys(statusAtlases).forEach(function(name){
+  var assetPath=path.resolve(__dirname,'..','images','vtt-effects','status-v2',name+'.png');
+  assert.ok(fs.existsSync(assetPath),name+' status atlas must exist');
+  var png=fs.readFileSync(assetPath),expected=statusAtlases[name];
+  assert.strictEqual(png.toString('ascii',1,4),'PNG',name+' status atlas must be a PNG');
+  assert.strictEqual(png.readUInt32BE(16),expected[0],name+' atlas width must stay bounded');
+  assert.strictEqual(png.readUInt32BE(20),expected[1],name+' atlas height must stay bounded');
+  assert.match(html,new RegExp('images/vtt-effects/status-v2/'+name+'\\.png'));
+});
+assert.match(html,/layer\.style\.animationDelay='-'\+phase\+'s'/,'status animations must not pulse in lockstep');
+assert.match(html, /function syncTokenHealthPresentation\(node,token,combatEntry,member\)/, 'one adapter must own token blood and death classes');
+assert.match(html, /syncTokenHealthPresentation\(node,token,combatEntry,tokenMember\)/, 'full token render must restore blood and death classes');
+assert.match(html, /function patchTokenRuntime\(\)[^]*syncTokenHealthPresentation\(node,token,combatEntry,member\)/, 'Firebase runtime patches must restore blood and death classes');
+assert.match(html, /mark\.textContent=health\.dead\?'☠ ПОГИБ':'СРАЖЁН'/, 'dead and downed tokens must keep distinct marks');
 
 console.log('status display tests passed');

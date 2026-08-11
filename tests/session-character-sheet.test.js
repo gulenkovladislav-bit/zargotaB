@@ -10,6 +10,9 @@ var clickStart = html.indexOf('w.zgVttPartyClick = function');
 var clickEnd = html.indexOf('function renderJournal', clickStart);
 var clickBlock = html.slice(clickStart, clickEnd);
 assert.match(clickBlock, /session&&session\.role==='master'/);
+assert.match(clickBlock, /gmPanel\.classList\.contains\('open'\).*gmPanel\.classList\.contains\('minimized'\)/, 'an open GM intervention panel gives party portraits a targeting context');
+assert.match(clickBlock, /token\.type==='hero'.*String\(token\.memberUid\|\|''\)===String\(uid\|\|''\)/, 'GM targeting resolves the hidden run-mode hero token by member uid');
+assert.match(clickBlock, /zgGmInterventionOpenToken\(heroToken\.id,'entity'\)/, 'party targeting enters the existing GM entity panel');
 assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid,\{toggle:true\}\)/);
 assert.match(clickBlock, /session&&session\.role==='player'&&String\(session\.uid\)===String\(uid\)/);
 assert.match(clickBlock, /zgVttOpenPanel\('character',\{toggle:true,resetMember:true\}\)/);
@@ -25,6 +28,8 @@ assert.match(clickBlock, /allowPlayerInspectAllies===false/);
 assert.match(clickBlock, /zgVttOpenPublicMember\(uid\)/);
 assert.match(clickBlock, /if\(w\.zgSheetClose\)w\.zgSheetClose\(\)/);
 assert.strictEqual(clickBlock.indexOf('zgPossessPlayer') >= 0, false, 'portrait click must open the sheet, not possess immediately');
+assert.match(html, /w\.zgGmInterventionOpenToken=function\(tokenId,tab\)/, 'the GM panel exposes its token targeting bridge');
+assert.match(html, /gmInterventionTokenId=token\.id/, 'the targeting bridge stores the resolved scene token');
 assert.match(html, /zgVttPartyClick\('\s*\+\s*esc\(JSON\.stringify\(member\.uid\)\)/);
 assert.strictEqual(
   /zgVttPartyClick\('\s*\+\s*JSON\.stringify\(member\.uid\)/.test(html),
@@ -32,12 +37,20 @@ assert.strictEqual(
   'party uid quotes must be escaped inside inline onclick attributes'
 );
 
+var journalStart = html.indexOf('function renderJournal');
+var journalEnd = html.indexOf('w.zgVttLogOpen=', journalStart);
+var journalBlock = html.slice(journalStart, journalEnd);
+assert.match(journalBlock, /seenJournalEventIds/, 'journal keeps an exactly-once registry for replicated room messages');
+assert.match(journalBlock, /if\(seenJournalEventIds\[eventId\]\)return false/, 'the same Firebase event id renders only once even when copied to every member inbox');
+assert.match(journalBlock, /room\.manualEvent && room\.manualEvent\.ts/, 'manual events remain available to the GM journal without player inbox replication');
+assert.match(journalBlock, /event\.visibility==='gm'.*session\.role!=='master'/, 'GM-only journal events never render for a player client');
+
 var sheetStart = html.indexOf('//   ЛИСТ ПЕРСОНАЖА');
 var sheetEnd = html.indexOf('//   КУБИК СНИЗУ', sheetStart);
 var sheetBlock = html.slice(sheetStart, sheetEnd);
 assert.match(sheetBlock, /session\.role==='player'/);
 assert.match(sheetBlock, /return own\?\(localCharFor\(m\)\|\|m\.character\|\|null\):\(m\.character\|\|null\)/);
-assert.match(sheetBlock, /zgSheetPossess/);
+assert.doesNotMatch(sheetBlock, /zgSheetPossess|Играть за героя|вернуться к ГМ/, 'character sheets do not add player-control buttons');
 assert.match(sheetBlock, /zgSheetGmAddItem/);
 assert.match(sheetBlock, /zgSheetOpenCanonical/);
 assert.match(sheetBlock, /zgSheetTabAction/);

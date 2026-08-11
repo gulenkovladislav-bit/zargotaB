@@ -40,6 +40,7 @@ var context = {
   w:{ZargotaSound:{
     turn:function(){calls.push('turn');},
     round:function(){calls.push('round');},
+    playerActionRequest:function(){calls.push('submitted');},
     gmActionRequest:function(){calls.push('request');},
     actionResolved:function(accepted){calls.push(accepted?'approved':'rejected');}
   }}
@@ -55,6 +56,7 @@ function playerSnapshot(round, turnUid, request) {
 
 context.syncSessionSounds(playerSnapshot(1, 'player-a'));
 assert.deepStrictEqual(calls, [], 'joining an existing combat must not replay its sound');
+assert.match(html.slice(start, end), /sessionSoundState\.masterRequests=pendingRequests/, 'resolved requests must be pruned from the sound router state');
 context.syncSessionSounds(playerSnapshot(1, 'player-b'));
 context.syncSessionSounds(playerSnapshot(1, 'player-a'));
 assert.deepStrictEqual(calls, ['turn'], 'only the player receiving the turn hears the personal cue');
@@ -63,7 +65,7 @@ assert.deepStrictEqual(calls, ['turn','round'], 'a new round has one cue instead
 context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-a',status:'pending'}));
 context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-a',status:'approved'}));
 context.syncSessionSounds(playerSnapshot(2, 'player-a', {id:'request-a',status:'approved'}));
-assert.deepStrictEqual(calls, ['turn','round','approved'], 'the sender hears one resolution cue');
+assert.deepStrictEqual(calls, ['turn','round','submitted','approved'], 'the sender hears one submission cue and one later resolution cue');
 
 calls.length = 0;
 context.sessionSoundState = {roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',masterRequests:{}};
@@ -73,5 +75,7 @@ var masterPending = {session:masterBase.session,room:{code:'ROOM-2',members:{gm:
 context.syncSessionSounds(masterPending);
 context.syncSessionSounds(masterPending);
 assert.deepStrictEqual(calls, ['request'], 'the GM hears each pending request only once');
+assert.match(html, /AUDIO_TAG: PLACEHOLDER_ACTION_REQUEST_PLAYER/, 'player placeholder remains easy to replace');
+assert.match(html, /AUDIO_TAG: PLACEHOLDER_ACTION_REQUEST_GM/, 'GM placeholder remains easy to replace');
 
 console.log('session sound routing passed');

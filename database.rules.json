@@ -75,6 +75,7 @@
         "combat": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()",
           "order": {
+            ".validate": "!newData.exists() || newData.parent().child('active').val() === true || newData.parent().child('phase').val() === 'initiative' || data.parent().child('active').val() === true",
             "$index": {
               ".write": "auth != null && data.child('uid').val() === auth.uid && newData.child('uid').val() === auth.uid"
             }

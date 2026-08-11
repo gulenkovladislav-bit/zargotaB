@@ -10,6 +10,7 @@ import {
 import {
   get,
   ref,
+  runTransaction,
   set,
   update
 } from 'firebase/database';
@@ -173,6 +174,13 @@ try {
     'combat/updatedAt': 2,
     updatedAt: 2
   }));
+  const joinClaimPath = `${roomPath}/combatJoinClaims/1-summon-rules`;
+  const joinClaims = await Promise.all([
+    runTransaction(ref(master, joinClaimPath), (current) => current ? undefined : { id:'1-summon-rules', tokenId:'summon-rules', battleStartedAt:1, status:'claimed', createdAt:2, createdBy:masterUid }),
+    runTransaction(ref(master, joinClaimPath), (current) => current ? undefined : { id:'1-summon-rules', tokenId:'summon-rules', battleStartedAt:1, status:'claimed', createdAt:2, createdBy:masterUid })
+  ]);
+  assert.equal(joinClaims.filter((result) => result.committed).length, 1);
+  await assertFails(set(ref(player, `${roomPath}/combatJoinClaims/player-forbidden`), { status:'claimed' }));
   await assertSucceeds(update(ref(master, `${roomPath}/worldClock`), {
     totalMinutes: 60,
     day: 1,
@@ -218,6 +226,21 @@ try {
     turnIndex: 1,
     updatedAt: 3
   }));
+  await assertSucceeds(set(ref(player, `${roomPath}/combatEvent`), {
+    id: 'combat-turn-player-status-tick',
+    kind: 'combat',
+    name: 'Мир Зарготы',
+    text: 'Ход игрока. Отравлен: -1 HP.',
+    targetKey: `member:${playerUid}`,
+    statusTicks: [{ statusKey:'poison', label:'Отравлен', type:'damage', amount:1, hpDelta:-1, tempHpAbsorbed:0, beforeHp:10, beforeTempHp:0, hp:9, tempHp:0, damageType:'' }],
+    statusRemoved: [],
+    beforeHp: 10,
+    beforeTempHp: 0,
+    beforeStatuses: ['poison'],
+    beforeStatusEffects: [{ type:'status', statusKey:'poison' }],
+    ts: 3,
+    revealAt: 503
+  }));
   await assertSucceeds(set(ref(player, `${roomPath}/updatedAt`), 3));
   await assertSucceeds(set(ref(player, `${roomPath}/ping`), {
     id: 'ping-player',
@@ -259,10 +282,26 @@ try {
   assert.equal(finalRoom.members[playerUid].character.hpCur, 9);
   assert.equal(finalRoom.members[otherUid].character.hpCur, 7);
   assert.equal(finalRoom.combat.turnIndex, 1);
+  assert.equal(finalRoom.combatEvent.statusTicks[0].statusKey, 'poison');
   assert.equal(finalRoom.worldClock.totalMinutes, 60);
   const finalPrivateDelivery = (await get(ref(master, privateDeliveryPath))).val();
   assert.equal(finalPrivateDelivery.status, 'applied');
   assert.equal(finalPrivateDelivery.resolvedAt, 2);
+  await assertSucceeds(set(ref(master, `${roomPath}/combat`), null));
+  await assertFails(update(ref(master, roomPath), {
+    'combat/order': [{ key:'token:late-summon', tokenId:'late-summon', uid:'', name:'Поздний призыв' }],
+    'combat/updatedAt': 9
+  }));
+  assert.equal((await get(ref(master, `${roomPath}/combat`))).exists(), false);
+  await assertSucceeds(set(ref(master, `${roomPath}/combat`), {
+    active:false,
+    phase:'initiative',
+    round:0,
+    turnIndex:0,
+    order:[{ key:'token:new-battle', tokenId:'new-battle', uid:'', name:'Новый бой' }],
+    startedAt:10,
+    updatedAt:10
+  }));
   await assertSucceeds(set(ref(master, `privateDeliveries/${roomCode}`), null));
 
   console.log('firebase realtime database rules emulator matrix passed');

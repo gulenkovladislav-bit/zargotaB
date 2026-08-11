@@ -1,7 +1,8 @@
 # VTT action sound sources
 
-These files are currently stored as their original Pixabay MP3 downloads and
-have not been transcoded or edited.
+These files are stored as their original downloads and have not been
+transcoded or edited. Most are Pixabay MP3 files; the critical-success cue is
+the original Mixkit WAV.
 
 All source pages identify the files as free for use under the Pixabay
 Content License:
@@ -24,6 +25,20 @@ Content License:
   - https://pixabay.com/sound-effects/film-special-effects-coin-flip-88793/
 - `dice-roll.mp3` — "Dice_Roll" by Freesound community
   - https://pixabay.com/sound-effects/dice-roll-96878/
+- `dice-score-gear-click.mp3` — "Gear Click" by KoiRoylers
+  - https://pixabay.com/sound-effects/film-special-effects-gear-click-351962/
+- `dice-score-threshold-rise.mp3` — "Rise Ding Whoosh 1" by AleXZavesa
+  - https://pixabay.com/sound-effects/rise-ding-whoosh-1-463000/
+- `dice-score-final-tom.mp3` — "DRUM - Huge Cinematic Tom Hit" by Fronbondi_Skegs
+  - https://pixabay.com/sound-effects/film-special-effects-drum-huge-cinematic-tom-hit-283585/
+- `d20-critical-success-fairy.wav` — "Fairy Sparkle Whoosh" by Mixkit
+  - https://mixkit.co/free-sound-effects/
+- `d20-critical-failure-gong.mp3` — "Gong Bell" by SoundReality
+  - https://pixabay.com/sound-effects/film-special-effects-gong-bell-129820/
+- `d20-check-failure-wood.mp3` — "Wood Hit" by sumaga123
+  - https://pixabay.com/sound-effects/wood-hit-432148/
+- `d20-attack-miss-sword.mp3` — "Sword Clash/Hit" by DRAGON-STUDIO
+  - https://pixabay.com/sound-effects/film-special-effects-sword-clashhit-393837/
 - `hit-punch.mp3` — "Punch 03" by Universfield
   - https://pixabay.com/sound-effects/film-special-effects-punch-03-352040/
 - `life-failure.mp3` — "Bell Toll" by Stickypix7996
@@ -46,6 +61,7 @@ Content License:
   - https://pixabay.com/sound-effects/film-special-effects-warrior-kick-45949/
 - `gm-action-request-paper.mp3` — "Videogame paper SFX 2" by OxidVideos
   - https://pixabay.com/sound-effects/technology-videogame-paper-sfx-2-449927/
+  - Temporary routing tags: `PLACEHOLDER_ACTION_REQUEST_PLAYER` and `PLACEHOLDER_ACTION_REQUEST_GM`. Both deliberately point to this file until custom submission/notification sounds replace them.
 - `gm-action-approved-pencil.mp3` — "pencil_check_mark_2" by Freesound community
   - https://pixabay.com/sound-effects/film-special-effects-pencil-check-mark-2-105940/
 - `status-cleanse-holy.mp3` — "Holy Healing Spell" by Coghezzi
@@ -63,4 +79,7 @@ Content License:
 - `attack-slash.mp3` — "Slash" by Chromascension
   - https://pixabay.com/sound-effects/film-special-effects-slash-542396/
 
-License summary: https://pixabay.com/service/license-summary/
+License summaries:
+
+- Pixabay Content License: https://pixabay.com/service/license-summary/
+- Mixkit Sound Effects Free License: https://mixkit.co/license/#sfxFree

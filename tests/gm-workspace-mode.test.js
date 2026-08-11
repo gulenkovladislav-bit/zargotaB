@@ -10,7 +10,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 assert.match(html, /zg_gm_workspace_mode_v1/);
 assert.match(html, /data-gm-workspace-mode="run"[^>]*>Ведение</);
-assert.match(html, /data-gm-workspace-mode="edit"[^>]*>Редактирование</);
+assert.match(html, /data-gm-workspace-mode="edit"[^>]*>Редактор</);
 assert.match(html, /overlay\.classList\.toggle\('gm-edit-mode'/);
 assert.match(html, /overlay\.classList\.toggle\('gm-run-mode'/);
 assert.match(html, /applyGmWorkspaceMode\(gmWorkspaceMode,false\)/);

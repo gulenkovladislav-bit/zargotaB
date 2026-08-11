@@ -8,6 +8,18 @@ var vm = require('vm');
 var root = path.resolve(__dirname, '..');
 var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+[
+  'blood-token-atlas-a-v2.webp','blood-token-atlas-b-v2.webp',
+  'blood-portrait-atlas-a-v2.webp','blood-portrait-atlas-b-v2.webp',
+  'blood-state-atlas-a-v2.webp','blood-state-atlas-b-v2.webp'
+].forEach(function(file){
+  assert.ok(fs.existsSync(path.join(root,'images','vtt-effects',file)),file+' must exist');
+  assert.match(html,new RegExp(file.replace(/\./g,'\\.')),file+' must be wired to a live surface');
+});
+assert.match(html,/combatHpPresentation\(/,'HP presentation must own the wound level');
+assert.match(html,/combat-wound-1/,'map tokens must receive wound classes');
+assert.match(html,/class="zg-state-portrait wound-/,'the large portrait must receive its wound class');
+assert.match(html,/portraitHost\.className='wound-/,'the character sheet portrait must receive its wound class');
 assert.match(html, /function approvedDamageDiceHtml\(/, 'player damage prompt must render the actual weapon dice');
 assert.match(html, /function combatPlayerAttackError\(/, 'player attack UI must explain local range, turn and status failures before sending');
 assert.match(html, /function combatAdvanceError\(/, 'end-turn UI must validate turn ownership and manual death saves before writing');
@@ -52,20 +64,21 @@ var enteredZeroHp = context.syncCombatZeroHp({hp:0}, 6, 'enemy:test', 1700000000
 assert.strictEqual(enteredZeroHp.zeroHp.pending, true);
 assert.strictEqual(enteredZeroHp.zeroHp.successes, 0);
 assert.strictEqual(enteredZeroHp.zeroHp.failures, 0);
-var naturalOneSave = context.resolveDeathSaveState(enteredZeroHp.zeroHp, 1, 2, 1700000000100);
-assert.strictEqual(naturalOneSave.failures, 2, 'natural 1 must add two death-save failures');
-assert.strictEqual(naturalOneSave.lastOutcome, 'critical-failure');
-var naturalTwentySave = context.resolveDeathSaveState(naturalOneSave, 20, 3, 1700000000200);
-assert.strictEqual(naturalTwentySave.successes, 2, 'natural 20 must add two death-save successes');
-assert.strictEqual(naturalTwentySave.lastOutcome, 'critical-success');
-var thirdSuccess = context.resolveDeathSaveState(naturalTwentySave, 10, 4, 1700000000300);
-var stabilizedSave = context.resolveDeathSaveState(thirdSuccess, 10, 5, 1700000000400);
+var deathCoin = context.resolveDeathSaveState(enteredZeroHp.zeroHp, 1, 2, 1700000000100);
+assert.strictEqual(deathCoin.failures, 1, 'the death face adds one failure');
+assert.strictEqual(deathCoin.lastOutcome, 'failure');
+var firstLifeCoin = context.resolveDeathSaveState(deathCoin, 2, 3, 1700000000200);
+assert.strictEqual(firstLifeCoin.successes, 1, 'the life face adds one success');
+assert.strictEqual(firstLifeCoin.lastOutcome, 'success');
+var secondLifeCoin = context.resolveDeathSaveState(firstLifeCoin, 2, 4, 1700000000300);
+var thirdLifeCoin = context.resolveDeathSaveState(secondLifeCoin, 2, 5, 1700000000400);
+var stabilizedSave = context.resolveDeathSaveState(thirdLifeCoin, 2, 6, 1700000000500);
 assert.strictEqual(stabilizedSave.state, 'stabilized');
 assert.strictEqual(stabilizedSave.pending, false);
-var fatalSave = context.resolveDeathSaveState({pending:true,state:'death-saves',failures:3}, 2, 6, 1700000000500);
-assert.strictEqual(fatalSave.state, 'dead');
+var fatalSave = context.resolveDeathSaveState({pending:true,state:'death-saves',failures:3}, 1, 7, 1700000000600);
+assert.strictEqual(fatalSave.state, 'awaiting-gm');
 assert.strictEqual(fatalSave.failures, 4);
-assert.strictEqual(context.syncCombatZeroHp({hp:3,zeroHp:stabilizedSave}, 0, 'heal', 1700000000600).zeroHp, null, 'healing above zero clears death-save state');
+assert.strictEqual(context.syncCombatZeroHp({hp:3,zeroHp:stabilizedSave}, 0, 'heal', 1700000000700).zeroHp, null, 'healing above zero clears death-save state');
 
 var effect = context.normalizeStatusEffectInput({
   duration:2,
@@ -349,6 +362,8 @@ var tick = context.statusTurnTick({
 assert.strictEqual(tick.hp, 10);
 assert.strictEqual(tick.tempHp, 0, 'status tick must consume temporary HP before health');
 assert.ok(tick.changes.length, 'status tick must produce a combat note');
+assert.strictEqual(tick.impacts.length, 1, 'status tick exposes one structured presentation impact');
+assert.deepStrictEqual(JSON.parse(JSON.stringify(tick.impacts[0])), {statusKey:'burn',label:'Горит',type:'damage',amount:1,hpDelta:0,tempHpAbsorbed:1,beforeHp:10,beforeTempHp:1,hp:10,tempHp:0,damageType:'fire'});
 
 var stackedTick = context.statusTurnTick({
   hp:10,
@@ -401,6 +416,7 @@ var bleedingTick = context.statusTurnTick({
   ]
 });
 assert.strictEqual(bleedingTick.hp, 7, 'bleeding deals 1 damage per accumulated stack');
+assert.strictEqual(bleedingTick.impacts[0].amount, 3, 'structured status impact preserves the accumulated damage amount');
 
 var roundExpiry = context.expireTurnStatuses({
   statuses:['burn'],
@@ -628,7 +644,7 @@ assert.match(network, /combatRollMode\(String\(options\.mode\|\|'normal'\),targe
 assert.match(network, /damageResult\.total\+bonusDamage\+statBonus\+attackerModifiers\.damageMod/);
 assert.match(network, /request\.target=normalizeAbilityTargeting\(details\.targeting\)/);
 assert.match(network, /areaAnchorEntry=effect\.areaAnchorPoint\?\{scenePoint:effect\.areaAnchorPoint\}/);
-assert.match(network, /updates\.combatEvent\.areaAnchorPoint=effect\.areaMode!=='manual'\?effect\.areaAnchorPoint:null/);
+assert.match(network, /updates\.combatEvent\.areaAnchorPoint=effect\.effectKind==='summon'\?summonPoint:\(effect\.areaMode!=='manual'\?effect\.areaAnchorPoint:null\)/);
 assert.match(network, /economy\[cost\]=Math\.max\(0,Number\(economy\[cost\]\|\|0\)-1\)/);
 assert.match(network, /character\/abilityUsage\/'\+resourceKey/);
 assert.match(network, /character\/hpCur'\]=result\.hp/);

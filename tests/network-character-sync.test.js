@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-07-30\.2/, 'network cache key must change with the current session synchronization contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-09\.4/, 'network cache key must change with the current session synchronization contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -99,7 +99,7 @@ assert.match(tabCoordinationBlock, /isSecondary:/);
 assert.match(tabCoordinationBlock, /resumePrimaryTab\(readSession\(\)\)/);
 assert.match(network, /if \(!tabCanWrite\(\)\) return Promise\.reject\(roomError\(/);
 assert.match(network, /function queueGameplayOperation[\s\S]*?!tabCanWrite\(\)\) return \{ok:false,skipped:true\}/);
-assert.match(network, /actionKind === 'ability' && !tabCanWrite\(\)/);
+assert.match(network, /\(actionKind === 'ability' \|\| actionKind === 'ability-resource'\) && !tabCanWrite\(\)/);
 assert.match(network, /if\(!tabCanWrite\(\)\)return Promise\.reject\(roomError\('Эта вкладка работает только для просмотра\. Передайте управление ей перед выдачей\.'/);
 assert.match(network, /clearPresenceDisconnectHandles/);
 assert.strictEqual(tabCoordinationBlock.indexOf('stopWatchingRoom') >= 0, false, 'detection must not stop an active room');
@@ -340,6 +340,9 @@ assert.match(network, /gmAddJournalEntry:\s*function/);
 assert.match(network, /gmAdjustAbilityUsage:\s*function/);
 assert.match(network, /adjustOwnAbilityUsage:\s*function/);
 assert.match(network, /current\.source='player-ability-resource'/);
+assert.match(network, /actionKind==='ability-resource'/);
+assert.match(network, /request\.resourceAdjustment=\{resourceKey:adjustmentKey/);
+assert.match(network, /character\.source='ability-resource-approved'/);
 assert.match(network, /request\.actionKind === 'ability'[^]*applyAbilityUsageDomainOperation\(character\.abilityUsage/);
 assert.match(network, /actionKind==='spell-learning'/);
 assert.match(network, /character\.source='spell-learning-approved'/);
@@ -363,6 +366,8 @@ assert.match(network, /character\/syncOperationId'\]\s*=\s*eventId/);
 assert.match(network, /kind==='temp-hp'\?'gm-temp-hp'/);
 assert.match(network, /updates\.manualEvent=event/);
 assert.match(network, /statusEnabled:statusEnabled/);
+assert.match(network, /visibility:kind==='status'\?statusVisibility:'public'/, 'manual status events preserve GM-only visibility');
+assert.match(network, /else if\(event\.visibility!==\'gm\'\)/, 'GM-only status events are not copied into player message inboxes');
 assert.match(network, /gmBroadcastVisual:\s*function/);
 assert.match(network, /particle:\['embers','frost','healing','shadow','poison','blood','arcane','lightning'\]/);
 assert.match(network, /animation:\['shake','pulse','levitate','blink','impact','dissolve'\]/);
@@ -380,6 +385,7 @@ assert.match(html, /w\.zgGmInterventionMinimize=function/);
 assert.match(html, /class="zg-gm-intervention-orb"/);
 assert.match(html, /\.zg-gm-intervention\.minimized\{/);
 assert.match(html, /z-index:75/);
+assert.match(html, /function combatEntryForToken\(token\)[\s\S]*if\(!token\|\|!combat\|\|!combat\.active\)return null;/, 'opening the GM panel without a selected token must stay safe');
 var tokenDragStart = html.indexOf('function beginTokenDrag');
 var tokenDragEnd = html.indexOf('function renderTokens', tokenDragStart);
 var tokenDragBlock = html.slice(tokenDragStart, tokenDragEnd);
@@ -394,6 +400,7 @@ assert.match(html, /@media\(max-width:700px\)\{\.zg-gm-intervention/);
 assert.match(html, /function animateGmAdjustmentVisual/);
 assert.match(html, /state&&state\.room&&state\.room\.manualEvent/);
 assert.match(html, /event\.statusEnabled\?'gm-status-add':'gm-status-remove'/);
+assert.match(html, /event\.visibility===\'gm\'.*adjustmentSession\.role!==\'master\'/, 'player clients skip hidden status labels, FX and sounds');
 assert.match(html, /className='zg-gm-particles '/);
 assert.match(html, /@keyframes zgGmDamageAvatar/);
 assert.match(html, /@keyframes zgGmHealAvatar/);
@@ -418,9 +425,12 @@ assert.doesNotMatch(combatVisualBlock, /'⚔ '\+Math\.max\(0,Number\(event\.dama
 assert.match(html, /zgDicePlanB/);
 assert.match(html, /type==='free'\?'zgDicePlanB\(event\)'/);
 assert.doesNotMatch(html, /data-dice-free-mode/);
-assert.match(html, /План Б · свободный бросок без расхода действия/);
+assert.match(html, /План Б · ЛКМ добавить · ПКМ убрать/);
 assert.match(html, /zgVttGmAbilityUsage/);
-assert.match(html, /class="zg-ability-gm-resource"/);
+assert.match(html, /function abilityChargeControl\(card, mode\)/);
+assert.match(html, /class="zg-ability-resource-console/);
+assert.match(html, /requestAction\(requestText,'ability-resource'/);
+assert.doesNotMatch(html.slice(html.indexOf("var spellState=card.group==='spells'"),html.indexOf("var proposalLabels=",html.indexOf("var spellState=card.group==='spells'"))), /card\.learnText/, 'the top spell state must not duplicate the ritual learning text');
 assert.match(html, /ZargotaSound\.heal/);
 assert.match(html, /@keyframes zgGmStatusArrive/);
 assert.match(html, /@keyframes zgGmStatusLeave/);
@@ -694,6 +704,9 @@ assert.match(html, /@keyframes zgBagSlideIn/);
 assert.match(html, /@keyframes zgBagSlideOut/);
 assert.match(html, /--bag-entry-transform/);
 assert.match(html, /if\(action==='inventory'\)\s*\{\s*if\(!turningOn\)\{\s*if\(w\.zgVttCloseDrawer\)w\.zgVttCloseDrawer\(\)/);
+var combatEconomyLayer = Number((html.match(/\.zg-combat-economy\{position:absolute;z-index:(\d+)/)||[])[1]);
+var backpackDrawerLayer = Number((html.match(/\.zg-vtt-drawer\.backpack-skin\.open\{z-index:(\d+)/)||[])[1]);
+assert.ok(combatEconomyLayer > backpackDrawerLayer, 'the bottom combat toolbar must stay clickable above an open backpack drawer');
 assert.match(html, /drawer\.classList\.add\('closing'\)/);
 assert.match(html, /drawer\.classList\.remove\('open','closing'\)/);
 assert.match(html, /playerDockAction==='inventory'\|\|playerDockAction==='abilities'/);
@@ -779,11 +792,13 @@ function renderCharacterStats(member, localCharacter, displayStatuses) {
     w:{
       STAT_LABEL_RU:{str:'Сила'},
       zgStatIcon:function(){ return '<i class="stat-icon"></i>'; },
-      zgCollectDisplayStatuses:function(){ return displayStatuses || []; }
+      zgCollectDisplayStatuses:function(){ return displayStatuses || []; },
+      zgInjuryIconMarkup:function(injury){ return '<img class="zg-injury-icon" src="'+injury.iconPath+'" alt="">'; }
     },
     fullLocalCharacter:function(){ return localCharacter || null; },
     drawerPublicViewer:function(){ return false; },
     currentVttSceneView:function(){ return {}; },
+    combatBloodVariant:function(){ return 'blood-variant-a'; },
     collectDisplayStatuses:function(){ return []; },
     statusDurationText:function(){ return ''; },
     esc:function(value){
@@ -824,8 +839,8 @@ assert.strictEqual((localEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).len
 assert.strictEqual((remoteEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
 var missingSpeedHtml = renderCharacterStats({uid:'missing-speed',name:'Без скорости'}, {name:'Без скорости',stats:{},hpCur:1,hpMax:1,ac:10});
 var zeroSpeedHtml = renderCharacterStats({uid:'zero-speed',name:'Неподвижный'}, {name:'Неподвижный',stats:{},hpCur:1,hpMax:1,ac:10,speed:0});
-assert.match(missingSpeedHtml, /<small>Скорость<\/small><i>➜<\/i><b>—<\/b>/);
-assert.match(zeroSpeedHtml, /<small>Скорость<\/small><i>➜<\/i><b>0<\/b>/);
+assert.match(missingSpeedHtml, /<small>Скорость<\/small><i><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>—<\/b>/);
+assert.match(zeroSpeedHtml, /<small>Скорость<\/small><i><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>0<\/b>/);
 var tolerantStatusHtml = renderCharacterStats(
   {uid:'status-test',name:'Статусный герой'},
   {name:'Статусный герой',stats:{str:2},hpCur:4,hpMax:8,ac:10,statuses:['Горит']},
@@ -833,12 +848,18 @@ var tolerantStatusHtml = renderCharacterStats(
 );
 assert.match(tolerantStatusHtml, /Открыть состояние: Горит/);
 assert.match(tolerantStatusHtml, /Открыть состояние: Заморожен/);
+var injuryHtml = renderCharacterStats(
+  {uid:'injury-test',name:'Раненый герой'},
+  {name:'Раненый герой',stats:{str:2},hpCur:7,hpMax:10,ac:10,injuries:[{name:'Сломанная рука',roll:1,iconPath:'images/vtt-injuries/broken-arm.png'}]}
+);
+assert.match(injuryHtml, /images\/vtt-injuries\/broken-arm\.png/, 'a hero with an injury must keep the first sheet page renderable');
 
 var abilitiesStart = html.indexOf('function abilitiesPanel()');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
 var abilitiesBlock = html.slice(abilitiesStart, abilitiesEnd);
 assert.match(abilitiesBlock, /localCharacter=fullLocalCharacter\(member\)/);
 assert.match(abilitiesBlock, /Math\.max\(spellLimit\(spell\),Number\(sessionUsage&&sessionUsage\.max\)\|\|0\)/);
+assert.match(abilitiesBlock, /cooldown\?1:0/, 'a spell with a cooldown label but no numeric count still gets one charge cell');
 assert.match(abilitiesBlock, /sessionUsage\?Number\(sessionUsage\.used\|\|0\)/);
 assert.match(abilitiesBlock, /card\.learned===false/);
 assert.match(abilitiesBlock, /card\.learned==null/);
@@ -883,7 +904,7 @@ assert.match(html, /data-backpack-skin="magic"\] \.zg-bag-interface \.zg-vtt-dra
 assert.match(html, /\.zg-magic3-slot-group>header\{[\s\S]*?min-height:0!important;[\s\S]*?background:transparent!important;/);
 assert.match(html, /Статус изучения не передан/);
 assert.match(html, /aria-label="Доступно /);
-assert.match(html, /Кулдаун:/);
+assert.match(html, /КУЛДАУН · ЗАРЯДЫ/);
 assert.match(html, /function abilityDetailSections\(card\)/);
 assert.match(html, /class="zg-ability-detail-section"/);
 assert.match(html, /w\.zgVttOwnAbilityUsage=function/);
