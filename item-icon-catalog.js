@@ -39,6 +39,7 @@
   }
   function keyFromValue(value) {
     var raw = String(value || '');
+    if (byKey[raw]) return raw;
     var art = /^art:([a-z0-9-]+)$/.exec(raw);
     if (art && byKey[art[1]]) return art[1];
     var path = /(?:^|\/)item-icons\/([a-z0-9-]+)\.png(?:[?#].*)?$/.exec(raw);

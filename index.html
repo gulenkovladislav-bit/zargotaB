@@ -46910,13 +46910,14 @@ function zgFamilySavePopup(charId, famId, presetDir, presetParent) {
       });
     });
   });
-  // Эмодзи-пикер (переиспользуем магазинный)
+  // Родственные связи не являются предметами: для них остаётся отдельный
+  // компактный набор портретных символов, не связанный с медиакаталогом вещей.
   panel.querySelector('#fam-icon-btn').addEventListener('click', function(){
-    if (typeof zgShopOpenEmojiPicker === 'function') {
-      zgShopOpenEmojiPicker(function(emoji){
-        panel.querySelector('#fam-icon').value = emoji;
-        panel.querySelector('#fam-icon-btn').textContent = emoji;
-      });
+    var current = panel.querySelector('#fam-icon').value || '👤';
+    var choice = window.prompt('Символ родственника:', current);
+    if (choice && choice.trim()) {
+      panel.querySelector('#fam-icon').value = choice.trim().slice(0, 4);
+      panel.querySelector('#fam-icon-btn').textContent = choice.trim().slice(0, 4);
     }
   });
   panel.querySelector('#fam-save-btn').addEventListener('click', function(){
@@ -60326,21 +60327,7 @@ var SHOP_RARITY = [
 ];
 var SHOP_REGIONS = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopRegions === 'function' ? window.ZargotaItemEconomy.getShopRegions() : [];
 var SHOP_MARKETS = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopMarkets === 'function' ? window.ZargotaItemEconomy.getShopMarkets() : [];
-// Пул эмодзи для пикера — сгруппирован по темам
-var SHOP_EMOJI_POOL = [
-  { group:'Оружие', list:['⚔️','🗡️','🔪','🏹','🪓','🔨','🛡️','🥊','🔱','🪃','🏏','⛏️','🪝','💣'] },
-  { group:'Броня и одежда', list:['🛡️','🥋','👕','👖','🧥','👞','🥾','🧤','🎩','👑','💍','📿','🧣','👒'] },
-  { group:'Магия', list:['✨','🔮','📜','📖','🕯️','⚗️','🧪','💎','🔯','☯️','🌟','⭐','💫','🌀','♦️','🃏'] },
-  { group:'Зелья и еда', list:['🧪','🍶','🍷','🍺','🧉','🍯','🍖','🍞','🧀','🍎','🥩','🐟','🧄','🌿','🍄'] },
-  { group:'Существа/маунты', list:['🐴','🐎','🦄','🐫','🐂','🐐','🦅','🐺','🐗','🦌','🐉','🕊️','🦂','🐍'] },
-  { group:'Здания/жильё', list:['🏠','🏡','🏰','🏯','⛺','🛖','🏚️','🏛️','🕍','⛪','🏭','🚪','🛏️','🪑'] },
-  { group:'Материалы/инструмент', list:['⛏️','🪓','🔧','🪛','🧰','⚙️','🔩','🧵','🪵','🪨','🧱','⚗️','🔗','🪤'] },
-  { group:'Торговля', list:['📦','🎁','🧾','⚖️','🗝️','🔑','📇','🏷️'] },
-  { group:'Люди/услуги', list:['🤝','🧙','⚗️','🩺','⚖️','🎭','🎨','🎵','📚','🛠️','🧭','🗺️','✉️','🔍'] },
-  { group:'Тёмное/подполье', list:['🩸','☠️','💀','🗝️','🕷️','🐀','🦇','⛓️','🃏','🎲','🕳️','🧿','⚰️'] }
-];
 var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false, rarity:'', priceBand:'', priceMin:'', priceMax:'', region:'', market:'', sort:'name', categoryFilters:{}, page:1, pageSize:24 };
-var _shopEmojiTarget = null; // куда вставлять выбранный эмодзи
 var _shopCart = {}; // itemId -> qty (реальные товары витрины)
 var _ecoCart = {}; // name -> {price:{}, qty} (позиции из экономики)
 // Разбор строки цены "2 пл · 3 зл", "18 зл", "0.5 зл" в монеты
@@ -61783,9 +61770,9 @@ function zgShopEdit(itemId) {
     // Иконка/фото (большая, с кнопкой пикера и загрузки) + название
     '<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch">'+
       '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+
-        '<button id="shp-icon-btn" type="button" title="Выбрать эмодзи или фото" style="width:72px;height:72px;font-size:38px;background:radial-gradient(circle at 50% 40%,#241a0e,#100b06);border:1px solid #3a2a14;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden">' + (it ? zgShopVisualMarkup(it, '🗡', 'width:100%;height:100%;object-fit:cover;display:block') : '🗡') + '</button>'+
+        '<button id="shp-icon-btn" type="button" title="Выбрать иконку предмета" style="width:72px;height:72px;font-size:38px;background:radial-gradient(circle at 50% 40%,#241a0e,#100b06);border:1px solid #3a2a14;border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;overflow:hidden">' + (it ? zgShopVisualMarkup(it, 'art:backpack', 'width:100%;height:100%;object-fit:cover;display:block') : zgItemIconMarkup('art:backpack')) + '</button>'+
         '<div style="display:flex;gap:4px">'+
-          '<button id="shp-emoji-pick" type="button" title="Эмодзи" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">😀</button>'+
+          '<button id="shp-emoji-pick" type="button" title="Каталог иконок" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">◈</button>'+
           '<button id="shp-img-pick" type="button" title="Загрузить фото" style="font-size:9px;padding:3px 6px;border:1px solid #2a1e10;background:#241a0e;color:#a8987c;border-radius:5px;cursor:pointer">🖼</button>'+
         '</div>'+
         '<div style="display:flex;gap:4px">'+
@@ -61870,14 +61857,14 @@ function zgShopEdit(itemId) {
     }
   }
 
-  // Эмодзи-пикер (кнопка 😀 и клик по большой иконке)
+  // Общий файловый каталог предметов (кнопка ◈ и клик по большой иконке)
   function pickEmoji(){
-    zgShopOpenEmojiPicker(function(emoji){
+    zgShopOpenEmojiPicker(function(iconValue){
       setShopImagePreparing(false);
-      panel.querySelector('#shp-icon').value = emoji;
-      panel.querySelector('#shp-image').value = ''; // эмодзи заменяет фото
+      panel.querySelector('#shp-icon').value = iconValue;
+      panel.querySelector('#shp-image').value = '';
       panel.querySelector('#shp-image-thumb').value = '';
-      panel.querySelector('#shp-icon-btn').innerHTML = emoji;
+      panel.querySelector('#shp-icon-btn').innerHTML = zgItemIconMarkup(iconValue);
     });
   }
   panel.querySelector('#shp-icon-btn').addEventListener('click', pickEmoji);
@@ -61957,7 +61944,7 @@ function zgShopEdit(itemId) {
       var clean = raw.replace(/```json|```/g,'').trim();
       var d = JSON.parse(clean);
       if (d.name) panel.querySelector('#shp-name').value = d.name;
-      if (d.icon) { panel.querySelector('#shp-icon').value = d.icon; panel.querySelector('#shp-icon-btn').textContent = d.icon; }
+      if (d.icon) { var normalizedIcon = window.ZargotaItemIcons ? window.ZargotaItemIcons.valueFor(d.icon) : d.icon; panel.querySelector('#shp-icon').value = normalizedIcon; panel.querySelector('#shp-icon-btn').innerHTML = zgItemIconMarkup(normalizedIcon); }
       if (d.damage) panel.querySelector('#shp-dmg').value = d.damage;
       if (d.damageType) panel.querySelector('#shp-dmgtype').value = d.damageType;
       if (d.defense) panel.querySelector('#shp-def').value = d.defense;
@@ -62019,7 +62006,8 @@ function zgShopEdit(itemId) {
   setTimeout(function(){ try { panel.querySelector('#shp-name').focus(); } catch(e){} }, 60);
 }
 
-// Эмодзи-пикер: сетка по группам + поле «своё»
+// Единый медиапикер предметов. Эмодзи намеренно не предлагаются: старые
+// значения распознаются каталогом и заменяются файловой иконкой при сохранении.
 function zgShopOpenEmojiPicker(onPick) {
   var old = document.getElementById('shop-emoji-picker'); if (old) old.remove();
   var isMobile = window.innerWidth < 600;
@@ -62030,29 +62018,27 @@ function zgShopOpenEmojiPicker(onPick) {
   bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
   var panel = document.createElement('div');
   panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid #d4a04a;border-radius:12px;width:100%;max-width:480px;padding:18px;box-shadow:0 24px 80px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:82vh;overflow-y:auto');
-  var groupsHtml = SHOP_EMOJI_POOL.map(function(g){
-    return '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#7a6a48;letter-spacing:1.2px;margin:12px 0 6px">' + g.group.toUpperCase() + '</div>'+
-      '<div style="display:flex;flex-wrap:wrap;gap:5px">'+
-        g.list.map(function(e){ return '<button type="button" class="emoji-pick-btn" data-emoji="' + e + '" style="width:40px;height:40px;font-size:22px;background:#241a0e;border:1px solid #2a1e10;border-radius:8px;cursor:pointer;transition:transform .12s,border-color .12s;display:flex;align-items:center;justify-content:center;padding:0">' + e + '</button>'; }).join('')+
+  var iconCatalog = window.ZargotaItemIcons ? window.ZargotaItemIcons.catalog : [];
+  var groups = {};
+  iconCatalog.forEach(function(icon){ (groups[icon.group] = groups[icon.group] || []).push(icon); });
+  var groupsHtml = Object.keys(groups).map(function(group){
+    return '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:#7a6a48;letter-spacing:1.2px;margin:12px 0 6px">' + escHTML(group.toUpperCase()) + '</div>'+
+      '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px">'+
+        groups[group].map(function(icon){ var value='art:'+icon.key; return '<button type="button" class="emoji-pick-btn" data-icon="' + value + '" title="' + escHTML(icon.label) + '" style="min-width:0;aspect-ratio:1;display:grid;grid-template-rows:minmax(0,1fr) auto;gap:2px;padding:5px;background:#241a0e;border:1px solid #2a1e10;border-radius:8px;color:#8f7b57;cursor:pointer;transition:transform .12s,border-color .12s"><span style="display:block;min-height:40px">' + zgItemIconMarkup(value) + '</span><small style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:7px">' + escHTML(icon.label) + '</small></button>'; }).join('')+
       '</div>';
   }).join('');
   panel.innerHTML =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'+
-      '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#e8c060;letter-spacing:1px">Выбор эмодзи</div>'+
+      '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#e8c060;letter-spacing:1px">Иконка предмета</div>'+
       '<button onclick="document.getElementById(\'shop-emoji-picker\').remove()" style="width:30px;height:30px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:6px;cursor:pointer;font-size:14px">✕</button>'+
     '</div>'+
-    '<div style="' + 'font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px' + '">СВОЙ ЭМОДЗИ (вставь любой)</div>'+
-    '<input id="emoji-custom" type="text" maxlength="4" placeholder="Вставь свой эмодзи и нажми Enter" style="width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#e8d8b8;padding:8px 12px;font-size:18px;text-align:center;margin-bottom:6px">'+
     groupsHtml;
   bd.appendChild(panel); document.body.appendChild(bd);
   Array.prototype.forEach.call(panel.querySelectorAll('.emoji-pick-btn'), function(btn){
     btn.addEventListener('mouseenter', function(){ btn.style.transform='scale(1.15)'; btn.style.borderColor='#d4a04a'; });
     btn.addEventListener('mouseleave', function(){ btn.style.transform=''; btn.style.borderColor='#2a1e10'; });
-    btn.addEventListener('click', function(){ onPick(btn.getAttribute('data-emoji')); bd.remove(); });
+    btn.addEventListener('click', function(){ onPick(btn.getAttribute('data-icon')); bd.remove(); });
   });
-  var custom = panel.querySelector('#emoji-custom');
-  custom.addEventListener('keydown', function(e){ if (e.key === 'Enter' && custom.value.trim()) { onPick(custom.value.trim()); bd.remove(); } });
-  setTimeout(function(){ try { custom.focus(); } catch(e){} }, 60);
 }
 
 // Шаблон-промпт для ИИ (генерация товара)
@@ -62080,7 +62066,7 @@ function zgShopAiTemplate(name, catLabel) {
     'Верни СТРОГО JSON без markdown и пояснений, по схеме:\n' +
     '{\n' +
     '  "name": "название",\n' +
-    '  "icon": "1 эмодзи",\n' +
+    '  "icon": "ключ иконки: sword, armor, potion, ring, toolkit и т.п.",\n' +
     '  "damage": "напр. 1d6 или пусто",\n' +
     '  "damageType": "напр. Рубящий или пусто",\n' +
     '  "defense": число_AC_или_0,\n' +
