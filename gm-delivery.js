@@ -482,7 +482,7 @@
       image:String(raw.imageThumb || raw.image || '').slice(0, 350000),
       payload:{
         name:String(raw.name || raw.title || 'Предмет').slice(0, 200),
-        icon:String(raw.icon || (category === 'weapon' ? '⚔️' : category === 'armor' || category === 'shield' ? '🛡️' : '📦')).slice(0, 20),
+        icon:w.ZargotaItemIcons ? w.ZargotaItemIcons.valueFor(raw) : String(raw.icon || 'art:backpack').slice(0, 40),
         category:category,qty:1,
         description:String(raw.description || raw.desc || raw.text || raw.effect || '').slice(0, 4000),
         effects:String(raw.effects || raw.effect || '').slice(0, 2000),
@@ -529,7 +529,7 @@
       title:value.title || value.payload && value.payload.name || 'Предмет',
       text:value.text || value.payload && value.payload.description || '',
       image:value.image || '',
-      icon:value.payload && value.payload.icon || '📦',
+      icon:value.payload && value.payload.icon || 'art:backpack',
       category:value.payload && value.payload.category || 'other',
       qty:Math.max(1, Number(value.payload && value.payload.qty) || 1),
       description:value.payload && value.payload.description || value.text || '',
@@ -607,7 +607,7 @@
       if (value.privateDelivery) tags.push('Скрытый канал');
     }
     return '<article class="zg-gm-delivery-preview-card mood-' + esc(value.mood || activeMood) + ' rarity-' + esc(itemRarity(payload.rarity)) + ' fx-' + esc(itemPresentationFx(payload.presentationFx)) + '">' +
-      (value.image ? '<img src="' + esc(value.image) + '" alt="">' : '<i>' + esc(icon) + '</i>') +
+      (value.image ? '<img src="' + esc(value.image) + '" alt="">' : value.kind === 'item' && w.ZargotaItemIcons ? '<i>' + w.ZargotaItemIcons.markup(payload) + '</i>' : '<i>' + esc(icon) + '</i>') +
       '<div><small>' + esc(textMode ? textDeliveryModeLabel(textMode) : kindLabel(value.kind)) + '</small><b>' + esc(value.title || 'Название') + '</b>' +
       '<p>' + esc(value.text || payload.description || 'Описание появится здесь.') + '</p>' +
       (tags.length ? '<footer>' + tags.map(function (tag) { return '<span>' + esc(tag) + '</span>'; }).join('') + '</footer>' : '') +
@@ -619,6 +619,9 @@
     var payload = value.payload || {};
     var image = String(value.image || payload.imageThumb || payload.image || '');
     var className = extraClass ? ' class="' + esc(extraClass) + '"' : '';
+    if (!image && (value.kind === 'item' || activeKind === 'item') && w.ZargotaItemIcons) {
+      return '<i' + className + '>' + w.ZargotaItemIcons.markup(payload) + '</i>';
+    }
     return image
       ? '<img' + className + ' src="' + esc(image) + '" alt="" loading="lazy" decoding="async">'
       : '<i' + className + '>' + esc(fallback || payload.icon || '📦') + '</i>';
@@ -957,7 +960,8 @@
     activeImage = draft.image || '';
     var fields = '';
     if (activeKind === 'item') {
-      fields = '<div class="zg-gm-delivery-row compact"><label>Иконка<input id="zg-gm-delivery-icon" maxlength="20" value="' + esc(payload.icon || '📦') + '"></label><label>Количество<input id="zg-gm-delivery-qty" type="number" min="1" max="999" value="' + Math.max(1, Number(payload.qty) || 1) + '"></label><label>Категория<select id="zg-gm-delivery-category"><option value="other"' + selected(payload.category,'other') + '>Другое</option><option value="weapon"' + selected(payload.category,'weapon') + '>Оружие</option><option value="armor"' + selected(payload.category,'armor') + '>Броня</option><option value="shield"' + selected(payload.category,'shield') + '>Щит</option><option value="consumable"' + selected(payload.category,'consumable') + '>Расходник</option><option value="material"' + selected(payload.category,'material') + '>Материал</option><option value="key"' + selected(payload.category,'key') + '>Ключ</option></select></label></div>' +
+      var iconValue = w.ZargotaItemIcons ? w.ZargotaItemIcons.valueFor(payload) : payload.icon || '';
+      fields = '<div class="zg-gm-delivery-row compact">' + itemIconPickerMarkup(iconValue) + '<label>Количество<input id="zg-gm-delivery-qty" type="number" min="1" max="999" value="' + Math.max(1, Number(payload.qty) || 1) + '"></label><label>Категория<select id="zg-gm-delivery-category"><option value="other"' + selected(payload.category,'other') + '>Другое</option><option value="weapon"' + selected(payload.category,'weapon') + '>Оружие</option><option value="armor"' + selected(payload.category,'armor') + '>Броня</option><option value="shield"' + selected(payload.category,'shield') + '>Щит</option><option value="consumable"' + selected(payload.category,'consumable') + '>Расходник</option><option value="material"' + selected(payload.category,'material') + '>Материал</option><option value="key"' + selected(payload.category,'key') + '>Ключ</option></select></label></div>' +
         '<div class="zg-gm-delivery-row compact"><label>Урон<input id="zg-gm-delivery-damage" maxlength="40" placeholder="1d6+2" value="' + esc(payload.damageFormula || '') + '"></label><label>Тип урона<input id="zg-gm-delivery-damage-type" maxlength="80" placeholder="Рубящий" value="' + esc(payload.damageType || '') + '"></label><label>Характеристика<select id="zg-gm-delivery-attack-stat"><option value="str"' + selected(payload.attackStat,'str') + '>Сила</option><option value="dex"' + selected(payload.attackStat,'dex') + '>Ловкость</option><option value="int"' + selected(payload.attackStat,'int') + '>Интеллект</option><option value="cha"' + selected(payload.attackStat,'cha') + '>Харизма</option><option value="per"' + selected(payload.attackStat,'per') + '>Восприятие</option></select></label></div>' +
         '<div class="zg-gm-delivery-row compact"><label>Бонус AC<input id="zg-gm-delivery-ac" type="number" min="-99" max="99" value="' + (Number(payload.acBonus) || 0) + '"></label><label>Дальность<input id="zg-gm-delivery-range" maxlength="80" placeholder="1 клетка" value="' + esc(payload.range || '1 клетка') + '"></label><label>Вес<input id="zg-gm-delivery-weight" type="number" min="0" max="9999" step="0.1" value="' + (Number(payload.weight) || 0) + '"></label></div>' +
         '<div class="zg-gm-delivery-row"><label>Слот экипировки<select id="zg-gm-delivery-slot"><option value=""' + selected(payload.slot,'') + '>Определить по предмету</option><option value="weapon"' + selected(payload.slot,'weapon') + '>Оружие</option><option value="head"' + selected(payload.slot,'head') + '>Голова</option><option value="armor"' + selected(payload.slot,'armor') + '>Доспех</option><option value="cloak"' + selected(payload.slot,'cloak') + '>Плащ</option><option value="hands"' + selected(payload.slot,'hands') + '>Руки</option><option value="legs"' + selected(payload.slot,'legs') + '>Ноги</option><option value="accessory1"' + selected(payload.slot,'accessory1') + '>Аксессуар</option></select></label></div>' +
@@ -1037,6 +1041,43 @@
     host.innerHTML = previewHeaderMarkup() + previewMarkup(currentForm());
   }
 
+  function itemIconPickerMarkup(value) {
+    var catalog = w.ZargotaItemIcons ? w.ZargotaItemIcons.catalog : [];
+    var normalized = w.ZargotaItemIcons ? w.ZargotaItemIcons.valueFor(value) : String(value || 'art:backpack');
+    var key = w.ZargotaItemIcons ? w.ZargotaItemIcons.resolveKey(normalized) : 'backpack';
+    var current = w.ZargotaItemIcons && w.ZargotaItemIcons.byKey[key] || {label:'Предмет',group:'Разное'};
+    return '<div class="zg-gm-delivery-icon-field"><small>ИКОНКА</small><input id="zg-gm-delivery-icon" type="hidden" value="' + esc(normalized) + '">' +
+      '<button id="zg-gm-delivery-icon-current" type="button" class="zg-gm-delivery-icon-current" onclick="zgGmDeliveryIconPickerToggle()"><i>' + (w.ZargotaItemIcons ? w.ZargotaItemIcons.markup(normalized) : '◇') + '</i><span><b>' + esc(current.label) + '</b><em>' + esc(current.group) + '</em></span><strong>▾</strong></button>' +
+      '<div id="zg-gm-delivery-icon-grid" class="zg-gm-delivery-icon-grid" hidden>' + catalog.map(function (icon) {
+        var iconValue = 'art:' + icon.key;
+        return '<button type="button" data-icon="' + esc(iconValue) + '" title="' + esc(icon.label) + '" class="' + (iconValue === normalized ? 'selected' : '') + '" onclick="zgGmDeliveryIconPick(\'' + esc(iconValue) + '\')">' + w.ZargotaItemIcons.markup(iconValue,{alt:false}) + '<span>' + esc(icon.label) + '</span></button>';
+      }).join('') + '</div></div>';
+  }
+
+  function syncItemIconPicker(value) {
+    if (!w.ZargotaItemIcons) return;
+    var normalized = w.ZargotaItemIcons.valueFor(value);
+    var input = node('zg-gm-delivery-icon');
+    if (input) input.value = normalized;
+    var key = w.ZargotaItemIcons.resolveKey(normalized), entry = w.ZargotaItemIcons.byKey[key];
+    var current = node('zg-gm-delivery-icon-current');
+    if (current && entry) current.innerHTML = '<i>' + w.ZargotaItemIcons.markup(normalized) + '</i><span><b>' + esc(entry.label) + '</b><em>' + esc(entry.group) + '</em></span><strong>▾</strong>';
+    var buttons = document.querySelectorAll('#zg-gm-delivery-icon-grid button');
+    for (var index = 0; index < buttons.length; index += 1) buttons[index].classList.toggle('selected', buttons[index].getAttribute('data-icon') === normalized);
+  }
+
+  w.zgGmDeliveryIconPickerToggle = function () {
+    var grid = node('zg-gm-delivery-icon-grid');
+    if (grid) grid.hidden = !grid.hidden;
+  };
+
+  w.zgGmDeliveryIconPick = function (value) {
+    syncItemIconPicker(value);
+    var grid = node('zg-gm-delivery-icon-grid');
+    if (grid) grid.hidden = true;
+    refreshDeliveryPreview();
+  };
+
   function fillForm(value) {
     value = value || {};
     var title = node('zg-gm-delivery-title'), text = node('zg-gm-delivery-text'), image = node('zg-gm-delivery-image');
@@ -1058,6 +1099,7 @@
       var input = node(pair[0]);
       if (input && payload[pair[1]] != null) input.value = payload[pair[1]];
     });
+    if (activeKind === 'item') syncItemIconPicker(payload.icon || payload);
     var playerDelete = node('zg-gm-delivery-player-delete');
     if (playerDelete) playerDelete.checked = payload.playerCanDelete !== false;
     refreshDeliveryPreview();
@@ -2147,7 +2189,7 @@
     var singleItem = delivery.kind === 'item' && delivery.payload && delivery.payload.item || null;
     var itemMeta = deliveredItems.length
       ? '<div class="zg-delivery-popup-bundle"><b>Получено предметов: ' + deliveredItems.length + '</b>' + deliveredItems.map(function (item) {
-          return '<span>' + (item.image ? '<img src="' + esc(item.image) + '" alt="" loading="eager" decoding="async">' : '<i>' + esc(item.icon || '📦') + '</i>') + '<em>' + esc(item.name || item.title || 'Предмет') + '</em><strong>×' + Math.max(1, Number(item.qty) || 1) + '</strong></span>';
+          return '<span>' + (item.image ? '<img src="' + esc(item.image) + '" alt="" loading="eager" decoding="async">' : w.ZargotaItemIcons ? '<i>' + w.ZargotaItemIcons.markup(item,{eager:true}) + '</i>' : '<i>' + esc(item.icon || 'Предмет') + '</i>') + '<em>' + esc(item.name || item.title || 'Предмет') + '</em><strong>×' + Math.max(1, Number(item.qty) || 1) + '</strong></span>';
         }).join('') + '</div>'
       : singleItem
         ? itemPopupDetails(singleItem)
@@ -2164,7 +2206,7 @@
     host.innerHTML =
       (singleItem ? itemPopupParticles(singleItem.presentationFx) : '') +
       '<small>' + esc(popupTitle(delivery)) + '</small>' +
-      (popupArtwork ? '<img src="' + esc(popupArtwork) + '" alt="">' : '<i>' + esc(popupIcon) + '</i>') +
+      (popupArtwork ? '<img src="' + esc(popupArtwork) + '" alt="">' : singleItem && w.ZargotaItemIcons ? '<i>' + w.ZargotaItemIcons.markup(singleItem,{eager:true}) + '</i>' : '<i>' + esc(popupIcon) + '</i>') +
       '<h2>' + esc(delivery.title || 'Получено') + '</h2>' +
       (delivery.text ? '<p>' + esc(delivery.text) + '</p>' : '') +
       itemMeta;

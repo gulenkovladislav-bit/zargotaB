@@ -1073,9 +1073,15 @@ async function expectCode(operation, code) {
   snapshot = await player.advanceCombat({ operationId:'zero-hp-pass-turn' });
   assert.strictEqual(snapshot.room.combat.turnIndex, 1, 'a zero-HP player can still pass the turn');
 
+  snapshot = await master.gmAdjustEntity({ tokenId:enemyTokenId }, { kind:'life-state', state:'dead' });
+  assert.strictEqual(snapshot.room.combat.order[1].zeroHp.state, 'dead', 'GM can explicitly mark a creature corpse during combat');
+  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === enemyTokenId).zeroHp.state, 'dead', 'corpse state reaches the scene token before combat ends');
+
   await expectCode(() => player.endCombat(), 'master-only');
   snapshot = await master.endCombat();
   assert.ok(snapshot.room.combat == null, 'only the master ends combat');
+  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === enemyTokenId).zeroHp.state, 'dead', 'corpse state survives combat deletion');
+  assert.strictEqual(snapshot.room.members[playerUid].character.deathSaves.successes, 1, 'hero death-save progress survives combat deletion');
   await expectCode(() => master.addCombatParticipant(linkedSummonToken), 'combat-missing');
   assert.ok(shared.data.rooms[roomCode].combat == null, 'a late summon join cannot recreate a partial combat after it ended');
 

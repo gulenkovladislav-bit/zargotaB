@@ -179,6 +179,23 @@ assert.strictEqual(custom[0].key, 'custom_mist');
 assert.strictEqual(custom[0].label, 'Туман');
 assert.strictEqual(custom[0].description, 'Скрывает силуэт.');
 
+var sheetEffect={type:'status',statusKey:'stun',sourceId:'sheet:stun',label:'Оглушён'};
+context.w = {};
+context.combatEntryForToken=function(){return{statuses:[],statusEffects:[]};};
+context.memberForToken=function(){return{character:{statuses:['stun'],statusEffects:[sheetEffect]}};};
+context.storedCombatEntryForToken=function(){return null;};
+context.isMaster=true;
+var projectedHeroStatuses=context.tokenCombatStatuses({type:'hero',memberUid:'player-1',statuses:[],statusEffects:[]});
+assert.strictEqual(projectedHeroStatuses.length,1,'empty combat arrays must not hide a state already present in the hero sheet');
+assert.strictEqual(projectedHeroStatuses[0].key,'stun');
+assert.strictEqual(context.tokenStatusEffect({type:'hero',memberUid:'player-1'},'stun').sourceId,'sheet:stun','GM status controls must resolve the sheet effect while combat projection catches up');
+var mergedDisplay=context.mergeStatusDisplaySources(
+  {statuses:['stun'],statusEffects:[sheetEffect]},
+  {statuses:['stun'],statusEffects:[sheetEffect]}
+);
+assert.strictEqual(context.collectDisplayStatuses(mergedDisplay,{isMaster:true}).length,1,'merged Firebase surfaces must deduplicate one state');
+context.w = {};
+
 assert.strictEqual(context.statusDurationText({remaining:2,unit:'rounds'}), '2 раунд.');
 assert.strictEqual(context.statusDurationText({remaining:null,unit:'manual'}), 'до снятия');
 assert.strictEqual(context.statusDurationLongText({remaining:1,unit:'rounds'}), '1 раунд');
@@ -257,7 +274,7 @@ assert.match(html, /className='zg-vtt-token-status-visuals'/);
 assert.match(html, /function statusSurfaceMarkup\(statuses,surface\)/, 'one renderer must serve all portrait status surfaces');
 assert.match(html, /zgStatusSurfaceMarkup=statusSurfaceMarkup/, 'portrait modules must use the public read-only visual adapter');
 assert.match(html, /w\.zgStatusSurfaceMarkup\?w\.zgStatusSurfaceMarkup\(activeStatuses,'state'\):''/, 'the large State portrait must show active status art');
-assert.match(html, /portraitStatusMarkup\(entry,c,'party'\)/, 'initiative portraits must show active status art');
+assert.match(html, /portraitStatusMarkup\(c,entry,'party'\)/, 'initiative portraits must prefer the durable hero sheet while merging the combat projection');
 assert.match(html, /zgStatusSurfaceMarkup\(w\.zgCollectDisplayStatuses\(c,\{isMaster:isMaster\}\),'sheet'\)/, 'the character sheet portrait must show active status art');
 assert.match(html, /if\(w\.zgSyncTokenEffectSize\)w\.zgSyncTokenEffectSize\(node\)/, 'token status art must follow the actual token size');
 assert.match(html, /aria-label="Уменьшить стаки"/);

@@ -35,6 +35,11 @@ const context = {
 vm.createContext(context);
 vm.runInContext(html.slice(start, end), context);
 
+const visualEvent = {id:'combat-damage-result-operation-42'};
+assert.strictEqual(context.combatDiceVisualId(visualEvent, 'damage'), 'combat-damage-visual-combat-damage-result-operation-42');
+assert.strictEqual(context.combatDiceVisualId(visualEvent, 'damage'), context.combatDiceVisualId(visualEvent, 'damage'), 'one combat phase always reuses the same visual id');
+assert.notStrictEqual(context.combatDiceVisualId(visualEvent, 'attack'), context.combatDiceVisualId(visualEvent, 'damage'), 'hit and damage phases keep independent visual channels');
+
 const attack = {id:'combat-hit-result-operation-1',kind:'combat-attack'};
 assert.strictEqual(context.playCombatDiceSound(attack, 'attack', 17, 20, 1580), true);
 assert.deepStrictEqual(calls, ['sample-start'], 'the licensed rolling sample starts immediately with the local combat die');
@@ -57,6 +62,11 @@ const combatRollBlock = html.slice(attackStart, damageEnd);
 assert.match(combatRollBlock, /playCombatDiceSound\(event,'attack',event\.attackRoll,20,throwMotion\?1580:1250,!!\(throwMotion&&throwMotion\.diceSoundStarted\)\)/, 'attack d20 uses the fast local exactly-once sound path');
 assert.match(combatRollBlock, /playCombatDiceSound\(event,'damage',damageItems\[0\]\.value,damageItems\[0\]\.sides,throwMotion\?1580:1250,!!\(throwMotion&&throwMotion\.diceSoundStarted\)\)/, 'damage dice use their real die sides and a separate sound channel');
 assert.match(combatRollBlock, /damageRollOptions=Object\.assign\(\{\},rollOptions\|\|\{\},\{scoreKind:'damage'\}\)/, 'damage rolls carry an explicit semantic final-sound kind');
+assert.match(combatRollBlock, /attackClientId=combatDiceVisualId\(event,'attack'\)/, 'an attack replay reuses its combat event visual id');
+assert.match(combatRollBlock, /damageClientId=combatDiceVisualId\(event,'damage'\)/, 'a damage replay reuses its combat event visual id');
+assert.match(combatRollBlock, /throwMotion&&!renderedRollVisuals\[attackClientId\]/, 'a repeated local attack callback cannot reopen a completed visual');
+assert.match(combatRollBlock, /throwMotion&&!renderedRollVisuals\[damageClientId\]/, 'a repeated local damage callback cannot reopen a completed visual');
+assert.doesNotMatch(combatRollBlock, /combat-(?:hit|damage)-'\+Date\.now/, 'combat roll visuals never mint a fresh id while replaying the same event');
 assert.match(html, /playCombatDiceSound\(event,'intent'/, 'short-action checks use the same licensed dice sample');
 assert.match(html, /playCombatDiceSound\(event,'save'/, 'saving throws use the same licensed dice sample');
 

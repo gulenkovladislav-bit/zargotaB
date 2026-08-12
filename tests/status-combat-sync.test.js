@@ -525,7 +525,9 @@ var equipmentRoom = {
         stats:{str:{base:3,cur:3,tmp:0}},
         mastery:[{name:'Стойка'}],
         weaponProfiles:[{id:'new',name:'Сабля'}],
-        equipmentBonuses:{acBonus:5,hpBonus:8,speedBonus:2}
+        equipmentBonuses:{acBonus:5,hpBonus:8,speedBonus:2},
+        statuses:['stun'],
+        statusEffects:[{type:'status',statusKey:'stun',sourceId:'sheet:stun'}]
       }
     }
   }
@@ -543,7 +545,8 @@ assert.strictEqual(reconciledEntry.economy.movementMax, 9);
 assert.strictEqual(reconciledEntry.economy.movement, 6, 'spent movement must be preserved when maximum speed changes');
 assert.strictEqual(reconciledEntry.economy.long, 0);
 assert.strictEqual(reconciledEntry.economy.reaction, 0);
-assert.strictEqual(reconciledEntry.statuses[0], 'burn');
+assert.deepStrictEqual(Array.from(reconciledEntry.statuses), ['stun'], 'member sheet states must replace a stale combat projection');
+assert.strictEqual(reconciledEntry.statusEffects[0].sourceId, 'sheet:stun');
 equipmentRoom.combat.order = equipmentReconcile.order;
 assert.strictEqual(context.reconcileCombatEquipmentOrder(equipmentRoom).changed, false, 'equal equipment snapshot must not cause a write loop');
 

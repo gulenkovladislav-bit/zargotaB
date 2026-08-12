@@ -75,7 +75,7 @@
         quantity = Math.max(1, Number(trailing[2]) || 1);
         text = trailing[1].trim();
       }
-      return text ? { name:text, qty:quantity, icon:'📦', description:'', migratedFrom:'inventory-text' } : null;
+      return text ? { name:text, qty:quantity, icon:'art:backpack', description:'', migratedFrom:'inventory-text' } : null;
     }).filter(Boolean);
   }
 
@@ -85,7 +85,7 @@
       if (typeof entry === 'string') item = { name:entry.trim(), icon:kind === 'equip' ? '🗃️' : '📦', description:'' };
       else item = entry && typeof entry === 'object' ? entry : { name:String(entry == null ? '' : entry) };
       if (!item.name && item.text) item.name = String(item.text);
-      if (!item.icon) item.icon = kind === 'equip' ? '🗃️' : '📦';
+      if (!item.icon) item.icon = kind === 'equip' ? 'art:armor' : 'art:backpack';
       if (item.description === undefined) item.description = '';
       if (kind === 'inventory') item.qty = Math.max(1, Number(item.qty) || 1);
       item.itemId = stableInventoryItemId(characterId, kind, index, item);

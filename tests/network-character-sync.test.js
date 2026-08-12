@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-12\.5/, 'network cache key must change with the current session and journal-delivery contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-12\.7/, 'network cache key must change with the current session status-projection contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -381,6 +381,7 @@ assert.match(html, /zgGmInterventionApply\(\\'temp-hp\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'inventory\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'abilities\\'\)/);
 assert.match(html, /zgGmInterventionOpenHero\(\\'journal\\'\)/);
+assert.match(html, /zgVttOpenPanelForMember\(panel,token\.memberUid,\{toggle:panel==='inventory'\}\)/, 'repeating the GM hero bag action closes the already-open bag');
 assert.match(html, /w\.zgGmInterventionMinimize=function/);
 assert.match(html, /class="zg-gm-intervention-orb"/);
 assert.match(html, /\.zg-gm-intervention\.minimized\{/);
@@ -731,6 +732,13 @@ assert.ok(combatEconomyLayer > backpackDrawerLayer, 'the bottom combat toolbar m
 assert.match(html, /drawer\.classList\.add\('closing'\)/);
 assert.match(html, /drawer\.classList\.remove\('open','closing'\)/);
 assert.match(html, /playerDockAction==='inventory'\|\|playerDockAction==='abilities'/);
+assert.match(html, /var creatureSheetButton=creatureSheet\?/);
+assert.match(html, /<b>Лист существа<\/b><small>HP, статусы, заметки<\/small>/);
+assert.match(html, /<b>Сумка героя<\/b><small>'\+\(session&&session\.role==='master'\?'выбранный игрок':'ваши вещи'\)/);
+assert.match(html, /'\+creatureSheetButton\+inventoryButton\+/,
+  'the NPC sheet and the selected hero bag must remain separate combat controls');
+assert.match(html, /w\.zgSelectedHeroMemberUid\|\|drawerMemberUid\|\|selectedMemberUid/,
+  'opening the combat bag must preserve the hero selected from the party portrait');
 assert.match(html, /lastDrawerRenderSignature = ''/);
 assert.match(html, /function syncBackpackArt\(drawer,skin\)/);
 assert.match(html, /width:min\(670px,calc\(\(100vh - 32px\)\*\.72\),calc\(100vw - 18px\)\)/);
@@ -739,9 +747,12 @@ assert.match(html, /\.zg-vtt-drawer\.backpack-skin\{[^}]*pointer-events:none\}/,
 assert.match(html, /\.zg-vtt-drawer\.backpack-skin \.zg-bag-interface,\.zg-vtt-drawer\.backpack-skin>\.zg-vtt-panel-close\{pointer-events:auto\}/, 'backpack content and its close button must remain interactive');
 assert.match(html, /class="zg-state-board"/);
 assert.match(html, /class="zg-state-hp"/);
+assert.match(html, /class="zg-vital-emblem hp"/);
+assert.match(html, /class="zg-temp-hp"/);
 assert.match(html, /class="zg-state-vitals"/);
 assert.match(html, /class="zg-state-vitals-top"/);
 assert.match(html, /class="zg-state-armor"/);
+assert.match(html, /class="zg-vital-emblem armor"/);
 assert.match(html, /class="zg-state-hp-bar"/);
 assert.match(html, /class="zg-state-combat-values"><div><small>Скорость<\/small>[\s\S]*?<div><small>Инициатива<\/small>/);
 assert.doesNotMatch(html, /class="zg-state-combat-values"><div><small>Броня<\/small>/);
@@ -769,6 +780,7 @@ assert.match(html, /\.zg-state-portrait img\{filter:none\}/);
 assert.match(html, /var equipmentSummary=c\._equipBonusCache&&typeof c\._equipBonusCache==='object'/);
 assert.match(html, /function equipmentSourceTitle\(label,kind,statKey\)/);
 assert.match(html, /class="zg-equip-bonus"/);
+assert.match(html, /class="zg-equip-bonus"[^>]*><i aria-hidden="true">◆<\/i><em>/);
 assert.match(html, /Источники? экипировочного бонуса|Источник экипировочного бонуса/);
 assert.match(html, /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] \.zg-vtt-drawer-body\{\s*overflow:hidden!important;/);
 var vttShellStart = html.indexOf('//   КАРКАС VTT');
@@ -851,6 +863,7 @@ assert.match(localEquipmentHtml, /aria-label="Максимум HP: \+4 от сн
 assert.match(localEquipmentHtml, /aria-label="Броня: \+2 от снаряжения · Бригантина \+2"/);
 assert.match(localEquipmentHtml, /aria-label="Скорость: \+1 от снаряжения · Бригантина \+1"/);
 assert.match(localEquipmentHtml, /aria-label="Инициатива: \+1 от снаряжения · Бригантина \+1"/);
+assert.match(localEquipmentHtml, /class="zg-equip-bonus"[^>]*><i aria-hidden="true">◆<\/i><em>\+2<\/em>/);
 var remoteEquipmentCharacter = Object.assign({}, localEquipmentCharacter, {
   name:'Firebase герой',
   _equipBonusCache:null,
@@ -862,8 +875,8 @@ assert.strictEqual((localEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).len
 assert.strictEqual((remoteEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
 var missingSpeedHtml = renderCharacterStats({uid:'missing-speed',name:'Без скорости'}, {name:'Без скорости',stats:{},hpCur:1,hpMax:1,ac:10});
 var zeroSpeedHtml = renderCharacterStats({uid:'zero-speed',name:'Неподвижный'}, {name:'Неподвижный',stats:{},hpCur:1,hpMax:1,ac:10,speed:0});
-assert.match(missingSpeedHtml, /<small>Скорость<\/small><i><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>—<\/b>/);
-assert.match(zeroSpeedHtml, /<small>Скорость<\/small><i><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>0<\/b>/);
+assert.match(missingSpeedHtml, /<small>Скорость<\/small><i class="zg-vital-emblem speed"><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>—<\/b>/);
+assert.match(zeroSpeedHtml, /<small>Скорость<\/small><i class="zg-vital-emblem speed"><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>0<\/b>/);
 var tolerantStatusHtml = renderCharacterStats(
   {uid:'status-test',name:'Статусный герой'},
   {name:'Статусный герой',stats:{str:2},hpCur:4,hpMax:8,ac:10,statuses:['Горит']},
