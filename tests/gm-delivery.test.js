@@ -44,11 +44,15 @@ assert.match(network, /delivery-image-large/);
 assert.match(network, /Array\.isArray\(rawPayload\.items\)\?rawPayload\.items\.slice\(0,20\):\[\]/);
 assert.match(network, /payload\.items=rawItems\.map/);
 assert.match(network, /normalizeDeliveryItem/);
+assert.match(network, /rarity:\['common','uncommon','rare','epic','legendary'\]/, 'rarity styling survives the Firebase normalization boundary');
+assert.match(network, /presentationFx:\['none','dust','embers','arcane'\]/, 'the selected receipt particles survive the Firebase normalization boundary');
 assert.match(network, /bundleImageSize>350000/);
 assert.match(network, /questId:questId/);
 assert.match(network, /icon:String\(rawQuest\.icon\|\|'✦'\)/);
 assert.match(network, /status:questStatus/);
 assert.match(network, /importance:questImportance/);
+assert.match(network, /payload\.journalMode=journalMode/, 'text delivery destination survives the Firebase normalization boundary');
+assert.match(network, /payload\.saveToJournal=journalMode!==\'message\'/, 'transient messages cannot accidentally become journal records');
 var batchStart = network.indexOf('gmSendDeliveries: function');
 var batchEnd = network.indexOf('acknowledgeGmDelivery: function', batchStart);
 var batchBlock = network.slice(batchStart, batchEnd);
@@ -77,6 +81,20 @@ assert.match(delivery, /MAX_SOURCE_IMAGE_BYTES = 12 \* 1024 \* 1024/);
 assert.match(delivery, /var drafts = Object\.create\(null\)/);
 assert.match(delivery, /var activeView = 'home'/);
 assert.match(delivery, /function renderHome\(host, members\)/);
+assert.match(delivery, /function composeRoute\(kind, payload\)/, 'each home choice resolves to its own delivery route');
+assert.match(delivery, /function composeIdentityMarkup\(route\)/, 'the active route has a distinct visual identity and explanation');
+assert.match(delivery, /function renderStorageHub\(host\)/, 'prepared cards open in a dedicated storage screen');
+assert.match(delivery, /function renderHistoryHub\(host\)/, 'delivery history opens in a dedicated history screen');
+assert.match(delivery, /w\.zgGmDeliveryOpenStorage = function/, 'storage is a first-class route instead of a composer drawer');
+assert.match(delivery, /w\.zgGmDeliveryStorageFilter = function/, 'the storage route filters all card kinds directly');
+assert.doesNotMatch(delivery, /zg-gm-delivery-tabs/, 'the specialized composer does not repeat the four-way type selector');
+assert.match(delivery, /В инвентарь героя/);
+assert.match(delivery, /В раздел заданий/);
+assert.match(delivery, /Сообщение, письмо или место/);
+assert.match(delivery, /Отдельный сценарий выдачи/);
+assert.match(styles, /\.zg-gm-delivery-route\{/);
+assert.match(styles, /\.zg-gm-delivery-storage-hub/);
+assert.match(styles, /\.zg-gm-delivery-history-hub/);
 assert.match(delivery, /ХРАНИЛИЩЕ СЕССИИ/);
 assert.match(delivery, /function allPreparedArtifacts\(\)/);
 assert.match(delivery, /zgGmDeliveryOpenHistory/);
@@ -85,7 +103,7 @@ assert.match(delivery, /function historyShelfMarkup\(\)/, 'history renders its o
 assert.match(delivery, /zgGmDeliveryHistoryDeleteRequest/, 'individual history entries can be removed');
 assert.match(delivery, /zgGmDeliveryHistoryClearRequest/, 'the full local delivery log can be cleared');
 assert.match(delivery, /zgGmDeliveryHistoryCleanupConfirm/, 'history cleanup requires explicit confirmation');
-assert.match(delivery, /Карточки в картотеке и уже выданные игрокам/, 'cleanup explains that delivered data and saved cards are preserved');
+assert.match(delivery, /Заготовки в хранилище и уже выданные игрокам/, 'cleanup explains that delivered data and saved cards are preserved');
 assert.match(delivery, /w\.zgImageStore\.makePortable\(file/);
 assert.match(delivery, /w\.zgGmDeliveryStart = function \(kind\)/);
 assert.match(delivery, /activeView = 'compose'/);
@@ -107,7 +125,7 @@ assert.match(delivery, /id="zg-gm-delivery-quest-icon"/);
 assert.match(delivery, /function questIconOptions\(value\)/);
 assert.match(delivery, /w\.zgGmDeliveryOpenForMember = function \(memberUid, kind\)/);
 assert.match(delivery, /activeTemplateIds/);
-assert.match(delivery, /Обновить в хранилище/);
+assert.match(delivery, /Обновить заготовку/);
 assert.match(delivery, /function requestAssetLibrary\(force\)/);
 assert.match(delivery, /w\.zgImageStore\.listMetadata \|\| w\.zgImageStore\.listAll/, 'the library prefers lightweight IndexedDB metadata instead of retaining every Blob');
 assert.match(delivery, /w\.zgImageStore\.put\(file, 'deliveries'/);
@@ -139,6 +157,16 @@ assert.match(delivery, /zgGmDeliveryShelf/);
 assert.match(delivery, /zgGmDeliveryRepeat/);
 assert.match(delivery, /Изображение уже очищено из локальной истории/);
 assert.match(delivery, /var activeTargets = \[\]/, 'recipient selection supports more than one player');
+assert.match(delivery, /var itemDeliveryMode = 'single'/, 'single-item delivery is the default explicit flow');
+assert.match(delivery, /var itemEditorOpen = false/, 'the custom item constructor starts collapsed');
+assert.match(delivery, /w\.zgGmDeliveryItemMode = function/, 'the GM can deliberately switch between one item and a bundle');
+assert.match(delivery, /w\.zgGmDeliveryOpenItemEditor = function/, 'the custom constructor opens only from a dedicated action');
+assert.match(delivery, /w\.zgGmDeliveryCloseItemEditor = function/, 'the custom constructor can be collapsed without losing its draft');
+assert.match(delivery, /ТАК УВИДИТ ИГРОК/, 'the preview is described in player-facing language');
+assert.match(delivery, /Карточка одного предмета/, 'single-item presentation is visually separate from bundle summary');
+assert.match(delivery, /Сводка набора/, 'bundle presentation has its own clear preview');
+assert.match(delivery, /id="zg-gm-delivery-rarity"/, 'single-item receipt rarity is configurable');
+assert.match(delivery, /id="zg-gm-delivery-fx"/, 'single-item receipt particles are configurable');
 assert.match(delivery, /function targetCardsMarkup\(members\)/, 'recipients render as visual cards instead of a select');
 assert.match(delivery, /zgGmDeliveryTargetToggle/, 'each player has an independent check toggle');
 assert.match(delivery, /zgGmDeliveryTargetAll/, 'the whole group can be selected in one action');
@@ -162,6 +190,13 @@ assert.match(delivery, /function addBundleItem/);
 assert.match(delivery, /zgGmDeliveryImportOpen/);
 assert.match(delivery, /zgGmDeliveryImportOne/);
 assert.match(delivery, /zgGmDeliveryImportBundle/);
+assert.match(delivery, /<b>Товары<\/b>/);
+assert.doesNotMatch(delivery, /<b>Оружейная<\/b>/);
+assert.match(delivery, /zgGmDeliveryImportCategory/);
+assert.match(delivery, /zgGmDeliveryImportEquip/);
+assert.match(delivery, /function folderTabsMarkup/);
+assert.match(delivery, /zgGmDeliveryFolderAdd/);
+assert.match(delivery, /zgGmDeliveryTemplateFolder/);
 assert.match(delivery, /zgGmDeliveryBundleAddCurrent/);
 assert.match(delivery, /zgGmDeliveryBundleAddTemplate/);
 assert.match(delivery, /zgGmDeliveryBundleRemove/);
@@ -182,9 +217,11 @@ assert.match(delivery, /journal\.findIndex\(function \(entry\)/);
 assert.match(delivery, /delivery\.showPopup !== false/);
 assert.match(delivery, /mood-' \+ \(delivery\.mood \|\| 'calm'\)/);
 assert.match(delivery, /receivedFromGm:true/);
+assert.match(delivery, /rarity:source\.rarity \|\| 'common'/, 'received inventory keeps the presentation rarity');
 assert.match(delivery, /equipped:false/);
 assert.match(delivery, /attackStat:source\.attackStat/);
 assert.match(delivery, /preferredSlot:source\.slot/);
+assert.match(delivery, /deliveredItems\[0\] && deliveredItems\[0\]\.image/);
 
 var questHelperStart = delivery.indexOf('function safeQuestId(value)');
 var questHelperEnd = delivery.indexOf('function emptyLibrary()', questHelperStart);
@@ -239,7 +276,10 @@ assert.strictEqual(imageJournalContext.result.mode, 'created');
 assert.strictEqual(imageJournalContext.result.journal[0].kind, 'image');
 assert.strictEqual(imageJournalContext.result.journal[0].image, 'data:image/webp;base64,AAAA');
 assert.strictEqual(imageJournalContext.result.journal[0].text, 'Подпись под фото');
-assert.match(delivery, /Сохранить письмо в журнале героя/, 'GM text deliveries can become persistent letters');
+assert.match(delivery, /Сообщение, письмо или место/, 'the text entry point explains every supported journal destination');
+assert.match(delivery, /Журнал героя → Заметки/, 'letters state their exact player journal destination');
+assert.match(delivery, /Журнал героя → Места/, 'places state their exact player journal destination');
+assert.match(delivery, /w\.zgGmDeliveryTextMode = function/, 'GM can switch the destination without a parallel delivery type');
 assert.match(delivery, /function upsertTextJournalEntry\(journal, delivery\)/, 'letters use a stable journal upsert path');
 assert.match(delivery, /persistText = delivery\.kind === 'text'/, 'text persistence is explicit and does not affect transient notices');
 
@@ -248,6 +288,11 @@ assert.match(styles, /\.zg-player-delivery-popup\.mood-solemn/);
 assert.match(styles, /\.zg-player-delivery-popup\.mood-ominous/);
 assert.match(styles, /\.zg-game-overlay\.gm\.gm-edit-mode \.zg-gm-delivery-button\{display:none\}/);
 assert.match(styles, /\.zg-gm-delivery-preview-card/);
+assert.match(styles, /\.zg-gm-delivery-item-mode/, 'single and bundle flows use a visual segmented control');
+assert.match(styles, /\.zg-gm-delivery-text-mode/, 'messages, letters and places use visual destination cards');
+assert.match(styles, /\.zg-gm-delivery-editor-launch/, 'the collapsed custom constructor has a compact launch card');
+assert.match(styles, /\.zg-player-delivery-popup\.item-single\.rarity-legendary/, 'single item receipts have rarity-specific glow');
+assert.match(styles, /\.zg-delivery-popup-particles/, 'single item receipts can render selected particles');
 assert.match(styles, /\.zg-gm-delivery-sent-notice/);
 assert.match(styles, /\.zg-gm-delivery-target-card\.selected/, 'selected recipients have a visible checked card state');
 assert.match(styles, /\.zg-gm-delivery-template-grid/, 'prepared cards use a compact grid');
@@ -329,6 +374,20 @@ assert.ok(applyDeliveryStart >= 0 && applyDeliveryEnd > applyDeliveryStart);
   assert.deepStrictEqual(saveReasons, ['inventory-add'], 'already applied delivery must not save again');
   assert.strictEqual(acknowledged.length, 2, 'an idempotent retry may safely acknowledge the same delivery');
 
+  var singleItemDelivery = {
+    id:'delivery-single-item-live',
+    kind:'item',
+    title:'Клинок рассвета',
+    text:'Редкая награда.',
+    image:'images/shop/dawn-blade.webp',
+    createdAt:600,
+    payload:{item:{name:'Клинок рассвета',icon:'⚔',category:'weapon',image:'images/shop/dawn-blade.webp',rarity:'rare',presentationFx:'dust',qty:1}}
+  };
+  await applyContext.result.applyDelivery(singleItemDelivery, member);
+  assert.strictEqual(deliveryCharacter.inventoryItems.length, 3, 'a single item receipt must remain separate from bundle delivery');
+  assert.strictEqual(deliveryCharacter.inventoryItems[2].image, 'images/shop/dawn-blade.webp');
+  assert.strictEqual(deliveryCharacter.inventoryItems[2].rarity, 'rare', 'the received item keeps its rarity styling metadata');
+
   var questDelivery = {
     id:'delivery-quest-live',
     kind:'quest',
@@ -342,8 +401,8 @@ assert.ok(applyDeliveryStart >= 0 && applyDeliveryEnd > applyDeliveryStart);
   assert.strictEqual(deliveryCharacter.journalEntries.length, 1, 'quest delivery must create a journal entry');
   assert.strictEqual(deliveryCharacter.journalEntries[0].questId, 'old-well');
   assert.strictEqual(deliveryCharacter.journalEntries[0].image, 'images/journal/well.webp');
-  assert.strictEqual(saveReasons[1], 'journal-add');
-  assert.deepStrictEqual(acknowledged[2], {id:'delivery-quest-live',status:'applied'});
+  assert.strictEqual(saveReasons[2], 'journal-add');
+  assert.deepStrictEqual(acknowledged[3], {id:'delivery-quest-live',status:'applied'});
 
   var letterDelivery = {
     id:'delivery-letter-live',
@@ -359,7 +418,35 @@ assert.ok(applyDeliveryStart >= 0 && applyDeliveryEnd > applyDeliveryStart);
   assert.strictEqual(deliveryCharacter.journalEntries[1].kind, 'note');
   assert.strictEqual(deliveryCharacter.journalEntries[1].playerCanDelete, true);
   assert.strictEqual(deliveryCharacter.journalEntries[1].image, 'images/journal/seal.webp');
-  assert.strictEqual(saveReasons[2], 'journal-add');
+  assert.strictEqual(saveReasons[3], 'journal-add');
+
+  var placeDelivery = {
+    id:'delivery-place-live',
+    kind:'text',
+    title:'Старый мост у тракта',
+    text:'Под третьей опорой спрятан знак проводника.',
+    image:'images/journal/old-bridge.webp',
+    createdAt:900,
+    payload:{journalMode:'place',saveToJournal:true,playerCanDelete:false}
+  };
+  await applyContext.result.applyDelivery(placeDelivery, member);
+  assert.strictEqual(deliveryCharacter.journalEntries.length, 3, 'place delivery must create a persistent journal entry');
+  assert.strictEqual(deliveryCharacter.journalEntries[2].kind, 'place');
+  assert.strictEqual(deliveryCharacter.journalEntries[2].icon, '⌖');
+  assert.strictEqual(deliveryCharacter.journalEntries[2].playerCanDelete, false);
+  assert.strictEqual(saveReasons[4], 'journal-add');
+
+  var transientDelivery = {
+    id:'delivery-message-live',
+    kind:'text',
+    title:'Шёпот из темноты',
+    text:'Обернись.',
+    createdAt:950,
+    payload:{journalMode:'message',saveToJournal:false}
+  };
+  await applyContext.result.applyDelivery(transientDelivery, member);
+  assert.strictEqual(deliveryCharacter.journalEntries.length, 3, 'transient messages must not clutter the journal');
+  assert.strictEqual(saveReasons.length, 5, 'transient messages require no character save');
   console.log('gm delivery contract passed');
 })().catch(function(error){
   console.error(error);

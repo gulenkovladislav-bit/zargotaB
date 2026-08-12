@@ -46,6 +46,7 @@
   function equipmentKind(item) {
     var hay = [
       item && item.slot,
+      item && item.preferredSlot,
       item && item.category,
       item && item.cat,
       item && item.type,
@@ -72,13 +73,32 @@
   }
 
   function normalizedEquipmentSlot(item) {
-    var explicit = String(item && item.slot || '').trim();
+    var explicit = String(item && (item.slot || item.preferredSlot) || '').trim();
     var lower = explicit.toLowerCase();
     if (lower === 'weapon' || lower === 'mainhand' || lower === 'main-hand' || lower === 'main_hand') return 'mainHand';
     if (lower === 'offhand' || lower === 'off-hand' || lower === 'off_hand') return 'offHand';
     if (equipmentKind(item) === 'shield') return 'offHand';
     if (equipmentKind(item) === 'weapon') return 'mainHand';
     return explicit;
+  }
+
+  function preferredEquipmentSlot(item) {
+    var explicit = normalizedEquipmentSlot(item);
+    if (explicit === 'body' || explicit === 'chest') return 'armor';
+    if (explicit === 'accessory') return 'accessory1';
+    if (['mainHand','offHand','head','armor','cloak','hands','legs','accessory1','accessory2'].indexOf(explicit) >= 0) return explicit;
+    var kind = equipmentKind(item);
+    if (kind === 'shield') return 'offHand';
+    if (kind === 'weapon') return 'mainHand';
+    var hay = [item && item.type,item && item.category,item && item.cat,item && item.tags,item && item.name]
+      .filter(Boolean).join(' ').toLowerCase();
+    if (/голов|шлем|капюш|head/.test(hay)) return 'head';
+    if (/плащ|накид|cloak/.test(hay)) return 'cloak';
+    if (/брон|доспех|одеж|ряса|body|chest|armor/.test(hay)) return 'armor';
+    if (/перчат|наруч|рукав|hands|glove/.test(hay)) return 'hands';
+    if (/сапог|ботин|обув|понож|legs|boot/.test(hay)) return 'legs';
+    if (/талис|кольц|амул|ожерел|access/.test(hay)) return 'accessory1';
+    return '';
   }
 
   function canEquipInSlot(item, requestedSlot) {
@@ -250,6 +270,7 @@
     equipmentKind:equipmentKind,
     itemHandsRequired:itemHandsRequired,
     normalizedEquipmentSlot:normalizedEquipmentSlot,
+    preferredEquipmentSlot:preferredEquipmentSlot,
     canEquipInSlot:canEquipInSlot,
     planHandEquip:planHandEquip,
     resolveHandSlots:resolveHandSlots,

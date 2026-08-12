@@ -112,7 +112,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const network = fs.readFileSync(path.join(__dirname, '..', 'zargota-network.js'), 'utf8');
 assert.match(html, /dice-result-fx\.js\?v=/, 'result effect module is loaded by the game');
 assert.match(html, /dice-result-fx\.js\?v=2026-08-11\.13/, 'the synchronized final-sound scheduler has a fresh browser cache key');
-assert.match(html, /zargota-network\.js\?v=2026-08-12\.3/, 'the current Firebase transport has a fresh browser cache key');
+assert.match(html, /zargota-network\.js\?v=2026-08-12\.5/, 'the current Firebase transport has a fresh browser cache key');
 assert.match(html, /diceScoreCue: function\(cue\)/, 'the shared sound engine owns recorded score cues');
 assert.match(html, /diceScoreGearClick:'audio\/vtt-actions\/dice-score-gear-click\.mp3'/, 'counting uses the selected Gear Click recording');
 assert.match(html, /diceScoreThresholdRise:'audio\/vtt-actions\/dice-score-threshold-rise\.mp3'/, 'ordinary finals use the selected Rise Ding recording');

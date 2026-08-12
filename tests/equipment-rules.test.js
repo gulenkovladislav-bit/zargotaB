@@ -66,6 +66,10 @@ assert.strictEqual(mixedResult.statBonuses.str, 0, 'unequipped inventory item mu
 assert.strictEqual(rules.normalizedEquipmentSlot({slot:'weapon',category:'weapon'}), 'mainHand');
 assert.strictEqual(rules.normalizedEquipmentSlot({slot:'main_hand',category:'weapon'}), 'mainHand');
 assert.strictEqual(rules.normalizedEquipmentSlot({name:'Старый щит',category:'shield'}), 'offHand');
+assert.strictEqual(rules.normalizedEquipmentSlot({name:'Бригантина',category:'armor',preferredSlot:'armor'}), 'armor');
+assert.strictEqual(rules.preferredEquipmentSlot({name:'Дорожная бригантина',category:'armor',preferredSlot:'armor'}), 'armor');
+assert.strictEqual(rules.preferredEquipmentSlot({name:'Плащ следопыта',category:'armor',preferredSlot:'cloak'}), 'cloak');
+assert.strictEqual(rules.preferredEquipmentSlot({name:'Кольцо',category:'accessory'}), 'accessory1');
 assert.strictEqual(rules.itemHandsRequired({name:'Двуручный меч',category:'weapon'}), 2);
 assert.strictEqual(rules.itemHandsRequired({name:'Рапира',category:'weapon'}), 1);
 assert.strictEqual(rules.canEquipInSlot({name:'Щит',category:'shield'}, 'mainHand'), false);

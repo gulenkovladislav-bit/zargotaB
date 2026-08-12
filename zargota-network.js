@@ -4905,6 +4905,8 @@
             range:String(source.range||'').trim().slice(0,80),
             weight:Math.max(0,Math.min(9999,Number(source.weight)||0)),
             slot:['','weapon','head','armor','cloak','hands','legs','accessory1','accessory2','talisman','belt'].indexOf(source.slot)>=0?source.slot:'',
+            rarity:['common','uncommon','rare','epic','legendary'].indexOf(String(source.rarity||''))>=0?String(source.rarity):'common',
+            presentationFx:['none','dust','embers','arcane'].indexOf(String(source.presentationFx||''))>=0?String(source.presentationFx):'none',
             qty:Math.max(1,Math.min(999,Math.floor(Number(source.qty)||1))),
             equipped:false
           };
@@ -4938,7 +4940,11 @@
           ? String(rawPayload.compression)
           : 'balanced';
       }else if(kind==='text'){
-        payload.saveToJournal=rawPayload.saveToJournal!==false;
+        var journalMode=['message','letter','place'].indexOf(String(rawPayload.journalMode||''))>=0
+          ? String(rawPayload.journalMode)
+          : rawPayload.saveToJournal===false?'message':'letter';
+        payload.journalMode=journalMode;
+        payload.saveToJournal=journalMode!=='message';
         payload.playerCanDelete=rawPayload.playerCanDelete!==false;
       }
       if(!deliveryFromOutbox){
