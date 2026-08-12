@@ -40,20 +40,21 @@ assert.strictEqual(totalDuplicate.removed, true, 'only one total card survives')
 assert.strictEqual(unrelated.removed, false);
 assert.deepStrictEqual(stopped, ['die:roll-a-0']);
 
-const anchorStart = html.indexOf('  function diceResultScreenAnchor(');
+const anchorStart = html.indexOf('  function diceResultLayerPoint(');
 const anchorEnd = html.indexOf('  function combatContestRollMode(', anchorStart);
-assert.ok(anchorStart >= 0 && anchorEnd > anchorStart, 'viewport anchor helper must remain extractable');
+assert.ok(anchorStart >= 0 && anchorEnd > anchorStart, 'scene anchor helpers must remain extractable');
 vm.runInContext(html.slice(anchorStart, anchorEnd), context);
+const resultLayer = {offsetWidth:2000,offsetHeight:1000,getBoundingClientRect(){return {left:100,top:50,width:1000,height:500};}};
 assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(context.diceResultScreenAnchor(null, null, '50%', '44%', {}, 640, 360))),
-  {x:640,y:360},
-  'a local throw keeps its exact on-screen impact point in the top portal'
+  JSON.parse(JSON.stringify(context.diceResultSceneAnchor(resultLayer, null, null, '50%', '44%', {}, 640, 360))),
+  {x:1080,y:620},
+  'a local throw converts its visible impact point back into transformed scene coordinates'
 );
 const anchorToken = {getBoundingClientRect(){return {left:180,top:90,width:80,height:80};}};
 assert.deepStrictEqual(
-  JSON.parse(JSON.stringify(context.diceResultScreenAnchor(anchorToken, null, '50%', '44%', null, 0, 0))),
-  {x:220,y:130},
-  'a remote result anchors to the visible token centre after camera transforms'
+  JSON.parse(JSON.stringify(context.diceResultSceneAnchor(resultLayer, anchorToken, null, '50%', '44%', null, 0, 0))),
+  {x:240,y:160},
+  'a remote result anchors to the token centre in the same transformed scene'
 );
 
 const modeStart = html.indexOf('  function combatContestRollMode(');
@@ -80,10 +81,14 @@ assert.match(html,/if\(!item\.kept\)setTimeout\(function\(\)\{if\(die\.parentNod
 assert.match(html,/world-roll\.local-thrown\.contest-resolve\.contest-loser img/, 'contest dissolve overrides the stronger local critical animation');
 assert.match(html,/world-roll\.local-thrown\.contest-resolve\.contest-winner b/, 'the kept number follows its die even after the local landing pulse');
 assert.match(html,/world-roll\.local-thrown\.contest-resolve\.contest-winner img/, 'the kept die texture follows the same contest path as its number');
-assert.match(html,/document\.body\.appendChild\(layer\)/, 'the final result portal escapes every transformed map stacking context');
-assert.match(html,/zg-dice-result-layer\{position:fixed;inset:0;z-index:2147483640;pointer-events:none/, 'the final result portal stays above every map and combat layer without blocking input');
-assert.match(html,/resultLayer\.appendChild\(totalNode\)/, 'final totals render in the top-level portal instead of the transformed world');
-assert.doesNotMatch(html,/host\.appendChild\(totalNode\)/, 'final totals cannot fall back under the map layer');
+const resultLayerStart = html.indexOf('  function ensureDiceResultLayer(');
+const resultLayerEnd = html.indexOf('  function pruneDuplicateRollVisuals(', resultLayerStart);
+const resultLayerSource = html.slice(resultLayerStart, resultLayerEnd);
+assert.match(resultLayerSource,/if\(layer\.parentNode!==world\)world\.appendChild\(layer\)/, 'the result layer is attached to the transformed scene world');
+assert.doesNotMatch(resultLayerSource,/document\.body\.appendChild\(layer\)/, 'the final result is no longer detached into a screen-fixed body portal');
+assert.match(html,/zg-dice-result-layer\{position:absolute;inset:0;z-index:52;pointer-events:none/, 'the scene result stays above token, move and portrait layers without blocking input');
+assert.match(html,/resultLayer\.appendChild\(totalNode\)/, 'final totals render in their dedicated scene layer');
+assert.match(html,/flightHost\.appendChild\(flight\)/, 'number flights use the same scene coordinate space as the total');
 const combatReleaseStart = html.indexOf('  function endApprovedAttackDie(');
 const combatReleaseEnd = html.indexOf("  document.addEventListener('pointermove'", combatReleaseStart);
 const combatRelease = html.slice(combatReleaseStart, combatReleaseEnd);

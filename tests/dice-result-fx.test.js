@@ -111,7 +111,7 @@ assert.deepEqual(soundCues.slice(inferredDamageCueStart).map(cue => cue.soundKin
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const network = fs.readFileSync(path.join(__dirname, '..', 'zargota-network.js'), 'utf8');
 assert.match(html, /dice-result-fx\.js\?v=/, 'result effect module is loaded by the game');
-assert.match(html, /dice-result-fx\.js\?v=2026-08-11\.13/, 'the synchronized final-sound scheduler has a fresh browser cache key');
+assert.match(html, /dice-result-fx\.js\?v=2026-08-12\.1/, 'the synchronized final-sound scheduler has a fresh browser cache key');
 assert.match(html, /zargota-network\.js\?v=2026-08-12\.7/, 'the current Firebase transport has a fresh browser cache key');
 assert.match(html, /diceScoreCue: function\(cue\)/, 'the shared sound engine owns recorded score cues');
 assert.match(html, /diceScoreGearClick:'audio\/vtt-actions\/dice-score-gear-click\.mp3'/, 'counting uses the selected Gear Click recording');
@@ -161,10 +161,11 @@ assert.match(network, /inferredScoreKind=rolls\.some\(/, 'Firebase batch transpo
 assert.match(network, /resultSound:\['success','fail','critical-success','critical-fail','silent'\]/, 'Firebase transports the validated d20 outcome sound for remote viewers');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'dice-result-fx.js'), 'utf8');
-assert.match(source, /dice-score-band-1[^{]*\{--dice-score-color:#f3eee4/, 'single-digit totals stay warm white regardless of die quality');
+assert.match(source, /dice-score-band-1[^{]*\{--dice-score-color:#fff4c4/, 'single-digit totals use the same golden yellow as the landed die');
 assert.match(source, /dice-score-band-3[^{]*\{--dice-score-color:#e99a52/, 'middle totals shift into orange');
 assert.match(source, /dice-score-band-6[^{]*\{--dice-score-color:#861a38/, 'the highest total band shifts the result into burgundy');
-assert.match(source, /dice-score-d20\{--dice-score-color:#f3eee4/, 'ordinary d20 totals stay light instead of using the damage scale');
+assert.match(source, /dice-score-d20\{--dice-score-color:#fff4c4/, 'ordinary d20 totals use the landed-die gold instead of the damage scale');
+assert.match(html, /zg-roll-total\.ready b\{[^}]*color:#fff4c4[^}]*text-shadow:0 0 12px #ffd96d/, 'the base final total matches the landed die before score-band overrides');
 assert.match(source, /dice-score-d20-critical-fail\{--dice-score-color:#ff3045/, 'critical d20 failures use a stronger saturated red result');
 assert.match(html, /zg-roll-total-outcome\.fail\{color:#ff3045/, 'the critical-failure phrase uses the same stronger red');
 assert.match(source, /dice-score-active b\{color:var\(--dice-score-color[^}]*!important/, 'the active total number itself follows the score-band color');
@@ -178,7 +179,7 @@ assert.match(source, /zgDicePowerNumberYield\{0%,55%\{opacity:1;visibility:visib
 assert.match(source, /zgDicePowerTitle 3\.2s[^}]* 1\.45s both/, 'the might title waits for the number and then remains readable');
 assert.match(source, /22%,82%\{opacity:1/, 'the might title holds at full opacity instead of flashing');
 assert.match(html, /finished&&!finished\.hidden&&finished\.powerLabel\)scheduleTotalRemoval\(5000\)/, 'the power title receives its own lifetime from the completed score');
-assert.match(html, /function diceResultScreenAnchor\(token,host,rollLeft,rollTop,localThrow,groupCenterX,groupCenterY\)/, 'the top-level result portal preserves the throw position in viewport coordinates');
+assert.match(html, /function diceResultSceneAnchor\(resultLayer,token,host,rollLeft,rollTop,localThrow,groupCenterX,groupCenterY\)/, 'the result converts the throw position into the transformed scene coordinate space');
 assert.match(html, /showTotal=hideResult\|\|isContest\|\|rolls\.length>1\|\|Number\(rolls\[0\]\.value\)!==1\|\|!!totalOutcome/, 'a natural-one d20 still creates its final total');
 assert.match(html, /КРИТИЧЕСКИЙ УСПЕХ[\s\S]*?КРИТИЧЕСКИЙ ПРОВАЛ/, 'critical d20 labels are rendered in the final total card');
 

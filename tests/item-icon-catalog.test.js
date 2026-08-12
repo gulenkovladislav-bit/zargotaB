@@ -40,6 +40,8 @@ assert.doesNotMatch(html, /data-emoji=/, 'item creation UI must not expose emoji
 assert.doesNotMatch(html, /id="emoji-custom"/, 'item creation UI must not accept custom emoji icons');
 assert.match(html, /data-icon=/, 'item creation UI must select shared media keys');
 assert.match(html, /window\.ZargotaItemIcons \? window\.ZargotaItemIcons\.catalog/, 'item editors must consume the shared catalog');
+assert.match(html, /class="char-inventory-equip-art"/, 'equipped catalog cards must wrap media in a bounded art frame');
+assert.match(html, /\.char-inventory-equip-art\{[^}]*width:34px;[^}]*height:34px;[^}]*overflow:hidden/, 'equipped catalog art must not expand the equipment column');
 assert.doesNotMatch(delivery, /<select id="zg-gm-delivery-icon">/, 'GM item editor must use the visual media picker');
 assert.match(delivery, /zg-gm-delivery-icon-grid/, 'GM item editor must expose the visual media grid');
 

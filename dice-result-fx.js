@@ -56,18 +56,18 @@
     styleReady=true;
     var style=w.document.createElement('style');style.id='zg-dice-result-fx-style';
     style.textContent='\
-.zg-roll-total.dice-score-active{--dice-score-color:#d9bd78;--dice-score-glow:rgba(217,189,120,.36)}\
+.zg-roll-total.dice-score-active{--dice-score-color:#fff4c4;--dice-score-glow:rgba(255,217,109,.46)}\
 .zg-roll-total.dice-score-low,.zg-roll-total.dice-score-fumble,.zg-roll-total.dice-score-disastrous,.zg-roll-total.dice-score-catastrophic{--dice-score-color:#b77d70;--dice-score-glow:rgba(150,58,45,.34)}\
 .zg-roll-total.dice-score-strong{--dice-score-color:#e4c86f;--dice-score-glow:rgba(228,200,111,.4)}\
 .zg-roll-total.dice-score-excellent,.zg-roll-total.dice-score-perfect,.zg-roll-total.dice-score-exceptional{--dice-score-color:#fff0a8;--dice-score-glow:rgba(255,220,92,.54)}\
 .zg-roll-total.dice-score-legendary{--dice-score-color:#fff7c8;--dice-score-glow:rgba(255,223,83,.72)}\
-.zg-roll-total.dice-score-band-1{--dice-score-color:#f3eee4;--dice-score-glow:rgba(238,229,211,.34)}\
+.zg-roll-total.dice-score-band-1{--dice-score-color:#fff4c4;--dice-score-glow:rgba(255,217,109,.46)}\
 .zg-roll-total.dice-score-band-2{--dice-score-color:#f0ce86;--dice-score-glow:rgba(222,165,67,.44)}\
 .zg-roll-total.dice-score-band-3{--dice-score-color:#e99a52;--dice-score-glow:rgba(199,96,35,.52)}\
 .zg-roll-total.dice-score-band-4{--dice-score-color:#d56849;--dice-score-glow:rgba(163,50,35,.6)}\
 .zg-roll-total.dice-score-band-5{--dice-score-color:#b83b47;--dice-score-glow:rgba(126,18,43,.68)}\
 .zg-roll-total.dice-score-band-6{--dice-score-color:#861a38;--dice-score-glow:rgba(103,5,34,.82)}\
-.zg-roll-total.dice-score-d20{--dice-score-color:#f3eee4;--dice-score-glow:rgba(238,229,211,.34)}\
+.zg-roll-total.dice-score-d20{--dice-score-color:#fff4c4;--dice-score-glow:rgba(255,217,109,.46)}\
 .zg-roll-total.dice-score-d20-critical-success{--dice-score-color:#fff0a8;--dice-score-glow:rgba(255,220,92,.58)}\
 .zg-roll-total.dice-score-d20-critical-fail{--dice-score-color:#ff3045;--dice-score-glow:rgba(214,0,28,.82)}\
 .zg-roll-total.dice-score-active b{color:var(--dice-score-color,#d9bd78)!important;text-shadow:0 2px 7px #000,0 0 12px var(--dice-score-glow),0 0 24px var(--dice-score-glow);transition:color .22s ease,text-shadow .22s ease}\

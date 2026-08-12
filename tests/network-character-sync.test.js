@@ -623,6 +623,10 @@ assert.match(inventoryDropBlock, /equipmentRules\.planHandEquip\(c\.inventoryIte
 assert.match(inventoryDropBlock, /commitInventoryMutation\(member,c,before,'inventory-equip'/);
 assert.match(html, /w\.zgVttInventoryUnequip=function\(source,index\)/);
 assert.match(html, /source==='inventory'\?c\.inventoryItems:c\.equipItems/);
+assert.match(html, /function unequipControl\(entry\)/, 'every occupied equipment slot must expose a direct unequip control');
+assert.match(html, /class="zg-inv2-unequip"[^>]*zgVttInventoryUnequip/, 'direct unequip control must use the synchronized inventory mutation');
+assert.match(html, /aria-label="'\+esc\(label\)\+'"/, 'direct unequip control must remain accessible without relying on its minus icon');
+assert.match(html, /\.zg-inv2-unequip\{/, 'direct unequip control must have a visible dedicated style');
 assert.match(html, /saveChars\(\{reason:'inventory-add'\}\)/);
 assert.match(html, /saveChars\(\{reason:'inventory-remove'\}\)/);
 assert.match(html, /saveChars\(\{reason:'inventory-quantity'\}\)/);

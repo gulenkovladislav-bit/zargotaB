@@ -79,7 +79,7 @@ assert.match(render, /Math\.floor\(Math\.random\(\)\*\(i\+1\)\)/, 'the order use
 assert.match(render, /function launchNextTotalNumber\(\)/, 'one recursive sequence owns number flights');
 assert.match(render, /function launchDiceTotalNumber\(die,totalNode,text,flightDuration,onArrive,resultLayer\)/, 'one shared helper owns flights into the final result');
 assert.match(render, /setTimeout\(function\(\)\{if\(flight\.parentNode\)flight\.remove\(\);onArrive\(\);\},flightDuration\)/, 'the next addition waits until the current number reaches the total');
-assert.match(render, /\(resultLayer\|\|document\.body\)\.appendChild\(flight\)/, 'number flights stay inside the topmost result portal');
+assert.match(render, /flightHost\.appendChild\(flight\)/, 'number flights stay inside the scene-bound result layer');
 assert.match(render, /else setTimeout\(launchNextTotalNumber,flightGap\)/, 'only one number is launched after the previous arrival');
 assert.match(render, /else if\(isContest\)[\s\S]*?launchDiceTotalNumber\(contestDie,totalNode,contestRoll\.value/, 'the kept advantage or disadvantage face flies into the final total');
 assert.match(render, /scoreFx\.step\(roll\.id,sequenceIndex,running,entry\.value\)/, 'sound and particles follow the randomized counting order');
@@ -96,7 +96,7 @@ const context = { Array, Number, Math: Object.create(Math) };
 const randomValues = [0, 0.25, 0.75, 0.1, 0.6, 0.35, 0.9, 0.2, 0.8, 0.45, 0.7];
 let randomIndex = 0;
 context.Math.random = () => randomValues[randomIndex++ % randomValues.length];
-vm.runInNewContext(`${shuffleSource};shuffled=shuffledDiceTotalEntries(Array.from({length:12},(_,index)=>({value:index+1,total:index+1})));firstTiming=diceTotalSequenceTiming(0,12);secondTiming=diceTotalSequenceTiming(1,12);thirdTiming=diceTotalSequenceTiming(2,12);fourthTiming=diceTotalSequenceTiming(3,12);middleTiming=diceTotalSequenceTiming(5,12);lastTiming=diceTotalSequenceTiming(11,12);damageFirstTiming=diceTotalSequenceTiming(0,12,true);damageSecondTiming=diceTotalSequenceTiming(1,12,true);damageLastTiming=diceTotalSequenceTiming(11,12,true);damageFinalDelay=diceTotalFinalDelay(1580,false,12,true,false);contestFinalDelay=diceTotalFinalDelay(2133,true,2,false,false);ordinaryDisplayLifetime=diceTotalDisplayLifetime(5100,2373,true);criticalDisplayLifetime=diceTotalDisplayLifetime(5100,2373,false);singleTiming=diceTotalSequenceTiming(0,1);smallFirstTiming=diceTotalSequenceTiming(0,3);smallLastTiming=diceTotalSequenceTiming(2,3);`, context);
+vm.runInNewContext(`${shuffleSource};shuffled=shuffledDiceTotalEntries(Array.from({length:12},(_,index)=>({value:index+1,total:index+1})));firstTiming=diceTotalSequenceTiming(0,12);secondTiming=diceTotalSequenceTiming(1,12);thirdTiming=diceTotalSequenceTiming(2,12);fourthTiming=diceTotalSequenceTiming(3,12);middleTiming=diceTotalSequenceTiming(5,12);lastTiming=diceTotalSequenceTiming(11,12);damageFirstTiming=diceTotalSequenceTiming(0,12,true);damageSecondTiming=diceTotalSequenceTiming(1,12,true);damageLastTiming=diceTotalSequenceTiming(11,12,true);damageFinalDelay=diceTotalFinalDelay(1580,false,12,true,false);contestFinalDelay=diceTotalFinalDelay(2133,true,2,false,false);contestTimeline=diceContestTimeline(1580,2);contestHighRank=diceContestRevealRank([{value:4},{value:17}],1);contestLowRank=diceContestRevealRank([{value:4},{value:17}],0);ordinaryDisplayLifetime=diceTotalDisplayLifetime(5100,2373,true);criticalDisplayLifetime=diceTotalDisplayLifetime(5100,2373,false);singleTiming=diceTotalSequenceTiming(0,1);smallFirstTiming=diceTotalSequenceTiming(0,3);smallLastTiming=diceTotalSequenceTiming(2,3);`, context);
 const indices = Array.from(context.shuffled, entry => entry.index);
 assert.deepEqual(indices.slice().sort((a, b) => a - b), Array.from({ length: 12 }, (_, index) => index), 'random ordering keeps every die exactly once');
 assert.notDeepEqual(indices, Array.from({ length: 12 }, (_, index) => index), 'the deterministic shuffle demonstrates non-simultaneous random order');
@@ -114,7 +114,10 @@ for (let index = 0; index < 12; index += 1) {
   expectedDamageFinalDelay += timing ? timing.duration + (index < 11 ? timing.gap : 0) : 0;
 }
 assert.equal(context.damageFinalDelay, expectedDamageFinalDelay, 'final sound timing includes every visible number flight and gap');
-assert.equal(context.contestFinalDelay, 2693, 'advantage and disadvantage final audio follows the kept-number impact frame');
+assert.equal(context.contestHighRank, 0, 'the larger contest d20 reveals first regardless of which die was thrown first');
+assert.equal(context.contestLowRank, 1, 'the smaller contest d20 waits for the second reveal beat');
+assert.deepEqual({ revealGap:context.contestTimeline.revealGap, lastRevealDelay:context.contestTimeline.lastRevealDelay, resolveDelay:context.contestTimeline.resolveDelay, totalLaunchDelay:context.contestTimeline.totalLaunchDelay }, { revealGap:620, lastRevealDelay:2200, resolveDelay:2720, totalLaunchDelay:3770 }, 'contest reveal owns a slower readable suspense timeline');
+assert.equal(context.contestFinalDelay, 4816, 'advantage and disadvantage final audio follows the later kept-number impact frame');
 assert.equal(context.ordinaryDisplayLifetime, 5918, 'an ordinary result digit remains visible thirty percent longer after its impact');
 assert.equal(context.criticalDisplayLifetime, 5100, 'critical outcomes retain their dedicated lifetime unchanged');
 assert.deepEqual({ duration: context.singleTiming.duration, gap: context.singleTiming.gap }, { duration: 400, gap: 70 }, 'a single die remains readable instead of receiving batch acceleration');
