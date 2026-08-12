@@ -80,6 +80,8 @@ assert.match(render, /function launchNextTotalNumber\(\)/, 'one recursive sequen
 assert.match(render, /function launchDiceTotalNumber\(die,totalNode,text,flightDuration,onArrive,resultLayer\)/, 'one shared helper owns flights into the final result');
 assert.match(render, /setTimeout\(function\(\)\{if\(flight\.parentNode\)flight\.remove\(\);onArrive\(\);\},flightDuration\)/, 'the next addition waits until the current number reaches the total');
 assert.match(render, /flightHost\.appendChild\(flight\)/, 'number flights stay inside the scene-bound result layer');
+assert.match(render, /flightHost\.appendChild\(flight\);die\.classList\.add\('number-counted'\)/, 'the original face number disappears in the same step that launches its flying copy');
+assert.match(html, /\.zg-token-roll\.number-counted b\{opacity:0!important/, 'a counted die keeps its texture but no longer repeats the transferred number');
 assert.match(render, /else setTimeout\(launchNextTotalNumber,flightGap\)/, 'only one number is launched after the previous arrival');
 assert.match(render, /else if\(isContest\)[\s\S]*?launchDiceTotalNumber\(contestDie,totalNode,contestRoll\.value/, 'the kept advantage or disadvantage face flies into the final total');
 assert.match(render, /scoreFx\.step\(roll\.id,sequenceIndex,running,entry\.value\)/, 'sound and particles follow the randomized counting order');

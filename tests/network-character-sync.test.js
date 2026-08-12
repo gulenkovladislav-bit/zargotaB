@@ -736,11 +736,14 @@ assert.ok(combatEconomyLayer > backpackDrawerLayer, 'the bottom combat toolbar m
 assert.match(html, /drawer\.classList\.add\('closing'\)/);
 assert.match(html, /drawer\.classList\.remove\('open','closing'\)/);
 assert.match(html, /playerDockAction==='inventory'\|\|playerDockAction==='abilities'/);
-assert.match(html, /var creatureSheetButton=creatureSheet\?/);
-assert.match(html, /<b>Лист существа<\/b><small>HP, статусы, заметки<\/small>/);
-assert.match(html, /<b>Сумка героя<\/b><small>'\+\(session&&session\.role==='master'\?'выбранный игрок':'ваши вещи'\)/);
-assert.match(html, /'\+creatureSheetButton\+inventoryButton\+/,
-  'the NPC sheet and the selected hero bag must remain separate combat controls');
+assert.match(html, /function combatToolbarSheetToken\(controlled,session\)/);
+assert.match(html, /var contextSheetButton=creatureSheet\?/);
+assert.match(html, /<b>Лист существа<\/b><small>HP, состояние, статусы<\/small>/);
+assert.match(html, /<b>Сумка героя<\/b><small>'\+\(session&&session\.role==='master'\?'выбранный герой':'ваши вещи'\)/);
+assert.match(html, /'\+contextSheetButton\+\(controlled\.concentration\?/,
+  'combat exposes one context-sensitive creature sheet or hero bag control');
+assert.doesNotMatch(html, /creatureSheetButton\+inventoryButton/,
+  'the combat toolbar must not render creature and hero sheets in parallel');
 assert.match(html, /w\.zgSelectedHeroMemberUid\|\|drawerMemberUid\|\|selectedMemberUid/,
   'opening the combat bag must preserve the hero selected from the party portrait');
 assert.match(html, /lastDrawerRenderSignature = ''/);
@@ -784,7 +787,13 @@ assert.match(html, /\.zg-state-portrait img\{filter:none\}/);
 assert.match(html, /var equipmentSummary=c\._equipBonusCache&&typeof c\._equipBonusCache==='object'/);
 assert.match(html, /function equipmentSourceTitle\(label,kind,statKey\)/);
 assert.match(html, /class="zg-equip-bonus"/);
+assert.match(html, /class="zg-equip-bonus"[^>]*onclick="event\.stopPropagation\(\);zgVttBonusInfo\(\\'equipment\\'/);
 assert.match(html, /class="zg-equip-bonus"[^>]*><i aria-hidden="true">◆<\/i><em>/);
+assert.match(html, /class="zg-temp-hp"[^>]*zgVttBonusInfo\(\\'temp-hp\\'/);
+assert.match(html, /class="zg-temp-stat /);
+assert.match(html, /zgVttBonusInfo\(\\'temporary-stat\\'/);
+assert.match(html, /w\.zgVttBonusInfo=function\(mode,kind,statKey\)/);
+assert.match(html, /Что даёт прибавку/);
 assert.match(html, /Источники? экипировочного бонуса|Источник экипировочного бонуса/);
 assert.match(html, /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] \.zg-vtt-drawer-body\{\s*overflow:hidden!important;/);
 var vttShellStart = html.indexOf('//   КАРКАС VTT');
@@ -877,6 +886,14 @@ var remoteEquipmentHtml = renderCharacterStats({uid:'remote',name:'Firebase ге
 assert.match(remoteEquipmentHtml, /aria-label="Броня: \+2 от снаряжения · Бригантина \+2"/);
 assert.strictEqual((localEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
 assert.strictEqual((remoteEquipmentHtml.match(/class="zg-equip-bonus"/g)||[]).length, 5);
+var temporaryBonusHtml = renderCharacterStats(
+  {uid:'temporary-bonus',name:'Герой с эффектом'},
+  {name:'Герой с эффектом',stats:{str:{base:2,cur:2,tmp:9}},tempEffects:[{type:'str',label:'Благословение великана',value:2,remaining:3,unit:'rounds'}],tempHp:4,hpCur:8,hpMax:10,ac:10}
+);
+assert.match(temporaryBonusHtml, /class="zg-temp-stat positive"[^>]*aria-label="Показать временную поправку к Сила: \+2"/);
+assert.match(temporaryBonusHtml, /<small>Врем\.<\/small><b>\+2<\/b>/);
+assert.doesNotMatch(temporaryBonusHtml, /Показать временную поправку к Сила: \+9/, 'active effects must replace a stale legacy tmp value instead of being counted twice');
+assert.match(temporaryBonusHtml, /class="zg-temp-hp"[^>]*aria-label="Показать временные HP: 4"/);
 var missingSpeedHtml = renderCharacterStats({uid:'missing-speed',name:'Без скорости'}, {name:'Без скорости',stats:{},hpCur:1,hpMax:1,ac:10});
 var zeroSpeedHtml = renderCharacterStats({uid:'zero-speed',name:'Неподвижный'}, {name:'Неподвижный',stats:{},hpCur:1,hpMax:1,ac:10,speed:0});
 assert.match(missingSpeedHtml, /<small>Скорость<\/small><i class="zg-vital-emblem speed"><img src="images\/ui\/stats\/speed\.png" alt=""><\/i><b>—<\/b>/);

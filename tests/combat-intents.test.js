@@ -38,7 +38,13 @@ assert.match(html, /<textarea id="zg-action-custom" maxlength="1000"/, 'custom a
 assert.match(html, /oninput="zgVttActionCustomResize\(this\)"/, 'the custom action field must grow with its text');
 assert.match(html, /custom:'images\/vtt-actions\/cursors\/custom\.png'/, 'custom targeting must use the dedicated cursor artwork');
 assert.match(html, /\.zg-action-cursor:before\{[^}]*width:22px;[^}]*height:22px/, 'custom targeting must keep a visible center marker instead of a micro-dot');
-assert.match(html, /cursorIcon\+'\?v=20260812" alt=""/, 'cursor artwork must use the current cache key');
+assert.match(html, /cursorIcon\+'\?v=20260812\.1" alt=""/, 'cursor artwork must use the current cache key');
+assert.match(html, /\.zg-action-cursor\{[^}]*overflow:visible;[^}]*contain:layout style/, 'the one-pixel cursor anchor must not clip its artwork in Safari');
+assert.doesNotMatch(html, /\.zg-action-cursor\{[^}]*contain:layout paint/, 'paint containment must not hide action cursors outside their one-pixel anchor');
+assert.match(html, /class="zg-action-cursor-label"/, 'every action cursor keeps a readable fallback label when its artwork is unavailable');
+['Осмотреть','Взаимодействовать','Искать','Говорить','Взять','Атаковать','Другое действие'].forEach(function(label){
+  assert.match(html, new RegExp("[\\'\"]"+label+"[\\'\"]"), label+' must have a cursor label');
+});
 assert.match(html, /w\.zgActionRequestDetailsOpen=function\(uid\)/, 'the GM must be able to open a wide custom-request view');
 assert.match(html, /zgActionRequestCheckOpen/, 'custom request cards must expose the existing characteristic-check flow');
 assert.match(html, /function manualCheckActionKind\(kind\)/, 'all manual scene actions must share one characteristic-check contract');

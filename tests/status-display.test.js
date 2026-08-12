@@ -263,6 +263,11 @@ assert.match(html, /badge\.setAttribute\('aria-haspopup','dialog'\)/, 'map statu
 assert.match(html, /badge\.addEventListener\('pointerdown',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);\}\)/, 'status interaction must not start token movement');
 assert.match(html, /badge\.addEventListener\('pointerup',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);openStatus\(ev\);\}\)/, 'status interaction must open reliably for the owning player before the token click handler');
 assert.match(html, /node\.style\.zIndex = String\(ownToken\?100000:token\.z\)/, 'the owning player token must stay above neighboring scene tokens');
+assert.match(html, /isMaster&&gmVision==='gm'\?el\('zg-vtt-token-layer'\):null/, 'GM status badges must leave the token stacking context');
+assert.match(html, /className='zg-vtt-token-status-portal'/, 'GM status badges must use a dedicated scene portal');
+assert.match(html, /if\(visuals\)portal\.appendChild\(visuals\)/, 'GM status artwork must share the portal above neighboring tokens');
+assert.match(html, /\.zg-vtt-token-status-portal\{position:absolute;z-index:200000/, 'GM status portals must stay above every scene token');
+assert.match(html, /function syncTokenStatusPortal\(node\)/, 'status portals must remain attached to moving and resized tokens');
 assert.match(html, /String\(token\.memberUid\|\|''\)===String\(ownSession\.uid\|\|''\)/, 'own-token elevation must survive numeric or string identity snapshots');
 assert.match(html, /ev\.key==='Enter'\|\|ev\.key===' '/, 'map status controls must open from the keyboard');
 assert.doesNotMatch(

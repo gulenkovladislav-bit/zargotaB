@@ -21,7 +21,7 @@
 <script src="combat-vfx-canvas.js?v=2026-08-09.3"></script>
 <script src="zargota-network.js?v=2026-08-12.7"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-08-12.9">
-<script src="gm-delivery.js?v=2026-08-12.9"></script>
+<script src="gm-delivery.js?v=2026-08-12.10"></script>
 <script>
 (function(w){
   var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,playbackProvider=null,vfxProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
@@ -2265,6 +2265,7 @@ window.addEventListener('load', function(){
   .char-inventory-inline{display:grid;grid-template-columns:minmax(220px,42%) minmax(0,1fr);min-height:270px;border:1px solid #3a2918;border-radius:5px;background:#0a0704aa;overflow:hidden}
   .char-inventory-inline>section{min-width:0;padding:10px}.char-inventory-inline-equip{border-right:1px solid #352513;background:#0c0906aa}.char-inventory-inline-items{background:#09070577}
   .char-inventory-inline-head{height:31px;display:flex;align-items:center;gap:7px;margin-bottom:7px}.char-inventory-inline-head>span{font:600 9px 'Cinzel',serif;color:var(--gold2);letter-spacing:1.1px;text-transform:uppercase}.char-inventory-inline-head small{margin-left:auto;color:var(--dim);font:9px 'Cinzel',serif;white-space:nowrap}.char-inventory-inline-head select{height:27px;max-width:112px;padding:0 20px 0 7px;border:1px solid #3a2918;border-radius:4px;background:#0a0704;color:var(--muted);font:8px 'Cinzel',serif}.char-inventory-inline-head button{width:28px;height:28px;flex-shrink:0;border:1px solid #634b25;border-radius:4px;background:#181006;color:var(--gold);font-size:17px;cursor:pointer}.char-inventory-inline-head button:hover{border-color:var(--gold2);background:#24180a}
+  .char-inventory-sort{-webkit-appearance:none!important;appearance:none!important;box-sizing:border-box;border:1px solid #5b411f!important;border-radius:6px!important;background-color:#0a0704!important;background-image:linear-gradient(45deg,transparent 50%,#c79a45 50%),linear-gradient(135deg,#c79a45 50%,transparent 50%)!important;background-position:calc(100% - 13px) 50%,calc(100% - 8px) 50%!important;background-size:5px 5px,5px 5px!important;background-repeat:no-repeat!important;color:#c5ac72!important;box-shadow:inset 0 0 12px #0009,0 1px 0 #d1a3530d!important;cursor:pointer;outline:0;transition:border-color .15s ease,box-shadow .15s ease,color .15s ease}.char-inventory-sort:hover{border-color:#936c2d!important;color:#e0c47d!important}.char-inventory-sort:focus,.char-inventory-sort:focus-visible{border-color:#b98835!important;box-shadow:0 0 0 2px #b584322b,inset 0 0 12px #0009!important}.char-inventory-sort option{background:#0a0704;color:#d2b979}
   .char-inventory-arena-link{width:100%;height:29px;margin-bottom:7px;border:1px solid #3b2c18;border-radius:4px;background:#100c07;color:#927b4f;font:8px 'Cinzel',serif;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.char-inventory-arena-link:hover{border-color:#81632e;color:#d5b766}
   .char-inventory-inline-equip-list{max-height:220px;overflow-y:auto;padding-right:2px;scrollbar-width:thin;scrollbar-color:#513c1d transparent}.char-inventory-inline-empty{padding:35px 8px;text-align:center;color:var(--dim);font:italic 10px 'Lora',serif}
   .char-inventory-equip-art{width:34px;height:34px;min-width:34px;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid #49351d;border-radius:5px;background:radial-gradient(circle at 50% 40%,#25190d,#080604 76%);font-size:20px;line-height:1;box-sizing:border-box}
@@ -9631,6 +9632,7 @@ document.addEventListener('DOMContentLoaded', function(){
     diceScoreGearClick:'audio/vtt-actions/dice-score-gear-click.mp3',diceScoreThresholdRise:'audio/vtt-actions/dice-score-threshold-rise.mp3',diceScoreFinalTom:'audio/vtt-actions/dice-score-final-tom.mp3',
     d20CriticalSuccess:'audio/vtt-actions/d20-critical-success-fairy.wav',d20CriticalFailure:'audio/vtt-actions/d20-critical-failure-gong.mp3',d20CheckFailure:'audio/vtt-actions/d20-check-failure-wood.mp3',d20AttackMiss:'audio/vtt-actions/d20-attack-miss-sword.mp3',
     deathCoinFlip:'audio/vtt-actions/coin-flip.mp3',deathHeartbeat:'audio/vtt-actions/heartbeat-short.mp3',deathSaveLife:'audio/vtt-actions/life-success.mp3',deathSaveFailure:'audio/vtt-actions/life-failure.mp3',deathSaveStabilized:'audio/vtt-actions/life-full-success.mp3',deathSaveDead:'audio/vtt-actions/life-final-failure.mp3',
+    combatStartPlaceholder:'audio/vtt-actions/round-start-warrior-kick.mp3',
     actionRequestPlayerPlaceholder:'audio/vtt-actions/gm-action-request-paper.mp3',actionRequestGmPlaceholder:'audio/vtt-actions/gm-action-request-paper.mp3',
     gmDeliverySent:'audio/vtt-actions/gm-action-approved-pencil.mp3',playerDeliveryReceivedPlaceholder:'audio/vtt-actions/gm-action-request-paper.mp3'
   };
@@ -9858,6 +9860,14 @@ document.addEventListener('DOMContentLoaded', function(){
     },
 
     // ═══ Navigation / flow ═══
+    // AUDIO_TAG: PLACEHOLDER_COMBAT_START — отдельное семантическое событие;
+    // короткий натуральный удар временно переиспользует запись начала раунда.
+    combatStart: function() {
+      playSample(sampleSources.combatStartPlaceholder, 0.62, function() {
+        tone(330, 0.12, { type:'triangle', vol:0.22 });
+        tone(495, 0.16, { delay:0.08, type:'triangle', vol:0.24 });
+      },{group:'turn-flow',maxDuration:1.55});
+    },
     turn: function() {
       playSample('audio/vtt-actions/turn-start-medieval-war.mp3', 0.38, function() {
         tone(659, 0.08, { type:'sine', vol:0.18 });
@@ -10876,7 +10886,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
   function setJourneyStatus(text){
     var node = document.querySelector('.zg-journey-loadtxt');
-    if (node) node.textContent = text || 'Загрузка…';
+    if (!node) return;
+    var value = text === null || text === undefined ? 'Загрузка…' : String(text);
+    node.textContent = value;
+    node.hidden = !value;
   }
   function setJourneyConfirmBusy(busy, label){
     var buttons = document.querySelectorAll('#zg-confirm-overlay .zg-confirm-btns button');
@@ -11008,7 +11021,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if (snapshot.session.role === 'master') return;
       if (c && ownMember && memberReady(ownMember)) {
         if (!jo || !jo.classList.contains('open')) beginJourney(c, true);
-        setJourneyStatus('Герой готов · мастер выбирает сцену');
+        setJourneyStatus('');
       }
       return;
     }
@@ -11082,7 +11095,7 @@ document.addEventListener('DOMContentLoaded', function(){
       w.zgArrivalFocusPending = !!arriving;
       w.zgArrivalFocusReset = !!arriving;
       // Аварийная уборка нужна только если жетон игрока так и не появился.
-      // При штатном входе таймер заменяется точным трёхсекундным таймером полёта камеры.
+      // При штатном входе таймер заменяется точным таймером полёта камеры.
       if (arriving) w.zgArrivalCleanupTimer = setTimeout(function(){
         go.classList.remove('arriving');
         w.zgArrivalFocusPending = false;
@@ -11130,8 +11143,60 @@ document.addEventListener('DOMContentLoaded', function(){
     if (sp && sp.classList.contains('open') && w.zgSoundSettingsRender) w.zgSoundSettingsRender();
     if (sp && sp.classList.contains('open') && w.zgQaSessionToolsRender) w.zgQaSessionToolsRender();
     if (sp && sp.classList.contains('open') && w.zgQaCombatOutcomeRender) w.zgQaCombatOutcomeRender();
+    if (sp && sp.classList.contains('open') && w.zgPlayerBagScaleRender) w.zgPlayerBagScaleRender();
     try { if (w.ZargotaSound) w.ZargotaSound.buttonTap(); } catch(e) {}
   };
+
+  var playerBagScaleStorageKey='zg_player_bag_scale_v1';
+  var playerBagScalePreference=(function(){
+    try{return localStorage.getItem(playerBagScaleStorageKey)==='large'?'large':'normal';}
+    catch(error){return 'normal';}
+  })();
+  function playerBagScaleIsPlayer(){
+    var session=state&&state.session;
+    if(session&&session.role)return session.role==='player';
+    var overlay=el('zg-game-overlay');
+    return !(overlay&&overlay.classList.contains('gm'));
+  }
+  function playerBagEffectiveScale(){
+    if(playerBagScalePreference!=='large'||!playerBagScaleIsPlayer())return 1;
+    var drawer=el('zg-vtt-drawer');
+    if(!drawer)return 1.3;
+    var width=Math.max(1,drawer.offsetWidth||670),height=Math.max(1,drawer.offsetHeight||930);
+    var compact=window.matchMedia&&window.matchMedia('(max-width: 1100px)').matches;
+    var sideRoom=Math.max(1,(window.innerWidth-(compact?8:18))/width);
+    var verticalRoom=Math.max(1,(window.innerHeight-(compact?108:32))/height);
+    return Math.max(1,Math.min(1.3,sideRoom,verticalRoom));
+  }
+  w.zgPlayerBagScaleApply=function(){
+    var drawer=el('zg-vtt-drawer'),scale=playerBagEffectiveScale();
+    document.documentElement.classList.toggle('zg-player-bag-large',playerBagScalePreference==='large');
+    if(drawer){
+      drawer.style.setProperty('--bag-user-scale',String(scale));
+      drawer.style.setProperty('--bag-entry-scale',String(scale*.975));
+      drawer.style.setProperty('--bag-overshoot-scale',String(scale*1.006));
+    }
+    return scale;
+  };
+  w.zgPlayerBagScaleRender=function(){
+    var scale=w.zgPlayerBagScaleApply();
+    document.querySelectorAll('[data-player-bag-scale]').forEach(function(button){
+      var active=button.getAttribute('data-player-bag-scale')===playerBagScalePreference;
+      button.classList.toggle('active',active);
+      button.setAttribute('aria-pressed',active?'true':'false');
+    });
+    var stateText=el('zg-player-bag-scale-state');
+    if(stateText)stateText.textContent=playerBagScalePreference==='large'?'Увеличена · '+Math.round(scale*100)+'%':'Обычная · 100%';
+  };
+  w.zgPlayerBagScaleSet=function(mode){
+    playerBagScalePreference=mode==='large'?'large':'normal';
+    try{localStorage.setItem(playerBagScaleStorageKey,playerBagScalePreference);}catch(error){}
+    w.zgPlayerBagScaleRender();
+    try{if(w.ZargotaSound)w.ZargotaSound.buttonSoft();}catch(error){}
+  };
+  window.addEventListener('resize',function(){if(playerBagScalePreference==='large')w.zgPlayerBagScaleApply();});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){w.zgPlayerBagScaleApply();});
+  else setTimeout(function(){w.zgPlayerBagScaleApply();},0);
   w.zgGameClose = function(force){
     if (force !== true && w.zgSceneHasUnsavedChanges && w.zgSceneHasUnsavedChanges()) {
       if (w.zgSceneExitPrompt) w.zgSceneExitPrompt(function(){ w.zgGameClose(true); });
@@ -11396,7 +11461,11 @@ document.addEventListener('DOMContentLoaded', function(){
   var movementMode = false;
   var actionToolKind = '';
   var abilityTargeting = null;
-  var actionToolLabels = {inspect:'Осмотреть',interact:'Взаимодействовать',take:'Взять',search:'Искать',speak:'Говорить',attack:'Атаковать'};
+  var actionToolLabels = {
+    inspect:'Осмотреть',interact:'Взаимодействовать',take:'Взять',search:'Искать',
+    speak:'Говорить',attack:'Атаковать','combat-attack':'Атаковать',
+    custom:'Другое действие',ability:'Заклинание',movement:'Движение'
+  };
   var actionToolIcons = {
     inspect:'images/vtt-actions/inspect.png',interact:'images/vtt-actions/interact.png',
     take:'images/vtt-actions/take.png',search:'images/vtt-actions/search.png',
@@ -11418,6 +11487,13 @@ document.addEventListener('DOMContentLoaded', function(){
     movement:'images/vtt-actions/cursors/movement.png'
   };
   w.zgActionCursorIcon=function(kind){return actionCursorIcons[String(kind||'')]||'';};
+  function actionCursorMarkup(kind){
+    kind=String(kind||'');
+    if(!kind)return '';
+    var cursorIcon=actionCursorIcons[kind]||actionCursorIcons.custom;
+    var label=actionToolLabels[kind]||'Действие';
+    return '<img src="'+cursorIcon+'?v=20260812.1" alt=""><span class="zg-action-cursor-label">'+label+'</span>';
+  }
   var actionPointerX = Math.round(w.innerWidth / 2), actionPointerY = Math.round(w.innerHeight / 2), actionCursorFrame = 0;
   function placeActionCursor(x,y){
     actionPointerX=Number.isFinite(x)?x:actionPointerX;actionPointerY=Number.isFinite(y)?y:actionPointerY;
@@ -13522,7 +13598,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if (movementMode) setActionTool('');
     if(!movementMode)clearToolRangeVector();
     var scene = el('zg-vtt-scene'); if (scene) scene.classList.toggle('move-mode', movementMode);
-    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?'<img src="'+actionCursorIcons.movement+'" alt="">':'';cursor.setAttribute('data-tool',movementMode?'movement':'');cursor.classList.toggle('open',movementMode);if(movementMode)placeActionCursor(actionPointerX,actionPointerY);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=movementMode?actionCursorMarkup('movement'):'';cursor.setAttribute('data-tool',movementMode?'movement':'');cursor.classList.toggle('open',movementMode);if(movementMode)placeActionCursor(actionPointerX,actionPointerY);}
     preview = el('zg-move-preview'); if (preview && !movementMode) preview.style.display = '';
     if(w.zgCombatToolbarSync)w.zgCombatToolbarSync();
     return movementMode;
@@ -13537,7 +13613,7 @@ document.addEventListener('DOMContentLoaded', function(){
     actionToolKind=nextKind;
     var scene=el('zg-vtt-scene');
     if(scene){scene.classList.toggle('action-tool',!!actionToolKind);scene.setAttribute('data-action-tool',actionToolKind);}
-    var cursor=el('zg-action-cursor'),cursorIcon=actionCursorIcons[actionToolKind]||actionCursorIcons.custom;if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionToolKind?'<img src="'+cursorIcon+'?v=20260812" alt="">':'';cursor.setAttribute('data-tool',actionToolKind);cursor.classList.toggle('open',!!actionToolKind);if(actionToolKind)placeActionCursor(actionPointerX,actionPointerY);}
+    var cursor=el('zg-action-cursor');if(cursor){if(cursor.parentNode!==document.body)document.body.appendChild(cursor);cursor.innerHTML=actionCursorMarkup(actionToolKind);cursor.setAttribute('data-tool',actionToolKind);cursor.classList.toggle('open',!!actionToolKind);if(actionToolKind)placeActionCursor(actionPointerX,actionPointerY);}
     Array.prototype.forEach.call(document.querySelectorAll('#zg-action-menu [data-action-kind]'),function(button){button.classList.toggle('active',button.getAttribute('data-action-kind')===actionToolKind);});
     if(w.zgCombatToolbarSync)w.zgCombatToolbarSync();
   }
@@ -13795,7 +13871,7 @@ document.addEventListener('DOMContentLoaded', function(){
     // left/top: that combination paints one frame beyond the requested point.
     node.style.transition='none';
     node.style.removeProperty('transform');
-    node.style.left=clamp(x,0,100)+'%';node.style.top=clamp(y,0,100)+'%';
+    node.style.left=clamp(x,0,100)+'%';node.style.top=clamp(y,0,100)+'%';syncTokenStatusPortal(node);
     node.style.removeProperty('will-change');node.classList.remove('walking','transform-walking');
     // Commit the no-transition destination before returning to the authored
     // hover transition. Without this single completion-only style flush,
@@ -13901,7 +13977,7 @@ document.addEventListener('DOMContentLoaded', function(){
     // apply zoom twice when the child translate3d is scaled by the world again.
     var fromX=clamp(effectiveMovement.fromX,0,100),fromY=clamp(effectiveMovement.fromY,0,100),toX=clamp(effectiveMovement.toX,0,100),toY=clamp(effectiveMovement.toY,0,100),motionLayer=node.parentNode,motionWidth=motionLayer&&motionLayer.offsetWidth||1,motionHeight=motionLayer&&motionLayer.offsetHeight||1,movePxX=(toX-fromX)/100*motionWidth,movePxY=(toY-fromY)/100*motionHeight,walkingMotion=!reducedEffects&&combatMotionMode!=='minimal',started=performance.now();
     activeMovementVisual={id:movement.id,uid:movement.uid,tokenId:token.id,fromX:fromX,fromY:fromY,toX:toX,toY:toY,currentX:fromX,currentY:fromY,progress:0};
-    node.classList.add('walking','transform-walking');node.style.transition='none';node.style.willChange='transform';node.style.left=fromX+'%';node.style.top=fromY+'%';
+    node.classList.add('walking','transform-walking');node.style.transition='none';node.style.willChange='transform';node.style.left=fromX+'%';node.style.top=fromY+'%';syncTokenStatusPortal(node);
     if(combatVfxRuntime)combatVfxRuntime.setRafActive(true,'token-movement');
     function frame(now){
       var progress=Math.max(0,Math.min(1,(now-started)/duration)),eased=progress<.5?2*progress*progress:1-Math.pow(-2*progress+2,2)/2;
@@ -13913,7 +13989,7 @@ document.addEventListener('DOMContentLoaded', function(){
         // delta anchored at the event origin so the destination is not applied
         // twice for one frame immediately before settling.
         node.style.left=fromX+'%';node.style.top=fromY+'%';
-        node.style.transform='translate(-50%,-50%) translate3d('+(movePxX*eased)+'px,'+(movePxY*eased)+'px,0) rotate('+walkAngle+'deg) translateY('+walkLift+'px)';}
+        node.style.transform='translate(-50%,-50%) translate3d('+(movePxX*eased)+'px,'+(movePxY*eased)+'px,0) rotate('+walkAngle+'deg) translateY('+walkLift+'px)';syncTokenStatusPortal(node);}
       footprints.forEach(function(foot){if(foot.dataset.shown==='1'||progress<Number(foot.dataset.progress||0))return;foot.dataset.shown='1';foot.style.animation='zgFootprintTrail 2.15s ease-out both';});
       if(progress<1){activeMovementFrame=requestAnimationFrame(frame);return;}
       activeMovementFrame=0;if(combatVfxRuntime)combatVfxRuntime.setRafActive(false,'token-movement');
@@ -14284,6 +14360,20 @@ document.addEventListener('DOMContentLoaded', function(){
       if(tokenStatusVisualObserver)tokenStatusVisualObserver.unobserve(host);host.remove();
     });
   }
+  function syncTokenStatusPortal(node){
+    var portal=node&&node.__zgStatusPortal;if(!portal||!portal.isConnected)return false;
+    portal.style.left=node.style.left;portal.style.top=node.style.top;portal.style.width=node.style.width;portal.style.height=node.style.height;
+    portal.style.transform=node.style.transform||'translate(-50%,-50%)';
+    var tokenSize=node.style.getPropertyValue('--zg-token-size')||node.style.width;if(tokenSize)portal.style.setProperty('--zg-token-size',tokenSize);
+    return true;
+  }
+  function removeTokenCombatStatusBadges(node){
+    if(!node)return;
+    var nested=node.querySelector('.zg-vtt-token-statuses');if(nested)nested.remove();
+    var portal=node.__zgStatusPortal;
+    if(portal){Array.prototype.forEach.call(portal.querySelectorAll('.zg-vtt-token-status-visuals'),function(host){if(tokenStatusVisualObserver)tokenStatusVisualObserver.unobserve(host);});if(portal.parentNode)portal.remove();}
+    node.__zgStatusPortal=null;
+  }
   function appendTokenStatusVisuals(node,statuses){
     var selected=selectTokenStatusVisuals(statuses);if(!node||!selected.length)return;
     if(w.zgSyncTokenEffectSize)w.zgSyncTokenEffectSize(node);
@@ -14342,7 +14432,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function appendTokenCombatStatuses(node,token){
     var visibility=(draft.view&&draft.view.statusVisibility)||{};
     var statuses=tokenCombatStatuses(token).filter(function(status){return visibility[status.key]!==false;}).slice(0,5);if(!statuses.length)return;
-    appendTokenStatusVisuals(node,statuses);
+    var visuals=appendTokenStatusVisuals(node,statuses);
     var host=document.createElement('span');host.className='zg-vtt-token-statuses';
     statuses.forEach(function(status){
       var def=TOKEN_STATUS_DEFS[status.key]||['✦','#9b875c',status.label],badge=document.createElement('span'),durationText=statusDurationText(status),label=status.label||def[2]||status.key;
@@ -14354,7 +14444,10 @@ document.addEventListener('DOMContentLoaded', function(){
       if(status.remaining>0||status.stacks>1){var duration=document.createElement('em');duration.textContent=status.stacks>1?'×'+status.stacks:status.remaining;badge.appendChild(duration);}
       host.appendChild(badge);
     });
-    node.appendChild(host);
+    var statusLayer=isMaster&&gmVision==='gm'?el('zg-vtt-token-layer'):null;
+    if(statusLayer){
+      var portal=document.createElement('span');portal.className='zg-vtt-token-status-portal';portal.dataset.tid=String(token.id||'');if(visuals)portal.appendChild(visuals);portal.appendChild(host);statusLayer.appendChild(portal);node.__zgStatusPortal=portal;syncTokenStatusPortal(node);
+    }else node.appendChild(host);
   }
   w.zgStatusVisibilityRender=function(){
     var host=el('zg-status-visibility-settings');if(!host)return;
@@ -14495,6 +14588,8 @@ document.addEventListener('DOMContentLoaded', function(){
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
     node.classList.add('selected');
     renderTokenList(); syncTokenEditor();
+    var selectedCombat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat;
+    if(selectedCombat&&selectedCombat.active&&typeof w.zgCombatToolbarRefresh==='function')w.zgCombatToolbarRefresh();
     // вкладку не переключаем — свойства выбранного показываются в контекст-блоке над вкладками
     if (token.locked) { renderTokens();if(token.type==='custom'&&w.zgGmInterventionOpenToken)w.zgGmInterventionOpenToken(token.id,'entity');return; }              // заблокирован — только выбор, без перетаскивания
     node.classList.add('dragging');
@@ -14530,7 +14625,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var dx = nx - tokenDrag.sx0, dy = ny - tokenDrag.sy0;
     tokenDrag.items.forEach(function(it){
       it.t.x = clamp(it.x0 + dx, 0, 100); it.t.y = clamp(it.y0 + dy, 0, 100);
-      if (it.node){ it.node.style.left = it.t.x + '%'; it.node.style.top = it.t.y + '%'; }
+      if (it.node){ it.node.style.left = it.t.x + '%'; it.node.style.top = it.t.y + '%'; syncTokenStatusPortal(it.node); }
     });
     tokenDrag.moved = tokenDrag.moved || Math.abs(ev.clientX-tokenDrag.startX) > 2 || Math.abs(ev.clientY-tokenDrag.startY) > 2;
   }
@@ -14556,6 +14651,7 @@ document.addEventListener('DOMContentLoaded', function(){
     sizeDrag.token.size = ns;
     if (sizeDrag.token.type === 'text') { sizeDrag.node.style.fontSize = ns + 'px'; }
     else { sizeDrag.node.style.width = ns + 'px'; sizeDrag.node.style.height = ns + 'px'; }
+    syncTokenStatusPortal(sizeDrag.node);
     var sl = el('zg-token-size'); if (sl) sl.value = ns;
     var so = el('zg-token-size-out'); if (so) so.textContent = Math.round(ns) + ' px';
   }
@@ -14692,8 +14788,7 @@ document.addEventListener('DOMContentLoaded', function(){
     (draft.tokens||[]).forEach(function(token){
       var node=nodes[token.id];
       if(!node||token.type==='text')return;
-      var oldStatuses=node.querySelector('.zg-vtt-token-statuses');
-      if(oldStatuses)oldStatuses.remove();
+      removeTokenCombatStatusBadges(node);
       removeTokenStatusVisuals(node);
       var combatEntry=combatEntryForToken(token),statuses=tokenCombatStatuses(token);
       if(combatEntry||statuses.length)appendTokenCombatStatuses(node,token);
@@ -14799,7 +14894,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function tokenPaneOf(token){ return (isMarkerType(token.type)||token.type==='note') ? 'markers' : (token.type==='text' ? 'text' : 'tokens'); }
   function buildTokenRow(token){
-    var row=document.createElement('button');row.type='button';row.className='zg-scene-token-row'+(token.id===selectedTokenId?' selected':'');row.onclick=function(){selectedTokenId=token.id;renderTokenList();syncTokenEditor();renderTokens();};
+    var row=document.createElement('button');row.type='button';row.className='zg-scene-token-row'+(token.id===selectedTokenId?' selected':'');row.onclick=function(){selectedTokenId=token.id;w.zgSelectedHeroMemberUid=token.type==='hero'&&token.memberUid?String(token.memberUid):'';renderTokenList();syncTokenEditor();renderTokens();var combat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat;if(combat&&combat.active&&typeof w.zgCombatToolbarRefresh==='function')w.zgCombatToolbarRefresh();};
     var thumb=document.createElement('span');thumb.className='zg-scene-token-thumb';var portrait=tokenPortrait(token);
     if(portrait){thumb.style.backgroundImage='url('+JSON.stringify(portrait)+')';}
     else thumb.textContent=token.type==='spawn'?'⚑':token.type==='portal'?'➜':token.type==='note'?'✦':token.type==='text'?'𝐓':'✦';
@@ -15127,7 +15222,7 @@ document.addEventListener('DOMContentLoaded', function(){
             overlay.classList.remove('arriving');
             w.zgArrivalFocusPending=false;
             w.zgArrivalCleanupTimer=0;
-          },3000);
+          },4500);
         });});
       }
     }
@@ -17081,7 +17176,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!die||!totalNode.parentNode){setTimeout(onArrive,Math.max(28,Math.round(flightDuration*.19)));return false;}
     var flightHost=resultLayer||totalNode.parentNode;if(!flightHost){setTimeout(onArrive,Math.max(28,Math.round(flightDuration*.19)));return false;}
     var targetRect=totalNode.getBoundingClientRect(),rect=die.getBoundingClientRect(),start=diceResultLayerPoint(flightHost,rect.left+rect.width/2,rect.top+rect.height/2),target=diceResultLayerPoint(flightHost,targetRect.left+targetRect.width/2,targetRect.top+targetRect.height/2),flight=document.createElement('span');
-    flight.className='zg-roll-number-flight';flight.textContent=String(text);flight.style.left=start.x+'px';flight.style.top=start.y+'px';flight.style.setProperty('--number-flight-x',(target.x-start.x)+'px');flight.style.setProperty('--number-flight-y',(target.y-start.y)+'px');flight.style.setProperty('--number-flight-duration',flightDuration+'ms');flightHost.appendChild(flight);
+    flight.className='zg-roll-number-flight';flight.textContent=String(text);flight.style.left=start.x+'px';flight.style.top=start.y+'px';flight.style.setProperty('--number-flight-x',(target.x-start.x)+'px');flight.style.setProperty('--number-flight-y',(target.y-start.y)+'px');flight.style.setProperty('--number-flight-duration',flightDuration+'ms');flightHost.appendChild(flight);die.classList.add('number-counted');
     setTimeout(function(){if(flight.parentNode)flight.remove();onArrive();},flightDuration);return true;
   }
   function renderRollAnimations(){
@@ -17337,14 +17432,25 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     function equipmentBonusBadge(label,kind,statKey){
       var total=equipmentBonusValue(kind,statKey),title=equipmentSourceTitle(label,kind,statKey);
-      return total?'<span class="zg-equip-bonus" title="'+esc(title)+'" aria-label="'+esc(title)+'"><i aria-hidden="true">◆</i><em>'+signedEquipmentValue(total)+'</em></span>':'';
+      return total?'<button type="button" class="zg-equip-bonus" title="'+esc(title)+'" aria-label="'+esc(title)+'" onclick="event.stopPropagation();zgVttBonusInfo(\'equipment\',\''+esc(kind)+'\',\''+esc(statKey||'')+'\')"><i aria-hidden="true">◆</i><em>'+signedEquipmentValue(total)+'</em></button>':'';
     }
     function fameRow(label,value){
       value=Math.max(0,Math.min(8,Number(value)||0));
       var marks='';for(var index=0;index<8;index++)marks+='<i class="'+(index<value?'filled':'')+'">✦</i>';
       return '<div class="zg-state-fame-row"><header><b>'+label+'</b><span>'+value+' / 8</span></header><div>'+marks+'</div></div>';
     }
-    function statParts(key){var raw=stats[key],value=raw&&typeof raw==='object'?raw:{base:Number(raw)||0},base=value.cur!=null&&value.cur!==0?Number(value.cur)||0:Number(value.base)||0,temp=Number(value.tmp)||0;return{base:base,temp:temp};}
+    function statParts(key){
+      var raw=stats[key],value=raw&&typeof raw==='object'?raw:{base:Number(raw)||0},base=value.cur!=null&&value.cur!==0?Number(value.cur)||0:Number(value.base)||0;
+      var matchingEffects=(Array.isArray(c.tempEffects)?c.tempEffects:[]).filter(function(effect){return effect&&String(effect.type||'')===String(key);});
+      var effectTemp=matchingEffects.reduce(function(sum,effect){return sum+(Number(effect.value)||0);},0);
+      var temp=matchingEffects.length?effectTemp:Number(value.tmp)||0;
+      return{base:base,temp:temp};
+    }
+    function temporaryStatBadge(key,label,temp){
+      if(!temp)return '<span class="zg-temp-stat empty" aria-label="Нет временной поправки">0</span>';
+      var signed=(temp>0?'+':'')+temp;
+      return '<button type="button" class="zg-temp-stat '+(temp>0?'positive':'negative')+'" onclick="event.stopPropagation();zgVttBonusInfo(\'temporary-stat\',\''+esc(key)+'\',\'\')" aria-label="Показать временную поправку к '+esc(label)+': '+signed+'"><small>Врем.</small><b>'+signed+'</b></button>';
+    }
     function safeStatIcon(key){try{return typeof w.zgStatIcon==='function'?w.zgStatIcon(key,'zg-bag-stat-icon'):'';}catch(ignore){return'';}}
     drawerStatusDetails=activeStatuses.slice();
     var effectsHtml=activeStatuses.map(function(status,index){
@@ -17361,13 +17467,13 @@ document.addEventListener('DOMContentLoaded', function(){
       '<section class="zg-state-board">'+
         '<div class="zg-state-main">'+
           '<aside class="zg-state-left"><div class="zg-state-portrait wound-'+stateWoundLevel+' '+combatBloodVariant(member&&member.uid||c.id||c.name)+'">'+heroPortrait+(w.zgStatusSurfaceMarkup?w.zgStatusSurfaceMarkup(activeStatuses,'state'):'')+(stateWoundLevel?'<i class="zg-blood-overlay" aria-hidden="true"></i>':'')+'</div><h3>'+esc(c.name||member&&member.name||'Герой')+'</h3><p>'+esc(heroMeta||'Герой приключения')+'</p>'+
-            '<div class="zg-state-stat-list">'+Object.keys(labels).map(function(key){var part=statParts(key),equipmentBadge=equipmentBonusBadge(labels[key],'stat',key);return '<div data-stat="'+esc(key)+'">'+safeStatIcon(key)+'<b>'+esc(labels[key])+'</b><strong>'+(part.base>=0?'+':'')+part.base+equipmentBadge+'</strong><em class="'+(part.temp?'active':'')+'">'+(part.temp>=0?'+':'')+part.temp+'</em></div>';}).join('')+'</div>'+
+            '<div class="zg-state-stat-list">'+Object.keys(labels).map(function(key){var part=statParts(key),equipmentBadge=equipmentBonusBadge(labels[key],'stat',key);return '<div data-stat="'+esc(key)+'">'+safeStatIcon(key)+'<b>'+esc(labels[key])+'</b><strong>'+(part.base>=0?'+':'')+part.base+equipmentBadge+'</strong>'+temporaryStatBadge(key,labels[key],part.temp)+'</div>';}).join('')+'</div>'+
           '</aside>'+
           '<div class="zg-state-right">'+
             '<div class="zg-state-fame">'+fameRow('Мировой уровень славы',c.fameMundo)+fameRow('Уровень славы в Зарготе',c.fameZargoty)+'</div>'+
             '<section class="zg-state-vitals">'+
               '<div class="zg-state-vitals-top">'+
-                '<div class="zg-state-hp"><i class="zg-vital-emblem hp" aria-hidden="true"><span>♥</span></i><span><small>Здоровье (HP)</small><b>'+hpCur+' / '+hpMax+'</b>'+equipmentBonusBadge('Максимум HP','hp')+'</span>'+(tempHp?'<em class="zg-temp-hp"><small>Врем. HP</small><b>+'+tempHp+'</b></em>':'')+'</div>'+
+                '<div class="zg-state-hp"><i class="zg-vital-emblem hp" aria-hidden="true"><span>♥</span></i><span><small>Здоровье (HP)</small><b>'+hpCur+' / '+hpMax+'</b>'+equipmentBonusBadge('Максимум HP','hp')+'</span>'+(tempHp?'<button type="button" class="zg-temp-hp" onclick="event.stopPropagation();zgVttBonusInfo(\'temp-hp\',\'hp\',\'\')" aria-label="Показать временные HP: '+tempHp+'"><small>Врем. HP</small><b>+'+tempHp+'</b></button>':'')+'</div>'+
                 '<div class="zg-state-armor"><small>Броня</small><i class="zg-vital-emblem armor"><img src="images/ui/stats/armor.png" alt=""></i><b>'+esc(c.ac||10)+'</b>'+equipmentBonusBadge('Броня','ac')+'</div>'+
                 '<u class="zg-state-hp-bar"><i style="width:'+hpPercent+'%"></i></u>'+
               '</div>'+
@@ -17959,10 +18065,13 @@ document.addEventListener('DOMContentLoaded', function(){
         else if((ownMoveRequest.status==='approved'||ownMoveRequest.status==='rejected')&&w.ZargotaSound&&w.ZargotaSound.actionResolved)w.ZargotaSound.actionResolved(ownMoveRequest.status==='approved');
       }
       if(active){
+        var combatStarted=!sessionSoundState.combatActive;
         var ownTurn=session.role==='player'&&turn&&String(turn.uid||'')===String(session.uid||'');
-        if(sessionSoundState.combatActive&&round!==sessionSoundState.round){
+        if(combatStarted){
+          if(w.ZargotaSound&&w.ZargotaSound.combatStart)w.ZargotaSound.combatStart();
+        }else if(round!==sessionSoundState.round){
           if(w.ZargotaSound&&w.ZargotaSound.round)w.ZargotaSound.round();
-        }else if((!sessionSoundState.combatActive||turnKey!==sessionSoundState.turnKey)&&ownTurn){
+        }else if(turnKey!==sessionSoundState.turnKey&&ownTurn){
           if(w.ZargotaSound&&w.ZargotaSound.turn)w.ZargotaSound.turn();
         }
       }
@@ -18606,6 +18715,23 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
   w.zgCombatToolbarSync=syncCombatToolbarSelection;
+  function combatToolbarSheetToken(controlled,session){
+    if(!session)return null;
+    var scene=currentVttScene(),tokens=scene&&Array.isArray(scene.tokens)?scene.tokens:[],selectedId=typeof w.zgGetSelectedTokenId==='function'?w.zgGetSelectedTokenId():'';
+    if(session.role!=='master')return tokens.filter(function(token){return token&&token.type==='hero'&&String(token.memberUid||'')===String(session.uid||'');})[0]||null;
+    var selected=tokens.filter(function(token){
+      return token&&String(token.id||'')===String(selectedId||'')&&['hero','custom','object'].indexOf(token.type)>=0;
+    })[0];
+    if(selected)return selected;
+    if(controlled&&controlled.tokenId){
+      var controlledToken=tokens.filter(function(token){return token&&String(token.id||'')===String(controlled.tokenId||'');})[0];
+      if(controlledToken)return controlledToken;
+    }
+    if(controlled&&controlled.uid){
+      return tokens.filter(function(token){return token&&token.type==='hero'&&String(token.memberUid||'')===String(controlled.uid||'');})[0]||null;
+    }
+    return null;
+  }
   w.zgCombatCreatureSheetOpen=function(tokenId){
     if(typeof w.zgGmInterventionOpenToken!=='function')return false;
     var opened=w.zgGmInterventionOpenToken(tokenId,'entity');syncCombatToolbarSelection();return opened;
@@ -18663,16 +18789,15 @@ document.addEventListener('DOMContentLoaded', function(){
       var statusSummary=combatStatusSummary(controlled);
       function combatDockIcon(name){return '<img src="images/ui/combat-generated/'+name+'.png" alt="" draggable="false">';}
       function economyButton(type,icon,label,hint,available,turnOnly){var blocked=!!statusSummary.blocked[type],enabled=canAct&&available&&!blocked&&(turnOnly?isTurn:true),handler=type==='long'?'zgCombatAttackBeginTargeting()':type==='free'?'zgDicePlanB(event)':type==='short'?'zgCombatIntentToggle()':'zgCombatUseAction(\''+type+'\')';return '<button type="button" data-combat-tool="'+type+'" aria-pressed="false" class="'+(!available?'spent':'')+(blocked?' status-blocked':'')+'" onclick="'+handler+'" '+(enabled?'':'disabled')+' title="'+(blocked?'Запрещено текущим состоянием':hint)+'"><i>'+combatDockIcon(icon)+'</i><b>'+label+'</b><small>'+(blocked?'недоступно':hint)+'</small>'+(type!=='free'?'<span class="zg-combat-resource">'+Number(economy[type]||0)+'</span>':'')+'</button>';}
-      var creatureSheet=!!(session&&session.role==='master'&&controlled&&!controlled.uid);
-      var creatureSheetButton=creatureSheet?'<button type="button" data-combat-tool="sheet" aria-pressed="false" class="zg-combat-inventory-button creature-sheet" onclick="zgCombatCreatureSheetOpen('+JSON.stringify(String(controlled.tokenId||''))+')"><i>'+combatDockIcon('inventory')+'</i><b>Лист существа</b><small>HP, статусы, заметки</small></button>':'';
+      var sheetToken=combatToolbarSheetToken(controlled,session),creatureSheet=!!(session&&session.role==='master'&&sheetToken&&sheetToken.type!=='hero');
       var heroBagAvailable=!!(session&&(session.role==='player'||heroMembers().length));
-      var inventoryButton='<button type="button" data-combat-tool="inventory" aria-pressed="false" class="zg-combat-inventory-button" onclick="zgPlayerDockSelect(\'inventory\')" '+(heroBagAvailable?'':'disabled title="В комнате пока нет героя"')+'><i>'+combatDockIcon('inventory')+'</i><b>Сумка героя</b><small>'+(session&&session.role==='master'?'выбранный игрок':'ваши вещи')+'</small></button>';
+      var contextSheetButton=creatureSheet?'<button type="button" data-combat-tool="sheet" aria-pressed="false" class="zg-combat-inventory-button creature-sheet" onclick="zgCombatCreatureSheetOpen('+JSON.stringify(String(sheetToken.id||''))+')"><i>'+combatDockIcon('inventory')+'</i><b>Лист существа</b><small>HP, состояние, статусы</small></button>':'<button type="button" data-combat-tool="inventory" aria-pressed="false" class="zg-combat-inventory-button" onclick="zgPlayerDockSelect(\'inventory\')" '+(heroBagAvailable?'':'disabled title="В комнате пока нет героя"')+'><i>'+combatDockIcon('inventory')+'</i><b>Сумка героя</b><small>'+(session&&session.role==='master'?'выбранный герой':'ваши вещи')+'</small></button>';
       economyHost.classList.toggle('open',active&&!!controlled);
       var preparedCount=order.filter(function(entry){return entry&&entry.preparedReaction&&entry.preparedReaction.text;}).length+(combat&&combat.pendingPreparedAction&&combat.pendingPreparedAction.id?1:0)+(combat&&combat.pendingReactionAction&&combat.pendingReactionAction.id?1:0);
       var movementRemaining=Math.max(0,Number(economy.movement)||0),movementUnavailable=movementRemaining<=0;
       var ownRoomMember=session&&session.role==='player'&&state&&state.room&&state.room.members&&state.room.members[session.uid],ownIntentRequest=ownRoomMember&&ownRoomMember.actionRequest,pendingCombatIntent=!!(ownIntentRequest&&ownIntentRequest.actionKind==='combat-intent'&&['pending','roll-requested','roll-result'].indexOf(ownIntentRequest.status)>=0),intentButtonLabel=ownIntentRequest&&ownIntentRequest.status==='roll-requested'?'Нужен бросок':ownIntentRequest&&ownIntentRequest.status==='roll-result'?'ГМ решает':'Заявка отправлена';
       var ownPrepareRequest=ownRoomMember&&ownRoomMember.actionRequest&&ownRoomMember.actionRequest.actionKind==='combat-prepare'&&ownRoomMember.actionRequest.status==='pending',prepareReady=!!(canAct&&isTurn&&Number(economy.long)>0&&!statusSummary.blocked.long&&!controlled.preparedReaction&&!ownPrepareRequest),prepareHint=!isTurn?'только в свой ход':statusSummary.blocked.long?'запрещено состоянием':Number(economy.long)<=0?'длительное действие потрачено':controlled.preparedReaction?'условие уже подготовлено':ownPrepareRequest?'заявка ждёт мастера':'условие + действие';
-      syncCombatHtml(economyHost,active&&controlled?'<button type="button" data-combat-tool="movement" aria-pressed="false" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+(movementUnavailable?' spent':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement&&!movementUnavailable?'':'disabled')+' title="'+(movementUnavailable?'Запас движения исчерпан':statusSummary.blocked.movement?'Движение запрещено текущим состоянием':'Перемещение по сцене')+'"><i>'+combatDockIcon('movement')+'</i><b>Движение</b><small>'+movementRemaining+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','long-action','Длительное','атака или приём',Number(economy.long)>0,true)+economyButton('short','short-action',pendingCombatIntent?intentButtonLabel:'Короткое',pendingCombatIntent?'заявка ещё не завершена':'быстрое действие',Number(economy.short)>0&&!pendingCombatIntent,true)+economyButton('free','free-action','Бесплатное / План Б','свободные броски и мелочи',true,false)+'<button type="button" data-combat-tool="prepare" aria-pressed="false" class="zg-combat-prepare-button'+(prepareReady?'':Number(economy.long)<=0?' spent':'')+'" onclick="zgCombatPrepareToggle()" '+(prepareReady?'':'disabled')+' title="'+esc(prepareHint)+'"><i>'+combatDockIcon('prepare')+'</i><b>Подготовить</b><small>'+esc(prepareHint)+'</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button>'+creatureSheetButton+inventoryButton+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':''):'');
+      syncCombatHtml(economyHost,active&&controlled?'<button type="button" data-combat-tool="movement" aria-pressed="false" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+(movementUnavailable?' spent':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement&&!movementUnavailable?'':'disabled')+' title="'+(movementUnavailable?'Запас движения исчерпан':statusSummary.blocked.movement?'Движение запрещено текущим состоянием':'Перемещение по сцене')+'"><i>'+combatDockIcon('movement')+'</i><b>Движение</b><small>'+movementRemaining+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','long-action','Длительное','атака или приём',Number(economy.long)>0,true)+economyButton('short','short-action',pendingCombatIntent?intentButtonLabel:'Короткое',pendingCombatIntent?'заявка ещё не завершена':'быстрое действие',Number(economy.short)>0&&!pendingCombatIntent,true)+economyButton('free','free-action','Бесплатное / План Б','свободные броски и мелочи',true,false)+'<button type="button" data-combat-tool="prepare" aria-pressed="false" class="zg-combat-prepare-button'+(prepareReady?'':Number(economy.long)<=0?' spent':'')+'" onclick="zgCombatPrepareToggle()" '+(prepareReady?'':'disabled')+' title="'+esc(prepareHint)+'"><i>'+combatDockIcon('prepare')+'</i><b>Подготовить</b><small>'+esc(prepareHint)+'</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button>'+contextSheetButton+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':''):'');
       syncCombatToolbarSelection();
     }
     if(el('zg-combat-prepare')&&el('zg-combat-prepare').classList.contains('open'))renderCombatPrepare(false);
@@ -18685,6 +18810,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var dock=el('zg-player-dock');if(dock)dock.classList.toggle('combat-mode',active);
     renderInitiativeStage();
   }
+  w.zgCombatToolbarRefresh=renderCombat;
   var deathSaveRolling=false;
   w.zgGmDeathCoinForce=function(key,coin){
     var deathApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;if(!deathApi||!deathApi.gmSetNextDeathCoin)return;
@@ -19539,6 +19665,59 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttStatusInfoBackdrop=function(event){
     if(event&&event.target===event.currentTarget)w.zgVttStatusInfoClose();
   };
+  w.zgVttBonusInfo=function(mode,kind,statKey){
+    var member=drawerMember(),character=fullLocalCharacter(member)||member&&member.character||{};
+    mode=String(mode||'equipment');kind=String(kind||'');statKey=String(statKey||'');
+    w.zgVttStatusInfoClose();
+    var modal=document.createElement('div'),title='',kicker='',icon='◆',color='#d6a447',facts=[],rows=[],description='';
+    if(mode==='temp-hp'){
+      var tempHp=Math.max(0,Number(character.tempHp)||0),effects=(Array.isArray(character.tempEffects)?character.tempEffects:[]).filter(function(effect){return effect&&effect.type==='hp';});
+      title='Временные HP';kicker='Защитный запас';icon='♥';color='#72aa65';
+      facts.push({label:'Сейчас',value:'+'+tempHp});
+      facts.push({label:'Порядок',value:'Перед здоровьем'});
+      effects.forEach(function(effect){
+        var value=Number(effect.value)||0,duration=Number(effect.remaining!=null?effect.remaining:effect.duration)||0,unit={rounds:' раунд.',minutes:' мин.',hours:' ч.',days:' д.'}[effect.unit]||'';
+        rows.push({name:effect.label||'Временный эффект',value:(value>0?'+':'')+value+(duration?' · '+duration+unit:'')});
+      });
+      if(!rows.length)rows.push({name:'Текущий запас',value:'+'+tempHp});
+      description='Временные HP принимают урон раньше обычного здоровья. Старые записи хранят сам запас, но не всегда сохраняют название эффекта, который его выдал.';
+    }else if(mode==='temporary-stat'){
+      var tempStatLabels=w.STAT_LABEL_RU||{},tempStatKey=kind,tempStatRaw=character.stats&&character.stats[tempStatKey],tempStatValue=tempStatRaw&&typeof tempStatRaw==='object'?tempStatRaw:{base:Number(tempStatRaw)||0};
+      var tempStatBase=tempStatValue.cur!=null&&tempStatValue.cur!==0?Number(tempStatValue.cur)||0:Number(tempStatValue.base)||0;
+      var tempStatEffects=(Array.isArray(character.tempEffects)?character.tempEffects:[]).filter(function(effect){return effect&&String(effect.type||'')===tempStatKey;});
+      var tempStatEffectTotal=tempStatEffects.reduce(function(sum,effect){return sum+(Number(effect.value)||0);},0);
+      var tempStatTotal=tempStatEffects.length?tempStatEffectTotal:Number(tempStatValue.tmp)||0;
+      title='Временная поправка: '+(tempStatLabels[tempStatKey]||tempStatKey||'характеристика');kicker='Активные эффекты';icon=tempStatTotal<0?'▼':'▲';color=tempStatTotal<0?'#b9574e':'#69a95f';
+      facts.push({label:'Основа',value:(tempStatBase>=0?'+':'')+tempStatBase});
+      facts.push({label:'Временно',value:(tempStatTotal>=0?'+':'')+tempStatTotal});
+      facts.push({label:'Сейчас',value:((tempStatBase+tempStatTotal)>=0?'+':'')+(tempStatBase+tempStatTotal)});
+      tempStatEffects.forEach(function(effect){
+        var value=Number(effect.value)||0,duration=Number(effect.remaining!=null?effect.remaining:effect.duration)||0,unit={rounds:' раунд.',minutes:' мин.',hours:' ч.',days:' д.'}[effect.unit]||'';
+        rows.push({name:effect.label||effect.name||'Временный эффект',value:(value>0?'+':'')+value+(duration?' · '+duration+unit:'')});
+      });
+      if(!rows.length)rows.push({name:'Поправка из листа героя',value:(tempStatTotal>0?'+':'')+tempStatTotal});
+      description='Временная поправка действует отдельно от постоянной характеристики и бонусов экипировки. Если старый эффект не сохранил название источника, здесь показывается его точное суммарное значение.';
+    }else{
+      var summary=character._equipBonusCache&&typeof character._equipBonusCache==='object'?character._equipBonusCache:character.equipmentBonuses&&typeof character.equipmentBonuses==='object'?character.equipmentBonuses:{};
+      var labels={ac:'Бонус к броне',hp:'Бонус к максимуму HP',speed:'Бонус к скорости',initiative:'Бонус к инициативе',stat:'Бонус к характеристике'};
+      var statLabels=w.STAT_LABEL_RU||{},total=kind==='stat'?Number(summary.statBonuses&&summary.statBonuses[statKey])||0:Number(summary[kind+'Bonus'])||0;
+      title=kind==='stat'?(statLabels[statKey]||'Характеристика'):labels[kind]||'Бонус снаряжения';kicker='Источники снаряжения';
+      (Array.isArray(summary.sources)?summary.sources:[]).forEach(function(source){
+        var bonuses=source&&source.bonuses&&typeof source.bonuses==='object'?source.bonuses:{},value=kind==='stat'?Number(bonuses.stats&&bonuses.stats[statKey])||0:Number(bonuses[kind])||0;
+        if(value)rows.push({name:source.name||'Предмет',value:(value>0?'+':'')+value});
+      });
+      var current=kind==='ac'?Number(character.ac)||10:kind==='hp'?Number(character.hpMax)||0:kind==='initiative'?Number(character.initiative)||0:kind==='stat'?Number(character.stats&&character.stats[statKey]&&(character.stats[statKey].cur!=null?character.stats[statKey].cur:character.stats[statKey].base))||0:null;
+      if(current!=null){facts.push({label:'Основа',value:String(current-total)});facts.push({label:'Снаряжение',value:(total>0?'+':'')+total});facts.push({label:'Итого',value:String(current)});}
+      else facts.push({label:'Снаряжение',value:(total>0?'+':'')+total});
+      if(!rows.length)rows.push({name:'Источник не найден',value:(total>0?'+':'')+total});
+      description='Итог рассчитан из предметов, которые сейчас находятся в слотах экипировки героя.';
+    }
+    modal.id='zg-vtt-status-info';modal.className='zg-vtt-status-info bonus';modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');modal.setAttribute('aria-labelledby','zg-vtt-status-info-title');modal.style.setProperty('--status-detail-color',color);modal.onclick=w.zgVttStatusInfoBackdrop;
+    modal.innerHTML='<article class="zg-vtt-status-info-card"><button type="button" class="zg-vtt-status-info-close" onclick="zgVttStatusInfoClose()" aria-label="Закрыть">×</button><header><i>'+icon+'</i><div><small>'+esc(kicker)+'</small><h3 id="zg-vtt-status-info-title">'+esc(title)+'</h3></div></header>'+
+      '<div class="zg-vtt-status-info-facts">'+facts.map(function(fact){return'<div><i>◇</i><span><small>'+esc(fact.label)+'</small><b>'+esc(fact.value)+'</b></span></div>';}).join('')+'</div>'+
+      '<section class="zg-bonus-source-section"><h4>Что даёт прибавку</h4><div class="zg-bonus-source-list">'+rows.map(function(row){return'<div><span>'+esc(row.name)+'</span><b>'+esc(row.value)+'</b></div>';}).join('')+'</div></section><section><h4>Как это работает</h4><p>'+esc(description)+'</p></section><footer><button type="button" onclick="zgVttStatusInfoClose()">Понятно</button></footer></article>';
+    modal.addEventListener('keydown',function(event){if(event.key==='Escape'){event.preventDefault();w.zgVttStatusInfoClose();}});document.body.appendChild(modal);var closeButton=modal.querySelector('.zg-vtt-status-info-close');if(closeButton)closeButton.focus();return true;
+  };
   w.zgVttInjuryInfo=function(index,injuryId){
     var raw=drawerInjuryDetails[Math.max(0,Number(index)||0)],member=drawerMember(),character=fullLocalCharacter(member)||member&&member.character||{},current=Array.isArray(character.injuries)?character.injuries:Array.isArray(character.traumas)?character.traumas:Array.isArray(character.wounds)?character.wounds:[];
     if(injuryId)raw=current.find(function(item){return item&&typeof item==='object'&&String(item.id||'')===String(injuryId);})||raw;
@@ -20240,6 +20419,7 @@ document.addEventListener('DOMContentLoaded', function(){
     activePanel = panel;
     var scenePanel = el('zg-scene-settings'); if (scenePanel) scenePanel.classList.remove('open');
     var gamePanel = el('zg-game-settings'); if (gamePanel) gamePanel.classList.remove('open');
+    if(w.zgPlayerBagScaleApply)w.zgPlayerBagScaleApply();
     if (drawer) drawer.classList.add('open');
     if(['character','inventory','abilities','journal'].indexOf(panel)>=0&&w.zgPlayerDockSet)w.zgPlayerDockSet('inventory',true);
     renderDrawer();
@@ -24192,7 +24372,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-journey-back:hover{color:var(--gold);background:rgba(232,192,96,.07)}
   .zg-journey-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px;pointer-events:none;transition:opacity .8s ease}
   /* небольшая загрузка + затемнение перед экраном игры */
-  .zg-journey-loader{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .5s ease}
+  .zg-journey-loader{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;pointer-events:none;transition:opacity .5s ease}
   .zg-journey-overlay.loading .zg-journey-loader{opacity:1}
   .zg-journey-overlay.dissolving .zg-journey-inner{opacity:0}   /* портрет и имя уходят только перед тёмным экраном */
   .zg-journey-overlay.loading{background:radial-gradient(120% 90% at 50% 40%,#0a0705 0%,#050303 60%,#020101 100%);transition:background 1s ease}
@@ -24211,12 +24391,12 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-world-clock-dial{width:36px;height:36px}.zg-world-clock-dial i,.zg-gm-time-panel .dial i{font:normal 16px/1 Georgia,serif;text-shadow:0 0 10px currentColor}.zg-world-clock-dial b,.zg-gm-time-panel .dial b{position:absolute;left:50%;top:50%;width:1px;height:42%;transform-origin:50% 100%;transform:translate(-50%,-100%) rotate(var(--world-clock-angle));background:linear-gradient(#f6dc8d,#8b6328);box-shadow:0 0 5px #eab955;transition:transform .65s cubic-bezier(.2,.8,.2,1)}.zg-world-clock-dial:after,.zg-gm-time-panel .dial:after{content:'';position:absolute;width:4px;height:4px;border-radius:50%;background:#f0d077;box-shadow:0 0 5px #eab955}
   .zg-world-clock>span:last-child{min-width:0;display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:7px}.zg-world-clock small{grid-column:1/-1;color:#716347;font:600 6px 'Cinzel',serif;letter-spacing:.7px;text-transform:uppercase}.zg-world-clock strong{color:#e6ce8c;font:700 14px/1.1 Georgia,serif;letter-spacing:.5px}.zg-world-clock em{color:#75694f;font:italic 8px Georgia,serif}.zg-world-clock.sun .zg-world-clock-dial,.zg-gm-time-panel.sun .dial{color:#f1c74f}.zg-world-clock.dawn .zg-world-clock-dial,.zg-gm-time-panel.dawn .dial{color:#dc8d4d}.zg-world-clock.twilight .zg-world-clock-dial,.zg-gm-time-panel.twilight .dial{color:#bd7d7b}.zg-world-clock.moon .zg-world-clock-dial,.zg-gm-time-panel.moon .dial{color:#8fa8d0}
   .zg-game-overlay.arriving .zg-vtt-scene{animation:zgPlayerArrival 2s ease-out both}
-  .zg-vtt-world.arrival-glide{transition:transform 3s cubic-bezier(.18,.72,.16,1)!important;will-change:transform}
+  .zg-vtt-world.arrival-glide{transition:transform 4.5s cubic-bezier(.18,.72,.16,1)!important;will-change:transform}
   .zg-vtt-arrival-fog{position:fixed;inset:-16%;z-index:80;display:none;pointer-events:none;background:radial-gradient(circle at var(--zg-arrival-x,50%) var(--zg-arrival-y,50%),rgba(137,146,140,.72) 0 8%,rgba(74,83,79,.88) 27%,rgba(13,17,16,.98) 72%),repeating-radial-gradient(ellipse at 18% 48%,rgba(164,173,166,.34) 0 8%,transparent 17% 27%),repeating-radial-gradient(ellipse at 84% 42%,rgba(136,148,142,.3) 0 9%,transparent 19% 30%);filter:blur(22px) saturate(.72)}
   .zg-game-overlay.arriving .zg-vtt-arrival-fog{display:block;animation:zgArrivalFog 2s ease-out both}
   @keyframes zgPlayerArrival{0%{filter:blur(8px) brightness(.3) saturate(.62)}45%{filter:blur(3px) brightness(.62) saturate(.8)}100%{filter:none}}
   @keyframes zgArrivalFog{0%{opacity:1;transform:scale(1);filter:blur(22px) saturate(.72)}45%{opacity:.52;filter:blur(29px) saturate(.88)}100%{opacity:0;transform:scale(1.18);filter:blur(38px) saturate(1)}}
-  .zg-game-gear{--zg-service-icon:var(--zg-icon-gear);position:absolute;top:16px;right:16px;z-index:4;width:42px;height:42px;border-radius:10px;
+  .zg-game-gear{--zg-service-icon:var(--zg-icon-gear);position:absolute;top:16px;right:16px;z-index:72;width:42px;height:42px;border-radius:10px;
     background:rgba(20,15,8,.5);border:1px solid rgba(200,170,90,.25);color:var(--muted);font-size:0;line-height:1;cursor:pointer;
     display:flex;align-items:center;justify-content:center;
     transition:color .25s,border-color .25s,background .25s,transform .4s ease;animation:zgGameFade .8s .3s both}
@@ -24227,6 +24407,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-game-settings.open{display:block;animation:zgPopIn .22s cubic-bezier(.2,.8,.3,1)}
   .zg-game-settings-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);text-align:center;margin:2px 0 10px}
   .zg-sound-settings{display:grid;gap:6px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817}.zg-sound-settings header{display:flex;align-items:center;justify-content:space-between}.zg-sound-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-sound-settings header small{color:#8c7047;font:8px Georgia,serif}.zg-sound-settings header small.ready{color:#72b37b}.zg-sound-settings header small.off{color:#b46d64}.zg-sound-settings>div{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:5px}.zg-sound-settings button{min-width:0;min-height:42px;padding:6px;border:1px solid #3b2e1c;border-radius:6px;background:#0e0b07;color:#796b52;cursor:pointer}.zg-sound-settings button span{display:grid;gap:2px;text-align:left}.zg-sound-settings button b{color:#ad9666;font:600 8px 'Cinzel',serif}.zg-sound-settings button small{font:8px Georgia,serif}.zg-sound-settings button.active{border-color:#557947;background:#142015;color:#9ccb8e}.zg-sound-settings button.test{color:#d8bd7c;font:600 8px 'Cinzel',serif}.zg-sound-settings .error{color:#c98378;font:8px/1.3 Georgia,serif}
+  .zg-player-bag-settings{display:grid;gap:7px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817}.zg-game-overlay.gm .zg-player-bag-settings{display:none}.zg-player-bag-settings header{display:flex;align-items:end;justify-content:space-between;gap:8px}.zg-player-bag-settings header span{display:grid;gap:2px}.zg-player-bag-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-player-bag-settings header small,.zg-player-bag-settings output{color:#78694f;font:8px Georgia,serif}.zg-player-bag-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-player-bag-settings button{min-width:0;min-height:61px;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:5px;padding:7px 5px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#796b52;text-align:left;cursor:pointer}.zg-player-bag-settings button>span{display:grid;gap:2px}.zg-player-bag-settings button b{color:#ad9666;font:600 7px 'Cinzel',serif}.zg-player-bag-settings button small{font:7px Georgia,serif}.zg-player-bag-settings button.active{border-color:#a67c31;background:radial-gradient(circle at 20% 50%,#56371378,transparent 70%),#171006;color:#e5c87c;box-shadow:inset 0 0 0 1px #d1a03a24}.zg-player-bag-size-icon{position:relative;display:block;width:22px;height:19px;border:1px solid currentColor;border-radius:3px 3px 7px 7px;box-shadow:inset 0 0 7px currentColor}.zg-player-bag-size-icon:before{content:'';position:absolute;left:5px;right:5px;top:-6px;height:7px;border:1px solid currentColor;border-bottom:0;border-radius:7px 7px 0 0}.zg-player-bag-size-icon.large{transform:scale(1.18)}
   .zg-qa-session-tools{display:grid;gap:6px;margin-bottom:9px;padding:8px;border:1px solid #435b38;border-radius:7px;background:linear-gradient(145deg,#101b11,#0b0906)}.zg-qa-session-tools[hidden]{display:none}.zg-qa-session-tools header b{color:#8fca91;font:600 9px 'Cinzel',serif}.zg-qa-session-tools header small{display:block;margin-top:3px;color:#6f8167;font:8px Georgia,serif}.zg-qa-workshop-hint{margin:0;padding:6px 7px;border-left:2px solid #8f7135;background:#171209;color:#9c8a61;font:8px/1.35 Georgia,serif}.zg-qa-session-tools>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-qa-session-tools>.zg-qa-workshop-backgrounds{grid-template-columns:repeat(3,1fr)}.zg-qa-session-tools button{min-height:38px;border:1px solid #49633f;border-radius:6px;background:#11180f;color:#9dcb91;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-qa-session-tools button:last-child{border-color:#79612c;background:#211808;color:#dfc070}.zg-qa-session-tools .zg-qa-session-modes button{display:grid;gap:2px;border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button:last-child{border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button.active{border-color:#d0a13e;background:radial-gradient(circle at 20% 50%,#5b401a80,transparent 65%),#181208;color:#f2d487;box-shadow:inset 0 0 0 1px #d0a13e35,0 0 14px #c9943230}.zg-qa-session-tools .zg-qa-session-modes button small{color:#756b52;font:7px Georgia,serif}.zg-qa-session-tools .zg-qa-session-modes button.active small{color:#a89264}.zg-qa-session-tools label{display:grid;gap:3px;color:#71836a;font:8px Georgia,serif}.zg-qa-session-tools select{min-height:34px;border:1px solid #435b38;border-radius:5px;background:#090d08;color:#b5d2aa;padding:0 7px;font:8px 'Cinzel',serif}.zg-qa-session-tools select:disabled{opacity:.45;cursor:not-allowed}.zg-qa-outcome-control{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px}.zg-qa-outcome-control>button{display:grid;align-content:center;gap:2px;border-color:#6f4b31!important;background:#18100c!important;color:#c99572!important}.zg-qa-outcome-control>button.active{border-color:#cf9c3d!important;background:radial-gradient(circle at 20% 50%,#6a3d1880,transparent 65%),#1b1208!important;color:#f1cf83!important;box-shadow:inset 0 0 0 1px #cf9c3d35,0 0 14px #c57e2630}.zg-qa-outcome-control>button small{color:#8f755d;font:7px Georgia,serif}.zg-qa-outcome-control>button.active small{color:#c8a974}
   .zg-game-overlay:not(.gm) .zg-combat-fx-open{display:none!important}
   .zg-combat-vfx-canvas{position:absolute;z-index:4;inset:0;width:100%;height:100%;pointer-events:none}
@@ -24242,7 +24423,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-game-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#3a3428;font-family:'Cinzel',serif;font-size:14px;letter-spacing:3px;text-transform:uppercase;pointer-events:none;animation:zgGameFadeUp 1s .4s both}
   .zg-scene-gear{--zg-service-icon:var(--zg-icon-map);display:none;position:absolute;top:16px;right:16px;z-index:12;width:42px;height:42px;border-radius:10px;background:rgba(20,15,8,.62);border:1px solid rgba(200,170,90,.25);color:#83a9c8;font-size:0;cursor:pointer;align-items:center;justify-content:center;transition:.25s}
   .zg-game-overlay.gm.gm-vision .zg-scene-gear{display:flex}
-  .zg-game-overlay.gm .zg-game-gear{z-index:12;top:6px;right:68px;width:34px;height:34px;border-radius:8px}
+  .zg-game-overlay.gm .zg-game-gear{z-index:72;top:6px;right:68px;width:34px;height:34px;border-radius:8px}
   .zg-game-overlay.gm .zg-scene-gear{top:6px;width:34px;height:34px;border-radius:8px}
   .zg-scene-gear:hover{color:var(--gold);border-color:var(--gold2);background:rgba(30,22,10,.8)}
   .zg-game-overlay.gm::before{content:'';position:absolute;z-index:10;left:0;right:0;top:0;height:46px;pointer-events:none;background:linear-gradient(180deg,#100d08 0%,#070604 100%);border-bottom:1px solid #392b17;box-shadow:0 7px 20px #000c,inset 0 1px 0 #d7b35b12}
@@ -24510,7 +24691,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-action-menu-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:#bda46f;font:600 11px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}
   .zg-action-menu-close{border:0;background:transparent;color:#806f4c;font-size:18px;line-height:1;cursor:pointer}.zg-action-menu-close:hover{color:#efd895}
   .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
-  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;width:1px;height:1px;pointer-events:none;will-change:transform;contain:layout paint;filter:drop-shadow(0 3px 4px #000d)}.zg-action-cursor.open{display:block}.zg-action-cursor:before{content:'';position:absolute;left:-11px;top:-11px;width:22px;height:22px;border:2px solid #f0cb70;border-radius:50%;background:radial-gradient(circle,#fff1a9 0 2px,#d7a43f55 3px 5px,transparent 6px);box-shadow:0 0 0 4px #100b06d4,0 0 16px #dda943dd,inset 0 0 8px #e8bd5c66}.zg-action-cursor:after{content:'';position:absolute;left:-17px;top:-1px;width:34px;height:2px;background:linear-gradient(90deg,#e4b850 0 34%,transparent 34% 66%,#e4b850 66%);box-shadow:0 0 6px #dca83daa}.zg-action-cursor img{position:absolute;left:13px;top:13px;display:block;width:62px;height:62px;object-fit:contain;filter:brightness(1.18) drop-shadow(0 4px 5px #000) drop-shadow(0 0 11px #d6a73fdd)}.zg-action-cursor[data-tool="attack"] img,.zg-action-cursor[data-tool="combat-attack"] img{left:-54px;top:-54px;width:66px;height:66px;filter:brightness(1.18) drop-shadow(0 3px 4px #000) drop-shadow(0 0 12px #dfaa43dd)}.zg-action-cursor[data-tool="movement"] img{width:66px;height:66px}.zg-action-cursor[data-tool="custom"] img{opacity:1;filter:brightness(1.55) saturate(1.15) drop-shadow(0 3px 5px #000) drop-shadow(0 0 12px #f0c665)}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}@media(prefers-reduced-motion:reduce){.zg-action-cursor{will-change:auto}}
+  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;width:1px;height:1px;overflow:visible;pointer-events:none;will-change:transform;contain:layout style;filter:drop-shadow(0 3px 4px #000d)}.zg-action-cursor.open{display:block}.zg-action-cursor:before{content:'';position:absolute;left:-11px;top:-11px;width:22px;height:22px;border:2px solid #f0cb70;border-radius:50%;background:radial-gradient(circle,#fff1a9 0 2px,#d7a43f55 3px 5px,transparent 6px);box-shadow:0 0 0 4px #100b06d4,0 0 16px #dda943dd,inset 0 0 8px #e8bd5c66}.zg-action-cursor:after{content:'';position:absolute;left:-17px;top:-1px;width:34px;height:2px;background:linear-gradient(90deg,#e4b850 0 34%,transparent 34% 66%,#e4b850 66%);box-shadow:0 0 6px #dca83daa}.zg-action-cursor img{position:absolute;left:13px;top:13px;display:block;width:62px;height:62px;object-fit:contain;filter:brightness(1.18) drop-shadow(0 4px 5px #000) drop-shadow(0 0 11px #d6a73fdd)}.zg-action-cursor[data-tool="attack"] img,.zg-action-cursor[data-tool="combat-attack"] img{left:-54px;top:-54px;width:66px;height:66px;filter:brightness(1.18) drop-shadow(0 3px 4px #000) drop-shadow(0 0 12px #dfaa43dd)}.zg-action-cursor[data-tool="movement"] img{width:66px;height:66px}.zg-action-cursor[data-tool="custom"] img{opacity:1;filter:brightness(1.55) saturate(1.15) drop-shadow(0 3px 5px #000) drop-shadow(0 0 12px #f0c665)}.zg-action-cursor-label{position:absolute;left:17px;top:74px;display:block;min-width:max-content;padding:4px 7px;border:1px solid #8f692b;border-radius:999px;background:#100b06ed;color:#f1d68d;font:700 8px/1 'Cinzel',serif;letter-spacing:.5px;white-space:nowrap;text-shadow:0 1px 2px #000;box-shadow:0 4px 12px #000b,0 0 9px #dba63b45}.zg-action-cursor[data-tool="attack"] .zg-action-cursor-label,.zg-action-cursor[data-tool="combat-attack"] .zg-action-cursor-label{left:-54px;top:17px}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}@media(prefers-reduced-motion:reduce){.zg-action-cursor{will-change:auto}}
   .zg-ability-target-hud{position:fixed;z-index:2147482500;left:50%;top:56px;transform:translateX(-50%);display:grid;grid-template-columns:42px minmax(210px,1fr) auto;align-items:center;gap:11px;min-width:min(560px,calc(100vw - 28px));padding:9px 10px;border:1px solid #b88b36;border-radius:9px;background:linear-gradient(180deg,#1d150beF,#0c0906f5);box-shadow:0 14px 38px #000d,0 0 22px #cf9a3138;backdrop-filter:blur(10px);animation:zgAbilityTargetHudIn .22s ease-out both}
   .zg-ability-target-hud>i{width:40px;height:40px;display:grid;place-items:center;border:1px solid #8f6829;border-radius:50%;background:radial-gradient(circle,#5d3c12,#171006 70%);color:#ffe197;font:normal 22px/1 Georgia,serif;box-shadow:inset 0 0 12px #eab94a35,0 0 14px #d49d333b}
   .zg-ability-target-hud>span{min-width:0;display:grid;gap:2px}.zg-ability-target-hud small{color:#987c48;font:700 8px/1.2 'Cinzel',serif;letter-spacing:1.4px}.zg-ability-target-hud b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f0d28a;font:700 13px/1.2 'Cinzel',serif}.zg-ability-target-hud em{color:#8f8063;font:normal 10px/1.25 Georgia,serif}
@@ -24528,7 +24709,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   @media(max-width:620px){.zg-ability-target-hud{top:58px;grid-template-columns:34px minmax(0,1fr) auto;gap:7px;min-width:calc(100vw - 18px);padding:7px}.zg-ability-target-hud>i{width:32px;height:32px;font-size:18px}.zg-ability-target-hud em{display:none}.zg-ability-target-hud button{padding:0 7px}.zg-ability-target-hud kbd{display:none}}
   @media(prefers-reduced-motion:reduce){.zg-ability-target-hud,.zg-ability-range-preview,.zg-ability-point-preview,.zg-vtt-token.zg-ability-target-valid,.zg-combat-spell-cast line,.zg-combat-spell-area,.zg-combat-spell-impact{animation:none}.zg-combat-spell-area,.zg-combat-spell-impact{transform:translate(-50%,-50%) scale(1)}}
 
-  .zg-vtt-drawer.backpack-skin{--backpack-panel:#17110dcc;--backpack-accent:#b57b58;--bag-rest-transform:translate(20%,-50%);--bag-entry-transform:translate(82%,-50%) scale(.975);--bag-overshoot-transform:translate(15%,-50%) scale(1.006);right:clamp(4px,2vw,28px);top:50%;bottom:auto;width:min(670px,calc((100vh - 32px)*.72),calc(100vw - 18px));height:min(930px,calc(100vh - 32px),calc((100vw - 18px)*1.39));box-sizing:border-box;transform:var(--bag-rest-transform);isolation:isolate;border:0;border-radius:0;background:none;padding:0;box-shadow:none;backdrop-filter:none;overflow:hidden;pointer-events:none}
+  .zg-vtt-drawer.backpack-skin{--backpack-panel:#17110dcc;--backpack-accent:#b57b58;--bag-user-scale:1;--bag-entry-scale:.975;--bag-overshoot-scale:1.006;--bag-rest-transform:translate(20%,-50%) scale(var(--bag-user-scale));--bag-entry-transform:translate(82%,-50%) scale(var(--bag-entry-scale));--bag-overshoot-transform:translate(15%,-50%) scale(var(--bag-overshoot-scale));right:clamp(4px,2vw,28px);top:50%;bottom:auto;width:min(670px,calc((100vh - 32px)*.72),calc(100vw - 18px));height:min(930px,calc(100vh - 32px),calc((100vw - 18px)*1.39));box-sizing:border-box;transform:var(--bag-rest-transform);transform-origin:right center;isolation:isolate;border:0;border-radius:0;background:none;padding:0;box-shadow:none;backdrop-filter:none;overflow:hidden;pointer-events:none}
   .zg-vtt-drawer.backpack-skin .zg-bag-interface,.zg-vtt-drawer.backpack-skin>.zg-vtt-panel-close{pointer-events:auto}
   .zg-vtt-drawer.backpack-skin.open{z-index:36;animation:zgBagSlideIn .48s cubic-bezier(.18,.82,.24,1) both}
   .zg-vtt-drawer.backpack-skin.open.closing{pointer-events:none;animation:zgBagSlideOut .42s cubic-bezier(.55,.05,.78,.32) both}
@@ -25036,6 +25217,8 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-vtt-token-hp i{display:block;height:100%;background:linear-gradient(90deg,#31884d,#69c87c)}
   .zg-vtt-token-hp i.low{background:linear-gradient(90deg,#8a2f28,#c0504a)}
   .zg-vtt-token-statuses{position:absolute;z-index:6;left:calc(100% + 7px);top:50%;display:flex;flex-direction:column;gap:3px;transform:translateY(-50%);pointer-events:auto}
+  .zg-vtt-token-status-portal{position:absolute;z-index:200000;transform:translate(-50%,-50%);pointer-events:none;overflow:visible;filter:none}
+  .zg-vtt-token-status-portal .zg-vtt-token-statuses{pointer-events:auto}
   .zg-vtt-token-status{position:relative;width:20px;height:20px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--status-color,#9b875c);border-radius:50%;background:#0d0b08e8;color:#f2dfad;font:12px/1 Arial,sans-serif;box-shadow:0 2px 7px #000c,0 0 7px color-mix(in srgb,var(--status-color,#9b875c) 48%,transparent);cursor:pointer;pointer-events:auto;touch-action:manipulation;transition:transform .15s,filter .15s}.zg-vtt-token-status:hover,.zg-vtt-token-status:focus-visible{outline:0;transform:scale(1.15);filter:brightness(1.25);box-shadow:0 0 0 2px #0b0806,0 0 11px var(--status-color,#9b875c)}
   .zg-vtt-token-status em{position:absolute;right:-4px;bottom:-4px;min-width:12px;height:12px;padding:0 2px;border:1px solid #100d08;border-radius:7px;background:var(--status-color,#9b875c);color:#090704;font:700 8px/11px Arial,sans-serif;text-align:center}
   .zg-vtt-token-status-visuals{position:absolute;z-index:4;inset:-3px;border-radius:50%;pointer-events:none;contain:layout style}
@@ -25303,7 +25486,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-vtt-log-detail-body{padding:18px 20px 22px}.zg-vtt-log-detail-summary{display:grid;gap:12px;padding:15px;border:1px solid #503a21;border-radius:9px;background:linear-gradient(135deg,#171008,#0b0806)}.zg-vtt-log-detail-summary p{margin:0;color:#d1bd93;font:italic 15px/1.55 'Lora',Georgia,serif}.zg-vtt-log-detail-summary>div{display:flex;flex-wrap:wrap;gap:6px}.zg-vtt-log-detail-summary span{padding:4px 8px;border:1px solid #5d4525;border-radius:12px;background:#201408;color:#c1a66c;font:600 8px 'Cinzel',serif;text-transform:uppercase}.zg-vtt-log-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.zg-vtt-log-detail-row{min-width:0;display:grid;gap:5px;padding:11px 12px;border:1px solid #3d301e;border-radius:8px;background:#0d0a07}.zg-vtt-log-detail-row small{color:#78684c;font:8px 'Cinzel',serif;text-transform:uppercase}.zg-vtt-log-detail-row b{overflow-wrap:anywhere;color:#dbc185;font:600 13px Georgia,serif}.zg-vtt-log-detail-row.success{border-color:#3f653e;background:#0b160c}.zg-vtt-log-detail-row.success b{color:#8dcc8c}.zg-vtt-log-detail-row.fail,.zg-vtt-log-detail-row.damage{border-color:#69362f;background:#190b09}.zg-vtt-log-detail-row.fail b,.zg-vtt-log-detail-row.damage b{color:#e08b7c}.zg-vtt-log-detail-row.critical{border-color:#b08132;background:#211606}.zg-vtt-log-detail-row.critical b{color:#ffe092}.zg-vtt-log-detail-results{grid-column:1/-1;display:grid;gap:5px;padding:12px;border:1px solid #4b3822;border-radius:8px;background:#0d0906}.zg-vtt-log-detail-results h4{margin:0 0 4px;color:#c9ad73;font:600 10px 'Cinzel',serif;text-transform:uppercase}.zg-vtt-log-detail-results div{display:flex;justify-content:space-between;gap:10px;padding:7px 2px;border-top:1px solid #2e2317}.zg-vtt-log-detail-hidden,.zg-vtt-log-detail-empty{margin:12px 0 0;padding:13px;border:1px dashed #4b3923;border-radius:8px;color:#88795e;font:italic 12px/1.45 Georgia,serif;text-align:center}@media(max-width:560px){.zg-vtt-log-detail{padding:10px}.zg-vtt-log-detail>article{width:100%;max-height:90vh}.zg-vtt-log-detail-grid{grid-template-columns:1fr}}
   .zg-vtt-chat{flex-shrink:0;display:grid;grid-template-columns:32px 1fr 34px;gap:5px;padding:5px;border:1px solid #3b301d99;border-radius:7px;background:#09090799;box-shadow:0 8px 24px #0007;pointer-events:auto;backdrop-filter:blur(6px)}
   .zg-vtt-journal-toggle{position:absolute;z-index:7;left:18px;bottom:20px;width:43px;height:43px;border:1px solid #665027;border-radius:50%;background:#0c0b08cc;color:#b59a5e;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 25px #000a,inset 0 1px 0 #e4c66c1c;backdrop-filter:blur(7px);transition:.18s ease}
-  .zg-ping-toggle{position:absolute;z-index:7;right:18px;bottom:20px;width:43px;height:43px;border:1px solid #665027;border-radius:50%;background:#0c0b08dd;color:#cbb36f;display:grid;place-items:center;font:700 20px/1 Georgia,serif;cursor:pointer;box-shadow:0 8px 25px #000a,inset 0 1px 0 #e4c66c1c;backdrop-filter:blur(7px);transition:.18s ease}
+  .zg-ping-toggle{position:absolute;z-index:72;right:18px;bottom:20px;width:43px;height:43px;border:1px solid #665027;border-radius:50%;background:#0c0b08dd;color:#cbb36f;display:grid;place-items:center;font:700 20px/1 Georgia,serif;cursor:pointer;box-shadow:0 8px 25px #000a,inset 0 1px 0 #e4c66c1c;backdrop-filter:blur(7px);transition:.18s ease}
   .zg-ping-toggle:hover,.zg-ping-toggle.active{border-color:#d4aa45;color:#fff0ae;background:#2a1c09;box-shadow:0 8px 25px #000a,0 0 18px #d7a83e66}
   .zg-camera-focus-offer{position:absolute;z-index:12;right:18px;bottom:72px;width:min(310px,calc(100vw - 36px));display:none;grid-template-columns:38px minmax(0,1fr);gap:9px;padding:11px;border:1px solid #7e632e;border-radius:9px;background:linear-gradient(160deg,#1b1409f5,#090805f7);box-shadow:0 16px 42px #000d,0 0 22px #c99a3433;color:#c8b483}.zg-camera-focus-offer.open{display:grid;animation:zgPopIn .18s ease}.zg-camera-focus-offer>i{width:38px;height:38px;display:grid;place-items:center;border:1px solid #80632d;border-radius:50%;color:#efd27d;font:normal 20px Georgia,serif}.zg-camera-focus-offer p{margin:0;font-size:12px;line-height:1.35}.zg-camera-focus-actions{display:flex;gap:6px;margin-top:8px}.zg-camera-focus-actions button{flex:1;height:30px;border:1px solid #57431f;border-radius:5px;background:#100d08;color:#aa9871;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-camera-focus-actions button.accept{border-color:#a47b31;background:#291c0a;color:#f0d17b}
   .zg-vtt-journal-toggle:hover,.zg-vtt-journal-toggle.active{color:#f0d58a;border-color:#b18738;background:#1b140acc;box-shadow:0 8px 25px #000b,0 0 16px #b9863338}.zg-vtt-journal-toggle img{width:25px;height:25px;object-fit:contain;opacity:.85}
@@ -25398,6 +25581,20 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-bag-item.empty{opacity:.42;background:linear-gradient(145deg,#100c08,#080604);box-shadow:inset 0 0 17px #000}.zg-bag-item.empty::after{content:'';width:4px;height:4px;border:1px solid #332718;transform:rotate(45deg)}
   .zg-bag-foot{border:1px solid #4b351c;border-top:0;border-radius:0 0 7px 7px;background:#0b0806}.zg-bag-foot b{color:#d9bd76}.zg-bag-coins{margin-left:auto;margin-right:10px;color:#5f523d;font:7px 'Cinzel',serif}.zg-bag-add{margin-left:0}.zg-bag-add:hover{border-color:#d3a64b;box-shadow:0 0 16px #bd852d44}
   .zg-item-detail-stats{display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin-top:9px}.zg-item-detail-stats span{padding:4px 7px;border:1px solid #5b4221;border-radius:3px;background:#100b06;color:#d0b36d;font:8px 'Cinzel',serif}.zg-item-detail-card .zg-item-detail-copy{box-sizing:border-box;max-height:210px;margin:16px 0;padding:14px 16px 15px;overflow:auto;border:1px solid #594120;border-left:2px solid #a77b32;border-radius:7px;background:linear-gradient(145deg,#080605e8,#171008ed);box-shadow:inset 0 1px 0 #d3a95518,inset 0 0 26px #0008,0 8px 20px #0005;color:#c8b995;font-size:12px;line-height:1.68;text-align:left;white-space:pre-line;scrollbar-width:thin;scrollbar-color:#725224 #0a0705}
+  /* Character skill/mastery constructor: normalize native Safari controls. */
+  .skill-card-backdrop{box-sizing:border-box;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
+  .skill-card-popup{box-sizing:border-box;overflow:hidden;background:radial-gradient(circle at 14% 0,color-mix(in srgb,var(--sc-accent),transparent 86%),transparent 38%),linear-gradient(150deg,#191108,#090705 76%)!important;border-color:color-mix(in srgb,var(--sc-accent),#a77830 40%)!important;border-radius:14px!important;box-shadow:0 28px 90px #000,0 0 30px color-mix(in srgb,var(--sc-accent),transparent 82%),inset 0 0 0 1px #e3b45b12!important;color:#c5b58f}
+  .skill-card-popup .sc-close-x{display:grid!important;place-items:center;width:36px;height:36px;padding:0!important;border:1px solid transparent!important;border-radius:50%!important;color:#8f7b58!important;transition:.16s ease}.skill-card-popup .sc-close-x:hover{border-color:#5c4321!important;background:#1c1309!important;color:#e3c578!important}
+  .sc-editor-kicker{margin:0 42px 19px 0;padding-bottom:13px;border-bottom:1px solid #49351c;font:700 10px/1.4 'Cinzel',serif;letter-spacing:2px;text-transform:uppercase}
+  .sc-editor-field{min-width:0;margin-bottom:13px}.sc-editor-label{display:flex;align-items:center;gap:7px;margin-bottom:6px;color:#887653;font:700 8px/1.3 'Cinzel',serif;letter-spacing:1.35px;text-transform:uppercase}.sc-editor-label em{color:#5e523f;font:italic 9px/1.3 Georgia,serif;letter-spacing:0;text-transform:none}
+  .sc-editor-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}.skill-card-popup input,.skill-card-popup textarea,.skill-card-popup select{outline:0;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease}.skill-card-popup .sc-name,.skill-card-popup .sc-usages,.skill-card-popup .sc-type,.skill-card-popup .sc-cdmax,.skill-card-popup .sc-desc,.skill-card-popup .sc-desc-lvl{border-color:#4c371c!important;border-radius:7px!important;background:#090705e8!important;color:#d8c8a2!important;box-shadow:inset 0 1px 10px #0008}.skill-card-popup .sc-name:focus,.skill-card-popup .sc-usages:focus,.skill-card-popup .sc-type:focus,.skill-card-popup .sc-cdmax:focus,.skill-card-popup .sc-desc:focus,.skill-card-popup .sc-desc-lvl:focus{border-color:#af8137!important;box-shadow:0 0 0 2px #a879302b,inset 0 1px 10px #0008}
+  .sc-select-wrap{position:relative}.skill-card-popup .sc-type{-webkit-appearance:none;appearance:none;height:42px;padding:0 38px 0 12px!important;background-image:none!important;cursor:pointer}.sc-select-wrap>span{position:absolute;right:12px;top:50%;color:#c99d4b;font:700 17px/1 Arial;pointer-events:none;transform:translateY(-56%)}
+  .sc-editor-resource{margin:1px 0 15px;padding:12px 13px;border:1px solid #423019;border-radius:9px;background:linear-gradient(135deg,#110c07,#090705)}.sc-editor-resource>.sc-editor-label{justify-content:space-between}.sc-editor-stepper{display:grid;grid-template-columns:38px 62px 38px minmax(0,1fr);gap:7px;align-items:center}.skill-card-popup .sc-cd-minus,.skill-card-popup .sc-cd-plus{width:38px!important;height:38px!important;border-color:#60451f!important;border-radius:7px!important;background:#171007!important;color:#d4ad5c!important;font-size:19px!important;line-height:1;transition:.16s ease}.skill-card-popup .sc-cd-minus:hover,.skill-card-popup .sc-cd-plus:hover{border-color:#bd8e3b!important;background:#2a1b0b!important;color:#ffe09a!important}.skill-card-popup .sc-cdmax{width:62px!important;height:38px!important;padding:0!important;-moz-appearance:textfield;appearance:textfield}.skill-card-popup .sc-cdmax::-webkit-inner-spin-button,.skill-card-popup .sc-cdmax::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}.sc-editor-hint{padding-left:7px;color:#75694f;font:italic 10px/1.35 Georgia,serif}
+  .sc-editor-description{margin-bottom:16px;padding:13px;border:1px solid #4a351b;border-left:2px solid #9d7130;border-radius:9px;background:linear-gradient(145deg,#080605ed,#141008e8);box-shadow:inset 0 0 24px #0007}.sc-editor-description-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:9px}.sc-editor-description-head>div{display:grid;gap:2px}.sc-editor-description-head .sc-editor-label{margin:0}.sc-editor-description-head small{color:#655a46;font:italic 9px Georgia,serif}
+  .sc-level-toggle{position:relative;display:flex;align-items:center;gap:8px;min-height:30px;cursor:pointer;color:#9d8a61;font:700 8px/1.25 'Cinzel',serif;text-align:right}.sc-level-toggle input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.sc-level-toggle i{position:relative;flex:0 0 auto;width:34px;height:18px;border:1px solid #4d3b23;border-radius:10px;background:#0b0806;box-shadow:inset 0 0 8px #000;transition:.18s ease}.sc-level-toggle i:after{content:'';position:absolute;left:3px;top:3px;width:10px;height:10px;border-radius:50%;background:#66583f;box-shadow:0 1px 3px #000;transition:.18s ease}.sc-level-toggle input:checked+i{border-color:#9f7736;background:#35230c}.sc-level-toggle input:checked+i:after{left:19px;background:#e0b55d;box-shadow:0 0 7px #dcae51}.sc-level-toggle input:focus-visible+i{outline:2px solid #d0a149;outline-offset:2px}.skill-card-popup .sc-desc,.skill-card-popup .sc-desc-lvl{min-height:150px!important;padding:13px 14px!important;line-height:1.65!important;scrollbar-width:thin;scrollbar-color:#6e4e21 #090604}
+  .sc-editor-actions{display:grid!important;grid-template-columns:minmax(0,1fr) 150px;gap:9px!important}.skill-card-popup .sc-save-btn,.skill-card-popup .sc-cancel-btn{box-sizing:border-box;border-radius:7px!important}.skill-card-popup .sc-save-btn{border-color:#a77b31!important;background:linear-gradient(#3a260d,#201408)!important;color:#f0cc78!important}.skill-card-popup .sc-save-btn:hover{border-color:#d1a74d!important;background:linear-gradient(#4a3010,#291908)!important}.skill-card-popup .sc-cancel-btn{border-color:#493b27!important;background:#0d0a07!important;color:#938263!important}.skill-card-popup .sc-cancel-btn:hover{border-color:#745a2d!important;color:#c7af79!important}
+  @media(max-width:600px){.skill-card-popup{padding:21px 15px 16px!important}.sc-editor-grid{grid-template-columns:1fr}.sc-editor-stepper{grid-template-columns:38px 62px 38px}.sc-editor-hint{grid-column:1/-1;padding:3px 0 0}.sc-editor-description-head{align-items:flex-start;flex-direction:column}.sc-level-toggle{align-self:stretch;justify-content:space-between;text-align:left}.sc-editor-actions{grid-template-columns:1fr!important}}
+  .item-constructor-backdrop{isolation:isolate}.item-constructor-panel{position:relative}.item-constructor-panel #ic-qty{-moz-appearance:textfield;appearance:textfield}.item-constructor-panel #ic-qty::-webkit-inner-spin-button,.item-constructor-panel #ic-qty::-webkit-outer-spin-button{-webkit-appearance:none;appearance:none;margin:0}.ic-confirm-layer{position:fixed;z-index:2;inset:0;display:grid;place-items:center;box-sizing:border-box;padding:20px;background:#020201d4;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);animation:icConfirmFade .16s ease-out}.ic-confirm-card{box-sizing:border-box;width:min(420px,calc(100vw - 32px));padding:25px;border:1px solid #874337;border-radius:10px;background:radial-gradient(circle at 50% 0,#a7432429,transparent 45%),linear-gradient(150deg,#21140d,#0a0705 75%);box-shadow:0 30px 90px #000,inset 0 0 0 1px #e3aa5820;color:#b4a17c;text-align:center;animation:icConfirmCardIn .2s cubic-bezier(.2,.8,.2,1)}.ic-confirm-symbol{display:grid;place-items:center;width:58px;height:58px;margin:0 auto 13px;border:1px solid #87483a;border-radius:50%;background:#2b110d;color:#e48a76;font:700 24px/1 'Cinzel',serif;box-shadow:inset 0 0 16px #000b,0 0 20px #b3463027}.ic-confirm-card small{display:block;color:#a26f50;font:700 8px/1.4 'Cinzel',serif;letter-spacing:1.8px;text-transform:uppercase}.ic-confirm-card h3{margin:7px 0 9px;color:#efd7a2;font:600 18px/1.3 'Cinzel',serif}.ic-confirm-card p{margin:0;color:#aa9876;font:12px/1.55 Georgia,serif}.ic-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:21px}.ic-confirm-actions button{height:41px;border:1px solid #5b472a;border-radius:6px;background:#151008;color:#c4ad78;font:600 9px/1 'Cinzel',serif;cursor:pointer;transition:.16s ease}.ic-confirm-actions button:hover,.ic-confirm-actions button:focus-visible{border-color:#aa803b;color:#f0d68e;outline:0;box-shadow:0 0 0 2px #b7863526}.ic-confirm-actions .danger{border-color:#863e34;background:#32130f;color:#e68b79}.ic-confirm-actions .danger:hover,.ic-confirm-actions .danger:focus-visible{border-color:#c45a49;background:#471912;color:#ffc2b4}.ic-confirm-actions .discard{border-color:#755235;background:#21130c;color:#d9ad75}.ic-confirm-actions .discard:hover,.ic-confirm-actions .discard:focus-visible{border-color:#ad7848;background:#321b0f;color:#f3c890}@keyframes icConfirmFade{from{opacity:0}to{opacity:1}}@keyframes icConfirmCardIn{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}@media(max-width:480px){.ic-confirm-card{padding:21px 16px}.ic-confirm-actions{grid-template-columns:1fr}.ic-confirm-actions button:first-child{order:2}}
   .zg-token-roll{position:absolute;z-index:20;left:50%;bottom:calc(100% + 15px);width:108px;height:108px;transform:translateX(-50%);pointer-events:none;display:flex;align-items:center;justify-content:center;animation:zgTokenRoll 3s cubic-bezier(.2,.8,.3,1) both;overflow:visible}
   .zg-token-roll.long-result{animation-name:zgTokenRollCritical;animation-duration:7.02s}
   .zg-token-roll.world-roll{bottom:auto;margin-top:-96px;margin-left:var(--roll-offset,0px);transform:translateX(-50%)}
@@ -25406,7 +25603,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-token-roll b{position:relative;z-index:2;color:#fff0b5;font:700 18px 'Cinzel',serif;text-shadow:0 2px 5px #000,0 0 8px #000;animation:zgDieNumberFlight var(--dice-flight-duration,1.25s) linear both;backface-visibility:hidden;will-change:transform}
   .zg-token-roll em{position:absolute;top:100px;left:50%;transform:translateX(-50%);min-width:150px;color:#e7cc84;font:700 9px/1.2 'Cinzel',serif;letter-spacing:.7px;text-align:center;text-shadow:0 2px 5px #000,0 0 8px #000;white-space:nowrap}
   .zg-token-roll.landed img{filter:drop-shadow(0 10px 12px #000) drop-shadow(0 0 24px #e7bb55cc)}
-  .zg-token-roll.landed b{color:#fff4c4;text-shadow:0 0 12px #ffd96d,0 2px 5px #000}.zg-token-roll.number-landed b{animation:zgNumberLand .48s cubic-bezier(.2,1.7,.35,1) both}
+  .zg-token-roll.landed b{color:#fff4c4;text-shadow:0 0 12px #ffd96d,0 2px 5px #000}.zg-token-roll.number-landed b{animation:zgNumberLand .48s cubic-bezier(.2,1.7,.35,1) both}.zg-token-roll.number-counted b{opacity:0!important;transition:opacity .12s ease}
   .zg-token-roll.world-roll.local-thrown.landed img{animation-name:zgLocalDieThrow}.zg-token-roll.world-roll.local-thrown.number-landed b{animation:zgNumberLand .48s cubic-bezier(.2,1.7,.35,1) both}
   .zg-token-roll.critical-success::before,.zg-token-roll.critical-fail::before{content:'';position:absolute;inset:-12px;border:2px solid #ffd96d;border-radius:50%;opacity:0;animation:zgCritRing 1.69s ease-out .11s both}
   .zg-token-roll.critical-success::after{content:'✦  ✦  ✦';position:absolute;inset:-28px;color:#ffe285;font-size:22px;letter-spacing:15px;text-align:center;filter:drop-shadow(0 0 8px #ffc84f);animation:zgCritStars 1.55s ease-out both}
@@ -25476,7 +25673,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     .zg-vtt-tool{border-bottom:0;border-right:1px solid #302515}
     .zg-vtt-tool:last-child{border-right:0}
     .zg-vtt-drawer{left:10px;right:10px;top:auto;bottom:64px;width:auto;max-height:56vh}
-    .zg-vtt-drawer.backpack-skin{--bag-rest-transform:translateX(20%);--bag-entry-transform:translateX(82%) scale(.975);--bag-overshoot-transform:translateX(15%) scale(1.006);left:auto;right:-6px;top:auto;bottom:70px;width:min(650px,calc((100vh - 108px)*.72),calc(100vw - 8px));height:min(900px,calc(100vh - 108px),calc((100vw - 8px)*1.39));max-height:none;transform:var(--bag-rest-transform)}
+    .zg-vtt-drawer.backpack-skin{--bag-rest-transform:translateX(20%) scale(var(--bag-user-scale));--bag-entry-transform:translateX(82%) scale(var(--bag-entry-scale));--bag-overshoot-transform:translateX(15%) scale(var(--bag-overshoot-scale));left:auto;right:-6px;top:auto;bottom:70px;width:min(650px,calc((100vh - 108px)*.72),calc(100vw - 8px));height:min(900px,calc(100vh - 108px),calc((100vw - 8px)*1.39));max-height:none;transform:var(--bag-rest-transform);transform-origin:right bottom}
     .zg-move-requests{right:10px;top:116px;width:min(320px,calc(100vw - 20px))}.zg-move-requests-toggle{right:10px;top:68px}
     .zg-player-dock{bottom:10px;width:calc(100vw - 24px);min-width:0;height:82px;padding:5px 10px;border-radius:32px}
     .zg-player-action{grid-template-rows:32px 18px 11px;padding:4px 3px 2px}
@@ -25494,7 +25691,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     .zg-player-action{grid-template-rows:30px 18px;padding:3px 2px}
     .zg-player-action-icon{height:30px;font-size:21px}
     .zg-bag-tabs{padding:8px 42px 8px 8px}.zg-bag-tabs>span{display:none}.zg-bag-tabs button:not(.zg-vtt-panel-close){width:38px;height:38px}
-    .zg-vtt-drawer.backpack-skin{--bag-rest-transform:translateX(-30%);--bag-entry-transform:translateX(24%) scale(.975);--bag-overshoot-transform:translateX(-35%) scale(1.006);left:50%;right:auto;bottom:66px;width:min(calc(100vw - 8px),calc((100vh - 74px)*.72));height:min(calc((100vw - 8px)*1.39),calc(100vh - 74px));padding:0;transform:var(--bag-rest-transform)}
+    .zg-vtt-drawer.backpack-skin{--bag-rest-transform:translateX(-30%) scale(var(--bag-user-scale));--bag-entry-transform:translateX(24%) scale(var(--bag-entry-scale));--bag-overshoot-transform:translateX(-35%) scale(var(--bag-overshoot-scale));left:50%;right:auto;bottom:66px;width:min(calc(100vw - 8px),calc((100vh - 74px)*.72));height:min(calc((100vw - 8px)*1.39),calc(100vh - 74px));padding:0;transform:var(--bag-rest-transform);transform-origin:center bottom}
     .zg-vtt-drawer.backpack-skin .zg-bag-tabs{left:20.5%;top:14.15%;width:59%;height:7.9%;padding:0}
     .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close){grid-template-rows:minmax(0,1fr) 10px;padding:2px 1px 1px}
     .zg-vtt-drawer.backpack-skin .zg-bag-tabs>button:not(.zg-vtt-panel-close) img{width:30px;height:30px}
@@ -26056,6 +26253,10 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     color:#cdb587;
     font:8px 'Cinzel',serif;
   }
+  .zg-bonus-source-list{display:grid;gap:6px}
+  .zg-bonus-source-list>div{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 10px;border:1px solid #49331f;border-radius:7px;background:#100b08}
+  .zg-bonus-source-list span{min-width:0;overflow:hidden;color:#c9b187;font:11px 'Lora',serif;text-overflow:ellipsis;white-space:nowrap}
+  .zg-bonus-source-list b{flex:0 0 auto;color:var(--status-detail-color);font:700 13px 'Cinzel',serif}
   .zg-vtt-status-info-card>footer{display:flex;justify-content:flex-end;margin-top:14px}
   .zg-vtt-status-info-card>footer button{
     min-width:105px;
@@ -26594,36 +26795,40 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     overscroll-behavior:none;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus{
+    appearance:none;
     box-sizing:border-box;
-    min-width:27px;
-    height:17px;
+    min-width:35px;
+    height:23px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
     gap:2px;
-    padding:0 5px 0 3px;
+    padding:0 7px 0 5px;
     border:1px solid #bf8a38;
     border-radius:9px;
     background:linear-gradient(180deg,#62401a,#271708);
     color:#ffe09a;
-    font:700 8px/15px 'Cinzel',serif;
+    font:700 10px/21px 'Cinzel',serif;
     letter-spacing:0;
     text-align:center;
     text-shadow:0 1px 2px #000;
     box-shadow:inset 0 1px #ffe2a052,0 1px 4px #000b,0 0 9px #d5963742;
-    cursor:help;
+    cursor:pointer;
+    transition:border-color .16s ease,filter .16s ease,transform .16s ease;
   }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus:hover,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus:focus-visible{border-color:#efc467;filter:brightness(1.16);transform:translateY(-1px);outline:none}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus>i{
     width:auto;
     height:auto;
     display:inline;
     color:#e8b85e;
-    font:normal 6px/1 Georgia,serif;
+    font:normal 7px/1 Georgia,serif;
     text-shadow:0 0 5px #e2a342;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus>em{
     color:#ffe09a;
-    font:700 8px/1 'Cinzel',serif;
+    font:700 10px/1 'Cinzel',serif;
     font-style:normal;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list strong,
@@ -26636,6 +26841,44 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     position:absolute;
     right:-3px;
     top:-10px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list>div{
+    grid-template-columns:42px minmax(0,1fr) 43px 48px;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat{
+    appearance:none;
+    box-sizing:border-box;
+    width:45px;
+    min-height:34px;
+    display:grid;
+    place-content:center;
+    gap:2px;
+    padding:3px 4px;
+    border:1px solid #4e7546;
+    border-radius:7px;
+    background:linear-gradient(180deg,#21341d,#10190d);
+    color:#92c37f;
+    text-align:center;
+    box-shadow:inset 0 1px #a9ce9824,0 2px 4px #0008;
+    cursor:pointer;
+    transition:border-color .16s ease,filter .16s ease,transform .16s ease;
+  }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat small{font:700 6.5px/1 'Cinzel',serif;letter-spacing:.2px;text-transform:uppercase;opacity:.75}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat b{font:700 13px/1 'Cinzel',serif}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat.negative{border-color:#86453f;background:linear-gradient(180deg,#3b1d19,#1d0e0c);color:#e17e70}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat:hover,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat:focus-visible{border-color:#b2d99f;filter:brightness(1.14);transform:translateY(-1px);outline:none}
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat.empty{
+    width:auto;
+    min-height:0;
+    display:block;
+    border:0;
+    background:none;
+    color:#426c3f;
+    font:700 10px/1 'Cinzel',serif;
+    box-shadow:none;
+    cursor:default;
+    opacity:.42;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>span>.zg-equip-bonus{
     position:absolute;
@@ -26651,15 +26894,19 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   }
   @media(max-width:560px){
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus{
-      min-width:14px;
-      height:10px;
-      padding:0 2px;
-      font-size:5.5px;
-      line-height:8px;
+      min-width:29px;
+      height:19px;
+      padding:0 5px 0 4px;
+      font-size:8px;
+      line-height:17px;
     }
-    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus>i{font-size:4px}
-    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus>em{font-size:5.5px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus>i{font-size:6px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-equip-bonus>em{font-size:8px}
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list strong>.zg-equip-bonus{right:-2px;top:-8px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-stat-list>div{grid-template-columns:29px minmax(0,1fr) 31px 39px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat{width:37px;min-height:29px;padding:2px 3px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat small{font-size:5.5px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-temp-stat b{font-size:10px}
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-armor>.zg-equip-bonus,
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-combat-values>div>.zg-equip-bonus{margin-left:0}
   }
@@ -26795,27 +27042,32 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     white-space:nowrap;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp{
+    appearance:none;
     align-self:center;
-    min-width:39px;
+    min-width:55px;
     display:grid;
     justify-items:center;
-    gap:2px;
-    padding:4px 5px;
+    gap:3px;
+    padding:6px 7px;
     border:1px solid #507746;
     border-radius:8px;
     background:linear-gradient(180deg,#23351e,#101a0d);
     box-shadow:inset 0 1px #9bc48726,0 2px 5px #0009,0 0 9px #4d7e3d21;
     font-style:normal;
+    cursor:pointer;
+    transition:border-color .16s ease,filter .16s ease,transform .16s ease;
   }
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp:hover,
+  .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp:focus-visible{border-color:#8dbb7b;filter:brightness(1.14);transform:translateY(-1px);outline:none}
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp small{
     color:#819a72;
-    font:600 5.5px/1 'Cinzel',serif;
+    font:700 8px/1 'Cinzel',serif;
     letter-spacing:.3px;
     white-space:nowrap;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp b{
     color:#9bc982;
-    font:700 11px/1 'Cinzel',serif;
+    font:700 15px/1 'Cinzel',serif;
   }
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-armor{
     min-width:0;
@@ -26932,12 +27184,12 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-combat-values small{font-size:7px}
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp b{font-size:19px}
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp{
-      min-width:30px;
-      gap:1px;
-      padding:3px;
+      min-width:43px;
+      gap:2px;
+      padding:4px;
     }
-    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp small{font-size:4.5px}
-    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp b{font-size:9px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp small{font-size:6.5px}
+    .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-hp>.zg-temp-hp b{font-size:12px}
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="hero"] .zg-state-armor{
       grid-template-columns:27px minmax(0,1fr) auto;
       column-gap:2px;
@@ -29522,6 +29774,10 @@ window.zgEnsurePortableCharacterMedia = function(character) {
         <header><b>Звук</b><small id="zg-sound-state">Ожидает проверки</small></header>
         <div><button type="button" id="zg-sound-toggle" onclick="zgSoundSettingsToggle()" aria-pressed="false"><span><b>Включить звук</b><small>Снять сохранённое отключение</small></span></button><button type="button" class="test" onclick="zgSoundSettingsTest()">▶ Тест</button></div>
         <small class="error" id="zg-sound-error" hidden></small>
+      </section>
+      <section class="zg-player-bag-settings" id="zg-player-bag-settings">
+        <header><span><b>Сумка героя</b><small>Размер интерфейса</small></span><output id="zg-player-bag-scale-state">Обычная · 100%</output></header>
+        <div role="group" aria-label="Размер сумки героя"><button type="button" data-player-bag-scale="normal" onclick="zgPlayerBagScaleSet('normal')" aria-pressed="true"><i class="zg-player-bag-size-icon" aria-hidden="true"></i><span><b>Обычная</b><small>100%</small></span></button><button type="button" data-player-bag-scale="large" onclick="zgPlayerBagScaleSet('large')" aria-pressed="false"><i class="zg-player-bag-size-icon large" aria-hidden="true"></i><span><b>Увеличенная</b><small>до 130%</small></span></button></div>
       </section>
       <section class="zg-qa-session-tools" id="zg-qa-session-tools" hidden>
         <header><b>Мастерская</b><small id="zg-qa-session-mode-state">Активный бой</small></header>
@@ -43654,45 +43910,49 @@ window.openSkillCardPopup = function(charId, field, idx) {
 
   var backdrop = document.createElement('div');
   backdrop.id = 'skill-card-backdrop';
+  backdrop.className = 'skill-card-backdrop';
   backdrop.setAttribute('role', 'presentation');
   backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.75);z-index:9998;display:flex;align-items:' + (isMobile?'flex-start':'center') + ';justify-content:center;' + (isMobile?'padding:48px 12px 12px':'padding:24px') + ';overflow-y:auto';
 
   var popup = document.createElement('div');
+  popup.id = 'skill-card-popup';
+  popup.className = 'skill-card-popup';
   popup.setAttribute('role', 'dialog');
   popup.setAttribute('aria-modal', 'true');
   popup.style.cssText = 'position:relative;background:#0e0a06;border:2px solid ' + typeColor + ';border-radius:10px;width:' + (isMobile?'calc(100vw - 24px)':'560px') + ';max-width:100%;padding:24px 22px 20px;box-shadow:0 20px 60px #000000cc';
+  popup.style.setProperty('--sc-accent', typeColor);
 
   function renderContent() {
     var mode = popup.dataset.mode;
     if (mode === 'edit') {
       popup.innerHTML =
         '<button class="sc-close-x" style="position:absolute;top:8px;right:10px;background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>' +
-        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:11px;color:' + typeColor + ';letter-spacing:2px;margin-bottom:14px">' + typeIcon + ' ' + typeLabel + ' — КОНСТРУКТОР</div>' +
-        '<div style="margin-bottom:12px"><div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">НАЗВАНИЕ</div>' +
+        '<div class="sc-editor-kicker" style="color:' + typeColor + '">' + typeIcon + ' ' + typeLabel + ' — КОНСТРУКТОР</div>' +
+        '<div class="sc-editor-field sc-editor-name"><div class="sc-editor-label">НАЗВАНИЕ</div>' +
           '<input class="sc-name" type="text" value="' + escHTML(item.name||'') + '" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:14px;font-weight:600;box-sizing:border-box" placeholder="Напр. Танец Костей"></div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">' +
-          '<div><div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">ТИП</div>' +
+        '<div class="sc-editor-grid">' +
+          '<div class="sc-editor-field"><div class="sc-editor-label">ТИП</div><div class="sc-select-wrap">' +
             '<select class="sc-type" style="width:100%;padding:9px 8px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box">' +
               typeOptions.map(function(t){ return '<option value="' + t + '"' + (item.type===t?' selected':'') + '>' + t + '</option>'; }).join('') +
-            '</select></div>' +
-          '<div><div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">ИСПОЛЬЗОВАНИЯ</div>' +
+            '</select><span aria-hidden="true">⌄</span></div></div>' +
+          '<div class="sc-editor-field"><div class="sc-editor-label">ИСПОЛЬЗОВАНИЯ</div>' +
             '<input class="sc-usages" type="text" value="' + escHTML(item.usages||'') + '" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box" placeholder="1 раз в бой"></div>' +
         '</div>' +
-        '<div style="margin-bottom:12px">' +
-          '<div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">⏱ КУЛДАУН · МАКС. ЗАРЯДОВ <span style="color:#444;letter-spacing:0">(0 = без CD)</span></div>' +
-          '<div style="display:flex;align-items:center;gap:8px">' +
+        '<section class="sc-editor-resource">' +
+          '<div class="sc-editor-label"><span>◷ ЗАРЯДЫ</span><em>0 — без ограничений</em></div>' +
+          '<div class="sc-editor-stepper">' +
             '<button type="button" class="sc-cd-minus" style="width:32px;height:32px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">−</button>' +
             '<input class="sc-cdmax" type="number" min="0" max="20" value="' + (parseInt(item.cdMax,10) || 0) + '" style="width:70px;height:32px;text-align:center;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:14px;font-weight:700">' +
             '<button type="button" class="sc-cd-plus" style="width:32px;height:32px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer">+</button>' +
-            '<span style="font-size:10px;color:var(--dim);font-family:\'Lora\',serif;margin-left:6px">Заряды покажутся на листе персонажа кружочками</span>' +
+            '<span class="sc-editor-hint">На листе появятся отдельные отметки доступных использований</span>' +
           '</div>' +
-        '</div>' +
-        '<div style="margin-bottom:14px">' +
-          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">' +
-            '<div style="font-size:10px;color:#555;font-family:\'Cinzel\',serif;letter-spacing:1px">ОПИСАНИЕ</div>' +
-            '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:10px;color:var(--muted);font-family:\'Cinzel\',serif">' +
+        '</section>' +
+        '<section class="sc-editor-description">' +
+          '<div class="sc-editor-description-head">' +
+            '<div><span class="sc-editor-label">ОПИСАНИЕ</span><small>Условия, эффект и особенности применения</small></div>' +
+            '<label class="sc-level-toggle">' +
               '<input class="sc-uselevels" type="checkbox"' + (item.descByLevel ? ' checked' : '') + ' style="cursor:pointer">' +
-              '<span>🎚 Разный текст по уровням</span>' +
+              '<i aria-hidden="true"></i><span>Текст меняется с уровнем</span>' +
             '</label>' +
           '</div>' +
           '<div class="sc-desc-single" style="' + (item.descByLevel ? 'display:none' : '') + '">' +
@@ -43708,8 +43968,8 @@ window.openSkillCardPopup = function(charId, field, idx) {
             '<textarea class="sc-desc-lvl" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;min-height:140px;resize:vertical;line-height:1.6;box-sizing:border-box" placeholder="Описание для этого уровня..."></textarea>' +
             '<div style="font-size:10px;color:var(--dim);font-style:italic;margin-top:4px">💡 На карточке покажется текст для уровня персонажа. Если уровня нет — берётся ближайший меньший.</div>' +
           '</div>' +
-        '</div>' +
-        '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+        '</section>' +
+        '<div class="sc-editor-actions">' +
           '<button class="sc-save-btn" style="flex:1;padding:11px;border:1px solid ' + typeColor + ';background:#1a1208;color:var(--gold);font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px;font-weight:600">💾 Сохранить</button>' +
           '<button class="sc-cancel-btn" style="padding:11px 20px;border:1px solid #333;background:transparent;color:#888;font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">Отмена</button>' +
         '</div>';
@@ -44941,7 +45201,7 @@ function buildCharacterInventoryLauncher(c) {
   var equipment=buildEquipList(c)||'<div class="char-inventory-inline-empty">Снаряжение пока не добавлено</div>';
   return '<div class="char-inventory-inline">'+
     '<section class="char-inventory-inline-equip"><div class="char-inventory-inline-head"><span>Снаряжение</span><button type="button" onclick="charOpenEquipModal('+c.id+')" title="Выбрать из каталога товаров">＋</button></div><button type="button" class="char-inventory-arena-link" onclick="charOpenEquipModal('+c.id+')">⚔ Выбрать из товаров</button><div class="char-inventory-inline-equip-list" id="equip-list-'+c.id+'">'+equipment+'</div></section>'+
-    '<section class="char-inventory-inline-items"><div class="char-inventory-inline-head"><span>Инвентарь</span><small>Вместимость '+c.inventoryItems.length+' / 20</small><select onchange="charInventorySetSort('+c.id+',this.value)" title="Сортировка"><option value="manual"'+(sortKey==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(sortKey==='name'?' selected':'')+'>По названию</option><option value="qty"'+(sortKey==='qty'?' selected':'')+'>По количеству</option></select><button type="button" onclick="addInventoryItem('+c.id+')" title="Добавить предмет">＋</button></div><div class="char-inventory-inline-grid">'+slots+'</div></section>'+
+    '<section class="char-inventory-inline-items"><div class="char-inventory-inline-head"><span>Инвентарь</span><small>Вместимость '+c.inventoryItems.length+' / 20</small><select class="char-inventory-sort" onchange="charInventorySetSort('+c.id+',this.value)" title="Сортировка"><option value="manual"'+(sortKey==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(sortKey==='name'?' selected':'')+'>По названию</option><option value="qty"'+(sortKey==='qty'?' selected':'')+'>По количеству</option></select><button type="button" onclick="addInventoryItem('+c.id+')" title="Добавить предмет">＋</button></div><div class="char-inventory-inline-grid">'+slots+'</div></section>'+
   '</div>';
 }
 
@@ -45083,7 +45343,7 @@ function charRenderInventoryPanel(charId) {
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">' +
           '<span class="char-inventory-section-title" style="flex:1">Инвентарь</span>' +
           '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim)">Вместимость ' + c.inventoryItems.length + ' / 20</span>' +
-          '<select onchange="charInventorySetSort(' + charId + ',this.value)" title="Сортировка" style="height:32px;padding:0 28px 0 10px;border:1px solid #3a2918;border-radius:5px;background:#0a0704;color:var(--muted);font-family:\'Cinzel\',serif;font-size:10px">' +
+          '<select class="char-inventory-sort" onchange="charInventorySetSort(' + charId + ',this.value)" title="Сортировка" style="height:32px;padding:0 28px 0 10px;border:1px solid #3a2918;border-radius:5px;background:#0a0704;color:var(--muted);font-family:\'Cinzel\',serif;font-size:10px">' +
             '<option value="manual"' + (sortKey === 'manual' ? ' selected' : '') + '>По добавлению</option>' +
             '<option value="name"' + (sortKey === 'name' ? ' selected' : '') + '>По названию</option>' +
             '<option value="qty"' + (sortKey === 'qty' ? ' selected' : '') + '>По количеству</option>' +
@@ -45307,6 +45567,7 @@ function openItemConstructor(charId, type, idx) {
 
   var backdrop = document.createElement('div');
   backdrop.id = 'item-constructor';
+  backdrop.className = 'item-constructor-backdrop';
   // На мобиле центрирование по вертикали обрезало верх попапа (особенно при открытой
   // клавиатуре). Поэтому на узких экранах прижимаем к верху, добавляем safe-area и
   // вертикальный скролл самого бэкдропа, чтобы вся форма всегда была доступна.
@@ -45322,6 +45583,7 @@ function openItemConstructor(charId, type, idx) {
   var title = equipmentMode ? '⚔ Снаряжение' : '📦 Предмет';
 
   var panel = document.createElement('div');
+  panel.className = 'item-constructor-panel';
   panel.style.cssText = 'background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + accent + ';border-radius:10px;width:100%;max-width:460px;' +
     (icIsMobile ? 'max-height:none;' : 'max-height:88vh;overflow-y:auto;') +
     'padding:18px 18px 16px;box-shadow:0 24px 80px #000c;box-sizing:border-box';
@@ -45388,7 +45650,59 @@ function openItemConstructor(charId, type, idx) {
     var name=document.getElementById('ic-name'),desc=document.getElementById('ic-desc'),qty=document.getElementById('ic-qty'),equipped=document.getElementById('ic-equipped');
     return String(name&&name.value||'')!==String(item.name||'')||String(desc&&desc.value||'')!==String(item.description||'')||String(currentEmoji||'')!==String(item.icon||'')||(!equipmentMode&&Math.max(1,parseInt(qty&&qty.value,10)||1)!==Math.max(1,parseInt(item.qty,10)||1))||(equipmentMode&&!!(equipped&&equipped.checked)!==!!item.equipped);
   }
-  function closeIt(force) { if(!force&&itemEditorDirty()&&!confirm('Закрыть без сохранения изменений?'))return false;backdrop.remove();return true; }
+  function itemEditorConfirm(options) {
+    var existing = backdrop.querySelector('.ic-confirm-layer');
+    if (existing) existing.remove();
+    var layer = document.createElement('div');
+    layer.className = 'ic-confirm-layer';
+    layer.setAttribute('role', 'alertdialog');
+    layer.setAttribute('aria-modal', 'true');
+    layer.setAttribute('aria-labelledby', 'ic-confirm-title');
+    layer.setAttribute('aria-describedby', 'ic-confirm-copy');
+    layer.innerHTML =
+      '<section class="ic-confirm-card">' +
+        '<div class="ic-confirm-symbol" aria-hidden="true">!</div>' +
+        '<small>' + escHTML(options.kicker || 'Подтверждение') + '</small>' +
+        '<h3 id="ic-confirm-title">' + escHTML(options.title || 'Продолжить?') + '</h3>' +
+        '<p id="ic-confirm-copy">' + escHTML(options.copy || '') + '</p>' +
+        '<div class="ic-confirm-actions">' +
+          '<button type="button" class="ic-confirm-cancel">' + escHTML(options.cancelLabel || 'Оставить') + '</button>' +
+          '<button type="button" class="ic-confirm-accept ' + (options.danger ? 'danger' : 'discard') + '">' + escHTML(options.confirmLabel || 'Продолжить') + '</button>' +
+        '</div>' +
+      '</section>';
+    function cancelConfirm() { layer.remove(); }
+    layer.querySelector('.ic-confirm-cancel').onclick = cancelConfirm;
+    layer.querySelector('.ic-confirm-accept').onclick = function() {
+      layer.remove();
+      if (typeof options.onConfirm === 'function') options.onConfirm();
+    };
+    layer.addEventListener('keydown', function(event) {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      cancelConfirm();
+    });
+    backdrop.appendChild(layer);
+    requestAnimationFrame(function() {
+      var cancelButton = layer.querySelector('.ic-confirm-cancel');
+      if (cancelButton) cancelButton.focus();
+    });
+  }
+  function closeIt(force) {
+    if (!force && itemEditorDirty()) {
+      itemEditorConfirm({
+        kicker: 'Несохранённые изменения',
+        title: 'Закрыть редактор?',
+        copy: 'Изменения названия, описания, количества или иконки будут потеряны.',
+        cancelLabel: 'Вернуться',
+        confirmLabel: 'Закрыть без сохранения',
+        onConfirm: function() { closeIt(true); }
+      });
+      return false;
+    }
+    backdrop.remove();
+    return true;
+  }
 
   document.getElementById('ic-close').onclick = function(){closeIt(false);};
   document.getElementById('ic-cancel').onclick = function(){closeIt(false);};
@@ -45419,14 +45733,23 @@ function openItemConstructor(charId, type, idx) {
   }
 
   document.getElementById('ic-remove').onclick = function() {
-    if (!confirm('Удалить предмет?')) return;
-    c[arrKey].splice(idx, 1);
-    saveChars({reason:'inventory-remove'});
-    closeIt(true);
-    renderCharSheet();
-    charRefreshInventoryPanel(charId);
-    charRefreshInventoryLaunch(charId);
-    if (window.zgVttRefreshDrawer) window.zgVttRefreshDrawer();
+    itemEditorConfirm({
+      kicker: 'Удаление предмета',
+      title: item.name || 'Без названия',
+      copy: 'Предмет исчезнет из инвентаря героя. Это действие нельзя отменить из интерфейса.',
+      cancelLabel: 'Оставить предмет',
+      confirmLabel: 'Удалить предмет',
+      danger: true,
+      onConfirm: function() {
+        c[arrKey].splice(idx, 1);
+        saveChars({reason:'inventory-remove'});
+        closeIt(true);
+        renderCharSheet();
+        charRefreshInventoryPanel(charId);
+        charRefreshInventoryLaunch(charId);
+        if (window.zgVttRefreshDrawer) window.zgVttRefreshDrawer();
+      }
+    });
   };
 
   document.getElementById('ic-save').onclick = function() {

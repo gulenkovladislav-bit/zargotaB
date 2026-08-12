@@ -29,6 +29,8 @@ assert.match(delivery, /!queued && w\.ZargotaSound && w\.ZargotaSound\.gmDeliver
 assert.match(html, /gmDeliverySent:'audio\/vtt-actions\/gm-action-approved-pencil\.mp3'/, 'GM delivery confirmation uses the existing pencil stroke');
 assert.match(html, /playerDeliveryReceivedPlaceholder:'audio\/vtt-actions\/gm-action-request-paper\.mp3'/, 'player delivery receipt temporarily reuses the verified paper sample');
 assert.match(html, /AUDIO_TAG: PLACEHOLDER_GM_DELIVERY_RECEIVED_PLAYER/, 'the player receipt placeholder remains easy to replace with a custom sound');
+assert.match(html, /combatStartPlaceholder:'audio\/vtt-actions\/round-start-warrior-kick\.mp3'/, 'combat start has a dedicated replaceable sound route');
+assert.match(html, /AUDIO_TAG: PLACEHOLDER_COMBAT_START/, 'the temporary combat-start sample remains easy to replace');
 
 var start = html.indexOf('  function syncSessionSounds(snapshot){');
 var end = html.indexOf('  function render(snapshot){', start);
@@ -43,6 +45,7 @@ var context = {
   Array:Array,
   sessionSoundState:{roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',ownMovement:'',masterRequests:{}},
   w:{ZargotaSound:{
+    combatStart:function(){calls.push('combat-start');},
     turn:function(){calls.push('turn');},
     round:function(){calls.push('round');},
     playerActionRequest:function(){calls.push('submitted');},
@@ -81,6 +84,15 @@ context.syncSessionSounds(movementBase);
 movementBase.room.members['player-a'].movementRequest = {id:'move-a',status:'approved'};
 context.syncSessionSounds(movementBase);
 assert.deepStrictEqual(calls.slice(-2), ['submitted','approved'], 'movement requests reuse the same paper submission and resolution cues');
+
+calls.length = 0;
+context.sessionSoundState = {roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',ownMovement:'',masterRequests:{}};
+var playerWaiting = playerSnapshot(0, 'player-a');
+playerWaiting.room.combat = {active:false,round:0,turnIndex:0,order:[]};
+context.syncSessionSounds(playerWaiting);
+context.syncSessionSounds(playerSnapshot(1, 'player-a'));
+context.syncSessionSounds(playerSnapshot(1, 'player-a'));
+assert.deepStrictEqual(calls, ['combat-start'], 'combat activation plays one start cue without stacking a first-round or turn cue');
 
 calls.length = 0;
 context.sessionSoundState = {roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',ownMovement:'',masterRequests:{}};

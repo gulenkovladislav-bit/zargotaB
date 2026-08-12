@@ -49,6 +49,8 @@
   var sentNoticeTimer = 0;
   var presentedDeliveries = Object.create(null);
   var pendingMasterPanelRefresh = false;
+  var masterPanelSnapshotSignature = '';
+  var panelPointerActive = false;
   var panelResize = null;
 
   function esc(value) {
@@ -222,13 +224,14 @@
     }
     resizeHandle.addEventListener('pointerup', finishResize);
     resizeHandle.addEventListener('pointercancel', finishResize);
-    panel.addEventListener('focusout', function () {
-      setTimeout(function () {
-        if (!pendingMasterPanelRefresh || deliveryEditorActive()) return;
-        pendingMasterPanelRefresh = false;
-        if (panel.classList.contains('open')) renderPanel();
-      }, 0);
-    });
+    function finishPanelInteraction() {
+      panelPointerActive = false;
+      setTimeout(flushPendingMasterPanelRefresh, 0);
+    }
+    panel.addEventListener('pointerdown', function () { panelPointerActive = true; }, true);
+    panel.addEventListener('pointerup', finishPanelInteraction, true);
+    panel.addEventListener('pointercancel', finishPanelInteraction, true);
+    panel.addEventListener('focusout', function () { setTimeout(flushPendingMasterPanelRefresh, 0); });
 
     var sentNotice = document.createElement('div');
     sentNotice.id = 'zg-gm-delivery-sent-notice';
@@ -294,6 +297,42 @@
   function deliveryEditorActive() {
     var active = document.activeElement;
     return !!(active && active.closest && active.closest('#zg-gm-delivery-body input, #zg-gm-delivery-body textarea, #zg-gm-delivery-body select, #zg-gm-delivery-body [contenteditable="true"]'));
+  }
+
+  function deliveryPanelInteractionActive() {
+    if (panelPointerActive || deliveryEditorActive()) return true;
+    var active = document.activeElement;
+    return !!(active && active.closest && active.closest('#zg-gm-delivery-body button'));
+  }
+
+  function flushPendingMasterPanelRefresh() {
+    var panel = node('zg-gm-delivery-panel');
+    if (!pendingMasterPanelRefresh || deliveryPanelInteractionActive() || !panel || !panel.classList.contains('open')) return;
+    pendingMasterPanelRefresh = false;
+    renderPanel();
+  }
+
+  // The delivery composer only depends on recipient identity. Combat snapshots
+  // may change HP, statuses, turns and timestamps several times per second; none
+  // of those changes should replace the composer's DOM or cancel a button click.
+  function masterPanelDataSignature(nextSnapshot) {
+    var room = nextSnapshot && nextSnapshot.room || {};
+    var members = Object.keys(room.members || {}).map(function (uid) {
+      var member = room.members[uid] || {}, character = member.character || {};
+      return {
+        uid:String(member.uid || uid),
+        role:String(member.role || ''),
+        characterId:String(member.characterId || character.id || character.campaignKey || ''),
+        memberName:String(member.name || ''),
+        characterName:String(character.name || ''),
+        portrait:String(character.portrait || character.image || character.avatar || character.portraitUrl || '')
+      };
+    }).filter(function (member) {
+      return member.role === 'player' && member.characterId;
+    }).sort(function (first, second) {
+      return first.uid < second.uid ? -1 : first.uid > second.uid ? 1 : 0;
+    });
+    return JSON.stringify({roomCode:String(room.code || ''),members:members});
   }
 
   function currentForm() {
@@ -2250,9 +2289,12 @@
     if (!snapshot || !snapshot.session || !snapshot.room) return;
     ensureUi();
     if (snapshot.session.role === 'master') {
+      var nextSignature = masterPanelDataSignature(snapshot);
+      var recipientDataChanged = nextSignature !== masterPanelSnapshotSignature;
+      masterPanelSnapshotSignature = nextSignature;
       var panel = node('zg-gm-delivery-panel');
-      if (panel && panel.classList.contains('open')) {
-        if (deliveryEditorActive()) pendingMasterPanelRefresh = true;
+      if (recipientDataChanged && panel && panel.classList.contains('open')) {
+        if (deliveryPanelInteractionActive()) pendingMasterPanelRefresh = true;
         else renderPanel();
       }
       return;

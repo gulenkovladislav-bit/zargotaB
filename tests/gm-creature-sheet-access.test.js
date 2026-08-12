@@ -62,4 +62,11 @@ const combatSheetStart = html.indexOf('  w.zgCombatCreatureSheetOpen=function(')
 const combatSheetEnd = html.indexOf('  function renderCombat()',combatSheetStart);
 assert.match(html.slice(combatSheetStart,combatSheetEnd), /zgGmInterventionOpenToken\(tokenId,'entity'\)/, 'map, initiative and combat dock converge on the same existing creature sheet');
 
+const contextStart = html.indexOf('  function combatToolbarSheetToken(');
+const contextEnd = html.indexOf('  w.zgCombatCreatureSheetOpen=',contextStart);
+assert.ok(contextStart >= 0 && contextEnd > contextStart, 'context-sensitive combat sheet resolver remains extractable');
+assert.match(html.slice(contextStart,contextEnd), /typeof w\.zgGetSelectedTokenId==='function'\?w\.zgGetSelectedTokenId\(\):''/, 'the actually selected map token wins over the current combat turn through the public scene bridge');
+assert.match(html, /var contextSheetButton=creatureSheet\?/, 'one combat slot switches between creature sheet and hero bag');
+assert.doesNotMatch(html, /creatureSheetButton\+inventoryButton/, 'creature and hero controls are never rendered together');
+
 console.log('GM creature sheet access passed');

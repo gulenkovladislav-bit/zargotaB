@@ -35,11 +35,11 @@ assert.match(html, /if\(view\.cinematic\)\{closeCameraFocusOffer\(\);performCame
 assert.match(html, /pendingCameraFocus\.source==='cameraCue'&&cue\.source==='ping'/);
 assert.match(html, /playerCameraFocus=\{revision:Number\(draft\.revision\|\|0\),zoom:draft\.zoom,x:draft\.x,y:draft\.y\}/);
 assert.match(html, /Date\.now\(\)-createdAt>10000/);
-assert.match(html, /\.zg-vtt-world\.arrival-glide\{transition:transform 3s /);
+assert.match(html, /\.zg-vtt-world\.arrival-glide\{transition:transform 4\.5s /);
 assert.match(html, /\.zg-game-overlay\.arriving \.zg-vtt-arrival-fog\{display:block;animation:zgArrivalFog 2s /);
 assert.match(html, /\.zg-game-overlay\.arriving \.zg-vtt-scene\{animation:zgPlayerArrival 2s /);
 assert.match(html, /overlay\.classList\.remove\('arriving'\);void overlay\.offsetWidth;overlay\.classList\.add\('arriving'\)/);
-assert.match(html, /w\.zgArrivalCleanupTimer=setTimeout\(function\(\)\{[\s\S]*?world\.classList\.remove\('arrival-glide'\);[\s\S]*?\},3000\)/);
+assert.match(html, /w\.zgArrivalCleanupTimer=setTimeout\(function\(\)\{[\s\S]*?world\.classList\.remove\('arrival-glide'\);[\s\S]*?\},4500\)/);
 assert.doesNotMatch(html, /arrival-glide\{transition:transform 5\.55s/);
 assert.doesNotMatch(html, /world\.classList\.remove\('arrival-glide'\);\},5900/);
 assert.match(html, /var clickPath = typeof ev\.composedPath === 'function' \? ev\.composedPath\(\) : \[\]/);
