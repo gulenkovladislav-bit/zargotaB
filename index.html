@@ -20,8 +20,8 @@
 <script src="combat-vfx-runtime.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-09.3"></script>
 <script src="zargota-network.js?v=2026-08-13.2"></script>
-<link rel="stylesheet" href="gm-delivery.css?v=2026-08-12.10">
-<script src="gm-delivery.js?v=2026-08-12.11"></script>
+<link rel="stylesheet" href="gm-delivery.css?v=2026-08-13.1">
+<script src="gm-delivery.js?v=2026-08-13.1"></script>
 <script>
 (function(w){
   var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,playbackProvider=null,vfxProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
@@ -16451,7 +16451,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var abilityCatalogPage = 0;
   var innateAbilityPage = 0;
   var expandedAbilityKey = '';
-  var abilityCardsByKey = {}, localPhysicalRolls = {}, localThrowMotions = {};
+  var abilityCardsByKey = {}, journalRecordsById = {}, localPhysicalRolls = {}, localThrowMotions = {};
   var abilityRequestBusy = false;
   var pendingAbilityCast = null;
   var seenRollVisuals = {};
@@ -18056,6 +18056,7 @@ document.addEventListener('DOMContentLoaded', function(){
     appendLegacyGoalRecord(c.mainGoals,'main');
     appendLegacyGoalRecord(c.goals,'goals');
     appendLegacyGoalRecord(c.quests,'quests');
+    journalRecordsById={};records.forEach(function(record){if(record&&record.id)journalRecordsById[String(record.id)]=record;});
     function pushGoal(target,value){
       if(value==null||value==='')return;
       if(Array.isArray(value)){value.forEach(function(item){pushGoal(target,item);});return;}
@@ -18084,7 +18085,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return'<button type="button" class="zg-journal3-entry'+selectedClass+questClass+'" data-journal-id="'+esc(record.id)+'" onclick="zgVttJournalSelect(this.dataset.journalId)">'+lead+'<span><b>'+esc(record.title)+'</b><small>'+recordType(record)+(record.kind==='quest'?' · '+questStatusLabel(record.status):'')+'</small></span><em>'+String(journalPage*pageSize+index+1)+'</em></button>';
     }).join('');
     if(!listHtml)listHtml='<div class="zg-journal3-list-empty"><i>◇</i><span>В этой категории пока нет записей</span></div>';
-    var canAdd=!!localCharacter,session=state&&state.session,isMasterTarget=!!(session&&session.role==='master'&&member&&member.character);
+    var canAdd=!!localCharacter,session=state&&state.session,isMasterTarget=!!(session&&session.role==='master'&&member&&member.character),canShare=!!(localCharacter&&session&&session.role==='player'&&member&&String(member.uid)===String(session.uid));
     var addControl=canAdd?'<button type="button" class="zg-journal3-add" onclick="zgVttJournalOpen()">＋ <span>Добавить запись</span></button>':isMasterTarget?'<button type="button" class="zg-journal3-add" data-member-uid="'+esc(member.uid||'')+'" onclick="zgVttJournalMasterAdd(this.dataset.memberUid)">＋ <span>Добавить запись</span></button>':'';
     var patchControl=isMasterTarget?'<button type="button" class="zg-journal3-patch" data-member-uid="'+esc(member.uid||'')+'" onclick="zgVttCharacterPatchOpen(this.dataset.memberUid)" title="Предложить игроку точечное обновление листа">⇄ Обновить лист</button>':'';
     var preview='';
@@ -18092,8 +18093,9 @@ document.addEventListener('DOMContentLoaded', function(){
       var previewAction=selected.editable&&localCharacter?' ondblclick="zgVttJournalOpen(\''+esc(selected.id)+'\')" title="Двойной клик — изменить запись"':'';
       var previewArt=selected.image?'<figure class="zg-journal3-paper-art '+selected.imageFit+'"><img src="'+esc(selected.image)+'" alt="'+esc(selected.title)+'" loading="lazy" decoding="async"></figure>':'';
       var deleteAction=localCharacter&&(selected.editable||selected.playerCanDelete)?'<button type="button" class="zg-journal3-paper-delete" data-journal-id="'+esc(selected.id)+'" onclick="zgVttJournalConfirmRemove(this.dataset.journalId,event)" title="Удалить запись" aria-label="Удалить запись">×</button>':isMasterTarget&&selected.id&&selected.id.indexOf('legacy-')!==0?'<button type="button" class="zg-journal3-paper-delete edit" data-member-uid="'+esc(member.uid||'')+'" data-journal-id="'+esc(selected.id)+'" onclick="zgVttJournalMasterEdit(this.dataset.memberUid,this.dataset.journalId,event)" title="Редактировать мастерскую запись" aria-label="Редактировать запись">✎</button>':'';
+      var shareAction=canShare?'<button type="button" class="zg-presentation-share-trigger zg-journal3-paper-share" data-journal-id="'+esc(selected.id)+'" onclick="zgVttShareJournalRecord(this.dataset.journalId,event)" title="Показать участникам" aria-label="Показать запись участникам">'+(w.zgShareIconMarkup?w.zgShareIconMarkup():'')+'</button>':'';
       var newspaper=selected.sourceKind==='image'&&selected.image?'<div class="zg-journal3-newspaper-head"><b>Вестник Зарготы</b><span>Личный архив героя</span></div>':'';
-      preview='<article class="zg-journal3-paper'+(newspaper?' image-cover':'')+'"'+previewAction+'>'+deleteAction+newspaper+'<header><h3>'+esc(selected.title)+'</h3><i>'+esc(selected.icon)+'</i><small>'+recordType(selected)+(selected.kind==='quest'?' · '+questStatusLabel(selected.status):'')+'</small></header>'+previewArt+'<div class="zg-journal3-paper-text">'+esc(selected.text||'Текст записи пока не заполнен.')+'</div></article>';
+      preview='<article class="zg-journal3-paper'+(newspaper?' image-cover':'')+'"'+previewAction+'>'+deleteAction+shareAction+newspaper+'<header><h3>'+esc(selected.title)+'</h3><i>'+esc(selected.icon)+'</i><small>'+recordType(selected)+(selected.kind==='quest'?' · '+questStatusLabel(selected.status):'')+'</small></header>'+previewArt+'<div class="zg-journal3-paper-text">'+esc(selected.text||'Текст записи пока не заполнен.')+'</div></article>';
     }else preview='<div class="zg-journal3-paper empty"><i>▤</i><b>Журнал пока пуст</b><span>Создайте первую запись, чтобы сохранить важное из приключения.</span></div>';
     return'<div class="zg-bag-notes zg-journal3">'+
       '<section class="zg-journal3-goals"><header><i>✦</i><h3>Главные цели</h3>'+(Array.isArray(c.family)&&c.family.length?'<button type="button" class="zg-journal3-family" onclick="zgVttFamilyOpen(event)" title="Семья и связи" aria-label="Открыть древо связей">🌳</button>':'')+'<button type="button" class="zg-journal3-manual" onclick="zgVttJournalOpenManual(event)" title="Открыть Мануал" aria-label="Открыть Мануал"><img src="images/vtt-icons/journal.png?v=20260801" alt=""></button><i>✦</i></header><div>'+goalsHtml+'</div></section>'+
@@ -20442,14 +20444,20 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttInventoryOpenItem=function(source,index){
     var member=drawerMember(),c=fullLocalCharacter(member)||member&&member.character;if(!c)return;
     var list=source==='equip'?c.equipItems:c.inventoryItems,item=list&&list[index];if(!item)return;if(typeof item==='string')item={name:item};
-    inventoryDetail={source:source,index:index};
-    var old=el('zg-vtt-item-detail');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-vtt-item-detail';modal.className='zg-item-detail-backdrop';
     var itemImage=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item.imageThumb||item.image||''),image=itemImage?'<img src="'+esc(itemImage)+'" alt="">':typeof w.zgItemIconMarkup==='function'?'<i>'+w.zgItemIconMarkup(item.icon,'◈')+'</i>':'<i>'+esc(item.icon||'◈')+'</i>',meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · '),canEdit=!!fullLocalCharacter(member);
+    var session=state&&state.session,canShare=!!(session&&session.role==='player'&&member&&String(member.uid)===String(session.uid));
+    inventoryDetail={source:source,index:index,item:item,itemImage:itemImage};
+    var old=el('zg-vtt-item-detail');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-vtt-item-detail';modal.className='zg-item-detail-backdrop';
     var stats=[item.damage||item.damageFormula,item.acBonus?'Броня +'+item.acBonus:'',item.weight?'Вес '+item.weight:''].filter(Boolean);
-    modal.innerHTML='<section class="zg-item-detail-card"><button type="button" class="zg-item-detail-close" onclick="zgVttInventoryCloseItem()">×</button><div class="zg-item-detail-art">'+image+'</div><small>'+(item.equipped?'Снаряжение':'Предмет из рюкзака')+'</small><h3>'+esc(item.name||item.text||'Без названия')+'</h3>'+(meta?'<div class="zg-item-detail-meta">'+esc(meta)+'</div>':'')+(stats.length?'<div class="zg-item-detail-stats">'+stats.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+'<p class="zg-item-detail-copy">'+esc(item.description||item.effect||item.text||'Описание предмета пока не заполнено.')+'</p>'+(Number(item.qty||1)>1?'<b class="zg-item-detail-qty">Количество: '+Number(item.qty)+'</b>':'')+(canEdit?'<div class="zg-item-detail-actions">'+(item.equipped?'<button type="button" onclick="zgVttInventoryUnequip(\''+source+'\','+index+')">Снять</button>':source==='inventory'?'<button type="button" onclick="zgVttInventoryQuickEquip('+index+')">Экипировать</button>':'')+'<button type="button" onclick="zgVttInventoryEditItem()">Изменить в листе</button></div>':'')+'</section>';
+    modal.innerHTML='<section class="zg-item-detail-card"><button type="button" class="zg-item-detail-close" onclick="zgVttInventoryCloseItem()">×</button>'+(canShare?'<button type="button" class="zg-presentation-share-trigger" onclick="zgVttShareCurrentItem(event)" title="Показать участникам" aria-label="Показать предмет участникам">'+(w.zgShareIconMarkup?w.zgShareIconMarkup():'')+'</button>':'')+'<div class="zg-item-detail-art">'+image+'</div><small>'+(item.equipped?'Снаряжение':'Предмет из рюкзака')+'</small><h3>'+esc(item.name||item.text||'Без названия')+'</h3>'+(meta?'<div class="zg-item-detail-meta">'+esc(meta)+'</div>':'')+(stats.length?'<div class="zg-item-detail-stats">'+stats.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+'<p class="zg-item-detail-copy">'+esc(item.description||item.effect||item.text||'Описание предмета пока не заполнено.')+'</p>'+(Number(item.qty||1)>1?'<b class="zg-item-detail-qty">Количество: '+Number(item.qty)+'</b>':'')+(canEdit?'<div class="zg-item-detail-actions">'+(item.equipped?'<button type="button" onclick="zgVttInventoryUnequip(\''+source+'\','+index+')">Снять</button>':source==='inventory'?'<button type="button" onclick="zgVttInventoryQuickEquip('+index+')">Экипировать</button>':'')+'<button type="button" onclick="zgVttInventoryEditItem()">Изменить в листе</button></div>':'')+'</section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttInventoryCloseItem();});document.body.appendChild(modal);
   };
   w.zgVttInventoryCloseItem=function(){var modal=el('zg-vtt-item-detail');if(modal)modal.remove();inventoryDetail=null;};
+  w.zgVttShareCurrentItem=function(event){
+    var detail=inventoryDetail,item=detail&&detail.item;if(!item||!w.zgSharePresentationOpen)return;
+    var title=item.name||item.title||item.text||'Предмет',copy=item.description||item.effect||item.text||'Описание предмета пока не заполнено.';
+    w.zgSharePresentationOpen({kind:'item',title:title,text:copy,image:detail.itemImage||'',mood:'solemn',payload:{item:{name:title,title:title,description:copy,effects:item.effects||item.effect||'',image:detail.itemImage||'',icon:item.icon||'',type:item.type||'',category:item.category||'',rarity:item.rarity||'common',damageFormula:item.damageFormula||item.damage||'',damageType:item.damageType||'',acBonus:Number(item.acBonus)||0,range:item.range||'',qty:Math.max(1,Number(item.qty)||1),presentationFx:item.presentationFx||'none'}}},event);
+  };
   w.zgVttInventoryEditItem=function(){if(!inventoryDetail)return;var member=ownMember(),c=fullLocalCharacter(member);if(!c)return;var detail=inventoryDetail;w.zgVttInventoryCloseItem();if(typeof w.openItemConstructor==='function')w.openItemConstructor(c.id,detail.source,detail.index);};
   w.zgVttInventoryQuickEquip=function(index){
     var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];
@@ -20626,6 +20634,11 @@ document.addEventListener('DOMContentLoaded', function(){
     var stamp=Date.now();entry.deletedAt=stamp;entry.updatedAt=stamp;entry.updatedBy=String(state&&state.session&&state.session.uid||'local').slice(0,120);if(String(journalSelectedId)===String(journalId))journalSelectedId='';w.zgVttJournalCancelRemove();journalSave('journal-remove',true);renderDrawer();if(w.showToast)w.showToast('Запись удалена');return true;
   };
   w.zgVttJournalSelect=function(journalId){journalSelectedId=String(journalId||'');renderDrawer();};
+  w.zgVttShareJournalRecord=function(journalId,event){
+    var record=journalRecordsById[String(journalId||'')];if(!record||!w.zgSharePresentationOpen)return;
+    var sourceKind=String(record.sourceKind||record.kind||''),kind=record.kind==='quest'?'quest':sourceKind==='image'?'image':'text';
+    w.zgSharePresentationOpen({kind:kind,title:record.title||'Запись',text:record.text||'',image:record.image||'',presentation:kind==='image'?'cinematic':'card',mood:record.kind==='quest'?'solemn':'calm',payload:{journalMode:record.category==='place'?'place':'message',saveToJournal:false,quest:record.kind==='quest'?{title:record.title||'',description:record.text||'',status:record.status||'active',importance:record.importance||'main',icon:record.icon||'✦'}:null}},event);
+  };
   w.zgVttJournalOpenGoal=function(journalId){journalFilter='quest';journalPage=0;journalSelectedId=String(journalId||'');renderDrawer();};
   w.zgVttJournalFilter=function(filter){journalFilter=['all','quest','note','place'].indexOf(filter)>=0?filter:'all';journalPage=0;journalSelectedId='';renderDrawer();};
   w.zgVttJournalPage=function(delta){journalPage=Math.max(0,journalPage+(Number(delta)<0?-1:1));journalSelectedId='';renderDrawer();};
@@ -20727,10 +20740,16 @@ document.addEventListener('DOMContentLoaded', function(){
     var primaryDisabled=abilityRequestBusy||(!gmCanPropose&&(viewOnly||unknown||unprepared||exhausted))||(gmCanPropose&&proposalForCard&&['pending','approved'].indexOf(proposalForCard.status)>=0);
     var primaryLabel=gmCanPropose?(proposalForCard&&['pending','approved'].indexOf(proposalForCard.status)>=0?proposalLabels[proposalForCard.status]:'Предложить улучшение'):viewOnly?'Только просмотр':unknown?'Статус не передан':disabled?'Заявить изучение':unprepared?'Сначала подготовьте':exhausted?'Нет зарядов':card.passive?'Показать мастеру':freePlay?'Применить вне боя':'Заявить применение';
     var modal=document.createElement('div');modal.id='zg-vtt-ability-detail';modal.className='zg-ability-modal-backdrop';
-    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+abilityIconHtml(card)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+useContext+resourceControl+abilityProfileBadges(card.profile)+proposalState+abilityDetailSections(card)+'<footer><button type="button" onclick="'+primaryAction+'" '+(primaryDisabled?'disabled':'')+'>'+primaryLabel+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
+    var canShare=!!(state&&state.session&&state.session.role==='player'&&!viewOnly&&viewedMember&&String(viewedMember.uid)===String(state.session.uid));
+    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button>'+(canShare?'<button type="button" class="zg-presentation-share-trigger" data-ability-key="'+esc(card.key)+'" onclick="zgVttShareAbility(this.dataset.abilityKey,event)" title="Показать участникам" aria-label="Показать способность участникам">'+(w.zgShareIconMarkup?w.zgShareIconMarkup():'')+'</button>':'')+'<header><i>'+abilityIconHtml(card)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+useContext+resourceControl+abilityProfileBadges(card.profile)+proposalState+abilityDetailSections(card)+'<footer><button type="button" onclick="'+primaryAction+'" '+(primaryDisabled?'disabled':'')+'>'+primaryLabel+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttAbilityClose();});document.body.appendChild(modal);
   };
   w.zgVttAbilityExpand=w.zgVttAbilityOpen;
+  w.zgVttShareAbility=function(key,event){
+    var card=abilityCardsByKey[String(key||'')];if(!card||!w.zgSharePresentationOpen)return;
+    var kind=card.group==='spells'?'spell':'ability',description=card.description||card.effect||card.battle||'Описание пока не заполнено.';
+    w.zgSharePresentationOpen({kind:kind,title:card.name||'Способность',text:description,image:card.iconAsset||'',mood:'solemn',payload:{ability:{kind:card.kind||kind,usage:card.usage||'',passive:!!card.passive,profile:card.profile||{}}}},event);
+  };
   w.zgVttSkillProposalOpen=function(key){
     var card=abilityCardsByKey[String(key||'')],member=drawerMember(),session=state&&state.session;
     if(!card||card.group!=='skills'||!member||!session||session.role!=='master')return;

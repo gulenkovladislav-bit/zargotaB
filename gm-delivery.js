@@ -52,6 +52,9 @@
   var masterPanelSnapshotSignature = '';
   var panelPointerActive = false;
   var panelResize = null;
+  var shareDraft = null;
+  var shareTargets = [];
+  var shareBusy = false;
 
   function esc(value) {
     return String(value == null ? '' : value)
@@ -60,6 +63,11 @@
   }
 
   function node(id) { return document.getElementById(id); }
+
+  function shareIconMarkup() {
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.5"></circle><circle cx="6" cy="12" r="2.5"></circle><circle cx="18" cy="19" r="2.5"></circle><path d="m8.3 10.9 7.4-4.4M8.3 13.1l7.4 4.4"></path></svg>';
+  }
+  w.zgShareIconMarkup = shareIconMarkup;
 
   function safeQuestId(value) {
     return String(value || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 100);
@@ -247,7 +255,87 @@
     popup.setAttribute('aria-modal', 'true');
     popup.innerHTML = '<article><button type="button" class="zg-delivery-popup-close" onclick="zgGmDeliveryClosePopup()" aria-label="Закрыть">×</button><div id="zg-player-delivery-popup-body"></div><button type="button" class="zg-delivery-popup-done" onclick="zgGmDeliveryClosePopup()">Продолжить</button></article>';
     document.body.appendChild(popup);
+
+    var shareMenu = document.createElement('div');
+    shareMenu.id = 'zg-player-share-menu';
+    shareMenu.className = 'zg-player-share-menu';
+    shareMenu.setAttribute('role', 'dialog');
+    shareMenu.setAttribute('aria-modal', 'true');
+    shareMenu.setAttribute('aria-label', 'Показать участникам');
+    shareMenu.innerHTML = '<article><header><i>' + shareIconMarkup() + '</i><span><small>ПОКАЗАТЬ УЧАСТНИКАМ</small><b>Кому открыть карточку?</b></span><button type="button" onclick="zgSharePresentationClose()" aria-label="Закрыть">×</button></header><div id="zg-player-share-targets"></div><footer><button type="button" onclick="zgSharePresentationClose()">Выйти</button><button id="zg-player-share-send" type="button" onclick="zgSharePresentationSend()">Поделиться</button></footer></article>';
+    shareMenu.addEventListener('click', function (event) { if (event.target === shareMenu) w.zgSharePresentationClose(); });
+    document.body.appendChild(shareMenu);
   }
+
+  function shareRecipients() {
+    var room = snapshot && snapshot.room || {}, session = snapshot && snapshot.session || {}, rows = [], seen = {};
+    function add(uid, member, role) {
+      uid = String(uid || '');
+      if (!uid || uid === String(session.uid || '') || seen[uid]) return;
+      seen[uid] = true;
+      member = member || {};
+      var character = member.character || {};
+      rows.push({uid:uid, role:role, name:character.name || member.name || (role === 'master' ? 'Гейм-мастер' : 'Игрок'), portrait:character.portrait || character.image || character.avatar || ''});
+    }
+    if (room.masterUid) add(room.masterUid, room.members && room.members[room.masterUid], 'master');
+    Object.keys(room.members || {}).forEach(function (uid) {
+      var member = room.members[uid] || {};
+      if (member.role === 'player' && member.online !== false) add(uid, member, 'player');
+    });
+    return rows;
+  }
+
+  function renderShareMenu() {
+    ensureUi();
+    var host = node('zg-player-share-targets'), send = node('zg-player-share-send');
+    if (!host) return;
+    var recipients = shareRecipients();
+    host.innerHTML = recipients.length ? recipients.map(function (member) {
+      var active = shareTargets.indexOf(member.uid) >= 0;
+      var art = member.portrait ? '<img src="' + esc(member.portrait) + '" alt="">' : '<i>' + esc(member.role === 'master' ? 'ГМ' : String(member.name || '?').slice(0,1)) + '</i>';
+      return '<button type="button" class="' + (active ? 'active' : '') + '" data-share-uid="' + esc(member.uid) + '" onclick="zgSharePresentationToggle(this.dataset.shareUid)" aria-pressed="' + active + '">' + art + '<span><b>' + esc(member.name) + '</b><small>' + esc(member.role === 'master' ? 'Гейм-мастер' : 'Подключённый герой') + '</small></span><em>✓</em></button>';
+    }).join('') : '<p><b>Никого нет в комнате</b><span>Подключённые участники появятся здесь.</span></p>';
+    if (send) {
+      send.disabled = shareBusy || !shareDraft || !shareTargets.length;
+      send.textContent = shareBusy ? 'Отправляем…' : 'Поделиться';
+    }
+  }
+
+  w.zgSharePresentationOpen = function (value, event) {
+    if (event) { event.preventDefault(); event.stopPropagation(); }
+    if (!snapshot || !snapshot.session || snapshot.session.role !== 'player') {
+      if (w.showToast) w.showToast('Показывать карточки может подключённый игрок.');
+      return;
+    }
+    shareDraft = value && typeof value === 'object' ? value : null;
+    shareTargets = [];
+    shareBusy = false;
+    renderShareMenu();
+    var menu = node('zg-player-share-menu');
+    if (menu) requestAnimationFrame(function () { menu.classList.add('open'); });
+  };
+  w.zgSharePresentationToggle = function (uid) {
+    uid = String(uid || '');
+    var index = shareTargets.indexOf(uid);
+    if (index >= 0) shareTargets.splice(index, 1); else if (uid) shareTargets.push(uid);
+    renderShareMenu();
+  };
+  w.zgSharePresentationClose = function () {
+    var menu = node('zg-player-share-menu');
+    if (menu) menu.classList.remove('open');
+    shareDraft = null; shareTargets = []; shareBusy = false;
+  };
+  w.zgSharePresentationSend = function () {
+    if (shareBusy || !shareDraft || !shareTargets.length || !w.ZargotaRooms || typeof w.ZargotaRooms.sharePresentation !== 'function') return;
+    shareBusy = true; renderShareMenu();
+    w.ZargotaRooms.sharePresentation(shareTargets, shareDraft).then(function () {
+      if (w.showToast) w.showToast('Карточка показана выбранным участникам.');
+      w.zgSharePresentationClose();
+    }).catch(function (error) {
+      shareBusy = false; renderShareMenu();
+      if (w.showToast) w.showToast(error && error.message || 'Не удалось показать карточку.');
+    });
+  };
 
   function showGmSentNotice(value, members, queued) {
     ensureUi();
@@ -854,11 +942,11 @@
   }
 
   function kindLabel(kind) {
-    return {item:'Предмет', quest:'Задание', text:'Журнал', image:'Изображение'}[kind] || 'Сообщение';
+    return {item:'Предмет', spell:'Заклинание', ability:'Способность', quest:'Задание', text:'Журнал', image:'Изображение'}[kind] || 'Сообщение';
   }
 
   function kindIcon(kind) {
-    return {item:'▣', quest:'◇', text:'✉', image:'▧'}[kind] || '✦';
+    return {item:'▣', spell:'✧', ability:'✦', quest:'◇', text:'✉', image:'▧'}[kind] || '✦';
   }
 
   function textModeMarkup(payload) {
@@ -2184,6 +2272,7 @@
   }
 
   function popupTitle(delivery) {
+    if (delivery && delivery.previewOnly) return (delivery.senderName || 'Игрок') + ' показывает';
     if (delivery && delivery.kind === 'quest') {
       var status = questStatus(delivery.payload && delivery.payload.quest && delivery.payload.quest.status);
       return {new:'Новая цель',active:'Цель обновлена',completed:'Цель завершена',failed:'Цель провалена'}[status];
@@ -2238,6 +2327,7 @@
         : '';
     popupOpen = true;
     popup.className = 'zg-player-delivery-popup open mood-' + (delivery.mood || 'calm') +
+      (delivery.previewOnly ? ' shared-preview' : '') +
       (singleItem ? ' item-single rarity-' + itemRarity(singleItem.rarity) + ' fx-' + itemPresentationFx(singleItem.presentationFx) : '') +
       (delivery.kind === 'image' && delivery.presentation === 'cinematic' ? ' presentation-cinematic' : '');
     var popupIcon = singleItem ? singleItem.icon || '📦' : delivery.kind === 'quest' && delivery.payload && delivery.payload.quest
@@ -2287,10 +2377,25 @@
     });
   }
 
+  function syncSharedPresentations() {
+    var room = snapshot && snapshot.room || {}, session = snapshot && snapshot.session || {}, ownUid = String(session.uid || ''), now = Date.now();
+    Object.keys(room.members || {}).forEach(function (uid) {
+      if (String(uid) === ownUid) return;
+      var delivery = room.members[uid] && room.members[uid].sharedPresentation;
+      if (!delivery || delivery.previewOnly !== true || !delivery.id) return;
+      if (delivery.expiresAt && Number(delivery.expiresAt) < now) return;
+      if (!Array.isArray(delivery.recipientUids) || delivery.recipientUids.map(String).indexOf(ownUid) < 0) return;
+      if (!claimDeliveryPresentation(delivery.id)) return;
+      if (w.ZargotaSound && w.ZargotaSound.playerDeliveryReceived) w.ZargotaSound.playerDeliveryReceived();
+      enqueuePopup(delivery);
+    });
+  }
+
   function sync(nextSnapshot) {
     snapshot = nextSnapshot || snapshot;
     if (!snapshot || !snapshot.session || !snapshot.room) return;
     ensureUi();
+    syncSharedPresentations();
     if (snapshot.session.role === 'master') {
       var nextSignature = masterPanelDataSignature(snapshot);
       var recipientDataChanged = nextSignature !== masterPanelSnapshotSignature;
@@ -2313,7 +2418,11 @@
     if (event.key !== 'Escape') return;
     var popup = node('zg-player-delivery-popup');
     var panel = node('zg-gm-delivery-panel');
-    if (popup && popup.classList.contains('open')) {
+    var shareMenu = node('zg-player-share-menu');
+    if (shareMenu && shareMenu.classList.contains('open')) {
+      w.zgSharePresentationClose();
+      event.preventDefault();
+    } else if (popup && popup.classList.contains('open')) {
       w.zgGmDeliveryClosePopup();
       event.preventDefault();
     } else if (panel && panel.classList.contains('open')) {
