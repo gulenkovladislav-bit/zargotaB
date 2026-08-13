@@ -292,9 +292,9 @@
     var recipients = shareRecipients();
     host.innerHTML = recipients.length ? recipients.map(function (member) {
       var active = shareTargets.indexOf(member.uid) >= 0;
-      var art = member.portrait ? '<img src="' + esc(member.portrait) + '" alt="">' : '<i>' + esc(member.role === 'master' ? 'ГМ' : String(member.name || '?').slice(0,1)) + '</i>';
-      return '<button type="button" class="' + (active ? 'active' : '') + '" data-share-uid="' + esc(member.uid) + '" onclick="zgSharePresentationToggle(this.dataset.shareUid)" aria-pressed="' + active + '">' + art + '<span><b>' + esc(member.name) + '</b><small>' + esc(member.role === 'master' ? 'Гейм-мастер' : 'Подключённый герой') + '</small></span><em>✓</em></button>';
-    }).join('') : '<p><b>Никого нет в комнате</b><span>Подключённые участники появятся здесь.</span></p>';
+      var art = member.portrait ? '<img src="' + esc(member.portrait) + '" alt="">' : '<i class="portrait-fallback">' + esc(member.role === 'master' ? 'ГМ' : String(member.name || '?').slice(0,1)) + '</i>';
+      return '<button type="button" class="zg-player-share-target' + (active ? ' active' : '') + '" data-share-uid="' + esc(member.uid) + '" onclick="zgSharePresentationToggle(this.dataset.shareUid)" aria-pressed="' + active + '">' + art + '<span><b>' + esc(member.name) + '</b><small>' + esc(member.role === 'master' ? 'Гейм-мастер' : 'Подключённый герой') + '</small></span><i class="selection-mark">✓</i></button>';
+    }).join('') : '<p class="zg-player-share-empty"><b>Никого нет в комнате</b><br><span>Подключённые участники появятся здесь.</span></p>';
     if (send) {
       send.disabled = shareBusy || !shareDraft || !shareTargets.length;
       send.textContent = shareBusy ? 'Отправляем…' : 'Поделиться';
