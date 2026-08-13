@@ -64,8 +64,10 @@ assert.match(combatRollBlock, /playCombatDiceSound\(event,'damage',damageItems\[
 assert.match(combatRollBlock, /damageRollOptions=Object\.assign\(\{\},rollOptions\|\|\{\},\{scoreKind:'damage'\}\)/, 'damage rolls carry an explicit semantic final-sound kind');
 assert.match(combatRollBlock, /attackClientId=combatDiceVisualId\(event,'attack'\)/, 'an attack replay reuses its combat event visual id');
 assert.match(combatRollBlock, /damageClientId=combatDiceVisualId\(event,'damage'\)/, 'a damage replay reuses its combat event visual id');
-assert.match(combatRollBlock, /throwMotion&&!renderedRollVisuals\[attackClientId\]/, 'a repeated local attack callback cannot reopen a completed visual');
-assert.match(combatRollBlock, /throwMotion&&!renderedRollVisuals\[damageClientId\]/, 'a repeated local damage callback cannot reopen a completed visual');
+assert.match(combatRollBlock, /stageSyncedCombatDiceThrow\(attackClientId,throwMotion\)/, 'the attack keeps its local drag trajectory without starting a second renderer');
+assert.match(combatRollBlock, /publishCombatDiceOnce\(attackClientId/, 'a repeated attack callback cannot publish the same visual twice');
+assert.match(combatRollBlock, /stageSyncedCombatDiceThrow\(damageClientId,throwMotion\)/, 'damage keeps its local drag trajectory without starting a second renderer');
+assert.match(combatRollBlock, /publishCombatDiceOnce\(damageClientId/, 'a repeated damage callback cannot publish the same visual twice');
 assert.doesNotMatch(combatRollBlock, /combat-(?:hit|damage)-'\+Date\.now/, 'combat roll visuals never mint a fresh id while replaying the same event');
 assert.match(html, /playCombatDiceSound\(event,'intent'/, 'short-action checks use the same licensed dice sample');
 assert.match(html, /playCombatDiceSound\(event,'save'/, 'saving throws use the same licensed dice sample');

@@ -122,10 +122,10 @@ assert.match(html, /requestApprovedDamageRoll\(request\.id,combatLabPlayerUid\(\
 assert.match(html, /configureCombatIntent:function\(uid,resolution\)\{return combatQaApply/, 'local QA must configure a simulated short-action check without Firebase');
 assert.match(html, /rollCombatIntent:function\(requestId,uid\)\{return combatQaApply/, 'local QA must roll a simulated short-action check without Firebase');
 assert.match(html, /finishCombatIntent:function\(uid,accepted,notifyPlayer\)\{return combatQaApply/, 'local QA must finish a simulated short-action check and preserve the notification choice without Firebase');
-assert.match(html, /var intentApi=typeof combatQaActive==='function'&&combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms;[\s\S]*?intentApi\.rollCombatIntent\(request\.id,combatLabPlayerUid\(\)\)/, 'the simulated player check must select the local adapter before the network API');
+assert.match(html, /var intentApi=typeof combatQaActive==='function'&&combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms;[\s\S]*?intentApi\[rollMethod\]\(request\.id,combatLabPlayerUid\(\)\)/, 'the simulated player check or saving throw must select the local adapter before the network API');
 assert.match(html, /function processApprovedAttackRolls\(\)\{[\s\S]*?resolveApi=typeof combatQaActive==='function'&&combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms;[\s\S]*?!resolveApi\)return/, 'automatic hit resolution must remain available when the Firebase API is absent in the workshop');
 assert.match(html, /function processApprovedDamageRolls\(\)\{[\s\S]*?resolveApi=typeof combatQaActive==='function'&&combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms;[\s\S]*?!resolveApi\)return/, 'automatic damage resolution must remain available when the Firebase API is absent in the workshop');
-assert.match(html, /rollCombatIntent\(request\.id,combatLabPlayerUid\(\)\)/, 'short-action checks must use the same GM-controlled identity');
+assert.match(html, /intentApi\[rollMethod\]\(request\.id,combatLabPlayerUid\(\)\)/, 'short-action checks and saving throws must use the same GM-controlled identity');
 assert.match(html, /answerCombatReaction\(request\.id,accepted===true,combatLabPlayerUid\(\)\)/, 'reaction decisions must use the selected GM-controlled player');
 
 ['rollCombatIntent','requestApprovedAttackRoll','requestApprovedDamageRoll','answerCombatReaction','acknowledgeCombatReaction'].forEach((name) => {

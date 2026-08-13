@@ -15476,10 +15476,12 @@ document.addEventListener('DOMContentLoaded', function(){
       var localWorkshop=snapshot.room.code==='TEST';
       var workshopHasLive=!!(w.zgWorkshopReturnSnapshot&&w.zgWorkshopReturnSnapshot.room&&w.zgWorkshopReturnSnapshot.room.code!=='TEST');
       startButton.style.display='';
-      startButton.disabled=launchBusy;
+      var launchComplete=!localWorkshop&&started;
+      startButton.disabled=launchBusy||launchComplete;
       startButton.classList.toggle('workshop-return',localWorkshop);
-      startButton.title=localWorkshop?(workshopHasLive?'Закрыть локальную Мастерскую и вернуться к подключённым игрокам':'Закрыть локальную Мастерскую'):'Завершить ожидание и впустить группу на подготовленную сцену';
-      startButton.textContent=localWorkshop?(workshopHasLive?'← В живую сессию':'← Закрыть мастерскую'):(launchBusy?'Запускаем…':(started?'Впустить подключившихся':'Запустить игроков'));
+      startButton.classList.toggle('launched',launchComplete);
+      startButton.title=localWorkshop?(workshopHasLive?'Закрыть локальную Мастерскую и вернуться к подключённым игрокам':'Закрыть локальную Мастерскую'):(launchComplete?'Сессия уже запущена · подключившиеся игроки автоматически входят на сцену':'Завершить ожидание и впустить группу на подготовленную сцену');
+      startButton.textContent=localWorkshop?(workshopHasLive?'← В живую сессию':'← Закрыть мастерскую'):(launchBusy?'Запускаем…':(launchComplete?'✓ Игроки на сцене':'Запустить игроков'));
     }
     if(publishButton) publishButton.style.display=snapshot.room.phase==='playing'?'':'none';
     if(isMaster){if(sceneStructureChanged&&!roomChanged)renderTokens();syncControls();}
@@ -16119,6 +16121,9 @@ document.addEventListener('DOMContentLoaded', function(){
 
   w.zgStartPlayers = function(){
     if (launchBusy || !isMaster || !roomSnapshot || !roomSnapshot.room || roomSnapshot.room.code==='TEST' || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
+    // `phase=playing` is the durable launch marker. Reconnected players read
+    // that state themselves, so a second "start" is neither needed nor safe.
+    if (roomSnapshot.room.phase==='playing' || roomSnapshot.room.gameStartedAt) return false;
     var button = el('zg-start-players');
     ensureHeroTokens(roomSnapshot);
     launchBusy = true;
@@ -17019,6 +17024,17 @@ document.addEventListener('DOMContentLoaded', function(){
     if(session.role==='player')return String(member.uid)!==String(session.uid);
     return !!(session.role==='master'&&String(member.uid)!==String(gmControlledPlayerUid()));
   }
+  function drawerMasterCanEdit(member){
+    var session=state&&state.session;
+    return !!(session&&session.role==='master'&&member&&member.role==='player'&&member.character&&w.ZargotaRooms&&typeof w.ZargotaRooms.gmUpdateCharacterSections==='function');
+  }
+  function editableDrawerCharacter(member){
+    var local=fullLocalCharacter(member);
+    if(local)return{member:member,character:local,remote:false};
+    if(!drawerMasterCanEdit(member))return{member:member,character:null,remote:false};
+    try{return{member:member,character:JSON.parse(JSON.stringify(member.character||{})),remote:true};}
+    catch(ignore){return{member:member,character:Object.assign({},member.character||{}),remote:true};}
+  }
   function drawerPublicViewer(member){
     var session=state&&state.session;
     return !!(session&&session.role==='player'&&member&&String(member.uid)!==String(session.uid));
@@ -17035,7 +17051,8 @@ document.addEventListener('DOMContentLoaded', function(){
   function inventoryMutationSnapshot(character){
     try{return JSON.parse(JSON.stringify({
       inventoryItems:Array.isArray(character&&character.inventoryItems)?character.inventoryItems:[],
-      equipItems:Array.isArray(character&&character.equipItems)?character.equipItems:[]
+      equipItems:Array.isArray(character&&character.equipItems)?character.equipItems:[],
+      revision:Math.max(0,Number(character&&character.revision)||0)
     }));}catch(ignore){return{inventoryItems:[],equipItems:[]};}
   }
   function restoreInventoryMutation(character,before){
@@ -17048,6 +17065,22 @@ document.addEventListener('DOMContentLoaded', function(){
     inventoryMutationBusy=true;
     var syncAttempted=false;
     w.zgVttSetInventoryNotice(member&&member.uid,'loading','Сохраняем…');
+    if(drawerMasterCanEdit(member)&&!fullLocalCharacter(member)){
+      return Promise.resolve(w.ZargotaRooms.gmUpdateCharacterSections(member.uid,{
+        inventoryItems:character.inventoryItems,
+        equipItems:character.equipItems,
+        expectedRevision:before&&before.revision,
+        reason:reason||'gm-inventory-edit'
+      })).then(function(snapshot){
+        if(snapshot)roomState(snapshot);
+        w.zgVttSetInventoryNotice(member&&member.uid,'success',successText||'Изменение подтверждено комнатой.');
+        return true;
+      }).catch(function(error){
+        renderDrawer(true);
+        w.zgVttSetInventoryNotice(member&&member.uid,'error',error&&error.message||'Изменение отменено.');
+        return false;
+      }).then(function(result){inventoryMutationBusy=false;return result;});
+    }
     var saveOperation=typeof w.saveChars==='function'?w.saveChars({reason:reason}):Promise.resolve({ok:true});
     return Promise.resolve(saveOperation).then(function(result){
       if(!result||result.ok===false)throw new Error('Не удалось сохранить изменение локально');
@@ -17853,7 +17886,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function inventoryPanel(){
     var member=drawerMember(), localCharacter=fullLocalCharacter(member),local = localCharacter || member && member.character;
     if(!local)return '<div class="zg-vtt-empty">Выберите героя</div>';
-    var canEdit=!!localCharacter;
+    var canEdit=!!localCharacter||drawerMasterCanEdit(member);
     var allItems = Array.isArray(local.inventoryItems) ? local.inventoryItems : [];
     var items=inventoryRowsForView(allItems,inventoryFilter,inventorySearch,inventorySort);
     var equipped=allItems.map(function(item,index){return{item:item,index:index,source:'inventory'};}).filter(function(entry){return entry.item&&entry.item.equipped===true;})
@@ -18214,7 +18247,8 @@ document.addEventListener('DOMContentLoaded', function(){
   function abilitiesPanel(){
     var member=drawerMember(),localCharacter=fullLocalCharacter(member),readOnly=drawerReadOnly(member),c=localCharacter||member&&member.character||{};
     var cardModel=buildAbilityCards(member,c,localCharacter,readOnly),cards=cardModel.cards,preparedSpells=cardModel.preparedSpells,preparedSpellIds=cardModel.preparedSpellIds;
-    var canEditPreparation=!!(localCharacter&&!readOnly);
+    var gmMagicEdit=drawerMasterCanEdit(member)&&!localCharacter;
+    var canEditPreparation=!!(localCharacter&&!readOnly)||gmMagicEdit;
     abilityCardsByKey={};cards.forEach(function(card){abilityCardsByKey[card.key]=card;});
     function resourceHtml(card){
       var exhausted=card.limit>0&&card.used>=card.limit;
@@ -18238,7 +18272,8 @@ document.addEventListener('DOMContentLoaded', function(){
       var stateLabel=card.group==='spells'?(unknown?'Статус не передан':disabled?'Не изучено':card.prepared?'Подготовлено':'Изучено'):(card.passive?'Пассивно':'Готово');
       var searchText=String(card.name+' '+card.kind+' '+card.description).toLowerCase();
       var preparationAction=canEditPreparation&&!disabled&&!unknown?'<button type="button" class="zg-spell-prepare-action '+(card.prepared?'active':'')+'" onclick="zgVttSpellPreparation(\''+card.spellId+'\','+(!card.prepared)+',event)" title="'+(card.prepared?'Убрать из подготовленных':'Подготовить заклинание')+'" aria-label="'+(card.prepared?'Убрать из подготовленных':'Подготовить заклинание')+'">'+(card.prepared?'Снять':'＋')+'</button>':'';
-      return '<article class="zg-spell-catalog-card tone-'+card.tone+(card.prepared?' prepared':'')+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+'" data-ability-search="'+esc(searchText)+'"><button type="button" class="zg-spell-card-main" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button>'+preparationAction+'</article>';
+      var gmActions=gmMagicEdit?'<span class="zg-gm-spell-actions"><button type="button" onclick="zgVttGmSpellLearn(\''+card.spellId+'\','+(disabled||unknown)+',event)" title="'+(disabled||unknown?'Отметить изученным':'Отметить неизученным')+'">'+(disabled||unknown?'Изучить':'Забыть')+'</button><button type="button" class="remove" onclick="zgVttGmSpellRemove(\''+card.spellId+'\',event)" title="Убрать заклинание у героя">×</button></span>':'';
+      return '<article class="zg-spell-catalog-card tone-'+card.tone+(card.prepared?' prepared':'')+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+(gmMagicEdit?' gm-editable':'')+'" data-ability-search="'+esc(searchText)+'"><button type="button" class="zg-spell-card-main" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button>'+preparationAction+gmActions+'</article>';
     }
     function innateCardHtml(card){
       return '<article class="zg-spell-innate-card tone-'+card.tone+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><div><b>'+esc(compactInnateName(card))+'</b><small class="zg-magic3-innate-type">'+esc(compactInnateType(card))+'</small></div></button></article>';
@@ -18283,7 +18318,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var innateEmpty='<div class="zg-spellbook-empty"><i>◇</i><b>Нет врождённых сил</b><span>Позиции и навыки добавляются в разделе «Персонажи»</span></div>';
     return '<div class="zg-abilities-panel zg-spellbook zg-magic3" style="--magic-slot-rows:'+slotRows+'">'+
       '<section class="zg-spellbook-innate"><header><h3>Врождённые навыки</h3><span>'+innateCards.length+'</span></header><div class="zg-magic3-innate-list">'+(innatePageCards.length?innatePageCards.map(innateCardHtml).join(''):innateEmpty)+'</div><footer class="zg-magic3-pages">'+pageButton(-1,innateAbilityPage,innatePageCount,'zgVttInnatePage','Предыдущие врождённые способности')+'<span>'+(innateAbilityPage+1)+' / '+innatePageCount+'</span>'+pageButton(1,innateAbilityPage,innatePageCount,'zgVttInnatePage','Следующие врождённые способности')+'</footer></section>'+
-      '<section class="zg-spellbook-catalog"><header><h3>Полученные заклинания</h3><span>'+spellCount+'</span></header>'+
+      '<section class="zg-spellbook-catalog"><header><h3>Полученные заклинания</h3><span>'+spellCount+'</span>'+(gmMagicEdit?'<button type="button" class="zg-gm-spell-add" onclick="zgVttGmSpellLibraryOpen()">＋ Каталог</button>':'')+'</header>'+
         '<div class="zg-spellbook-search"><i aria-hidden="true">⌕</i><input value="'+esc(abilitySearch)+'" oninput="zgVttAbilitiesSearch(this.value)" placeholder="Поиск по названию, типу или описанию" aria-label="Поиск полученных заклинаний"></div>'+
         '<nav aria-label="Фильтры полученных заклинаний"><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')" aria-pressed="'+(abilitiesFilter==='all')+'">Все <small>'+spellCount+'</small></button><button class="'+(abilitiesFilter==='kodex'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'kodex\')" title="Боевые кодексы" aria-label="Боевые кодексы" aria-pressed="'+(abilitiesFilter==='kodex')+'"><img src="images/ui/combat-generated/codex.png" alt=""></button><button class="'+(abilitiesFilter==='folio'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'folio\')" title="Фолианты" aria-label="Фолианты" aria-pressed="'+(abilitiesFilter==='folio')+'"><img src="images/ui/combat-generated/folio.png" alt=""></button><button class="'+(abilitiesFilter==='obrad'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'obrad\')" title="Обрядники" aria-label="Обрядники" aria-pressed="'+(abilitiesFilter==='obrad')+'"><img src="images/ui/combat-generated/ritual.png" alt=""></button></nav>'+
         '<div class="zg-spellbook-list">'+catalogHtml+'</div>'+
@@ -19061,6 +19096,21 @@ document.addEventListener('DOMContentLoaded', function(){
     return 'combat-'+String(phase||'roll').replace(/[^a-zA-Z0-9_-]/g,'-').slice(0,18)+'-visual-'+eventId;
   }
 
+  var combatDicePublishRegistry=Object.create(null);
+  function stageSyncedCombatDiceThrow(clientRollId,throwMotion){
+    var rollId=String(clientRollId||'');if(!rollId)return;
+    localPhysicalRolls[rollId]=Date.now()+9000;
+    if(throwMotion)localThrowMotions[rollId]=throwMotion;
+  }
+  function publishCombatDiceOnce(clientRollId,publisher){
+    var rollId=String(clientRollId||''),now=Date.now();
+    Object.keys(combatDicePublishRegistry).forEach(function(key){if(now-Number(combatDicePublishRegistry[key]||0)>30000)delete combatDicePublishRegistry[key];});
+    if(!rollId||combatDicePublishRegistry[rollId])return Promise.resolve(false);
+    combatDicePublishRegistry[rollId]=now;
+    try{return Promise.resolve(publisher()).catch(function(error){delete combatDicePublishRegistry[rollId];throw error;});}
+    catch(error){delete combatDicePublishRegistry[rollId];return Promise.reject(error);}
+  }
+
   function combatAttackRollItems(event,rolls,outcome){
     var keptIndex=Number(event&&event.attackKeptIndex),hasKeptIndex=Number.isInteger(keptIndex)&&keptIndex>=0&&keptIndex<rolls.length;
     return rolls.map(function(value,index){var kept=rolls.length===1||(hasKeptIndex?index===keptIndex:Number(value)===Number(event.attackRoll));return{sides:20,value:Number(value),total:Number(value)+(kept?Number(event.attackTotal)-Number(event.attackRoll):0),outcome:kept?outcome:'',kept:kept,rollMode:event.rollMode||'normal',statLabel:'Попадание'};});
@@ -19082,13 +19132,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(rolls.length>1&&w.ZargotaRooms&&w.ZargotaRooms.beginRollBatch){
       rollItems=combatAttackRollItems(event,rolls,outcome);
       var attackClientId=combatDiceVisualId(event,'attack');
-      if(throwMotion&&!renderedRollVisuals[attackClientId]&&w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rollItems,speakerUid||'',attackClientId,throwMotion,rollOptions);
-      attackAnimation=w.ZargotaRooms.beginRollBatch(rollItems,speakerUid||'',attackClientId,rollOptions);
+      stageSyncedCombatDiceThrow(attackClientId,throwMotion);
+      attackAnimation=publishCombatDiceOnce(attackClientId,function(){return w.ZargotaRooms.beginRollBatch(rollItems,speakerUid||'',attackClientId,rollOptions);});
     }else if(w.ZargotaRooms&&w.ZargotaRooms.beginRoll){
       rollItems=[{sides:20,value:Number(event.attackRoll),total:Number(event.attackTotal),outcome:outcome,statLabel:'Попадание'}];
       var singleAttackClientId=combatDiceVisualId(event,'attack');
-      if(throwMotion&&!renderedRollVisuals[singleAttackClientId]&&w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rollItems,speakerUid||'',singleAttackClientId,throwMotion,rollOptions);
-      attackAnimation=w.ZargotaRooms.beginRoll(20,speakerUid||'',event.attackRoll,event.attackTotal,outcome,'Попадание',singleAttackClientId,rollOptions);
+      stageSyncedCombatDiceThrow(singleAttackClientId,throwMotion);
+      attackAnimation=publishCombatDiceOnce(singleAttackClientId,function(){return w.ZargotaRooms.beginRoll(20,speakerUid||'',event.attackRoll,event.attackTotal,outcome,'Попадание',singleAttackClientId,rollOptions);});
     }
     return Promise.resolve(attackAnimation).then(function(){return new Promise(function(resolve){setTimeout(resolve,throwMotion?2850:1900);});});
   }
@@ -19098,8 +19148,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var formula=String(event.damageFormula||'1d4').replace(/\s+/g,''),match=formula.match(/^\d+d(\d+)([+-]\d+)?$/i),sides=match?Number(match[1])||4:4,formulaBonus=match?Number(match[2])||0:0,bonus=formulaBonus+Number(event.damageStatBonus||0)+Number(event.damageStatusBonus||0)+Number(event.damageBonusFlat||0);
     var damageItems=damageRolls.map(function(value,index){return{sides:index>=Number(event.baseDamageRollCount||damageRolls.length)?Number(event.bonusDieSides||sides):sides,value:Number(value)||1,total:(Number(value)||1)+(index===damageRolls.length-1?bonus:0),statLabel:'Урон'};}),damageClientId=combatDiceVisualId(event,'damage'),damageRollOptions=Object.assign({},rollOptions||{},{scoreKind:'damage'});
     playCombatDiceSound(event,'damage',damageItems[0].value,damageItems[0].sides,throwMotion?1580:1250,!!(throwMotion&&throwMotion.diceSoundStarted));
-    if(throwMotion&&!renderedRollVisuals[damageClientId]&&w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(damageItems,speakerUid||'',damageClientId,throwMotion,damageRollOptions);
-    return Promise.resolve(w.ZargotaRooms.beginRollBatch(damageItems,speakerUid||'',damageClientId,damageRollOptions)).then(function(){return new Promise(function(resolve){setTimeout(resolve,throwMotion?2850:1500);});});
+    stageSyncedCombatDiceThrow(damageClientId,throwMotion);
+    return publishCombatDiceOnce(damageClientId,function(){return w.ZargotaRooms.beginRollBatch(damageItems,speakerUid||'',damageClientId,damageRollOptions);}).then(function(){return new Promise(function(resolve){setTimeout(resolve,throwMotion?2850:1500);});});
   }
   function combatRollOptions(entry){
     var view=currentVttSceneView(),creature=entry&&!entry.uid;
@@ -19322,14 +19372,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if(gameOverlay)gameOverlay.classList.toggle('zg-own-downed',!!(active&&playerContext&&ownCombatState&&Number(ownCombatState.hp==null?ownCombatState.hpMax:ownCombatState.hp)<=0));
     if(notice){var masterTurn=!!(active&&session&&session.role==='master'),masterNpcTurn=!!(masterTurn&&turn&&!turn.uid),playerOwnTurn=!!(active&&turn&&own&&turn.uid===own.uid),canAdvance=masterTurn||playerOwnTurn,noticeDeathRequired=combatDeathSaveRequired(turn,combat&&combat.round);notice.classList.toggle('show',canAdvance);syncCombatHtml(notice,canAdvance?'<span>'+(noticeDeathRequired?'☠':'✦')+'</span><b>'+(noticeDeathRequired?'Борьба за жизнь':masterNpcTurn?'Ты управляешь: '+esc(turn&&turn.name||'NPC'):masterTurn?'Ход: '+esc(turn&&turn.name||'—'):'Твой ход')+'</b><small>'+(noticeDeathRequired?'Монета решает исход':'Раунд '+Number(combat.round||1))+'</small>'+(noticeDeathRequired?'':'<button type="button" onclick="zgCombatAdvance()">'+(masterTurn?'Следующий':'Завершить ход')+'</button>'):'');}
     var economyHost=el('zg-combat-economy');
-    var rollPrompt=el('zg-combat-roll-prompt'),ownRequest=own&&own.actionRequest,attackRequest=ownRequest&&ownRequest.actionKind==='combat-attack'&&ownRequest.details?ownRequest:null,intentRequest=ownRequest&&manualCheckActionKind(ownRequest.actionKind)&&ownRequest.resolution?ownRequest:null,approvedAttack=attackRequest&&attackRequest.status==='approved',pendingAttack=attackRequest&&attackRequest.status==='roll-requested';
+    var rollPrompt=el('zg-combat-roll-prompt'),ownRequest=own&&own.actionRequest,attackRequest=ownRequest&&ownRequest.actionKind==='combat-attack'&&ownRequest.details?ownRequest:null,intentRequest=ownRequest&&(manualCheckActionKind(ownRequest.actionKind)||ownRequest.actionKind==='saving-throw')&&ownRequest.resolution?ownRequest:null,approvedAttack=attackRequest&&attackRequest.status==='approved',pendingAttack=attackRequest&&attackRequest.status==='roll-requested';
     var damageRequested=attackRequest&&attackRequest.status==='damage-requested',pendingDamage=attackRequest&&attackRequest.status==='damage-roll-requested';
     var masterPendingDamage=combat&&combat.pendingDamage&&session&&session.role==='master'?combat.pendingDamage:null,masterDamageEntry=masterPendingDamage&&order.find(function(entry){return entry&&String(entry.key||'')===String(masterPendingDamage.attackerKey||'');});
     var masterAttackEntry=masterPendingAttackRoll&&order.find(function(entry){return entry&&String(entry.key||'')===String(masterPendingAttackRoll.attackerKey||'');}),showMasterAttack=!!(active&&session&&session.role==='master'&&masterPendingAttackRoll&&masterAttackEntry&&!masterAttackEntry.uid);
     var showMasterDamage=!!(masterPendingDamage&&masterDamageEntry&&!masterDamageEntry.uid),masterDamageStageId=String(masterPendingDamage&&masterPendingDamage.sourceEventId||''),masterDamageStagePending=!!(showMasterDamage&&masterDamageStageId&&lastMasterAttackStageResult!==masterDamageStageId);
     if(rollPrompt){
       var pendingFateEntry=order.find(function(entry){return entry&&entry.zeroHp&&entry.zeroHp.state==='awaiting-gm';}),deathPromptEntry=session&&session.role==='master'&&pendingFateEntry?pendingFateEntry:(turn&&Number(turn.hp==null?turn.hpMax:turn.hp)<=0?turn:null),showDeathPrompt=!!(active&&deathPromptEntry),canRollDeath=!!(showDeathPrompt&&deathPromptEntry.uid&&session&&(session.role==='master'||session.role==='player'&&String(deathPromptEntry.uid||'')===String(session.uid||'')));
-      var showPlayerAttack=!!(active&&playerContext&&(approvedAttack||pendingAttack||damageRequested||pendingDamage)),showIntentRoll=!!(playerContext&&intentRequest&&['roll-requested','roll-result'].indexOf(intentRequest.status)>=0),showAttackRoll=!!(!showDeathPrompt&&(showPlayerAttack||showMasterDamage||showMasterAttack));
+      var savingThrowRequest=!!(intentRequest&&intentRequest.actionKind==='saving-throw'),showPlayerAttack=!!(active&&playerContext&&(approvedAttack||pendingAttack||damageRequested||pendingDamage)),showIntentRoll=!!(playerContext&&intentRequest&&(savingThrowRequest?intentRequest.status==='roll-requested':['roll-requested','roll-result'].indexOf(intentRequest.status)>=0)),showAttackRoll=!!(!showDeathPrompt&&(showPlayerAttack||showMasterDamage||showMasterAttack));
       var isDamage=showMasterDamage||damageRequested||pendingDamage,promptRequest=showMasterAttack?{details:masterPendingAttackRoll.options||{}}:(showMasterDamage?{details:masterPendingDamage}:attackRequest);
       var damageStageId=String(attackRequest&&attackRequest.resultEventId||''),attackStagePending=!!(damageRequested&&damageStageId&&lastApprovedAttackStageResult!==damageStageId),attackMode=promptRequest&&promptRequest.details.mode||'normal',doubleDice=!isDamage&&(attackMode!=='normal'),isPending=showMasterAttack?approvedAttackBusy:(showMasterDamage?masterDamageStagePending:(pendingAttack||pendingDamage||attackStagePending));
       rollPrompt.classList.toggle('open',showAttackRoll||showIntentRoll||showDeathPrompt);rollPrompt.classList.toggle('waiting',!!isPending||!!(intentRequest&&intentRequest.status==='roll-result'));rollPrompt.classList.toggle('required-check',showDeathPrompt||showIntentRoll);
@@ -19342,7 +19392,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var diceCount=(diceHtml.match(/zg-approved-die/g)||[]).length;
       var subText=(attackStagePending||masterDamageStagePending)?'Показываем попадание перед уроном…':(isPending?'Определяем результат…':'Перетащите '+((doubleDice||isDamage&&diceHtml.indexOf('extra')>=0)?'кубики':'кубик')+' на поле');
       var intentResolution=intentRequest&&intentRequest.resolution||{},intentResult=intentRequest&&intentRequest.result||{},intentWaiting=intentRequest&&intentRequest.status==='roll-result';
-      var intentPrompt=showIntentRoll?(intentWaiting?'<div class="zg-approved-attack combat-intent-roll roll-summary"><small>РЕЗУЛЬТАТ ПРОВЕРКИ</small><b>'+(intentResult.success?'Успех · ГМ решает итог':'Провал · ГМ решает итог')+'</b><em>Результат ничего не применяет автоматически</em></div>':'<div class="zg-approved-attack combat-intent-roll"><small>МАСТЕР НАЗНАЧИЛ ПРОВЕРКУ</small><button type="button" class="zg-approved-attack-dice" id="zg-combat-intent-die" onpointerdown="zgCombatIntentDragStart(event)" aria-label="Перетащить d20 для проверки"><span class="zg-approved-die first"><img src="images/vtt-dice/d20.png" alt="d20" draggable="false"><b>20</b></span></button><b>Перетащите кубик на поле</b><em>'+esc(intentResolution.mode==='contest'?'Встречная проверка':intentResolution.mode==='save'?'Спасбросок цели · DC '+Number(intentResolution.dc||10):'Проверка · DC '+Number(intentResolution.dc||10))+'</em></div>'):'';
+      var intentPrompt=showIntentRoll?(intentWaiting?'<div class="zg-approved-attack combat-intent-roll roll-summary"><small>РЕЗУЛЬТАТ ПРОВЕРКИ</small><b>'+(intentResult.success?'Успех · ГМ решает итог':'Провал · ГМ решает итог')+'</b><em>Результат ничего не применяет автоматически</em></div>':'<div class="zg-approved-attack combat-intent-roll"><small>'+(savingThrowRequest?'МАСТЕР НАЗНАЧИЛ СПАСБРОСОК':'МАСТЕР НАЗНАЧИЛ ПРОВЕРКУ')+'</small><button type="button" class="zg-approved-attack-dice '+esc(intentResolution.rollMode||'normal')+'" id="zg-combat-intent-die" onpointerdown="zgCombatIntentDragStart(event)" aria-label="Перетащить d20 для '+(savingThrowRequest?'спасброска':'проверки')+'"><span class="zg-approved-die first"><img src="images/vtt-dice/d20.png" alt="d20" draggable="false"><b>20</b></span>'+(savingThrowRequest&&intentResolution.rollMode!=='normal'?'<span class="zg-approved-die second"><img src="images/vtt-dice/d20.png" alt="d20" draggable="false"><b>20</b></span>':'')+'</button><b>Перетащите '+(savingThrowRequest&&intentResolution.rollMode!=='normal'?'кубики':'кубик')+' на поле</b><em>'+esc(savingThrowRequest?'Спасбросок · DC '+Number(intentResolution.dc||10):intentResolution.mode==='contest'?'Встречная проверка':intentResolution.mode==='save'?'Спасбросок цели · DC '+Number(intentResolution.dc||10):'Проверка · DC '+Number(intentResolution.dc||10))+'</em></div>'):'';
       var attackPrompt=showAttackRoll?(isPending?'<div class="zg-approved-attack roll-summary"><small>'+titleText+'</small><b>'+subText+'</b><em class="'+(attackError?'error':'')+'">'+esc(attackHint)+'</em></div>':'<div class="zg-approved-attack"><small>'+titleText+'</small><button type="button" class="zg-approved-attack-dice '+(!isDamage?esc(attackMode):'')+(isDamage&&diceCount>2?' multi':'')+'" id="zg-approved-attack-dice" onpointerdown="'+dragHandler+'" aria-label="Перетащить кубик для броска">'+diceHtml+'</button><b>'+subText+'</b><em class="'+(attackError?'error':'')+'">'+esc(attackHint)+'</em></div>'):'';
       rollPrompt.classList.toggle('damage-phase',!!(showAttackRoll&&isDamage));
       syncCombatHtml(rollPrompt,showDeathPrompt?combatDeathSaveCard(deathPromptEntry,combat.round,canRollDeath):(showIntentRoll?intentPrompt:attackPrompt));
@@ -19857,6 +19907,8 @@ document.addEventListener('DOMContentLoaded', function(){
     resolveCombatDamage:function(targetKey,options,participantKey){return combatQaApply(function(snapshot){var combat=snapshot.room.combat,order=combat&&combat.order||[],pending=combat&&combat.pendingDamage,attacker=order.find(function(entry){return entry&&String(entry.key)===String(participantKey);}),target=order.find(function(entry){return entry&&String(entry.key)===String(targetKey);});if(!pending||!attacker||!target)throw new Error('Ожидание урона QA не найдено');var weapons=combatAttackWeapons(attacker),weapon=weapons.find(function(item){return item&&String(item.id||'')===String(pending.weaponId||'');})||weapons[0],rolled=combatQaRollFormula(weapon.damageFormula||'1d4',!!pending.critical),statValue=attacker.stats&&attacker.stats[pending.statKey||weapon.stat||'str'],statBonus=Number(typeof statValue==='number'?statValue:statValue&&((statValue.cur!=null?statValue.cur:statValue.base)))||0,bonusBatch=combatQaBonusRolls(pending.bonusDiceCount,pending.bonusDieSides,!!pending.critical),bonusDiceCount=bonusBatch.count,bonusDieSides=bonusBatch.sides,bonusRolls=bonusBatch.rolls,bonusDamage=bonusBatch.total,damage=Math.max(0,rolled.total+bonusDamage+statBonus),before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),beforeTemp=Math.max(0,Number(target.tempHp)||0),absorbed=Math.min(beforeTemp,damage),hpDamage=Math.max(0,damage-absorbed),stamp=Date.now(),eventId='qa-combat-damage-'+stamp;target.tempHp=beforeTemp-absorbed;target.hp=Math.max(0,before-hpDamage);combatQaSyncZeroHp(target,before,stamp);combat.pendingDamage=null;combat.updatedAt=stamp;combatQaSyncTarget(snapshot,target);snapshot.room.combatEvent={id:eventId,kind:'combat-damage',resultPhase:'damage',sourceEventId:String(pending.sourceEventId||''),name:attacker.name,portrait:attacker.portrait||'',text:'Урон '+damage+' по цели '+target.name,damage:damage,damageRolls:rolled.rolls.concat(bonusRolls),baseDamageRollCount:rolled.rolls.length,bonusDieSides:bonusDieSides,bonusDiceCount:bonusDiceCount,damageFormula:rolled.formula,damageStatBonus:statBonus,beforeHp:before,beforeTempHp:beforeTemp,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:target.tempHp,critical:!!pending.critical,actorKey:attacker.key,attackerKey:attacker.key,targetKey:target.key,weapon:weapon.name||'Оружие',zeroHp:target.hp<=0,ts:stamp,revealAt:stamp+3200};});},
     finishApprovedDamageRoll:function(uid,requestId,accepted,eventId,errorText){return combatQaApply(function(snapshot){var request=snapshot.room.members&&snapshot.room.members[uid]&&snapshot.room.members[uid].actionRequest;if(!request||request.id!==requestId)return;request.status=accepted?'resolved':'damage-requested';request.resultEventId=accepted?String(eventId||''):'';request.damageResultEventId=request.resultEventId;request.rollError=accepted?null:String(errorText||'');request.resolvedAt=accepted?Date.now():null;});},
     resolveCombatAbility:function(uid,targetKeys,overrides){return combatQaApply(function(snapshot){var room=snapshot.room,combat=room.combat,order=combat&&combat.order||[],member=room.members&&room.members[uid],request=member&&member.actionRequest;if(!request||request.status!=='pending'||request.actionKind!=='ability')throw new Error('Заявка способности QA не найдена');var actor=order.find(function(entry){return entry&&String(entry.uid||'')===String(uid);}),ability=Object.assign({},request.ability||request.details||{},overrides||{}),keys=(Array.isArray(targetKeys)?targetKeys:[targetKeys]).map(String),targets=order.filter(function(entry){return entry&&keys.indexOf(String(entry.key))>=0;}),actionCost=['long','short','reaction','free'].indexOf(ability.actionCost)>=0?ability.actionCost:'long',stamp=Date.now(),results=[];if(!targets.length)throw new Error('Выберите цель способности QA');if(actor&&actionCost!=='free'){actor.economy=Object.assign({long:1,short:1,reaction:1},actor.economy||{});if(Number(actor.economy[actionCost]||0)<=0)throw new Error('Ресурс действия уже потрачен');actor.economy[actionCost]=Math.max(0,Number(actor.economy[actionCost]||0)-1);}targets.forEach(function(target){var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),damageRoll=ability.damageFormula?combatQaRollFormula(ability.damageFormula,false):null,healRoll=ability.healFormula?combatQaRollFormula(ability.healFormula,false):null,damage=Math.max(0,Number(damageRoll&&damageRoll.total)||0),healing=Math.max(0,Number(healRoll&&healRoll.total)||0);target.hp=Math.max(0,Math.min(Number(target.hpMax)||before,Math.max(0,before-damage)+healing));combatQaSyncZeroHp(target,before,stamp);combatQaSyncTarget(snapshot,target);results.push({key:target.key,name:target.name,beforeHp:before,afterHp:target.hp,damage:damage,healing:healing,damageRolls:damageRoll&&damageRoll.rolls||[],healRolls:healRoll&&healRoll.rolls||[]});});request.status='resolved';request.resolvedAt=stamp;request.resultEventId='qa-combat-ability-'+stamp;combat.updatedAt=stamp;room.combatEvent={id:request.resultEventId,kind:'combat-ability',name:request.name||actor&&actor.name||'Герой',portrait:request.portrait||'',text:'Способность «'+String(ability.name||request.text||'эффект')+'» разыграна',actorKey:actor&&actor.key||'',targetKeys:targets.map(function(target){return target.key;}),results:results,damageFormula:ability.damageFormula||'',healFormula:ability.healFormula||'',actionCost:actionCost,ts:stamp,revealAt:stamp+2600};});},
+    requestCombatSavingThrow:function(targetKey,options){return combatQaApply(function(snapshot){options=options||{};var room=snapshot.room,combat=room.combat,order=combat&&combat.order||[],target=order.find(function(entry){return entry&&String(entry.key)===String(targetKey);}),uid=String(target&&target.uid||'');if(!uid&&String(targetKey||'').indexOf('member:')===0)uid=String(targetKey).slice(7);var member=room.members&&room.members[uid];if(!member||!member.character)throw new Error('Назначить спасбросок можно только герою игрока');if(member.actionRequest&&['pending','approved','roll-requested','damage-requested','damage-roll-requested'].indexOf(String(member.actionRequest.status||''))>=0)throw new Error('У игрока уже есть незавершённая заявка');var statKey=['str','dex','int','cha','per','con'].indexOf(options.statKey)>=0?options.statKey:'con',labels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'},dc=Math.max(1,Math.min(40,Number(options.dc)||10)),bonus=Math.max(-10,Math.min(10,Number(options.bonus)||0)),mode=['advantage','disadvantage'].indexOf(options.mode)>=0?options.mode:'normal',stamp=Date.now();member.actionRequest={id:'qa-combat-save-request-'+stamp,uid:uid,name:target&&target.name||member.character.name||member.name||'Герой',portrait:target&&target.portrait||member.character.portrait||'',actionKind:'saving-throw',status:'roll-requested',stage:'waiting-roll',text:'Спасбросок: '+labels[statKey]+' · DC '+dc,createdAt:stamp,rollRequestedAt:stamp,resolution:{mode:'saving-throw',rollMode:mode,statKey:statKey,actorStat:statKey,dc:dc,bonus:bonus,removeStatus:String(options.removeStatus||''),targetKey:target&&target.key||'member:'+uid,configuredAt:stamp,configuredBy:'qa-master'}};});},
+    rollCombatSavingThrow:function(requestId,uid){return combatQaApply(function(snapshot){var room=snapshot.room,member=room.members&&room.members[uid],request=member&&member.actionRequest,resolution=request&&request.resolution,combat=room.combat,order=combat&&combat.order||[];if(!request||request.id!==requestId||request.actionKind!=='saving-throw'||request.status!=='roll-requested'||!resolution)throw new Error('Назначенный спасбросок QA не найден');var target=order.find(function(entry){return entry&&String(entry.key||'')===String(resolution.targetKey||'');})||{key:'member:'+uid,uid:uid,name:member.character&&member.character.name||member.name||'Герой',portrait:member.character&&member.character.portrait||'',stats:member.character&&member.character.stats||{},statuses:member.character&&member.character.statuses||[],statusEffects:member.character&&member.character.statusEffects||[]},statKey=['str','dex','int','cha','per','con'].indexOf(resolution.statKey)>=0?resolution.statKey:'con',labels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'},mode=['advantage','disadvantage'].indexOf(resolution.rollMode)>=0?resolution.rollMode:'normal',dc=Math.max(1,Math.min(40,Number(resolution.dc)||10)),bonus=Math.max(-10,Math.min(10,Number(resolution.bonus)||0)),modifier=combatSaveStat(target,statKey)+bonus,first=1+Math.floor(Math.random()*20),second=mode==='normal'?null:1+Math.floor(Math.random()*20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),total=natural+modifier,success=natural===20||(natural!==1&&total>=dc),removeKey=String(resolution.removeStatus||''),stamp=Date.now(),rolls=second==null?[first]:[first,second];if(success&&removeKey){target.statuses=(target.statuses||[]).filter(function(status){return String(typeof status==='string'?status:status&&(status.key||status.statusKey||status.id)||'')!==removeKey;});target.statusEffects=(target.statusEffects||[]).filter(function(effect){return String(effect&&(effect.statusKey||effect.key||effect.id)||'')!==removeKey;});if(member.character){member.character.statuses=target.statuses;member.character.statusEffects=target.statusEffects;}}request.status='resolved';request.stage='resolved';request.result={mode:'saving-throw',rollMode:mode,saveRoll:natural,saveRolls:rolls,modifier:modifier,total:total,dc:dc,success:success,rolls:rolls.map(function(value){return{sides:20,value:value,total:value+modifier,statLabel:'Спасбросок',outcome:value===20?'critical-success':value===1?'critical-fail':'',kept:value===natural,rollMode:mode};}),rolledAt:stamp};request.resultAt=stamp;request.resolvedAt=stamp;room.combatEvent={id:'qa-combat-save-'+stamp,kind:success?'combat-save-success':'combat-save-fail',name:target.name||'Участник',portrait:target.portrait||'',text:'Спасбросок: '+labels[statKey]+'. '+total+' против DC '+dc+' — '+(success?'успех':'провал'),saveRoll:natural,saveRolls:rolls,rollMode:mode,statKey:statKey,modifier:modifier,total:total,dc:dc,success:success,targetKey:target.key,removedStatus:success?removeKey:'',ts:stamp,revealAt:stamp+3200};});},
     resolveCombatSavingThrow:function(targetKey,options){return combatQaApply(function(snapshot){options=options||{};var combat=snapshot.room.combat,order=combat&&combat.order||[],target=order.find(function(entry){return entry&&String(entry.key)===String(targetKey);});if(!target)throw new Error('Участник QA не найден');var statKey=['str','dex','int','cha','per','con'].indexOf(options.statKey)>=0?options.statKey:'con',labels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'},mode=['advantage','disadvantage'].indexOf(options.mode)>=0?options.mode:'normal',dc=Math.max(1,Math.min(40,Number(options.dc)||10)),bonus=Math.max(-10,Math.min(10,Number(options.bonus)||0)),modifier=combatSaveStat(target,statKey)+bonus,first=1+Math.floor(Math.random()*20),second=mode==='normal'?null:1+Math.floor(Math.random()*20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),total=natural+modifier,success=natural===20||(natural!==1&&total>=dc),removeKey=String(options.removeStatus||''),stamp=Date.now();if(success&&removeKey)target.statuses=(target.statuses||[]).filter(function(status){return String(typeof status==='string'?status:status&&(status.key||status.statusKey||status.id)||'')!==removeKey;});snapshot.room.combatEvent={id:'qa-combat-save-'+stamp,kind:success?'combat-save-success':'combat-save-fail',name:target.name||'Участник',portrait:target.portrait||'',text:'Спасбросок: '+labels[statKey]+'. '+total+' против DC '+dc+' — '+(success?'успех':'провал'),saveRoll:natural,saveRolls:second==null?[first]:[first,second],rollMode:mode,statKey:statKey,modifier:modifier,total:total,dc:dc,success:success,targetKey:target.key,removedStatus:success?removeKey:'',ts:stamp,revealAt:stamp+3200};});},
     acknowledgeAction:function(requestId,uid){return combatQaApply(function(snapshot){var member=snapshot.room.members&&snapshot.room.members[uid];if(member&&member.actionRequest&&(!requestId||member.actionRequest.id===requestId))member.actionRequest=null;});},
     setCombatParticipantSkipped:function(key,skipped){return combatQaApply(function(snapshot){var combat=snapshot.room.combat,order=combat&&combat.order||[],entry=order.find(function(item){return item&&String(item.key)===String(key);});if(!entry)throw new Error('Участник QA не найден');entry.skipRounds=skipped===true;entry.skipRoundsUpdatedAt=Date.now();entry.skipRoundsUpdatedBy='qa-master';combat.updatedAt=entry.skipRoundsUpdatedAt;});},
@@ -19906,7 +19958,7 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgCombatIntentDragStart=function(ev){
     if(approvedAttackBusy||approvedAttackDrag||!ev||ev.button!==0)return;
-    var member=ownMember(),request=member&&member.actionRequest;if(!request||request.status!=='roll-requested'||['combat-intent','custom'].indexOf(request.actionKind)<0)return;
+    var member=ownMember(),request=member&&member.actionRequest;if(!request||request.status!=='roll-requested'||['combat-intent','custom','saving-throw'].indexOf(request.actionKind)<0)return;
     ev.preventDefault();var node=ev.currentTarget;beginApprovedDiceDrag(ev,node,{isIntent:true,requestId:request.id});
     try{if(w.ZargotaSound&&w.ZargotaSound.dicePick)w.ZargotaSound.dicePick();}catch(ignore){}
   };
@@ -19951,18 +20003,29 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgCombatIntentRoll=function(){
     var intentApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;
-    if(approvedAttackBusy||!intentApi||!intentApi.rollCombatIntent)return;
-    var member=ownMember(),request=member&&member.actionRequest;if(!request||request.status!=='roll-requested'||['combat-intent','custom'].indexOf(request.actionKind)<0)return;
+    var member=ownMember(),request=member&&member.actionRequest,isSavingThrow=!!(request&&request.actionKind==='saving-throw'),rollMethod=isSavingThrow?'rollCombatSavingThrow':'rollCombatIntent';
+    if(approvedAttackBusy||!intentApi||!intentApi[rollMethod])return;
+    if(!request||request.status!=='roll-requested'||['combat-intent','custom','saving-throw'].indexOf(request.actionKind)<0)return;
     approvedAttackBusy=true;var prompt=el('zg-combat-roll-prompt'),motion=approvedCombatThrowMotions[request.id]&&approvedCombatThrowMotions[request.id].intent;
     if(prompt)prompt.classList.add('busy');
-    Promise.resolve(intentApi.rollCombatIntent(request.id,combatLabPlayerUid())).then(function(snapshot){
+    Promise.resolve(intentApi[rollMethod](request.id,combatLabPlayerUid())).then(function(snapshot){
       if(snapshot)state=snapshot;var next=state&&state.room&&state.room.members&&state.room.members[member.uid]&&state.room.members[member.uid].actionRequest,result=next&&next.result,rolls=result&&Array.isArray(result.rolls)?result.rolls:[];
       var rollId='combat-intent-visual-'+request.id,event=state&&state.room&&state.room.combatEvent,kept=rolls.find(function(item){return item&&item.kept!==false;})||rolls[0],intentSound={resultSound:kept&&kept.outcome||(result&&result.success?'success':'fail')};
-      if(event&&kept)playCombatDiceSound(event,'intent',kept.value,kept.sides||20,motion?1960:1250,!!(motion&&motion.diceSoundStarted));
-      if(rolls.length&&w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,member.uid,rollId,motion,intentSound);
-      if(!combatQaActive()&&rolls.length&&intentApi.beginRollBatch)intentApi.beginRollBatch(rolls,member.uid,rollId,intentSound);
-      render(state);if(w.showToast)w.showToast('Проверка выполнена · мастер решает итог');
-    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось выполнить проверку');}).then(function(){approvedAttackBusy=false;if(prompt)prompt.classList.remove('busy');delete approvedCombatThrowMotions[request.id];});
+      if(event&&kept){
+        if(isSavingThrow)playCombatDiceSound(event,'save',kept.value,kept.sides||20,motion?1960:1250,!!(motion&&motion.diceSoundStarted));
+        else playCombatDiceSound(event,'intent',kept.value,kept.sides||20,motion?1960:1250,!!(motion&&motion.diceSoundStarted));
+      }
+      var rollPlayback=Promise.resolve();
+      if(combatQaActive()){
+        if(rolls.length&&w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls,member.uid,rollId,motion,intentSound);
+      }else if(rolls.length&&intentApi.beginRollBatch){
+        stageSyncedCombatDiceThrow(rollId,motion);
+        rollPlayback=publishCombatDiceOnce(rollId,function(){return intentApi.beginRollBatch(rolls,member.uid,rollId,intentSound);});
+      }else if(rolls.length&&w.zgRenderLocalDiceThrow){
+        w.zgRenderLocalDiceThrow(rolls,member.uid,rollId,motion,intentSound);
+      }
+      return rollPlayback.then(function(){render(state);if(w.showToast)w.showToast(isSavingThrow?'Спасбросок выполнен':'Проверка выполнена · мастер решает итог');});
+    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||(isSavingThrow?'Не удалось выполнить спасбросок':'Не удалось выполнить проверку'));}).then(function(){approvedAttackBusy=false;if(prompt)prompt.classList.remove('busy');delete approvedCombatThrowMotions[request.id];});
   };
   w.zgCombatApprovedDamageRoll=function(){
     var damageApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;if(approvedAttackBusy||!damageApi||!damageApi.requestApprovedDamageRoll)return;
@@ -20070,7 +20133,10 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function combatSaveTargets(){
     var combat=state&&state.room&&state.room.combat,order=combat&&combat.active&&Array.isArray(combat.order)?combat.order:[];
-    if(order.length)return order;
+    if(order.length){
+      var members=state&&state.room&&state.room.members||{};
+      return order.filter(function(entry){var uid=String(entry&&entry.uid||'');return !!(uid&&members[uid]&&members[uid].character);});
+    }
     return heroMembers().map(function(member){var character=member.character||{};return{key:'member:'+String(member.uid||''),uid:member.uid,kind:'hero',name:character.name||member.name||'Герой',portrait:character.portrait||'',hp:Math.max(0,Number(character.hpCur)||0),hpMax:Math.max(0,Number(character.hpMax)||0),stats:character.stats||{},statuses:character.statuses||[],statusEffects:character.statusEffects||[]};});
   }
   function renderCombatSave(force){
@@ -20087,7 +20153,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var stats=Object.keys(labels).map(function(key){var value=combatSaveStat(target,key);return '<button type="button" class="zg-combat-save-stat '+(combatSaveDraft.statKey===key?'active':'')+'" onclick="zgCombatSavePickStat(\''+key+'\')" title="'+labels[key]+'">'+(typeof w.zgStatIcon==='function'?w.zgStatIcon(key,'zg-combat-save-stat-icon'):'')+'<span>'+shortLabels[key]+'</span><b>'+(value>=0?'+':'')+value+'</b></button>';}).join('');
     var modes=[['normal','Обычный','Один d20'],['advantage','Преимущество','Лучший из двух'],['disadvantage','Помеха','Худший из двух']].map(function(mode){return '<button type="button" class="zg-combat-save-mode '+(combatSaveDraft.mode===mode[0]?'active':'')+'" onclick="zgCombatSavePickMode(\''+mode[0]+'\')">'+combatSaveModeIcon(mode[0])+'<span><b>'+mode[1]+'</b><small>'+mode[2]+'</small></span></button>';}).join('');
     var statuses='<button type="button" class="zg-combat-save-status '+(!combatSaveDraft.removeStatus?'active':'')+'" onclick="zgCombatSavePickStatus(\'\')"><i aria-hidden="true">—</i><span>Ничего не снимать</span></button>'+targetStatuses.map(function(status){return '<button type="button" class="zg-combat-save-status '+(combatSaveDraft.removeStatus===status.key?'active':'')+'" onclick="zgCombatSavePickStatus('+esc(JSON.stringify(status.key))+')" style="--status-color:'+esc(status.color)+'"><i aria-hidden="true">'+esc(status.icon)+'</i><span>'+esc(status.label)+'</span></button>';}).join('');
-    body.innerHTML='<section class="zg-combat-save-section"><header><span>1</span><div><b>Кто спасается?</b><small>Выберите портрет участника</small></div></header><div class="zg-combat-save-targets">'+targets+'</div></section><section class="zg-combat-save-section"><header><span>2</span><div><b>От чего спасается?</b><small>Характеристика и сложность</small></div></header><div class="zg-combat-save-stats">'+stats+'</div><div class="zg-combat-save-numbers"><div><small>СЛОЖНОСТЬ · DC</small><span class="zg-combat-save-stepper"><button type="button" onclick="zgCombatSaveAdjust(\'dc\',-1)" aria-label="Уменьшить сложность">−</button><input type="number" inputmode="numeric" min="1" max="40" step="1" value="'+combatSaveDraft.dc+'" aria-label="Сложность спасброска" title="Введите DC вручную" onfocus="this.select()" onchange="zgCombatSaveSetNumber(\'dc\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}"><button type="button" onclick="zgCombatSaveAdjust(\'dc\',1)" aria-label="Увеличить сложность">+</button></span><nav>'+[8,10,12,15].map(function(value){return'<button type="button" class="'+(combatSaveDraft.dc===value?'active':'')+'" onclick="zgCombatSaveSetNumber(\'dc\','+value+')">'+value+'</button>';}).join('')+'</nav></div><div><small>ДОП. БОНУС</small><span class="zg-combat-save-stepper"><button type="button" onclick="zgCombatSaveAdjust(\'bonus\',-1)">−</button><b>'+(combatSaveDraft.bonus>=0?'+':'')+combatSaveDraft.bonus+'</b><button type="button" onclick="zgCombatSaveAdjust(\'bonus\',1)">+</button></span></div></div></section><section class="zg-combat-save-section"><header><span>3</span><div><b>Как бросаем d20?</b><small>Режим броска виден с первого взгляда</small></div></header><div class="zg-combat-save-modes">'+modes+'</div></section><section class="zg-combat-save-section compact"><header><span>4</span><div><b>Что снять при успехе?</b><small>'+(targetStatuses.length?'Только активные состояния цели':'У цели нет активных состояний')+'</small></div></header><div class="zg-combat-save-statuses">'+statuses+'</div></section><div class="zg-combat-save-summary"><span>'+combatSaveModeIcon(combatSaveDraft.mode)+'</span><div><small>ГОТОВО К БРОСКУ</small><b>'+esc(target&&target.name||'Участник')+' · '+labels[combatSaveDraft.statKey]+' '+(combatSaveStat(target,combatSaveDraft.statKey)>=0?'+':'')+combatSaveStat(target,combatSaveDraft.statKey)+' · DC '+combatSaveDraft.dc+'</b></div><button type="button" onclick="zgCombatSaveSubmit()" '+(!combatSaveTargetKey||combatSaveBusy?'disabled':'')+'>'+(combatSaveBusy?'Бросаем…':'Бросить d20')+'</button></div>';
+    body.innerHTML='<section class="zg-combat-save-section"><header><span>1</span><div><b>Кто спасается?</b><small>Выберите портрет участника</small></div></header><div class="zg-combat-save-targets">'+targets+'</div></section><section class="zg-combat-save-section"><header><span>2</span><div><b>От чего спасается?</b><small>Характеристика и сложность</small></div></header><div class="zg-combat-save-stats">'+stats+'</div><div class="zg-combat-save-numbers"><div><small>СЛОЖНОСТЬ · DC</small><span class="zg-combat-save-stepper"><button type="button" onclick="zgCombatSaveAdjust(\'dc\',-1)" aria-label="Уменьшить сложность">−</button><input type="number" inputmode="numeric" min="1" max="40" step="1" value="'+combatSaveDraft.dc+'" aria-label="Сложность спасброска" title="Введите DC вручную" onfocus="this.select()" onchange="zgCombatSaveSetNumber(\'dc\',this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}"><button type="button" onclick="zgCombatSaveAdjust(\'dc\',1)" aria-label="Увеличить сложность">+</button></span><nav>'+[8,10,12,15].map(function(value){return'<button type="button" class="'+(combatSaveDraft.dc===value?'active':'')+'" onclick="zgCombatSaveSetNumber(\'dc\','+value+')">'+value+'</button>';}).join('')+'</nav></div><div><small>ДОП. БОНУС</small><span class="zg-combat-save-stepper"><button type="button" onclick="zgCombatSaveAdjust(\'bonus\',-1)">−</button><b>'+(combatSaveDraft.bonus>=0?'+':'')+combatSaveDraft.bonus+'</b><button type="button" onclick="zgCombatSaveAdjust(\'bonus\',1)">+</button></span></div></div></section><section class="zg-combat-save-section"><header><span>3</span><div><b>Как бросаем d20?</b><small>Режим броска виден с первого взгляда</small></div></header><div class="zg-combat-save-modes">'+modes+'</div></section><section class="zg-combat-save-section compact"><header><span>4</span><div><b>Что снять при успехе?</b><small>'+(targetStatuses.length?'Только активные состояния цели':'У цели нет активных состояний')+'</small></div></header><div class="zg-combat-save-statuses">'+statuses+'</div></section><div class="zg-combat-save-summary"><span>'+combatSaveModeIcon(combatSaveDraft.mode)+'</span><div><small>ГОТОВО К НАЗНАЧЕНИЮ</small><b>'+esc(target&&target.name||'Участник')+' · '+labels[combatSaveDraft.statKey]+' '+(combatSaveStat(target,combatSaveDraft.statKey)>=0?'+':'')+combatSaveStat(target,combatSaveDraft.statKey)+' · DC '+combatSaveDraft.dc+'</b></div><button type="button" onclick="zgCombatSaveSubmit()" '+(!combatSaveTargetKey||combatSaveBusy?'disabled':'')+'>'+(combatSaveBusy?'Назначаем…':'Назначить игроку')+'</button></div>';
     body.__zgCombatSignature=signature;
   }
   w.zgCombatSaveToggle=function(force){var panel=el('zg-combat-save');if(!panel)return false;var open=typeof force==='boolean'?force:!panel.classList.contains('open');if(open){if(w.zgVttDeactivateTools)w.zgVttDeactivateTools('combat-save');renderCombatSave();}panel.classList.toggle('open',open);return open;};
@@ -20099,10 +20165,10 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCombatSaveAdjust=function(field,delta){if(field!=='dc'&&field!=='bonus')return;w.zgCombatSaveSetNumber(field,Number(combatSaveDraft[field])+Number(delta||0));};
   w.zgCombatSaveSubmit=function(){
     var saveApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;
-    if(combatSaveBusy||!combatSaveTargetKey||!saveApi||!saveApi.resolveCombatSavingThrow)return;
+    if(combatSaveBusy||!combatSaveTargetKey||!saveApi||!saveApi.requestCombatSavingThrow)return;
     var options={statKey:combatSaveDraft.statKey,dc:combatSaveDraft.dc,bonus:combatSaveDraft.bonus,mode:combatSaveDraft.mode,removeStatus:combatSaveDraft.removeStatus};
     combatSaveBusy=true;renderCombatSave();
-    saveApi.resolveCombatSavingThrow(combatSaveTargetKey,options).then(function(snapshot){var event=snapshot&&snapshot.room&&snapshot.room.combatEvent;if(!event)return;if(snapshot)state=snapshot;var rolls=Array.isArray(event.saveRolls)?event.saveRolls:[],outcome=event.saveRoll===20?'critical-success':(event.saveRoll===1?'critical-fail':''),saveSound={resultSound:outcome||(event.success?'success':'fail')};playCombatDiceSound(event,'save',event.saveRoll,20,1250,false);if(combatQaActive()){if(rolls.length&&w.zgRenderLocalDiceThrow)w.zgRenderLocalDiceThrow(rolls.map(function(value){return{sides:20,value:Number(value),total:Number(value),outcome:Number(value)===Number(event.saveRoll)?outcome:'',kept:Number(value)===Number(event.saveRoll),rollMode:event.rollMode,statLabel:'Спасбросок'};}),'','qa-save-visual-'+event.id,null,saveSound);return;}if(rolls.length>1&&saveApi.beginRollBatch)return saveApi.beginRollBatch(rolls.map(function(value){return{sides:20,value:Number(value),total:Number(value),outcome:Number(value)===Number(event.saveRoll)?outcome:'',kept:Number(value)===Number(event.saveRoll),rollMode:event.rollMode,statLabel:'Спасбросок'};}),'',null,saveSound);if(saveApi.beginRoll)return saveApi.beginRoll(20,'',event.saveRoll,event.total,outcome,'Спасбросок',null,saveSound);}).then(function(){w.zgCombatSaveToggle(false);}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Спасбросок не выполнен');}).then(function(){combatSaveBusy=false;renderCombat();});
+    Promise.resolve(saveApi.requestCombatSavingThrow(combatSaveTargetKey,options)).then(function(snapshot){if(snapshot)state=snapshot;render(state);w.zgCombatSaveToggle(false);if(w.showToast)w.showToast('Спасбросок назначен · игрок должен перетащить D20');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось назначить спасбросок');}).then(function(){combatSaveBusy=false;renderCombat();});
   };
   function renderCombatPrepare(force){
     var panel=el('zg-combat-prepare'),body=el('zg-combat-prepare-body');if(!panel||!body)return;
@@ -20236,8 +20302,18 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 
   w.zgVttAddInventoryItem=function(){
-    var member=ownMember(), c=fullLocalCharacter(member);
-    if(!c){if(w.showToast)w.showToast('Редактировать вещи может владелец героя');return;}
+    var member=drawerMember(), c=fullLocalCharacter(member);
+    if(drawerMasterCanEdit(member)&&!c){
+      var name=w.prompt('Название предмета:','');if(name===null)return;
+      name=String(name||'').trim();if(!name){if(w.showToast)w.showToast('Укажите название предмета');return;}
+      var qtyRaw=w.prompt('Количество:','1');if(qtyRaw===null)return;
+      var description=w.prompt('Описание предмета (необязательно):','');if(description===null)return;
+      var item={itemId:'zg-item-gm-'+Date.now()+'-'+Math.random().toString(36).slice(2,9),name:name,description:String(description||'').slice(0,4000),qty:Math.max(1,Math.min(99,Math.floor(Number(qtyRaw)||1))),icon:'box',category:'other',type:'other'};
+      w.zgVttSetInventoryNotice(member.uid,'loading','Добавляем предмет…');
+      Promise.resolve(w.ZargotaRooms.gmAddInventoryItem(member.uid,item)).then(function(snapshot){if(snapshot)roomState(snapshot);w.zgVttSetInventoryNotice(member.uid,'success','Предмет добавлен в инвентарь героя.');renderDrawer(true);}).catch(function(error){w.zgVttSetInventoryNotice(member.uid,'error',error&&error.message||'Не удалось добавить предмет.');});
+      return;
+    }
+    if(!c){if(w.showToast)w.showToast('Редактировать вещи может владелец героя или ГМ');return;}
     if(typeof w.addInventoryItem==='function')w.addInventoryItem(c.id);
     setTimeout(function(){w.zgVttOpenPanel('inventory');},120);
   };
@@ -20404,7 +20480,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttInventoryDragEnd=clearInventoryDragFeedback;
   w.zgVttInventoryDrag=function(event,index){
     if(!event||!event.dataTransfer)return;
-    var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];
+    var member=drawerMember(),editable=editableDrawerCharacter(member),c=editable.character,item=c&&c.inventoryItems&&c.inventoryItems[index];
     event.dataTransfer.setData('text/zargota-item',String(index));
     event.dataTransfer.setData('text/plain',String(index));
     event.dataTransfer.effectAllowed='move';
@@ -20416,7 +20492,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttInventoryDrop=function(event,slotName){
     if(event){event.preventDefault();if(event.currentTarget)event.currentTarget.classList.remove('dragover');}
     var rawIndex=event&&event.dataTransfer&&(event.dataTransfer.getData('text/zargota-item')||event.dataTransfer.getData('text/plain'));
-    var index=rawIndex===''?NaN:Number(rawIndex),member=ownMember(),c=fullLocalCharacter(member),item=Number.isFinite(index)&&c&&c.inventoryItems&&c.inventoryItems[index];
+    var index=rawIndex===''?NaN:Number(rawIndex),member=drawerMember(),editable=editableDrawerCharacter(member),c=editable.character,item=Number.isFinite(index)&&c&&c.inventoryItems&&c.inventoryItems[index];
     if(!item||!c)return;
     if(inventoryMutationBusy){if(w.showToast)w.showToast('Дождитесь завершения сохранения');return;}
     var before=inventoryMutationSnapshot(c);
@@ -20445,7 +20521,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttInventoryOpenItem=function(source,index){
     var member=drawerMember(),c=fullLocalCharacter(member)||member&&member.character;if(!c)return;
     var list=source==='equip'?c.equipItems:c.inventoryItems,item=list&&list[index];if(!item)return;if(typeof item==='string')item={name:item};
-    var itemImage=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item.imageThumb||item.image||''),image=itemImage?'<img src="'+esc(itemImage)+'" alt="">':typeof w.zgItemIconMarkup==='function'?'<i>'+w.zgItemIconMarkup(item.icon,'◈')+'</i>':'<i>'+esc(item.icon||'◈')+'</i>',meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · '),canEdit=!!fullLocalCharacter(member);
+    var itemImage=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):(item.imageThumb||item.image||''),image=itemImage?'<img src="'+esc(itemImage)+'" alt="">':typeof w.zgItemIconMarkup==='function'?'<i>'+w.zgItemIconMarkup(item.icon,'◈')+'</i>':'<i>'+esc(item.icon||'◈')+'</i>',meta=[item.type,item.category,item.rarity].filter(Boolean).join(' · '),canEdit=!!fullLocalCharacter(member)||drawerMasterCanEdit(member);
     var session=state&&state.session,canShare=!!(session&&session.role==='player'&&member&&String(member.uid)===String(session.uid));
     inventoryDetail={source:source,index:index,item:item,itemImage:itemImage};
     var old=el('zg-vtt-item-detail');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-vtt-item-detail';modal.className='zg-item-detail-backdrop';
@@ -20459,9 +20535,18 @@ document.addEventListener('DOMContentLoaded', function(){
     var title=item.name||item.title||item.text||'Предмет',copy=item.description||item.effect||item.text||'Описание предмета пока не заполнено.';
     w.zgSharePresentationOpen({kind:'item',title:title,text:copy,image:detail.itemImage||'',mood:'solemn',payload:{item:{name:title,title:title,description:copy,effects:item.effects||item.effect||'',image:detail.itemImage||'',icon:item.icon||'',type:item.type||'',category:item.category||'',rarity:item.rarity||'common',damageFormula:item.damageFormula||item.damage||'',damageType:item.damageType||'',acBonus:Number(item.acBonus)||0,range:item.range||'',qty:Math.max(1,Number(item.qty)||1),presentationFx:item.presentationFx||'none'}}},event);
   };
-  w.zgVttInventoryEditItem=function(){if(!inventoryDetail)return;var member=ownMember(),c=fullLocalCharacter(member);if(!c)return;var detail=inventoryDetail;w.zgVttInventoryCloseItem();if(typeof w.openItemConstructor==='function')w.openItemConstructor(c.id,detail.source,detail.index);};
+  w.zgVttInventoryEditItem=function(){
+    if(!inventoryDetail)return;var member=drawerMember(),local=fullLocalCharacter(member),detail=inventoryDetail;
+    if(local){w.zgVttInventoryCloseItem();if(typeof w.openItemConstructor==='function')w.openItemConstructor(local.id,detail.source,detail.index);return;}
+    var editable=editableDrawerCharacter(member),c=editable.character,list=c&&(detail.source==='equip'?c.equipItems:c.inventoryItems),item=list&&list[detail.index];if(!item)return;
+    var name=w.prompt('Название предмета:',item.name||'');if(name===null)return;
+    var description=w.prompt('Описание предмета:',item.description||item.effect||item.text||'');if(description===null)return;
+    var qtyRaw=w.prompt('Количество:',String(Math.max(1,Number(item.qty)||1)));if(qtyRaw===null)return;
+    var before=inventoryMutationSnapshot(c);item.name=String(name||'').trim().slice(0,300)||'Предмет';item.description=String(description||'').slice(0,4000);item.qty=Math.max(1,Math.min(99,Math.floor(Number(qtyRaw)||1)));
+    w.zgVttInventoryCloseItem();renderDrawer(true);commitInventoryMutation(member,c,before,'gm-inventory-edit','Предмет изменён ГМом.');
+  };
   w.zgVttInventoryQuickEquip=function(index){
-    var member=ownMember(),c=fullLocalCharacter(member),item=c&&c.inventoryItems&&c.inventoryItems[index];
+    var member=drawerMember(),editable=editableDrawerCharacter(member),c=editable.character,item=c&&c.inventoryItems&&c.inventoryItems[index];
     if(!item)return;
     var equipmentRules=w.ZargotaEquipmentRules||{},kind=typeof equipmentRules.equipmentKind==='function'?equipmentRules.equipmentKind(item):'other';
     var hay=String((item.type||'')+' '+(item.category||'')+' '+(item.name||'')).toLowerCase(),slot='';
@@ -20480,7 +20565,7 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgVttInventoryUnequip=function(source,index){
     if(index===undefined){index=source;source='equip';}
-    var member=ownMember(),c=fullLocalCharacter(member),list=c&&(source==='inventory'?c.inventoryItems:c.equipItems),item=list&&list[index];
+    var member=drawerMember(),editable=editableDrawerCharacter(member),c=editable.character,list=c&&(source==='inventory'?c.inventoryItems:c.equipItems),item=list&&list[index];
     if(!item)return;
     if(inventoryMutationBusy){if(w.showToast)w.showToast('Дождитесь завершения сохранения');return;}
     var before=inventoryMutationSnapshot(c);
@@ -20672,10 +20757,78 @@ document.addEventListener('DOMContentLoaded', function(){
     document.body.appendChild(modal);var title=el('zg-journal-master-title');if(title)title.focus();
   };
   w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','kodex','folio','obrad'].indexOf(filter)>=0?filter:'all';abilityCatalogPage=0;expandedAbilityKey='';renderDrawer();};
+  function commitGmMagicCharacter(member,character,reason,successMessage){
+    if(!drawerMasterCanEdit(member)||!character||abilityRequestBusy)return Promise.resolve(false);
+    abilityRequestBusy=true;renderDrawer(true);
+    return Promise.resolve(w.ZargotaRooms.gmUpdateCharacterSections(member.uid,{
+      spellRefs:Array.isArray(character.spellRefs)?character.spellRefs:[],
+      spellsLearned:character.spellsLearned&&typeof character.spellsLearned==='object'?character.spellsLearned:{},
+      preparedSpells:character.preparedSpells&&typeof character.preparedSpells==='object'?character.preparedSpells:{kodex:[],folio:[],obrad:[]},
+      expectedRevision:Math.max(0,Number(member.character&&member.character.revision)||0),
+      reason:reason||'gm-magic-edit'
+    })).then(function(snapshot){
+      abilityRequestBusy=false;if(snapshot)roomState(snapshot);else renderDrawer(true);
+      if(w.showToast)w.showToast(successMessage||'Магия героя обновлена');
+      return true;
+    }).catch(function(error){
+      abilityRequestBusy=false;renderDrawer(true);
+      if(w.showToast)w.showToast(error&&error.message||'Не удалось обновить магию героя');
+      return false;
+    });
+  }
+  function gmMagicEditableCharacter(){
+    var member=drawerMember(),editable=editableDrawerCharacter(member);
+    return drawerMasterCanEdit(member)&&editable&&editable.character?{member:member,character:editable.character}:null;
+  }
+  function gmSpellCatalogEntries(){
+    var list=typeof getCharacterSpellCatalogEntries==='function'?getCharacterSpellCatalogEntries():(Array.isArray(w.entries)?w.entries:[]);
+    return (Array.isArray(list)?list:[]).filter(function(spell){return spell&&spell.id!=null;});
+  }
+  w.zgVttGmSpellLibraryClose=function(){var modal=el('zg-gm-spell-library');if(modal)modal.remove();};
+  w.zgVttGmSpellLibraryFilter=function(value){
+    var modal=el('zg-gm-spell-library'),query=String(value||'').trim().toLowerCase();if(!modal)return;
+    modal.querySelectorAll('[data-spell-search]').forEach(function(node){node.hidden=!!query&&String(node.getAttribute('data-spell-search')||'').indexOf(query)<0;});
+  };
+  w.zgVttGmSpellLibraryOpen=function(){
+    var editable=gmMagicEditableCharacter();if(!editable){if(w.showToast)w.showToast('Выберите героя игрока');return false;}
+    w.zgVttGmSpellLibraryClose();
+    var existing={};(editable.character.spellRefs||[]).forEach(function(id){existing[String(id)]=true;});
+    var available=gmSpellCatalogEntries().filter(function(spell){return !existing[String(spell.id)];});
+    var modal=document.createElement('div');modal.id='zg-gm-spell-library';modal.className='zg-item-detail-backdrop';
+    var list=available.slice(0,160).map(function(spell){
+      var type=String(spell.spellType||'').toLowerCase(),fallback='images/ui/combat-generated/'+({kodex:'codex',folio:'folio',obrad:'ritual'}[type]||'innate')+'.png';
+      var asset=abilityAssetForItem(spell,fallback),search=String((spell.name||'')+' '+(spell.tip||'')+' '+type+' '+(spell.description||spell.effect||'')).toLowerCase();
+      return '<button type="button" data-spell-search="'+esc(search)+'" onclick="zgVttGmSpellLibraryAdd(\''+esc(String(spell.id))+'\')"><img src="'+esc(asset)+'" alt=""><span><b>'+esc(spell.name||'Без названия')+'</b><small>'+esc(spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[type]||'Заклинание'))+'</small></span><em>Добавить</em></button>';
+    }).join('');
+    modal.innerHTML='<section class="zg-item-detail-card zg-gm-spell-library-card" role="dialog" aria-modal="true" aria-label="Каталог заклинаний"><button type="button" class="zg-item-detail-close" onclick="zgVttGmSpellLibraryClose()" aria-label="Закрыть">×</button><small>Редактор ГМ · '+esc(editable.character.name||editable.member.name||'Герой')+'</small><h3>Добавить заклинание</h3><p>Заклинание появится у героя как полученное, но ещё не изученное.</p><input id="zg-gm-spell-library-search" placeholder="Найти заклинание…" oninput="zgVttGmSpellLibraryFilter(this.value)"><div class="zg-gm-spell-library-list">'+(list||'<div class="zg-vtt-empty">Все доступные заклинания уже добавлены</div>')+'</div></section>';
+    document.body.appendChild(modal);var input=el('zg-gm-spell-library-search');if(input)input.focus();return true;
+  };
+  w.zgVttGmSpellLibraryAdd=function(spellId){
+    var editable=gmMagicEditableCharacter();if(!editable)return false;var key=String(spellId||''),spell=gmSpellCatalogEntries().find(function(item){return String(item.id)===key;});if(!spell)return false;
+    var character=editable.character,refs=Array.isArray(character.spellRefs)?character.spellRefs.map(String):[];if(refs.indexOf(key)>=0)return true;
+    refs.push(key);character.spellRefs=refs;character.spellsLearned=Object.assign({},character.spellsLearned||{});character.spellsLearned[key]=false;
+    w.zgVttGmSpellLibraryClose();return commitGmMagicCharacter(editable.member,character,'gm-spell-add','Заклинание добавлено герою');
+  };
+  w.zgVttGmSpellLearn=function(spellId,learned,event){
+    if(event){event.preventDefault();event.stopPropagation();}var editable=gmMagicEditableCharacter();if(!editable)return false;
+    var key=String(spellId||''),character=editable.character;if(!(character.spellRefs||[]).some(function(id){return String(id)===key;}))return false;
+    character.spellsLearned=Object.assign({},character.spellsLearned||{});character.spellsLearned[key]=!!learned;
+    if(!learned){var prepared=typeof w.normalizePreparedSpellsForCharacter==='function'?w.normalizePreparedSpellsForCharacter(character,{bootstrapLegacy:false}):{kodex:[],folio:[],obrad:[]};Object.keys(prepared).forEach(function(type){prepared[type]=prepared[type].filter(function(id){return String(id)!==key;});});character.preparedSpells=prepared;}
+    return commitGmMagicCharacter(editable.member,character,'gm-spell-learn',learned?'Заклинание отмечено изученным':'Заклинание отмечено неизученным');
+  };
+  w.zgVttGmSpellRemove=function(spellId,event){
+    if(event){event.preventDefault();event.stopPropagation();}var editable=gmMagicEditableCharacter();if(!editable)return false;var key=String(spellId||''),spell=gmSpellCatalogEntries().find(function(item){return String(item.id)===key;});
+    var old=el('zg-gm-spell-confirm');if(old)old.remove();var modal=document.createElement('div');modal.id='zg-gm-spell-confirm';modal.className='zg-item-detail-backdrop';
+    modal.innerHTML='<section class="zg-item-detail-card" role="dialog" aria-modal="true"><button type="button" class="zg-item-detail-close" data-close>×</button><small>Редактор ГМ</small><h3>Убрать заклинание?</h3><p>«'+esc(spell&&spell.name||'Заклинание')+'» исчезнет из полученных и подготовленных заклинаний героя.</p><div class="zg-item-detail-actions"><button type="button" data-close>Отмена</button><button type="button" data-remove>Убрать</button></div></section>';
+    modal.querySelectorAll('[data-close]').forEach(function(button){button.onclick=function(){modal.remove();};});modal.querySelector('[data-remove]').onclick=function(){
+      var current=gmMagicEditableCharacter();if(!current){modal.remove();return;}var character=current.character;character.spellRefs=(character.spellRefs||[]).filter(function(id){return String(id)!==key;});character.spellsLearned=Object.assign({},character.spellsLearned||{});delete character.spellsLearned[key];
+      var prepared=typeof w.normalizePreparedSpellsForCharacter==='function'?w.normalizePreparedSpellsForCharacter(character,{bootstrapLegacy:false}):{kodex:[],folio:[],obrad:[]};Object.keys(prepared).forEach(function(type){prepared[type]=prepared[type].filter(function(id){return String(id)!==key;});});character.preparedSpells=prepared;modal.remove();commitGmMagicCharacter(current.member,character,'gm-spell-remove','Заклинание убрано у героя');
+    };document.body.appendChild(modal);return true;
+  };
   w.zgVttSpellPreparation=function(spellId,shouldPrepare,event){
     if(event){event.preventDefault();event.stopPropagation();}
-    var member=drawerMember(),character=fullLocalCharacter(member);
-    if(!character||drawerReadOnly(member)){if(w.showToast)w.showToast('Подготовку меняет владелец героя');return false;}
+    var member=drawerMember(),localCharacter=fullLocalCharacter(member),editable=editableDrawerCharacter(member),character=editable&&editable.character;
+    if(!character||drawerReadOnly(member)&&!drawerMasterCanEdit(member)){if(w.showToast)w.showToast('Подготовку меняет владелец героя или мастер');return false;}
     var key=String(spellId||''),spell=typeof w.findCharacterCatalogSpell==='function'?w.findCharacterCatalogSpell(key):null;
     if(!spell||!Array.isArray(character.spellRefs)||!character.spellRefs.some(function(id){return String(id)===key;})){if(w.showToast)w.showToast('Заклинание не найдено у героя');return false;}
     if(!character.spellsLearned||character.spellsLearned[key]!==true){if(w.showToast)w.showToast('Сначала изучите это заклинание');return false;}
@@ -20692,6 +20845,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }else return true;
     character.preparedSpells=prepared;
     renderDrawer(true);
+    if(!localCharacter)return commitGmMagicCharacter(member,character,'gm-spell-preparation',shouldPrepare?'Заклинание подготовлено':'Заклинание снято с подготовки');
     Promise.resolve(saveChars({reason:'spell-preparation'})).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось сохранить подготовку');});
     if(w.showToast)w.showToast(shouldPrepare?'Заклинание подготовлено':'Заклинание снято с подготовки');
     return true;
@@ -25591,6 +25745,14 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-start-players{box-shadow:0 0 20px rgba(218,174,70,.14);white-space:nowrap}
   .zg-start-players:hover{border-color:#e7bd5a;background:linear-gradient(180deg,#4a3719,#24190a);box-shadow:0 0 28px rgba(218,174,70,.25)}
   .zg-start-players:disabled{opacity:.58;cursor:wait}
+  .zg-start-players.launched,.zg-start-players.launched:hover{
+    opacity:1;
+    cursor:default;
+    color:#a9d6ac;
+    border-color:#416c48;
+    background:linear-gradient(180deg,#17291b,#0d160f);
+    box-shadow:inset 0 0 14px #72c47e12,0 0 18px #4a9b5720;
+  }
   .zg-scene-publish:hover{border-color:var(--gold);color:#ffe9a8;box-shadow:0 0 18px #c8993c33}
   .zg-scene-publish:disabled{opacity:.45;cursor:wait}
   .zg-combat-toggle.active{border-color:#b95a45;background:linear-gradient(180deg,#402018,#21100b);color:#f1b099}
@@ -29185,6 +29347,33 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-spell-catalog-card.prepared{box-shadow:inset 3px 0 color-mix(in srgb,var(--spell-tone) 70%,#b88a3d)}
   .zg-spell-catalog-card.locked{opacity:.56;filter:saturate(.6)}
   .zg-spell-catalog-card.exhausted{background:linear-gradient(90deg,#4a18151f,transparent)}
+  .zg-spell-catalog-card.gm-editable{padding-right:104px}
+  .zg-spell-catalog-card.gm-editable.locked{opacity:.82}
+  .zg-spell-catalog-card.gm-editable>.zg-spell-prepare-action{
+    top:4px;
+    right:4px;
+    min-width:58px;
+    height:21px;
+    transform:none;
+  }
+  .zg-gm-spell-actions{
+    position:absolute;z-index:3;right:4px;bottom:4px;display:flex;gap:3px;
+  }
+  .zg-gm-spell-actions button,.zg-gm-spell-add{
+    min-height:22px;padding:0 7px;border:1px solid #604826;border-radius:6px;background:#0b0805;color:#c7a45e;
+    font:700 7px 'Cinzel',serif;cursor:pointer;
+  }
+  .zg-gm-spell-actions button:hover,.zg-gm-spell-add:hover{border-color:#c59b45;color:#f4d993;background:#201407}
+  .zg-gm-spell-actions button.remove{min-width:22px;padding:0;border-color:#71332d;color:#d98b80}
+  .zg-spellbook-catalog>header .zg-gm-spell-add{margin-left:auto;margin-right:7px;height:25px;font-size:8px}
+  .zg-gm-spell-library-card{width:min(660px,calc(100vw - 32px));max-height:min(760px,calc(100vh - 32px));display:flex;flex-direction:column;gap:12px}
+  .zg-gm-spell-library-card>p{margin:0;color:#8f7b55;font:15px/1.45 Georgia,serif}
+  .zg-gm-spell-library-card>input{box-sizing:border-box;width:100%;min-height:48px;padding:0 14px;border:1px solid #604826;border-radius:9px;background:#090705;color:#ead39c;font:18px Georgia,serif;outline:none}
+  .zg-gm-spell-library-list{min-height:180px;overflow:auto;display:grid;gap:7px;padding-right:5px}
+  .zg-gm-spell-library-list button{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:11px;align-items:center;min-height:64px;padding:7px 10px;border:1px solid #4d3820;border-radius:9px;background:linear-gradient(90deg,#1d1209,#0a0805);color:#dcc591;text-align:left;cursor:pointer}
+  .zg-gm-spell-library-list button:hover{border-color:#b98938;background:linear-gradient(90deg,#38220c,#100b06)}
+  .zg-gm-spell-library-list img{width:48px;height:48px;object-fit:contain;border-radius:7px;background:#080604}
+  .zg-gm-spell-library-list b{display:block;font:700 15px 'Cinzel',serif}.zg-gm-spell-library-list small{display:block;margin-top:4px;color:#887451;font:13px Georgia,serif}.zg-gm-spell-library-list em{color:#d3ad5c;font:700 12px 'Cinzel',serif}
   .zg-spellbook-prepared{
     grid-column:1 / -1;
     grid-row:2;

@@ -43,9 +43,15 @@ const launchStart = html.indexOf('  w.zgStartPlayers = function()');
 const launchEnd = html.indexOf('\n  // Combat and other VTT modules', launchStart);
 const launchBlock = html.slice(launchStart, launchEnd);
 assert.ok(launchBlock.indexOf('ZargotaRooms.publishScene(draft)') < launchBlock.indexOf('ZargotaRooms.startGame()'), 'launch must publish before checking the scene gate');
+assert.match(launchBlock, /roomSnapshot\.room\.phase==='playing' \|\| roomSnapshot\.room\.gameStartedAt/,
+  'an already launched room must reject repeated start actions');
 assert.match(html, /onclick="zgPrimarySessionAction\(\)"/, 'primary session control routes Workshop back to the live room');
 assert.match(html, /showPage\('home'\)/, 'Workshop opened without a live room still has a working close path');
 assert.match(html, /Закрыть мастерскую/, 'Workshop without a live room does not advertise a dead live-room action');
 assert.match(html, /startButton\.textContent=localWorkshop\?\(workshopHasLive\?'← В живую сессию':'← Закрыть мастерскую'\)/, 'Workshop always exposes the correct primary escape action');
+assert.match(html, /launchComplete\?'✓ Игроки на сцене':'Запустить игроков'/,
+  'the launch action becomes a clear completed status after players enter');
+assert.match(html, /startButton\.disabled=launchBusy\|\|launchComplete/,
+  'the completed launch status cannot be pressed again');
 
 console.log('scene start gate contract passed');
