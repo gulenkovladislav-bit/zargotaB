@@ -50,6 +50,10 @@ assert.doesNotMatch(html, /\.zg-action-cursor\[data-tool="movement"\] img/, 'mov
 });
 assert.match(html, /w\.zgActionRequestDetailsOpen=function\(uid\)/, 'the GM must be able to open a wide custom-request view');
 assert.match(html, /zgActionRequestCheckOpen/, 'custom request cards must expose the existing characteristic-check flow');
+assert.match(html, /function combatIntentResolveRequest\(uid\)/, 'the GM check dialog must resolve its request through one shared snapshot helper');
+assert.match(html, /requestFrom\(roomSnapshot\),requestFrom\(state\)/, 'the GM check dialog must prefer the live room snapshot and retain the combat-state fallback');
+assert.match(html, /request=combatIntentResolveRequest\(combatIntentResolveUid\)/, 'the GM check dialog renderer must not read only the potentially stale combat state');
+assert.match(html, /Заявка уже закрыта или ещё не успела синхронизироваться/, 'the GM check dialog must never leave an unexplained empty shell');
 assert.match(html, /function manualCheckActionKind\(kind\)/, 'all manual scene actions must share one characteristic-check contract');
 assert.match(html, /manualCheckActionKind\(request\.actionKind\)/, 'the shared player roll UI must accept every manual scene action');
 assert.match(network, /trim\(\)\.slice\(0, 1200\)/, 'the network request must preserve the expanded custom description');

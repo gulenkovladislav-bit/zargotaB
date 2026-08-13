@@ -3333,6 +3333,39 @@
       });
     },
 
+    // Remove only explicitly named scene tokens. Workshop copies must never
+    // require a full scene republish: that could race with a live movement or
+    // another GM edit. Members, character sheets, HP and inventory are outside
+    // this transaction and cannot be changed by it.
+    removeSceneTokens: function (tokenIds) {
+      var ids = Array.isArray(tokenIds) ? tokenIds.map(String).filter(Boolean).slice(0, 60) : [];
+      return ensureReady().then(function (user) {
+        var session = readSession();
+        if (!session || session.role !== 'master') throw roomError('Удалять жетоны с живой сцены может только мастер.', 'master-only');
+        if (!ids.length) return api.getSnapshot();
+        return readRoom(session.code).then(function (room) {
+          if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
+          if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
+          if (!room.scene || !Array.isArray(room.scene.tokens)) throw roomError('Сначала покажите сцену игрокам.', 'scene-missing');
+          var wanted = Object.create(null); ids.forEach(function (id) { wanted[id] = true; });
+          return firebase.runTransaction(firebase.ref(db, 'rooms/' + session.code + '/scene/tokens'), function (tokens) {
+            if (!Array.isArray(tokens)) return tokens;
+            return tokens.filter(function (token) { return !(token && wanted[String(token.id || '')]); });
+          }).then(function () {
+            return firebase.update(firebase.ref(db, 'rooms/' + session.code + '/scene'), {
+              revision: now(),
+              publishedAt: firebase.serverTimestamp()
+            });
+          }).then(function () {
+            return refreshRoom(session.code).then(function () { return api.getSnapshot(); });
+          });
+        });
+      }).catch(function (error) {
+        if (error && ['master-only','room-not-found','scene-missing'].indexOf(error.code) >= 0) throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     cueCamera: function (x, y, zoom) {
       x = Math.max(0, Math.min(100, Number(x) || 0));
       y = Math.max(0, Math.min(100, Number(y) || 0));
@@ -5114,6 +5147,64 @@
           return gameplayOperationSnapshot('gm-delivery',deliveryOperationId);
         }
         if(error&&['member-required','delivery-title-required','delivery-image-large','delivery-private-kind','delivery-private-target','master-only','room-not-found','character-missing'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
+    sharePresentation: function (recipientUids, value) {
+      recipientUids=(Array.isArray(recipientUids)?recipientUids:[recipientUids]).map(function(uid){return String(uid||'').slice(0,160);}).filter(Boolean).filter(function(uid,index,list){return list.indexOf(uid)===index;}).slice(0,12);
+      value=value&&typeof value==='object'?value:{};
+      if(!tabCanWrite())return Promise.reject(roomError('Эта вкладка работает только для просмотра. Передайте управление ей перед показом.','tab-read-only'));
+      if(!recipientUids.length)return Promise.reject(roomError('Выберите, кому показать карточку.','member-required'));
+      return ensureReady().then(function(user){
+        var session=readSession();
+        if(!session||session.role!=='player')throw roomError('Показывать свои карточки участникам может подключённый игрок.','player-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          var sender=room.members&&room.members[user.uid];
+          if(!sender||sender.role!=='player')throw roomError('Игрок не найден в этой комнате.','player-missing');
+          var allowed={};
+          if(room.masterUid)allowed[String(room.masterUid)]=true;
+          Object.keys(room.members||{}).forEach(function(uid){
+            var member=room.members[uid];
+            if(member&&member.role==='player'&&uid!==user.uid&&member.online!==false)allowed[String(uid)]=true;
+          });
+          var targets=recipientUids.filter(function(uid){return allowed[uid];});
+          if(!targets.length)throw roomError('Выбранные участники сейчас недоступны.','member-required');
+          var kind=['item','spell','ability','quest','text','image'].indexOf(String(value.kind||''))>=0?String(value.kind):'text';
+          var title=String(value.title||'').trim().slice(0,200);
+          var body=String(value.text||'').trim().slice(0,6000);
+          var image=String(value.image||'').trim();
+          if(!title)throw roomError('У карточки нет названия.','presentation-title-required');
+          if(image.length>350000)throw roomError('Изображение слишком большое для игровой комнаты.','presentation-image-large');
+          if(image&&!/^(?:https?:|data:image\/|images\/|assets\/|\.?\.?\/)/i.test(image))image='';
+          var rawPayload={};
+          try{rawPayload=JSON.parse(JSON.stringify(value.payload&&typeof value.payload==='object'?value.payload:{}));}catch(ignore){rawPayload={};}
+          var stamp=now(),senderCharacter=sender.character||{};
+          var record={
+            id:'player-share-'+stamp+'-'+Math.random().toString(36).slice(2,9),
+            previewOnly:true,
+            kind:kind,
+            mood:['calm','solemn','ominous'].indexOf(String(value.mood||''))>=0?String(value.mood):'solemn',
+            presentation:kind==='image'&&value.presentation==='cinematic'?'cinematic':'card',
+            showPopup:true,
+            title:title,
+            text:body,
+            image:image,
+            payload:rawPayload,
+            senderUid:user.uid,
+            senderName:String(senderCharacter.name||sender.name||'Игрок').slice(0,160),
+            senderPortrait:String(senderCharacter.portrait||senderCharacter.image||senderCharacter.avatar||'').slice(0,350000),
+            recipientUids:targets,
+            createdAt:stamp,
+            expiresAt:stamp+120000
+          };
+          return firebase.set(firebase.ref(db,'rooms/'+session.code+'/members/'+user.uid+'/sharedPresentation'),record).then(function(){
+            return refreshRoom(session.code).catch(function(){return room;}).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['tab-read-only','player-only','player-missing','room-not-found','member-required','presentation-title-required','presentation-image-large'].indexOf(error.code)>=0)throw error;
         throw friendlyFirebaseError(error);
       });
     },

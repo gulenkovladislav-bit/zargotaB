@@ -11117,13 +11117,17 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgWorkshopModeChoose=function(mode){w.zgWorkshopModeClose();w.zgOpenDiceTestScene(mode==='free'?'free':'combat');};
   w.zgOpenDiceTestScene = function(mode){
     mode=mode==='free'?'free':'combat';
+    var liveSnapshot=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+    if(liveSnapshot&&liveSnapshot.room&&liveSnapshot.room.code!=='TEST')w.zgWorkshopReturnSnapshot=liveSnapshot;
     w.zgLocalCombatQaEnabled = true;
     w.zgWorkshopMode=mode;
     w.zgGameOpen(false);
     setTimeout(function(){
       var go=el('zg-game-overlay'),dice=el('zg-dice-pop'),settings=el('zg-game-settings');
       if(go)go.classList.add('gm','gm-vision','dice-test-mode');
-      if(w.zgVttEnableTestHero)w.zgVttEnableTestHero();
+      // Мастерская открывается пустой. Копии героев призываются только явно
+      // из настроек, иначе локальный TEST-снимок маскирует живую комнату.
+      if(w.zgVttEnableTestHero)w.zgVttEnableTestHero([]);
       if(w.zgSceneBuildQaCombat)w.zgSceneBuildQaCombat();
       if(mode==='combat'&&w.zgCombatToggle)w.zgCombatToggle();
       if(mode==='free'&&w.zgQaSessionFreeRoom)w.zgQaSessionFreeRoom();
@@ -11132,6 +11136,33 @@ document.addEventListener('DOMContentLoaded', function(){
       if(w.zgQaSessionToolsRender)w.zgQaSessionToolsRender();
       if(w.showToast)w.showToast(mode==='combat'?'Мастерская · выберите участников боя':'Мастерская · свободная комната без Firebase');
     },60);
+  };
+  w.zgWorkshopReturnToLive=function(){
+    var current=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+    var snapshot=current&&current.room&&current.room.code!=='TEST'?current:(w.zgWorkshopReturnSnapshot||null);
+    if(!snapshot||!snapshot.room||snapshot.room.code==='TEST'){
+      // Мастерская может быть открыта прямо с главной, без живой комнаты.
+      // В таком случае верхняя кнопка должна закрыть локальный TEST, а не
+      // оставлять мастера в экране без работающего выхода/запуска игроков.
+      w.zgLocalCombatQaEnabled=false;w.zgWorkshopMode='';
+      var localOverlay=el('zg-game-overlay');if(localOverlay)localOverlay.classList.remove('dice-test-mode');
+      if(w.zgGameClose)w.zgGameClose(true);
+      if(typeof w.showPage==='function')w.showPage('home');
+      if(w.showToast)w.showToast('Мастерская закрыта');
+      return true;
+    }
+    w.zgLocalCombatQaEnabled=false;w.zgWorkshopMode='';
+    var go=el('zg-game-overlay');if(go)go.classList.remove('dice-test-mode');
+    if(w.zgVttSetLiveRoomSnapshot)w.zgVttSetLiveRoomSnapshot(snapshot);
+    if(w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);
+    var settings=el('zg-game-settings');if(settings)settings.classList.remove('open');
+    if(w.showToast)w.showToast('Возвращено управление живой сессией');
+    return true;
+  };
+  w.zgPrimarySessionAction=function(){
+    var button=el('zg-start-players');
+    if(button&&button.classList.contains('workshop-return'))return w.zgWorkshopReturnToLive();
+    return w.zgStartPlayers?w.zgStartPlayers():false;
   };
   w.zgGameSettings = function(ev){
     if (ev) ev.stopPropagation();
@@ -11155,7 +11186,10 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgGamePanelTabsRender=function(){
     var panel=el('zg-game-settings');if(!panel)return;
-    var qaTools=el('zg-qa-session-tools'),workshopAvailable=!!(qaTools&&!qaTools.hidden);
+    // Settings live outside the VTT closure, so its private `isMaster` flag is
+    // unavailable here. The overlay role is the stable rendered source.
+    var overlay=el('zg-game-overlay'),qaTools=el('zg-qa-session-tools'),launcher=el('zg-workshop-launcher'),workshopAvailable=!!(overlay&&overlay.classList.contains('gm'));
+    if(launcher)launcher.hidden=!!(qaTools&&!qaTools.hidden);
     var workshopButton=panel.querySelector('[data-game-panel-tab="workshop"]');
     if(workshopButton)workshopButton.hidden=!workshopAvailable;
     if(gamePanelTab==='workshop'&&!workshopAvailable)gamePanelTab='general';
@@ -11183,10 +11217,12 @@ document.addEventListener('DOMContentLoaded', function(){
     document.addEventListener('pointermove',function(ev){
       if(!resizing||ev.pointerId!==resizing.id)return;
       var panel=el('zg-game-settings');if(!panel)return;
-      var maxWidth=Math.max(300,Math.min(760,window.innerWidth-24));
-      var maxHeight=Math.max(300,window.innerHeight-82);
-      panel.style.width=clamp(resizing.width-(ev.clientX-resizing.x),300,maxWidth)+'px';
-      panel.style.height=clamp(resizing.height+(ev.clientY-resizing.y),300,maxHeight)+'px';
+      var minWidth=Math.min(380,Math.max(300,window.innerWidth-24));
+      var maxWidth=Math.max(minWidth,Math.min(900,window.innerWidth-24));
+      var minHeight=Math.min(360,Math.max(300,window.innerHeight-82));
+      var maxHeight=Math.max(minHeight,window.innerHeight-82);
+      panel.style.width=clamp(resizing.width-(ev.clientX-resizing.x),minWidth,maxWidth)+'px';
+      panel.style.height=clamp(resizing.height+(ev.clientY-resizing.y),minHeight,maxHeight)+'px';
     },true);
     function finish(ev){
       if(!resizing||(ev&&ev.pointerId!==resizing.id))return;
@@ -11712,6 +11748,7 @@ document.addEventListener('DOMContentLoaded', function(){
   if(reducedEffectsMedia){var reducedEffectsChange=function(){if(reducedEffectsPreference==='auto')applyReducedEffects();};if(reducedEffectsMedia.addEventListener)reducedEffectsMedia.addEventListener('change',reducedEffectsChange);else if(reducedEffectsMedia.addListener)reducedEffectsMedia.addListener(reducedEffectsChange);}
   var lastCombatVisual = '';
   var livePublishTimer = 0, livePublishInFlight = false, livePublishQueued = false, livePublishGeneration = 0;
+  var workshopCleanupPublishedRooms = Object.create(null);
   var liveTokenPublishTimers = Object.create(null);
   // ── Правка фона на холсте (двигать мышью, масштаб колесом) ──
   var bgEdit = false, bgDrag = null;
@@ -13588,7 +13625,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var token = draft.tokens.filter(function(item){ return item.type === 'hero' && item.memberUid === uid; })[0];
     var member = roomSnapshot && roomSnapshot.room && roomSnapshot.room.members && roomSnapshot.room.members[uid];
     if (!token || !member || member.role !== 'player') { if(w.showToast)w.showToast('Жетон этого игрока ещё не размещён'); return false; }
-    possessedUid = uid; w.zgPossessedPlayerUid = uid; w.zgCombatLabPlayerUid = uid; selectedTokenId = ''; clearGroupSel(); renderTokens();
+    possessedUid = uid; w.zgPossessedPlayerUid = uid; w.zgCombatLabPlayerUid = uid;
+    selectedTokenId = token.id; w.zgSelectedHeroMemberUid = uid; clearGroupSel(); renderTokens();
     try { w.dispatchEvent(new CustomEvent('zg-possession-change',{detail:{uid:uid}})); } catch(e) {}
     if (w.showToast) w.showToast('Вы управляете героем: ' + tokenName(token));
     return true;
@@ -14768,7 +14806,12 @@ document.addEventListener('DOMContentLoaded', function(){
     if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
     selectGmToken(token,node);
     var contextMoveArmed=String(gmTokenMoveArmedId||'')===String(token.id||'');
-    if(gmWorkspaceMode!=='edit'&&!contextMoveArmed)return; // Ведение: движение доступно только после явной команды из ПКМ.
+    if(gmWorkspaceMode!=='edit'&&!contextMoveArmed){
+      // Ведение: обычный клик по герою выбирает, кем сейчас управляет ГМ.
+      // Сам жетон не перетаскивается без явной команды из контекстного меню.
+      if(token.type==='hero'&&w.zgPossessPlayer)w.zgPossessPlayer(token.memberUid);
+      return;
+    }
     // вкладку не переключаем — свойства выбранного показываются в контекст-блоке над вкладками
     if (token.locked) { renderTokens();if(token.type==='custom'&&w.zgGmInterventionOpenToken)w.zgGmInterventionOpenToken(token.id,'entity');return; }              // заблокирован — только выбор, без перетаскивания
     node.classList.add('dragging');
@@ -14849,8 +14892,10 @@ document.addEventListener('DOMContentLoaded', function(){
     var viewerGm = isMaster && gmVision === 'gm';
     draft.tokens.slice().sort(function(a,b){ return a.z-b.z; }).forEach(function(token){
       if(isWorkshopHeroLocallyHidden(token))return;
+      // Hero slots are internal position anchors. Real heroes can still claim
+      // them on connection, but the technical flags must never appear on map.
+      if(isHeroSlot(token))return;
       if (!token.visible) return;
-      if(viewerGm&&gmWorkspaceMode!=='edit'&&isHeroSlot(token))return;
       var isLightSource = token.light && token.light.enabled;
       if (token.hidden && !viewerGm && !isLightSource) return;  // скрытый жетон: игрокам не показываем (кроме источников света — от них рендерим свет)
       var ownSession=roomSnapshot&&roomSnapshot.session,ownToken=!isMaster&&ownSession&&token.type==='hero'&&String(token.memberUid||'')===String(ownSession.uid||'');
@@ -15220,7 +15265,7 @@ document.addEventListener('DOMContentLoaded', function(){
     }
   }
   function scheduleLivePublish(){
-    if(!isMaster||gmWorkspaceMode!=='run'||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.phase!=='playing'||!w.ZargotaRooms||!w.ZargotaRooms.publishScene)return;
+    if(!isMaster||gmWorkspaceMode!=='run'||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.code==='TEST'||roomSnapshot.room.phase!=='playing'||!w.ZargotaRooms||!w.ZargotaRooms.publishScene)return;
     livePublishGeneration++;
     clearTimeout(livePublishTimer);
     livePublishTimer=setTimeout(function publishLatestScene(){
@@ -15240,7 +15285,7 @@ document.addEventListener('DOMContentLoaded', function(){
     },450);
   }
   function scheduleLiveTokenPublish(token){
-    if(!isMaster||!token||!token.id||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.phase!=='playing'||!w.ZargotaRooms||!w.ZargotaRooms.upsertSceneToken)return;
+    if(!isMaster||!token||!token.id||workshopHeroUid(token.memberUid)||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.code==='TEST'||roomSnapshot.room.phase!=='playing'||!w.ZargotaRooms||!w.ZargotaRooms.upsertSceneToken)return;
     var tokenId=String(token.id);
     clearTimeout(liveTokenPublishTimers[tokenId]);
     liveTokenPublishTimers[tokenId]=setTimeout(function(){
@@ -15344,12 +15389,33 @@ document.addEventListener('DOMContentLoaded', function(){
         lastSeenRevision = src.revision;
       }
       draft = copyScene(src);
+      var leakedWorkshopHeroes=[];
+      if(isMaster&&snapshot.room.code!=='TEST'){
+        draft.tokens=draft.tokens.filter(function(token){
+          var leaked=!!(token&&token.type==='hero'&&workshopHeroUid(token.memberUid));
+          if(leaked&&token.id)leakedWorkshopHeroes.push(String(token.id));
+          return !leaked;
+        });
+      }
       if(!isMaster&&playerCameraFocus&&playerCameraFocus.revision===Number(draft.revision||0)){
         draft.zoom=playerCameraFocus.zoom;draft.x=playerCameraFocus.x;draft.y=playerCameraFocus.y;
       }
       lastSnap = snapDraft();
       if(!selectedLayerId&&draft.layers.length)selectedLayerId=draft.layers[draft.layers.length-1].id;
       applyScene();
+      if(leakedWorkshopHeroes.length&&!workshopCleanupPublishedRooms[String(snapshot.room.code||'')]&&w.ZargotaRooms&&w.ZargotaRooms.removeSceneTokens){
+        var cleanupRoom=String(snapshot.room.code||''),cleanupTokenIds=leakedWorkshopHeroes.slice();workshopCleanupPublishedRooms[cleanupRoom]=true;
+        // Удаляем только технические TEST-жетоны. Реальные герои, их листы,
+        // HP, инвентарь и расходники не меняются.
+        setTimeout(function(){
+          w.ZargotaRooms.removeSceneTokens(cleanupTokenIds).then(function(){
+            if(w.showToast)w.showToast('Тестовые копии героев убраны из живой сцены');
+          }).catch(function(error){
+            delete workshopCleanupPublishedRooms[cleanupRoom];
+            if(w.showToast)w.showToast(error&&error.message||'Не удалось убрать тестовые копии со сцены');
+          });
+        },0);
+      }
     }
     lastAppliedSceneSignature=visualSignature;
     lastAppliedSceneStructureSignature=structureSignature;
@@ -15407,9 +15473,13 @@ document.addEventListener('DOMContentLoaded', function(){
     var publishButton=el('zg-scene-publish');
     if(startButton){
       var started=snapshot.room.phase==='playing';
-      startButton.style.display=started?'none':'';
+      var localWorkshop=snapshot.room.code==='TEST';
+      var workshopHasLive=!!(w.zgWorkshopReturnSnapshot&&w.zgWorkshopReturnSnapshot.room&&w.zgWorkshopReturnSnapshot.room.code!=='TEST');
+      startButton.style.display='';
       startButton.disabled=launchBusy;
-      startButton.textContent=launchBusy?'Запускаем…':'Запустить игроков';
+      startButton.classList.toggle('workshop-return',localWorkshop);
+      startButton.title=localWorkshop?(workshopHasLive?'Закрыть локальную Мастерскую и вернуться к подключённым игрокам':'Закрыть локальную Мастерскую'):'Завершить ожидание и впустить группу на подготовленную сцену';
+      startButton.textContent=localWorkshop?(workshopHasLive?'← В живую сессию':'← Закрыть мастерскую'):(launchBusy?'Запускаем…':(started?'Впустить подключившихся':'Запустить игроков'));
     }
     if(publishButton) publishButton.style.display=snapshot.room.phase==='playing'?'':'none';
     if(isMaster){if(sceneStructureChanged&&!roomChanged)renderTokens();syncControls();}
@@ -15417,6 +15487,7 @@ document.addEventListener('DOMContentLoaded', function(){
     updateScenePublicationUi();
   }
   w.zgVttSetTestRoomSnapshot=function(snapshot){if(snapshot&&snapshot.room&&snapshot.room.code==='TEST')roomState(snapshot);};
+  w.zgVttSetLiveRoomSnapshot=function(snapshot){if(snapshot&&snapshot.room&&snapshot.room.code!=='TEST')roomState(snapshot);};
 
   function workshopHeroUid(value){return /^workshop-hero-/.test(String(value||''));}
   function isWorkshopHeroLocallyHidden(token){
@@ -15449,9 +15520,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
   w.zgSceneEnableTestHeroes=function(characters){
     characters=(Array.isArray(characters)?characters:[]).filter(Boolean).slice(0,5);
-    if(!characters.length)return null;
-    var testScene=copyScene(draft),masterUid='dice-test-master',members={},slots={};
-    testScene.tokens=(testScene.tokens||[]).filter(function(token){return token&&String(token.memberUid||'').indexOf('workshop-hero-')!==0&&token.memberUid!=='dice-test-player';});
+    var testScene=sceneForLibrary(draft),masterUid='dice-test-master',members={},slots={};
+    // Никакие реальные или старые тестовые жетоны героев не переносятся в
+    // новый TEST-снимок. sceneForLibrary оставляет только безопасные места.
+    testScene.tokens=(testScene.tokens||[]).filter(function(token){return token&&token.type!=='hero';});
     var master={uid:masterUid,role:'master',name:'Тестовый мастер',online:true};
     members[masterUid]=master;
     characters.forEach(function(character,index){
@@ -15685,7 +15757,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var qaMode=!!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());
     if(!qaMode&&(draft.layers.length||draft.tokens.length)&&!confirm('Заменить текущую композицию на постоянную QA-сцену боя?'))return;
     var heroes=draft.tokens.filter(function(token){return token.type==='hero';}).map(function(token,index){return copyToken(Object.assign({},token,{x:25+(index*8),y:58+(index%2)*7,snap:false}),index);});
-    var heroSlots=heroes.length?[]:[copyToken({id:'hero-slot-1',type:'spawn',name:'Место героя 1',x:38,y:58,size:46,visible:true,hidden:true,locked:true,snap:false,z:3},0)];
+    var campaignKeys=['evan','melissa','esteros','vrotik','lin-yin'];
+    var heroSlots=heroes.length?[]:campaignKeys.map(function(key,index){return copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:'Место героя '+(index+1)+' [герой:'+key+']',x:30+(index*9),y:63+(index%2)*8,size:34,visible:true,hidden:true,locked:true,snap:false,z:3+index},index);});
     var enemies=[
       copyToken({id:'qa-rat-melee',type:'custom',name:'QA Крыса',image:'images/beasts/beast_1775684561488.png',disposition:'enemy',x:43,y:58,size:58,visible:true,snap:false,hp:12,hpMax:12,ac:10,initiative:1,speed:7,stats:{str:1,dex:2,con:1,int:-2,per:1,cha:-2},weaponProfiles:[{id:'qa-bite',name:'Укус',damageFormula:'1d4+1',damageType:'колющий',range:'1 клетка',toHit:2,description:'Контроль ближней атаки и урона.'}],z:20},1),
       copyToken({id:'qa-archer-range',type:'custom',name:'QA Стрелок',image:'images/beasts/beast_1775683265573.png',disposition:'enemy',x:68,y:38,size:58,visible:true,snap:false,hp:10,hpMax:10,ac:11,initiative:2,speed:6,stats:{str:0,dex:2,con:0,int:0,per:2,cha:0},weaponProfiles:[{id:'qa-shot',name:'Тестовый выстрел',damageFormula:'1d6',damageType:'колющий',range:'8 клеток',toHit:2,description:'Контроль дальности и скрытого результата броска существа.'}],z:21},2)
@@ -15706,7 +15779,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return qaWorkshopFixtureReady(draft);
   };
 
-  w.zgQaSessionToolsRender=function(){var host=el('zg-qa-session-tools');if(host){host.hidden=!isMaster||!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());if(!host.hidden&&w.zgQaSessionModeRender)w.zgQaSessionModeRender();if(!host.hidden&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();}if(w.zgGamePanelTabsRender)w.zgGamePanelTabsRender();};
+  w.zgQaSessionToolsRender=function(){var host=el('zg-qa-session-tools'),inWorkshop=!!(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.code==='TEST');if(host){host.hidden=!isMaster||!inWorkshop||!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());if(!host.hidden&&w.zgQaSessionModeRender)w.zgQaSessionModeRender();if(!host.hidden&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();}if(w.zgGamePanelTabsRender)w.zgGamePanelTabsRender();};
   w.zgQaSessionBuild=function(){w.zgSceneBuildQaCombat();if(w.showToast)w.showToast('Мастерская собрана · теперь запустите активный бой');};
   w.zgQaSessionStart=function(){w.zgQaSessionMode('combat');};
   w.zgQaSessionFreeRoom=function(){
@@ -15991,7 +16064,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(cancelActiveSceneTool()||suppressGameContextMenu(ev))ev.preventDefault();
   },true);
   w.zgScenePublish = function(){
-    if (!isMaster || !w.ZargotaRooms || !w.ZargotaRooms.publishScene) return;
+    if (!isMaster || !roomSnapshot || !roomSnapshot.room || roomSnapshot.room.code==='TEST' || !w.ZargotaRooms || !w.ZargotaRooms.publishScene) return;
     var button = el('zg-scene-publish'); if (button) button.disabled = true;
     setStatus('Показываем сцену…');
     w.ZargotaRooms.publishScene(draft).then(function(snapshot){
@@ -16045,7 +16118,7 @@ document.addEventListener('DOMContentLoaded', function(){
   });
 
   w.zgStartPlayers = function(){
-    if (launchBusy || !isMaster || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
+    if (launchBusy || !isMaster || !roomSnapshot || !roomSnapshot.room || roomSnapshot.room.code==='TEST' || !w.ZargotaRooms || !w.ZargotaRooms.startGame) return;
     var button = el('zg-start-players');
     ensureHeroTokens(roomSnapshot);
     launchBusy = true;
@@ -16155,8 +16228,11 @@ document.addEventListener('DOMContentLoaded', function(){
         if(directCreature)origin.visualId='gm-move-'+String(actorToken.id||'token').slice(0,28)+'-'+Date.now();
         var localQa=!!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive()&&roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.code==='TEST'),movementApi=localQa&&w.ZargotaCombatQa?w.ZargotaCombatQa:w.ZargotaRooms;
         if(!movementApi)return;
+        var directWorkshopHero=!!(localQa&&isMaster&&actorToken&&actorToken.type==='hero'&&movementApi.requestMovementAs&&movementApi.resolveMovement);
         var operation = directCreature&&movementApi.moveMasterToken
           ? movementApi.moveMasterToken(actorToken.id,point.x,point.y,origin)
+          : directWorkshopHero
+          ? movementApi.requestMovementAs(actorUid,point.x,point.y,origin).then(function(){return movementApi.resolveMovement(actorUid,true);})
           : isMaster && movementApi.requestMovementAs
           ? movementApi.requestMovementAs(actorUid,point.x,point.y,origin)
           : movementApi.requestMovement
@@ -16164,7 +16240,7 @@ document.addEventListener('DOMContentLoaded', function(){
           : Promise.reject(new Error('Движение недоступно в этом режиме'));
         operation.then(function(snapshot){
           if (snapshot) roomState(snapshot);
-          if(w.showToast)w.showToast(directCreature?'Существо перемещается':(isMaster?'Тестовый запрос создан':'Запрос движения отправлен мастеру'));
+          if(w.showToast)w.showToast(directCreature?'Существо перемещается':(directWorkshopHero?'Герой перемещается':(isMaster?'Тестовый запрос создан':'Запрос движения отправлен мастеру')));
         })
           .catch(function(err){if(directCreature)renderTokens();if(w.showToast)w.showToast(err.message||'Не удалось отправить запрос'); });
       }, true);
@@ -17049,6 +17125,9 @@ document.addEventListener('DOMContentLoaded', function(){
     return '<span class="zg-party-sheet-update" title="'+esc(title)+'">ЛИСТ ОБНОВЛЁН</span>';
   }
   function partyPresence(member){
+    // Герои мастерской — локальные защитные копии, а не отключившиеся
+    // Firebase-клиенты. Показываем их доступными для теста без ложного ×.
+    if(member&&member.workshopCopy)return{key:'workshop',label:'Локальный герой · нажмите, чтобы управлять',symbol:'◇'};
     if(member&&member.online!==false)return{key:'online',label:'В сети',symbol:''};
     var elapsed=Date.now()-Math.max(0,Number(member&&member.lastSeen)||0);
     if(elapsed<120000)return{key:'reconnecting',label:'Связь потеряна, ждём возвращения',symbol:'↻'};
@@ -17228,9 +17307,10 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgVttPartyClick = function(uid){
     gmMarkSheetSeen(uid);
-    renderParty();
     var session=state&&state.session;
     if(session&&session.role==='master'&&typeof w.zgVttOpenPanelForMember==='function'){
+      var selectedMember=state&&state.room&&state.room.members&&state.room.members[uid];
+      if(selectedMember&&selectedMember.workshopCopy&&w.zgPossessPlayer)w.zgPossessPlayer(String(uid||''));
       var openDrawer=el('zg-vtt-drawer'),keepPanel=openDrawer&&openDrawer.classList.contains('open')&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0?activePanel:'';
       if(keepPanel){
         if(w.zgSheetClose)w.zgSheetClose();
@@ -18440,34 +18520,57 @@ document.addEventListener('DOMContentLoaded', function(){
       return copy;
     });
   }
-  w.zgVttEnableTestHero=function(){
+  function workshopCampaignHeroUid(character,index){
+    var key=String(character&&character.campaignKey||character&&character.id||index||0).replace(/[^a-z0-9_-]/gi,'-');
+    return 'workshop-hero-'+key;
+  }
+  function workshopActiveHeroCharacters(){
+    var active={};heroMembers().forEach(function(member){if(member&&member.workshopCopy)active[String(member.uid||'')]=true;});
+    return (w.zgDiceTestCharacters||[]).filter(function(character,index){return active[workshopCampaignHeroUid(character,index)];});
+  }
+  w.zgVttEnableTestHero=function(activeHeroes){
     var heroes=workshopCampaignHeroCharacters();w.zgDiceTestCharacters=heroes;w.zgDiceTestCharacter=heroes[0]||null;
-    var snapshot=w.zgSceneEnableTestHeroes?w.zgSceneEnableTestHeroes(heroes):(w.zgSceneEnableTestHero?w.zgSceneEnableTestHero(heroes[0]):null);
+    activeHeroes=Array.isArray(activeHeroes)?activeHeroes:[];
+    var snapshot=w.zgSceneEnableTestHeroes?w.zgSceneEnableTestHeroes(activeHeroes):(w.zgSceneEnableTestHero?w.zgSceneEnableTestHero(activeHeroes[0]):null);
     if(snapshot)render(snapshot);
   };
   w.zgQaCampaignHeroesRender=function(){
     var host=el('zg-qa-campaign-heroes');if(!host)return;
-    var snapshot=state&&state.room&&state.room.code==='TEST'?state:null,members=snapshot?heroMembers():[];
-    host.innerHTML=members.map(function(member){
-      var character=member.character||{},portrait=String(character.portrait||'');
-      var hidden=!!(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(member.uid));
-      var draft=workshopHeroSpellDrafts[String(member.uid||'')],changes=draft?workshopHeroSpellDraftDiff(draft):null,draftBadge=changes&&(changes.added.length||changes.removed.length)?'<i class="zg-qa-hero-draft-count" title="Изменений в локальном черновике">'+(changes.added.length+changes.removed.length)+'</i>':'';
-      return '<article class="zg-qa-hero-card'+(hidden?' map-hidden':'')+'" data-workshop-member="'+esc(member.uid)+'"><button type="button" class="zg-qa-hero-pick" onclick="zgQaCampaignHeroControl(\''+esc(member.uid)+'\')" title="Выбрать героя для теста">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i aria-hidden="true">◇</i>')+'<span><b>'+esc(character.name||member.name||'Герой')+'</b><small>'+(hidden?'Скрыт с карты':esc((character.race||'')+(character.klasse?' · '+character.klasse:'')))+'</small></span>'+draftBadge+'</button><div><button type="button" onclick="zgQaCampaignHeroOpen(\''+esc(member.uid)+'\',\'character\')">Лист</button><button type="button" onclick="zgQaCampaignHeroOpen(\''+esc(member.uid)+'\',\'abilities\')">Магия</button><button type="button" class="zg-qa-hero-draft" onclick="zgQaCampaignHeroSpellDraftOpen(\''+esc(member.uid)+'\')">Черновик</button><button type="button" class="zg-qa-hero-map-toggle" aria-pressed="'+(hidden?'true':'false')+'" onclick="zgQaCampaignHeroMapToggle(\''+esc(member.uid)+'\')">'+(hidden?'Вернуть':'Скрыть')+'</button></div></article>';
+    var snapshot=state&&state.room&&state.room.code==='TEST'?state:null,members=snapshot?heroMembers():[],memberByUid={};
+    members.forEach(function(member){if(member&&member.workshopCopy)memberByUid[String(member.uid||'')]=member;});
+    var candidates=Array.isArray(w.zgDiceTestCharacters)&&w.zgDiceTestCharacters.length?w.zgDiceTestCharacters:workshopCampaignHeroCharacters();
+    var markup=candidates.map(function(character,index){
+      var uid=workshopCampaignHeroUid(character,index),member=memberByUid[uid],active=!!member,portrait=String(character.portrait||'');
+      var controlled=String(w.zgPossessedPlayerUid||'')===uid;
+      var draft=active?workshopHeroSpellDrafts[uid]:null,changes=draft?workshopHeroSpellDraftDiff(draft):null,draftBadge=changes&&(changes.added.length||changes.removed.length)?'<i class="zg-qa-hero-draft-count" title="Изменений в локальном черновике">'+(changes.added.length+changes.removed.length)+'</i>':'';
+      return '<article class="zg-qa-hero-card'+(active?' active':' not-summoned')+(controlled?' controlled':'')+'" data-workshop-member="'+esc(uid)+'"><button type="button" class="zg-qa-hero-pick" aria-pressed="'+(controlled?'true':'false')+'" onclick="'+(active?'zgQaCampaignHeroControl':'zgQaCampaignHeroSummon')+'(\''+esc(uid)+'\')" title="'+(active?'Выбрать этого героя':'Призвать копию на сцену')+'">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i aria-hidden="true">◇</i>')+'<span><b>'+esc(character.name||'Герой')+'</b><small>'+(controlled?'Управление включено':active?esc((character.race||'')+(character.klasse?' · '+character.klasse:'')):'Не призван · локальная копия')+'</small></span>'+draftBadge+'</button><div>'+(active?'<button type="button" onclick="zgQaCampaignHeroOpen(\''+esc(uid)+'\',\'character\')">Лист</button><button type="button" onclick="zgQaCampaignHeroOpen(\''+esc(uid)+'\',\'abilities\')">Магия</button><button type="button" class="zg-qa-hero-draft" onclick="zgQaCampaignHeroSpellDraftOpen(\''+esc(uid)+'\')">Черновик</button><button type="button" class="zg-qa-hero-map-toggle" onclick="zgQaCampaignHeroSummon(\''+esc(uid)+'\',false)">Убрать</button>':'<button type="button" class="zg-qa-hero-summon" onclick="zgQaCampaignHeroSummon(\''+esc(uid)+'\',true)">＋ Призвать</button>')+'</div></article>';
     }).join('')||'<p class="zg-qa-heroes-empty">Герои кампании не найдены в локальном хранилище.</p>';
-    var visibleCount=members.filter(function(member){return !(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(member.uid));}).length,count=el('zg-qa-campaign-heroes-stage-count');
-    if(count)count.textContent='На сцене '+visibleCount+' / '+members.length;
+    // Этот блок вызывается из общего session render. Не пересоздаём кнопки,
+    // пока их содержимое не изменилось: hover и pointerdown остаются стабильны.
+    if(host.__zgWorkshopHeroesHtml!==markup){host.innerHTML=markup;host.__zgWorkshopHeroesHtml=markup;}
+    var visibleCount=members.filter(function(member){return member&&member.workshopCopy;}).length,count=el('zg-qa-campaign-heroes-stage-count');
+    if(count)count.textContent='На сцене '+visibleCount+' / '+candidates.length;
     var pack=el('zg-qa-campaign-heroes-pack'),unpack=el('zg-qa-campaign-heroes-unpack');
     if(pack)pack.disabled=!visibleCount;
-    if(unpack)unpack.disabled=!members.length||visibleCount===members.length;
+    if(unpack)unpack.disabled=!candidates.length||visibleCount===candidates.length;
   };
-  w.zgQaCampaignHeroMapToggle=function(uid){
-    uid=String(uid||'');var hidden=!!(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(uid));
-    var changed=!!(w.zgSceneSetTestHeroHidden&&w.zgSceneSetTestHeroHidden(uid,!hidden));
-    if(changed&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();
-    return changed;
+  w.zgQaCampaignHeroSummon=function(uid,enable){
+    uid=String(uid||'');var candidates=w.zgDiceTestCharacters||[],active=workshopActiveHeroCharacters();
+    var candidate=candidates.find(function(character,index){return workshopCampaignHeroUid(character,index)===uid;});
+    if(!candidate)return false;
+    var already=active.some(function(character,index){return workshopCampaignHeroUid(character,index)===uid;});
+    enable=enable!==false;
+    if(enable&&!already)active.push(candidate);
+    if(!enable)active=active.filter(function(character,index){return workshopCampaignHeroUid(character,index)!==uid;});
+    if(!enable&&String(w.zgPossessedPlayerUid||'')===uid&&w.zgReleasePlayerControl)w.zgReleasePlayerControl();
+    var next=w.zgSceneEnableTestHeroes?w.zgSceneEnableTestHeroes(active):null;if(next)render(next);
+    if(enable&&w.zgPossessPlayer)w.zgPossessPlayer(uid);
+    if(w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();
+    return !!next;
   };
+  w.zgQaCampaignHeroMapToggle=function(uid){return w.zgQaCampaignHeroSummon(uid,false);};
   w.zgQaCampaignHeroesMapSet=function(hidden){
-    if(w.zgSceneSetAllTestHeroesHidden)w.zgSceneSetAllTestHeroesHidden(hidden===true);
+    var next=hidden===true?[]:(w.zgDiceTestCharacters||[]),snapshot=w.zgSceneEnableTestHeroes?w.zgSceneEnableTestHeroes(next):null;if(snapshot)render(snapshot);
     if(w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();
     return true;
   };
@@ -19506,10 +19609,19 @@ document.addEventListener('DOMContentLoaded', function(){
     Promise.resolve(intentApi.requestAction(text,'combat-intent',combatLabPlayerUid()||w.zgPossessedPlayerUid||'',{intentKind:kind&&kind.value||'custom',intentLabel:intentLabel,targetKey:target&&target.value||'',targetName:targetName,detail:detailText})).then(function(snapshot){if(snapshot){state=snapshot;render(snapshot);}w.zgCombatIntentToggle(false);if(w.showToast)w.showToast('Заявка на короткое действие отправлена мастеру');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить заявку');}).then(function(){combatIntentBusy=false;renderCombatIntent(true);});
   };
   var combatIntentResolveUid='';
+  function combatIntentResolveRequest(uid){
+    uid=String(uid||'');
+    function requestFrom(snapshot){return snapshot&&snapshot.room&&snapshot.room.members&&snapshot.room.members[uid]&&snapshot.room.members[uid].actionRequest||null;}
+    var requests=[requestFrom(roomSnapshot),requestFrom(state)].filter(Boolean);
+    return requests.find(function(request){return manualCheckActionKind(request.actionKind)&&request.status==='pending';})||requests[0]||null;
+  }
   function combatIntentStatOptions(selected){return[['str','Сила'],['dex','Ловкость'],['int','Интеллект'],['cha','Харизма'],['per','Восприятие'],['con','Выносливость']].map(function(item){return'<option value="'+item[0]+'" '+(item[0]===selected?'selected':'')+'>'+item[1]+'</option>';}).join('');}
   function renderCombatIntentResolve(){
-    var panel=el('zg-combat-intent-resolve'),body=el('zg-combat-intent-resolve-body'),room=state&&state.room,request=room&&room.members&&room.members[combatIntentResolveUid]&&room.members[combatIntentResolveUid].actionRequest;if(!panel||!body)return;
-    if(!request||!manualCheckActionKind(request.actionKind)||request.status!=='pending'){panel.classList.remove('open');return;}
+    var panel=el('zg-combat-intent-resolve'),body=el('zg-combat-intent-resolve-body'),request=combatIntentResolveRequest(combatIntentResolveUid);if(!panel||!body)return;
+    if(!request||!manualCheckActionKind(request.actionKind)||request.status!=='pending'){
+      body.innerHTML='<div class="zg-combat-prepare-unavailable">Заявка уже закрыта или ещё не успела синхронизироваться. Закройте окно и откройте заявку повторно.</div>';
+      return;
+    }
     var customRequest=request.actionKind==='custom',modeInput=el('zg-combat-intent-resolution-mode'),actorInput=el('zg-combat-intent-actor-stat'),targetInput=el('zg-combat-intent-target-stat'),dcInput=el('zg-combat-intent-dc'),mode=customRequest?'check':modeInput&&modeInput.value||'check',actorStat=actorInput&&actorInput.value||'str',targetStat=targetInput&&targetInput.value||'str',dc=dcInput&&dcInput.value||'10';
     var resolutionOptions=customRequest?'<option value="check" selected>Проверка героя против DC</option>':'<option value="check" '+(mode==='check'?'selected':'')+'>Проверка героя против DC</option><option value="contest" '+(mode==='contest'?'selected':'')+'>Встречная проверка</option><option value="save" '+(mode==='save'?'selected':'')+'>Спасбросок цели</option>';
     body.innerHTML='<div class="zg-ability-resolve-title"><b>'+esc(customRequest?'Проверка кастомного действия':request.intent&&request.intent.intentLabel||'Короткое действие')+'</b><small>'+esc(request.name||'Герой')+(request.intent&&request.intent.targetName?' → '+esc(request.intent.targetName):'')+'</small></div>'+(customRequest?'<p class="zg-action-check-request-copy">'+esc(request.text||'Заявляет действие')+'</p>':'')+'<div class="zg-combat-prepare-form structured zg-combat-intent-resolution"><label>Тип решения<select id="zg-combat-intent-resolution-mode" onchange="zgCombatIntentResolveFields()">'+resolutionOptions+'</select></label><label>Характеристика героя<select id="zg-combat-intent-actor-stat">'+combatIntentStatOptions(actorStat)+'</select></label><label id="zg-combat-intent-target-stat-row">Характеристика цели<select id="zg-combat-intent-target-stat">'+combatIntentStatOptions(targetStat)+'</select></label><label id="zg-combat-intent-dc-row">Сложность<input id="zg-combat-intent-dc" type="number" min="1" max="40" value="'+esc(dc)+'"></label><button type="button" onclick="zgCombatIntentConfigure()">Назначить игроку бросок</button><small>'+(customRequest?'Проверка не списывает боевое действие и не применяет эффект автоматически. После броска итог останется за ГМом.':'Короткое действие спишется сейчас. Бросок покажет результат, но не применит толчок, статус, урон или предмет без следующего решения ГМа.')+'</small></div>';
@@ -20098,8 +20210,9 @@ document.addEventListener('DOMContentLoaded', function(){
     if(action==='inventory'){
       var inventoryDrawer=el('zg-vtt-drawer');
       var inventoryBody=el('zg-vtt-drawer-body');
-      var inventoryAlreadyOpen=inventoryDrawer&&inventoryDrawer.classList.contains('open')&&!inventoryDrawer.classList.contains('closing')&&activePanel==='inventory'&&inventoryBody&&inventoryBody.dataset.activePanel==='inventory';
-      turningOn=!inventoryAlreadyOpen;
+      var heroBagPanels=['character','inventory','abilities','journal'];
+      var heroBagAlreadyOpen=inventoryDrawer&&inventoryDrawer.classList.contains('open')&&!inventoryDrawer.classList.contains('closing')&&inventoryDrawer.classList.contains('backpack-skin')&&heroBagPanels.indexOf(activePanel)>=0&&inventoryBody&&inventoryBody.dataset.activePanel===activePanel;
+      turningOn=!heroBagAlreadyOpen;
     }
     if(w.zgVttDeactivateTools)w.zgVttDeactivateTools(action);
     if (action === 'movement' && w.zgMovementToggle) turningOn = !!w.zgMovementToggle(turningOn);
@@ -24919,6 +25032,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-sound-settings{display:grid;gap:6px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817}.zg-sound-settings header{display:flex;align-items:center;justify-content:space-between}.zg-sound-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-sound-settings header small{color:#8c7047;font:8px Georgia,serif}.zg-sound-settings header small.ready{color:#72b37b}.zg-sound-settings header small.off{color:#b46d64}.zg-sound-settings>div{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:5px}.zg-sound-settings button{min-width:0;min-height:42px;padding:6px;border:1px solid #3b2e1c;border-radius:6px;background:#0e0b07;color:#796b52;cursor:pointer}.zg-sound-settings button span{display:grid;gap:2px;text-align:left}.zg-sound-settings button b{color:#ad9666;font:600 8px 'Cinzel',serif}.zg-sound-settings button small{font:8px Georgia,serif}.zg-sound-settings button.active{border-color:#557947;background:#142015;color:#9ccb8e}.zg-sound-settings button.test{color:#d8bd7c;font:600 8px 'Cinzel',serif}.zg-sound-settings .error{color:#c98378;font:8px/1.3 Georgia,serif}
   .zg-player-bag-settings{position:relative;z-index:1;display:grid;gap:7px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817;pointer-events:auto}.zg-player-bag-settings header{display:flex;align-items:end;justify-content:space-between;gap:8px}.zg-player-bag-settings header span{display:grid;gap:2px}.zg-player-bag-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-player-bag-settings header small,.zg-player-bag-settings output{color:#78694f;font:8px Georgia,serif}.zg-player-bag-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-player-bag-settings button{position:relative;z-index:2;min-width:0;min-height:61px;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:5px;padding:7px 5px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#796b52;text-align:left;cursor:pointer;pointer-events:auto;touch-action:manipulation}.zg-player-bag-settings button>span{display:grid;gap:2px;pointer-events:none}.zg-player-bag-settings button b{color:#ad9666;font:600 7px 'Cinzel',serif}.zg-player-bag-settings button small{font:7px Georgia,serif}.zg-player-bag-settings button.active{border-color:#a67c31;background:radial-gradient(circle at 20% 50%,#56371378,transparent 70%),#171006;color:#e5c87c;box-shadow:inset 0 0 0 1px #d1a03a24}.zg-player-bag-size-icon{position:relative;display:block;width:22px;height:19px;border:1px solid currentColor;border-radius:3px 3px 7px 7px;box-shadow:inset 0 0 7px currentColor;pointer-events:none}.zg-player-bag-size-icon:before{content:'';position:absolute;left:5px;right:5px;top:-6px;height:7px;border:1px solid currentColor;border-bottom:0;border-radius:7px 7px 0 0}.zg-player-bag-size-icon.large{transform:scale(1.18)}
   .zg-qa-session-tools{display:grid;gap:6px;margin-bottom:9px;padding:8px;border:1px solid #435b38;border-radius:7px;background:linear-gradient(145deg,#101b11,#0b0906)}.zg-qa-session-tools[hidden]{display:none}.zg-qa-session-tools header b{color:#8fca91;font:600 9px 'Cinzel',serif}.zg-qa-session-tools header small{display:block;margin-top:3px;color:#6f8167;font:8px Georgia,serif}.zg-qa-workshop-hint{margin:0;padding:6px 7px;border-left:2px solid #8f7135;background:#171209;color:#9c8a61;font:8px/1.35 Georgia,serif}.zg-qa-session-tools>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-qa-session-tools>.zg-qa-workshop-backgrounds{grid-template-columns:repeat(3,1fr)}.zg-qa-session-tools button{min-height:38px;border:1px solid #49633f;border-radius:6px;background:#11180f;color:#9dcb91;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-qa-session-tools button:last-child{border-color:#79612c;background:#211808;color:#dfc070}.zg-qa-session-tools .zg-qa-session-modes button{display:grid;gap:2px;border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button:last-child{border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button.active{border-color:#d0a13e;background:radial-gradient(circle at 20% 50%,#5b401a80,transparent 65%),#181208;color:#f2d487;box-shadow:inset 0 0 0 1px #d0a13e35,0 0 14px #c9943230}.zg-qa-session-tools .zg-qa-session-modes button small{color:#756b52;font:7px Georgia,serif}.zg-qa-session-tools .zg-qa-session-modes button.active small{color:#a89264}.zg-qa-session-tools label{display:grid;gap:3px;color:#71836a;font:8px Georgia,serif}.zg-qa-session-tools select{min-height:34px;border:1px solid #435b38;border-radius:5px;background:#090d08;color:#b5d2aa;padding:0 7px;font:8px 'Cinzel',serif}.zg-qa-session-tools select:disabled{opacity:.45;cursor:not-allowed}.zg-qa-outcome-control{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px}.zg-qa-outcome-control>button{display:grid;align-content:center;gap:2px;border-color:#6f4b31!important;background:#18100c!important;color:#c99572!important}.zg-qa-outcome-control>button.active{border-color:#cf9c3d!important;background:radial-gradient(circle at 20% 50%,#6a3d1880,transparent 65%),#1b1208!important;color:#f1cf83!important;box-shadow:inset 0 0 0 1px #cf9c3d35,0 0 14px #c57e2630}.zg-qa-outcome-control>button small{color:#8f755d;font:7px Georgia,serif}.zg-qa-outcome-control>button.active small{color:#c8a974}
+  .zg-workshop-launcher{display:grid;gap:8px;padding:12px;border:1px solid #4d623d;border-radius:9px;background:linear-gradient(145deg,#122016,#0b0906)}.zg-workshop-launcher[hidden]{display:none}.zg-workshop-launcher header{display:grid;gap:3px}.zg-workshop-launcher header b{color:#9fd396;font:600 10px 'Cinzel',serif}.zg-workshop-launcher header small,.zg-workshop-launcher p{margin:0;color:#75836b;font:8px/1.4 Georgia,serif}.zg-workshop-launcher>button{min-height:52px;display:grid;align-content:center;gap:3px;border:1px solid #76602e;border-radius:7px;background:linear-gradient(180deg,#2a1d0c,#151008);color:#e2c578;cursor:pointer}.zg-workshop-launcher>button b{font:600 9px 'Cinzel',serif}.zg-workshop-launcher>button small{color:#907d57;font:8px Georgia,serif}
   .zg-qa-campaign-roster{display:grid;gap:6px;padding:7px;border:1px solid #5a4927;border-radius:7px;background:#090806}.zg-qa-campaign-roster>header{display:grid;gap:2px}.zg-qa-campaign-roster>header small{display:block;color:#74684f;font:7px/1.25 Georgia,serif}.zg-qa-hero-stage-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;padding:6px;border:1px solid #42351f;border-radius:6px;background:linear-gradient(90deg,#151007,#0c0a07)}.zg-qa-hero-stage-control>span{min-width:0;display:grid;gap:2px}.zg-qa-hero-stage-control b{color:#d9bd77;font:600 8px 'Cinzel',serif}.zg-qa-hero-stage-control small{color:#6f624a;font:7px Georgia,serif}.zg-qa-hero-stage-control>div{display:flex;gap:4px}.zg-qa-hero-stage-control button{min-height:29px;padding:4px 7px;border:1px solid #654d25;border-radius:5px;background:#171008;color:#b99a56;font:600 7px 'Cinzel',serif;cursor:pointer}.zg-qa-hero-stage-control button:last-child{border-color:#684039;color:#bd7f70}.zg-qa-hero-stage-control button:hover:not(:disabled){border-color:#a47d32;color:#efd58f}.zg-qa-hero-stage-control button:disabled{opacity:.28;cursor:default}.zg-qa-campaign-heroes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.zg-qa-hero-card{min-width:0;padding:4px;border:1px solid #3f3420;border-radius:6px;background:#100d08}.zg-qa-hero-card.map-hidden{border-style:dashed;background:#0b0a08}.zg-qa-hero-card.map-hidden .zg-qa-hero-pick img{filter:grayscale(.8);opacity:.45}.zg-qa-hero-card.map-hidden .zg-qa-hero-pick small{color:#9b7655}.zg-qa-hero-pick{display:flex!important;align-items:center;gap:6px;width:100%;min-height:42px!important;padding:3px 5px!important;text-align:left}.zg-qa-hero-pick img,.zg-qa-hero-pick>i{flex:0 0 32px;width:32px;height:32px;border:1px solid #80662f;border-radius:5px;object-fit:cover}.zg-qa-hero-pick>i{display:grid;place-items:center;font-style:normal}.zg-qa-hero-pick span{min-width:0;display:grid;gap:2px}.zg-qa-hero-pick b,.zg-qa-hero-pick small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-qa-hero-pick b{color:#dfc070;font:600 8px 'Cinzel',serif}.zg-qa-hero-pick small{color:#786c53;font:7px Georgia,serif}.zg-qa-hero-card>div{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:3px}.zg-qa-hero-card>div button{min-width:0;min-height:25px!important;padding:2px!important;font-size:7px!important}.zg-qa-hero-card>div .zg-qa-hero-draft{border-color:#72572a;background:#1b1409;color:#dfc070}.zg-qa-hero-card>div .zg-qa-hero-map-toggle[aria-pressed="true"]{border-color:#5f7851;background:#111b0e;color:#9ed092}.zg-qa-hero-card:hover{border-color:#9c7e3c}.zg-qa-heroes-empty{grid-column:1/-1;margin:0;padding:8px;color:#8b7653;font:8px/1.4 Georgia,serif}.zg-qa-hero-draft-count{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;border:1px solid #d2a746;border-radius:50%;background:#2c1d09;color:#f0cf7b;font:normal 700 8px Georgia,serif;box-shadow:0 0 9px #d3943038}
   .zg-workshop-spell-draft{position:fixed;inset:0;z-index:14000;display:grid;place-items:center;padding:24px;background:#030201d9;backdrop-filter:blur(9px)}.zg-workshop-spell-dialog{width:min(1020px,calc(100vw - 40px));height:min(740px,calc(100vh - 40px));display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;border:1px solid #a47d32;border-radius:16px;background:radial-gradient(circle at 12% 0,#34220d66,transparent 36%),linear-gradient(155deg,#120d07,#070503 72%);box-shadow:0 28px 90px #000;color:#d8bd7c;overflow:hidden}.zg-workshop-spell-dialog>header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #49351b}.zg-workshop-spell-dialog>header>div{display:flex;align-items:center;gap:11px}.zg-workshop-spell-dialog>header img,.zg-workshop-spell-dialog>header>div>i{width:46px;height:46px;display:grid;place-items:center;border:1px solid #997535;border-radius:9px;object-fit:cover;background:#090705;font-style:normal}.zg-workshop-spell-dialog>header span{display:grid;gap:3px}.zg-workshop-spell-dialog>header small{color:#867552;font:600 8px 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}.zg-workshop-spell-dialog>header b{color:#efd28a;font:700 18px 'Cinzel Decorative',serif}.zg-workshop-spell-dialog>header button{width:38px;height:38px;border:0;background:transparent;color:#937b50;font-size:27px;cursor:pointer}.zg-workshop-spell-dialog>aside{display:flex;align-items:center;gap:12px;margin:10px 18px 0;padding:8px 11px;border:1px solid #315a49;border-radius:8px;background:#0d1c17;color:#86b89f}.zg-workshop-spell-dialog>aside b{flex:none;font:700 9px 'Cinzel',serif;text-transform:uppercase}.zg-workshop-spell-dialog>aside span{font:11px/1.35 Georgia,serif}.zg-workshop-spell-dialog>main{min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr);gap:11px;padding:11px 18px}.zg-workshop-spell-dialog section{min-height:0;border:1px solid #3d2e1b;border-radius:10px;background:#090705c7;overflow:hidden}.zg-workshop-spell-dialog section>header{min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-bottom:1px solid #352716}.zg-workshop-spell-dialog section>header b{color:#d9bd77;font:700 10px 'Cinzel',serif}.zg-workshop-spell-dialog section>header small{color:#75674d;font:9px Georgia,serif}.zg-workshop-spell-current>div{display:grid;gap:6px;max-height:100%;padding:9px;overflow:auto}.zg-workshop-spell-current>div>span{display:grid;gap:2px;padding:8px 9px;border:1px solid #3c301e;border-radius:7px;background:#100c07}.zg-workshop-spell-current>div>span b{color:#cbb174;font:11px/1.25 Georgia,serif}.zg-workshop-spell-current>div>span small{color:#5d895e;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-workshop-spell-current>div>span.removed{border-color:#66322f;background:#190c0b}.zg-workshop-spell-current>div>span.removed b{color:#bd7770;text-decoration:line-through}.zg-workshop-spell-current>div>span.removed small{color:#b65f58}.zg-workshop-spell-current em{padding:12px;color:#71634a;font:italic 11px Georgia,serif}.zg-workshop-spell-catalog{display:grid;grid-template-rows:auto auto minmax(0,1fr)}.zg-workshop-spell-catalog>header>div{display:grid;gap:3px}.zg-workshop-spell-catalog input{width:min(260px,50%);height:32px;padding:0 9px;border:1px solid #49361d;border-radius:6px;background:#070503;color:#e6d09b;font:11px Georgia,serif}.zg-workshop-spell-catalog nav{display:flex;gap:5px;padding:7px 9px;border-bottom:1px solid #2e2316}.zg-workshop-spell-catalog nav button{min-height:28px;padding:0 10px;border:1px solid #352a1b;border-radius:15px;background:#0d0a06;color:#75684e;font:600 7px 'Cinzel',serif;cursor:pointer}.zg-workshop-spell-catalog nav button.active{border-color:#a57d31;background:#2a1c0a;color:#e5c77d}.zg-workshop-spell-grid{min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:7px;padding:9px;overflow:auto}.zg-workshop-spell-card{min-width:0;min-height:59px;display:grid;grid-template-columns:32px minmax(0,1fr) 20px;align-items:center;gap:7px;padding:7px;border:1px solid #392c1b;border-radius:8px;background:#0d0a06;color:#897954;text-align:left;cursor:pointer}.zg-workshop-spell-card:hover{border-color:#80632f;background:#171006}.zg-workshop-spell-card>i{width:30px;height:30px;display:grid;place-items:center;border:1px solid #4b3920;border-radius:50%;color:#ad8c45;font-style:normal}.zg-workshop-spell-card>span{min-width:0;display:grid;gap:3px}.zg-workshop-spell-card b{overflow:hidden;color:#b9a06a;font:10px/1.2 Georgia,serif;text-overflow:ellipsis;white-space:nowrap}.zg-workshop-spell-card small{color:#6e6047;font:7px 'Cinzel',serif}.zg-workshop-spell-card strong{color:#64583f;font:15px Georgia,serif}.zg-workshop-spell-card.selected{border-color:#58734b;background:#10190e}.zg-workshop-spell-card.selected b,.zg-workshop-spell-card.selected strong{color:#9fc58e}.zg-workshop-spell-card.added{border-color:#b08739;background:#171006}.zg-workshop-spell-card.added b,.zg-workshop-spell-card.added strong{color:#edcf80}.zg-workshop-spell-card[hidden]{display:none}.zg-workshop-spell-empty{grid-column:1/-1;padding:30px;color:#796b50;text-align:center;font:italic 12px Georgia,serif}.zg-workshop-spell-dialog>footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:11px 18px;border-top:1px solid #49351b;background:#0a0704}.zg-workshop-spell-dialog>footer>div{display:flex;gap:8px;margin-right:auto}.zg-workshop-spell-dialog>footer span{padding:6px 9px;border-radius:14px;font:700 7px 'Cinzel',serif}.zg-workshop-spell-dialog>footer .add{background:#152015;color:#91bd84}.zg-workshop-spell-dialog>footer .remove{background:#24100e;color:#c87970}.zg-workshop-spell-dialog>footer button{min-width:112px;height:38px;border:1px solid #4a3820;border-radius:7px;background:#100c07;color:#8b7852;font:700 8px 'Cinzel',serif;cursor:pointer}.zg-workshop-spell-dialog>footer button:disabled{opacity:.35;cursor:default}.zg-workshop-spell-dialog>footer .done{border-color:#a47d32;background:#2a1c09;color:#efd187}.zg-workshop-spell-dialog>footer .reset:not(:disabled){border-color:#6b3630;color:#c98078}
   .zg-workshop-spell-dialog>footer .send:not(:disabled){min-width:190px;border-color:#55734c;background:#122010;color:#a9cf94}
@@ -24928,7 +25042,30 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-combat-motion-settings{display:grid;gap:7px;margin:9px 0;padding-top:9px;border-top:1px solid #372817}.zg-combat-motion-settings header{display:flex;align-items:center;justify-content:space-between;gap:8px}.zg-combat-motion-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-combat-motion-settings header small{color:#74664d;font:8px Georgia,serif}.zg-combat-motion-settings>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.zg-combat-motion-settings>div.zg-combat-quality-options{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-combat-motion-settings button{min-width:0;min-height:52px;display:grid;align-content:center;gap:3px;padding:5px 4px;border:1px solid #3b2e1c;border-radius:6px;background:#0e0b07;color:#796b52;text-align:center;cursor:pointer}.zg-combat-motion-settings button b{font:600 7px 'Cinzel',serif}.zg-combat-motion-settings button small{font:7px/1.2 Georgia,serif}.zg-combat-motion-settings button.active{border-color:#9b7735;background:#211608;color:#e6c879;box-shadow:inset 0 0 12px #b3812919}
   .zg-combat-motion-settings .zg-combat-fx-open{width:100%;min-height:42px;grid-template-columns:1fr;background:linear-gradient(110deg,#211407,#0c0906);border-color:#775624;color:#d6b66f}.zg-combat-motion-settings .zg-combat-fx-open b{font-size:8px}.zg-combat-fx-browser{position:fixed;z-index:10060;inset:0;display:grid;place-items:center;padding:18px;background:#020100dc;backdrop-filter:blur(7px)}.zg-combat-fx-browser>article{width:min(920px,96vw);max-height:min(720px,94vh);overflow:hidden;border:1px solid #956d2d;border-radius:15px;background:radial-gradient(circle at 72% 25%,#3b240d3d,transparent 38%),linear-gradient(145deg,#181007,#080604 72%);box-shadow:0 30px 90px #000,0 0 45px #9a66253a;color:#bba477}.zg-combat-fx-browser>article>header{height:64px;display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid #47331b}.zg-combat-fx-browser>article>header span{display:grid;gap:3px}.zg-combat-fx-browser>article>header small{color:#896b38;font:7px 'Cinzel',serif;letter-spacing:2px}.zg-combat-fx-browser>article>header b{color:#efd18a;font:700 17px 'Cinzel',serif}.zg-combat-fx-browser>article>header>button{width:36px;height:36px;border:1px solid #49361e;border-radius:50%;background:#0b0805;color:#9f875d;font-size:24px;cursor:pointer}.zg-combat-fx-layout{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:520px}.zg-combat-fx-layout>nav{max-height:calc(94vh - 64px);overflow:auto;padding:10px;border-right:1px solid #3c2b17;background:#08060499}.zg-combat-fx-layout>nav button{width:100%;min-height:47px;display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:7px;margin-bottom:5px;padding:6px 8px;border:1px solid #302619;border-radius:7px;background:#0e0b07;color:#7c6d53;text-align:left;cursor:pointer}.zg-combat-fx-layout>nav button>i{display:grid;place-items:center;width:25px;height:25px;border:1px solid #55401f;border-radius:50%;color:#a87f38;font-style:normal}.zg-combat-fx-layout>nav button span{display:grid;gap:2px}.zg-combat-fx-layout>nav button b{font:600 8px 'Cinzel',serif}.zg-combat-fx-layout>nav button small{font:8px Georgia,serif;color:#625945}.zg-combat-fx-layout>nav button.active{border-color:#a77a2e;background:#241707;color:#f0d18b;box-shadow:inset 0 0 17px #bd81241c}.zg-combat-fx-layout>section{min-width:0;padding:16px}.zg-combat-fx-stage{position:relative;height:310px;overflow:hidden;border:1px solid #51391d;border-radius:12px;background:radial-gradient(circle at 76% 50%,#6b371727,transparent 24%),radial-gradient(circle at 20% 50%,#24466b26,transparent 23%),linear-gradient(#0b0b0b,#070604);box-shadow:inset 0 0 50px #000}.zg-combat-fx-stage:before{content:'';position:absolute;inset:0;background-image:linear-gradient(#92703a0b 1px,transparent 1px),linear-gradient(90deg,#92703a0b 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(transparent,#000 25%,#000 75%,transparent)}.zg-combat-fx-stage .preview-actor,.zg-combat-fx-stage .preview-target{position:absolute;z-index:3;top:50%;display:grid;place-items:center;width:72px;height:72px;transform:translate(-50%,-50%);border:2px solid #6c562f;border-radius:50%;background:radial-gradient(circle,#292116,#0c0906 70%);box-shadow:0 9px 22px #000,0 0 0 8px #0005}.zg-combat-fx-stage .preview-actor{left:19%;border-color:#557d9f}.zg-combat-fx-stage .preview-target{left:78%;border-color:#9b5747}.zg-combat-fx-stage .preview-actor>i,.zg-combat-fx-stage .preview-target>i{font:700 20px 'Cinzel',serif;color:#e5cb91}.zg-combat-fx-stage .preview-actor>small,.zg-combat-fx-stage .preview-target>small{position:absolute;top:82px;color:#6e624c;font:7px 'Cinzel',serif;white-space:nowrap}.zg-combat-fx-stage .fx-cast{animation:zgFxCaster 1s ease both}.zg-combat-fx-stage .fx-react{animation:zgFxTarget 1.05s ease .65s both}@keyframes zgFxCaster{45%{filter:brightness(1.35) drop-shadow(0 0 12px #62a6d8)}}@keyframes zgFxTarget{40%{filter:brightness(1.55) drop-shadow(0 0 16px #d35f48)}}.zg-combat-fx-sample{position:absolute;z-index:5;inset:0;pointer-events:none}.zg-combat-fx-sample .stroke{position:absolute;left:65%;top:47%;width:145px;height:9px;transform-origin:center;border-radius:50%;background:linear-gradient(90deg,transparent,#fff5c7 35%,#ec9d4b 68%,transparent);box-shadow:0 0 9px #fff,0 0 22px #d54e28;opacity:0;animation:zgFxSlash .72s cubic-bezier(.16,.78,.24,1) .35s both}.zg-combat-fx-sample .stroke.one{transform:translate(-50%,-50%) rotate(-34deg)}.zg-combat-fx-sample .stroke.two{transform:translate(-50%,-50%) rotate(34deg);animation-delay:.56s}.zg-combat-fx-sample .impact-core{position:absolute;left:78%;top:50%;width:18px;height:18px;border:2px solid #fff0b8;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 22px #ed5e39;animation:zgFxImpact .72s ease .72s both}@keyframes zgFxSlash{0%{opacity:0;clip-path:inset(0 100% 0 0)}30%{opacity:1}75%{opacity:1;clip-path:inset(0 0 0 0)}100%{opacity:0;clip-path:inset(0 0 0 100%)}}@keyframes zgFxImpact{0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}28%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(4)}}.zg-combat-fx-sample .projectile{position:absolute;left:20%;top:50%;color:#e8d39e;font:48px serif;text-shadow:0 0 11px #e7bd62;opacity:0;animation:zgFxProjectile 1.05s cubic-bezier(.18,.72,.22,1) .3s both}.zg-combat-fx-sample .projectile-hit{position:absolute;left:78%;top:50%;width:28px;height:28px;border:3px solid #e6bd68;border-radius:50%;transform:translate(-50%,-50%);animation:zgFxImpact .7s ease 1.12s both}@keyframes zgFxProjectile{0%{opacity:0;transform:translate(-50%,-50%) rotate(-8deg) scale(.7)}10%{opacity:1}82%{opacity:1}100%{opacity:0;transform:translate(430px,-50%) rotate(-8deg) scale(1)}}.zg-combat-fx-sample.fx-miss .miss-stroke{left:72%;top:31%;transform:translate(-50%,-50%) rotate(-13deg);animation-duration:.9s}.zg-combat-fx-sample.fx-miss em{position:absolute;left:78%;top:72%;transform:translateX(-50%);color:#b6a47c;font:700 13px 'Cinzel',serif;animation:zgFxFadeLabel 1.3s ease .75s both}@keyframes zgFxFadeLabel{0%{opacity:0;transform:translate(-50%,8px)}25%,72%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}.zg-combat-fx-sample .shield{position:absolute;left:72%;top:50%;display:grid;place-items:center;width:82px;height:82px;border:2px solid #88c5df;border-radius:50%;transform:translate(-50%,-50%);background:#4aa0c51c;color:#dff8ff;font:52px serif;box-shadow:inset 0 0 20px #68c8ee55,0 0 25px #57b9df66;animation:zgFxShield 1.25s ease .25s both}@keyframes zgFxShield{0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-35deg)}25%,68%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.3)}}.zg-combat-fx-sample .aura{position:absolute;left:78%;top:50%;width:48px;height:48px;border:2px solid #be8cff;border-radius:50%;transform:translate(-50%,-50%);box-shadow:inset 0 0 22px #9a55df88,0 0 28px #a66bea;animation:zgFxAura 1.45s ease .2s both}.zg-combat-fx-sample.fx-fire .aura{border-color:#ffae54;box-shadow:inset 0 0 25px #e93d16aa,0 0 35px #ff632f}.zg-combat-fx-sample.fx-heal .aura,.zg-combat-fx-sample.fx-cleanse .aura{border-color:#79e29a;box-shadow:inset 0 0 22px #43bb6d88,0 0 28px #55d67d}@keyframes zgFxAura{0%{opacity:0;transform:translate(-50%,-50%) scale(2.2) rotate(-90deg)}30%,72%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.8) rotate(70deg)}}.zg-combat-fx-sample .particle{position:absolute;left:78%;top:50%;color:#c58aff;font:18px serif;text-shadow:0 0 8px currentColor;opacity:0;animation:zgFxParticle 1.3s ease calc(.28s + var(--fx-i)*28ms) both}.zg-combat-fx-sample.fx-fire .particle{color:#ff7138}.zg-combat-fx-sample.fx-heal .particle{color:#79e79b}.zg-combat-fx-sample.fx-cleanse .particle{color:#d8f4c7}@keyframes zgFxParticle{0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--fx-a)) translateY(0) scale(.2)}22%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) rotate(var(--fx-a)) translateY(-76px) scale(.7)}}.zg-combat-fx-sample.fx-movement .route{position:absolute;left:19%;top:50%;width:59%;height:2px;background:linear-gradient(90deg,#6fa5c8,transparent);transform-origin:left;animation:zgFxRoute 1.35s ease both}.zg-combat-fx-sample.fx-movement .foot{position:absolute;left:calc(21% + var(--fx-i)*5%);top:calc(47% + var(--fx-i)*1%);color:#98b9c8;font-size:9px;opacity:0;animation:zgFxFoot 1.5s ease calc(var(--fx-i)*70ms) both}@keyframes zgFxRoute{from{opacity:0;transform:scaleX(0)}35%,75%{opacity:1;transform:scaleX(1)}to{opacity:0}}@keyframes zgFxFoot{0%,18%{opacity:0;transform:scale(.3)}30%,72%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:translateY(9px)}}.zg-combat-fx-sample.soft{filter:saturate(.75);opacity:.75}.zg-combat-fx-sample.strong{filter:saturate(1.35) brightness(1.08)}.zg-combat-fx-copy{min-height:88px;padding:13px 2px 8px}.zg-combat-fx-copy>small{color:#9f783b;font:7px 'Cinzel',serif;letter-spacing:1.2px}.zg-combat-fx-copy h3{margin:4px 0;color:#ead096;font:700 19px 'Cinzel',serif}.zg-combat-fx-copy p{color:#8e7d61;font:11px/1.4 Georgia,serif}.zg-combat-fx-controls{display:grid;grid-template-columns:42px 150px 42px 1fr;gap:6px;align-items:center}.zg-combat-fx-controls button,.zg-combat-fx-options button{height:38px;border:1px solid #4d391e;border-radius:6px;background:#100c08;color:#ad9668;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-combat-fx-controls button.play{border-color:#a7782c;background:#2a1907;color:#f0cd7f}.zg-combat-fx-controls span{justify-self:end;color:#6f624c;font:9px 'Cinzel',serif}.zg-combat-fx-options{display:grid;grid-template-columns:auto repeat(3,1fr) 90px;gap:5px;align-items:center;margin-top:9px}.zg-combat-fx-options>b{color:#71654f;font:7px 'Cinzel',serif}.zg-combat-fx-options button.active{border-color:#a8792d;background:#241707;color:#eecf88}@media(max-width:720px){.zg-combat-fx-browser{padding:6px}.zg-combat-fx-browser>article{max-height:98vh}.zg-combat-fx-layout{grid-template-columns:1fr;display:block;overflow:auto;max-height:calc(98vh - 64px)}.zg-combat-fx-layout>nav{display:flex;gap:5px;overflow-x:auto;border-right:0;border-bottom:1px solid #3c2b17}.zg-combat-fx-layout>nav button{min-width:145px}.zg-combat-fx-layout>section{padding:9px}.zg-combat-fx-stage{height:260px}.zg-combat-fx-options{grid-template-columns:repeat(3,1fr)}.zg-combat-fx-options>b,.zg-combat-fx-options [data-fx-sound]{grid-column:1/-1}.zg-combat-fx-controls{grid-template-columns:38px 1fr 38px auto}}
   .zg-combat-fx-layout>section{max-height:calc(94vh - 64px);overflow-y:auto}.zg-combat-fx-quality{display:grid;gap:5px;margin-top:9px;padding-top:8px;border-top:1px solid #362817}.zg-combat-fx-quality>b{color:#71654f;font:7px 'Cinzel',serif}.zg-combat-fx-quality>div{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}.zg-combat-fx-quality button{min-width:0;min-height:48px;display:grid;align-content:center;gap:3px;padding:5px;border:1px solid #42321d;border-radius:6px;background:#0d0a07;color:#8b7958;cursor:pointer}.zg-combat-fx-quality button strong{font:600 8px 'Cinzel',serif}.zg-combat-fx-quality button small{font:7px/1.2 Georgia,serif}.zg-combat-fx-quality button.active{border-color:#a8792d;background:#241707;color:#eecf88}@media(max-width:720px){.zg-combat-fx-quality>div{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-combat-fx-layout>section{max-height:none;overflow:visible}}
-  .zg-game-overlay.gm .zg-game-settings{width:min(430px,calc(100vw - 32px))}.zg-status-settings-head{margin:4px 0 8px;padding-top:10px;border-top:1px solid #372817}.zg-status-settings-head span,.zg-status-settings-head small{display:block}.zg-status-settings-head span{color:#d8bd7c;font:600 10px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-status-settings-head small{margin-top:3px;color:#79694d;font:9px 'Lora',serif}.zg-status-settings-list{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:11px}.zg-status-settings-list button{min-width:0;height:38px;padding:4px 7px;display:grid;grid-template-columns:24px minmax(0,1fr);grid-template-rows:1fr 1fr;column-gap:6px;align-items:center;border:1px solid #3b2d19;border-radius:7px;background:#100d08;color:#aa9565;text-align:left;cursor:pointer}.zg-status-settings-list button:hover{border-color:#856329;background:#1b1309}.zg-status-settings-list button.off{opacity:.55;filter:saturate(.45)}.zg-status-settings-list button i{grid-row:1/3;width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--status-color);border-radius:50%;color:#f0dda9;font:normal 12px Arial;background:#0b0907;box-shadow:0 0 6px color-mix(in srgb,var(--status-color) 42%,transparent)}.zg-status-settings-list button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 8px 'Cinzel',serif}.zg-status-settings-list button em{color:#6e6149;font:normal 8px 'Lora',serif}.zg-status-settings-list button.on em{color:#6fb17b}.zg-status-settings-list button.off em{color:#b16e68}
+  .zg-game-overlay.gm .zg-game-settings{width:min(620px,calc(100vw - 32px))}.zg-status-settings-head{margin:4px 0 8px;padding-top:10px;border-top:1px solid #372817}.zg-status-settings-head span,.zg-status-settings-head small{display:block}.zg-status-settings-head span{color:#d8bd7c;font:600 10px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-status-settings-head small{margin-top:3px;color:#79694d;font:9px 'Lora',serif}.zg-status-settings-list{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:11px}.zg-status-settings-list button{min-width:0;height:38px;padding:4px 7px;display:grid;grid-template-columns:24px minmax(0,1fr);grid-template-rows:1fr 1fr;column-gap:6px;align-items:center;border:1px solid #3b2d19;border-radius:7px;background:#100d08;color:#aa9565;text-align:left;cursor:pointer}.zg-status-settings-list button:hover{border-color:#856329;background:#1b1309}.zg-status-settings-list button.off{opacity:.55;filter:saturate(.45)}.zg-status-settings-list button i{grid-row:1/3;width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--status-color);border-radius:50%;color:#f0dda9;font:normal 12px Arial;background:#0b0907;box-shadow:0 0 6px color-mix(in srgb,var(--status-color) 42%,transparent)}.zg-status-settings-list button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 8px 'Cinzel',serif}.zg-status-settings-list button em{color:#6e6149;font:normal 8px 'Lora',serif}.zg-status-settings-list button.on em{color:#6fb17b}.zg-status-settings-list button.off em{color:#b16e68}
+
+  /* Settings are an operating panel, not a miniature HUD. Keep every control
+     readable at normal browser zoom and preserve the resize affordance. */
+  .zg-game-settings,.zg-game-overlay.gm .zg-game-settings{width:min(760px,calc(100vw - 32px));height:min(1010px,calc(100vh - 82px));min-width:min(380px,calc(100vw - 24px));padding:22px;gap:16px;border-radius:24px}
+  .zg-game-settings-title{font-size:17px;letter-spacing:2.6px;margin:0}.zg-game-settings-title small{font-size:11px;color:#9a865f}
+  .zg-game-settings-tabs{gap:8px;padding:6px;border-radius:12px}.zg-game-settings-tabs button{min-height:48px;padding:9px 10px;border-radius:9px;font-size:12px;letter-spacing:.35px}
+  .zg-game-settings-pane{padding:3px 8px 28px 2px}
+  .zg-game-settings-resize{left:12px;bottom:12px;width:38px;height:38px;border:1px solid #735a2d;border-radius:50%;background:radial-gradient(circle at 38% 34%,#35270f 0,#181107 54%,#090603 100%);box-shadow:0 5px 16px #000a,inset 0 0 0 3px #cda44818;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}.zg-game-settings-resize:before{left:10px;bottom:10px;width:4px;height:4px;border:0;border-radius:50%;background:#e7c66f;box-shadow:6px -6px 0 #ba9349,12px -12px 0 #765d31}.zg-game-settings-resize:after{display:none}.zg-game-settings-resize:hover{transform:scale(1.08);border-color:#d2aa53;box-shadow:0 6px 20px #000c,0 0 14px #d1a84d33,inset 0 0 0 3px #d2aa5320}.zg-game-settings-resize:active{transform:scale(.96)}
+  .zg-sound-settings,.zg-player-bag-settings{gap:10px;margin-bottom:14px;padding-bottom:14px}.zg-sound-settings header b,.zg-player-bag-settings header b{font-size:14px}.zg-sound-settings header small,.zg-player-bag-settings header small,.zg-player-bag-settings output{font-size:11px}.zg-sound-settings>div{grid-template-columns:minmax(0,1fr) 100px;gap:9px}.zg-sound-settings button{min-height:58px;padding:10px;border-radius:9px}.zg-sound-settings button b,.zg-sound-settings button.test{font-size:12px}.zg-sound-settings button small,.zg-sound-settings .error{font-size:11px}.zg-player-bag-settings>div{gap:9px}.zg-player-bag-settings button{min-height:78px;grid-template-columns:38px minmax(0,1fr);gap:10px;padding:11px 12px;border-radius:10px}.zg-player-bag-settings button b{font-size:11px}.zg-player-bag-settings button small{font-size:11px}.zg-player-bag-size-icon{width:29px;height:25px}.zg-game-leave{min-height:48px;font-size:12px}
+  .zg-workshop-launcher{gap:12px;padding:17px;border-radius:12px}.zg-workshop-launcher header b{font-size:15px}.zg-workshop-launcher header small,.zg-workshop-launcher p{font-size:12px;line-height:1.5}.zg-workshop-launcher>button{min-height:68px;border-radius:10px}.zg-workshop-launcher>button b{font-size:13px}.zg-workshop-launcher>button small{font-size:11px}
+  .zg-qa-session-tools{gap:14px;margin-bottom:12px;padding:16px;border-radius:12px}.zg-qa-session-tools>header{padding-bottom:3px}.zg-qa-session-tools header b{font-size:16px}.zg-qa-session-tools header small{margin-top:5px;font-size:11px}.zg-qa-workshop-hint{padding:11px 13px;border-left-width:3px;font-size:12px;line-height:1.5}.zg-qa-session-tools>div{gap:9px}.zg-qa-session-tools>.zg-qa-workshop-backgrounds{grid-template-columns:repeat(3,minmax(0,1fr))}.zg-qa-session-tools button{min-height:52px;padding:9px 11px;border-radius:9px;font-size:11px;line-height:1.25}.zg-qa-session-tools .zg-qa-return-live{display:grid;gap:4px;text-align:left}.zg-qa-session-tools .zg-qa-return-live b{font-size:12px}.zg-qa-session-tools .zg-qa-return-live small{font-size:11px;line-height:1.3}.zg-qa-session-tools .zg-qa-session-modes button{gap:5px}.zg-qa-session-tools .zg-qa-session-modes button b{font-size:13px}.zg-qa-session-tools .zg-qa-session-modes button small,.zg-qa-session-tools .zg-qa-session-modes button.active small{font-size:11px}.zg-qa-session-tools label{gap:6px;font-size:11px}.zg-qa-session-tools select{min-height:46px;padding:0 11px;font-size:11px}.zg-qa-outcome-control{gap:9px!important}.zg-qa-outcome-control>button small,.zg-qa-outcome-control>button.active small{font-size:10.5px}
+  .zg-qa-session-modes:before,.zg-qa-workshop-backgrounds:before,.zg-qa-outcome-control:before,.zg-qa-workshop-maintenance:before{grid-column:1/-1;color:#8f7c55;font:600 10px 'Cinzel',serif;letter-spacing:1.1px;text-transform:uppercase}.zg-qa-session-modes:before{content:'Режим теста'}.zg-qa-workshop-backgrounds:before{content:'Поле и фон'}.zg-qa-outcome-control:before{content:'Управление исходом'}.zg-qa-workshop-maintenance:before{content:'Инструменты теста'}
+  .zg-qa-campaign-roster{gap:10px;padding:12px;border-radius:10px}.zg-qa-campaign-roster>header b{font-size:14px}.zg-qa-campaign-roster>header small{font-size:11px;line-height:1.4}.zg-qa-hero-stage-control{gap:10px;padding:10px;border-radius:9px}.zg-qa-hero-stage-control b{font-size:12px}.zg-qa-hero-stage-control small{font-size:10.5px;line-height:1.35}.zg-qa-hero-stage-control>div{gap:7px}.zg-qa-hero-stage-control button{min-height:40px;padding:7px 10px;border-radius:7px;font-size:10px}.zg-qa-campaign-heroes-grid{gap:8px}.zg-qa-hero-card{padding:7px;border-radius:9px}.zg-qa-hero-pick{gap:9px;min-height:58px!important;padding:5px 7px!important}.zg-qa-hero-pick img,.zg-qa-hero-pick>i{flex-basis:46px;width:46px;height:46px;border-radius:7px}.zg-qa-hero-pick b{font-size:11px}.zg-qa-hero-pick small{font-size:10px}.zg-qa-hero-card>div{gap:5px;margin-top:6px}.zg-qa-hero-card>div button{min-height:34px!important;padding:5px 3px!important;font-size:9px!important}.zg-qa-heroes-empty{padding:12px;font-size:11px;line-height:1.45}
+  .zg-game-settings .zg-combat-motion-settings{gap:12px;margin:12px 0;padding-top:12px}.zg-game-settings .zg-combat-motion-settings header b{font-size:13px}.zg-game-settings .zg-combat-motion-settings header small{font-size:11px}.zg-game-settings .zg-combat-motion-settings>div{gap:8px}.zg-game-settings .zg-combat-motion-settings button{min-height:68px;padding:9px 7px;border-radius:9px}.zg-game-settings .zg-combat-motion-settings button b{font-size:11px}.zg-game-settings .zg-combat-motion-settings button small{font-size:10.5px;line-height:1.3}.zg-game-settings .zg-combat-motion-settings .zg-combat-fx-open b{font-size:12px}.zg-game-settings .zg-status-settings-head span{font-size:13px}.zg-game-settings .zg-status-settings-head small{font-size:11px}.zg-game-settings .zg-status-settings-list{gap:8px}.zg-game-settings .zg-status-settings-list button{height:54px;padding:7px 9px;grid-template-columns:32px minmax(0,1fr);column-gap:9px}.zg-game-settings .zg-status-settings-list button i{width:29px;height:29px;font-size:15px}.zg-game-settings .zg-status-settings-list button span,.zg-game-settings .zg-status-settings-list button em{font-size:10.5px}
+  /* Legibility floor: descriptions must remain readable without browser zoom. */
+  .zg-game-settings-title{color:#d8bd7c}.zg-game-settings-title small{font-size:12px}
+  .zg-game-settings-tabs button{font-size:13px}
+  .zg-sound-settings header small,.zg-player-bag-settings header small,.zg-player-bag-settings output,.zg-sound-settings button small,.zg-sound-settings .error,.zg-player-bag-settings button small{font-size:12px}.zg-sound-settings button b,.zg-sound-settings button.test,.zg-player-bag-settings button b{font-size:13px}
+  .zg-workshop-launcher header small,.zg-workshop-launcher p{font-size:13px}.zg-workshop-launcher>button b{font-size:14px}.zg-workshop-launcher>button small{font-size:12px}
+  .zg-qa-session-tools header small{font-size:12px}.zg-qa-workshop-hint{font-size:13px}.zg-qa-session-tools button{font-size:13px}.zg-qa-session-tools .zg-qa-return-live b{font-size:13px}.zg-qa-session-tools .zg-qa-return-live small{font-size:12px}.zg-qa-session-tools .zg-qa-session-modes button b{font-size:14px}.zg-qa-session-tools .zg-qa-session-modes button small,.zg-qa-session-tools .zg-qa-session-modes button.active small,.zg-qa-session-tools label,.zg-qa-session-tools select,.zg-qa-outcome-control>button small,.zg-qa-outcome-control>button.active small{font-size:12px}.zg-qa-session-modes:before,.zg-qa-workshop-backgrounds:before,.zg-qa-outcome-control:before,.zg-qa-workshop-maintenance:before{font-size:11px}
+  .zg-qa-campaign-roster>header small{font-size:12px}.zg-qa-hero-stage-control b{font-size:13px}.zg-qa-hero-stage-control small{font-size:12px}.zg-qa-hero-stage-control button{font-size:11px}.zg-qa-hero-pick b{font-size:12px}.zg-qa-hero-pick small{font-size:11px}.zg-qa-hero-card>div{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-qa-hero-card>div button{min-height:38px!important;font-size:11px!important}.zg-qa-heroes-empty{font-size:12px}
+  .zg-game-settings .zg-combat-motion-settings header b,.zg-game-settings .zg-status-settings-head span{font-size:14px}.zg-game-settings .zg-combat-motion-settings header small,.zg-game-settings .zg-status-settings-head small{font-size:12px}.zg-game-settings .zg-combat-motion-settings button b{font-size:12px}.zg-game-settings .zg-combat-motion-settings button small,.zg-game-settings .zg-status-settings-list button span,.zg-game-settings .zg-status-settings-list button em{font-size:11.5px}
+  @media(max-width:620px){.zg-game-settings,.zg-game-overlay.gm .zg-game-settings{top:58px;right:8px;width:calc(100vw - 16px);height:calc(100vh - 70px);min-width:0;padding:13px}.zg-game-settings-title{font-size:15px}.zg-game-settings-title small{display:none}.zg-qa-campaign-heroes-grid{grid-template-columns:1fr}.zg-qa-session-tools>.zg-qa-workshop-backgrounds{grid-template-columns:1fr}.zg-qa-outcome-control{grid-template-columns:1fr!important}}
   .zg-session-settings-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:0 0 10px;padding:3px;border:1px solid #382a18;border-radius:8px;background:#090704}.zg-session-settings-tabs button{height:30px;border:1px solid transparent;border-radius:5px;background:transparent;color:#75684e;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-session-settings-tabs button.active{border-color:#89672b;background:linear-gradient(180deg,#2a1b0b,#151008);color:#e5c87f;box-shadow:inset 0 1px #f1d77b1f}.zg-session-settings-pane{display:none}.zg-session-settings-pane.active{display:grid;gap:6px}.zg-session-settings-pane>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}.zg-session-settings-pane>header>b{color:#d8bd7c;font:600 10px 'Cinzel',serif}.zg-session-settings-pane>header>button{width:22px;height:22px;border:1px solid #604922;border-radius:50%;background:#0c0906;color:#b39451;font:700 10px Georgia,serif;cursor:help}.zg-session-setting-toggle{min-height:50px;display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 8px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#9c875d;text-align:left;cursor:pointer}.zg-session-setting-toggle>i{display:grid;place-items:center;width:26px;height:26px;border:1px solid #5d4926;border-radius:50%;background:#090705;color:#b77468;font:normal 12px Georgia,serif}.zg-session-setting-toggle>span{min-width:0;display:grid;gap:2px}.zg-session-setting-toggle b{color:#bca46f;font:600 8px 'Cinzel',serif}.zg-session-setting-toggle small{color:#695e49;font:8px/1.25 Georgia,serif}.zg-session-setting-toggle>em{color:#9c615b;font:normal 7px 'Cinzel',serif}.zg-session-setting-toggle.on{border-color:#42532d;background:linear-gradient(90deg,#13201466,#0e0b07)}.zg-session-setting-toggle.on>i{border-color:#5f8c51;color:#8ed288;box-shadow:0 0 9px #68a3592d}.zg-session-setting-toggle.on>em{color:#72b37b}.zg-clock-widget-modes{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-clock-widget-modes button{min-height:54px;display:grid;gap:3px;padding:8px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#7c6d51;text-align:left;cursor:pointer}.zg-clock-widget-modes button b{color:#ad9666;font:600 8px 'Cinzel',serif}.zg-clock-widget-modes button small{font:8px/1.25 Georgia,serif}.zg-clock-widget-modes button.active{border-color:#a27a32;background:#211608;color:#a99568;box-shadow:inset 0 0 14px #b3812919}.zg-clock-widget-modes button.active b{color:#efd38b}.zg-clock-widget-modes button.pulse{grid-column:1/-1;border-color:#45613d;background:linear-gradient(90deg,#122015,#0d0b07)}.zg-clock-widget-modes button.pulse b{color:#8ecb8d}
   .zg-creature-hp-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0;padding:8px;border:1px solid #46361d;border-radius:7px;background:#0c0905}.zg-creature-hp-modes>b{grid-column:1/-1;color:#bda66e;font:600 8px 'Cinzel',serif;letter-spacing:.7px}.zg-creature-hp-modes button{min-height:34px;border:1px solid #47371e;border-radius:5px;background:#151008;color:#8d7a53;font:8px 'Cinzel',serif;cursor:pointer}.zg-creature-hp-modes button.active{border-color:#a77d30;background:#2b1c09;color:#f0cf79;box-shadow:inset 0 0 12px #d5a23b20}
   .zg-game-leave{width:100%;font-family:'Cinzel',serif;font-size:13px;letter-spacing:1px;padding:11px;border-radius:8px;cursor:pointer;
@@ -25959,7 +26096,8 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-party-card.possessed::after{content:'ТЫ';position:absolute;right:-4px;top:-7px;padding:2px 5px;border-radius:7px;background:#17331d;color:#a8e7b1;font:700 7px/1 'Cinzel',serif;letter-spacing:.7px;box-shadow:0 2px 7px #000b}
   .zg-party-card.own::before{content:'♛';position:absolute;z-index:2;top:-9px;left:50%;transform:translateX(-50%);color:#d7b44f;font-size:12px;line-height:1;text-shadow:0 0 6px #000,0 0 8px #d7b44f66}
   .zg-party-card.own.current-turn::before{top:-28px}
-  .zg-party-card.offline,.zg-party-card.presence-left{opacity:.5;filter:saturate(.55)}.zg-party-card.presence-reconnecting{opacity:.78}
+  .zg-party-card.offline,.zg-party-card.presence-left{opacity:.5;filter:saturate(.55)}.zg-party-card.presence-reconnecting{opacity:.78}.zg-party-card.presence-workshop{opacity:1;filter:none}
+  .zg-qa-hero-card.controlled{border-color:#5f8957;background:linear-gradient(120deg,#132014,#0c0a07);box-shadow:inset 0 0 0 1px #81bd7440,0 0 10px #4c8d4433}.zg-qa-hero-card.controlled .zg-qa-hero-pick small{color:#89bd80}
   .zg-vtt-party.combat{gap:15px;overflow-x:auto;overflow-y:hidden;padding:12px 16px 20px;scroll-padding-inline:16px}
   .zg-party-card.current-turn{transform:translateY(5px);filter:drop-shadow(0 9px 16px #000d) drop-shadow(0 0 13px #d9aa4a88)}
   .zg-party-card.current-turn img,.zg-party-card.current-turn .zg-party-ph{border-color:#f2ce68;box-shadow:inset 0 0 0 1px #ffe6a155,0 0 0 2px #9d762e,0 0 18px #e2ad3b66}
@@ -25983,7 +26121,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-vtt-token.combat-wound-1::after,.zg-vtt-token.combat-wound-2::after,.zg-vtt-token.combat-wound-3::after,.zg-vtt-token.combat-downed::after{inset:calc(var(--zg-token-size,64px)*-.045);background-image:url('images/vtt-effects/blood-token-atlas-a-v2.webp');border-radius:50%;filter:saturate(1.2) brightness(1.08) drop-shadow(0 1px 1px #21000099)}.zg-vtt-token.blood-variant-b.combat-wound-1::after,.zg-vtt-token.blood-variant-b.combat-wound-2::after,.zg-vtt-token.blood-variant-b.combat-wound-3::after,.zg-vtt-token.blood-variant-b.combat-downed::after{background-image:url('images/vtt-effects/blood-token-atlas-b-v2.webp')}
   .zg-party-temp-hp{position:absolute;z-index:3;right:-8px;bottom:0;padding:1px 4px;border:1px solid #52789b;border-radius:7px;background:#0b1722e8;color:#87b7df;font:700 7px/1.25 'Cinzel',serif;box-shadow:0 2px 7px #000b}
   .zg-party-online{position:absolute;z-index:2;right:5px;top:5px;width:9px;height:9px;display:grid;place-items:center;border-radius:50%;background:#85513d;color:#f0d6a0;font:700 7px/1 Arial,sans-serif;box-shadow:0 0 0 2px #090806cc,0 0 6px #7b372b}
-  .zg-party-online.on,.zg-party-online.online{background:#63c982;box-shadow:0 0 7px #63c982}.zg-party-online.reconnecting{width:13px;height:13px;right:3px;top:3px;background:#9b742b;animation:zgPresenceSpin 1.8s linear infinite}.zg-party-online.left{width:13px;height:13px;right:3px;top:3px;background:#7f3b35;color:#f0c1b9}@keyframes zgPresenceSpin{to{transform:rotate(360deg)}}
+  .zg-party-online.on,.zg-party-online.online{background:#63c982;box-shadow:0 0 7px #63c982}.zg-party-online.workshop{width:13px;height:13px;right:3px;top:3px;border:1px solid #bd9443;background:#171006;color:#e7c86f;box-shadow:0 0 8px #b9893d55}.zg-party-online.reconnecting{width:13px;height:13px;right:3px;top:3px;background:#9b742b;animation:zgPresenceSpin 1.8s linear infinite}.zg-party-online.left{width:13px;height:13px;right:3px;top:3px;background:#7f3b35;color:#f0c1b9}@keyframes zgPresenceSpin{to{transform:rotate(360deg)}}
   .zg-party-sheet-update{position:absolute;z-index:4;left:50%;top:59px;transform:translateX(-50%);max-width:72px;padding:2px 5px;border:1px solid #80b986;border-radius:7px;background:#102718e8;color:#b9ebbd;font:700 5px/1.2 'Cinzel',serif;letter-spacing:.45px;text-align:center;white-space:nowrap;box-shadow:0 2px 8px #000b,0 0 10px #59a76555;pointer-events:none}
   .zg-sheet-sync-meta,.zg-sheet-roadmap-summary{margin:0 0 12px;padding:11px 13px;border:1px solid #665027;border-radius:9px;background:#0b0906c9;display:flex;flex-direction:column;gap:4px;color:#aa9872}
   .zg-sheet-sync-meta b,.zg-sheet-roadmap-summary b{font:700 12px 'Cinzel',serif;color:#e1c779}.zg-sheet-sync-meta span,.zg-sheet-roadmap-summary span{font:11px 'Lora',serif}.zg-sheet-sync-meta small,.zg-sheet-roadmap-summary small{font:8px 'Cinzel',serif;letter-spacing:1px;color:#887653}.zg-sheet-roadmap-summary{border-color:#596b43;background:linear-gradient(110deg,#10170dcc,#0a0906d9)}.zg-sheet-roadmap-summary>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.zg-sheet-roadmap-summary em{font:italic 10px 'Lora',serif;color:#7f8e6d}
@@ -28341,14 +28479,14 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     text-align:left;
     cursor:pointer;
   }
-  .zg-inv2-equip-slot.filled .zg-inv2-equipped-copy{padding-right:27px}
+  .zg-inv2-equip-slot.filled .zg-inv2-equipped-copy{padding-right:23px}
   .zg-inv2-unequip{
     position:absolute;
     z-index:5;
     right:4px;
     top:50%;
-    width:22px;
-    height:22px;
+    width:18px;
+    height:18px;
     display:grid;
     place-items:center;
     padding:0;
@@ -28358,10 +28496,10 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     background:linear-gradient(145deg,#32150f,#170b08);
     box-shadow:0 2px 7px #0009,inset 0 1px #d77b6040;
     color:#d98a72;
-    font:700 15px/1 Georgia,serif;
+    font:700 11px/1 Georgia,serif;
     cursor:pointer;
     opacity:.72;
-    transition:border-color .15s ease,background .15s ease,color .15s ease,opacity .15s ease,transform .15s ease;
+    transition:border-color .15s ease,background .15s ease,color .15s ease,opacity .15s ease;
   }
   .zg-inv2-unequip:hover,
   .zg-inv2-unequip:focus-visible{
@@ -28369,14 +28507,14 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     background:linear-gradient(145deg,#67251b,#260e0a);
     color:#ffd0bc;
     opacity:1;
-    transform:translateY(-50%) scale(1.08);
+    transform:translateY(-50%);
     outline:none;
   }
-  .zg-inv2-unequip:active{transform:translateY(-50%) scale(.94)}
+  .zg-inv2-unequip:active{transform:translateY(-50%)}
   .zg-inv2-hand-slot .zg-inv2-unequip{top:auto;right:3px;bottom:4px;transform:none}
   .zg-inv2-hand-slot .zg-inv2-unequip:hover,
-  .zg-inv2-hand-slot .zg-inv2-unequip:focus-visible{transform:scale(1.08)}
-  .zg-inv2-hand-slot .zg-inv2-unequip:active{transform:scale(.94)}
+  .zg-inv2-hand-slot .zg-inv2-unequip:focus-visible,
+  .zg-inv2-hand-slot .zg-inv2-unequip:active{transform:none}
   .zg-inv2-equipped-art img,
   .zg-inv2-equipped-art i{
     width:31px;
@@ -30296,7 +30434,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       <button type="button" class="zg-scene-publish zg-gm-intervention-button" onclick="zgGmInterventionToggle(event)" aria-pressed="false" title="Показать или скрыть пульт ГМ">ГМ</button>
       <button type="button" class="zg-scene-publish zg-gm-delivery-button" onclick="zgGmDeliveryToggle()" title="Предметы, задания, текст и изображения для игроков">Выдать</button>
       <button type="button" class="zg-scene-publish zg-combat-toggle" id="zg-combat-toggle" onclick="zgCombatToggle()" title="Боевой режим и инициатива">Бой</button>
-      <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgStartPlayers()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
+      <button type="button" class="zg-scene-publish zg-start-players" id="zg-start-players" onclick="zgPrimarySessionAction()" title="Завершить ожидание и впустить группу на подготовленную сцену">Запустить игроков</button>
       <span class="zg-workshop-local" id="zg-workshop-local" role="status" aria-label="Локальная мастерская · Firebase не используется" title="Локальная мастерская · Firebase не используется" hidden></span>
     </div>
     <div class="zg-overview-panel" id="zg-overview-panel">
@@ -30353,14 +30491,20 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       <button type="button" class="zg-game-leave" onclick="zgLeaveRoom()">Покинуть игру</button>
       </div>
       <div class="zg-game-settings-pane" data-game-panel-pane="workshop" hidden>
+      <section class="zg-workshop-launcher" id="zg-workshop-launcher">
+        <header><b>Локальная Мастерская</b><small>Без Firebase и без изменения живых героев</small></header>
+        <p>Откройте отдельную тестовую сцену. Герои не появятся сами — каждого можно призвать вручную после входа.</p>
+        <button type="button" onclick="zgWorkshopModeOpen()"><b>Открыть Мастерскую</b><small>Выбрать бой или свободную комнату</small></button>
+      </section>
       <section class="zg-qa-session-tools" id="zg-qa-session-tools" hidden>
         <header><b>Мастерская</b><small id="zg-qa-session-mode-state">Активный бой</small></header>
         <p class="zg-qa-workshop-hint">Арена подготовлена для ближнего боя, дальних атак, укрытий, движения, звука и проверки частиц.</p>
-        <section class="zg-qa-campaign-roster"><header><b>Герои кампании</b><small>Защитные копии для теста · без Firebase и сохранения трат</small></header><div class="zg-qa-hero-stage-control"><span><b id="zg-qa-campaign-heroes-stage-count">На сцене 0 / 0</b><small>Расставьте и сохраните сцену — реальные герои займут эти места</small></span><div><button type="button" id="zg-qa-campaign-heroes-unpack" onclick="zgQaCampaignHeroesMapSet(false)">Распаковать</button><button type="button" id="zg-qa-campaign-heroes-pack" onclick="zgQaCampaignHeroesMapSet(true)">Запаковать</button></div></div><div class="zg-qa-campaign-heroes-grid" id="zg-qa-campaign-heroes"></div></section>
+        <button type="button" class="zg-qa-return-live" onclick="zgWorkshopReturnToLive()"><b>↩ Вернуться в живую сессию</b><small>Закрыть локальную Мастерскую и снова видеть подключённых игроков</small></button>
+        <section class="zg-qa-campaign-roster"><header><b>Герои кампании</b><small>Не появляются сами · копии локальны и не меняют Firebase, HP или расходники</small></header><div class="zg-qa-hero-stage-control"><span><b id="zg-qa-campaign-heroes-stage-count">На сцене 0 / 5</b><small>Призывайте только тех героев, которые нужны для текущего теста</small></span><div><button type="button" id="zg-qa-campaign-heroes-unpack" onclick="zgQaCampaignHeroesMapSet(false)">Призвать всех</button><button type="button" id="zg-qa-campaign-heroes-pack" onclick="zgQaCampaignHeroesMapSet(true)">Убрать всех</button></div></div><div class="zg-qa-campaign-heroes-grid" id="zg-qa-campaign-heroes"></div></section>
         <div class="zg-qa-session-modes" role="group" aria-label="Режим Мастерской"><button type="button" data-qa-session-mode="combat" aria-pressed="false" onclick="zgQaSessionMode('combat')"><b>⚔ Бой</b><small>Очередь и действия</small></button><button type="button" data-qa-session-mode="free" aria-pressed="false" onclick="zgQaSessionMode('free')"><b>◇ Свободно</b><small>Без инициативы</small></button></div>
         <div class="zg-qa-workshop-backgrounds"><button type="button" onclick="zgQaWorkshopBackground('workshop')">Арена</button><button type="button" onclick="zgQaWorkshopBackground('world')">Карта мира</button><button type="button" onclick="zgQaWorkshopUploadBackground()">Свой фон…</button></div>
         <div class="zg-qa-outcome-control"><button type="button" id="zg-qa-combat-outcome-toggle" aria-pressed="false" onclick="zgQaCombatOutcomeToggle()"><b>🎯 Принудительный исход</b><small id="zg-qa-combat-outcome-state">Выключено · честный бросок</small></button><label>Какой исход навязать<select id="zg-qa-combat-outcome" onchange="zgQaCombatOutcomeSet(this.value)" disabled><option value="miss">Промах</option><option value="hit" selected>Попадание</option><option value="critical">Крит</option></select></label></div>
-        <div><button type="button" onclick="zgQaSessionBuild()">Восстановить арену</button><button type="button" onclick="zgQaSessionStart()">Перезапустить бой</button></div>
+        <div class="zg-qa-workshop-maintenance"><button type="button" onclick="zgQaSessionBuild()">Восстановить арену</button><button type="button" onclick="zgQaSessionStart()">Перезапустить бой</button></div>
       </section>
       </div>
       <div class="zg-game-settings-pane" data-game-panel-pane="effects" hidden>

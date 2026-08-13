@@ -29,7 +29,8 @@ assert.ok(
 assert.match(clickBlock, /allowPlayerInspectAllies===false/);
 assert.match(clickBlock, /zgVttOpenPublicMember\(uid\)/);
 assert.match(clickBlock, /if\(w\.zgSheetClose\)w\.zgSheetClose\(\)/);
-assert.strictEqual(clickBlock.indexOf('zgPossessPlayer') >= 0, false, 'portrait click must open the sheet, not possess immediately');
+assert.match(clickBlock, /selectedMember&&selectedMember\.workshopCopy&&w\.zgPossessPlayer/, 'only a local workshop copy may be selected for control from its portrait');
+assert.doesNotMatch(clickBlock, /if\(w\.zgPossessPlayer\)w\.zgPossessPlayer\(String\(uid\|\|''\)\)/, 'ordinary network portraits still open sheets without taking control');
 assert.match(html, /w\.zgGmInterventionOpenToken=function\(tokenId,tab\)/, 'the GM panel exposes its token targeting bridge');
 assert.match(html, /gmInterventionTokenId=token\.id/, 'the targeting bridge stores the resolved scene token');
 assert.match(html, /zgVttPartyClick\('\s*\+\s*esc\(JSON\.stringify\(member\.uid\)\)/);

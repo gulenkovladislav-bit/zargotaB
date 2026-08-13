@@ -11,7 +11,8 @@ const dragEnd = html.indexOf('  function moveToken(', dragStart);
 assert.ok(dragStart >= 0 && dragEnd > dragStart, 'GM token drag handler remains extractable');
 const dragBlock = html.slice(dragStart, dragEnd);
 assert.match(dragBlock, /var contextMoveArmed=String\(gmTokenMoveArmedId\|\|''\)===String\(token\.id\|\|''\)/, 'an explicit context-menu move command arms exactly one token');
-assert.match(dragBlock, /if\(gmWorkspaceMode!==['"]edit['"]&&!contextMoveArmed\)return;/, 'run mode still blocks accidental dragging until the context action is armed');
+assert.match(dragBlock, /if\(gmWorkspaceMode!==['"]edit['"]&&!contextMoveArmed\)\{[\s\S]*?return;\s*\}/, 'run mode still exits before drag until the context action is armed');
+assert.match(dragBlock, /if\(token\.type===['"]hero['"]&&w\.zgPossessPlayer\)w\.zgPossessPlayer\(token\.memberUid\)/, 'a safe run-mode click selects a workshop hero for control before exiting');
 assert.match(dragBlock, /if \(token\.locked\)[\s\S]*return;/, 'locked tokens remain protected in edit mode too');
 assert.match(dragBlock, /tokenDrag = \{ token:token/, 'edit mode still reaches the existing drag implementation');
 
