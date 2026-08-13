@@ -170,6 +170,8 @@ assert.match(combatStartBlock, /try\{/,
 assert.match(html, /id="zg-combat-start-status"/, 'initiative modal exposes a visible connection status');
 var networkCombatStart = network.slice(network.indexOf('startCombat: function'), network.indexOf('rollInitiative: function'));
 assert.doesNotMatch(networkCombatStart, /startUpdates\['scene\/tokens'\]/, 'combat start must not rewrite the whole live scene');
+assert.match(networkCombatStart, /participant\.kind==='hero'/, 'summoned scene heroes can enter combat without becoming connected room members');
+assert.match(networkCombatStart, /kind:participantKind, uid:''/, 'scene hero combat entries stay detached from player profile writes');
 assert.match(network, /var maxSide=192/);
 assert.match(network, /setTimeout\(function\(\)\{finish\(source\);\},2500\)/, 'broken custom portraits must not block scene publishing forever');
 assert.match(network, /function prepareSceneMedia\(scene\)/);

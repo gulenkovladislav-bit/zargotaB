@@ -13,6 +13,8 @@ assert.match(html, /Назначить спасбросок/, 'the portrait gear
 assert.match(html, /zgPortraitSavingThrow\(event,/, 'the portrait action preselects its target');
 assert.match(html, /var portraitMenuKey='member:'\+String\(member\.uid\|\|''\)/, 'non-combat hero portraits receive stable saving-throw keys');
 assert.match(html, /function combatSaveTargets\(\)/, 'saving-throw targets are available outside initiative');
+assert.match(html, /w\.zgGmStatusCatalog=gmStatusCatalog/, 'the status catalog is explicitly shared with the saving-throw module');
+assert.match(html, /typeof w\.zgGmStatusCatalog==='function'\?w\.zgGmStatusCatalog\(\):\[\]/, 'saving throws do not reach into another module closure');
 assert.match(html, /if\(order\.length\)return order;/, 'active combat keeps using the synchronized initiative entries');
 assert.match(html, /return heroMembers\(\)\.map/, 'outside combat the same menu uses current room heroes');
 assert.doesNotMatch(html, /if\(!combat\|\|!combat\.active\|\|!session\|\|session\.role!==\'master\'\)/, 'the saving-throw panel is no longer hard-closed outside combat');

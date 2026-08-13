@@ -21,6 +21,7 @@ const checks = [
   ['Правая кнопка без браузерного меню на поле', 'tests/game-context-menu.test.js'],
   ['Сражён и личная предсмертная виньетка', 'tests/downed-player-vignette.test.js'],
   ['ГМ управляет героем текущего хода', 'tests/gm-current-player-routing.test.js'],
+  ['Герои кампании доступны в подготовке боя', 'tests/workshop-campaign-heroes.test.js'],
   ['Мастерская использует пакетные кубики', 'tests/single-client-combat-lab.test.js'],
   ['Ручной d20 ГМа стартует из точки отпускания', 'tests/gm-creature-hit-drag.test.js'],
   ['Боевой drag создаёт ровно один бросок', 'tests/combat-physical-drag.test.js'],

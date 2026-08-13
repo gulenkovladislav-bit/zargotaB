@@ -14,6 +14,8 @@ assert.match(clickBlock, /gmPanel\.classList\.contains\('open'\).*gmPanel\.class
 assert.match(clickBlock, /token\.type==='hero'.*String\(token\.memberUid\|\|''\)===String\(uid\|\|''\)/, 'GM targeting resolves the hidden run-mode hero token by member uid');
 assert.match(clickBlock, /zgGmInterventionOpenToken\(heroToken\.id,'entity'\)/, 'party targeting enters the existing GM entity panel');
 assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid,\{toggle:true\}\)/);
+assert.match(clickBlock, /keepPanel.*\['character','inventory','abilities','journal'\]/, 'an open hero bag keeps its current tab when another hero is selected');
+assert.match(clickBlock, /zgVttOpenPanelForMember\(keepPanel,uid,\{toggle:false\}\)/, 'selecting another portrait replaces the open bag contents instead of closing or resetting it');
 assert.match(clickBlock, /session&&session\.role==='player'&&String\(session\.uid\)===String\(uid\)/);
 assert.match(clickBlock, /zgVttOpenPanel\('character',\{toggle:true,resetMember:true\}\)/);
 assert.ok(
@@ -140,7 +142,7 @@ assert.match(html, /function openCharEditor\(id\) \{\s*if \(window\.zgSessionCha
 assert.match(html, /function deleteChar\(id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
 assert.match(html, /function charTransferMenu\(e, id\) \{\s*if \(window\.zgSessionCharacterEditActive/);
 assert.match(html, /function itemEditorDirty\(\)/, 'the item editor tracks unsaved changes');
-assert.match(html, /Закрыть без сохранения изменений\?/, 'closing a dirty item editor requires confirmation');
+assert.match(html, /title: 'Закрыть редактор\?'[\s\S]*?confirmLabel: 'Закрыть без сохранения'/, 'closing a dirty item editor requires the custom discard confirmation');
 assert.doesNotMatch(html, /backdrop\.onclick\s*=\s*function/, 'clicking outside the item editor must not discard the draft');
 
 console.log('session character sheet contract passed');

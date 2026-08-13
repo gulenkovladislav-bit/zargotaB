@@ -133,7 +133,8 @@ var coinWidget = html.slice(html.indexOf('function buildCoinsWidget'),html.index
 });
 assert.doesNotMatch(coinWidget,/[💰🪙]/u);
 assert.match(html,/window\.zgCurrencyTextHtml/);
-assert.match(html,/value === '\\uD83D\\uDCB0'.*value === '\\uD83E\\uDE99'/);
+var itemIconCatalog = fs.readFileSync(path.resolve(__dirname,'..','item-icon-catalog.js'),'utf8');
+assert.match(itemIconCatalog,/'💰':'coin-pouch','🪙':'coin-pouch'/, 'legacy currency emoji must migrate through the shared media icon catalog');
 assert.doesNotMatch(html,/[💰🪙]/u);
 var progression = fs.readFileSync(path.resolve(__dirname,'..','zargota-progression.js'),'utf8');
 assert.match(progression,/coinIcon\('zl',16\)/);

@@ -2153,13 +2153,24 @@
     battleEcho:12000,
     notes:12000,
     currentGoal:2000,
-    family:80
+    family:80,
+    spellRefs:240
   };
 
   function normalizeCharacterFieldPatch(field, value) {
     field = String(field || '');
     if (!Object.prototype.hasOwnProperty.call(CHARACTER_FIELD_PATCH_LIMITS, field)) return undefined;
     if (field === 'family') return clean(Array.isArray(value) ? value : [], []).slice(0, CHARACTER_FIELD_PATCH_LIMITS.family);
+    if (field === 'spellRefs') {
+      var seen = {};
+      return (Array.isArray(value) ? value : []).map(function (spellId) {
+        return String(spellId == null ? '' : spellId).trim().slice(0, 120);
+      }).filter(function (spellId) {
+        if (!spellId || seen[spellId]) return false;
+        seen[spellId] = true;
+        return true;
+      }).slice(0, CHARACTER_FIELD_PATCH_LIMITS.spellRefs);
+    }
     return cleanText(value, CHARACTER_FIELD_PATCH_LIMITS[field]);
   }
 
@@ -4331,18 +4342,20 @@
             var mode=['advantage','disadvantage'].indexOf(participant.mode)>=0?participant.mode:'normal';
             var portrait = String(participant.portrait || '');
             if (/^data:/i.test(portrait) && portrait.length > 16000) portrait = '';
+            var participantKind=participant.kind==='hero'?'hero':(participant.kind === 'ally' ? 'ally' : (participant.kind === 'npc' ? 'npc' : 'enemy'));
+            var participantSpeed=Math.max(0,combatNumber(participant.speed,7)||7);
             order.push({
-              key:'token:'+String(participant.tokenId).slice(0, 120), kind:participant.kind === 'ally' ? 'ally' : (participant.kind === 'npc' ? 'npc' : 'enemy'),
+              key:'token:'+String(participant.tokenId).slice(0, 120), kind:participantKind, uid:'',
               tokenId:String(participant.tokenId).slice(0, 120), name:name, portrait:portrait.slice(0, 16000),
               sourceRef:participant.sourceRef&&['npc','beast'].indexOf(participant.sourceRef.type)>=0?{type:participant.sourceRef.type,id:String(participant.sourceRef.id||'').slice(0,120)}:null,
               level:Math.max(1,Math.min(99,combatNumber(participant.level,1)||1)),
-              roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:String(participant.group||participant.name||('group-'+index)).trim().slice(0,80), hp:participant.hp == null ? null : Math.max(0,combatNumber(participant.hp,0)),
+              roll:null, rolls:[], rollMode:mode, bonus:bonus, total:null, initiativeGroup:String(participantKind==='hero'?('hero-token:'+participant.tokenId):(participant.group||participant.name||('group-'+index))).trim().slice(0,80), hp:participant.hp == null ? null : Math.max(0,combatNumber(participant.hp,0)),
               hpMax:participant.hpMax == null ? null : Math.max(0,combatNumber(participant.hpMax,0)), orderHint:index,
               tempHp:Math.min(Math.floor(Math.max(0,combatNumber(participant.hpMax,0))*0.5),Math.max(0,combatNumber(participant.tempHp,0))),
-              ac:Math.max(0,combatNumber(participant.ac,10)),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
+              ac:Math.max(0,combatNumber(participant.ac,10)),stats:participant.stats||{},mastery:participant.mastery||[],weaponProfiles:Array.isArray(participant.weaponProfiles)?participant.weaponProfiles.slice(0,12):[],equipmentBonuses:participant.equipmentBonuses||{},resistances:participant.resistances||[],vulnerabilities:participant.vulnerabilities||[],immunities:participant.immunities||[],
               statuses:Array.isArray(participant.statuses) ? participant.statuses.slice(0, 23) : [],
               statusEffects:Array.isArray(participant.statusEffects) ? participant.statusEffects.slice(0, 40) : [],
-              economy:{ long:1, short:1, reaction:1, movement:7, movementMax:7 }
+              economy:{ long:1, short:1, reaction:1, movement:participantSpeed, movementMax:participantSpeed }
             });
           });
           order.forEach(function (entry) {

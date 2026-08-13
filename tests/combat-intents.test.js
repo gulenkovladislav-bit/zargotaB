@@ -42,6 +42,8 @@ assert.match(html, /cursorIcon\+'\?v=20260812\.1" alt=""/, 'cursor artwork must 
 assert.match(html, /\.zg-action-cursor\{[^}]*overflow:visible;[^}]*contain:layout style/, 'the one-pixel cursor anchor must not clip its artwork in Safari');
 assert.doesNotMatch(html, /\.zg-action-cursor\{[^}]*contain:layout paint/, 'paint containment must not hide action cursors outside their one-pixel anchor');
 assert.match(html, /class="zg-action-cursor-label"/, 'every action cursor keeps a readable fallback label when its artwork is unavailable');
+assert.match(html, /if\(kind==='movement'\)return '<span class="zg-action-cursor-label">'/, 'movement cursor keeps only its precise reticle and label without the large boot artwork');
+assert.doesNotMatch(html, /\.zg-action-cursor\[data-tool="movement"\] img/, 'movement cursor must not render or size a detached boot image');
 ['Осмотреть','Взаимодействовать','Искать','Говорить','Взять','Атаковать','Другое действие'].forEach(function(label){
   assert.match(html, new RegExp("[\\'\"]"+label+"[\\'\"]"), label+' must have a cursor label');
 });

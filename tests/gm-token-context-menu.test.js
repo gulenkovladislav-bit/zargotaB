@@ -10,7 +10,8 @@ const dragStart = html.indexOf('  function beginTokenDrag(');
 const dragEnd = html.indexOf('  function moveToken(', dragStart);
 assert.ok(dragStart >= 0 && dragEnd > dragStart, 'GM token drag handler remains extractable');
 const dragBlock = html.slice(dragStart, dragEnd);
-assert.match(dragBlock, /selectGmToken\(token,node\);\s*if\(gmWorkspaceMode!==['"]edit['"]\)return;/, 'run mode selects a token and exits before creating drag state');
+assert.match(dragBlock, /var contextMoveArmed=String\(gmTokenMoveArmedId\|\|''\)===String\(token\.id\|\|''\)/, 'an explicit context-menu move command arms exactly one token');
+assert.match(dragBlock, /if\(gmWorkspaceMode!==['"]edit['"]&&!contextMoveArmed\)return;/, 'run mode still blocks accidental dragging until the context action is armed');
 assert.match(dragBlock, /if \(token\.locked\)[\s\S]*return;/, 'locked tokens remain protected in edit mode too');
 assert.match(dragBlock, /tokenDrag = \{ token:token/, 'edit mode still reaches the existing drag implementation');
 
@@ -33,6 +34,8 @@ const menuBlock = html.slice(menuStart, menuEnd);
 assert.match(menuBlock, /Открыть лист/, 'single-token menu explains sheet access');
 assert.match(menuBlock, /Скрыть от игроков/, 'menu exposes token visibility');
 assert.match(menuBlock, /Закрепить на сцене/, 'menu exposes accidental-movement protection');
+assert.match(menuBlock, /Переместить жетон/, 'menu exposes an explicit one-token drag mode without switching the whole workshop to edit mode');
+assert.match(menuBlock, /gmTokenMoveArmedId=String\(token\.id\)/, 'move action arms the selected token only');
 assert.match(menuBlock, /Перейти через портал/, 'portal navigation remains available after removing the legacy action strip');
 assert.match(menuBlock, /Shift \+ ПКМ/, 'menu teaches group selection in place');
 assert.match(menuBlock, /deleteTokenContextTargets/, 'deletion uses an explicit confirmation state');
@@ -56,5 +59,6 @@ assert.match(html, /id="zg-group-delete-label"/, 'group bar owns its confirmatio
 assert.match(html, /\.zg-token-context-menu\{position:fixed;z-index:220000/, 'menu stays above tokens and session surfaces');
 assert.match(html, /\.zg-game-overlay\.gm\.gm-run-mode \.zg-vtt-token\{cursor:pointer\}/, 'run mode cursor communicates selection rather than dragging');
 assert.match(html, /\.zg-game-overlay\.gm\.gm-edit-mode \.zg-vtt-token:not\(\.locked\)\{cursor:grab\}/, 'edit mode cursor communicates draggable tokens');
+assert.match(html, /\.zg-game-overlay\.gm \.zg-vtt-token\.context-move-armed\{cursor:grab\}/, 'the armed token clearly advertises its temporary drag state');
 
 console.log('GM token context menu tests passed');

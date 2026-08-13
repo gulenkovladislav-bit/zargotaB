@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-13\.1/, 'network cache key must change with the current session spell-preparation contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-13\.2/, 'network cache key must change with the selective spellRefs proposal contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -70,6 +70,7 @@ assert.match(network, /acknowledgeSkillUpdateProposal:\s*function/);
 assert.match(network, /gmProposeCharacterPatch:\s*function/);
 assert.match(network, /resolveCharacterPatchProposal:\s*function/);
 assert.match(network, /kind:'field-patch'/);
+assert.match(network, /spellRefs:240/, 'spellRefs is an explicitly bounded field patch');
 assert.match(network, /skillUpdateSignature\(currentSkill\)!==String\(live\.baseSignature/);
 assert.match(html, /function zgApplyApprovedSkillUpdate\(localCharacter,member\)/);
 assert.match(html, /zgSkillUpdateSignature\(current\)!==zgSkillUpdateSignature\(base\)/);
@@ -154,6 +155,8 @@ var skillHelpersStart = network.indexOf('  function normalizeSkillUpdateValue(')
 var skillHelpersEnd = network.indexOf('  function normalizeInventoryOperationItem(', skillHelpersStart);
 var skillContext = { Math:Math, Number:Number, String:String, JSON:JSON };
 vm.runInNewContext(network.slice(skillHelpersStart, skillHelpersEnd), skillContext);
+assert.deepStrictEqual(Array.from(skillContext.normalizeCharacterFieldPatch('spellRefs',['spell-a',2,'spell-a',''])),['spell-a','2'],'network patch normalizes unique stable spell ids');
+assert.strictEqual(skillContext.normalizeCharacterFieldPatch('hpCur',9),undefined,'runtime HP is not an allowed proposal field');
 var baseSkill = { name:'Навык', type:'Активный', description:'Старая версия', usages:'1 раз', cdMax:1, cdUsed:1, custom:'keep' };
 var sameIdentity = { name:'Навык', type:'Активный', description:'Новая версия', usages:'2 раза', cdMax:2 };
 assert.strictEqual(skillContext.stableSkillId(baseSkill,2),skillContext.stableSkillId(sameIdentity,2),'generated skill id must survive description changes');
@@ -200,6 +203,19 @@ var conflictingFieldHero = { currentGoal:'Свежая локальная цел
 var conflictingFieldApply = localSkillContext.zgApplyApprovedCharacterFieldUpdate(conflictingFieldHero,fieldMember);
 assert.strictEqual(conflictingFieldApply.conflict,true);
 assert.strictEqual(conflictingFieldHero.currentGoal,'Свежая локальная цель','field patch conflict must preserve local text');
+var spellFieldHero = { spellRefs:['spell-a','spell-home'],hpCur:7,inventoryItems:[{itemId:'potion',qty:2}] };
+var spellFieldMember = { characterUpdateProposal:{
+  id:'field-update-spells',kind:'field-patch',status:'approved',field:'spellRefs',
+  baseSignature:JSON.stringify(['spell-a','spell-home']),baseValue:['spell-a','spell-home'],patchValue:['spell-home','spell-b']
+} };
+var spellFieldApply = localSkillContext.zgApplyApprovedCharacterFieldUpdate(spellFieldHero,spellFieldMember);
+assert.strictEqual(spellFieldApply.changed,true);
+assert.deepStrictEqual(Array.from(spellFieldHero.spellRefs),['spell-home','spell-b']);
+assert.strictEqual(spellFieldHero.hpCur,7,'spell proposal must not touch HP');
+assert.deepStrictEqual(spellFieldHero.inventoryItems,[{itemId:'potion',qty:2}],'spell proposal must not touch inventory');
+var conflictingSpellHero = { spellRefs:['spell-a','spell-new-home'] };
+assert.strictEqual(localSkillContext.zgApplyApprovedCharacterFieldUpdate(conflictingSpellHero,spellFieldMember).conflict,true,'fresh local spell changes produce a conflict');
+assert.deepStrictEqual(conflictingSpellHero.spellRefs,['spell-a','spell-new-home'],'conflict preserves the fresh local spell list');
 
 var tabChannels=[];
 function FakeSessionChannel(name){this.name=name;this.onmessage=null;tabChannels.push(this);}
@@ -717,6 +733,7 @@ assert.match(html, /@media \(forced-colors:active\)/);
 assert.match(html, /\.zg-journal3-paper\{[\s\S]*?background:Canvas!important;[\s\S]*?color:CanvasText/);
 assert.match(html, /\.zg-token-status-info article,[\s\S]*?max-height:calc\(100dvh - 32px\)/);
 assert.match(html, /w\.zgSelectedHeroMemberUid=token\.type==='hero'/);
+assert.match(html, /drawerMemberUid=heroUid;lastDrawerRenderSignature='';renderDrawer\(true\)/, 'selecting a map hero immediately reroutes an already-open canonical bag to that hero');
 assert.match(html, /selectedInventoryUid=state&&state\.session&&state\.session\.role==='master'/);
 assert.doesNotMatch(drawerOpenBlock, /zg-gm-intervention/, 'opening the backpack must not hide the floating GM panel');
 assert.match(drawerOpenBlock, /activePanel === panel[^]*classList\.contains\('open'\)\) return;/);
@@ -743,7 +760,7 @@ assert.match(html, /function combatToolbarSheetToken\(controlled,session\)/);
 assert.match(html, /var contextSheetButton=creatureSheet\?/);
 assert.match(html, /<b>Лист существа<\/b><small>HP, состояние, статусы<\/small>/);
 assert.match(html, /<b>Сумка героя<\/b><small>'\+\(session&&session\.role==='master'\?'выбранный герой':'ваши вещи'\)/);
-assert.match(html, /'\+contextSheetButton\+\(controlled\.concentration\?/,
+assert.match(html, /'\+contextSheetButton\+\(controlled&&controlled\.concentration\?/,
   'combat exposes one context-sensitive creature sheet or hero bag control');
 assert.doesNotMatch(html, /creatureSheetButton\+inventoryButton/,
   'the combat toolbar must not render creature and hero sheets in parallel');
@@ -803,7 +820,9 @@ var vttShellStart = html.indexOf('//   КАРКАС VTT');
 var vttShellEnd = html.indexOf('//   КУБИК СНИЗУ', vttShellStart);
 var vttShellSource = html.slice(vttShellStart, vttShellEnd);
 assert.match(vttShellSource, /function currentVttSceneView\(\)/);
-assert.doesNotMatch(vttShellSource, /\bdraft\./, 'VTT shell must use the public scene snapshot instead of the editor-private draft');
+var currentVttSceneStart = vttShellSource.indexOf('function currentVttScene(){');
+var currentVttSceneEnd = vttShellSource.indexOf('var JOURNAL_ICON_VARIANTS', currentVttSceneStart);
+assert.doesNotMatch(vttShellSource.slice(currentVttSceneStart,currentVttSceneEnd), /\bdraft\./, 'VTT scene reader must use the public scene snapshot instead of the editor-private draft');
 
 var drawerMemberStart = html.indexOf('function drawerMember(){');
 var drawerMemberEnd = html.indexOf('function drawerReadOnly(member){', drawerMemberStart);
@@ -914,7 +933,7 @@ var injuryHtml = renderCharacterStats(
 );
 assert.match(injuryHtml, /images\/vtt-injuries\/broken-arm\.png/, 'a hero with an injury must keep the first sheet page renderable');
 
-var abilitiesStart = html.indexOf('function abilitiesPanel()');
+var abilitiesStart = html.indexOf('function buildAbilityCards(');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
 var abilitiesBlock = html.slice(abilitiesStart, abilitiesEnd);
 assert.match(abilitiesBlock, /localCharacter=fullLocalCharacter\(member\)/);

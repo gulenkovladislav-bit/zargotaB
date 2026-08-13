@@ -41,7 +41,7 @@ assert.match(targetingUi, /catch\(function\(error\)[\s\S]*Не удалось о
 assert.match(targetingUi, /then\(function\(\)\{abilityRequestBusy=false;renderDrawer\(\);\}/, 'targeted casts unlock their UI after either outcome');
 assert.match(html, /if\(profile\.effectKind==='summon'\)return'point'/, 'summon spells request an explicit scene point');
 assert.match(html, /effectKind:\['damage','heal','temp_hp','buff','summon','movement','utility'\]/, 'VTT ability profiles preserve summon semantics');
-assert.match(html, /w\.zgSceneQaActiveCombat=function\(\)/, 'local QA exposes an active combat fixture without Firebase');
+assert.match(html, /w\.zgSceneQaActiveCombat=function\(sceneParticipants,heroOptions\)/, 'local QA exposes a selectable active combat fixture without Firebase');
 assert.match(html, /reserveId='qa-linked-summon-reserve'/, 'the QA fixture provides one source-linked summon outside initiative');
 assert.match(html, /token\.id!==reserveId/, 'the reserved summon stays outside the initial QA order');
 assert.match(html, /room\.code!=='TEST'/, 'the offline active combat fixture cannot run in a live room');

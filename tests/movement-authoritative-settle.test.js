@@ -55,7 +55,10 @@ const settleEnd = html.indexOf('  function cancelActiveMovementPlayback(', settl
 const settle = html.slice(settleStart, settleEnd);
 assert.ok(settleStart >= 0 && settleEnd > settleStart, 'movement settle helper remains extractable');
 assert.ok(settle.indexOf("node.style.removeProperty('transform')") < settle.indexOf("node.style.left=clamp(x,0,100)+'%'"), 'the compositor delta is removed before destination coordinates, preventing a double-distance frame');
-const settleContext={clamp(value,min,max){return Math.max(min,Math.min(max,Number(value)||0));}};
+const settleContext={
+  clamp(value,min,max){return Math.max(min,Math.min(max,Number(value)||0));},
+  syncTokenStatusPortal(node){if(node)node.statusPortalSyncs=(node.statusPortalSyncs||0)+1;}
+};
 vm.createContext(settleContext);vm.runInContext(settle,settleContext);
 const settleOps=[],settleStyle={transform:'translate3d(320px,0,0)',removeProperty(name){settleOps.push('remove:'+name);delete this[name];}};
 Object.defineProperty(settleStyle,'left',{set(value){settleOps.push('left:'+value+':transform='+(this.transform||'none'));}});
@@ -63,6 +66,7 @@ Object.defineProperty(settleStyle,'top',{set(value){settleOps.push('top:'+value+
 const settleNode={isConnected:true,style:settleStyle,classList:{remove(){settleOps.push('classes');}}};
 Object.defineProperty(settleNode,'offsetWidth',{get(){settleOps.push('layout');return 64;}});
 settleContext.settleMovementNode(settleNode,64,42);
+assert.strictEqual(settleNode.statusPortalSyncs,1,'the detached status surface follows the authoritative destination settle');
 assert.ok(settleOps.indexOf('remove:transform') < settleOps.findIndex(item=>item.indexOf('left:64%')===0), 'runtime settle removes the old delta before writing left');
 assert.ok(settleOps.includes('left:64%:transform=none'), 'destination cannot coexist with the completed movement delta');
 assert.ok(settleOps.indexOf('layout') > settleOps.findIndex(item=>item.indexOf('left:64%')===0),'the no-transition destination is committed before normal transitions return');

@@ -19,7 +19,7 @@
 <script src="combat-vfx-presets.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-runtime.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-09.3"></script>
-<script src="zargota-network.js?v=2026-08-13.1"></script>
+<script src="zargota-network.js?v=2026-08-13.2"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-08-12.10">
 <script src="gm-delivery.js?v=2026-08-12.11"></script>
 <script>
@@ -11125,12 +11125,12 @@ document.addEventListener('DOMContentLoaded', function(){
       if(go)go.classList.add('gm','gm-vision','dice-test-mode');
       if(w.zgVttEnableTestHero)w.zgVttEnableTestHero();
       if(w.zgSceneBuildQaCombat)w.zgSceneBuildQaCombat();
-      if(mode==='combat'&&w.zgSceneQaActiveCombat)w.zgSceneQaActiveCombat();
+      if(mode==='combat'&&w.zgCombatToggle)w.zgCombatToggle();
       if(mode==='free'&&w.zgQaSessionFreeRoom)w.zgQaSessionFreeRoom();
       if(dice&&!dice.classList.contains('open')&&w.zgDiceToggle)w.zgDiceToggle();
       if(settings&&!settings.classList.contains('open')&&w.zgGameSettings)w.zgGameSettings();
       if(w.zgQaSessionToolsRender)w.zgQaSessionToolsRender();
-      if(w.showToast)w.showToast(mode==='combat'?'Мастерская · активный бой без Firebase':'Мастерская · свободная комната без Firebase');
+      if(w.showToast)w.showToast(mode==='combat'?'Мастерская · выберите участников боя':'Мастерская · свободная комната без Firebase');
     },60);
   };
   w.zgGameSettings = function(ev){
@@ -11384,6 +11384,7 @@ document.addEventListener('DOMContentLoaded', function(){
     });
     return Object.keys(TOKEN_STATUS_DEFS).map(function(key){var def=TOKEN_STATUS_DEFS[key];return{key:key,icon:def[0],color:def[1],label:def[2],enabled:true};});
   }
+  w.zgGmStatusCatalog=gmStatusCatalog;
   function gmStatusDefinition(key){return gmStatusCatalog().filter(function(status){return status.key===key;})[0]||null;}
   function gmStatusEffectPayload(status,options){
     options=options&&typeof options==='object'?options:{};
@@ -11415,6 +11416,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var launchBusy = false;
   var drag = null;
   var tokenDrag = null;
+  var gmTokenMoveArmedId = '';
   var tokenClickSuppressedUntil = 0;
   var activeRoomCode = '';
   var lastAppliedSceneSignature = '';
@@ -11426,6 +11428,10 @@ document.addEventListener('DOMContentLoaded', function(){
   var worldClockBriefTimer = 0;
   var selectedLayerId = '';
   var selectedTokenId = ''; w.zgGetSelectedTokenId = function(){ return selectedTokenId; };
+  // Workshop campaign heroes are local fixtures, not Firebase room members.
+  // Their map visibility therefore lives only in this tab and never mutates
+  // the scene draft or a player's character payload.
+  var workshopHiddenHeroUids = Object.create(null);
   var gmInterventionTokenId = '';
   var gmInterventionBusy = false;
   var gmInterventionTab = 'entity';
@@ -11493,6 +11499,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!kind)return '';
     var cursorIcon=actionCursorIcons[kind]||actionCursorIcons.custom;
     var label=actionToolLabels[kind]||'Действие';
+    if(kind==='movement')return '<span class="zg-action-cursor-label">'+label+'</span>';
     return '<img src="'+cursorIcon+'?v=20260812.1" alt=""><span class="zg-action-cursor-label">'+label+'</span>';
   }
   var actionPointerX = Math.round(w.innerWidth / 2), actionPointerY = Math.round(w.innerHeight / 2), actionCursorFrame = 0;
@@ -11764,6 +11771,7 @@ document.addEventListener('DOMContentLoaded', function(){
       show:'<path d="M2.5 12s3.7-6 9.5-6 9.5 6 9.5 6-3.7 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.7"/>',
       lock:'<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>',
       unlock:'<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 017.4-2"/>',
+      move:'<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
       copy:'<rect x="8" y="8" width="11" height="11" rx="1"/><path d="M16 8V5H5v11h3"/>',
       edit:'<path d="M4 20l4.2-1 10.9-10.9a2 2 0 00-2.8-2.8L5.4 16.2 4 20zM14.8 6.8l2.8 2.8"/>',
       run:'<path d="M8 5l10 7-10 7V5z"/>',
@@ -11780,7 +11788,16 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function selectGmToken(token,node){
     if(!token)return;
+    if(gmTokenMoveArmedId&&String(gmTokenMoveArmedId)!==String(token.id||'')){
+      gmTokenMoveArmedId='';Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.context-move-armed'),function(item){item.classList.remove('context-move-armed');});
+    }
     selectedTokenId=token.id;w.zgSelectedHeroMemberUid=token.type==='hero'&&token.memberUid?String(token.memberUid):'';
+    if(token.type==='hero'&&token.memberUid){
+      var heroUid=String(token.memberUid),drawer=el('zg-vtt-drawer');selectedMemberUid=heroUid;
+      if(drawer&&drawer.classList.contains('open')&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0&&String(drawerMemberUid||'')!==heroUid){
+        drawerMemberUid=heroUid;lastDrawerRenderSignature='';renderDrawer(true);
+      }
+    }
     var sceneEditor=el('zg-scene-settings');if(sceneEditor&&sceneEditor.classList.contains('open')&&w.zgSceneTab)w.zgSceneTab('objects');
     var intervention=el('zg-gm-intervention');if(intervention){gmInterventionTokenId=token.id;if(intervention.classList.contains('open')||intervention.classList.contains('minimized'))renderGmIntervention();}
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){item.classList.remove('selected');});if(node)node.classList.add('selected');
@@ -11805,6 +11822,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var hideTargets=tokenVisibilityTargets(targets);
     if(hideTargets.length){var shouldHide=!token.hidden;appendTokenContextAction(actions,shouldHide?'hide':'show',shouldHide?'Скрыть от игроков':'Показать игрокам','Жетон останется виден мастеру',function(){applyGmTokenAction(hideTargets,'visibility',shouldHide,shouldHide?'Жетон скрыт':'Жетон показан игрокам');closeGmTokenContextMenu();});}
     var shouldLock=!token.locked;appendTokenContextAction(actions,shouldLock?'lock':'unlock',shouldLock?'Закрепить на сцене':'Разрешить перемещение',shouldLock?'Защита от случайного сдвига':'Перетаскивание только в Редакторе',function(){applyGmTokenAction(targets,'lock',shouldLock,shouldLock?'Жетон закреплён':'Жетон разблокирован');closeGmTokenContextMenu();});
+    if(!token.locked)appendTokenContextAction(actions,'move','Переместить жетон','Затем перетащите его по сцене',function(){gmTokenMoveArmedId=String(token.id);closeGmTokenContextMenu();renderTokens();setStatus('Перетащите «'+tokenName(token)+'» в нужное место');});
     if(token.type!=='hero'&&token.type!=='spawn')appendTokenContextAction(actions,'copy','Создать копию','Появится рядом с оригиналом',function(){w.zgSceneTokenDuplicate();closeGmTokenContextMenu();});
     if(token.type==='portal')appendTokenContextAction(actions,'run','Перейти через портал','Открыть связанную сцену',function(){w.zgScenePortalGo();closeGmTokenContextMenu();});
     if(token.type!=='hero')appendTokenContextAction(actions,'trash','Удалить со сцены','С подтверждением',function(){deleteTokenContextTargets(menu,targets);},{danger:true});
@@ -12150,14 +12168,23 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgSceneDrawerEditSelected=function(){w.zgSceneDrawerEdit(sceneDrawerSelectedId||activeSceneId||'');};
   w.zgSceneDrawerPick=w.zgSceneDrawerOpen;
   function isHeroSlot(token){return !!(token&&token.type==='spawn'&&/^Место героя(?:\s|$)/.test(token.name||''));}
+  function normalizedCampaignKey(value){return String(value||'').trim().toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,40);}
+  function heroSlotCampaignKey(token){var match=/\[герой:([a-z0-9_-]{1,40})\]/i.exec(String(token&&token.name||''));return normalizedCampaignKey(match&&match[1]);}
+  function heroSlotName(index,campaignKey){campaignKey=normalizedCampaignKey(campaignKey);return 'Место героя '+(index+1)+(campaignKey?' [герой:'+campaignKey+']':'');}
+  function heroTokenCampaignKey(token){
+    if(!token||token.type!=='hero'||!roomSnapshot||!roomSnapshot.room)return '';
+    var member=(roomSnapshot.room.members||{})[String(token.memberUid||'')]||{},character=member.character||{};
+    return normalizedCampaignKey(member.campaignKey||character.campaignKey);
+  }
   function sceneForLibrary(scene){
-    var stored=copyScene(scene),heroes=stored.tokens.filter(function(token){return token.type==='hero';}),oldSlots=stored.tokens.filter(isHeroSlot).sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});});
+    var stored=copyScene(scene),heroes=stored.tokens.filter(function(token){return token.type==='hero';}).map(function(token){return{token:token,campaignKey:heroTokenCampaignKey(token)};}),oldSlots=stored.tokens.filter(isHeroSlot).sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});});
     stored.tokens=stored.tokens.filter(function(token){return token.type!=='hero'&&!isHeroSlot(token);});
-    var slotCount=Math.max(heroes.length,oldSlots.length);
-    for(var index=0;index<slotCount;index++){
-      var source=heroes[index]||oldSlots[index];
-      stored.tokens.push(copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:'Место героя '+(index+1),x:source.x,y:source.y,size:Math.max(30,Math.min(54,(source.size||48)*(heroes[index] ? .62 : 1))),visible:true,hidden:true,locked:true,z:index+3},stored.tokens.length));
-    }
+    var occupiedKeys={};heroes.forEach(function(placement){if(placement.campaignKey)occupiedKeys[placement.campaignKey]=true;});
+    var placements=heroes.concat(oldSlots.filter(function(slot){var key=heroSlotCampaignKey(slot);return !key||!occupiedKeys[key];}).map(function(slot){return{token:slot,campaignKey:heroSlotCampaignKey(slot),storedSlot:true};}));
+    placements.forEach(function(placement,index){
+      var source=placement.token,campaignKey=placement.campaignKey;
+      stored.tokens.push(copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:heroSlotName(index,campaignKey),x:source.x,y:source.y,size:Math.max(30,Math.min(54,(source.size||48)*(placement.storedSlot ? 1 : .62))),visible:true,hidden:true,locked:true,z:index+3},stored.tokens.length));
+    });
     return stored;
   }
   var SCENE_TRANSFER_FORMAT='zargota-scene';
@@ -12513,7 +12540,7 @@ document.addEventListener('DOMContentLoaded', function(){
   function migrateLoadedHeroes(scene){
     var loaded=copyScene(scene),legacy=loaded.tokens.filter(function(token){return token.type==='hero';});
     if(legacy.length&&!loaded.tokens.some(isHeroSlot)){
-      legacy.forEach(function(hero,index){loaded.tokens.push(copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:'Место героя '+(index+1),x:hero.x,y:hero.y,size:Math.max(30,Math.min(54,hero.size*.62)),visible:true,hidden:true,locked:true,z:index+3},loaded.tokens.length));});
+      legacy.forEach(function(hero,index){loaded.tokens.push(copyToken({id:'hero-slot-'+(index+1),type:'spawn',name:heroSlotName(index,heroTokenCampaignKey(hero)),x:hero.x,y:hero.y,size:Math.max(30,Math.min(54,hero.size*.62)),visible:true,hidden:true,locked:true,z:index+3},loaded.tokens.length));});
     }
     loaded.tokens=loaded.tokens.filter(function(token){return token.type!=='hero';});
     return loaded;
@@ -12867,7 +12894,8 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function tokenName(token){
     if (token && token.type === 'hero') { var member = memberForToken(token); return member && member.character && member.character.name || token.name; }
-    return token && token.name || 'Жетон';
+    var name=token&&token.name||'Жетон';
+    return isHeroSlot(token)?name.replace(/\s*\[герой:[a-z0-9_-]{1,40}\]\s*$/i,''):name;
   }
   function interventionToken(){var id=gmInterventionTokenId||selectedTokenId;return (draft.tokens||[]).filter(function(token){return token&&token.id===id;})[0]||null;}
   function interventionVitals(token){
@@ -14221,13 +14249,13 @@ document.addEventListener('DOMContentLoaded', function(){
   function combatEntryForToken(token){
     var combat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[];
     if(!token||!combat||!combat.active)return null;
-    var entry=token.type==='hero'&&token.memberUid?order.find(function(item){return item&&item.uid!=null&&String(item.uid)===String(token.memberUid);}):order.find(function(item){return item&&item.tokenId!=null&&String(item.tokenId)===String(token.id);});
+    var entry=token.type==='hero'&&token.memberUid?order.find(function(item){return item&&item.uid!=null&&String(item.uid)===String(token.memberUid);})||order.find(function(item){return item&&item.tokenId!=null&&String(item.tokenId)===String(token.id);}):order.find(function(item){return item&&item.tokenId!=null&&String(item.tokenId)===String(token.id);});
     return combatPresentationEntry(entry||null);
   }
   function storedCombatEntryForToken(token){
     var combat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[];
     if(!token)return null;
-    return token.type==='hero'&&token.memberUid?order.find(function(item){return item&&item.uid!=null&&String(item.uid)===String(token.memberUid);})||null:order.find(function(item){return item&&item.tokenId!=null&&String(item.tokenId)===String(token.id);})||null;
+    return token.type==='hero'&&token.memberUid?order.find(function(item){return item&&item.uid!=null&&String(item.uid)===String(token.memberUid);})||order.find(function(item){return item&&item.tokenId!=null&&String(item.tokenId)===String(token.id);})||null:order.find(function(item){return item&&item.tokenId!=null&&String(item.tokenId)===String(token.id);})||null;
   }
   w.zgCombatEntryForToken=combatEntryForToken;
   var STATUS_DISPLAY_ALIASES={
@@ -14661,13 +14689,16 @@ document.addEventListener('DOMContentLoaded', function(){
   function finishTokenDrag(ev){
     if (!tokenDrag || (ev && tokenDrag.pointerId !== ev.pointerId)) return;
     var moved = tokenDrag.moved;
+    var contextMoveArmed=!!tokenDrag.contextMoveArmed;
     var movedItems = tokenDrag.items ? tokenDrag.items.slice() : [];
     var cancelled=!!(ev&&ev.type==='pointercancel');
     try { tokenDrag.node.releasePointerCapture(tokenDrag.pointerId); } catch(e) {}
-    tokenDrag.node.classList.remove('dragging');
+    tokenDrag.node.classList.remove('dragging','context-move-armed');
     tokenDrag = null;
+    if(contextMoveArmed)gmTokenMoveArmedId='';
     if(cancelled){
       movedItems.forEach(function(item){if(!item||!item.t)return;item.t.x=item.x0;item.t.y=item.y0;if(item.node){item.node.style.left=item.x0+'%';item.node.style.top=item.y0+'%';}});
+      if(contextMoveArmed)renderTokens();
       return;
     }
     if (moved) {
@@ -14676,6 +14707,7 @@ document.addEventListener('DOMContentLoaded', function(){
       movedItems.forEach(function(item){ if(item && item.t) scheduleLiveTokenPublish(item.t); });
       syncTokenEditor();
     }
+    if(contextMoveArmed)renderTokens();
   }
   function beginTokenDrag(ev, token, node){
     if (!isMaster || movementMode || ev.button !== 0) return;
@@ -14688,7 +14720,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if (ev.shiftKey&&gmWorkspaceMode==='edit'){ tokenClickSuppressedUntil=Date.now()+260;toggleGroupSel(token); return; } // В редакторе Shift+ЛКМ остаётся быстрым выделением
     if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
     selectGmToken(token,node);
-    if(gmWorkspaceMode!=='edit')return; // Ведение: ЛКМ только выбирает, случайный сдвиг невозможен.
+    var contextMoveArmed=String(gmTokenMoveArmedId||'')===String(token.id||'');
+    if(gmWorkspaceMode!=='edit'&&!contextMoveArmed)return; // Ведение: движение доступно только после явной команды из ПКМ.
     // вкладку не переключаем — свойства выбранного показываются в контекст-блоке над вкладками
     if (token.locked) { renderTokens();if(token.type==='custom'&&w.zgGmInterventionOpenToken)w.zgGmInterventionOpenToken(token.id,'entity');return; }              // заблокирован — только выбор, без перетаскивания
     node.classList.add('dragging');
@@ -14704,7 +14737,7 @@ document.addEventListener('DOMContentLoaded', function(){
       settleActiveMovementForEditorDrag([token.id],'editor-drag');
       items = [{ t:token, x0:token.x, y0:token.y, node:node }];
     }
-    tokenDrag = { token:token, node:node, items:items, sx0:token.x, sy0:token.y, pointerId:ev.pointerId, startX:ev.clientX, startY:ev.clientY, moved:false };
+    tokenDrag = { token:token, node:node, items:items, sx0:token.x, sy0:token.y, pointerId:ev.pointerId, startX:ev.clientX, startY:ev.clientY, moved:false, contextMoveArmed:contextMoveArmed };
     try { node.setPointerCapture(ev.pointerId); } catch(e) {}
   }
   function moveToken(ev){
@@ -14768,6 +14801,7 @@ document.addEventListener('DOMContentLoaded', function(){
     layer.innerHTML = '';
     var viewerGm = isMaster && gmVision === 'gm';
     draft.tokens.slice().sort(function(a,b){ return a.z-b.z; }).forEach(function(token){
+      if(isWorkshopHeroLocallyHidden(token))return;
       if (!token.visible) return;
       if(viewerGm&&gmWorkspaceMode!=='edit'&&isHeroSlot(token))return;
       var isLightSource = token.light && token.light.enabled;
@@ -14783,7 +14817,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var marker = isMarkerType(token.type) || token.type === 'note';
       var isText = token.type === 'text';
       var isObj = token.type === 'object';
-      node.type = 'button'; node.className = 'zg-vtt-token' + (token.type==='hero'?' hero-token':'') + (isText ? ' text' : (isObj ? ' obj' : ' disp-' + (token.disposition || 'neutral'))) + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.locked ? ' locked' : '') + (ownToken ? ' own' : '') + (freeRoomInteractable ? ' free-room-interactable' : '') + (gmCombatControlled ? ' gm-combat-controlled' : '') + (token.id === selectedTokenId && isMaster && gmVision === 'gm' ? ' selected' : '') + (token.type === 'hero' && token.memberUid === possessedUid && isMaster && gmVision === 'players' ? ' controlled' : '') + (groupSel.indexOf(token.id) >= 0 ? ' gsel' : '');
+      node.type = 'button'; node.className = 'zg-vtt-token' + (token.type==='hero'?' hero-token':'') + (isText ? ' text' : (isObj ? ' obj' : ' disp-' + (token.disposition || 'neutral'))) + (marker ? ' marker marker-' + token.type : '') + (token.hidden ? ' ghost' : '') + (token.locked ? ' locked' : '') + (ownToken ? ' own' : '') + (freeRoomInteractable ? ' free-room-interactable' : '') + (gmCombatControlled ? ' gm-combat-controlled' : '') + (String(gmTokenMoveArmedId||'')===String(token.id||'') ? ' context-move-armed' : '') + (token.id === selectedTokenId && isMaster && gmVision === 'gm' ? ' selected' : '') + (token.type === 'hero' && token.memberUid === possessedUid && isMaster && gmVision === 'players' ? ' controlled' : '') + (groupSel.indexOf(token.id) >= 0 ? ' gsel' : '');
       var incomingMove=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.lastMovement;
       var liveMove=activeMovementVisual&&String(token.id)===String(activeMovementVisual.tokenId)?activeMovementVisual:null;
       var holdAtOrigin=!liveMove&&incomingMove&&incomingMove.id&&incomingMove.id!==lastMovementSeen&&(incomingMove.tokenId?String(token.id)===String(incomingMove.tokenId):(token.type==='hero'&&token.memberUid===incomingMove.uid));
@@ -15185,13 +15219,17 @@ document.addEventListener('DOMContentLoaded', function(){
       seenHero[token.memberUid]=true;return true;
     });
     var rosterChanged=beforeHeroCount!==draft.tokens.filter(function(token){return token.type==='hero';}).length;
-    var slots=draft.tokens.filter(isHeroSlot).sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});});
+    var slots=draft.tokens.filter(isHeroSlot).sort(function(a,b){return String(a.id).localeCompare(String(b.id),undefined,{numeric:true});}),claimedSlots={};
     var spawn=draft.tokens.filter(function(t){return t.type==='spawn'&&!isHeroSlot(t);})[0];
     var base=spawn?[spawn.x,spawn.y]:[50,50];
     var offsets=[[0,0],[-7,5],[7,5],[-5,11],[5,11],[0,16]], added=false;
     heroes.forEach(function(member,index){
       if(draft.tokens.some(function(token){return token.type==='hero'&&token.memberUid===member.uid;}))return;
-      var slot=slots[index],off=offsets[index%offsets.length],x=slot?slot.x:clamp(base[0]+off[0],4,96),y=slot?slot.y:clamp(base[1]+off[1],4,96);
+      var memberKey=normalizedCampaignKey(member.campaignKey||member.character&&member.character.campaignKey),slot=null;
+      if(memberKey)slot=slots.find(function(candidate){return !claimedSlots[candidate.id]&&heroSlotCampaignKey(candidate)===memberKey;});
+      if(!slot)slot=slots.find(function(candidate){return !claimedSlots[candidate.id]&&!heroSlotCampaignKey(candidate);});
+      if(slot)claimedSlots[slot.id]=true;
+      var off=offsets[index%offsets.length],x=slot?slot.x:clamp(base[0]+off[0],4,96),y=slot?slot.y:clamp(base[1]+off[1],4,96);
       draft.tokens.push(copyToken({id:'hero-'+member.uid,type:'hero',disposition:'hero',memberUid:member.uid,name:member.character.name,x:x,y:y,size:clamp(draft.gridSize*.9,42,84),z:index+10},draft.tokens.length));added=true;
     });
     if(added||rosterChanged){dirty=true;setStatus('Состав героев обновлён · опубликуйте сцену');renderTokens();}
@@ -15333,17 +15371,52 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   w.zgVttSetTestRoomSnapshot=function(snapshot){if(snapshot&&snapshot.room&&snapshot.room.code==='TEST')roomState(snapshot);};
 
-  w.zgSceneEnableTestHero=function(character){
-    if(!character)return null;
-    var testScene=snapDraft(),playerUid='dice-test-player',masterUid='dice-test-master';
-    testScene.tokens=(testScene.tokens||[]).filter(function(token){return token&&token.memberUid!==playerUid;});
-    var player={uid:playerUid,role:'player',name:'Тестовый игрок',online:true,characterId:character.id,campaignKey:character.campaignKey,character:character};
+  function workshopHeroUid(value){return /^workshop-hero-/.test(String(value||''));}
+  function isWorkshopHeroLocallyHidden(token){
+    return !!(token&&token.type==='hero'&&workshopHeroUid(token.memberUid)&&roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.code==='TEST'&&workshopHiddenHeroUids[String(token.memberUid)]);
+  }
+  w.zgSceneTestHeroHidden=function(uid){return !!workshopHiddenHeroUids[String(uid||'')];};
+  w.zgSceneSetTestHeroHidden=function(uid,hidden){
+    uid=String(uid||'');
+    if(!workshopHeroUid(uid)||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.code!=='TEST')return false;
+    var token=(draft.tokens||[]).find(function(item){return item&&item.type==='hero'&&String(item.memberUid||'')===uid;});
+    if(!token)return false;
+    if(hidden)workshopHiddenHeroUids[uid]=true;else delete workshopHiddenHeroUids[uid];
+    if(hidden&&selectedTokenId===token.id){selectedTokenId='';w.zgSelectedHeroMemberUid='';clearGroupSel();}
+    renderTokens();
+    return true;
+  };
+  w.zgSceneSetAllTestHeroesHidden=function(hidden){
+    if(!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.code!=='TEST')return 0;
+    var changed=0;
+    (draft.tokens||[]).forEach(function(token){
+      var uid=String(token&&token.memberUid||'');if(!token||token.type!=='hero'||!workshopHeroUid(uid))return;
+      if(hidden){if(!workshopHiddenHeroUids[uid])changed++;workshopHiddenHeroUids[uid]=true;}
+      else{if(workshopHiddenHeroUids[uid])changed++;delete workshopHiddenHeroUids[uid];}
+      if(hidden&&selectedTokenId===token.id){selectedTokenId='';w.zgSelectedHeroMemberUid='';}
+    });
+    if(hidden)clearGroupSel();
+    renderTokens();
+    return changed;
+  };
+
+  w.zgSceneEnableTestHeroes=function(characters){
+    characters=(Array.isArray(characters)?characters:[]).filter(Boolean).slice(0,5);
+    if(!characters.length)return null;
+    var testScene=copyScene(draft),masterUid='dice-test-master',members={},slots={};
+    testScene.tokens=(testScene.tokens||[]).filter(function(token){return token&&String(token.memberUid||'').indexOf('workshop-hero-')!==0&&token.memberUid!=='dice-test-player';});
     var master={uid:masterUid,role:'master',name:'Тестовый мастер',online:true};
-    var snapshot={networkReady:true,online:false,connected:false,session:{uid:masterUid,role:'master',code:'TEST'},room:{code:'TEST',phase:'playing',members:{},slots:{0:playerUid},scene:testScene},characterSync:{status:'local'}};
-    snapshot.room.members[masterUid]=master;snapshot.room.members[playerUid]=player;
+    members[masterUid]=master;
+    characters.forEach(function(character,index){
+      var key=String(character.campaignKey||character.id||index).replace(/[^a-z0-9_-]/gi,'-'),playerUid='workshop-hero-'+key;
+      members[playerUid]={uid:playerUid,role:'player',name:character.name||('Герой '+(index+1)),online:false,workshopCopy:true,characterId:character.id,campaignKey:character.campaignKey||'',character:character};
+      slots[index]=playerUid;
+    });
+    var snapshot={networkReady:true,online:false,connected:false,session:{uid:masterUid,role:'master',code:'TEST'},room:{code:'TEST',phase:'playing',members:members,slots:slots,scene:testScene},characterSync:{status:'local-workshop-copy'}};
     roomState(snapshot);dirty=false;updateDirtyUi();
     return roomSnapshot;
   };
+  w.zgSceneEnableTestHero=function(character){return w.zgSceneEnableTestHeroes(character?[character]:[]);};
   w.zgSceneRefresh = function(){
     roomState(w.ZargotaRooms && w.ZargotaRooms.getSnapshot ? w.ZargotaRooms.getSnapshot() : null);
   };
@@ -15564,7 +15637,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!isMaster)return;
     var qaMode=!!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());
     if(!qaMode&&(draft.layers.length||draft.tokens.length)&&!confirm('Заменить текущую композицию на постоянную QA-сцену боя?'))return;
-    var heroes=draft.tokens.filter(function(token){return token.type==='hero';}).map(function(token,index){return copyToken(Object.assign({},token,{x:38+(index*2),y:58,snap:false}),index);});
+    var heroes=draft.tokens.filter(function(token){return token.type==='hero';}).map(function(token,index){return copyToken(Object.assign({},token,{x:25+(index*8),y:58+(index%2)*7,snap:false}),index);});
     var heroSlots=heroes.length?[]:[copyToken({id:'hero-slot-1',type:'spawn',name:'Место героя 1',x:38,y:58,size:46,visible:true,hidden:true,locked:true,snap:false,z:3},0)];
     var enemies=[
       copyToken({id:'qa-rat-melee',type:'custom',name:'QA Крыса',image:'images/beasts/beast_1775684561488.png',disposition:'enemy',x:43,y:58,size:58,visible:true,snap:false,hp:12,hpMax:12,ac:10,initiative:1,speed:7,stats:{str:1,dex:2,con:1,int:-2,per:1,cha:-2},weaponProfiles:[{id:'qa-bite',name:'Укус',damageFormula:'1d4+1',damageType:'колющий',range:'1 клетка',toHit:2,description:'Контроль ближней атаки и урона.'}],z:20},1),
@@ -15586,7 +15659,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return qaWorkshopFixtureReady(draft);
   };
 
-  w.zgQaSessionToolsRender=function(){var host=el('zg-qa-session-tools');if(host){host.hidden=!isMaster||!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());if(!host.hidden&&w.zgQaSessionModeRender)w.zgQaSessionModeRender();}};
+  w.zgQaSessionToolsRender=function(){var host=el('zg-qa-session-tools');if(host){host.hidden=!isMaster||!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());if(!host.hidden&&w.zgQaSessionModeRender)w.zgQaSessionModeRender();if(!host.hidden&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();}};
   w.zgQaSessionBuild=function(){w.zgSceneBuildQaCombat();if(w.showToast)w.showToast('Мастерская собрана · теперь запустите активный бой');};
   w.zgQaSessionStart=function(){w.zgQaSessionMode('combat');};
   w.zgQaSessionFreeRoom=function(){
@@ -15607,7 +15680,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgQaSessionMode=function(mode){
     mode=mode==='free'?'free':'combat';
     if(mode==='free'){var stopped=w.zgQaSessionFreeRoom();if(stopped&&w.showToast)w.showToast('Свободная комната · бой и очередь отключены');return stopped;}
-    w.zgWorkshopMode='combat';w.zgSceneQaActiveCombat();if(w.zgQaSessionModeRender)w.zgQaSessionModeRender();if(w.showToast)w.showToast('Тестовый бой запущен заново');return true;
+    w.zgWorkshopMode='combat';if(w.zgCombatToggle)w.zgCombatToggle();if(w.zgQaSessionModeRender)w.zgQaSessionModeRender();return true;
   };
   w.zgQaSessionModeRender=function(){
     var combat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat,mode=combat&&combat.active?'combat':'free';w.zgWorkshopMode=mode;
@@ -15630,9 +15703,11 @@ document.addEventListener('DOMContentLoaded', function(){
   // Offline-only active combat fixture for visual QA. It never calls Firebase:
   // the reserved linked summon intentionally stays outside the order so the
   // GM can inspect the real "join combat" control and its busy state.
-  w.zgSceneQaActiveCombat=function(){
+  w.zgSceneQaActiveCombat=function(sceneParticipants,heroOptions){
     var qaMode=!!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());
     if(!qaMode||!isMaster||!roomSnapshot||!roomSnapshot.room||roomSnapshot.room.code!=='TEST'){if(w.showToast)w.showToast('QA-предпросмотр доступен только в локальном тесте бросков');return;}
+    sceneParticipants=Array.isArray(sceneParticipants)?sceneParticipants:[];heroOptions=heroOptions&&typeof heroOptions==='object'?heroOptions:{};
+    var selectedTokenIds={};sceneParticipants.forEach(function(participant){if(participant&&participant.tokenId)selectedTokenIds[String(participant.tokenId)]=true;});
     var reserveId='qa-linked-summon-reserve',reserve=draft.tokens.filter(function(token){return token&&token.id===reserveId;})[0];
     if(!reserve){
       reserve=copyToken({id:reserveId,type:'custom',disposition:'ally',name:'QA призыв · резерв',x:58,y:68,size:56,visible:true,snap:false,hp:4,hpMax:4,ac:11,initiative:1,speed:6,z:32},draft.tokens.length);
@@ -15642,8 +15717,8 @@ document.addEventListener('DOMContentLoaded', function(){
       reserve.disposition='ally';draft.tokens.push(reserve);
     }
     var snapshot=JSON.parse(JSON.stringify(roomSnapshot)),order=[],orderHint=0;
-    Object.keys(snapshot.room.members||{}).forEach(function(uid){var member=snapshot.room.members[uid],character=member&&member.character;if(!member||member.role!=='player'||!character)return;var speed=Math.max(0,Number(character.speed)||7),bonus=Number(character.initiative)||0;order.push({key:'member:'+uid,uid:uid,kind:'hero',name:character.name||member.name||'Герой',portrait:character.portrait||'',roll:10,rolls:[10],rollMode:'normal',bonus:bonus,total:10+bonus,hp:Math.max(0,Number(character.hpCur)||0),hpMax:Math.max(1,Number(character.hpMax)||1),tempHp:Math.max(0,Number(character.tempHp)||0),ac:Math.max(0,Number(character.ac)||10),stats:character.stats||{},mastery:character.mastery||[],weaponProfiles:character.weaponProfiles||[],statuses:character.statuses||[],statusEffects:character.statusEffects||[],economy:{long:1,short:1,reaction:1,movement:speed,movementMax:speed},orderHint:orderHint++});});
-    draft.tokens.filter(function(token){return token&&token.type==='custom'&&token.id!==reserveId&&token.visible!==false;}).forEach(function(token){var speed=Math.max(0,Number(token.speed)||7),bonus=Number(token.initiative)||0;order.push({key:'token:'+token.id,tokenId:token.id,uid:'',kind:token.disposition==='ally'?'ally':(token.disposition==='npc'?'npc':'enemy'),name:token.name||'Существо',portrait:token.image||'',sourceRef:token.sourceRef||null,level:token.level||1,roll:10,rolls:[10],rollMode:'normal',bonus:bonus,total:10+bonus,hp:token.hp==null?token.hpMax:token.hp,hpMax:token.hpMax,tempHp:token.tempHp||0,ac:token.ac||10,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:token.statuses||[],statusEffects:token.statusEffects||[],economy:{long:1,short:1,reaction:1,movement:speed,movementMax:speed},orderHint:orderHint++});});
+    Object.keys(snapshot.room.members||{}).forEach(function(uid){var member=snapshot.room.members[uid],character=member&&member.character,option=heroOptions[uid]||{};if(!member||member.role!=='player'||!character||option.selected===false)return;var speed=Math.max(0,Number(character.speed)||7),bonus=Number(character.initiative)||0,rollMode=['advantage','disadvantage'].indexOf(option.mode)>=0?option.mode:'normal';order.push({key:'member:'+uid,uid:uid,kind:'hero',name:character.name||member.name||'Герой',portrait:character.portrait||'',roll:10,rolls:[10],rollMode:rollMode,bonus:bonus,total:10+bonus,hp:Math.max(0,Number(character.hpCur)||0),hpMax:Math.max(1,Number(character.hpMax)||1),tempHp:Math.max(0,Number(character.tempHp)||0),ac:Math.max(0,Number(character.ac)||10),stats:character.stats||{},mastery:character.mastery||[],weaponProfiles:character.weaponProfiles||[],statuses:character.statuses||[],statusEffects:character.statusEffects||[],economy:{long:1,short:1,reaction:1,movement:speed,movementMax:speed},orderHint:orderHint++});});
+    draft.tokens.filter(function(token){return token&&token.type==='custom'&&token.id!==reserveId&&token.visible!==false&&selectedTokenIds[String(token.id)];}).forEach(function(token){var submitted=sceneParticipants.find(function(participant){return participant&&String(participant.tokenId)===String(token.id);})||{},speed=Math.max(0,Number(token.speed)||7),bonus=Number(submitted.bonus==null?token.initiative:submitted.bonus)||0,rollMode=['advantage','disadvantage'].indexOf(submitted.mode)>=0?submitted.mode:'normal';order.push({key:'token:'+token.id,tokenId:token.id,uid:'',kind:token.disposition==='ally'?'ally':(token.disposition==='npc'?'npc':'enemy'),name:token.name||'Существо',portrait:token.image||'',sourceRef:token.sourceRef||null,level:token.level||1,roll:10,rolls:[10],rollMode:rollMode,bonus:bonus,total:10+bonus,hp:token.hp==null?token.hpMax:token.hp,hpMax:token.hpMax,tempHp:token.tempHp||0,ac:token.ac||10,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:token.statuses||[],statusEffects:token.statusEffects||[],economy:{long:1,short:1,reaction:1,movement:speed,movementMax:speed},orderHint:orderHint++});});
     order.sort(function(a,b){return Number(b.total)-Number(a.total)||Number(a.orderHint)-Number(b.orderHint);});
     if(!order.length){if(w.showToast)w.showToast('Сначала создайте QA-сцену боя');return;}
     var stamp=Date.now();snapshot.room.scene=copyScene(draft);snapshot.room.combat={active:true,phase:'active',round:1,turnIndex:0,order:order,startedAt:stamp,battleStartedAt:stamp,updatedAt:stamp};snapshot.room.combatEvent={id:'qa-active-combat-'+stamp,kind:'combat',name:'QA',text:'Локальный активный бой · Firebase не используется.',ts:stamp};
@@ -15830,6 +15905,7 @@ document.addEventListener('DOMContentLoaded', function(){
   document.addEventListener('keydown', function(ev){
     var overlay=el('zg-game-overlay'); if(!overlay||!overlay.classList.contains('open'))return;
     if(ev.key==='Escape'&&el('zg-token-context-menu')){ev.preventDefault();closeGmTokenContextMenu();return;}
+    if(ev.key==='Escape'&&gmTokenMoveArmedId){ev.preventDefault();gmTokenMoveArmedId='';renderTokens();setStatus('Перемещение отменено');return;}
     if(ev.key==='Escape'&&el('zg-free-token-menu')){ev.preventDefault();if(w.zgFreeRoomTokenClose)w.zgFreeRoomTokenClose();return;}
     if(ev.key==='Escape'&&w.zgCombatLongActionActive&&w.zgCombatLongActionActive()){ev.preventDefault();w.zgCombatLongActionToggle(false);return;}
     if(ev.key==='Escape'&&abilityTargeting){ev.preventDefault();w.zgSceneAbilityCancel();if(w.zgPlayerDockSet)w.zgPlayerDockSet('abilities',false);return;}
@@ -16955,6 +17031,32 @@ document.addEventListener('DOMContentLoaded', function(){
       return token&&token.type!=='hero'&&token.visible!==false&&['custom','object'].indexOf(token.type)>=0&&['enemy','npc','ally'].indexOf(token.disposition)>=0;
     });
   }
+  function combatSceneHeroTokens(){
+    var scene=w.zgGetCurrentScene ? w.zgGetCurrentScene() : state&&state.room&&state.room.scene,
+        tokens=scene&&Array.isArray(scene.tokens)?scene.tokens:[];
+    return tokens.filter(function(token){
+      if(!token||token.type!=='hero'||token.visible===false)return false;
+      return !(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(token.memberUid));
+    });
+  }
+  function combatHeroRoster(){
+    var members=heroMembers().filter(function(member){return !(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(member.uid));}),memberByUid={},usedCampaign={},usedNames={},roster=[];
+    members.forEach(function(member){
+      var character=member.character||{},campaign=String(member.campaignKey||character.campaignKey||'').toLowerCase(),name=String(character.name||member.name||'').trim().toLowerCase();
+      memberByUid[String(member.uid||'')]=member;if(campaign)usedCampaign[campaign]=true;if(name)usedNames[name]=true;
+      roster.push({uid:String(member.uid||''),member:member,character:character,token:null,sceneOnly:false});
+    });
+    combatSceneHeroTokens().forEach(function(token){
+      var uid=String(token.memberUid||''),member=memberByUid[uid],workshopKey=uid.indexOf('workshop-hero-')===0?uid.slice(14):'',characters=w.characters&&typeof w.characters==='object'?w.characters:{},character=member&&member.character||characters[workshopKey]||null;
+      if(!character){Object.keys(characters).some(function(key){var candidate=characters[key]||{};if(String(candidate.name||'').trim().toLowerCase()===String(token.name||'').trim().toLowerCase()){character=candidate;workshopKey=key;return true;}return false;});}
+      var campaign=String(member&&member.campaignKey||character&&character.campaignKey||workshopKey||'').toLowerCase(),name=String(character&&character.name||token.name||'Герой').trim().toLowerCase();
+      if(member){var existing=roster.find(function(item){return item.uid===uid;});if(existing)existing.token=token;return;}
+      if(campaign&&usedCampaign[campaign]||name&&usedNames[name])return;
+      if(campaign)usedCampaign[campaign]=true;if(name)usedNames[name]=true;
+      roster.push({uid:'',member:null,character:character||{},token:token,sceneOnly:true,campaignKey:campaign});
+    });
+    return roster;
+  }
   function combatEntryPortrait(entry){
     if(entry&&entry.portrait)return entry.portrait;
     var token=combatSceneTokens().find(function(item){return entry&&String(item.id)===String(entry.tokenId);});
@@ -17087,7 +17189,9 @@ document.addEventListener('DOMContentLoaded', function(){
         var scene=currentVttScene(),heroToken=scene&&Array.isArray(scene.tokens)?scene.tokens.find(function(token){return token&&token.type==='hero'&&String(token.memberUid||'')===String(uid||'');}):null;
         if(heroToken&&w.zgGmInterventionOpenToken(heroToken.id,'entity'))return true;
       }
+      var openDrawer=el('zg-vtt-drawer'),keepPanel=openDrawer&&openDrawer.classList.contains('open')&&['character','inventory','abilities','journal'].indexOf(activePanel)>=0?activePanel:'';
       if(w.zgSheetClose)w.zgSheetClose();
+      if(keepPanel)return w.zgVttOpenPanelForMember(keepPanel,uid,{toggle:false});
       return w.zgVttOpenPanelForMember('character',uid,{toggle:true});
     }
     if(session&&session.role==='player'&&String(session.uid)===String(uid)&&typeof w.zgVttOpenPanel==='function'){
@@ -18269,10 +18373,146 @@ document.addEventListener('DOMContentLoaded', function(){
     character.statuses=[];character.statusEffects=[];character.revision=0;
     return character;
   }
+  function workshopCampaignHeroCharacters(){
+    var order=['evan','melissa','esteros','vrotik','lin-yin'],source=Array.isArray(w.characters)?w.characters:[],selected=[];
+    order.forEach(function(campaignKey){
+      var hero=source.find(function(character){return character&&String(character.campaignKey||'')===campaignKey;});
+      if(hero)selected.push(hero);
+    });
+    if(!selected.length)selected=[diceTestHeroCharacter()];
+    return selected.slice(0,5).map(function(sourceHero){
+      var copy;
+      try{copy=JSON.parse(JSON.stringify(sourceHero));}catch(ignore){copy=Object.assign({},sourceHero);}
+      copy.workshopCopy=true;
+      copy.workshopSourceId=sourceHero.id;
+      return copy;
+    });
+  }
   w.zgVttEnableTestHero=function(){
-    var character=diceTestHeroCharacter();w.zgDiceTestCharacter=character;
-    var snapshot=w.zgSceneEnableTestHero?w.zgSceneEnableTestHero(character):null;
+    var heroes=workshopCampaignHeroCharacters();w.zgDiceTestCharacters=heroes;w.zgDiceTestCharacter=heroes[0]||null;
+    var snapshot=w.zgSceneEnableTestHeroes?w.zgSceneEnableTestHeroes(heroes):(w.zgSceneEnableTestHero?w.zgSceneEnableTestHero(heroes[0]):null);
     if(snapshot)render(snapshot);
+  };
+  w.zgQaCampaignHeroesRender=function(){
+    var host=el('zg-qa-campaign-heroes');if(!host)return;
+    var snapshot=state&&state.room&&state.room.code==='TEST'?state:null,members=snapshot?heroMembers():[];
+    host.innerHTML=members.map(function(member){
+      var character=member.character||{},portrait=String(character.portrait||'');
+      var hidden=!!(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(member.uid));
+      var draft=workshopHeroSpellDrafts[String(member.uid||'')],changes=draft?workshopHeroSpellDraftDiff(draft):null,draftBadge=changes&&(changes.added.length||changes.removed.length)?'<i class="zg-qa-hero-draft-count" title="Изменений в локальном черновике">'+(changes.added.length+changes.removed.length)+'</i>':'';
+      return '<article class="zg-qa-hero-card'+(hidden?' map-hidden':'')+'" data-workshop-member="'+esc(member.uid)+'"><button type="button" class="zg-qa-hero-pick" onclick="zgQaCampaignHeroControl(\''+esc(member.uid)+'\')" title="Выбрать героя для теста">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i aria-hidden="true">◇</i>')+'<span><b>'+esc(character.name||member.name||'Герой')+'</b><small>'+(hidden?'Скрыт с карты':esc((character.race||'')+(character.klasse?' · '+character.klasse:'')))+'</small></span>'+draftBadge+'</button><div><button type="button" onclick="zgQaCampaignHeroOpen(\''+esc(member.uid)+'\',\'character\')">Лист</button><button type="button" onclick="zgQaCampaignHeroOpen(\''+esc(member.uid)+'\',\'abilities\')">Магия</button><button type="button" class="zg-qa-hero-draft" onclick="zgQaCampaignHeroSpellDraftOpen(\''+esc(member.uid)+'\')">Черновик</button><button type="button" class="zg-qa-hero-map-toggle" aria-pressed="'+(hidden?'true':'false')+'" onclick="zgQaCampaignHeroMapToggle(\''+esc(member.uid)+'\')">'+(hidden?'Вернуть':'Скрыть')+'</button></div></article>';
+    }).join('')||'<p class="zg-qa-heroes-empty">Герои кампании не найдены в локальном хранилище.</p>';
+    var visibleCount=members.filter(function(member){return !(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(member.uid));}).length,count=el('zg-qa-campaign-heroes-stage-count');
+    if(count)count.textContent='На сцене '+visibleCount+' / '+members.length;
+    var pack=el('zg-qa-campaign-heroes-pack'),unpack=el('zg-qa-campaign-heroes-unpack');
+    if(pack)pack.disabled=!visibleCount;
+    if(unpack)unpack.disabled=!members.length||visibleCount===members.length;
+  };
+  w.zgQaCampaignHeroMapToggle=function(uid){
+    uid=String(uid||'');var hidden=!!(w.zgSceneTestHeroHidden&&w.zgSceneTestHeroHidden(uid));
+    var changed=!!(w.zgSceneSetTestHeroHidden&&w.zgSceneSetTestHeroHidden(uid,!hidden));
+    if(changed&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();
+    return changed;
+  };
+  w.zgQaCampaignHeroesMapSet=function(hidden){
+    if(w.zgSceneSetAllTestHeroesHidden)w.zgSceneSetAllTestHeroesHidden(hidden===true);
+    if(w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();
+    return true;
+  };
+  w.zgQaCampaignHeroControl=function(uid){
+    if(!state||!state.room||state.room.code!=='TEST')return false;
+    var controlled=w.zgPossessPlayer?w.zgPossessPlayer(String(uid||'')):false;
+    if(controlled&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();
+    return controlled;
+  };
+  w.zgQaCampaignHeroOpen=function(uid,panel){
+    if(!state||!state.room||state.room.code!=='TEST')return false;
+    if(w.zgPossessPlayer)w.zgPossessPlayer(String(uid||''));
+    return w.zgVttOpenPanelForMember?w.zgVttOpenPanelForMember(panel==='abilities'?'abilities':'character',String(uid||''),{toggle:false}):false;
+  };
+  var workshopHeroSpellDrafts={};
+  var workshopHeroSpellDraftActiveUid='';
+  w.zgWorkshopHeroSpellDrafts=workshopHeroSpellDrafts;
+  function workshopHeroMember(uid){
+    if(!state||!state.room||state.room.code!=='TEST')return null;
+    return heroMembers().find(function(member){return member&&String(member.uid||'')===String(uid||'')&&member.workshopCopy;})||null;
+  }
+  function workshopHeroSpellIds(character){
+    var seen={};return (Array.isArray(character&&character.spellRefs)?character.spellRefs:[]).map(function(id){return String(id);}).filter(function(id){if(!id||seen[id])return false;seen[id]=true;return true;});
+  }
+  function workshopHeroSpellDraft(uid){
+    uid=String(uid||'');var member=workshopHeroMember(uid);if(!member)return null;
+    if(!workshopHeroSpellDrafts[uid]){
+      var base=workshopHeroSpellIds(member.character);
+      workshopHeroSpellDrafts[uid]={uid:uid,campaignKey:String(member.campaignKey||member.character&&member.character.campaignKey||''),characterId:member.character&&member.character.id,baseSpellRefs:base.slice(),spellRefs:base.slice(),createdAt:Date.now()};
+    }
+    return workshopHeroSpellDrafts[uid];
+  }
+  function workshopHeroSpellDraftDiff(draft){
+    var base={},next={};(draft&&draft.baseSpellRefs||[]).forEach(function(id){base[String(id)]=true;});(draft&&draft.spellRefs||[]).forEach(function(id){next[String(id)]=true;});
+    return{added:Object.keys(next).filter(function(id){return !base[id];}),removed:Object.keys(base).filter(function(id){return !next[id];})};
+  }
+  function workshopHeroSpellDraftLiveMember(draft){
+    var room=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
+    if(!draft||!room||!room.session||room.session.role!=='master'||!room.room||room.room.code==='TEST')return null;
+    var members=room.room.members||{},campaignKey=String(draft.campaignKey||''),characterId=String(draft.characterId||'');
+    return Object.keys(members).map(function(uid){var member=members[uid]||{};if(!member.uid)member.uid=uid;return member;}).find(function(member){
+      var character=member&&member.character||{};
+      return member&&member.role==='player'&&member.character&&((campaignKey&&String(member.campaignKey||character.campaignKey||'')===campaignKey)||(characterId&&String(member.characterId||character.id||'')===characterId));
+    })||null;
+  }
+  function workshopHeroSpellDraftPatchValue(draft,liveCharacter){
+    var diff=workshopHeroSpellDraftDiff(draft),removed={},seen={},result=[];
+    diff.removed.forEach(function(id){removed[String(id)]=true;});
+    (Array.isArray(liveCharacter&&liveCharacter.spellRefs)?liveCharacter.spellRefs:[]).forEach(function(rawId){var id=String(rawId);if(!id||removed[id]||seen[id])return;seen[id]=true;result.push(id);});
+    diff.added.forEach(function(rawId){var id=String(rawId);if(!id||seen[id])return;seen[id]=true;result.push(id);});
+    return result;
+  }
+  function workshopHeroSpellDraftProtectedRemovals(draft,liveCharacter){
+    var diff=workshopHeroSpellDraftDiff(draft),learned=liveCharacter&&liveCharacter.spellsLearned||{},prepared=liveCharacter&&liveCharacter.preparedSpells||{},active={};
+    ['kodex','folio','obrad'].forEach(function(type){(Array.isArray(prepared[type])?prepared[type]:[]).forEach(function(id){active[String(id)]=true;});});
+    return diff.removed.filter(function(id){return learned[String(id)]===true||active[String(id)];});
+  }
+  function workshopHeroSpellEntry(id){
+    var entries=typeof getCharacterSpellCatalogEntries==='function'?getCharacterSpellCatalogEntries():[];
+    return entries.find(function(spell){return spell&&String(spell.id)===String(id);})||null;
+  }
+  function workshopHeroSpellLabel(id){var spell=workshopHeroSpellEntry(id);return spell&&spell.name||('Заклинание '+id);}
+  function workshopHeroSpellTypeLabel(type){return type==='kodex'?'Кодекс':type==='folio'?'Фолио':type==='obrad'?'Обряд':'Заклинание';}
+  function workshopHeroSpellDraftRender(){
+    var old=el('zg-workshop-spell-draft'),uid=workshopHeroSpellDraftActiveUid,member=workshopHeroMember(uid),draft=workshopHeroSpellDraft(uid);if(!old||!member||!draft)return;
+    var character=member.character||{},entries=typeof getCharacterSpellCatalogEntries==='function'?getCharacterSpellCatalogEntries():[],selected={};draft.spellRefs.forEach(function(id){selected[String(id)]=true;});
+    var diff=workshopHeroSpellDraftDiff(draft),base={};draft.baseSpellRefs.forEach(function(id){base[String(id)]=true;});
+    var current=draft.baseSpellRefs.map(function(id){var removed=!selected[String(id)];return '<span class="'+(removed?'removed':'kept')+'"><b>'+esc(workshopHeroSpellLabel(id))+'</b><small>'+(removed?'будет убрано':'остаётся')+'</small></span>';}).join('')||'<em>У героя пока нет найденных заклинаний.</em>';
+    var cards=entries.map(function(spell){var id=String(spell.id),chosen=!!selected[id],added=chosen&&!base[id],type=String(spell.spellType||'');return '<button type="button" class="zg-workshop-spell-card '+(chosen?'selected ':'')+(added?'added':'')+'" data-workshop-spell-id="'+esc(id)+'" data-workshop-spell-search="'+esc(String(spell.name||'').toLowerCase())+'" data-workshop-spell-type="'+esc(type)+'"><i aria-hidden="true">'+(type==='obrad'?'◇':type==='folio'?'✦':'◈')+'</i><span><b>'+esc(spell.name||'Без названия')+'</b><small>'+esc(workshopHeroSpellTypeLabel(type))+' · ур. '+esc(spell.level==null?'—':spell.level)+'</small></span><strong>'+(chosen?'✓':'＋')+'</strong></button>';}).join('')||'<p class="zg-workshop-spell-empty">Каталог заклинаний пуст.</p>';
+    old.innerHTML='<div class="zg-workshop-spell-dialog" role="dialog" aria-modal="true" aria-labelledby="zg-workshop-spell-title"><header><div>'+(character.portrait?'<img src="'+esc(character.portrait)+'" alt="">':'<i aria-hidden="true">◇</i>')+'<span><small>Локальный черновик · отправка только в активную комнату</small><b id="zg-workshop-spell-title">'+esc(character.name||member.name||'Герой')+'</b></span></div><button type="button" data-workshop-draft-close aria-label="Закрыть">×</button></header><aside><b>Безопасная область</b><span>Меняется только список полученных заклинаний. HP, расходники, ресурсы, изученность и подготовленные слоты не затрагиваются. Игрок увидит сравнение и сам подтвердит обновление.</span></aside><main><section class="zg-workshop-spell-current"><header><b>Сейчас у героя</b><small>'+draft.baseSpellRefs.length+' найдено</small></header><div>'+current+'</div></section><section class="zg-workshop-spell-catalog"><header><div><b>Каталог</b><small>Выберите, что добавить или убрать</small></div><input type="search" placeholder="Найти заклинание…" data-workshop-spell-search-input></header><nav><button type="button" class="active" data-workshop-spell-filter="all">Все</button><button type="button" data-workshop-spell-filter="kodex">Кодекс</button><button type="button" data-workshop-spell-filter="folio">Фолио</button><button type="button" data-workshop-spell-filter="obrad">Обряды</button></nav><div class="zg-workshop-spell-grid">'+cards+'</div></section></main><footer><div><span class="add">＋ '+diff.added.length+' добавить</span><span class="remove">− '+diff.removed.length+' убрать</span></div><button type="button" class="reset" data-workshop-draft-reset '+(!(diff.added.length||diff.removed.length)?'disabled':'')+'>Сбросить</button><button type="button" class="send" data-workshop-draft-send '+(!(diff.added.length||diff.removed.length)?'disabled':'')+'>Отправить подключённому игроку</button><button type="button" class="done" data-workshop-draft-close>Готово</button></footer></div>';
+    var search=old.querySelector('[data-workshop-spell-search-input]'),activeFilter='all';
+    function applyFilter(){var query=String(search&&search.value||'').trim().toLowerCase();old.querySelectorAll('.zg-workshop-spell-card').forEach(function(card){var matchText=!query||String(card.getAttribute('data-workshop-spell-search')||'').indexOf(query)>=0,matchType=activeFilter==='all'||card.getAttribute('data-workshop-spell-type')===activeFilter;card.hidden=!(matchText&&matchType);});}
+    if(search)search.addEventListener('input',applyFilter);
+    old.querySelectorAll('[data-workshop-spell-filter]').forEach(function(button){button.addEventListener('click',function(){activeFilter=button.getAttribute('data-workshop-spell-filter')||'all';old.querySelectorAll('[data-workshop-spell-filter]').forEach(function(item){item.classList.toggle('active',item===button);});applyFilter();});});
+    old.querySelectorAll('[data-workshop-spell-id]').forEach(function(button){button.addEventListener('click',function(){w.zgQaCampaignHeroSpellDraftToggle(button.getAttribute('data-workshop-spell-id'));});});
+    old.querySelectorAll('[data-workshop-draft-close]').forEach(function(button){button.addEventListener('click',w.zgQaCampaignHeroSpellDraftClose);});
+    var reset=old.querySelector('[data-workshop-draft-reset]');if(reset)reset.addEventListener('click',w.zgQaCampaignHeroSpellDraftReset);
+    var send=old.querySelector('[data-workshop-draft-send]');if(send)send.addEventListener('click',w.zgQaCampaignHeroSpellDraftSend);
+  }
+  w.zgQaCampaignHeroSpellDraftOpen=function(uid){
+    if(!workshopHeroMember(uid))return false;workshopHeroSpellDraftActiveUid=String(uid||'');workshopHeroSpellDraft(uid);
+    var old=el('zg-workshop-spell-draft');if(old)old.remove();var overlay=document.createElement('div');overlay.id='zg-workshop-spell-draft';overlay.className='zg-workshop-spell-draft';document.body.appendChild(overlay);workshopHeroSpellDraftRender();return true;
+  };
+  w.zgQaCampaignHeroSpellDraftClose=function(){var overlay=el('zg-workshop-spell-draft');if(overlay)overlay.remove();workshopHeroSpellDraftActiveUid='';if(w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();};
+  w.zgQaCampaignHeroSpellDraftToggle=function(spellId){
+    var draft=workshopHeroSpellDraft(workshopHeroSpellDraftActiveUid);if(!draft||!workshopHeroSpellEntry(spellId))return false;var key=String(spellId),index=draft.spellRefs.indexOf(key);if(index>=0)draft.spellRefs.splice(index,1);else draft.spellRefs.push(key);workshopHeroSpellDraftRender();return true;
+  };
+  w.zgQaCampaignHeroSpellDraftReset=function(){var draft=workshopHeroSpellDraft(workshopHeroSpellDraftActiveUid);if(!draft)return false;draft.spellRefs=draft.baseSpellRefs.slice();workshopHeroSpellDraftRender();if(w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();return true;};
+  w.zgQaCampaignHeroSpellDraftSend=function(){
+    var draft=workshopHeroSpellDraft(workshopHeroSpellDraftActiveUid),diff=workshopHeroSpellDraftDiff(draft),liveMember=workshopHeroSpellDraftLiveMember(draft);
+    if(!draft||!(diff.added.length||diff.removed.length))return false;
+    if(!liveMember||!w.ZargotaRooms||!w.ZargotaRooms.gmProposeCharacterPatch){if(w.showToast)w.showToast('Этот герой ещё не подключён к активной комнате. Черновик сохранён в текущей вкладке.');return false;}
+    var protectedRemovals=workshopHeroSpellDraftProtectedRemovals(draft,liveMember.character);if(protectedRemovals.length){if(w.showToast)w.showToast('Нельзя убрать изученное или подготовленное заклинание этим безопасным обновлением: '+protectedRemovals.map(workshopHeroSpellLabel).join(', '));return false;}
+    var value=workshopHeroSpellDraftPatchValue(draft,liveMember.character),button=el('zg-workshop-spell-draft')&&el('zg-workshop-spell-draft').querySelector('[data-workshop-draft-send]');if(button)button.disabled=true;
+    return Promise.resolve(w.ZargotaRooms.gmProposeCharacterPatch(liveMember.uid,{field:'spellRefs',value:value,reason:'Мастер предлагает обновить список полученных заклинаний: +'+diff.added.length+' / −'+diff.removed.length+'.'})).then(function(){
+      if(w.showToast)w.showToast('Предложение отправлено игроку · ждём подтверждения');return true;
+    }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось отправить обновление');return false;}).then(function(result){if(button)button.disabled=false;return result;});
   };
   function combatNodeForKey(key){var entry=(state&&state.room&&state.room.combat&&state.room.combat.order||[]).find(function(item){return item&&String(item.key||'')===String(key||'');});if(!entry)return null;var selector=entry.tokenId?'.zg-vtt-token[data-tid="'+String(entry.tokenId).replace(/"/g,'')+'"]':'.zg-vtt-token[data-member-uid="'+String(entry.uid||'').replace(/"/g,'')+'"]';return document.querySelector(selector);}
   function combatNodeScenePoint(node){if(!node)return null;var x=parseFloat(node.style.left),y=parseFloat(node.style.top);return isFinite(x)&&isFinite(y)?{x:x,y:y}:null;}
@@ -18949,6 +19189,7 @@ document.addEventListener('DOMContentLoaded', function(){
       rollPrompt.classList.toggle('damage-phase',!!(showAttackRoll&&isDamage));
       syncCombatHtml(rollPrompt,showDeathPrompt?combatDeathSaveCard(deathPromptEntry,combat.round,canRollDeath):(showIntentRoll?intentPrompt:attackPrompt));
     }
+    var combatToolbarVisible=false;
     if(economyHost){
       var controlled=null,canAct=false;
       if(active&&session&&session.role==='master'&&!simulatedPlayer){controlled=turn;canAct=!!controlled&&Number(controlled.hp==null?controlled.hpMax:controlled.hp)>0;}
@@ -18958,19 +19199,20 @@ document.addEventListener('DOMContentLoaded', function(){
       var statusSummary=combatStatusSummary(controlled);
       function combatDockIcon(name){return '<img src="images/ui/combat-generated/'+name+'.png" alt="" draggable="false">';}
       function economyButton(type,icon,label,hint,available,turnOnly){var blocked=!!statusSummary.blocked[type],enabled=canAct&&available&&!blocked&&(turnOnly?isTurn:true),handler=type==='long'?'zgCombatLongActionToggle()':type==='free'?'zgDicePlanB(event)':type==='short'?'zgCombatIntentToggle()':'zgCombatUseAction(\''+type+'\')';return '<button type="button" data-combat-tool="'+type+'" aria-pressed="false" class="'+(!available?'spent':'')+(blocked?' status-blocked':'')+'" onclick="'+handler+'" '+(enabled?'':'disabled')+' title="'+(blocked?'Запрещено текущим состоянием':hint)+'"><i>'+combatDockIcon(icon)+'</i><b>'+label+'</b><small>'+(blocked?'недоступно':hint)+'</small>'+(type!=='free'?'<span class="zg-combat-resource">'+Number(economy[type]||0)+'</span>':'')+'</button>';}
-      var sheetToken=combatToolbarSheetToken(controlled,session),creatureSheet=!!(session&&session.role==='master'&&sheetToken&&sheetToken.type!=='hero');
+      var sheetToken=combatToolbarSheetToken(controlled,session),controlledHero=!!(controlled&&controlled.kind==='hero'),creatureSheet=!!(session&&session.role==='master'&&!controlledHero&&sheetToken&&sheetToken.type!=='hero');
       var heroBagAvailable=!!(session&&(session.role==='player'||heroMembers().length));
       var contextSheetButton=creatureSheet?'<button type="button" data-combat-tool="sheet" aria-pressed="false" class="zg-combat-inventory-button creature-sheet" onclick="zgCombatCreatureSheetOpen('+JSON.stringify(String(sheetToken.id||''))+')"><i>'+combatDockIcon('inventory')+'</i><b>Лист существа</b><small>HP, состояние, статусы</small></button>':'<button type="button" data-combat-tool="inventory" aria-pressed="false" class="zg-combat-inventory-button" onclick="zgPlayerDockSelect(\'inventory\')" '+(heroBagAvailable?'':'disabled title="В комнате пока нет героя"')+'><i>'+combatDockIcon('inventory')+'</i><b>Сумка героя</b><small>'+(session&&session.role==='master'?'выбранный герой':'ваши вещи')+'</small></button>';
-      economyHost.classList.toggle('open',active&&!!controlled);
+      combatToolbarVisible=!!(active&&controlled);
+      economyHost.classList.toggle('open',combatToolbarVisible);
       var preparedCount=order.filter(function(entry){return entry&&entry.preparedReaction&&entry.preparedReaction.text;}).length+(combat&&combat.pendingPreparedAction&&combat.pendingPreparedAction.id?1:0)+(combat&&combat.pendingReactionAction&&combat.pendingReactionAction.id?1:0);
       var movementRemaining=Math.max(0,Number(economy.movement)||0),movementUnavailable=movementRemaining<=0;
       var ownRoomMember=session&&session.role==='player'&&state&&state.room&&state.room.members&&state.room.members[session.uid],ownIntentRequest=ownRoomMember&&ownRoomMember.actionRequest,pendingCombatIntent=!!(ownIntentRequest&&ownIntentRequest.actionKind==='combat-intent'&&['pending','roll-requested','roll-result'].indexOf(ownIntentRequest.status)>=0),intentButtonLabel=ownIntentRequest&&ownIntentRequest.status==='roll-requested'?'Нужен бросок':ownIntentRequest&&ownIntentRequest.status==='roll-result'?'ГМ решает':'Заявка отправлена';
       var ownPrepareRequest=ownRoomMember&&ownRoomMember.actionRequest&&ownRoomMember.actionRequest.actionKind==='combat-prepare'&&ownRoomMember.actionRequest.status==='pending',prepareReady=!!(canAct&&isTurn&&Number(economy.long)>0&&!statusSummary.blocked.long&&!controlled.preparedReaction&&!ownPrepareRequest),prepareHint=!isTurn?'только в свой ход':statusSummary.blocked.long?'запрещено состоянием':Number(economy.long)<=0?'длительное действие потрачено':controlled.preparedReaction?'условие уже подготовлено':ownPrepareRequest?'заявка ждёт мастера':'условие + действие';
       if(!active||!controlled||!canAct||!isTurn||Number(economy.long)<=0||statusSummary.blocked.long)combatLongActionMode='';
       economyHost.classList.toggle('long-action-menu',combatLongActionMode==='menu');economyHost.classList.toggle('ability-palette',combatLongActionMode==='spells'||combatLongActionMode==='skills');
-      var normalToolbar='<button type="button" data-combat-tool="movement" aria-pressed="false" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+(movementUnavailable?' spent':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement&&!movementUnavailable?'':'disabled')+' title="'+(movementUnavailable?'Запас движения исчерпан':statusSummary.blocked.movement?'Движение запрещено текущим состоянием':'Перемещение по сцене')+'"><i>'+combatDockIcon('movement')+'</i><b>Движение</b><small>'+movementRemaining+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','long-action','Длительное','атака, заклинание или навык',Number(economy.long)>0,true)+economyButton('short','short-action',pendingCombatIntent?intentButtonLabel:'Короткое',pendingCombatIntent?'заявка ещё не завершена':'быстрое действие',Number(economy.short)>0&&!pendingCombatIntent,true)+economyButton('free','free-action','Броски кубиков','свободный бросок до 12 кубиков',true,false)+'<button type="button" data-combat-tool="prepare" aria-pressed="false" class="zg-combat-prepare-button'+(prepareReady?'':Number(economy.long)<=0?' spent':'')+'" onclick="zgCombatPrepareToggle()" '+(prepareReady?'':'disabled')+' title="'+esc(prepareHint)+'"><i>'+combatDockIcon('prepare')+'</i><b>Подготовить</b><small>'+esc(prepareHint)+'</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button>'+contextSheetButton+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':'');
+      var normalToolbar='<button type="button" data-combat-tool="movement" aria-pressed="false" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+(movementUnavailable?' spent':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement&&!movementUnavailable?'':'disabled')+' title="'+(movementUnavailable?'Запас движения исчерпан':statusSummary.blocked.movement?'Движение запрещено текущим состоянием':'Перемещение по сцене')+'"><i>'+combatDockIcon('movement')+'</i><b>Движение</b><small>'+movementRemaining+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','long-action','Длительное','атака, заклинание или навык',Number(economy.long)>0,true)+economyButton('short','short-action',pendingCombatIntent?intentButtonLabel:'Короткое',pendingCombatIntent?'заявка ещё не завершена':'быстрое действие',Number(economy.short)>0&&!pendingCombatIntent,true)+economyButton('free','free-action','Броски кубиков','свободный бросок до 12 кубиков',true,false)+'<button type="button" data-combat-tool="prepare" aria-pressed="false" class="zg-combat-prepare-button'+(prepareReady?'':Number(economy.long)<=0?' spent':'')+'" onclick="zgCombatPrepareToggle()" '+(prepareReady?'':'disabled')+' title="'+esc(prepareHint)+'"><i>'+combatDockIcon('prepare')+'</i><b>Подготовить</b><small>'+esc(prepareHint)+'</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button>'+contextSheetButton+(controlled&&controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':'');
       var combatToolbarHtml=combatLongActionMode==='menu'?combatLongActionMenuHtml():(combatLongActionMode==='spells'||combatLongActionMode==='skills'?combatLongActionPaletteHtml(controlled,combatLongActionMode):normalToolbar);
-      syncCombatHtml(economyHost,active&&controlled?combatToolbarHtml:'');
+      syncCombatHtml(economyHost,combatToolbarVisible?combatToolbarHtml:'');
       syncCombatToolbarSelection();
     }
     if(el('zg-combat-prepare')&&el('zg-combat-prepare').classList.contains('open'))renderCombatPrepare(false);
@@ -18980,7 +19222,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(el('zg-combat-save')&&el('zg-combat-save').classList.contains('open'))renderCombatSave(false);
     if(el('zg-combat-current')&&el('zg-combat-current').classList.contains('open'))renderCombatCurrent(false);
     renderCombatReactionPrompt();
-    var dock=el('zg-player-dock');if(dock)dock.classList.toggle('combat-mode',active);
+    var dock=el('zg-player-dock');if(dock)dock.classList.toggle('combat-mode',combatToolbarVisible);
     renderInitiativeStage();
   }
   w.zgCombatToolbarRefresh=renderCombat;
@@ -19078,9 +19320,9 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   function renderCombatParticipants(){
     var host=el('zg-combat-participants');if(!host)return;
-    var heroes=heroMembers(),tokens=combatSceneTokens();
+    var heroes=combatHeroRoster(),tokens=combatSceneTokens();
     var modeSelect='<select class="zg-combat-init-mode" aria-label="Режим инициативы"><option value="normal">Обычно</option><option value="advantage">Преимущество</option><option value="disadvantage">Помеха</option></select>';
-    var heroHtml=heroes.map(function(member){var c=member.character||{};return '<label class="zg-combat-participant hero"><input type="checkbox" class="zg-combat-participant-toggle" data-hero-uid="'+esc(member.uid)+'" checked><span class="zg-combat-participant-check">✓</span>'+(c.portrait?'<img src="'+esc(c.portrait)+'" alt="">':'<i>✦</i>')+'<span><b>'+esc(c.name||member.name||'Герой')+'</b><small>Герой · бонус '+(Number(c.initiative||0)>=0?'+':'')+Number(c.initiative||0)+'</small></span><em>'+modeSelect+'</em></label>';}).join('');
+    var heroHtml=heroes.map(function(hero,index){var member=hero.member||{},c=hero.character||{},token=hero.token||{};return '<label class="zg-combat-participant hero"><input type="checkbox" class="zg-combat-participant-toggle" data-hero-index="'+index+'" checked><span class="zg-combat-participant-check">✓</span>'+(c.portrait?'<img src="'+esc(c.portrait)+'" alt="">':'<i>✦</i>')+'<span><b>'+esc(c.name||token.name||member.name||'Герой')+'</b><small>'+(hero.sceneOnly?'Герой сцены':'Герой')+' · бонус '+(Number(c.initiative==null?token.initiative:c.initiative)>=0?'+':'')+Number(c.initiative==null?token.initiative||0:c.initiative)+'</small></span><em>'+modeSelect+'</em></label>';}).join('');
     var tokenHtml=tokens.map(function(token,index){var kind=token.disposition==='ally'?'Союзник':token.disposition==='npc'?'NPC':'Враг';return '<label class="zg-combat-participant token"><input type="checkbox" class="zg-combat-participant-toggle" data-token-index="'+index+'" '+(token.disposition==='enemy'?'checked':'')+' onchange="zgCombatGroupRefresh()"><span class="zg-combat-participant-check">✓</span>'+(token.image?'<img src="'+esc(token.image)+'" alt="">':'<i>'+(token.disposition==='enemy'?'☠':'✦')+'</i>')+'<span><b>'+esc(token.name||'Существо')+' <mark class="zg-combat-group-count"></mark></b><small>'+kind+(token.hpMax!=null?' · HP '+Number(token.hp||token.hpMax||0)+'/'+Number(token.hpMax||0):'')+'</small><span class="zg-combat-group-field"><input class="zg-combat-group-name" value="'+esc(token.name||('Группа '+(index+1)))+'" aria-label="Группа инициативы" title="Одинаковое имя объединяет существ в одну группу" oninput="zgCombatGroupRefresh()"><button type="button" onclick="zgCombatGroupPick(this,event)" title="Добавить в быструю группу">+</button></span></span><em>Иниц. <input type="number" min="-20" max="20" value="'+Number(token.initiative||0)+'" aria-label="Бонус инициативы">'+modeSelect+'</em></label>';}).join('');
     var tools=tokens.length?'<div class="zg-combat-group-tools"><div class="zg-combat-group-hint"><b>Быстрые группы</b><span>Одинаковых — автоматически; разных выберите кнопкой «+»</span></div><button type="button" onclick="zgCombatGroupIdentical()">Одинаковых вместе</button><div class="zg-combat-group-custom"><input id="zg-combat-quick-group" type="text" maxlength="40" placeholder="Название группы"><button type="button" onclick="zgCombatGroupChecked()">Собрать выбранных</button></div><button type="button" class="muted" onclick="zgCombatUngroupChecked()">Разделить</button></div>':'';
     host.innerHTML='<div class="zg-combat-participant-title">Герои <small>'+heroes.length+'</small></div>'+heroHtml+'<div class="zg-combat-participant-title creatures">Жетоны сцены <small>'+tokens.length+'</small></div>'+tools+(tokenHtml||'<div class="zg-combat-participant-empty">На сцене нет жетонов врагов, NPC или союзников.</div>');combatGroupRefresh();
@@ -19091,16 +19333,8 @@ document.addEventListener('DOMContentLoaded', function(){
       var combat=state&&state.room&&state.room.combat;
       if(combat&&combat.active){w.zgCombatConfirmEnd();return;}
       if(combat&&combat.phase==='initiative'){renderInitiativeStage();return;}
-      // The Workshop is an isolated one-client fixture. The common combat
-      // dialog trusts the current draft and can therefore start on an old,
-      // empty saved scene. Repair the fixture first and stay on the local
-      // adapter so this button never touches Firebase.
       if(typeof combatQaActive==='function'&&combatQaActive()){
         if(!w.zgQaWorkshopEnsure||!w.zgQaWorkshopEnsure())throw new Error('Не удалось восстановить тестовую арену');
-        if(!w.zgSceneQaActiveCombat)throw new Error('Локальный бой Мастерской недоступен');
-        w.zgSceneQaActiveCombat();
-        if(w.showToast)w.showToast('Мастерская · тестовая арена восстановлена и бой запущен');
-        return;
       }
       ['zg-scene-settings','zg-zone-settings','zg-scene-drawer'].forEach(function(id){var panel=el(id);if(panel)panel.classList.remove('open');});
       renderCombatParticipants();
@@ -19115,11 +19349,13 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   w.zgCombatConfirmClose=function(){var modal=el('zg-combat-confirm');if(modal)modal.classList.remove('open');};
   w.zgCombatStart=function(){
-    if(combatStartBusy||!w.ZargotaRooms||!w.ZargotaRooms.startCombat)return;
+    var localQa=typeof combatQaActive==='function'&&combatQaActive();
+    if(combatStartBusy||(!localQa&&(!w.ZargotaRooms||!w.ZargotaRooms.startCombat)))return;
     try{
-      var tokens=combatSceneTokens(),selected=[],heroOptions={};
-      document.querySelectorAll('#zg-combat-participants .zg-combat-participant.hero').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle'),mode=row.querySelector('.zg-combat-init-mode');if(toggle)heroOptions[toggle.dataset.heroUid]={selected:toggle.checked,mode:mode&&mode.value||'normal'};});
+      var heroes=combatHeroRoster(),tokens=combatSceneTokens(),selected=[],heroOptions={};
+      document.querySelectorAll('#zg-combat-participants .zg-combat-participant.hero').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle'),mode=row.querySelector('.zg-combat-init-mode'),hero=toggle&&heroes[Number(toggle.dataset.heroIndex)];if(!toggle||!hero)return;if(!hero.sceneOnly){heroOptions[hero.uid]={selected:toggle.checked,mode:mode&&mode.value||'normal'};return;}if(!toggle.checked)return;var token=hero.token||{},c=hero.character||{};selected.push({tokenId:token.id,name:c.name||token.name||'Герой',group:'hero-token:'+String(token.id||''),portrait:c.portrait||'',kind:'hero',campaignKey:hero.campaignKey||'',level:c.level||token.level||1,bonus:Number(c.initiative==null?token.initiative||0:c.initiative),mode:mode&&mode.value||'normal',hp:token.hp==null?c.hpCur:token.hp,hpMax:token.hpMax==null?c.hpMax:token.hpMax,tempHp:token.tempHp==null?c.tempHp:token.tempHp,ac:c.ac==null?token.ac:c.ac,stats:c.stats||token.stats||{},mastery:c.mastery||token.mastery||[],weaponProfiles:c.weaponProfiles||token.weaponProfiles||[],equipmentBonuses:c.equipmentBonuses||{},resistances:c.resistances||token.resistances||[],vulnerabilities:c.vulnerabilities||token.vulnerabilities||[],immunities:c.immunities||token.immunities||[],statuses:Array.isArray(c.statuses)?c.statuses:(token.statuses||[]),statusEffects:Array.isArray(c.statusEffects)?c.statusEffects:(token.statusEffects||[]),speed:c.speed==null?token.speed:c.speed});});
       document.querySelectorAll('#zg-combat-participants .zg-combat-participant.token').forEach(function(row){var toggle=row.querySelector('.zg-combat-participant-toggle');if(!toggle||!toggle.checked)return;var tokenIndex=Number(toggle.dataset.tokenIndex),token=tokens[tokenIndex],bonus=row.querySelector('em input[type=number]'),mode=row.querySelector('.zg-combat-init-mode'),group=row.querySelector('.zg-combat-group-name');if(token)selected.push({tokenId:token.id,name:token.name,group:String(group&&group.value||token.name||'Существа').trim(),portrait:token.image||'',kind:token.disposition,sourceRef:token.sourceRef||null,level:token.level||1,bonus:Number(bonus&&bonus.value)||0,mode:mode&&mode.value||'normal',hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp,ac:token.ac,stats:token.stats||{},mastery:token.mastery||[],weaponProfiles:token.weaponProfiles||[],resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:Array.isArray(token.statuses)?token.statuses:[],statusEffects:Array.isArray(token.statusEffects)?token.statusEffects:[]});});
+      if(localQa){if(!w.zgSceneQaActiveCombat)throw new Error('Локальный бой Мастерской недоступен');w.zgSceneQaActiveCombat(selected,heroOptions);w.zgCombatConfirmClose();combatStartStatus('',false);return;}
       combatStartBusy=true;combatBusy(true);combatStartStatus('Синхронизируем выбранных участников…',true);
       combatStartDeadline(w.ZargotaRooms.startCombat(selected,heroOptions),12000).then(function(snapshot){
         if(snapshot){state=snapshot;roomSnapshot=snapshot;}w.zgCombatConfirmClose();renderInitiativeStage();
@@ -19655,7 +19891,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var combatSaveTargetKey='',combatSaveBusy=false,combatSaveDraft={statKey:'con',dc:10,bonus:0,mode:'normal',removeStatus:''};
   function combatSaveStat(entry,key){var value=entry&&entry.stats&&entry.stats[key]||{};return Number(typeof value==='number'?value:(value.cur!=null&&value.cur!==0?value.cur:value.base||0))||0;}
   function combatSaveStatuses(entry){
-    var catalog=gmStatusCatalog(),seen={};return [].concat(entry&&Array.isArray(entry.statuses)?entry.statuses:[],entry&&Array.isArray(entry.statusEffects)?entry.statusEffects:[]).map(function(raw){
+    var catalog=typeof w.zgGmStatusCatalog==='function'?w.zgGmStatusCatalog():[],seen={};return [].concat(entry&&Array.isArray(entry.statuses)?entry.statuses:[],entry&&Array.isArray(entry.statusEffects)?entry.statusEffects:[]).map(function(raw){
       var key=String(typeof raw==='string'?raw:raw&&(raw.statusKey||raw.key||raw.id)||'');if(!key||seen[key])return null;seen[key]=true;
       var definition=catalog.find(function(status){return status&&String(status.key)===key;})||{},label=String(typeof raw==='object'&&raw&&(raw.label||raw.name||raw.value)||definition.label||key);
       return{key:key,label:label,icon:definition.icon||typeof raw==='object'&&raw.icon||'✦',color:definition.color||typeof raw==='object'&&raw.color||'#a88b55'};
@@ -20351,8 +20587,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var old=el('zg-character-update-notice'),session=state&&state.session,member=session&&state&&state.room&&state.room.members&&state.room.members[session.uid],proposal=member&&member.characterUpdateProposal;
     if(!session||session.role!=='player'||!proposal||['skill-update','field-patch'].indexOf(proposal.kind)<0||['pending','approved','conflict'].indexOf(proposal.status)<0){if(old)old.remove();return;}
     if(!old){old=document.createElement('aside');old.id='zg-character-update-notice';document.body.appendChild(old);}
-    var labels={pending:'Мастер предлагает улучшение',approved:'Улучшение принято',conflict:'Нужна ручная сверка'};
-    var fieldLabels={battleEcho:'Эхо сражений',notes:'Заметки',currentGoal:'Текущая цель',family:'Семья и связи'};
+    var labels={pending:'Мастер предлагает обновление',approved:'Обновление принято',conflict:'Нужна ручная сверка'};
+    var fieldLabels={battleEcho:'Эхо сражений',notes:'Заметки',currentGoal:'Текущая цель',family:'Семья и связи',spellRefs:'Полученные заклинания'};
     var proposalTitle=proposal.kind==='field-patch'?(fieldLabels[proposal.field]||'Поле листа'):(proposal.patch&&proposal.patch.name||'Навык');
     old.className='zg-character-update-notice '+proposal.status;
     old.innerHTML='<i>'+(proposal.status==='conflict'?'⚠':'✦')+'</i><div><small>'+esc(labels[proposal.status]||'Обновление героя')+'</small><b>'+esc(proposalTitle)+'</b><span>'+(proposal.status==='pending'?'Открой сравнение и реши, применять ли новую версию.':proposal.status==='approved'?'Сохраняем принятую версию в локальный лист…':'Локальные данные отличаются от версии, которую видел мастер. Ничего не перезаписано.')+'</span></div>'+(proposal.status==='pending'?'<button type="button" onclick="zgCharacterUpdateOpen()">Смотреть</button>':'');
@@ -20365,11 +20601,11 @@ document.addEventListener('DOMContentLoaded', function(){
     var base=proposal.baseSkill||{},patch=proposal.patch||{},modal=document.createElement('div');modal.id='zg-character-update-modal';modal.className='zg-ability-modal-backdrop';
     function version(title,value,kind){return'<section class="zg-character-update-version '+kind+'"><small>'+title+'</small><h4>'+esc(value.name||'Навык')+'</h4><em>'+esc(value.usages||'Без ограничения')+(Number(value.cdMax)>0?' · зарядов '+Number(value.cdMax):'')+'</em><p>'+esc(value.description||'Описание отсутствует')+'</p></section>';}
     function fieldVersion(title,value,kind,label){
-      var text=proposal.field==='family'?(Array.isArray(value)?value:[]).map(function(person){return(person.dead?'☠ ':'')+String(person.name||'Без имени')+' · '+String(person.relation||'Связь')+(person.note?' — '+person.note:'');}).join('\n'):String(value||'');
+      var text=proposal.field==='family'?(Array.isArray(value)?value:[]).map(function(person){return(person.dead?'☠ ':'')+String(person.name||'Без имени')+' · '+String(person.relation||'Связь')+(person.note?' — '+person.note:'');}).join('\n'):proposal.field==='spellRefs'?(Array.isArray(value)?value:[]).map(function(spellId){var spell=typeof w.findCharacterCatalogSpell==='function'?w.findCharacterCatalogSpell(spellId):null;return(spell&&spell.name)||('Заклинание '+spellId);}).join('\n'):String(value||'');
       return'<section class="zg-character-update-version '+kind+'"><small>'+title+'</small><h4>'+esc(label)+'</h4><p>'+esc(text||'Пусто')+'</p></section>';
     }
     var syncReady=!!(state.characterSync&&state.characterSync.status==='synced')&&!(w._zgUnsyncedCharacterIds&&w._zgUnsyncedCharacterIds[String(member.characterId)]);
-    var fieldLabels={battleEcho:'Эхо сражений',notes:'Заметки',currentGoal:'Текущая цель',family:'Семья и связи'},isField=proposal.kind==='field-patch',heading=isField?(fieldLabels[proposal.field]||'Обновление листа'):(patch.name||'Улучшение навыка');
+    var fieldLabels={battleEcho:'Эхо сражений',notes:'Заметки',currentGoal:'Текущая цель',family:'Семья и связи',spellRefs:'Полученные заклинания'},isField=proposal.kind==='field-patch',heading=isField?(fieldLabels[proposal.field]||'Обновление листа'):(patch.name||'Улучшение навыка');
     var compare=isField?fieldVersion('СЕЙЧАС',proposal.baseValue,'before',heading)+fieldVersion('ПОСЛЕ ПРИНЯТИЯ',proposal.patchValue,'after',heading):version('СЕЙЧАС',base,'before')+version('ПОСЛЕ ПРИНЯТИЯ',patch,'after');
     modal.innerHTML='<section class="zg-character-update-modal" role="dialog" aria-modal="true"><button type="button" class="zg-ability-modal-close" onclick="zgCharacterUpdateClose()">×</button><header><small>ПРЕДЛОЖЕНИЕ МАСТЕРА</small><h3>'+esc(heading)+'</h3>'+(proposal.reason?'<p>'+esc(proposal.reason)+'</p>':'')+'</header><div class="zg-character-update-compare">'+compare+'</div>'+(!syncReady?'<div class="zg-character-update-warning">Сначала дождитесь статуса «Синхронизировано», чтобы локальные правки не пересеклись с предложением.</div>':'')+'<footer><button type="button" onclick="zgCharacterUpdateResolve(true)" '+(syncReady?'':'disabled')+'>Принять обновление</button><button type="button" onclick="zgCharacterUpdateResolve(false)">Отклонить</button><button type="button" onclick="zgCharacterUpdateClose()">Позже</button></footer></section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgCharacterUpdateClose();});document.body.appendChild(modal);
@@ -20385,8 +20621,8 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!accepted){if(w.showToast)w.showToast('Предложение отклонено');return true;}
       return Promise.resolve(zgMergeCampaignState(snapshot)).then(function(localResult){
         if(localResult&&localResult.conflict){if(w.showToast)w.showToast('Локальный навык отличается — ничего не перезаписано');return false;}
-        if(localResult&&localResult.ok===false){if(w.showToast)w.showToast('Улучшение принято в комнате, но локальное сохранение не завершилось');return false;}
-        if(w.showToast)w.showToast('Улучшение принято и сохранено в лист');
+        if(localResult&&localResult.ok===false){if(w.showToast)w.showToast('Обновление принято в комнате, но локальное сохранение не завершилось');return false;}
+        if(w.showToast)w.showToast('Обновление принято и сохранено в лист');
         return true;
       });
     }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось обработать улучшение');return false;}).then(function(result){abilityRequestBusy=false;return result;});
@@ -24616,6 +24852,10 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-sound-settings{display:grid;gap:6px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817}.zg-sound-settings header{display:flex;align-items:center;justify-content:space-between}.zg-sound-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-sound-settings header small{color:#8c7047;font:8px Georgia,serif}.zg-sound-settings header small.ready{color:#72b37b}.zg-sound-settings header small.off{color:#b46d64}.zg-sound-settings>div{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:5px}.zg-sound-settings button{min-width:0;min-height:42px;padding:6px;border:1px solid #3b2e1c;border-radius:6px;background:#0e0b07;color:#796b52;cursor:pointer}.zg-sound-settings button span{display:grid;gap:2px;text-align:left}.zg-sound-settings button b{color:#ad9666;font:600 8px 'Cinzel',serif}.zg-sound-settings button small{font:8px Georgia,serif}.zg-sound-settings button.active{border-color:#557947;background:#142015;color:#9ccb8e}.zg-sound-settings button.test{color:#d8bd7c;font:600 8px 'Cinzel',serif}.zg-sound-settings .error{color:#c98378;font:8px/1.3 Georgia,serif}
   .zg-player-bag-settings{position:relative;z-index:1;display:grid;gap:7px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817;pointer-events:auto}.zg-player-bag-settings header{display:flex;align-items:end;justify-content:space-between;gap:8px}.zg-player-bag-settings header span{display:grid;gap:2px}.zg-player-bag-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-player-bag-settings header small,.zg-player-bag-settings output{color:#78694f;font:8px Georgia,serif}.zg-player-bag-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-player-bag-settings button{position:relative;z-index:2;min-width:0;min-height:61px;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:5px;padding:7px 5px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#796b52;text-align:left;cursor:pointer;pointer-events:auto;touch-action:manipulation}.zg-player-bag-settings button>span{display:grid;gap:2px;pointer-events:none}.zg-player-bag-settings button b{color:#ad9666;font:600 7px 'Cinzel',serif}.zg-player-bag-settings button small{font:7px Georgia,serif}.zg-player-bag-settings button.active{border-color:#a67c31;background:radial-gradient(circle at 20% 50%,#56371378,transparent 70%),#171006;color:#e5c87c;box-shadow:inset 0 0 0 1px #d1a03a24}.zg-player-bag-size-icon{position:relative;display:block;width:22px;height:19px;border:1px solid currentColor;border-radius:3px 3px 7px 7px;box-shadow:inset 0 0 7px currentColor;pointer-events:none}.zg-player-bag-size-icon:before{content:'';position:absolute;left:5px;right:5px;top:-6px;height:7px;border:1px solid currentColor;border-bottom:0;border-radius:7px 7px 0 0}.zg-player-bag-size-icon.large{transform:scale(1.18)}
   .zg-qa-session-tools{display:grid;gap:6px;margin-bottom:9px;padding:8px;border:1px solid #435b38;border-radius:7px;background:linear-gradient(145deg,#101b11,#0b0906)}.zg-qa-session-tools[hidden]{display:none}.zg-qa-session-tools header b{color:#8fca91;font:600 9px 'Cinzel',serif}.zg-qa-session-tools header small{display:block;margin-top:3px;color:#6f8167;font:8px Georgia,serif}.zg-qa-workshop-hint{margin:0;padding:6px 7px;border-left:2px solid #8f7135;background:#171209;color:#9c8a61;font:8px/1.35 Georgia,serif}.zg-qa-session-tools>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-qa-session-tools>.zg-qa-workshop-backgrounds{grid-template-columns:repeat(3,1fr)}.zg-qa-session-tools button{min-height:38px;border:1px solid #49633f;border-radius:6px;background:#11180f;color:#9dcb91;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-qa-session-tools button:last-child{border-color:#79612c;background:#211808;color:#dfc070}.zg-qa-session-tools .zg-qa-session-modes button{display:grid;gap:2px;border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button:last-child{border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button.active{border-color:#d0a13e;background:radial-gradient(circle at 20% 50%,#5b401a80,transparent 65%),#181208;color:#f2d487;box-shadow:inset 0 0 0 1px #d0a13e35,0 0 14px #c9943230}.zg-qa-session-tools .zg-qa-session-modes button small{color:#756b52;font:7px Georgia,serif}.zg-qa-session-tools .zg-qa-session-modes button.active small{color:#a89264}.zg-qa-session-tools label{display:grid;gap:3px;color:#71836a;font:8px Georgia,serif}.zg-qa-session-tools select{min-height:34px;border:1px solid #435b38;border-radius:5px;background:#090d08;color:#b5d2aa;padding:0 7px;font:8px 'Cinzel',serif}.zg-qa-session-tools select:disabled{opacity:.45;cursor:not-allowed}.zg-qa-outcome-control{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px}.zg-qa-outcome-control>button{display:grid;align-content:center;gap:2px;border-color:#6f4b31!important;background:#18100c!important;color:#c99572!important}.zg-qa-outcome-control>button.active{border-color:#cf9c3d!important;background:radial-gradient(circle at 20% 50%,#6a3d1880,transparent 65%),#1b1208!important;color:#f1cf83!important;box-shadow:inset 0 0 0 1px #cf9c3d35,0 0 14px #c57e2630}.zg-qa-outcome-control>button small{color:#8f755d;font:7px Georgia,serif}.zg-qa-outcome-control>button.active small{color:#c8a974}
+  .zg-qa-campaign-roster{display:grid;gap:6px;padding:7px;border:1px solid #5a4927;border-radius:7px;background:#090806}.zg-qa-campaign-roster>header{display:grid;gap:2px}.zg-qa-campaign-roster>header small{display:block;color:#74684f;font:7px/1.25 Georgia,serif}.zg-qa-hero-stage-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;padding:6px;border:1px solid #42351f;border-radius:6px;background:linear-gradient(90deg,#151007,#0c0a07)}.zg-qa-hero-stage-control>span{min-width:0;display:grid;gap:2px}.zg-qa-hero-stage-control b{color:#d9bd77;font:600 8px 'Cinzel',serif}.zg-qa-hero-stage-control small{color:#6f624a;font:7px Georgia,serif}.zg-qa-hero-stage-control>div{display:flex;gap:4px}.zg-qa-hero-stage-control button{min-height:29px;padding:4px 7px;border:1px solid #654d25;border-radius:5px;background:#171008;color:#b99a56;font:600 7px 'Cinzel',serif;cursor:pointer}.zg-qa-hero-stage-control button:last-child{border-color:#684039;color:#bd7f70}.zg-qa-hero-stage-control button:hover:not(:disabled){border-color:#a47d32;color:#efd58f}.zg-qa-hero-stage-control button:disabled{opacity:.28;cursor:default}.zg-qa-campaign-heroes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.zg-qa-hero-card{min-width:0;padding:4px;border:1px solid #3f3420;border-radius:6px;background:#100d08}.zg-qa-hero-card.map-hidden{border-style:dashed;background:#0b0a08}.zg-qa-hero-card.map-hidden .zg-qa-hero-pick img{filter:grayscale(.8);opacity:.45}.zg-qa-hero-card.map-hidden .zg-qa-hero-pick small{color:#9b7655}.zg-qa-hero-pick{display:flex!important;align-items:center;gap:6px;width:100%;min-height:42px!important;padding:3px 5px!important;text-align:left}.zg-qa-hero-pick img,.zg-qa-hero-pick>i{flex:0 0 32px;width:32px;height:32px;border:1px solid #80662f;border-radius:5px;object-fit:cover}.zg-qa-hero-pick>i{display:grid;place-items:center;font-style:normal}.zg-qa-hero-pick span{min-width:0;display:grid;gap:2px}.zg-qa-hero-pick b,.zg-qa-hero-pick small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-qa-hero-pick b{color:#dfc070;font:600 8px 'Cinzel',serif}.zg-qa-hero-pick small{color:#786c53;font:7px Georgia,serif}.zg-qa-hero-card>div{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-top:3px}.zg-qa-hero-card>div button{min-width:0;min-height:25px!important;padding:2px!important;font-size:7px!important}.zg-qa-hero-card>div .zg-qa-hero-draft{border-color:#72572a;background:#1b1409;color:#dfc070}.zg-qa-hero-card>div .zg-qa-hero-map-toggle[aria-pressed="true"]{border-color:#5f7851;background:#111b0e;color:#9ed092}.zg-qa-hero-card:hover{border-color:#9c7e3c}.zg-qa-heroes-empty{grid-column:1/-1;margin:0;padding:8px;color:#8b7653;font:8px/1.4 Georgia,serif}.zg-qa-hero-draft-count{display:grid;place-items:center;flex:0 0 18px;width:18px;height:18px;border:1px solid #d2a746;border-radius:50%;background:#2c1d09;color:#f0cf7b;font:normal 700 8px Georgia,serif;box-shadow:0 0 9px #d3943038}
+  .zg-workshop-spell-draft{position:fixed;inset:0;z-index:14000;display:grid;place-items:center;padding:24px;background:#030201d9;backdrop-filter:blur(9px)}.zg-workshop-spell-dialog{width:min(1020px,calc(100vw - 40px));height:min(740px,calc(100vh - 40px));display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;border:1px solid #a47d32;border-radius:16px;background:radial-gradient(circle at 12% 0,#34220d66,transparent 36%),linear-gradient(155deg,#120d07,#070503 72%);box-shadow:0 28px 90px #000;color:#d8bd7c;overflow:hidden}.zg-workshop-spell-dialog>header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #49351b}.zg-workshop-spell-dialog>header>div{display:flex;align-items:center;gap:11px}.zg-workshop-spell-dialog>header img,.zg-workshop-spell-dialog>header>div>i{width:46px;height:46px;display:grid;place-items:center;border:1px solid #997535;border-radius:9px;object-fit:cover;background:#090705;font-style:normal}.zg-workshop-spell-dialog>header span{display:grid;gap:3px}.zg-workshop-spell-dialog>header small{color:#867552;font:600 8px 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}.zg-workshop-spell-dialog>header b{color:#efd28a;font:700 18px 'Cinzel Decorative',serif}.zg-workshop-spell-dialog>header button{width:38px;height:38px;border:0;background:transparent;color:#937b50;font-size:27px;cursor:pointer}.zg-workshop-spell-dialog>aside{display:flex;align-items:center;gap:12px;margin:10px 18px 0;padding:8px 11px;border:1px solid #315a49;border-radius:8px;background:#0d1c17;color:#86b89f}.zg-workshop-spell-dialog>aside b{flex:none;font:700 9px 'Cinzel',serif;text-transform:uppercase}.zg-workshop-spell-dialog>aside span{font:11px/1.35 Georgia,serif}.zg-workshop-spell-dialog>main{min-height:0;display:grid;grid-template-columns:290px minmax(0,1fr);gap:11px;padding:11px 18px}.zg-workshop-spell-dialog section{min-height:0;border:1px solid #3d2e1b;border-radius:10px;background:#090705c7;overflow:hidden}.zg-workshop-spell-dialog section>header{min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-bottom:1px solid #352716}.zg-workshop-spell-dialog section>header b{color:#d9bd77;font:700 10px 'Cinzel',serif}.zg-workshop-spell-dialog section>header small{color:#75674d;font:9px Georgia,serif}.zg-workshop-spell-current>div{display:grid;gap:6px;max-height:100%;padding:9px;overflow:auto}.zg-workshop-spell-current>div>span{display:grid;gap:2px;padding:8px 9px;border:1px solid #3c301e;border-radius:7px;background:#100c07}.zg-workshop-spell-current>div>span b{color:#cbb174;font:11px/1.25 Georgia,serif}.zg-workshop-spell-current>div>span small{color:#5d895e;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-workshop-spell-current>div>span.removed{border-color:#66322f;background:#190c0b}.zg-workshop-spell-current>div>span.removed b{color:#bd7770;text-decoration:line-through}.zg-workshop-spell-current>div>span.removed small{color:#b65f58}.zg-workshop-spell-current em{padding:12px;color:#71634a;font:italic 11px Georgia,serif}.zg-workshop-spell-catalog{display:grid;grid-template-rows:auto auto minmax(0,1fr)}.zg-workshop-spell-catalog>header>div{display:grid;gap:3px}.zg-workshop-spell-catalog input{width:min(260px,50%);height:32px;padding:0 9px;border:1px solid #49361d;border-radius:6px;background:#070503;color:#e6d09b;font:11px Georgia,serif}.zg-workshop-spell-catalog nav{display:flex;gap:5px;padding:7px 9px;border-bottom:1px solid #2e2316}.zg-workshop-spell-catalog nav button{min-height:28px;padding:0 10px;border:1px solid #352a1b;border-radius:15px;background:#0d0a06;color:#75684e;font:600 7px 'Cinzel',serif;cursor:pointer}.zg-workshop-spell-catalog nav button.active{border-color:#a57d31;background:#2a1c0a;color:#e5c77d}.zg-workshop-spell-grid{min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:7px;padding:9px;overflow:auto}.zg-workshop-spell-card{min-width:0;min-height:59px;display:grid;grid-template-columns:32px minmax(0,1fr) 20px;align-items:center;gap:7px;padding:7px;border:1px solid #392c1b;border-radius:8px;background:#0d0a06;color:#897954;text-align:left;cursor:pointer}.zg-workshop-spell-card:hover{border-color:#80632f;background:#171006}.zg-workshop-spell-card>i{width:30px;height:30px;display:grid;place-items:center;border:1px solid #4b3920;border-radius:50%;color:#ad8c45;font-style:normal}.zg-workshop-spell-card>span{min-width:0;display:grid;gap:3px}.zg-workshop-spell-card b{overflow:hidden;color:#b9a06a;font:10px/1.2 Georgia,serif;text-overflow:ellipsis;white-space:nowrap}.zg-workshop-spell-card small{color:#6e6047;font:7px 'Cinzel',serif}.zg-workshop-spell-card strong{color:#64583f;font:15px Georgia,serif}.zg-workshop-spell-card.selected{border-color:#58734b;background:#10190e}.zg-workshop-spell-card.selected b,.zg-workshop-spell-card.selected strong{color:#9fc58e}.zg-workshop-spell-card.added{border-color:#b08739;background:#171006}.zg-workshop-spell-card.added b,.zg-workshop-spell-card.added strong{color:#edcf80}.zg-workshop-spell-card[hidden]{display:none}.zg-workshop-spell-empty{grid-column:1/-1;padding:30px;color:#796b50;text-align:center;font:italic 12px Georgia,serif}.zg-workshop-spell-dialog>footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:11px 18px;border-top:1px solid #49351b;background:#0a0704}.zg-workshop-spell-dialog>footer>div{display:flex;gap:8px;margin-right:auto}.zg-workshop-spell-dialog>footer span{padding:6px 9px;border-radius:14px;font:700 7px 'Cinzel',serif}.zg-workshop-spell-dialog>footer .add{background:#152015;color:#91bd84}.zg-workshop-spell-dialog>footer .remove{background:#24100e;color:#c87970}.zg-workshop-spell-dialog>footer button{min-width:112px;height:38px;border:1px solid #4a3820;border-radius:7px;background:#100c07;color:#8b7852;font:700 8px 'Cinzel',serif;cursor:pointer}.zg-workshop-spell-dialog>footer button:disabled{opacity:.35;cursor:default}.zg-workshop-spell-dialog>footer .done{border-color:#a47d32;background:#2a1c09;color:#efd187}.zg-workshop-spell-dialog>footer .reset:not(:disabled){border-color:#6b3630;color:#c98078}
+  .zg-workshop-spell-dialog>footer .send:not(:disabled){min-width:190px;border-color:#55734c;background:#122010;color:#a9cf94}
+  @media(max-width:760px){.zg-workshop-spell-draft{padding:7px}.zg-workshop-spell-dialog{width:100%;height:100%;border-radius:9px}.zg-workshop-spell-dialog>main{grid-template-columns:1fr}.zg-workshop-spell-current{display:none}.zg-workshop-spell-grid{grid-template-columns:1fr}.zg-workshop-spell-dialog>aside{align-items:flex-start}.zg-workshop-spell-dialog>footer{flex-wrap:wrap}.zg-workshop-spell-dialog>footer>div{width:100%}}
   .zg-game-overlay:not(.gm) .zg-combat-fx-open{display:none!important}
   .zg-combat-vfx-canvas{position:absolute;z-index:4;inset:0;width:100%;height:100%;pointer-events:none}
   .zg-combat-motion-settings{display:grid;gap:7px;margin:9px 0;padding-top:9px;border-top:1px solid #372817}.zg-combat-motion-settings header{display:flex;align-items:center;justify-content:space-between;gap:8px}.zg-combat-motion-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-combat-motion-settings header small{color:#74664d;font:8px Georgia,serif}.zg-combat-motion-settings>div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.zg-combat-motion-settings>div.zg-combat-quality-options{grid-template-columns:repeat(2,minmax(0,1fr))}.zg-combat-motion-settings button{min-width:0;min-height:52px;display:grid;align-content:center;gap:3px;padding:5px 4px;border:1px solid #3b2e1c;border-radius:6px;background:#0e0b07;color:#796b52;text-align:center;cursor:pointer}.zg-combat-motion-settings button b{font:600 7px 'Cinzel',serif}.zg-combat-motion-settings button small{font:7px/1.2 Georgia,serif}.zg-combat-motion-settings button.active{border-color:#9b7735;background:#211608;color:#e6c879;box-shadow:inset 0 0 12px #b3812919}
@@ -24898,7 +25138,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-action-menu-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;color:#bda46f;font:600 11px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}
   .zg-action-menu-close{border:0;background:transparent;color:#806f4c;font-size:18px;line-height:1;cursor:pointer}.zg-action-menu-close:hover{color:#efd895}
   .zg-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.zg-action-grid button,.zg-action-measure{min-height:52px;padding:8px;border:1px solid #3a2d18;border-radius:6px;background:#14110b;color:#c9b483;font:600 11px/1.25 'Cinzel',serif;cursor:pointer;text-align:left;transition:.15s}.zg-action-grid button:hover,.zg-action-grid button.active,.zg-action-measure:hover{border-color:#b68b38;color:#f1d994;background:#211809}.zg-action-grid button b{float:left;display:grid;place-items:center;width:30px;height:30px;margin-right:7px;color:#e8c875}.zg-action-grid button b img{width:30px;height:30px;object-fit:contain;filter:drop-shadow(0 2px 4px #000)}.zg-action-grid button span{display:block;margin-top:3px;color:#74654a;font:10px/1.2 Georgia,serif;text-transform:none}
-  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;width:1px;height:1px;overflow:visible;pointer-events:none;will-change:transform;contain:layout style;filter:drop-shadow(0 3px 4px #000d)}.zg-action-cursor.open{display:block}.zg-action-cursor:before{content:'';position:absolute;left:-11px;top:-11px;width:22px;height:22px;border:2px solid #f0cb70;border-radius:50%;background:radial-gradient(circle,#fff1a9 0 2px,#d7a43f55 3px 5px,transparent 6px);box-shadow:0 0 0 4px #100b06d4,0 0 16px #dda943dd,inset 0 0 8px #e8bd5c66}.zg-action-cursor:after{content:'';position:absolute;left:-17px;top:-1px;width:34px;height:2px;background:linear-gradient(90deg,#e4b850 0 34%,transparent 34% 66%,#e4b850 66%);box-shadow:0 0 6px #dca83daa}.zg-action-cursor img{position:absolute;left:13px;top:13px;display:block;width:62px;height:62px;object-fit:contain;filter:brightness(1.18) drop-shadow(0 4px 5px #000) drop-shadow(0 0 11px #d6a73fdd)}.zg-action-cursor[data-tool="attack"] img,.zg-action-cursor[data-tool="combat-attack"] img{left:-54px;top:-54px;width:66px;height:66px;filter:brightness(1.18) drop-shadow(0 3px 4px #000) drop-shadow(0 0 12px #dfaa43dd)}.zg-action-cursor[data-tool="movement"] img{width:66px;height:66px}.zg-action-cursor[data-tool="custom"] img{opacity:1;filter:brightness(1.55) saturate(1.15) drop-shadow(0 3px 5px #000) drop-shadow(0 0 12px #f0c665)}.zg-action-cursor-label{position:absolute;left:17px;top:74px;display:block;min-width:max-content;padding:4px 7px;border:1px solid #8f692b;border-radius:999px;background:#100b06ed;color:#f1d68d;font:700 8px/1 'Cinzel',serif;letter-spacing:.5px;white-space:nowrap;text-shadow:0 1px 2px #000;box-shadow:0 4px 12px #000b,0 0 9px #dba63b45}.zg-action-cursor[data-tool="attack"] .zg-action-cursor-label,.zg-action-cursor[data-tool="combat-attack"] .zg-action-cursor-label{left:-54px;top:17px}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}@media(prefers-reduced-motion:reduce){.zg-action-cursor{will-change:auto}}
+  .zg-action-cursor{position:fixed;left:0;top:0;z-index:2147483000;display:none;width:1px;height:1px;overflow:visible;pointer-events:none;will-change:transform;contain:layout style;filter:drop-shadow(0 3px 4px #000d)}.zg-action-cursor.open{display:block}.zg-action-cursor:before{content:'';position:absolute;left:-11px;top:-11px;width:22px;height:22px;border:2px solid #f0cb70;border-radius:50%;background:radial-gradient(circle,#fff1a9 0 2px,#d7a43f55 3px 5px,transparent 6px);box-shadow:0 0 0 4px #100b06d4,0 0 16px #dda943dd,inset 0 0 8px #e8bd5c66}.zg-action-cursor:after{content:'';position:absolute;left:-17px;top:-1px;width:34px;height:2px;background:linear-gradient(90deg,#e4b850 0 34%,transparent 34% 66%,#e4b850 66%);box-shadow:0 0 6px #dca83daa}.zg-action-cursor img{position:absolute;left:13px;top:13px;display:block;width:62px;height:62px;object-fit:contain;filter:brightness(1.18) drop-shadow(0 4px 5px #000) drop-shadow(0 0 11px #d6a73fdd)}.zg-action-cursor[data-tool="attack"] img,.zg-action-cursor[data-tool="combat-attack"] img{left:-54px;top:-54px;width:66px;height:66px;filter:brightness(1.18) drop-shadow(0 3px 4px #000) drop-shadow(0 0 12px #dfaa43dd)}.zg-action-cursor[data-tool="custom"] img{opacity:1;filter:brightness(1.55) saturate(1.15) drop-shadow(0 3px 5px #000) drop-shadow(0 0 12px #f0c665)}.zg-action-cursor-label{position:absolute;left:17px;top:74px;display:block;min-width:max-content;padding:4px 7px;border:1px solid #8f692b;border-radius:999px;background:#100b06ed;color:#f1d68d;font:700 8px/1 'Cinzel',serif;letter-spacing:.5px;white-space:nowrap;text-shadow:0 1px 2px #000;box-shadow:0 4px 12px #000b,0 0 9px #dba63b45}.zg-action-cursor[data-tool="movement"] .zg-action-cursor-label{left:17px;top:17px}.zg-action-cursor[data-tool="attack"] .zg-action-cursor-label,.zg-action-cursor[data-tool="combat-attack"] .zg-action-cursor-label{left:-54px;top:17px}.zg-vtt-scene.action-tool,.zg-vtt-scene.action-tool *,.zg-vtt-scene.move-mode,.zg-vtt-scene.move-mode *{cursor:none!important}.zg-game-overlay.combat-targeting .zg-vtt-scene,.zg-game-overlay.combat-targeting .zg-vtt-scene *{cursor:none!important}@media(prefers-reduced-motion:reduce){.zg-action-cursor{will-change:auto}}
   .zg-ability-target-hud{position:fixed;z-index:2147482500;left:50%;top:56px;transform:translateX(-50%);display:grid;grid-template-columns:42px minmax(210px,1fr) auto;align-items:center;gap:11px;min-width:min(560px,calc(100vw - 28px));padding:9px 10px;border:1px solid #b88b36;border-radius:9px;background:linear-gradient(180deg,#1d150beF,#0c0906f5);box-shadow:0 14px 38px #000d,0 0 22px #cf9a3138;backdrop-filter:blur(10px);animation:zgAbilityTargetHudIn .22s ease-out both}
   .zg-ability-target-hud>i{width:40px;height:40px;display:grid;place-items:center;border:1px solid #8f6829;border-radius:50%;background:radial-gradient(circle,#5d3c12,#171006 70%);color:#ffe197;font:normal 22px/1 Georgia,serif;box-shadow:inset 0 0 12px #eab94a35,0 0 14px #d49d333b}
   .zg-ability-target-hud>span{min-width:0;display:grid;gap:2px}.zg-ability-target-hud small{color:#987c48;font:700 8px/1.2 'Cinzel',serif;letter-spacing:1.4px}.zg-ability-target-hud b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f0d28a;font:700 13px/1.2 'Cinzel',serif}.zg-ability-target-hud em{color:#8f8063;font:normal 10px/1.25 Georgia,serif}
@@ -25415,6 +25655,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-game-overlay.gm .zg-vtt-token.locked{cursor:default}
   .zg-vtt-token.locked.selected .zg-vtt-token-frame{border-style:solid;border-color:#8a8377}
   .zg-game-overlay.gm.gm-run-mode .zg-vtt-token{cursor:pointer}.zg-game-overlay.gm.gm-run-mode .zg-vtt-token.selected{cursor:context-menu}.zg-game-overlay.gm.gm-edit-mode .zg-vtt-token:not(.locked){cursor:grab}.zg-game-overlay.gm.gm-edit-mode .zg-vtt-token.dragging{cursor:grabbing}
+  .zg-game-overlay.gm .zg-vtt-token.context-move-armed{cursor:grab}.zg-game-overlay.gm .zg-vtt-token.context-move-armed.dragging{cursor:grabbing}.zg-vtt-token.context-move-armed>img,.zg-vtt-token.context-move-armed>.zg-vtt-token-ph{outline:2px solid #e2b958;outline-offset:4px;box-shadow:0 0 22px #d9a732aa}
   .zg-game-overlay.gm.gm-run-mode .zg-vtt-token-frame{border-style:solid;border-color:#d7bd7d;inset:-4px;border-radius:50%;opacity:.62}.zg-game-overlay.gm.gm-run-mode .zg-vtt-token-frame::after{content:'ПКМ';position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);padding:3px 7px;border:1px solid #695226;border-radius:8px;background:#100c07e8;color:#bca56f;font:700 7px/1 'Cinzel',serif;letter-spacing:.8px;box-shadow:0 4px 12px #000b}
   .zg-token-context-menu{position:fixed;z-index:220000;box-sizing:border-box;width:min(310px,calc(100vw - 20px));padding:9px;border:1px solid #8d6b31;border-radius:12px;background:radial-gradient(circle at 12% 0,#8b5b1b25,transparent 38%),linear-gradient(155deg,#1a120a,#090705 78%);box-shadow:0 24px 75px #000,0 0 0 1px #0a0704,inset 0 0 24px #0007;color:#d5bd82;animation:zgTokenContextIn .16s cubic-bezier(.2,.85,.3,1);isolation:isolate}
   .zg-token-context-menu header{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;padding:4px 5px 10px;border-bottom:1px solid #3b2b16}.zg-token-context-menu header>img,.zg-token-context-menu header>i{box-sizing:border-box;width:44px;height:44px;border:1px solid #8d692d;border-radius:9px;background:#0b0805;object-fit:cover;object-position:top;box-shadow:inset 0 0 12px #000,0 4px 11px #0008}.zg-token-context-menu header>i{display:grid;place-items:center;color:#dbb962}.zg-token-context-menu header>i svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}.zg-token-context-menu header small,.zg-token-context-menu header b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-token-context-menu header small{color:#876f43;font:700 7px/1.2 'Cinzel',serif;letter-spacing:1.1px}.zg-token-context-menu header b{margin-top:5px;color:#efd392;font:600 13px/1.2 'Cinzel',serif}
@@ -30042,6 +30283,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       <section class="zg-qa-session-tools" id="zg-qa-session-tools" hidden>
         <header><b>Мастерская</b><small id="zg-qa-session-mode-state">Активный бой</small></header>
         <p class="zg-qa-workshop-hint">Арена подготовлена для ближнего боя, дальних атак, укрытий, движения, звука и проверки частиц.</p>
+        <section class="zg-qa-campaign-roster"><header><b>Герои кампании</b><small>Защитные копии для теста · без Firebase и сохранения трат</small></header><div class="zg-qa-hero-stage-control"><span><b id="zg-qa-campaign-heroes-stage-count">На сцене 0 / 0</b><small>Расставьте и сохраните сцену — реальные герои займут эти места</small></span><div><button type="button" id="zg-qa-campaign-heroes-unpack" onclick="zgQaCampaignHeroesMapSet(false)">Распаковать</button><button type="button" id="zg-qa-campaign-heroes-pack" onclick="zgQaCampaignHeroesMapSet(true)">Запаковать</button></div></div><div class="zg-qa-campaign-heroes-grid" id="zg-qa-campaign-heroes"></div></section>
         <div class="zg-qa-session-modes" role="group" aria-label="Режим Мастерской"><button type="button" data-qa-session-mode="combat" aria-pressed="false" onclick="zgQaSessionMode('combat')"><b>⚔ Бой</b><small>Очередь и действия</small></button><button type="button" data-qa-session-mode="free" aria-pressed="false" onclick="zgQaSessionMode('free')"><b>◇ Свободно</b><small>Без инициативы</small></button></div>
         <div class="zg-qa-workshop-backgrounds"><button type="button" onclick="zgQaWorkshopBackground('workshop')">Арена</button><button type="button" onclick="zgQaWorkshopBackground('world')">Карта мира</button><button type="button" onclick="zgQaWorkshopUploadBackground()">Свой фон…</button></div>
         <div class="zg-qa-outcome-control"><button type="button" id="zg-qa-combat-outcome-toggle" aria-pressed="false" onclick="zgQaCombatOutcomeToggle()"><b>🎯 Принудительный исход</b><small id="zg-qa-combat-outcome-state">Выключено · честный бросок</small></button><label>Какой исход навязать<select id="zg-qa-combat-outcome" onchange="zgQaCombatOutcomeSet(this.value)" disabled><option value="miss">Промах</option><option value="hit" selected>Попадание</option><option value="critical">Крит</option></select></label></div>
@@ -42526,6 +42768,9 @@ function zgApplyApprovedSkillUpdate(localCharacter,member) {
 
 function zgNormalizeCharacterFieldUpdateValue(field,value) {
   if(field==='family')return(Array.isArray(value)?zgCloneSessionValue(value):[])||[];
+  if(field==='spellRefs'){
+    var seen={};return(Array.isArray(value)?value:[]).map(function(spellId){return String(spellId==null?'':spellId).trim().slice(0,120);}).filter(function(spellId){if(!spellId||seen[spellId])return false;seen[spellId]=true;return true;}).slice(0,240);
+  }
   var limits={battleEcho:12000,notes:12000,currentGoal:2000};
   if(!Object.prototype.hasOwnProperty.call(limits,field))return undefined;
   return String(value==null?'':value).slice(0,limits[field]);
