@@ -14,6 +14,8 @@ assert.match(source, /combatSaveDraft=\{statKey:'con',dc:10,bonus:0,mode:'normal
 assert.match(source, /combatEntryPortrait\(entry\)/, 'targets are recognizable portrait cards');
 assert.match(source, /w\.zgStatIcon\(key,'zg-combat-save-stat-icon'\)/, 'stat choices reuse the custom stat icon system');
 assert.match(source, /zg-combat-save-stepper/, 'DC and bonus use visual steppers');
+assert.match(source, /type="number" inputmode="numeric" min="1" max="40" step="1" value="'\+combatSaveDraft\.dc\+'"/, 'DC can be typed directly inside the existing stepper');
+assert.match(source, /onchange="zgCombatSaveSetNumber\(\\'dc\\',this\.value\)"/, 'manual DC uses the same bounded draft setter as presets and stepper buttons');
 assert.match(source, /zg-combat-save-modes/, 'roll modes are explicit visual choices');
 assert.match(source, /Лучший из двух/);
 assert.match(source, /Худший из двух/);

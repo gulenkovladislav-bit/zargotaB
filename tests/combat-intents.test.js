@@ -37,8 +37,9 @@ assert.match(network, /accepted && request\.status !== 'roll-result'/, 'GM canno
 assert.match(html, /<textarea id="zg-action-custom" maxlength="1000"/, 'custom actions must allow a long multiline description');
 assert.match(html, /oninput="zgVttActionCustomResize\(this\)"/, 'the custom action field must grow with its text');
 assert.match(html, /custom:'images\/vtt-actions\/cursors\/custom\.png'/, 'custom targeting must use the dedicated cursor artwork');
-assert.match(html, /\.zg-action-cursor:before\{[^}]*width:22px;[^}]*height:22px/, 'custom targeting must keep a visible center marker instead of a micro-dot');
-assert.match(html, /cursorIcon\+'\?v=20260812\.1" alt=""/, 'cursor artwork must use the current cache key');
+assert.match(html, /\.zg-action-cursor:before\{[^}]*width:26px;[^}]*height:26px/, 'custom targeting must keep a visible center marker instead of a micro-dot');
+assert.match(html, /class="zg-action-cursor-action"/, 'cursor artwork must stay inside the compact action medallion');
+assert.match(html, /cursorIcon\+'\?v=20260813\.1" alt=""/, 'cursor artwork must use the current cache key');
 assert.match(html, /\.zg-action-cursor\{[^}]*overflow:visible;[^}]*contain:layout style/, 'the one-pixel cursor anchor must not clip its artwork in Safari');
 assert.doesNotMatch(html, /\.zg-action-cursor\{[^}]*contain:layout paint/, 'paint containment must not hide action cursors outside their one-pixel anchor');
 assert.match(html, /class="zg-action-cursor-label"/, 'every action cursor keeps a readable fallback label when its artwork is unavailable');

@@ -59,6 +59,6 @@ assert.match(html, /id="zg-group-delete-label"/, 'group bar owns its confirmatio
 assert.match(html, /\.zg-token-context-menu\{position:fixed;z-index:220000/, 'menu stays above tokens and session surfaces');
 assert.match(html, /\.zg-game-overlay\.gm\.gm-run-mode \.zg-vtt-token\{cursor:pointer\}/, 'run mode cursor communicates selection rather than dragging');
 assert.match(html, /\.zg-game-overlay\.gm\.gm-edit-mode \.zg-vtt-token:not\(\.locked\)\{cursor:grab\}/, 'edit mode cursor communicates draggable tokens');
-assert.match(html, /\.zg-game-overlay\.gm \.zg-vtt-token\.context-move-armed\{cursor:grab\}/, 'the armed token clearly advertises its temporary drag state');
+assert.match(html, /\.zg-game-overlay\.gm \.zg-vtt-token\.context-move-armed,\.zg-game-overlay\.gm\.gm-run-mode \.zg-vtt-token\.context-move-armed\{cursor:grab\}/, 'the armed token clearly advertises its temporary drag state even while selected in run mode');
 
 console.log('GM token context menu tests passed');
