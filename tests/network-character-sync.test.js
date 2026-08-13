@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-12\.7/, 'network cache key must change with the current session status-projection contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-13\.1/, 'network cache key must change with the current session spell-preparation contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -395,7 +395,9 @@ var tokenDragStart = html.indexOf('function beginTokenDrag');
 var tokenDragEnd = html.indexOf('function renderTokens', tokenDragStart);
 var tokenDragBlock = html.slice(tokenDragStart, tokenDragEnd);
 assert.doesNotMatch(tokenDragBlock, /classList\.add\('open'\)/, 'selecting a token must not open the GM panel');
-assert.match(tokenDragBlock, /classList\.contains\('open'\)\|\|intervention\.classList\.contains\('minimized'\)/);
+var tokenSelectStart = html.indexOf('function selectGmToken');
+var tokenSelectEnd = html.indexOf('function deleteTokenContextTargets', tokenSelectStart);
+assert.match(html.slice(tokenSelectStart, tokenSelectEnd), /classList\.contains\('open'\)\|\|intervention\.classList\.contains\('minimized'\)/, 'selecting a token only refreshes a GM panel that is already visible');
 assert.match(network, /increment:\s*databaseModule\.increment/);
 assert.match(html, /class="zg-gm-target-card"/);
 assert.match(html, /zgGmInterventionAmount\(10\)/);
@@ -433,7 +435,8 @@ assert.doesNotMatch(combatVisualBlock, /'⚔ '\+Math\.max\(0,Number\(event\.dama
 assert.match(html, /zgDicePlanB/);
 assert.match(html, /type==='free'\?'zgDicePlanB\(event\)'/);
 assert.doesNotMatch(html, /data-dice-free-mode/);
-assert.match(html, /План Б · ЛКМ добавить · ПКМ убрать/);
+assert.match(html, /Броски кубиков · ЛКМ добавить · ПКМ убрать/);
+assert.match(html, /classList\.contains\('open'\)&&p\.classList\.contains\('plan-b'\)[\s\S]*?zgDiceClose\(\);return false;/);
 assert.match(html, /zgVttGmAbilityUsage/);
 assert.match(html, /function abilityChargeControl\(card, mode\)/);
 assert.match(html, /class="zg-ability-resource-console/);
@@ -930,9 +933,9 @@ assert.match(abilitiesBlock, /Исчерпано/);
 assert.match(abilitiesBlock, /skills\.forEach\(function\(raw,index\).*innate:true/);
 assert.match(abilitiesBlock, /var catalogCards=spellCards\.filter/);
 assert.match(abilitiesBlock, /<header><h3>Врождённые навыки<\/h3>/);
-assert.match(abilitiesBlock, /<h3>Освоенные заклинания<\/h3>/);
-assert.match(abilitiesBlock, /aria-label="Поиск освоенных заклинаний"/);
-assert.match(abilitiesBlock, /aria-label="Фильтры освоенных заклинаний"/);
+assert.match(abilitiesBlock, /<h3>Полученные заклинания<\/h3>/);
+assert.match(abilitiesBlock, /aria-label="Поиск полученных заклинаний"/);
+assert.match(abilitiesBlock, /aria-label="Фильтры полученных заклинаний"/);
 assert.match(abilitiesBlock, /title="Боевые кодексы" aria-label="Боевые кодексы"/);
 assert.match(abilitiesBlock, /title="Фолианты" aria-label="Фолианты"/);
 assert.match(abilitiesBlock, /title="Обрядники" aria-label="Обрядники"/);
@@ -946,9 +949,10 @@ assert.match(innateCardBlock, /compactInnateName\(card\)/);
 assert.match(innateCardBlock, /compactInnateType\(card\)/);
 assert.doesNotMatch(innateCardBlock, /card\.description|resourceHtml\(card\)|<p>/);
 assert.match(abilitiesBlock, /function spellTypeCapacity\(type\)/);
-assert.match(abilitiesBlock, /getSpellTypeLimitForCharacter\(c,type\)/);
-assert.match(abilitiesBlock, /spellTypeLimits&&Number\(c\.spellTypeLimits\[type\]\)/);
-assert.match(abilitiesBlock, /spellSlotBonuses&&Number\(c\.spellSlotBonuses\[type\]\)/);
+assert.match(abilitiesBlock, /getPreparedSpellTypeLimitForCharacter\(c,type\)/);
+assert.match(abilitiesBlock, /if\(card\.prepared\)grouped\[card\.spellType\]\.push\(card\)/);
+assert.match(abilitiesBlock, /Полученные заклинания/);
+assert.match(abilitiesBlock, /Подготовленные заклинания/);
 assert.match(abilitiesBlock, /label:'Боевые кодексы'/);
 assert.match(abilitiesBlock, /label:'Фолианты'/);
 assert.match(abilitiesBlock, /label:'Обрядники'/);
@@ -990,6 +994,7 @@ var snapshotContext = {
     traits: ['Черта'],
     spellRefs: [101, '202', 'bad/key', { bad:true }],
     spellsLearned: { 101:true, 202:false, 'bad/key':true },
+    preparedSpells: { kodex:[101, '202', 'missing'], folio:['bad/key'], obrad:[] },
     spellCD: { 101:{ used:2, max:3 } },
     biography: 'История',
     quote: 'Цитата',
@@ -1015,6 +1020,8 @@ assert.deepStrictEqual(Array.from(snapshotContext.result.spellRefs), [101, '202'
 assert.strictEqual(snapshotContext.result.spellsLearned['101'], true);
 assert.strictEqual(snapshotContext.result.spellsLearned['202'], false);
 assert.deepStrictEqual(Object.keys(snapshotContext.result.spellsLearned).sort(), ['101', '202']);
+assert.deepStrictEqual(Array.from(snapshotContext.result.preparedSpells.kodex), ['101']);
+assert.deepStrictEqual(Array.from(snapshotContext.result.preparedSpells.folio), []);
 assert.strictEqual(snapshotContext.result.abilityUsage['spell-101'].used, 2);
 assert.strictEqual(snapshotContext.result.abilityUsage['spell-101'].max, 3);
 assert.strictEqual(snapshotContext.result.abilityUsage['spell-objectObject'], undefined);
@@ -1327,6 +1334,7 @@ assert.strictEqual(abilityMergeContext.result['202'].used, 1);
 assert.strictEqual(abilityMergeContext.result['202'].max, 2);
 assert.match(html, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage\)/);
 assert.match(html, /spellsLearned:zgMergeSessionSpellsLearned\(localCharacter,roomCharacter\.spellsLearned\)/);
+assert.match(html, /preparedSpells:zgMergeSessionPreparedSpells\(localCharacter,roomCharacter\.preparedSpells,roomCharacter\.spellsLearned\)/);
 var learnedMergeStart = html.indexOf('function zgMergeSessionSpellsLearned');
 var learnedMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', learnedMergeStart);
 var learnedMergeContext = { result:null };
@@ -1344,8 +1352,8 @@ var runtimeContext = { result:null, Math:Math, Number:Number, String:String, JSO
 vm.runInNewContext(
   html.slice(runtimeHelpersStart, runtimeHelpersEnd) +
     '; result=zgBuildSessionCharacterRuntime(' +
-      '{spellRefs:[101],spellCD:{101:{used:0,max:3}},_gmDeliveryIds:["delivery-local"],journalEntries:[{journalId:"same",title:"Локальная",updatedAt:10}],inventoryItems:[{itemId:"keep-image",image:"data:image/png;base64,local"}]},' +
-      '{level:2,hpCur:8,hpMax:14,tempHp:2,ac:12,initiative:3,speed:8,stats:{str:{base:2}},statuses:["burn"],abilityUsage:{"spell-101":{used:2,max:3}},spellsLearned:{"101":true},inventoryItems:[{itemId:"keep-image",name:"Ключ",image:""}],equipItems:[],arenaEquipSlots:{weapon:"sword"},journalEntries:[{journalId:"same",title:"Firebase",updatedAt:20}],currentGoal:"Вернуть печать",progressionPlan:{version:1},appliedDeliveryIds:["delivery-room"],revision:9}' +
+      '{spellRefs:[101],spellsLearned:{101:true},preparedSpells:{kodex:[],folio:[],obrad:[]},spellCD:{101:{used:0,max:3}},_gmDeliveryIds:["delivery-local"],journalEntries:[{journalId:"same",title:"Локальная",updatedAt:10}],inventoryItems:[{itemId:"keep-image",image:"data:image/png;base64,local"}]},' +
+      '{level:2,hpCur:8,hpMax:14,tempHp:2,ac:12,initiative:3,speed:8,stats:{str:{base:2}},statuses:["burn"],abilityUsage:{"spell-101":{used:2,max:3}},spellsLearned:{"101":true},preparedSpells:{kodex:["101"],folio:[],obrad:[]},inventoryItems:[{itemId:"keep-image",name:"Ключ",image:""}],equipItems:[],arenaEquipSlots:{weapon:"sword"},journalEntries:[{journalId:"same",title:"Firebase",updatedAt:20}],currentGoal:"Вернуть печать",progressionPlan:{version:1},appliedDeliveryIds:["delivery-room"],revision:9}' +
     ');',
   runtimeContext
 );
@@ -1359,6 +1367,7 @@ assert.strictEqual(runtimeContext.result.inventoryItems[0].image,'data:image/png
 assert.deepStrictEqual(Array.from(runtimeContext.result._gmDeliveryIds),['delivery-local','delivery-room']);
 assert.strictEqual(runtimeContext.result.currentGoal,'Вернуть печать');
 assert.strictEqual(runtimeContext.result.progressionPlan.version,1);
+assert.deepStrictEqual(Array.from(runtimeContext.result.preparedSpells.kodex),['101']);
 assert.strictEqual(runtimeContext.result.revision,9);
 assert.match(network, /appliedDeliveryIds:\s*mergeAppliedDeliveryIds\(character\._gmDeliveryIds/);
 assert.match(network, /applied\.character\.appliedDeliveryIds=mergeAppliedDeliveryIds/);

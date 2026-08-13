@@ -65,6 +65,8 @@ assert.match(dice, /isFreeRoll&&sidesList\.some[\s\S]*?Number\(sides\)===20[\s\S
 assert.match(dice, /count>0&&!singleD20\?String\(count\):''/, 'the single d20 does not display a misleading quantity badge');
 assert.match(dice, /contextmenu[\s\S]*?\.zg-dice-row button\[data-die\][\s\S]*?removeSelectedDie/, 'right click is routed from a die texture to decrement logic');
 assert.match(dice, /ЛКМ добавить · ПКМ убрать/, 'the palette explains both mouse controls');
+assert.match(html, /economyButton\('free','free-action','Броски кубиков','свободный бросок до 12 кубиков'/, 'the combat toolbar uses the clear dice-roll label');
+assert.match(dice, /zgDicePlanB=function\(ev\)[\s\S]*?classList\.contains\('open'\)&&p\.classList\.contains\('plan-b'\)[\s\S]*?zgDiceClose\(\);return false;/, 'pressing the selected combat dice button again closes the dice palette');
 
 const scoreKindStart = dice.indexOf('function dicePanelScoreKind(rolls,isFreeRoll)');
 const scoreKindEnd = dice.indexOf('function animateRoll(', scoreKindStart);

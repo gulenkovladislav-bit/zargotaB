@@ -58,6 +58,7 @@ var buttons = [
 var storedMode = '';
 var deactivated = 0;
 var cleared = 0;
+var tokenRenders = 0;
 var context = {
   gmWorkspaceMode:'edit',
   isMaster:true,
@@ -65,6 +66,7 @@ var context = {
   document:{querySelectorAll:function(){return buttons;}},
   el:function(id){return id==='zg-game-overlay'?overlay:(id==='zg-scene-settings'?scenePanel:(id==='zg-zones-panel'?zonesPanel:null));},
   clearGroupSel:function(){cleared++;},
+  renderTokens:function(){tokenRenders++;},
   w:{
     zgObjectAddToggle:function(){},
     zgVttDeactivateTools:function(){deactivated++;},
@@ -91,5 +93,9 @@ assert.strictEqual(storedMode, 'edit');
 assert.strictEqual(overlay.classList.contains('gm-edit-mode'), true);
 assert.strictEqual(overlay.classList.contains('gm-run-mode'), false);
 assert.strictEqual(deactivated, 1, 'entering edit mode must not cancel operational tools again');
+
+var rendersBeforeSnapshotSync = tokenRenders;
+context.applyGmWorkspaceMode('edit', false);
+assert.strictEqual(tokenRenders, rendersBeforeSnapshotSync, 'unchanged Firebase snapshots must not recreate token DOM or close the active context menu');
 
 console.log('gm workspace mode tests passed');

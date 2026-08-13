@@ -19,9 +19,9 @@
 <script src="combat-vfx-presets.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-runtime.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-09.3"></script>
-<script src="zargota-network.js?v=2026-08-12.7"></script>
-<link rel="stylesheet" href="gm-delivery.css?v=2026-08-12.9">
-<script src="gm-delivery.js?v=2026-08-12.10"></script>
+<script src="zargota-network.js?v=2026-08-13.1"></script>
+<link rel="stylesheet" href="gm-delivery.css?v=2026-08-12.10">
+<script src="gm-delivery.js?v=2026-08-12.11"></script>
 <script>
 (function(w){
   var startedAt=Date.now(),marks=Object.create(null),networkProvider=null,playbackProvider=null,vfxProvider=null,tabId='tab-'+Math.random().toString(36).slice(2,9),peers=Object.create(null),channel=null,heartbeat=0;
@@ -11152,26 +11152,14 @@ document.addEventListener('DOMContentLoaded', function(){
     try{return localStorage.getItem(playerBagScaleStorageKey)==='large'?'large':'normal';}
     catch(error){return 'normal';}
   })();
-  function playerBagScaleIsPlayer(){
-    var session=state&&state.session;
-    if(session&&session.role)return session.role==='player';
-    var overlay=el('zg-game-overlay');
-    return !(overlay&&overlay.classList.contains('gm'));
-  }
   function playerBagEffectiveScale(){
-    if(playerBagScalePreference!=='large'||!playerBagScaleIsPlayer())return 1;
-    var drawer=el('zg-vtt-drawer');
-    if(!drawer)return 1.3;
-    var width=Math.max(1,drawer.offsetWidth||670),height=Math.max(1,drawer.offsetHeight||930);
-    var compact=window.matchMedia&&window.matchMedia('(max-width: 1100px)').matches;
-    var sideRoom=Math.max(1,(window.innerWidth-(compact?8:18))/width);
-    var verticalRoom=Math.max(1,(window.innerHeight-(compact?108:32))/height);
-    return Math.max(1,Math.min(1.3,sideRoom,verticalRoom));
+    return playerBagScalePreference==='large'?1.3:1;
   }
   w.zgPlayerBagScaleApply=function(){
     var drawer=el('zg-vtt-drawer'),scale=playerBagEffectiveScale();
     document.documentElement.classList.toggle('zg-player-bag-large',playerBagScalePreference==='large');
     if(drawer){
+      drawer.setAttribute('data-player-bag-scale',playerBagScalePreference);
       drawer.style.setProperty('--bag-user-scale',String(scale));
       drawer.style.setProperty('--bag-entry-scale',String(scale*.975));
       drawer.style.setProperty('--bag-overshoot-scale',String(scale*1.006));
@@ -11193,10 +11181,23 @@ document.addEventListener('DOMContentLoaded', function(){
     try{localStorage.setItem(playerBagScaleStorageKey,playerBagScalePreference);}catch(error){}
     w.zgPlayerBagScaleRender();
     try{if(w.ZargotaSound)w.ZargotaSound.buttonSoft();}catch(error){}
+    return false;
   };
+  function playerBagScaleBind(){
+    var panel=el('zg-player-bag-settings');
+    if(!panel||panel.dataset.scaleBound==='true')return;
+    panel.dataset.scaleBound='true';
+    panel.addEventListener('click',function(event){
+      var button=event.target&&event.target.closest?event.target.closest('[data-player-bag-scale]'):null;
+      if(!button||!panel.contains(button))return;
+      event.preventDefault();
+      event.stopPropagation();
+      w.zgPlayerBagScaleSet(button.getAttribute('data-player-bag-scale'));
+    });
+  }
   window.addEventListener('resize',function(){if(playerBagScalePreference==='large')w.zgPlayerBagScaleApply();});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){w.zgPlayerBagScaleApply();});
-  else setTimeout(function(){w.zgPlayerBagScaleApply();},0);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){playerBagScaleBind();w.zgPlayerBagScaleApply();});
+  else setTimeout(function(){playerBagScaleBind();w.zgPlayerBagScaleApply();},0);
   w.zgGameClose = function(force){
     if (force !== true && w.zgSceneHasUnsavedChanges && w.zgSceneHasUnsavedChanges()) {
       if (w.zgSceneExitPrompt) w.zgSceneExitPrompt(function(){ w.zgGameClose(true); });
@@ -11686,24 +11687,130 @@ document.addEventListener('DOMContentLoaded', function(){
   };
   // ── Групповое выделение ──
   var groupSel = [];
-  function clearGroupSel(){ groupSel=[]; updateGroupUi(); }
+  function tokenVisibilityTargets(tokens){
+    return (tokens||[]).filter(function(token){return token&&token.type!=='hero'&&token.type!=='note'&&!(token.light&&token.light.enabled);});
+  }
+  function applyGmTokenAction(tokens,action,value,message){
+    if(!isMaster)return false;
+    var targets=(tokens||[]).filter(Boolean);if(!targets.length)return false;
+    if(action==='visibility'){
+      targets=tokenVisibilityTargets(targets);if(!targets.length)return false;
+      targets.forEach(function(token){token.hidden=!!value;});
+    }else if(action==='lock'){
+      targets.forEach(function(token){token.locked=!!value;});
+    }else if(action==='delete'){
+      var removable=targets.filter(function(token){return token.type!=='hero';});if(!removable.length)return false;
+      var ids=removable.map(function(token){return token.id;});
+      draft.tokens=draft.tokens.filter(function(token){return ids.indexOf(token.id)<0;});
+      groupSel=groupSel.filter(function(id){return ids.indexOf(id)<0;});
+      if(ids.indexOf(selectedTokenId)>=0)selectedTokenId=draft.tokens.length?draft.tokens[0].id:'';
+      targets=removable;
+    }else return false;
+    markDirty(message||'Жетоны обновлены');syncControls();updateGroupUi();
+    if(action==='visibility'&&w.zgScenePublish)w.zgScenePublish();
+    return true;
+  }
+  function groupVisibilityState(){
+    var targets=tokenVisibilityTargets(groupTokens()),hidden=targets.filter(function(token){return !!token.hidden;}).length;
+    return {targets:targets,state:!targets.length?'none':hidden===0?'visible':hidden===targets.length?'hidden':'mixed'};
+  }
+  function resetGroupTransientUi(){var bar=el('zg-group-bar'),menu=el('zg-group-visibility-menu');if(bar)bar.classList.remove('confirm-delete');if(menu)menu.hidden=true;}
+  function clearGroupSel(){ groupSel=[];resetGroupTransientUi();updateGroupUi(); }
   function updateGroupUi(){
     var bar=el('zg-group-bar');
     Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.gsel'),function(n){ n.classList.remove('gsel'); });
     groupSel.forEach(function(id){ var n=document.querySelector('.zg-vtt-token[data-tid="'+id+'"]'); if(n)n.classList.add('gsel'); });
-    if(bar){ bar.classList.toggle('open', groupSel.length>0); var c=el('zg-group-count'); if(c)c.textContent=groupSel.length+' выбрано'; }
+    if(!bar)return;
+    var tokens=groupTokens(),count=tokens.length,visibility=groupVisibilityState(),visibilityButton=el('zg-group-visibility-button'),visibilityMenu=el('zg-group-visibility-menu'),lockButton=el('zg-group-lock-button'),deleteButton=el('zg-group-delete-button');
+    bar.classList.toggle('open',count>0);bar.classList.toggle('single',count===1);if(!count)bar.classList.remove('confirm-delete');
+    var c=el('zg-group-count');if(c)c.textContent=count+' '+(count===1?'выбран':'выбрано');
+    if(visibilityMenu&&visibility.state!=='mixed')visibilityMenu.hidden=true;
+    if(visibilityButton){
+      var visibilityKind=visibility.state==='hidden'?'show':visibility.state==='mixed'?'group':'hide',visibilityLabel=visibility.state==='hidden'?'Показать':visibility.state==='mixed'?'Видимость…':'Скрыть';
+      visibilityButton.innerHTML=tokenContextIcon(visibilityKind)+'<b>'+visibilityLabel+'</b>';visibilityButton.disabled=visibility.state==='none';
+      visibilityButton.title=visibility.state==='mixed'?'В группе есть видимые и скрытые жетоны':'Переключить видимость всей группы';
+    }
+    if(lockButton){var shouldLock=tokens.some(function(token){return !token.locked;});lockButton.innerHTML=tokenContextIcon(shouldLock?'lock':'unlock')+'<b>'+(shouldLock?'Закрепить':'Разблокировать')+'</b>';lockButton.disabled=!count;}
+    if(deleteButton)deleteButton.disabled=!tokens.some(function(token){return token.type!=='hero';});
   }
   function toggleGroupSel(token){
+    resetGroupTransientUi();
     var i=groupSel.indexOf(token.id);
     if(i>=0)groupSel.splice(i,1); else groupSel.push(token.id);
     updateGroupUi();
   }
   function groupTokens(){ return draft.tokens.filter(function(t){ return groupSel.indexOf(t.id)>=0; }); }
-  w.zgGroupShow=function(){ if(!isMaster)return; groupTokens().forEach(function(t){ if(t.type!=='hero')t.hidden=false; }); markDirty('Группа показана игрокам'); syncControls(); if(w.zgScenePublish)w.zgScenePublish(); };
-  w.zgGroupHide=function(){ if(!isMaster)return; groupTokens().forEach(function(t){ if(t.type!=='hero')t.hidden=true; }); markDirty('Группа скрыта'); syncControls(); if(w.zgScenePublish)w.zgScenePublish(); };
-  w.zgGroupLock=function(){ if(!isMaster)return; var ts=groupTokens(); var anyUnlocked=ts.some(function(t){return !t.locked;}); ts.forEach(function(t){ t.locked=anyUnlocked; }); markDirty(anyUnlocked?'Группа заблокирована 🔒':'Группа разблокирована'); syncControls(); };
-  w.zgGroupDelete=function(){ if(!isMaster)return; var ids=groupSel.slice(); draft.tokens=draft.tokens.filter(function(t){ return ids.indexOf(t.id)<0 || t.type==='hero'; }); clearGroupSel(); markDirty('Группа удалена'); syncControls(); };
+  w.zgGroupShow=function(){applyGmTokenAction(groupTokens(),'visibility',false,'Группа показана игрокам');};
+  w.zgGroupHide=function(){applyGmTokenAction(groupTokens(),'visibility',true,'Группа скрыта');};
+  w.zgGroupVisibility=function(){
+    var visibility=groupVisibilityState(),menu=el('zg-group-visibility-menu');
+    if(visibility.state==='mixed'){if(menu)menu.hidden=!menu.hidden;return;}
+    if(visibility.state==='visible')w.zgGroupHide();else if(visibility.state==='hidden')w.zgGroupShow();
+  };
+  w.zgGroupVisibilitySet=function(hidden){if(hidden)w.zgGroupHide();else w.zgGroupShow();};
+  w.zgGroupLock=function(){var tokens=groupTokens(),shouldLock=tokens.some(function(token){return !token.locked;});applyGmTokenAction(tokens,'lock',shouldLock,shouldLock?'Группа закреплена':'Группа разблокирована');};
+  w.zgGroupDeleteRequest=function(){var bar=el('zg-group-bar'),count=groupTokens().filter(function(token){return token.type!=='hero';}).length;if(!bar||count<1)return;bar.classList.add('confirm-delete');var label=el('zg-group-delete-label'),word=count===1?'жетон':count>1&&count<5?'жетона':'жетонов';if(label)label.textContent='Удалить '+count+' '+word+'?';};
+  w.zgGroupDeleteCancel=function(){var bar=el('zg-group-bar');if(bar)bar.classList.remove('confirm-delete');};
+  w.zgGroupDelete=function(){var tokens=groupTokens();if(applyGmTokenAction(tokens,'delete',null,'Группа удалена'))clearGroupSel();};
   w.zgGroupClear=function(){ clearGroupSel(); };
+
+  // Контекстное управление жетонами: в режиме ведения редактирование не смешивается
+  // с обычным выбором, а все частые команды остаются доступны по ПКМ.
+  function closeGmTokenContextMenu(){var menu=document.getElementById('zg-token-context-menu');if(menu)menu.remove();}
+  function tokenContextIcon(kind){
+    var paths={
+      info:'<circle cx="12" cy="12" r="9"/><path d="M12 10v7M12 7h.01"/>',
+      hide:'<path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 4.3A10.8 10.8 0 0112 4c5.5 0 9 5 9 5a16 16 0 01-2.1 2.5M6.6 6.6C4.3 8.1 3 10 3 10s3.5 5 9 5c1.2 0 2.3-.2 3.3-.6"/>',
+      show:'<path d="M2.5 12s3.7-6 9.5-6 9.5 6 9.5 6-3.7 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.7"/>',
+      lock:'<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/>',
+      unlock:'<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 017.4-2"/>',
+      copy:'<rect x="8" y="8" width="11" height="11" rx="1"/><path d="M16 8V5H5v11h3"/>',
+      edit:'<path d="M4 20l4.2-1 10.9-10.9a2 2 0 00-2.8-2.8L5.4 16.2 4 20zM14.8 6.8l2.8 2.8"/>',
+      run:'<path d="M8 5l10 7-10 7V5z"/>',
+      trash:'<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',
+      group:'<rect x="3" y="5" width="8" height="8" rx="1"/><rect x="13" y="11" width="8" height="8" rx="1"/>'
+    };
+    return '<svg viewBox="0 0 24 24" aria-hidden="true">'+(paths[kind]||paths.info)+'</svg>';
+  }
+  function appendTokenContextAction(host,kind,title,subtitle,handler,options){
+    options=options||{};
+    var button=document.createElement('button');button.type='button';button.className='zg-token-context-action'+(options.danger?' danger':'');
+    button.innerHTML=tokenContextIcon(kind)+'<span><b>'+title+'</b>'+(subtitle?'<small>'+subtitle+'</small>':'')+'</span>';
+    button.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();handler();});host.appendChild(button);return button;
+  }
+  function selectGmToken(token,node){
+    if(!token)return;
+    selectedTokenId=token.id;w.zgSelectedHeroMemberUid=token.type==='hero'&&token.memberUid?String(token.memberUid):'';
+    var sceneEditor=el('zg-scene-settings');if(sceneEditor&&sceneEditor.classList.contains('open')&&w.zgSceneTab)w.zgSceneTab('objects');
+    var intervention=el('zg-gm-intervention');if(intervention){gmInterventionTokenId=token.id;if(intervention.classList.contains('open')||intervention.classList.contains('minimized'))renderGmIntervention();}
+    Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){item.classList.remove('selected');});if(node)node.classList.add('selected');
+    renderTokenList();syncTokenEditor();
+    var selectedCombat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat;if(selectedCombat&&selectedCombat.active&&typeof w.zgCombatToolbarRefresh==='function')w.zgCombatToolbarRefresh();
+  }
+  function deleteTokenContextTargets(menu,targets){
+    var removable=targets.filter(function(token){return token.type!=='hero';});if(!removable.length)return;
+    var actions=menu.querySelector('.zg-token-context-actions');if(!actions)return;
+    actions.innerHTML='';var warning=document.createElement('div');warning.className='zg-token-context-warning';warning.innerHTML='<b>Удалить '+(removable.length>1?removable.length+' жетона':'жетон')+'?</b><small>Героев удалить с карты этим действием нельзя.</small>';actions.appendChild(warning);
+    appendTokenContextAction(actions,'trash','Подтвердить удаление','Это действие изменит сцену',function(){applyGmTokenAction(removable,'delete',null,'Жетон удалён');closeGmTokenContextMenu();},{danger:true});
+    appendTokenContextAction(actions,'run','Оставить на сцене','Вернуться к действиям',function(){closeGmTokenContextMenu();});
+  }
+  function openGmTokenContextMenu(ev,token){
+    if(!isMaster||gmVision!=='gm'||!token)return false;closeGmTokenContextMenu();
+    var targets=[token],menu=document.createElement('section');
+    menu.id='zg-token-context-menu';menu.className='zg-token-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','Действия с жетоном');
+    var head=document.createElement('header'),portrait=tokenPortrait(token);if(portrait){var image=document.createElement('img');image.src=portrait;image.alt='';head.appendChild(image);}else{var mark=document.createElement('i');mark.innerHTML=tokenContextIcon('info');head.appendChild(mark);}
+    var copy=document.createElement('span');copy.innerHTML='<small>ЖЕТОН · УПРАВЛЕНИЕ</small><b>'+esc(tokenName(token))+'</b>';head.appendChild(copy);menu.appendChild(head);
+    var actions=document.createElement('div');actions.className='zg-token-context-actions';menu.appendChild(actions);
+    appendTokenContextAction(actions,'info','Открыть лист','HP, состояния и заметки',function(){closeGmTokenContextMenu();if(w.zgGmInterventionOpenToken)w.zgGmInterventionOpenToken(token.id,'entity');});
+    var hideTargets=tokenVisibilityTargets(targets);
+    if(hideTargets.length){var shouldHide=!token.hidden;appendTokenContextAction(actions,shouldHide?'hide':'show',shouldHide?'Скрыть от игроков':'Показать игрокам','Жетон останется виден мастеру',function(){applyGmTokenAction(hideTargets,'visibility',shouldHide,shouldHide?'Жетон скрыт':'Жетон показан игрокам');closeGmTokenContextMenu();});}
+    var shouldLock=!token.locked;appendTokenContextAction(actions,shouldLock?'lock':'unlock',shouldLock?'Закрепить на сцене':'Разрешить перемещение',shouldLock?'Защита от случайного сдвига':'Перетаскивание только в Редакторе',function(){applyGmTokenAction(targets,'lock',shouldLock,shouldLock?'Жетон закреплён':'Жетон разблокирован');closeGmTokenContextMenu();});
+    if(token.type!=='hero'&&token.type!=='spawn')appendTokenContextAction(actions,'copy','Создать копию','Появится рядом с оригиналом',function(){w.zgSceneTokenDuplicate();closeGmTokenContextMenu();});
+    if(token.type==='portal')appendTokenContextAction(actions,'run','Перейти через портал','Открыть связанную сцену',function(){w.zgScenePortalGo();closeGmTokenContextMenu();});
+    if(token.type!=='hero')appendTokenContextAction(actions,'trash','Удалить со сцены','С подтверждением',function(){deleteTokenContextTargets(menu,targets);},{danger:true});
+    var foot=document.createElement('footer');foot.innerHTML='<span><b>ПКМ</b> действия одного жетона</span><span><b>Shift + ПКМ</b> добавить в группу</span>';menu.appendChild(foot);document.body.appendChild(menu);
+    var rect=menu.getBoundingClientRect(),left=Math.max(10,Math.min(ev.clientX+10,window.innerWidth-rect.width-10)),top=Math.max(10,Math.min(ev.clientY+8,window.innerHeight-rect.height-10));menu.style.left=left+'px';menu.style.top=top+'px';return true;
+  }
 
   function el(id){ return document.getElementById(id); }
   function clamp(value, min, max){ return Math.max(min, Math.min(max, Number(value) || 0)); }
@@ -14578,18 +14685,10 @@ document.addEventListener('DOMContentLoaded', function(){
       return;
     }
     ev.preventDefault(); ev.stopPropagation();
-    if (ev.shiftKey){ tokenClickSuppressedUntil=Date.now()+260;toggleGroupSel(token); return; }         // Shift+клик — добавить/убрать из выделения
+    if (ev.shiftKey&&gmWorkspaceMode==='edit'){ tokenClickSuppressedUntil=Date.now()+260;toggleGroupSel(token); return; } // В редакторе Shift+ЛКМ остаётся быстрым выделением
     if(groupSel.length&&groupSel.indexOf(token.id)<0)clearGroupSel();
-    selectedTokenId = token.id;
-    w.zgSelectedHeroMemberUid=token.type==='hero'&&token.memberUid?String(token.memberUid):'';
-    var sceneEditor=el('zg-scene-settings');
-    if(sceneEditor&&sceneEditor.classList.contains('open')&&w.zgSceneTab)w.zgSceneTab('objects');
-    var intervention=el('zg-gm-intervention');if(intervention){gmInterventionTokenId=token.id;if(intervention.classList.contains('open')||intervention.classList.contains('minimized'))renderGmIntervention();}
-    Array.prototype.forEach.call(document.querySelectorAll('.zg-vtt-token.selected'),function(item){ item.classList.remove('selected'); });
-    node.classList.add('selected');
-    renderTokenList(); syncTokenEditor();
-    var selectedCombat=roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.combat;
-    if(selectedCombat&&selectedCombat.active&&typeof w.zgCombatToolbarRefresh==='function')w.zgCombatToolbarRefresh();
+    selectGmToken(token,node);
+    if(gmWorkspaceMode!=='edit')return; // Ведение: ЛКМ только выбирает, случайный сдвиг невозможен.
     // вкладку не переключаем — свойства выбранного показываются в контекст-блоке над вкладками
     if (token.locked) { renderTokens();if(token.type==='custom'&&w.zgGmInterventionOpenToken)w.zgGmInterventionOpenToken(token.id,'entity');return; }              // заблокирован — только выбор, без перетаскивания
     node.classList.add('dragging');
@@ -14637,7 +14736,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgGmTokenSheetOpenFromMap=openGmTokenSheetFromMap;
   var sizeDrag = null;
   function beginResize(ev, token, node){
-    if (!isMaster || ev.button !== 0) return;
+    if (!isMaster || gmWorkspaceMode!=='edit' || ev.button !== 0) return;
     ev.preventDefault(); ev.stopPropagation();
     sizeDrag = { token:token, node:node, startSize:token.size, startX:ev.clientX, startY:ev.clientY };
     document.addEventListener('pointermove', resizeMove);
@@ -14739,25 +14838,11 @@ document.addEventListener('DOMContentLoaded', function(){
       }
       if (token.id === selectedTokenId && isMaster) {
         var frame = document.createElement('span'); frame.className = 'zg-vtt-token-frame'; node.appendChild(frame);
-        if (!token.locked) {
+        if (gmWorkspaceMode==='edit'&&!token.locked) {
           var handle = document.createElement('span'); handle.className = 'zg-vtt-token-handle'; handle.title = 'Растянуть';
           handle.addEventListener('pointerdown', function(ev){ beginResize(ev, token, node); });
           node.appendChild(handle);
         }
-        // Быстрые действия над выбранным жетоном
-        var bar2 = document.createElement('span'); bar2.className = 'zg-vtt-token-actions';
-        function act(txt, title, fn){
-          var b = document.createElement('button'); b.type = 'button'; b.textContent = txt; b.title = title;
-          b.addEventListener('pointerdown', function(e){ e.stopPropagation(); e.preventDefault(); });
-          b.addEventListener('click', function(e){ e.stopPropagation(); fn(); });
-          bar2.appendChild(b);
-        }
-        if (token.type !== 'hero' && token.type !== 'note' && !isLightSource) act(token.hidden ? '👁' : '🙈', token.hidden ? 'Показать игрокам' : 'Скрыть от игроков', function(){ token.hidden = !token.hidden; markDirty(token.hidden ? 'Скрыт' : 'Показан'); syncControls(); });
-        act(token.locked ? '🔓' : '🔒', token.locked ? 'Разблокировать' : 'Заблокировать', function(){ token.locked = !token.locked; markDirty(token.locked ? 'Заблокирован 🔒' : 'Разблокирован'); syncControls(); });
-        if (token.type !== 'hero' && token.type !== 'spawn') act('⧉', 'Дублировать', function(){ w.zgSceneTokenDuplicate(); });
-        if (token.type === 'portal') act('▶', 'Перейти', function(){ w.zgScenePortalGo(); });
-        if (token.type !== 'hero') act('🗑', 'Удалить', function(){ w.zgSceneRemoveToken(); });
-        node.appendChild(bar2);
       }
       node.addEventListener('pointerdown',function(ev){
         if(w.zgCombatAttackToolActive){
@@ -14770,10 +14855,17 @@ document.addEventListener('DOMContentLoaded', function(){
         beginTokenDrag(ev,token,node);
       });
       node.addEventListener('pointermove',moveToken); node.addEventListener('pointerup',finishTokenDrag); node.addEventListener('pointercancel',finishTokenDrag);
+      node.addEventListener('contextmenu',function(ev){
+        if(!isMaster||gmVision!=='gm')return;
+        ev.preventDefault();ev.stopPropagation();tokenClickSuppressedUntil=Date.now()+260;
+        if(ev.shiftKey){toggleGroupSel(token);closeGmTokenContextMenu();return;}
+        selectGmToken(token,node);
+        openGmTokenContextMenu(ev,token);
+      });
       node.addEventListener('click',function(ev){
         if(node.__zgCombatTargetClick){node.__zgCombatTargetClick=false;ev.preventDefault();ev.stopPropagation();return;}
         if(w.zgCombatAttackToolActive){ev.preventDefault();ev.stopPropagation();return;}
-        if(ev.target&&ev.target.closest&&ev.target.closest('.zg-vtt-token-handle,.zg-vtt-token-actions'))return;
+        if(ev.target&&ev.target.closest&&ev.target.closest('.zg-vtt-token-handle'))return;
         if(token.type==='custom'&&openGmTokenSheetFromMap(token.id)){ev.preventDefault();ev.stopPropagation();}
       });
       layer.appendChild(node);
@@ -15270,6 +15362,7 @@ document.addEventListener('DOMContentLoaded', function(){
     b.title = gm ? 'Сейчас вид мастера (скрытое видно) — нажмите для превью глазами игроков' : 'Сейчас видно как игрокам — нажмите, чтобы вернуть вид мастера';
   }
   function applyGmWorkspaceMode(mode,persist){
+    var previousMode=gmWorkspaceMode;
     gmWorkspaceMode=mode==='edit'?'edit':'run';
     var overlay=el('zg-game-overlay');
     if(overlay){overlay.classList.toggle('gm-edit-mode',gmWorkspaceMode==='edit'&&isMaster);overlay.classList.toggle('gm-run-mode',gmWorkspaceMode==='run'&&isMaster);}
@@ -15285,6 +15378,12 @@ document.addEventListener('DOMContentLoaded', function(){
       clearGroupSel();
     }
     if(persist){try{localStorage.setItem('zg_gm_workspace_mode_v1',gmWorkspaceMode);}catch(error){}}
+    // roomState вызывает этот синхронизатор на каждом сетевом снимке. Нельзя
+    // пересоздавать жетоны и закрывать меню, пока сам режим не изменился.
+    if(persist||previousMode!==gmWorkspaceMode){
+      if(typeof closeGmTokenContextMenu==='function')closeGmTokenContextMenu();
+      if(typeof renderTokens==='function')renderTokens();
+    }
   }
   w.zgGmWorkspaceMode=function(mode){
     if(!isMaster)return;
@@ -15724,12 +15823,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!isMaster||(ev.key!=='Delete'&&ev.key!=='Backspace'))return;
     var overlay=el('zg-game-overlay'); if(!overlay||!overlay.classList.contains('open'))return;
     var ae=document.activeElement; if(ae&&/^(input|select|textarea)$/i.test(ae.tagName))return;
-    if(groupSel.length){ ev.preventDefault(); w.zgGroupDelete(); return; }
+    if(groupSel.length){ ev.preventDefault(); w.zgGroupDeleteRequest(); return; }
     var t=currentToken(); if(t&&t.type!=='hero'){ ev.preventDefault(); w.zgSceneRemoveToken&&w.zgSceneRemoveToken(); }
   });
   // Ctrl+Z / Ctrl+Shift+Z (или Ctrl+Y) — история; Esc — снять групповое выделение
   document.addEventListener('keydown', function(ev){
     var overlay=el('zg-game-overlay'); if(!overlay||!overlay.classList.contains('open'))return;
+    if(ev.key==='Escape'&&el('zg-token-context-menu')){ev.preventDefault();closeGmTokenContextMenu();return;}
     if(ev.key==='Escape'&&el('zg-free-token-menu')){ev.preventDefault();if(w.zgFreeRoomTokenClose)w.zgFreeRoomTokenClose();return;}
     if(ev.key==='Escape'&&abilityTargeting){ev.preventDefault();w.zgSceneAbilityCancel();if(w.zgPlayerDockSet)w.zgPlayerDockSet('abilities',false);return;}
     if(ev.key==='Escape'&&(movementMode||actionToolKind||w.zgCombatAttackToolActive)){setMovementMode(false);setActionTool('');if(w.zgCombatAttackCancel)w.zgCombatAttackCancel();if(w.zgPlayerDockSet){w.zgPlayerDockSet('movement',false);w.zgPlayerDockSet('actions',false);}return;}
@@ -15754,7 +15854,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return true;
   }
   document.addEventListener('pointerdown',function(ev){
-    if(ev.button===0)return;
+    if(ev.button===0){var menu=el('zg-token-context-menu');if(menu&&!(ev.target&&ev.target.closest&&ev.target.closest('#zg-token-context-menu')))closeGmTokenContextMenu();return;}
     if(cancelActiveSceneTool()){ev.preventDefault();ev.stopPropagation();}
   },true);
   function suppressGameContextMenu(ev){
@@ -15763,6 +15863,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return !(target.closest&&target.closest('input,textarea,select,[contenteditable="true"]'));
   }
   document.addEventListener('contextmenu',function(ev){
+    if(!(ev.target&&ev.target.closest&&ev.target.closest('#zg-token-context-menu,.zg-vtt-token')))closeGmTokenContextMenu();
     if(cancelActiveSceneTool()||suppressGameContextMenu(ev))ev.preventDefault();
   },true);
   w.zgScenePublish = function(){
@@ -16909,11 +17010,12 @@ document.addEventListener('DOMContentLoaded', function(){
     key=String(key||'');var existing=el('zg-combat-round-popover');
     if(existing&&combatRoundMenuKey===key){closeCombatRoundMenu();return false;}
     closeCombatRoundMenu();
-    var combat=state&&state.room&&state.room.combat,session=state&&state.session,order=combat&&Array.isArray(combat.order)?combat.order:[],entry=order.find(function(item){return item&&String(item.key||'')===key;});
-    if(!entry||!combat||!combat.active||!session||session.role!=='master')return false;
-    var skipped=entry.skipRounds===true,anchor=event&&event.currentTarget,rect=anchor&&anchor.getBoundingClientRect?anchor.getBoundingClientRect():{left:20,bottom:60,right:60};
-    var popup=document.createElement('div');popup.id='zg-combat-round-popover';popup.className='zg-combat-round-popover';popup.setAttribute('role','dialog');popup.setAttribute('aria-label','Участие в раунде');
-    popup.innerHTML='<button type="button" class="zg-combat-round-close" onclick="zgCombatRoundMenuClose()" aria-label="Закрыть">×</button><span class="zg-combat-round-symbol" aria-hidden="true">'+(skipped?'Ⅱ':'▶')+'</span><div><small>УЧАСТИЕ В РАУНДЕ</small><b>'+esc(entry.name||'Участник')+'</b><p>'+(skipped?'Ходы сейчас автоматически пропускаются.':'Участник получает свой ход по инициативе.')+'</p></div><button type="button" class="zg-combat-round-switch '+(skipped?'off':'on')+'" role="switch" aria-checked="'+String(!skipped)+'" onclick="zgCombatRoundSkipSet(event,'+esc(JSON.stringify(key))+','+String(!skipped)+')"><i aria-hidden="true"></i><span>'+(skipped?'Вернуть в раунд':'Пропускать ходы')+'</span></button>';
+    var combat=state&&state.room&&state.room.combat,session=state&&state.session,order=combat&&combat.active&&Array.isArray(combat.order)?combat.order:[],entry=order.find(function(item){return item&&String(item.key||'')===key;}),member=null;
+    if(!entry&&key.indexOf('member:')===0){member=heroMembers().find(function(item){return item&&String(item.uid||'')===key.slice(7);});if(member){var character=member.character||{};entry={key:key,uid:member.uid,kind:'hero',name:character.name||member.name||'Герой',portrait:character.portrait||'',stats:character.stats||{},statuses:character.statuses||[],statusEffects:character.statusEffects||[]};}}
+    if(!entry||!session||session.role!=='master')return false;
+    var inRound=!!(combat&&combat.active&&order.some(function(item){return item&&String(item.key||'')===key;})),skipped=inRound&&entry.skipRounds===true,anchor=event&&event.currentTarget,rect=anchor&&anchor.getBoundingClientRect?anchor.getBoundingClientRect():{left:20,bottom:60,right:60};
+    var popup=document.createElement('div');popup.id='zg-combat-round-popover';popup.className='zg-combat-round-popover';popup.setAttribute('role','dialog');popup.setAttribute('aria-label','Действия с участником');
+    popup.innerHTML='<button type="button" class="zg-combat-round-close" onclick="zgCombatRoundMenuClose()" aria-label="Закрыть">×</button><span class="zg-combat-round-symbol" aria-hidden="true">⚙</span><div><small>ДЕЙСТВИЯ С ПОРТРЕТОМ</small><b>'+esc(entry.name||'Участник')+'</b><p>'+(inRound?(skipped?'Ходы пропускаются; спасбросок остаётся доступен.':'Участник действует в раунде.'):'Спасбросок можно назначить вне боя.')+'</p></div><button type="button" class="zg-combat-round-save" onclick="zgPortraitSavingThrow(event,'+esc(JSON.stringify(key))+')"><span aria-hidden="true">◈</span><i><b>Назначить спасбросок</b><small>Характеристика, DC и режим d20</small></i></button>'+(inRound?'<button type="button" class="zg-combat-round-switch '+(skipped?'off':'on')+'" role="switch" aria-checked="'+String(!skipped)+'" onclick="zgCombatRoundSkipSet(event,'+esc(JSON.stringify(key))+','+String(!skipped)+')"><i aria-hidden="true"></i><span>'+(skipped?'Вернуть в раунд':'Пропускать ходы')+'</span></button>':'');
     document.body.appendChild(popup);combatRoundMenuKey=key;
     var width=Math.min(292,Math.max(230,window.innerWidth-24)),left=Math.max(12,Math.min(window.innerWidth-width-12,rect.left+rect.right>window.innerWidth?rect.right-width:rect.left-104));
     popup.style.width=width+'px';popup.style.left=left+'px';popup.style.top=Math.min(window.innerHeight-popup.offsetHeight-12,rect.bottom+8)+'px';return true;
@@ -16925,6 +17027,7 @@ document.addEventListener('DOMContentLoaded', function(){
     combatRoundSkipBusy=true;var desired=skipped===true;
     Promise.resolve(roundApi.setCombatParticipantSkipped(String(key||''),desired)).then(function(snapshot){if(snapshot){state=snapshot;render(snapshot);}closeCombatRoundMenu();if(w.showToast)w.showToast(desired?'Участник будет пропускаться':'Участник возвращён в раунд');}).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось изменить участие в раунде');}).then(function(){combatRoundSkipBusy=false;});return true;
   };
+  w.zgPortraitSavingThrow=function(event,key){if(event){event.preventDefault();event.stopPropagation();}combatSaveTargetKey=String(key||'');combatSaveDraft.removeStatus='';closeCombatRoundMenu();return w.zgCombatSaveToggle?w.zgCombatSaveToggle(true):false;};
   function renderParty(){
     var host = el('zg-vtt-party'); if (!host) return;
     var session = state && state.session;
@@ -16961,7 +17064,8 @@ document.addEventListener('DOMContentLoaded', function(){
       var initiative=order.find(function(entry){return entry.uid===member.uid;}), current=initiative&&order[Number(combat.turnIndex)||0]&&order[Number(combat.turnIndex)||0].uid===member.uid;
       var presence=partyPresence(member);
       var hpInfo=combatHpPresentation({hp:c.hpCur,hpMax:c.hpMax},true,session),statusArt=portraitStatusMarkup(c,{},'party'),bloodVariant=combatBloodVariant(member.uid||c.id||c.name);
-      return '<button type="button" class="zg-party-card wound-'+hpInfo.level+' '+bloodVariant + (isOwn ? ' own' : '') + (possessed ? ' possessed' : '') + (current ? ' current-turn' : '') + ' presence-'+presence.key+'" onclick="zgVttPartyClick(' + esc(JSON.stringify(member.uid)) + ')" title="' + esc((c.name || member.name || 'Герой')+' · '+hpInfo.label+' · '+presence.label) + '"' + (isOwn || possessed ? ' aria-current="true"' : '') + '>' +
+      var portraitMenuKey='member:'+String(member.uid||'');
+      return '<article class="zg-party-slot"><button type="button" class="zg-party-card wound-'+hpInfo.level+' '+bloodVariant + (isOwn ? ' own' : '') + (possessed ? ' possessed' : '') + (current ? ' current-turn' : '') + ' presence-'+presence.key+'" onclick="zgVttPartyClick(' + esc(JSON.stringify(member.uid)) + ')" title="' + esc((c.name || member.name || 'Герой')+' · '+hpInfo.label+' · '+presence.label) + '"' + (isOwn || possessed ? ' aria-current="true"' : '') + '>' +
         (initiative?'<span class="zg-party-init" title="Инициатива: d20 '+initiative.roll+(initiative.bonus>=0?' + ':' − ')+Math.abs(initiative.bonus)+'">'+initiative.total+'</span>':'')+
         avatar(c, c.portrait ? '' : 'zg-party-ph') +
         statusArt+
@@ -16969,7 +17073,7 @@ document.addEventListener('DOMContentLoaded', function(){
         '<span class="zg-party-name">' + esc(c.name || member.name || 'Герой') + '</span>' +
         '<span class="zg-party-online '+presence.key+'" aria-label="'+esc(presence.label)+'">'+presence.symbol+'</span>' +
         (hpInfo.level?'<span class="zg-party-blood" aria-hidden="true"></span>':'')+hpInfo.html+
-      '</button>';
+      '</button>'+(session&&session.role==='master'?'<button type="button" class="zg-party-round-gear" onclick="zgCombatRoundMenuToggle(event,'+esc(JSON.stringify(portraitMenuKey))+')" aria-label="Действия с портретом '+esc(c.name||member.name||'героя')+'" title="Действия с портретом"><span aria-hidden="true">⚙</span></button>':'')+'</article>';
     }).join(''));
   }
   w.zgVttPartyClick = function(uid){
@@ -17820,8 +17924,18 @@ document.addEventListener('DOMContentLoaded', function(){
     var asset=card&&card.iconAsset;
     return asset?'<img class="zg-generated-ability-icon '+esc(extraClass||'')+'" src="'+esc(asset)+'" alt="" draggable="false">':esc(card&&card.icon||'✦');
   }
+  function abilityAssetForItem(item,fallback){
+    item=item||{};
+    var asset=String(item.iconAsset||item.abilityIcon||item.iconImage||item.image||'').trim();
+    var icon=String(item.icon||'').trim();
+    if(!asset&&/^(?:https?:|data:image\/|blob:|\.?\.?\/|images\/)/i.test(icon))asset=icon;
+    return asset||fallback||'';
+  }
   function abilitiesPanel(){
     var member=drawerMember(),localCharacter=fullLocalCharacter(member),readOnly=drawerReadOnly(member),c=localCharacter||member&&member.character||{};
+    var preparedSpells=typeof w.normalizePreparedSpellsForCharacter==='function'?w.normalizePreparedSpellsForCharacter(c,{bootstrapLegacy:true}):{kodex:[],folio:[],obrad:[]};
+    var preparedSpellIds={};Object.keys(preparedSpells).forEach(function(type){preparedSpells[type].forEach(function(id){preparedSpellIds[String(id)]=true;});});
+    var canEditPreparation=!!(localCharacter&&!readOnly);
     var positions=c.positions||c.masteries||c.mastery||[],skills=c.skills||c.abilities||[];
     if(!Array.isArray(positions))positions=positions?[positions]:[];
     if(!Array.isArray(skills))skills=skills?[skills]:[];
@@ -17846,8 +17960,8 @@ document.addEventListener('DOMContentLoaded', function(){
       return'kodex';
     }
     var cards=[];
-    positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',innate:true,tone:abilityTone(item),kind:'Позиция',icon:item.icon||'⚔',iconAsset:'images/ui/combat-generated/innate.png',name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
-    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key],limit=Math.max(0,Number(item.cdMax)||0,Number(sessionUsage&&sessionUsage.max)||0),used=sessionUsage?Number(sessionUsage.used||0):Number(item.cdUsed||0),profile=vttAbilityProfile(key,item,false);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;cards.push({key:key,skillIndex:index,raw:item,group:'skills',innate:true,tone:abilityTone(item),kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),iconAsset:'images/ui/combat-generated/innate.png',name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',cdMax:limit,used:used,limit:limit,passive:/пассив/i.test(item.type||''),profile:profile});});
+    positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',innate:true,tone:abilityTone(item),kind:item.type||'Позиция',icon:item.icon||'⚔',iconAsset:abilityAssetForItem(item,'images/ui/combat-generated/innate.png'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
+    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key],limit=Math.max(0,Number(item.cdMax)||0,Number(sessionUsage&&sessionUsage.max)||0),used=sessionUsage?Number(sessionUsage.used||0):Number(item.cdUsed||0),profile=vttAbilityProfile(key,item,false);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;cards.push({key:key,skillIndex:index,raw:item,group:'skills',innate:true,tone:abilityTone(item),kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),iconAsset:abilityAssetForItem(item,'images/ui/combat-generated/innate.png'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',cdMax:limit,used:used,limit:limit,passive:/пассив/i.test(item.type||''),profile:profile});});
     (c.spellRefs||[]).forEach(function(id){
       var spell=spellById(id);if(!spell)return;
       var key='spell-'+id,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key];
@@ -17857,7 +17971,7 @@ document.addEventListener('DOMContentLoaded', function(){
         :(c.spellsLearned&&Object.prototype.hasOwnProperty.call(c.spellsLearned,id)?c.spellsLearned[id]===true:null);
       var profile=vttAbilityProfile(key,spell,true);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;
       var spellType=normalizedSpellType(spell);
-      cards.push({key:key,spellId:String(id),spellType:spellType,group:'spells',tone:abilityTone(spell),kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spellType]||'✦',iconAsset:'images/ui/combat-generated/'+({kodex:'codex',folio:'folio',obrad:'ritual'}[spellType]||'innate')+'.png',name:spell.name||'Без названия',description:spell.description||spell.effect||spell.battle||'',manifestation:spell.manifestation||spell.visual||'',effect:spell.effect||'',battle:spell.battle||'',extra:spell.extra||spell.additional||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
+      cards.push({key:key,spellId:String(id),spellType:spellType,prepared:!!preparedSpellIds[String(id)],group:'spells',tone:abilityTone(spell),kind:spell.tip||({kodex:'Боевой кодекс',folio:'Фолиант',obrad:'Обрядник'}[spellType]||'Заклинание'),icon:{kodex:'⚔',folio:'◉',obrad:'◇'}[spellType]||'✦',iconAsset:abilityAssetForItem(spell,'images/ui/combat-generated/'+({kodex:'codex',folio:'folio',obrad:'ritual'}[spellType]||'innate')+'.png'),name:spell.name||'Без названия',description:spell.description||spell.effect||spell.battle||'',manifestation:spell.manifestation||spell.visual||'',effect:spell.effect||'',battle:spell.battle||'',extra:spell.extra||spell.additional||'',usage:spell.cd||'',restriction:spell.restriction||'',learned:learned,used:used,limit:limit,learnType:spell.learnType||'',learnText:spell.learnText||'',readOnly:readOnly,passive:false,profile:profile});
     });
     abilityCardsByKey={};cards.forEach(function(card){abilityCardsByKey[card.key]=card;});
     function resourceHtml(card){
@@ -17879,9 +17993,10 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     function catalogCardHtml(card){
       var disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
-      var stateLabel=card.group==='spells'?(unknown?'Статус не передан':disabled?'Не изучено':'Изучено'):(card.passive?'Пассивно':'Готово');
+      var stateLabel=card.group==='spells'?(unknown?'Статус не передан':disabled?'Не изучено':card.prepared?'Подготовлено':'Изучено'):(card.passive?'Пассивно':'Готово');
       var searchText=String(card.name+' '+card.kind+' '+card.description).toLowerCase();
-      return '<article class="zg-spell-catalog-card tone-'+card.tone+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+'" data-ability-search="'+esc(searchText)+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button></article>';
+      var preparationAction=canEditPreparation&&!disabled&&!unknown?'<button type="button" class="zg-spell-prepare-action '+(card.prepared?'active':'')+'" onclick="zgVttSpellPreparation(\''+card.spellId+'\','+(!card.prepared)+',event)" title="'+(card.prepared?'Убрать из подготовленных':'Подготовить заклинание')+'" aria-label="'+(card.prepared?'Убрать из подготовленных':'Подготовить заклинание')+'">'+(card.prepared?'Снять':'＋')+'</button>':'';
+      return '<article class="zg-spell-catalog-card tone-'+card.tone+(card.prepared?' prepared':'')+(disabled?' locked':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+'" data-ability-search="'+esc(searchText)+'"><button type="button" class="zg-spell-card-main" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button>'+preparationAction+'</article>';
     }
     function innateCardHtml(card){
       return '<article class="zg-spell-innate-card tone-'+card.tone+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><div><b>'+esc(compactInnateName(card))+'</b><small class="zg-magic3-innate-type">'+esc(compactInnateType(card))+'</small></div></button></article>';
@@ -17890,15 +18005,12 @@ document.addEventListener('DOMContentLoaded', function(){
       return '<button type="button" onclick="'+handler+'('+direction+')" '+((direction<0?current<=0:current>=total-1)?'disabled':'')+' aria-label="'+label+'">'+(direction<0?'‹':'›')+'</button>';
     }
     function spellTypeCapacity(type){
-      var calculated=typeof w.getSpellTypeLimitForCharacter==='function'?Number(w.getSpellTypeLimitForCharacter(c,type)):3;
-      var explicit=c.spellTypeLimits&&Number(c.spellTypeLimits[type])||c.magicSlotLimits&&Number(c.magicSlotLimits[type])||0;
-      var bonus=c.spellSlotBonuses&&Number(c.spellSlotBonuses[type])||c.magicSlotBonuses&&Number(c.magicSlotBonuses[type])||0;
-      return Math.max(3,calculated||0,explicit)+Math.max(0,bonus);
+      return typeof w.getPreparedSpellTypeLimitForCharacter==='function'?w.getPreparedSpellTypeLimitForCharacter(c,type):3;
     }
     function spellSlotHtml(card,index,type,capacity){
       if(!card)return '<span class="zg-magic3-slot empty" title="Свободный слот '+(index+1)+'"><i>＋</i><small>'+(index+1)+'</small></span>';
       var disabled=card.learned===false,exhausted=card.limit>0&&card.used>=card.limit;
-      return '<button type="button" class="zg-magic3-slot tone-'+card.tone+(disabled?' locked':'')+(exhausted?' exhausted':'')+(index>=capacity?' over-limit':'')+'" onclick="zgVttAbilityOpen(\''+card.key+'\')" title="'+esc(card.name)+'" aria-label="'+esc(card.name)+'"><i>'+abilityIconHtml(card)+'</i><b>'+esc(card.name)+'</b></button>';
+      return '<span class="zg-magic3-slot-wrap"><button type="button" class="zg-magic3-slot tone-'+card.tone+(disabled?' locked':'')+(exhausted?' exhausted':'')+(index>=capacity?' over-limit':'')+'" onclick="zgVttAbilityOpen(\''+card.key+'\')" title="'+esc(card.name)+'" aria-label="'+esc(card.name)+'"><i>'+abilityIconHtml(card)+'</i><b>'+esc(card.name)+'</b></button>'+(canEditPreparation?'<button type="button" class="zg-magic3-slot-remove" onclick="zgVttSpellPreparation(\''+card.spellId+'\',false,event)" title="Снять с подготовки" aria-label="Снять '+esc(card.name)+' с подготовки">×</button>':'')+'</span>';
     }
     var innateCards=cards.filter(function(card){return card.innate;}),spellCards=cards.filter(function(card){return card.group==='spells';});
     var innatePageSize=4,innatePageCount=Math.max(1,Math.ceil(innateCards.length/innatePageSize));innateAbilityPage=Math.max(0,Math.min(innatePageCount-1,Number(innateAbilityPage)||0));
@@ -17918,7 +18030,7 @@ document.addEventListener('DOMContentLoaded', function(){
       {key:'folio',label:'Фолианты',short:'Фолианты',icon:'images/ui/combat-generated/folio.png'},
       {key:'obrad',label:'Обрядники',short:'Обрядники',icon:'images/ui/combat-generated/ritual.png'}
     ],grouped={kodex:[],folio:[],obrad:[]},capacities={},maxSlotCount=3;
-    spellCards.forEach(function(card){grouped[card.spellType].push(card);});
+    spellCards.forEach(function(card){if(card.prepared)grouped[card.spellType].push(card);});
     typeDefinitions.forEach(function(definition){capacities[definition.key]=spellTypeCapacity(definition.key);maxSlotCount=Math.max(maxSlotCount,capacities[definition.key],grouped[definition.key].length);});
     var slotRows=Math.max(1,Math.ceil(maxSlotCount/3));
     var groupsHtml=typeDefinitions.map(function(definition){
@@ -17929,13 +18041,13 @@ document.addEventListener('DOMContentLoaded', function(){
     var innateEmpty='<div class="zg-spellbook-empty"><i>◇</i><b>Нет врождённых сил</b><span>Позиции и навыки добавляются в разделе «Персонажи»</span></div>';
     return '<div class="zg-abilities-panel zg-spellbook zg-magic3" style="--magic-slot-rows:'+slotRows+'">'+
       '<section class="zg-spellbook-innate"><header><h3>Врождённые навыки</h3><span>'+innateCards.length+'</span></header><div class="zg-magic3-innate-list">'+(innatePageCards.length?innatePageCards.map(innateCardHtml).join(''):innateEmpty)+'</div><footer class="zg-magic3-pages">'+pageButton(-1,innateAbilityPage,innatePageCount,'zgVttInnatePage','Предыдущие врождённые способности')+'<span>'+(innateAbilityPage+1)+' / '+innatePageCount+'</span>'+pageButton(1,innateAbilityPage,innatePageCount,'zgVttInnatePage','Следующие врождённые способности')+'</footer></section>'+
-      '<section class="zg-spellbook-catalog"><header><h3>Освоенные заклинания</h3><span>'+spellCount+'</span></header>'+
-        '<div class="zg-spellbook-search"><i aria-hidden="true">⌕</i><input value="'+esc(abilitySearch)+'" oninput="zgVttAbilitiesSearch(this.value)" placeholder="Поиск по названию, типу или описанию" aria-label="Поиск освоенных заклинаний"></div>'+
-        '<nav aria-label="Фильтры освоенных заклинаний"><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')" aria-pressed="'+(abilitiesFilter==='all')+'">Все <small>'+spellCount+'</small></button><button class="'+(abilitiesFilter==='kodex'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'kodex\')" title="Боевые кодексы" aria-label="Боевые кодексы" aria-pressed="'+(abilitiesFilter==='kodex')+'"><img src="images/ui/combat-generated/codex.png" alt=""></button><button class="'+(abilitiesFilter==='folio'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'folio\')" title="Фолианты" aria-label="Фолианты" aria-pressed="'+(abilitiesFilter==='folio')+'"><img src="images/ui/combat-generated/folio.png" alt=""></button><button class="'+(abilitiesFilter==='obrad'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'obrad\')" title="Обрядники" aria-label="Обрядники" aria-pressed="'+(abilitiesFilter==='obrad')+'"><img src="images/ui/combat-generated/ritual.png" alt=""></button></nav>'+
+      '<section class="zg-spellbook-catalog"><header><h3>Полученные заклинания</h3><span>'+spellCount+'</span></header>'+
+        '<div class="zg-spellbook-search"><i aria-hidden="true">⌕</i><input value="'+esc(abilitySearch)+'" oninput="zgVttAbilitiesSearch(this.value)" placeholder="Поиск по названию, типу или описанию" aria-label="Поиск полученных заклинаний"></div>'+
+        '<nav aria-label="Фильтры полученных заклинаний"><button class="'+(abilitiesFilter==='all'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'all\')" aria-pressed="'+(abilitiesFilter==='all')+'">Все <small>'+spellCount+'</small></button><button class="'+(abilitiesFilter==='kodex'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'kodex\')" title="Боевые кодексы" aria-label="Боевые кодексы" aria-pressed="'+(abilitiesFilter==='kodex')+'"><img src="images/ui/combat-generated/codex.png" alt=""></button><button class="'+(abilitiesFilter==='folio'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'folio\')" title="Фолианты" aria-label="Фолианты" aria-pressed="'+(abilitiesFilter==='folio')+'"><img src="images/ui/combat-generated/folio.png" alt=""></button><button class="'+(abilitiesFilter==='obrad'?'active':'')+'" onclick="zgVttAbilitiesFilter(\'obrad\')" title="Обрядники" aria-label="Обрядники" aria-pressed="'+(abilitiesFilter==='obrad')+'"><img src="images/ui/combat-generated/ritual.png" alt=""></button></nav>'+
         '<div class="zg-spellbook-list">'+catalogHtml+'</div>'+
         '<footer class="zg-magic3-pages">'+pageButton(-1,abilityCatalogPage,catalogPageCount,'zgVttAbilityCatalogPage','Предыдущая страница заклинаний')+'<span>'+(abilityCatalogPage+1)+' / '+catalogPageCount+(catalogCards.length!==spellCount?' · '+catalogCards.length:'')+'</span>'+pageButton(1,abilityCatalogPage,catalogPageCount,'zgVttAbilityCatalogPage','Следующая страница заклинаний')+'</footer>'+
       '</section>'+
-      '<section class="zg-magic3-slots"><header><h3>Мои заклинания</h3><span>'+spellCount+'</span></header><div>'+groupsHtml+'</div></section>'+
+      '<section class="zg-magic3-slots"><header><h3>Подготовленные заклинания</h3><span>'+Object.keys(preparedSpellIds).length+' / '+Object.keys(capacities).reduce(function(sum,type){return sum+capacities[type];},0)+'</span></header><div>'+groupsHtml+'</div></section>'+
     '</div>';
   }
   function dicePanel(){
@@ -17949,7 +18061,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(activePanel==='group')payload.members=heroMembers().map(function(item){var c=item.character||{};return{uid:item.uid,name:c.name||item.name||'',online:item.online!==false,hpCur:c.hpCur,hpMax:c.hpMax,tempHp:c.tempHp,statuses:c.statuses,statusEffects:c.statusEffects};});
     if(activePanel==='character')payload.character={name:character.name,race:character.race,klasse:character.klasse,level:character.level,hpCur:character.hpCur,hpMax:character.hpMax,tempHp:character.tempHp,ac:character.ac,speed:character.speed,stats:character.stats,statuses:character.statuses,statusEffects:character.statusEffects,injuries:character.injuries,deathSaves:character.deathSaves,resistances:character.resistances,vulnerabilities:character.vulnerabilities,immunities:character.immunities,revision:character.revision,updatedAt:character.updatedAt,updatedBy:character.updatedBy,source:character.source,progressionPlan:character.progressionPlan};
     if(activePanel==='inventory')payload.inventory={filter:inventoryFilter,search:inventorySearch,sort:inventorySort,notice:inventoryOperationNotice,hpCur:character.hpCur,hpMax:character.hpMax,tempHp:character.tempHp,statuses:character.statuses,statusEffects:character.statusEffects,inventoryItems:character.inventoryItems,equipItems:character.equipItems};
-    if(activePanel==='abilities')payload.abilities={filter:abilitiesFilter,search:abilitySearch,busy:abilityRequestBusy,mastery:character.mastery,skills:character.skills,spellRefs:character.spellRefs,spellsLearned:character.spellsLearned,spellCD:character.spellCD,abilityUsage:character.abilityUsage,characterUpdateProposal:member&&member.characterUpdateProposal};
+    if(activePanel==='abilities')payload.abilities={filter:abilitiesFilter,search:abilitySearch,busy:abilityRequestBusy,mastery:character.mastery,skills:character.skills,spellRefs:character.spellRefs,spellsLearned:character.spellsLearned,preparedSpells:character.preparedSpells,spellCD:character.spellCD,abilityUsage:character.abilityUsage,characterUpdateProposal:member&&member.characterUpdateProposal};
     if(activePanel==='journal')payload.journal={filter:journalFilter,page:journalPage,selected:journalSelectedId,entries:character.journalEntries,notes:character.notes,currentGoal:character.currentGoal,mainGoals:character.mainGoals,goals:character.goals,quests:character.quests};
     if(activePanel==='dice')payload.dice=lastRoll;
     try{return JSON.stringify(payload,function(key,value){return typeof value==='string'&&/^(?:data|blob):/i.test(value)?'':value;});}catch(error){return activePanel+'|'+Date.now();}
@@ -18797,7 +18909,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var movementRemaining=Math.max(0,Number(economy.movement)||0),movementUnavailable=movementRemaining<=0;
       var ownRoomMember=session&&session.role==='player'&&state&&state.room&&state.room.members&&state.room.members[session.uid],ownIntentRequest=ownRoomMember&&ownRoomMember.actionRequest,pendingCombatIntent=!!(ownIntentRequest&&ownIntentRequest.actionKind==='combat-intent'&&['pending','roll-requested','roll-result'].indexOf(ownIntentRequest.status)>=0),intentButtonLabel=ownIntentRequest&&ownIntentRequest.status==='roll-requested'?'Нужен бросок':ownIntentRequest&&ownIntentRequest.status==='roll-result'?'ГМ решает':'Заявка отправлена';
       var ownPrepareRequest=ownRoomMember&&ownRoomMember.actionRequest&&ownRoomMember.actionRequest.actionKind==='combat-prepare'&&ownRoomMember.actionRequest.status==='pending',prepareReady=!!(canAct&&isTurn&&Number(economy.long)>0&&!statusSummary.blocked.long&&!controlled.preparedReaction&&!ownPrepareRequest),prepareHint=!isTurn?'только в свой ход':statusSummary.blocked.long?'запрещено состоянием':Number(economy.long)<=0?'длительное действие потрачено':controlled.preparedReaction?'условие уже подготовлено':ownPrepareRequest?'заявка ждёт мастера':'условие + действие';
-      syncCombatHtml(economyHost,active&&controlled?'<button type="button" data-combat-tool="movement" aria-pressed="false" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+(movementUnavailable?' spent':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement&&!movementUnavailable?'':'disabled')+' title="'+(movementUnavailable?'Запас движения исчерпан':statusSummary.blocked.movement?'Движение запрещено текущим состоянием':'Перемещение по сцене')+'"><i>'+combatDockIcon('movement')+'</i><b>Движение</b><small>'+movementRemaining+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','long-action','Длительное','атака или приём',Number(economy.long)>0,true)+economyButton('short','short-action',pendingCombatIntent?intentButtonLabel:'Короткое',pendingCombatIntent?'заявка ещё не завершена':'быстрое действие',Number(economy.short)>0&&!pendingCombatIntent,true)+economyButton('free','free-action','Бесплатное / План Б','свободные броски и мелочи',true,false)+'<button type="button" data-combat-tool="prepare" aria-pressed="false" class="zg-combat-prepare-button'+(prepareReady?'':Number(economy.long)<=0?' spent':'')+'" onclick="zgCombatPrepareToggle()" '+(prepareReady?'':'disabled')+' title="'+esc(prepareHint)+'"><i>'+combatDockIcon('prepare')+'</i><b>Подготовить</b><small>'+esc(prepareHint)+'</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button>'+contextSheetButton+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':''):'');
+      syncCombatHtml(economyHost,active&&controlled?'<button type="button" data-combat-tool="movement" aria-pressed="false" class="zg-combat-move-button'+(statusSummary.blocked.movement?' status-blocked':'')+(movementUnavailable?' spent':'')+'" onclick="zgPlayerDockSelect(\'movement\')" '+(isTurn&&!statusSummary.blocked.movement&&!movementUnavailable?'':'disabled')+' title="'+(movementUnavailable?'Запас движения исчерпан':statusSummary.blocked.movement?'Движение запрещено текущим состоянием':'Перемещение по сцене')+'"><i>'+combatDockIcon('movement')+'</i><b>Движение</b><small>'+movementRemaining+' / '+Number(economy.movementMax||7)+' клеток</small></button>'+economyButton('long','long-action','Длительное','атака или приём',Number(economy.long)>0,true)+economyButton('short','short-action',pendingCombatIntent?intentButtonLabel:'Короткое',pendingCombatIntent?'заявка ещё не завершена':'быстрое действие',Number(economy.short)>0&&!pendingCombatIntent,true)+economyButton('free','free-action','Броски кубиков','свободный бросок до 12 кубиков',true,false)+'<button type="button" data-combat-tool="prepare" aria-pressed="false" class="zg-combat-prepare-button'+(prepareReady?'':Number(economy.long)<=0?' spent':'')+'" onclick="zgCombatPrepareToggle()" '+(prepareReady?'':'disabled')+' title="'+esc(prepareHint)+'"><i>'+combatDockIcon('prepare')+'</i><b>Подготовить</b><small>'+esc(prepareHint)+'</small>'+(preparedCount?'<span class="zg-combat-resource">'+preparedCount+'</span>':'')+'</button>'+contextSheetButton+(controlled.concentration?'<button type="button" class="zg-combat-prepare-button concentration" onclick="zgCombatConcentrationStop(\''+esc(controlled.key||'')+'\')" title="'+esc(controlled.concentration.name||'Концентрация')+'"><i>◉</i><b>Концентрация</b><small>'+esc(controlled.concentration.name||'Прекратить')+'</small></button>':''):'');
       syncCombatToolbarSelection();
     }
     if(el('zg-combat-prepare')&&el('zg-combat-prepare').classList.contains('open'))renderCombatPrepare(false);
@@ -19492,15 +19604,20 @@ document.addEventListener('DOMContentLoaded', function(){
     var paths=mode==='normal'?'<path d="M12 2 21 8v8l-9 6-9-6V8zM3 8l9 5 9-5M12 13v9"/>':mode==='advantage'?'<path d="m8 3 7 4v7l-7 4-7-4V7zm7 4 6 3.5v7L14.5 21l-4-2.3M4 7l7 4 4-2M8 11v7"/>':'<path d="m8 3 7 4v7l-7 4-7-4V7zm7 4 6 3.5v7L14.5 21l-4-2.3M4 7l7 4 4-2M8 11v7M5 5l12 14"/>';
     return'<svg viewBox="0 0 24 24" aria-hidden="true">'+paths+'</svg>';
   }
+  function combatSaveTargets(){
+    var combat=state&&state.room&&state.room.combat,order=combat&&combat.active&&Array.isArray(combat.order)?combat.order:[];
+    if(order.length)return order;
+    return heroMembers().map(function(member){var character=member.character||{};return{key:'member:'+String(member.uid||''),uid:member.uid,kind:'hero',name:character.name||member.name||'Герой',portrait:character.portrait||'',hp:Math.max(0,Number(character.hpCur)||0),hpMax:Math.max(0,Number(character.hpMax)||0),stats:character.stats||{},statuses:character.statuses||[],statusEffects:character.statusEffects||[]};});
+  }
   function renderCombatSave(force){
     var panel=el('zg-combat-save'),body=el('zg-combat-save-body');if(!panel||!body)return;
-    var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],session=state&&state.session;
-    if(!combat||!combat.active||!session||session.role!=='master'){panel.classList.remove('open');body.__zgCombatSignature='';return;}
+    var combat=state&&state.room&&state.room.combat,order=combatSaveTargets(),session=state&&state.session;
+    if(!session||session.role!=='master'||!order.length){panel.classList.remove('open');body.__zgCombatSignature='';return;}
     if(!order.some(function(entry){return entry&&entry.key===combatSaveTargetKey;}))combatSaveTargetKey=order[0]&&order[0].key||'';
     var target=order.filter(function(entry){return entry&&entry.key===combatSaveTargetKey;})[0]||order[0],labels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'},shortLabels={str:'СИЛ',dex:'ЛОВ',int:'ИНТ',cha:'ХАР',per:'ВСП',con:'ВЫН'},targetStatuses=combatSaveStatuses(target);
     if(!targetStatuses.some(function(status){return status.key===combatSaveDraft.removeStatus;}))combatSaveDraft.removeStatus='';
     var signature='';
-    try{signature=JSON.stringify({targetKey:combatSaveTargetKey,draft:combatSaveDraft,order:order.map(function(entry){return{key:entry.key,name:entry.name,portrait:combatEntryPortrait(entry),hp:entry.hp,hpMax:entry.hpMax,stats:entry.stats,statuses:entry.statuses,statusEffects:entry.statusEffects};}),busy:combatSaveBusy});}catch(ignore){signature=String(combat.updatedAt||'save');}
+    try{signature=JSON.stringify({targetKey:combatSaveTargetKey,draft:combatSaveDraft,order:order.map(function(entry){return{key:entry.key,name:entry.name,portrait:combatEntryPortrait(entry),hp:entry.hp,hpMax:entry.hpMax,stats:entry.stats,statuses:entry.statuses,statusEffects:entry.statusEffects};}),busy:combatSaveBusy});}catch(ignore){signature=String(combat&&combat.updatedAt||'save');}
     if(force===false&&body.__zgCombatSignature===signature)return;
     var targets=order.map(function(entry){var portrait=combatEntryPortrait(entry),hp=Number(entry.hp==null?entry.hpMax:entry.hp);return '<button type="button" class="zg-combat-save-target '+(entry.key===combatSaveTargetKey?'active':'')+'" onclick="zgCombatSaveTarget('+JSON.stringify(entry.key)+')">'+(portrait?'<img src="'+esc(portrait)+'" alt="">':'<i aria-hidden="true">'+(entry.kind==='enemy'?'☠':'✦')+'</i>')+'<span><b>'+esc(entry.name||'Участник')+'</b><small>HP '+hp+' / '+Number(entry.hpMax||hp)+'</small></span>'+(entry.key===combatSaveTargetKey?'<em aria-hidden="true">✓</em>':'')+'</button>';}).join('');
     var stats=Object.keys(labels).map(function(key){var value=combatSaveStat(target,key);return '<button type="button" class="zg-combat-save-stat '+(combatSaveDraft.statKey===key?'active':'')+'" onclick="zgCombatSavePickStat(\''+key+'\')" title="'+labels[key]+'">'+(typeof w.zgStatIcon==='function'?w.zgStatIcon(key,'zg-combat-save-stat-icon'):'')+'<span>'+shortLabels[key]+'</span><b>'+(value>=0?'+':'')+value+'</b></button>';}).join('');
@@ -20076,6 +20193,30 @@ document.addEventListener('DOMContentLoaded', function(){
     document.body.appendChild(modal);var title=el('zg-journal-master-title');if(title)title.focus();
   };
   w.zgVttAbilitiesFilter=function(filter){abilitiesFilter=['all','kodex','folio','obrad'].indexOf(filter)>=0?filter:'all';abilityCatalogPage=0;expandedAbilityKey='';renderDrawer();};
+  w.zgVttSpellPreparation=function(spellId,shouldPrepare,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    var member=drawerMember(),character=fullLocalCharacter(member);
+    if(!character||drawerReadOnly(member)){if(w.showToast)w.showToast('Подготовку меняет владелец героя');return false;}
+    var key=String(spellId||''),spell=typeof w.findCharacterCatalogSpell==='function'?w.findCharacterCatalogSpell(key):null;
+    if(!spell||!Array.isArray(character.spellRefs)||!character.spellRefs.some(function(id){return String(id)===key;})){if(w.showToast)w.showToast('Заклинание не найдено у героя');return false;}
+    if(!character.spellsLearned||character.spellsLearned[key]!==true){if(w.showToast)w.showToast('Сначала изучите это заклинание');return false;}
+    var type=String(spell.spellType||'').toLowerCase();
+    if(['kodex','folio','obrad'].indexOf(type)<0){if(w.showToast)w.showToast('У заклинания не указан тип');return false;}
+    var prepared=typeof w.normalizePreparedSpellsForCharacter==='function'?w.normalizePreparedSpellsForCharacter(character,{bootstrapLegacy:true}):{kodex:[],folio:[],obrad:[]};
+    var already=prepared[type].some(function(id){return String(id)===key;});
+    if(shouldPrepare&&!already){
+      var capacity=typeof w.getPreparedSpellTypeLimitForCharacter==='function'?w.getPreparedSpellTypeLimitForCharacter(character,type):3;
+      if(prepared[type].length>=capacity){if(w.showToast)w.showToast('Все слоты этого типа заняты: '+capacity);return false;}
+      prepared[type].push(key);
+    }else if(!shouldPrepare&&already){
+      prepared[type]=prepared[type].filter(function(id){return String(id)!==key;});
+    }else return true;
+    character.preparedSpells=prepared;
+    renderDrawer(true);
+    Promise.resolve(saveChars({reason:'spell-preparation'})).catch(function(error){if(w.showToast)w.showToast(error&&error.message||'Не удалось сохранить подготовку');});
+    if(w.showToast)w.showToast(shouldPrepare?'Заклинание подготовлено':'Заклинание снято с подготовки');
+    return true;
+  };
   w.zgVttAbilitiesSearch=function(value){
     abilitySearch=String(value||'').trim().toLowerCase().slice(0,120);
     abilityCatalogPage=0;renderDrawer();
@@ -20103,23 +20244,25 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttAbilityOpen=function(key){
     var card=abilityCardsByKey[String(key||'')];if(!card)return;
     w.zgVttAbilityClose();expandedAbilityKey=card.key;
-    var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember),disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
+    var viewedMember=drawerMember(),viewOnly=drawerReadOnly(viewedMember),disabled=card.group==='spells'&&card.learned===false,unknown=card.group==='spells'&&card.learned==null,unprepared=card.group==='spells'&&card.learned===true&&!card.prepared,exhausted=card.limit>0&&card.used>=card.limit;
+    var activeCombat=!!(state&&state.room&&state.room.combat&&state.room.combat.active),freePlay=!activeCombat;
     var gmCanPropose=!!(state&&state.session&&state.session.role==='master'&&!combatLabIsPlayer()&&viewedMember&&viewedMember.uid&&card.group==='skills');
     var gmProposal=viewedMember&&viewedMember.characterUpdateProposal,proposalForCard=gmProposal&&gmProposal.kind==='skill-update'&&Number(gmProposal.skillIndex)===Number(card.skillIndex)?gmProposal:null;
     var gmCanAdjust=!!(state&&state.session&&state.session.role==='master'&&!combatLabIsPlayer()&&viewedMember&&viewedMember.uid&&card.limit&&card.profile&&card.profile.resourceKey);
     var playerCanAdjust=!!(state&&state.session&&state.session.role==='player'&&!viewOnly&&viewedMember&&String(viewedMember.uid)===String(state.session.uid)&&card.limit&&card.profile&&card.profile.resourceKey);
     var resource=card.limit?'Заряды '+Math.max(0,card.limit-card.used)+' / '+card.limit:(card.usage||'Без ограничения');
     var spellState=card.group==='spells'
-      ?'<div class="zg-ability-spell-state '+(unknown?'unknown':disabled?'locked':'learned')+'"><b>'+(unknown?'Статус изучения не передан':disabled?'Заклинание не изучено':'Заклинание изучено')+'</b></div>'
+      ?'<div class="zg-ability-spell-state '+(unknown?'unknown':disabled?'locked':unprepared?'unprepared':'learned')+'"><b>'+(unknown?'Статус изучения не передан':disabled?'Заклинание не изучено':unprepared?'Изучено · не подготовлено':'Изучено · подготовлено')+'</b></div>'
       :'';
+    var useContext=!viewOnly&&!gmCanPropose&&!card.passive&&!disabled&&!unknown&&!unprepared&&!exhausted?'<div class="zg-ability-use-context '+(freePlay?'free-play':'combat')+'"><small>'+(freePlay?'СВОБОДНЫЙ РЕЖИМ':'БОЙ')+'</small><span>'+(freePlay?'Применение уйдёт мастеру обычной заявкой. Нижняя боевая панель не открывается.':'Применение использует текущую боевую заявку и экономику действий.')+'</span></div>':'';
     var resourceControl=card.limit?abilityChargeControl(card,gmCanAdjust?'gm':playerCanAdjust?'player':'view'):'';
     var proposalLabels={pending:'Ожидает решения игрока',approved:'Игрок принял · сохраняется',saved:'Принято и сохранено',rejected:'Игрок отклонил',conflict:'Конфликт версий'};
     var proposalState=proposalForCard?'<section class="zg-skill-proposal-state '+esc(proposalForCard.status||'')+'"><small>УЛУЧШЕНИЕ ОТ МАСТЕРА</small><b>'+esc(proposalLabels[proposalForCard.status]||proposalForCard.status||'Отправлено')+'</b>'+(proposalForCard.reason?'<span>'+esc(proposalForCard.reason)+'</span>':'')+'</section>':'';
     var primaryAction=gmCanPropose?"zgVttSkillProposalOpen('"+card.key+"')":disabled&&!viewOnly?"zgVttRequestLearning('"+card.key+"');zgVttAbilityClose()":"zgVttRequestAbility('"+card.key+"');zgVttAbilityClose()";
-    var primaryDisabled=abilityRequestBusy||(!gmCanPropose&&(viewOnly||unknown||exhausted))||(gmCanPropose&&proposalForCard&&['pending','approved'].indexOf(proposalForCard.status)>=0);
-    var primaryLabel=gmCanPropose?(proposalForCard&&['pending','approved'].indexOf(proposalForCard.status)>=0?proposalLabels[proposalForCard.status]:'Предложить улучшение'):viewOnly?'Только просмотр':unknown?'Статус не передан':disabled?'Заявить изучение':exhausted?'Нет зарядов':card.passive?'Показать мастеру':'Заявить применение';
+    var primaryDisabled=abilityRequestBusy||(!gmCanPropose&&(viewOnly||unknown||unprepared||exhausted))||(gmCanPropose&&proposalForCard&&['pending','approved'].indexOf(proposalForCard.status)>=0);
+    var primaryLabel=gmCanPropose?(proposalForCard&&['pending','approved'].indexOf(proposalForCard.status)>=0?proposalLabels[proposalForCard.status]:'Предложить улучшение'):viewOnly?'Только просмотр':unknown?'Статус не передан':disabled?'Заявить изучение':unprepared?'Сначала подготовьте':exhausted?'Нет зарядов':card.passive?'Показать мастеру':freePlay?'Применить вне боя':'Заявить применение';
     var modal=document.createElement('div');modal.id='zg-vtt-ability-detail';modal.className='zg-ability-modal-backdrop';
-    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+abilityIconHtml(card)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+resourceControl+abilityProfileBadges(card.profile)+proposalState+abilityDetailSections(card)+'<footer><button type="button" onclick="'+primaryAction+'" '+(primaryDisabled?'disabled':'')+'>'+primaryLabel+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
+    modal.innerHTML='<section class="zg-ability-modal"><button class="zg-ability-modal-close" type="button" onclick="zgVttAbilityClose()">×</button><header><i>'+abilityIconHtml(card)+'</i><div><small>'+esc(card.kind)+(card.passive?' · Пассивный':' · Активный')+'</small><h3>'+esc(card.name)+'</h3><em>'+esc(resource)+'</em></div></header>'+spellState+useContext+resourceControl+abilityProfileBadges(card.profile)+proposalState+abilityDetailSections(card)+'<footer><button type="button" onclick="'+primaryAction+'" '+(primaryDisabled?'disabled':'')+'>'+primaryLabel+'</button><button type="button" onclick="zgVttAbilityClose()">Закрыть</button></footer></section>';
     modal.addEventListener('click',function(ev){if(ev.target===modal)w.zgVttAbilityClose();});document.body.appendChild(modal);
   };
   w.zgVttAbilityExpand=w.zgVttAbilityOpen;
@@ -20239,6 +20382,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if(/^mastery-/.test(key)){var mastery=(c.mastery||c.masteries||[])[Number(key.split('-')[1])];source=typeof mastery==='string'?{name:mastery}:mastery||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
     if(/^skill-/.test(key)){var skill=(c.skills||c.abilities||[])[Number(key.split('-')[1])];source=typeof skill==='string'?{name:skill}:skill||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
     if(/^spell-/.test(key)){var id=key.slice(6),spell=(typeof entries!=='undefined'&&Array.isArray(entries))?entries.find(function(item){return String(item.id)===String(id);}):null;source=spell||{};label=spell&&spell.name||'заклинание';profile=vttAbilityProfile(key,source,true);}
+    var selectedCard=abilityCardsByKey[String(key||'')];
+    if(/^spell-/.test(key)&&selectedCard&&selectedCard.learned===true&&!selectedCard.prepared){if(w.showToast)w.showToast('Сначала подготовьте это заклинание в Сумке героя');return false;}
     var abilityApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;
     if(!abilityApi||(!abilityApi.requestAction&&!abilityApi.sendChat)){if(w.showToast)w.showToast('Нет соединения с комнатой');return;}
     if(/^spell-/.test(key)&&profile&&w.zgSceneAbilityTarget){
@@ -20774,11 +20919,11 @@ document.addEventListener('DOMContentLoaded', function(){
   function syncFreeRollMode(){
     var p=el('zg-dice-pop');if(p)p.classList.toggle('plan-b',freeRollMode);
     var hint=el('zg-dice-hint');
-    if(hint)hint.textContent=freeRollMode?'План Б · ЛКМ добавить · ПКМ убрать':'ЛКМ добавить · ПКМ убрать · перетащите для броска';
+    if(hint)hint.textContent=freeRollMode?'Броски кубиков · ЛКМ добавить · ПКМ убрать':'ЛКМ добавить · ПКМ убрать · перетащите для броска';
     if(w.zgCombatToolbarSync)w.zgCombatToolbarSync();
   }
   w.zgDiceToggle=function(ev){ if(ev)ev.stopPropagation();freeRollMode=false; var p=el('zg-dice-pop'); if(!p)return; var open=!p.classList.contains('open');if(open){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';}p.classList.toggle('open',open);syncFreeRollMode();if(open){selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(e){}}var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',open);};
-  w.zgDicePlanB=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var p=el('zg-dice-pop');if(!p)return;freeRollMode=true;if(!p.classList.contains('open')){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';p.classList.add('open');selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(ignore){}}syncFreeRollMode();if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',true);};
+  w.zgDicePlanB=function(ev){if(ev&&ev.stopPropagation)ev.stopPropagation();var p=el('zg-dice-pop');if(!p)return false;if(p.classList.contains('open')&&p.classList.contains('plan-b')){w.zgDiceClose();return false;}freeRollMode=true;if(!p.classList.contains('open')){if(w.zgMovementToggle)w.zgMovementToggle(false);if(w.zgMeasureDeactivate)w.zgMeasureDeactivate();if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();p.style.visibility='hidden';p.style.display='block';alignDicePanel();p.style.display='';p.style.visibility='';p.classList.add('open');selectStat('plain');try{if(w.ZargotaSound&&w.ZargotaSound.diceOpen)w.ZargotaSound.diceOpen();}catch(ignore){}}syncFreeRollMode();if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',true);return true;};
   w.zgDiceClose=function(){ var p=el('zg-dice-pop'); if(p)p.classList.remove('open');freeRollMode=false;syncFreeRollMode();var a=el('zg-dice-abils');if(a)a.classList.remove('open');if(w.zgPlayerDockSet)w.zgPlayerDockSet('dice',false); };
   w.addEventListener('resize',function(){var p=el('zg-dice-pop');if(p&&p.classList.contains('open'))alignDicePanel();});
   function selectStat(key){
@@ -24407,7 +24552,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-game-settings.open{display:block;animation:zgPopIn .22s cubic-bezier(.2,.8,.3,1)}
   .zg-game-settings-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);text-align:center;margin:2px 0 10px}
   .zg-sound-settings{display:grid;gap:6px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817}.zg-sound-settings header{display:flex;align-items:center;justify-content:space-between}.zg-sound-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-sound-settings header small{color:#8c7047;font:8px Georgia,serif}.zg-sound-settings header small.ready{color:#72b37b}.zg-sound-settings header small.off{color:#b46d64}.zg-sound-settings>div{display:grid;grid-template-columns:minmax(0,1fr) 64px;gap:5px}.zg-sound-settings button{min-width:0;min-height:42px;padding:6px;border:1px solid #3b2e1c;border-radius:6px;background:#0e0b07;color:#796b52;cursor:pointer}.zg-sound-settings button span{display:grid;gap:2px;text-align:left}.zg-sound-settings button b{color:#ad9666;font:600 8px 'Cinzel',serif}.zg-sound-settings button small{font:8px Georgia,serif}.zg-sound-settings button.active{border-color:#557947;background:#142015;color:#9ccb8e}.zg-sound-settings button.test{color:#d8bd7c;font:600 8px 'Cinzel',serif}.zg-sound-settings .error{color:#c98378;font:8px/1.3 Georgia,serif}
-  .zg-player-bag-settings{display:grid;gap:7px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817}.zg-game-overlay.gm .zg-player-bag-settings{display:none}.zg-player-bag-settings header{display:flex;align-items:end;justify-content:space-between;gap:8px}.zg-player-bag-settings header span{display:grid;gap:2px}.zg-player-bag-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-player-bag-settings header small,.zg-player-bag-settings output{color:#78694f;font:8px Georgia,serif}.zg-player-bag-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-player-bag-settings button{min-width:0;min-height:61px;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:5px;padding:7px 5px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#796b52;text-align:left;cursor:pointer}.zg-player-bag-settings button>span{display:grid;gap:2px}.zg-player-bag-settings button b{color:#ad9666;font:600 7px 'Cinzel',serif}.zg-player-bag-settings button small{font:7px Georgia,serif}.zg-player-bag-settings button.active{border-color:#a67c31;background:radial-gradient(circle at 20% 50%,#56371378,transparent 70%),#171006;color:#e5c87c;box-shadow:inset 0 0 0 1px #d1a03a24}.zg-player-bag-size-icon{position:relative;display:block;width:22px;height:19px;border:1px solid currentColor;border-radius:3px 3px 7px 7px;box-shadow:inset 0 0 7px currentColor}.zg-player-bag-size-icon:before{content:'';position:absolute;left:5px;right:5px;top:-6px;height:7px;border:1px solid currentColor;border-bottom:0;border-radius:7px 7px 0 0}.zg-player-bag-size-icon.large{transform:scale(1.18)}
+  .zg-player-bag-settings{position:relative;z-index:1;display:grid;gap:7px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid #372817;pointer-events:auto}.zg-player-bag-settings header{display:flex;align-items:end;justify-content:space-between;gap:8px}.zg-player-bag-settings header span{display:grid;gap:2px}.zg-player-bag-settings header b{color:#d8bd7c;font:600 9px 'Cinzel',serif}.zg-player-bag-settings header small,.zg-player-bag-settings output{color:#78694f;font:8px Georgia,serif}.zg-player-bag-settings>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-player-bag-settings button{position:relative;z-index:2;min-width:0;min-height:61px;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:5px;padding:7px 5px;border:1px solid #3b2e1c;border-radius:7px;background:#0e0b07;color:#796b52;text-align:left;cursor:pointer;pointer-events:auto;touch-action:manipulation}.zg-player-bag-settings button>span{display:grid;gap:2px;pointer-events:none}.zg-player-bag-settings button b{color:#ad9666;font:600 7px 'Cinzel',serif}.zg-player-bag-settings button small{font:7px Georgia,serif}.zg-player-bag-settings button.active{border-color:#a67c31;background:radial-gradient(circle at 20% 50%,#56371378,transparent 70%),#171006;color:#e5c87c;box-shadow:inset 0 0 0 1px #d1a03a24}.zg-player-bag-size-icon{position:relative;display:block;width:22px;height:19px;border:1px solid currentColor;border-radius:3px 3px 7px 7px;box-shadow:inset 0 0 7px currentColor;pointer-events:none}.zg-player-bag-size-icon:before{content:'';position:absolute;left:5px;right:5px;top:-6px;height:7px;border:1px solid currentColor;border-bottom:0;border-radius:7px 7px 0 0}.zg-player-bag-size-icon.large{transform:scale(1.18)}
   .zg-qa-session-tools{display:grid;gap:6px;margin-bottom:9px;padding:8px;border:1px solid #435b38;border-radius:7px;background:linear-gradient(145deg,#101b11,#0b0906)}.zg-qa-session-tools[hidden]{display:none}.zg-qa-session-tools header b{color:#8fca91;font:600 9px 'Cinzel',serif}.zg-qa-session-tools header small{display:block;margin-top:3px;color:#6f8167;font:8px Georgia,serif}.zg-qa-workshop-hint{margin:0;padding:6px 7px;border-left:2px solid #8f7135;background:#171209;color:#9c8a61;font:8px/1.35 Georgia,serif}.zg-qa-session-tools>div{display:grid;grid-template-columns:1fr 1fr;gap:5px}.zg-qa-session-tools>.zg-qa-workshop-backgrounds{grid-template-columns:repeat(3,1fr)}.zg-qa-session-tools button{min-height:38px;border:1px solid #49633f;border-radius:6px;background:#11180f;color:#9dcb91;font:600 8px 'Cinzel',serif;cursor:pointer}.zg-qa-session-tools button:last-child{border-color:#79612c;background:#211808;color:#dfc070}.zg-qa-session-tools .zg-qa-session-modes button{display:grid;gap:2px;border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button:last-child{border-color:#5f5630;background:#14140d;color:#a99b6e}.zg-qa-session-tools .zg-qa-session-modes button.active{border-color:#d0a13e;background:radial-gradient(circle at 20% 50%,#5b401a80,transparent 65%),#181208;color:#f2d487;box-shadow:inset 0 0 0 1px #d0a13e35,0 0 14px #c9943230}.zg-qa-session-tools .zg-qa-session-modes button small{color:#756b52;font:7px Georgia,serif}.zg-qa-session-tools .zg-qa-session-modes button.active small{color:#a89264}.zg-qa-session-tools label{display:grid;gap:3px;color:#71836a;font:8px Georgia,serif}.zg-qa-session-tools select{min-height:34px;border:1px solid #435b38;border-radius:5px;background:#090d08;color:#b5d2aa;padding:0 7px;font:8px 'Cinzel',serif}.zg-qa-session-tools select:disabled{opacity:.45;cursor:not-allowed}.zg-qa-outcome-control{display:grid!important;grid-template-columns:1fr 1fr!important;gap:5px}.zg-qa-outcome-control>button{display:grid;align-content:center;gap:2px;border-color:#6f4b31!important;background:#18100c!important;color:#c99572!important}.zg-qa-outcome-control>button.active{border-color:#cf9c3d!important;background:radial-gradient(circle at 20% 50%,#6a3d1880,transparent 65%),#1b1208!important;color:#f1cf83!important;box-shadow:inset 0 0 0 1px #cf9c3d35,0 0 14px #c57e2630}.zg-qa-outcome-control>button small{color:#8f755d;font:7px Georgia,serif}.zg-qa-outcome-control>button.active small{color:#c8a974}
   .zg-game-overlay:not(.gm) .zg-combat-fx-open{display:none!important}
   .zg-combat-vfx-canvas{position:absolute;z-index:4;inset:0;width:100%;height:100%;pointer-events:none}
@@ -24710,6 +24855,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   @media(prefers-reduced-motion:reduce){.zg-ability-target-hud,.zg-ability-range-preview,.zg-ability-point-preview,.zg-vtt-token.zg-ability-target-valid,.zg-combat-spell-cast line,.zg-combat-spell-area,.zg-combat-spell-impact{animation:none}.zg-combat-spell-area,.zg-combat-spell-impact{transform:translate(-50%,-50%) scale(1)}}
 
   .zg-vtt-drawer.backpack-skin{--backpack-panel:#17110dcc;--backpack-accent:#b57b58;--bag-user-scale:1;--bag-entry-scale:.975;--bag-overshoot-scale:1.006;--bag-rest-transform:translate(20%,-50%) scale(var(--bag-user-scale));--bag-entry-transform:translate(82%,-50%) scale(var(--bag-entry-scale));--bag-overshoot-transform:translate(15%,-50%) scale(var(--bag-overshoot-scale));right:clamp(4px,2vw,28px);top:50%;bottom:auto;width:min(670px,calc((100vh - 32px)*.72),calc(100vw - 18px));height:min(930px,calc(100vh - 32px),calc((100vw - 18px)*1.39));box-sizing:border-box;transform:var(--bag-rest-transform);transform-origin:right center;isolation:isolate;border:0;border-radius:0;background:none;padding:0;box-shadow:none;backdrop-filter:none;overflow:hidden;pointer-events:none}
+  .zg-vtt-drawer.backpack-skin[data-player-bag-scale="large"]{--bag-user-scale:1.3;--bag-entry-scale:1.2675;--bag-overshoot-scale:1.3078}
   .zg-vtt-drawer.backpack-skin .zg-bag-interface,.zg-vtt-drawer.backpack-skin>.zg-vtt-panel-close{pointer-events:auto}
   .zg-vtt-drawer.backpack-skin.open{z-index:36;animation:zgBagSlideIn .48s cubic-bezier(.18,.82,.24,1) both}
   .zg-vtt-drawer.backpack-skin.open.closing{pointer-events:none;animation:zgBagSlideOut .42s cubic-bezier(.55,.05,.78,.32) both}
@@ -24811,7 +24957,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-vtt-drawer.backpack-skin[data-backpack-skin="journal"] .zg-journal-add{border-color:#6e4428;background:#3b2115d4;color:#efd5a1}
   .zg-vtt-token.combat-target>img,.zg-vtt-token.combat-target .zg-vtt-token-ph{animation:zgCombatTargetLock .85s ease both}@keyframes zgCombatTargetLock{0%{filter:none}35%{filter:brightness(1.8) sepia(.6);box-shadow:0 0 0 4px #d44b43,0 0 28px #d44b43}100%{filter:none}}
   .zg-vtt-token.combat-token-strike{z-index:16;animation:zgCombatTokenStrike .82s cubic-bezier(.18,.86,.28,1) both;transform-origin:50% 65%}@keyframes zgCombatTokenStrike{0%,100%{transform:translate(-50%,-50%);filter:none}22%{transform:translate(calc(-50% + var(--combat-brace-x,0px)),calc(-50% + var(--combat-brace-y,0px))) scale(.96)}64%{transform:translate(calc(-50% + var(--combat-strike-x,0px)),calc(-50% + var(--combat-strike-y,0px))) scale(1.08);filter:brightness(1.28) drop-shadow(0 0 13px #e3b346)}78%{transform:translate(calc(-50% + var(--combat-strike-x,0px)),calc(-50% + var(--combat-strike-y,0px))) scale(1.04);filter:brightness(1.12)}}html.zg-combat-motion-anchored .zg-vtt-token.combat-token-strike{animation:zgCombatTokenStrikeAnchored .68s ease both}@keyframes zgCombatTokenStrikeAnchored{0%,100%{filter:none}45%{filter:brightness(1.35) drop-shadow(0 0 12px #e3b346);transform:translate(-50%,-50%) scale(1.035)}}html.zg-combat-motion-minimal .zg-vtt-token.combat-token-strike{animation:none}
-  .zg-vtt-token.combat-hit{animation:zgCombatHit .48s ease 2}.zg-vtt-token.combat-miss{animation:zgCombatMiss .36s ease}@keyframes zgCombatHit{0%,100%{transform:translate(-50%,-50%)}35%{transform:translate(calc(-50% - 8px),calc(-50% + 3px)) rotate(-5deg);filter:brightness(1.65) sepia(.5)}}@keyframes zgCombatMiss{50%{transform:translate(calc(-50% + 7px),-50%)}}
+  .zg-vtt-token.combat-hit{animation:zgCombatHit .48s ease 1}.zg-vtt-token.combat-miss{animation:zgCombatMiss .36s ease}@keyframes zgCombatHit{0%,100%{transform:translate(-50%,-50%)}35%{transform:translate(calc(-50% - 8px),calc(-50% + 3px)) rotate(-5deg);filter:brightness(1.65) sepia(.5)}}@keyframes zgCombatMiss{50%{transform:translate(calc(-50% + 7px),-50%)}}
   html.zg-combat-motion-anchored .zg-vtt-token.combat-hit,html.zg-combat-motion-anchored .zg-vtt-token.combat-miss,html.zg-combat-motion-minimal .zg-vtt-token.combat-hit,html.zg-combat-motion-minimal .zg-vtt-token.combat-miss{animation:none}
   .zg-vtt-token.combat-heal{animation:zgCombatHeal .7s ease}@keyframes zgCombatHeal{0%{filter:none}40%{filter:brightness(1.5) hue-rotate(-30deg) saturate(1.6);box-shadow:0 0 24px 6px #4ddb6a88}100%{filter:none}}
   .zg-combat-impact{position:absolute;z-index:18;left:50%;bottom:calc(100% + 16px);transform:translateX(-50%);white-space:nowrap;padding:5px 9px;border:1px solid #d55649;border-radius:12px;background:#170906ed;color:#ff9e8e;font:700 13px 'Cinzel',serif;box-shadow:0 0 22px #b72e26;animation:zgCombatImpact 1.75s ease both;pointer-events:none}.zg-combat-impact.miss{border-color:#8f7c58;background:#100e0ae8;color:#d9c596;box-shadow:0 0 16px #000}@keyframes zgCombatImpact{0%{opacity:0;transform:translate(-50%,14px) scale(.65)}18%,72%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-22px) scale(.9)}}
@@ -25195,18 +25341,22 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-vtt-rubber{display:none;position:absolute;z-index:6;pointer-events:none;border:1px dashed #8fb8e6;background:rgba(74,134,200,.13);border-radius:3px}
   /* групповое выделение и панель группы */
   .zg-vtt-token.gsel>img,.zg-vtt-token.gsel .zg-vtt-token-ph{outline:2px dashed #8fb8e6;outline-offset:2px}
-  .zg-group-bar{display:none;position:absolute;bottom:82px;left:50%;transform:translateX(-50%);z-index:7;align-items:center;gap:6px;padding:8px 12px;border-radius:11px;background:linear-gradient(180deg,#141c2af2,#0b111af6);border:1px solid #3f6da0;box-shadow:0 14px 40px #000c;color:#8fb8e6;font-size:12px}
+  .zg-group-bar{display:none;position:absolute;bottom:82px;left:50%;transform:translateX(-50%);z-index:200050;align-items:center;gap:8px;padding:8px 12px;border-radius:11px;background:linear-gradient(180deg,#141c2af2,#0b111af6);border:1px solid #3f6da0;box-shadow:0 14px 40px #000c;color:#8fb8e6;font-size:12px}
   .zg-group-bar.open{display:flex;animation:zgPopIn .18s cubic-bezier(.2,.8,.3,1)}
-  .zg-group-bar span{margin-right:4px;font-family:'Cinzel',serif;letter-spacing:.5px}
-  .zg-group-bar button{padding:7px 10px;border:1px solid #2c3f58;border-radius:7px;background:#101823;color:#bcd6f5;font-size:12px;cursor:pointer;transition:.15s}
-  .zg-group-bar button:hover{border-color:#5b8bc4;background:#16233a}
+  .zg-group-summary{display:flex;align-items:center;gap:8px;min-width:max-content}.zg-group-summary>span{font-family:'Cinzel',serif;letter-spacing:.5px}.zg-group-single-hint{display:none;color:#7691af;font:8px/1.2 Georgia,serif;white-space:nowrap}.zg-group-bar.single .zg-group-single-hint{display:block}.zg-group-bar.single .zg-group-actions{display:none}
+  .zg-group-actions,.zg-group-delete-confirm{display:flex;align-items:center;gap:6px}.zg-group-delete-confirm{display:none}.zg-group-bar.confirm-delete .zg-group-actions{display:none}.zg-group-bar.confirm-delete .zg-group-delete-confirm{display:flex}.zg-group-delete-confirm strong{color:#e2a094;font:600 9px 'Cinzel',serif;white-space:nowrap}
+  .zg-group-bar button{min-height:34px;display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid #2c3f58;border-radius:7px;background:#101823;color:#bcd6f5;font-size:12px;cursor:pointer;transition:.15s}.zg-group-bar button svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.zg-group-bar button b{font:600 8px 'Cinzel',serif;letter-spacing:.3px}.zg-group-bar button.danger{border-color:#5e302e;color:#d88d84;background:#211010}.zg-group-bar button.clear{min-width:34px;justify-content:center;padding:0;color:#9ab8d8;font:20px/1 Georgia,serif}
+  .zg-group-bar button:hover:not(:disabled){border-color:#5b8bc4;background:#16233a}.zg-group-bar button:disabled{opacity:.35;cursor:default}
+  .zg-group-visibility{position:relative}.zg-group-visibility-menu{position:absolute;left:0;bottom:calc(100% + 8px);width:150px;padding:6px;display:grid;gap:5px;border:1px solid #3f6da0;border-radius:9px;background:#0b111af5;box-shadow:0 12px 28px #000c}.zg-group-visibility-menu[hidden]{display:none}.zg-group-visibility-menu button{width:100%;justify-content:flex-start}
   /* заблокированный элемент */
   .zg-game-overlay.gm .zg-vtt-token.locked{cursor:default}
   .zg-vtt-token.locked.selected .zg-vtt-token-frame{border-style:solid;border-color:#8a8377}
-  /* иконки-действия у выбранного жетона */
-  .zg-vtt-token-actions{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:9}
-  .zg-vtt-token-actions button{width:26px;height:26px;border-radius:7px;border:1px solid #4d3b20;background:rgba(14,11,6,.92);color:#e7d3a0;font-size:13px;line-height:1;cursor:pointer;box-shadow:0 3px 9px #000a;transition:.15s;padding:0}
-  .zg-vtt-token-actions button:hover{border-color:#c8993c;background:#241a0d;transform:translateY(-1px)}
+  .zg-game-overlay.gm.gm-run-mode .zg-vtt-token{cursor:pointer}.zg-game-overlay.gm.gm-run-mode .zg-vtt-token.selected{cursor:context-menu}.zg-game-overlay.gm.gm-edit-mode .zg-vtt-token:not(.locked){cursor:grab}.zg-game-overlay.gm.gm-edit-mode .zg-vtt-token.dragging{cursor:grabbing}
+  .zg-game-overlay.gm.gm-run-mode .zg-vtt-token-frame{border-style:solid;border-color:#d7bd7d;inset:-4px;border-radius:50%;opacity:.62}.zg-game-overlay.gm.gm-run-mode .zg-vtt-token-frame::after{content:'ПКМ';position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);padding:3px 7px;border:1px solid #695226;border-radius:8px;background:#100c07e8;color:#bca56f;font:700 7px/1 'Cinzel',serif;letter-spacing:.8px;box-shadow:0 4px 12px #000b}
+  .zg-token-context-menu{position:fixed;z-index:220000;box-sizing:border-box;width:min(310px,calc(100vw - 20px));padding:9px;border:1px solid #8d6b31;border-radius:12px;background:radial-gradient(circle at 12% 0,#8b5b1b25,transparent 38%),linear-gradient(155deg,#1a120a,#090705 78%);box-shadow:0 24px 75px #000,0 0 0 1px #0a0704,inset 0 0 24px #0007;color:#d5bd82;animation:zgTokenContextIn .16s cubic-bezier(.2,.85,.3,1);isolation:isolate}
+  .zg-token-context-menu header{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;padding:4px 5px 10px;border-bottom:1px solid #3b2b16}.zg-token-context-menu header>img,.zg-token-context-menu header>i{box-sizing:border-box;width:44px;height:44px;border:1px solid #8d692d;border-radius:9px;background:#0b0805;object-fit:cover;object-position:top;box-shadow:inset 0 0 12px #000,0 4px 11px #0008}.zg-token-context-menu header>i{display:grid;place-items:center;color:#dbb962}.zg-token-context-menu header>i svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}.zg-token-context-menu header small,.zg-token-context-menu header b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-token-context-menu header small{color:#876f43;font:700 7px/1.2 'Cinzel',serif;letter-spacing:1.1px}.zg-token-context-menu header b{margin-top:5px;color:#efd392;font:600 13px/1.2 'Cinzel',serif}
+  .zg-token-context-actions{display:grid;gap:4px;padding:7px 0}.zg-token-context-action{box-sizing:border-box;width:100%;min-height:48px;display:grid;grid-template-columns:33px minmax(0,1fr);gap:10px;align-items:center;padding:7px 9px;border:1px solid transparent;border-radius:8px;background:transparent;color:#c9b37f;text-align:left;cursor:pointer;transition:border-color .14s,background .14s,transform .14s}.zg-token-context-action:hover,.zg-token-context-action:focus-visible{outline:0;border-color:#705426;background:#24190c;transform:translateX(2px)}.zg-token-context-action>svg{width:22px;height:22px;margin:auto;fill:none;stroke:#d4ad55;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round}.zg-token-context-action span,.zg-token-context-action b,.zg-token-context-action small{display:block;min-width:0}.zg-token-context-action b{color:#e2c67e;font:600 10px/1.2 'Cinzel',serif}.zg-token-context-action small{margin-top:3px;color:#7f7155;font:9px/1.25 Georgia,serif}.zg-token-context-action.danger{border-top-color:#3d201a}.zg-token-context-action.danger>svg{stroke:#c86558}.zg-token-context-action.danger b{color:#d78375}.zg-token-context-action.danger:hover{border-color:#743a31;background:#2a100d}
+  .zg-token-context-warning{padding:12px;border:1px solid #733a30;border-radius:8px;background:#25100d;text-align:center}.zg-token-context-warning b,.zg-token-context-warning small{display:block}.zg-token-context-warning b{color:#e49a88;font:600 11px 'Cinzel',serif}.zg-token-context-warning small{margin-top:5px;color:#8f7268;font:9px Georgia,serif}.zg-token-context-menu footer{display:flex;flex-wrap:wrap;gap:5px 12px;padding:8px 6px 2px;border-top:1px solid #302313;color:#77694e;font:8px/1.3 Georgia,serif}.zg-token-context-menu footer b{color:#b79550;font:700 7px 'Cinzel',serif;letter-spacing:.4px}@keyframes zgTokenContextIn{from{opacity:0;transform:translateY(7px) scale(.97)}to{opacity:1;transform:none}}
   /* объект-декорация: не круглый, без кольца */
   .zg-vtt-token.obj>img{border-radius:8px;border:1px solid transparent;box-shadow:0 4px 10px #0009;object-fit:contain;background:transparent}
   .zg-vtt-token.obj.selected>img{border-color:#f0d89666}
@@ -25425,7 +25575,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-vtt-party{position:absolute;z-index:4;top:9px;left:50%;transform:translateX(-50%);width:max-content;max-width:min(720px,calc(100vw - 760px));display:flex;align-items:flex-start;gap:12px;overflow-x:auto;padding:4px 5px 10px;scrollbar-width:none}
   .zg-game-overlay.gm .zg-vtt-party{top:48px}
   .zg-vtt-party::-webkit-scrollbar{display:none}
-  .zg-party-slot{position:relative;width:82px;min-width:82px;height:105px;transition:opacity .18s ease,filter .18s ease}.zg-party-slot.round-skipped .zg-party-card{opacity:.42;filter:grayscale(.75) saturate(.45) drop-shadow(0 7px 10px #000b)}.zg-party-slot.round-skipped .zg-party-card:hover{opacity:.62}.zg-party-round-gear{position:absolute;z-index:14;top:-10px;right:-10px;width:25px;height:25px;padding:0;border:1px solid #80632d;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 38% 34%,#3a2b14,#100b06 70%);color:#e1c274;font:15px/1 Georgia,serif;cursor:pointer;box-shadow:0 3px 8px #000d,0 0 0 2px #090604aa;opacity:0;transform:scale(.82);transition:opacity .15s ease,transform .15s ease,border-color .15s ease}.zg-party-slot:hover .zg-party-round-gear,.zg-party-slot:focus-within .zg-party-round-gear,.zg-party-slot.round-skipped .zg-party-round-gear{opacity:1;transform:scale(1)}.zg-party-round-gear:hover{border-color:#e0b84e;color:#ffe39a}.zg-party-round-paused{position:absolute;z-index:12;right:5px;top:49px;width:19px;height:19px;border:1px solid #8f7041;border-radius:50%;display:grid;place-items:center;background:#110c08e8;color:#d3b36e;font:700 8px/1 'Cinzel',serif;box-shadow:0 2px 7px #000c;pointer-events:none}.zg-combat-round-popover{position:fixed;z-index:10055;box-sizing:border-box;display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;padding:14px;border:1px solid #8c6931;border-radius:13px;background:linear-gradient(145deg,#1c120a,#090604 76%);color:#dfc484;box-shadow:0 18px 45px #000e,0 0 0 1px #d6ad4a18}.zg-combat-round-close{position:absolute;right:6px;top:4px;border:0;background:none;color:#897757;font:20px/1 Georgia,serif;cursor:pointer}.zg-combat-round-symbol{width:40px;height:40px;border:1px solid #87652f;border-radius:50%;display:grid;place-items:center;background:#110b06;color:#deb957;font:700 13px 'Cinzel',serif;box-shadow:inset 0 0 13px #d39c2822}.zg-combat-round-popover small{display:block;margin:1px 18px 3px 0;color:#8e7751;font:700 7px 'Cinzel',serif;letter-spacing:1.35px}.zg-combat-round-popover b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f0d493;font:700 12px 'Cinzel',serif}.zg-combat-round-popover p{margin:4px 0 0;color:#9f8a66;font:italic 10px/1.35 Georgia,serif}.zg-combat-round-switch{grid-column:1/-1;height:36px;margin-top:2px;padding:0 11px;border:1px solid #70542c;border-radius:9px;display:flex;align-items:center;gap:9px;background:#171008;color:#d9bd78;font:700 9px 'Cinzel',serif;cursor:pointer}.zg-combat-round-switch i{position:relative;width:34px;height:18px;border-radius:10px;background:#3d2b16;box-shadow:inset 0 0 0 1px #0009}.zg-combat-round-switch i::after{content:'';position:absolute;left:3px;top:3px;width:12px;height:12px;border-radius:50%;background:#b48a40;transition:transform .18s ease,background .18s ease}.zg-combat-round-switch.on i{background:#213d28}.zg-combat-round-switch.on i::after{transform:translateX(16px);background:#74c785}.zg-combat-round-switch span{flex:1;text-align:left}
+  .zg-party-slot{position:relative;width:82px;min-width:82px;height:105px;transition:opacity .18s ease,filter .18s ease}.zg-party-slot.round-skipped .zg-party-card{opacity:.42;filter:grayscale(.75) saturate(.45) drop-shadow(0 7px 10px #000b)}.zg-party-slot.round-skipped .zg-party-card:hover{opacity:.62}.zg-party-round-gear{position:absolute;z-index:14;top:-10px;right:-10px;width:25px;height:25px;padding:0;border:1px solid #80632d;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 38% 34%,#3a2b14,#100b06 70%);color:#e1c274;font:15px/1 Georgia,serif;cursor:pointer;box-shadow:0 3px 8px #000d,0 0 0 2px #090604aa;opacity:0;transform:scale(.82);transition:opacity .15s ease,transform .15s ease,border-color .15s ease}.zg-party-slot:hover .zg-party-round-gear,.zg-party-slot:focus-within .zg-party-round-gear,.zg-party-slot.round-skipped .zg-party-round-gear{opacity:1;transform:scale(1)}.zg-party-round-gear:hover{border-color:#e0b84e;color:#ffe39a}.zg-party-round-paused{position:absolute;z-index:12;right:5px;top:49px;width:19px;height:19px;border:1px solid #8f7041;border-radius:50%;display:grid;place-items:center;background:#110c08e8;color:#d3b36e;font:700 8px/1 'Cinzel',serif;box-shadow:0 2px 7px #000c;pointer-events:none}.zg-combat-round-popover{position:fixed;z-index:10055;box-sizing:border-box;display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;padding:14px;border:1px solid #8c6931;border-radius:13px;background:linear-gradient(145deg,#1c120a,#090604 76%);color:#dfc484;box-shadow:0 18px 45px #000e,0 0 0 1px #d6ad4a18}.zg-combat-round-close{position:absolute;right:6px;top:4px;border:0;background:none;color:#897757;font:20px/1 Georgia,serif;cursor:pointer}.zg-combat-round-symbol{width:40px;height:40px;border:1px solid #87652f;border-radius:50%;display:grid;place-items:center;background:#110b06;color:#deb957;font:700 13px 'Cinzel',serif;box-shadow:inset 0 0 13px #d39c2822}.zg-combat-round-popover small{display:block;margin:1px 18px 3px 0;color:#8e7751;font:700 7px 'Cinzel',serif;letter-spacing:1.35px}.zg-combat-round-popover b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f0d493;font:700 12px 'Cinzel',serif}.zg-combat-round-popover p{margin:4px 0 0;color:#9f8a66;font:italic 10px/1.35 Georgia,serif}.zg-combat-round-save{grid-column:1/-1;min-height:42px;padding:6px 10px;border:1px solid #8a642a;border-radius:9px;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:8px;background:radial-gradient(circle at 10% 50%,#61421b55,transparent 45%),#171008;color:#e7c66f;text-align:left;cursor:pointer}.zg-combat-round-save>span{width:25px;height:25px;border:1px solid #9d7431;border-radius:50%;display:grid;place-items:center;background:#251708;color:#f1cf76}.zg-combat-round-save>i{min-width:0;font-style:normal}.zg-combat-round-save b,.zg-combat-round-save small{display:block}.zg-combat-round-save b{font:700 9px 'Cinzel',serif}.zg-combat-round-save small{margin-top:2px;color:#8f7d5c;font:8px Georgia,serif;letter-spacing:0}.zg-combat-round-save:hover{border-color:#d4a448;background-color:#251607;color:#ffe29a}.zg-combat-round-switch{grid-column:1/-1;height:36px;margin-top:2px;padding:0 11px;border:1px solid #70542c;border-radius:9px;display:flex;align-items:center;gap:9px;background:#171008;color:#d9bd78;font:700 9px 'Cinzel',serif;cursor:pointer}.zg-combat-round-switch i{position:relative;width:34px;height:18px;border-radius:10px;background:#3d2b16;box-shadow:inset 0 0 0 1px #0009}.zg-combat-round-switch i::after{content:'';position:absolute;left:3px;top:3px;width:12px;height:12px;border-radius:50%;background:#b48a40;transition:transform .18s ease,background .18s ease}.zg-combat-round-switch.on i{background:#213d28}.zg-combat-round-switch.on i::after{transform:translateX(16px);background:#74c785}.zg-combat-round-switch span{flex:1;text-align:left}
   .zg-party-card{width:82px;min-width:82px;height:105px;padding:0;border:0;background:transparent;color:#cdb576;cursor:pointer;position:relative;display:grid;grid-template-rows:76px 19px 4px;gap:3px;text-align:center;filter:drop-shadow(0 8px 13px #000a);transition:transform .18s ease,filter .18s ease,opacity .18s ease}
   .zg-party-card:hover{transform:translateY(-2px);filter:drop-shadow(0 8px 14px #000c) drop-shadow(0 0 8px #c59b3c44)}
   .zg-party-card img,.zg-party-ph{box-sizing:border-box;width:82px;height:76px;border:1px solid #7b5c27;border-radius:5px;object-fit:cover;object-position:top center;background:#0a0805;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:inset 0 0 0 1px #d4ad4a20,0 0 0 1px #0009;transition:border-color .18s ease,box-shadow .18s ease}
@@ -25531,6 +25681,12 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-bag-operation-state{margin-bottom:10px;padding:8px 10px;border:1px solid #4a3a23;border-radius:5px;background:#151108;color:#a99a7c;font-size:10px}.zg-bag-operation-state.loading{border-color:#82652e;color:#d5b66f}.zg-bag-operation-state.success{border-color:#416641;color:#8fc78f}.zg-bag-operation-state.offline{border-color:#66532d;color:#c8a85e}.zg-bag-operation-state.error{border-color:#753f3f;color:#dc8989}
   .zg-ability-modal-backdrop{position:fixed;z-index:12200;inset:0;display:grid;place-items:center;padding:18px;background:#030201c7;backdrop-filter:blur(5px)}.zg-ability-modal{position:relative;width:min(720px,calc(100vw - 30px));max-height:min(82vh,760px);overflow:auto;padding:26px;border:1px solid #846229;border-radius:6px;background:radial-gradient(circle at 50% 0,#7b531924,transparent 38%),linear-gradient(145deg,#181109,#090705 74%);box-shadow:0 30px 100px #000;color:#a99979}.zg-ability-modal-close{position:absolute;right:10px;top:8px;width:35px;height:35px;border:0;background:transparent;color:#a58c5d;font-size:27px;cursor:pointer}.zg-ability-modal header{display:flex;gap:14px;align-items:center;padding-right:35px}.zg-ability-modal header>i{width:50px;height:50px;border:1px solid #65491f;border-radius:50%;display:grid;place-items:center;color:#e0bd62;font:normal 25px serif}.zg-ability-modal header div{min-width:0}.zg-ability-modal header small{color:#987c43;font:8px 'Cinzel',serif;letter-spacing:1.6px;text-transform:uppercase}.zg-ability-modal h3{margin:5px 0;color:#ecd69d;font:600 22px 'Cinzel',serif}.zg-ability-modal header em{color:#81704f;font:italic 10px Georgia,serif}.zg-ability-spell-state{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 8px;padding:10px 12px;border:1px solid #456b48;border-radius:4px;background:#101a11;color:#8fca93}.zg-ability-spell-state.locked{border-style:dashed;border-color:#655d50;background:#15120e;color:#9a9180}.zg-ability-spell-state.unknown{border-color:#5d553f;background:#17140d;color:#a39779}.zg-ability-spell-state b{width:100%;font:600 9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-resource-console{margin:12px 0;padding:12px 14px;border:1px solid #493a22;border-radius:5px;background:#0a0804;box-shadow:inset 0 1px 0 #e8c0600d}.zg-ability-resource-console>header{display:flex;justify-content:space-between;gap:14px;align-items:center;padding:0}.zg-ability-resource-console>header span{display:flex;align-items:center;gap:10px;min-width:0}.zg-ability-resource-console>header small{color:#8d7445;font:700 8px 'Cinzel',serif;letter-spacing:1.3px}.zg-ability-resource-console>header em{overflow:hidden;color:#87785c;font:10px Georgia,serif;text-overflow:ellipsis;white-space:nowrap}.zg-ability-resource-console>header b{flex:none;padding:3px 9px;border:1px solid currentColor;border-radius:11px;font:700 10px 'Cinzel',serif}.zg-ability-resource-console>header b.ready{color:#62bc6d;background:#2a7b3220}.zg-ability-resource-console>header b.spent{color:#d45a53;background:#9b292520}.zg-ability-charge-cells{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.zg-ability-charge-cell{box-sizing:border-box;display:grid;place-items:center;width:28px;height:28px;padding:0;border:2px solid currentColor;border-radius:50%;font:700 13px Georgia,serif;transition:transform .15s ease,box-shadow .15s ease,background .15s ease}.zg-ability-charge-cell.ready{color:#58ae65;background:#2d7c3827;box-shadow:inset 0 0 9px #56be6330}.zg-ability-charge-cell.spent{color:#c34c48;background:#8d28262b;box-shadow:inset 0 0 9px #c34c4828}.zg-ability-resource-console button.zg-ability-charge-cell{cursor:pointer}.zg-ability-resource-console button.zg-ability-charge-cell:hover:not(:disabled){transform:translateY(-2px) scale(1.05);box-shadow:0 0 13px currentColor}.zg-ability-resource-console button.zg-ability-charge-cell:disabled{cursor:wait;opacity:.45}.zg-ability-resource-console>p{margin:9px 0 0;color:#74694f;font:9px/1.35 Georgia,serif}.zg-ability-resource-console.waiting{border-color:#96702d;background:linear-gradient(110deg,#241807,#0a0804 65%)}.zg-ability-modal-copy{margin-top:16px;padding:18px;border:1px solid #332817;border-radius:4px;background:#0b0906;color:#b6a889;font:15px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-modal aside{margin-top:12px;padding:12px 14px;border-left:3px solid #7c5527;background:#21130c;color:#a98468;font:12px/1.55 Georgia,serif;white-space:pre-line}.zg-ability-modal aside b{display:block;margin-bottom:5px;color:#d2ad72;font:9px 'Cinzel',serif;text-transform:uppercase}.zg-ability-modal footer{display:grid;grid-template-columns:1fr 130px;gap:9px;margin-top:15px}.zg-ability-modal footer button{height:42px;border:1px solid #795925;border-radius:4px;background:#26190b;color:#e2c577;font:600 10px 'Cinzel',serif;cursor:pointer}.zg-ability-modal footer button:last-child{background:#0d0b08;color:#8f8064}.zg-ability-modal footer button:disabled{opacity:.4;cursor:not-allowed}@media(max-width:620px){.zg-ability-resource-console>header{align-items:flex-start;flex-direction:column}.zg-ability-resource-console>header span{align-items:flex-start;flex-direction:column;gap:3px}}
   .zg-ability-detail-sections{margin-top:15px;border-top:1px solid #392b18}.zg-ability-detail-section{border-bottom:1px solid #302414;background:transparent}.zg-ability-detail-section summary{min-height:45px;display:grid;grid-template-columns:24px minmax(0,1fr) 18px;gap:8px;align-items:center;padding:0 7px;color:#b9a47a;cursor:pointer;list-style:none}.zg-ability-detail-section summary::-webkit-details-marker{display:none}.zg-ability-detail-section summary:hover{color:#ead49a;background:#a77a2810}.zg-ability-detail-section summary i{font-style:normal;text-align:center}.zg-ability-detail-section summary b{font:600 9px 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}.zg-ability-detail-section summary span{font-size:15px;transition:transform .18s ease}.zg-ability-detail-section[open] summary span{transform:rotate(180deg)}.zg-ability-detail-section>div{padding:3px 39px 17px;color:#b7a787;font:14px/1.65 Georgia,serif;white-space:pre-line}.zg-ability-detail-section[open]{background:linear-gradient(90deg,#8e652314,transparent 70%)}@media(max-width:620px){.zg-ability-detail-section>div{padding-left:10px;padding-right:10px}.zg-ability-modal{padding:20px 16px}.zg-ability-modal footer{grid-template-columns:1fr}}
+  .zg-ability-spell-state.unprepared{border-color:#765b2d;background:#1b1409;color:#c3a464}
+  .zg-ability-use-context{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:center;margin:8px 0 12px;padding:9px 11px;border:1px solid #4c3a20;border-radius:4px;background:#0c0906}
+  .zg-ability-use-context small{padding:4px 7px;border:1px solid currentColor;border-radius:10px;color:#c69b49;font:700 7px 'Cinzel',serif;letter-spacing:1px}
+  .zg-ability-use-context span{color:#8f8164;font:10px/1.35 Georgia,serif}
+  .zg-ability-use-context.combat{border-color:#674129;background:#160d09}.zg-ability-use-context.combat small{color:#d17b55}
+  @media(max-width:620px){.zg-ability-use-context{grid-template-columns:1fr}.zg-ability-use-context small{justify-self:start}}
   .zg-generated-ability-icon{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px #000b)}
   .zg-spell-glyph .zg-generated-ability-icon,.zg-magic3-slot i .zg-generated-ability-icon{width:82%;height:82%;margin:auto}.zg-ability-modal header>i .zg-generated-ability-icon{width:42px;height:42px}.zg-magic3-slot-group>header>span img,.zg-spellbook-catalog>nav img{display:block;width:22px;height:22px;margin:auto;object-fit:contain;filter:drop-shadow(0 2px 3px #000b)}
   .zg-state-armor i img,.zg-state-combat-values i img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px #000b);pointer-events:none}
@@ -28431,7 +28587,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   }
   .zg-spell-catalog-card:last-child{border-bottom:0}
   .zg-spell-catalog-card[hidden]{display:none}
-  .zg-spell-catalog-card>button{
+  .zg-spell-catalog-card>.zg-spell-card-main{
     width:100%;
     min-height:51px;
     display:grid;
@@ -28445,7 +28601,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     text-align:left;
     cursor:pointer;
   }
-  .zg-spell-catalog-card>button:hover{background:color-mix(in srgb,var(--spell-tone) 10%,transparent)}
+  .zg-spell-catalog-card>.zg-spell-card-main:hover{background:color-mix(in srgb,var(--spell-tone) 10%,transparent)}
   .zg-spell-glyph{
     box-sizing:border-box;
     width:38px;
@@ -28461,7 +28617,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     font:normal 18px/1 Georgia,serif;
     text-shadow:0 0 7px var(--spell-tone);
   }
-  .zg-spell-catalog-card>button>span{min-width:0;display:flex;flex-direction:column;gap:3px}
+  .zg-spell-catalog-card>.zg-spell-card-main>span{min-width:0;display:flex;flex-direction:column;gap:3px}
   .zg-spell-catalog-card .zg-ability-eyebrow{
     display:flex!important;
     flex-direction:column!important;
@@ -28482,12 +28638,21 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     white-space:nowrap;
     text-overflow:ellipsis;
   }
-  .zg-spell-catalog-card>button>em{
+  .zg-spell-catalog-card>.zg-spell-card-main>em{
     color:#82a853;
     font:normal 8px 'Cinzel',serif;
     white-space:nowrap;
   }
-  .zg-spell-catalog-card>button>em.spent{color:#bd733d}
+  .zg-spell-catalog-card>.zg-spell-card-main>em.spent{color:#bd733d}
+  .zg-spell-catalog-card{position:relative;padding-right:35px}
+  .zg-spell-catalog-card>.zg-spell-prepare-action{
+    position:absolute;z-index:2;top:50%;right:5px;min-width:27px;height:27px;transform:translateY(-50%);
+    border:1px solid #604826;border-radius:7px;background:#0a0705;color:#bc9655;
+    font:600 9px 'Cinzel',serif;cursor:pointer;box-shadow:inset 0 0 8px #000;
+  }
+  .zg-spell-catalog-card>.zg-spell-prepare-action:hover{border-color:#c59b45;color:#f1d28b}
+  .zg-spell-catalog-card>.zg-spell-prepare-action.active{border-color:#668942;background:#16200e;color:#a9cc79}
+  .zg-spell-catalog-card.prepared{box-shadow:inset 3px 0 color-mix(in srgb,var(--spell-tone) 70%,#b88a3d)}
   .zg-spell-catalog-card.locked{opacity:.56;filter:saturate(.6)}
   .zg-spell-catalog-card.exhausted{background:linear-gradient(90deg,#4a18151f,transparent)}
   .zg-spellbook-prepared{
@@ -28733,7 +28898,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     min-height:0;
     overflow:hidden;
   }
-  .zg-magic3 .zg-spell-catalog-card>button{
+  .zg-magic3 .zg-spell-catalog-card>.zg-spell-card-main{
     min-width:0;
     min-height:0;
     height:100%;
@@ -28750,7 +28915,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   }
   .zg-magic3 .zg-spell-catalog-card b{font-size:8.5px}
   .zg-magic3 .zg-spell-catalog-card small{font-size:7px}
-  .zg-magic3 .zg-spell-catalog-card>button>em{font-size:6.5px}
+  .zg-magic3 .zg-spell-catalog-card>.zg-spell-card-main>em{font-size:6.5px}
   .zg-magic3-catalog-placeholder{
     min-width:0;
     min-height:0;
@@ -28887,6 +29052,38 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     color:#bfa46e;
     cursor:pointer;
   }
+  .zg-magic3-slot-wrap{
+    position:relative;
+    min-width:0;
+    min-height:0;
+    display:block;
+  }
+  .zg-magic3-slot-wrap>.zg-magic3-slot{
+    width:100%;
+    height:100%;
+  }
+  .zg-magic3-slot-remove{
+    position:absolute;
+    z-index:2;
+    top:2px;
+    right:2px;
+    width:16px;
+    height:16px;
+    padding:0;
+    border:1px solid #5f3b2d;
+    border-radius:50%;
+    background:#130b08;
+    color:#b8795c;
+    font:12px/13px Georgia,serif;
+    cursor:pointer;
+    opacity:.66;
+  }
+  .zg-magic3-slot-wrap:hover>.zg-magic3-slot-remove,
+  .zg-magic3-slot-remove:focus-visible{
+    opacity:1;
+    border-color:#a95b45;
+    color:#ed9f80;
+  }
   .zg-magic3-slot i{
     color:color-mix(in srgb,var(--spell-tone) 70%,#e6ca8d);
     font:normal 15px/1 Georgia,serif;
@@ -28938,9 +29135,9 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     .zg-magic3 .zg-spellbook-catalog>nav{padding:0 4px 4px;gap:2px}
     .zg-magic3 .zg-spellbook-catalog>nav button{height:27px;font-size:7px}
     .zg-magic3 .zg-spellbook-list{margin:0 4px}
-    .zg-magic3 .zg-spell-catalog-card>button{grid-template-columns:29px minmax(0,1fr);gap:3px;padding:2px}
+    .zg-magic3 .zg-spell-catalog-card>.zg-spell-card-main{grid-template-columns:29px minmax(0,1fr);gap:3px;padding:2px}
     .zg-magic3 .zg-spell-catalog-card .zg-spell-glyph{width:27px;min-height:24px;font-size:13px}
-    .zg-magic3 .zg-spell-catalog-card>button>em{display:none}
+    .zg-magic3 .zg-spell-catalog-card>.zg-spell-card-main>em{display:none}
     .zg-magic3 .zg-spell-catalog-card b{font-size:6.5px}
     .zg-magic3 .zg-spell-catalog-card small{font-size:5.5px}
     .zg-magic3 .zg-magic3-slots>div{padding:3px}
@@ -29720,7 +29917,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     <button type="button" class="zg-game-gear" onclick="zgGameSettings(event)" title="Настройки" aria-label="Настройки">⚙</button>
     <button type="button" class="zg-scene-gear" id="zg-scene-gear" onclick="zgSceneSettings(event)" title="Настройка сцены" aria-label="Настройка сцены">🗺</button>
     <div class="zg-gm-actions" id="zg-gm-actions">
-      <div class="zg-gm-mode-switch" role="group" aria-label="Рабочий режим мастера"><button type="button" data-gm-workspace-mode="run" aria-pressed="false" onclick="zgGmWorkspaceMode('run')">Ведение</button><button type="button" data-gm-workspace-mode="edit" aria-pressed="false" onclick="zgGmWorkspaceMode('edit')">Редактор</button></div>
+      <div class="zg-gm-mode-switch" role="group" aria-label="Рабочий режим мастера"><button type="button" data-gm-workspace-mode="run" aria-pressed="false" title="Безопасное ведение: ЛКМ выбирает жетон, ПКМ открывает его действия, перетаскивание выключено" onclick="zgGmWorkspaceMode('run')">Ведение</button><button type="button" data-gm-workspace-mode="edit" aria-pressed="false" title="Редактор сцены: разрешает перетаскивать жетоны и менять их размер" onclick="zgGmWorkspaceMode('edit')">Редактор</button></div>
       <button type="button" class="zg-vision-gear" id="zg-vision-gear" onclick="zgSceneToggleVision(event)" title="Вид: мастер / игроки" aria-label="Переключить вид"><span>Мастер</span></button>
       <button type="button" class="zg-scene-publish zg-overview-button" id="zg-scene-publish" onclick="zgOverviewToggle(event)" title="Камера, видимость и показ сцены">Обзор</button>
       <button type="button" class="zg-scene-publish zg-zones-button" onclick="zgZonesToggle(event)" title="Редактор областей сцены">Зоны</button>
@@ -29777,7 +29974,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       </section>
       <section class="zg-player-bag-settings" id="zg-player-bag-settings">
         <header><span><b>Сумка героя</b><small>Размер интерфейса</small></span><output id="zg-player-bag-scale-state">Обычная · 100%</output></header>
-        <div role="group" aria-label="Размер сумки героя"><button type="button" data-player-bag-scale="normal" onclick="zgPlayerBagScaleSet('normal')" aria-pressed="true"><i class="zg-player-bag-size-icon" aria-hidden="true"></i><span><b>Обычная</b><small>100%</small></span></button><button type="button" data-player-bag-scale="large" onclick="zgPlayerBagScaleSet('large')" aria-pressed="false"><i class="zg-player-bag-size-icon large" aria-hidden="true"></i><span><b>Увеличенная</b><small>до 130%</small></span></button></div>
+        <div role="group" aria-label="Размер сумки героя"><button type="button" data-player-bag-scale="normal" aria-pressed="true"><i class="zg-player-bag-size-icon" aria-hidden="true"></i><span><b>Обычная</b><small>100%</small></span></button><button type="button" data-player-bag-scale="large" aria-pressed="false"><i class="zg-player-bag-size-icon large" aria-hidden="true"></i><span><b>Увеличенная</b><small>до 130%</small></span></button></div>
       </section>
       <section class="zg-qa-session-tools" id="zg-qa-session-tools" hidden>
         <header><b>Мастерская</b><small id="zg-qa-session-mode-state">Активный бой</small></header>
@@ -29837,12 +30034,14 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     </div>
     <div class="zg-region-draw-actions" aria-live="polite"><span>Контур зоны</span><button type="button" onclick="zgRegionFinish()">Завершить · Enter</button><button type="button" onclick="zgRegionCancel()">Отмена · Esc</button></div>
     <div class="zg-group-bar" id="zg-group-bar">
-      <span id="zg-group-count">0 выбрано</span>
-      <button type="button" onclick="zgGroupShow()" title="Показать выделенные игрокам (напр. волки из засады)">👁 Показать</button>
-      <button type="button" onclick="zgGroupHide()" title="Скрыть выделенные от игроков">🙈 Скрыть</button>
-      <button type="button" onclick="zgGroupLock()" title="Заблокировать/разблокировать выделенные">🔒</button>
-      <button type="button" onclick="zgGroupDelete()" title="Удалить выделенные">🗑</button>
-      <button type="button" onclick="zgGroupClear()" title="Снять выделение (Esc)">✖</button>
+      <div class="zg-group-summary"><span id="zg-group-count">0 выбрано</span><small class="zg-group-single-hint">Shift + ПКМ — добавить ещё</small></div>
+      <div class="zg-group-actions">
+        <div class="zg-group-visibility"><button type="button" id="zg-group-visibility-button" onclick="zgGroupVisibility()" title="Переключить видимость группы"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8"/></svg><b>Скрыть</b></button><div class="zg-group-visibility-menu" id="zg-group-visibility-menu" hidden><button type="button" onclick="zgGroupVisibilitySet(false)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.7-6 9.5-6 9.5 6 9.5 6-3.7 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.7"/></svg><b>Показать всем</b></button><button type="button" onclick="zgGroupVisibilitySet(true)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8"/></svg><b>Скрыть всех</b></button></div></div>
+        <button type="button" id="zg-group-lock-button" onclick="zgGroupLock()" title="Закрепить или разблокировать выделенные"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg><b>Закрепить</b></button>
+        <button type="button" class="danger" id="zg-group-delete-button" onclick="zgGroupDeleteRequest()" title="Удалить выделенные"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg><b>Удалить</b></button>
+      </div>
+      <div class="zg-group-delete-confirm"><strong id="zg-group-delete-label">Удалить жетоны?</strong><button type="button" class="danger" onclick="zgGroupDelete()"><b>Да, удалить</b></button><button type="button" onclick="zgGroupDeleteCancel()"><b>Отмена</b></button></div>
+      <button type="button" class="clear" onclick="zgGroupClear()" title="Снять выделение (Esc)" aria-label="Снять групповое выделение">×</button>
     </div>
     <aside class="zg-move-requests" id="zg-move-requests" aria-live="polite">
       <div class="zg-move-requests-title">Заявки игроков</div>
@@ -41224,6 +41423,8 @@ function _old_blankChar(type) {
     str:1, dex:1, con:1, int:1, per:1, cha:1,
     statuses: [],
     spellRefs: [],   // id заклинаний из гримуара
+    spellsLearned: {},
+    preparedSpells: { kodex:[], folio:[], obrad:[] },
     spellsUsed: {},  // {spellId: true}
     inventory: '',
     traits: '',
@@ -41714,6 +41915,9 @@ function submitCharForm() {
     weapons: g('cf-weapons'), inventory: g('cf-inv'),
     traits: g('cf-traits'), bio: g('cf-bio'), behavior: g('cf-behavior'),
     spellRefs: cformSpellRefs.slice(),
+    preparedSpells: charEditId && chars.find(function(x){ return x.id === charEditId; })
+      ? Object.assign({kodex:[],folio:[],obrad:[]}, chars.find(function(x){ return x.id === charEditId; }).preparedSpells || {})
+      : {kodex:[],folio:[],obrad:[]},
   };
 
   if (charEditId) {
@@ -41723,7 +41927,7 @@ function submitCharForm() {
     charView = 'detail';
   } else {
     data.id = Date.now();
-    data.statuses = []; data.spellsUsed = {}; data.initiative = 0; data.notes = '';
+    data.statuses = []; data.spellsLearned = {}; data.spellsUsed = {}; data.initiative = 0; data.notes = '';
     chars.push(data);
     charDetailId = data.id;
     charView = 'detail';
@@ -41894,6 +42098,7 @@ function applyCharsMigrations(arr, options) {
     if(!c.effectHistory) c.effectHistory = [];
     if(c.combatRound === undefined) c.combatRound = 0;
     if(!c.globalTime) c.globalTime = {minutes:0,hours:0,days:0};
+    try { ensurePreparedSpellsForCharacter(c); } catch(e) {}
     if(window.ZargotaCharacterStore&&window.ZargotaCharacterStore.normalizeCharacterInventory){
       window.ZargotaCharacterStore.normalizeCharacterInventory(c,{consolidateEquipment:consolidateEquipment});
     }
@@ -42053,6 +42258,7 @@ function saveChars(options) {
     if (c.notes === undefined) c.notes = '';
     if (c.currentGoal === undefined) c.currentGoal = '';
     if (c.biography === undefined) c.biography = '';
+    ensurePreparedSpellsForCharacter(c);
   });
   var savePlan = window.ZargotaCharacterStore && window.ZargotaCharacterStore.prepareCollectionForSave
     ? window.ZargotaCharacterStore.prepareCollectionForSave(characters, { preserveRevision: !!options.preserveRevision })
@@ -42169,6 +42375,7 @@ function zgBuildSessionCharacterRuntime(localCharacter,roomCharacter) {
     abilityUsage:zgCloneSessionValue(roomCharacter.abilityUsage),
     spellCD:zgMergeSessionAbilityUsage(localCharacter,roomCharacter.abilityUsage),
     spellsLearned:zgMergeSessionSpellsLearned(localCharacter,roomCharacter.spellsLearned),
+    preparedSpells:zgMergeSessionPreparedSpells(localCharacter,roomCharacter.preparedSpells,roomCharacter.spellsLearned),
     inventoryItems:zgMergeSessionInventoryItems(localCharacter.inventoryItems,roomCharacter.inventoryItems),
     equipItems:zgMergeSessionInventoryItems(localCharacter.equipItems,roomCharacter.equipItems),
     arenaEquipSlots:zgCloneSessionValue(roomCharacter.arenaEquipSlots),
@@ -42200,6 +42407,20 @@ function zgMergeSessionSpellsLearned(localCharacter,roomLearned) {
     if(allowed[id]&&roomLearned[id]===true)merged[id]=true;
   });
   return merged;
+}
+
+function zgMergeSessionPreparedSpells(localCharacter,roomPrepared,roomLearned) {
+  var types=['kodex','folio','obrad'],allowed={},learned=zgMergeSessionSpellsLearned(localCharacter,roomLearned),seen={},result={kodex:[],folio:[],obrad:[]};
+  (Array.isArray(localCharacter&&localCharacter.spellRefs)?localCharacter.spellRefs:[]).forEach(function(id){allowed[String(id)]=true;});
+  var source=roomPrepared&&typeof roomPrepared==='object'?roomPrepared:localCharacter&&localCharacter.preparedSpells;
+  if(!source||typeof source!=='object')return result;
+  types.forEach(function(type){
+    (Array.isArray(source[type])?source[type]:[]).slice(0,24).forEach(function(id){
+      var key=String(id);if(!key||seen[key]||!allowed[key]||learned[key]!==true)return;
+      seen[key]=true;result[type].push(key);
+    });
+  });
+  return result;
 }
 
 function zgNormalizeSkillUpdateValue(value) {
@@ -45989,6 +46210,11 @@ function getSpellTypeLimitForCharacter(c, spellType, level) {
   var targetLevel = Math.max(1, Number(level != null ? level : c && c.level) || 1);
   return 3 + (every > 0 ? Math.floor(targetLevel / every) : 0);
 }
+function getPreparedSpellTypeLimitForCharacter(c, spellType) {
+  var explicit = c && c.spellTypeLimits && Number(c.spellTypeLimits[spellType]) || c && c.magicSlotLimits && Number(c.magicSlotLimits[spellType]) || 0;
+  var bonus = c && c.spellSlotBonuses && Number(c.spellSlotBonuses[spellType]) || c && c.magicSlotBonuses && Number(c.magicSlotBonuses[spellType]) || 0;
+  return Math.max(3, explicit) + Math.max(0, bonus);
+}
 function getCharacterSpellCatalogEntries() {
   if (Array.isArray(entries) && entries.length > 0) return entries;
   try {
@@ -46009,16 +46235,46 @@ function findCharacterCatalogSpell(spellId) {
     return item && String(item.id) === key;
   }) || null;
 }
+function normalizePreparedSpellsForCharacter(c, options) {
+  options = options || {};
+  var result = { kodex:[], folio:[], obrad:[] };
+  if (!c) return result;
+  var allowed = {}, learned = c.spellsLearned && typeof c.spellsLearned === 'object' ? c.spellsLearned : {};
+  (Array.isArray(c.spellRefs) ? c.spellRefs : []).forEach(function(id) { allowed[String(id)] = true; });
+  var source = c.preparedSpells && typeof c.preparedSpells === 'object' ? c.preparedSpells : null;
+  if (!source && options.bootstrapLegacy !== false && getCharacterSpellCatalogEntries().length) {
+    source = { kodex:[], folio:[], obrad:[] };
+    (Array.isArray(c.spellRefs) ? c.spellRefs : []).forEach(function(id) {
+      var key = String(id), spell = findCharacterCatalogSpell(key), type = spell && String(spell.spellType || '').toLowerCase();
+      if (learned[key] !== true || !source[type] || source[type].length >= getPreparedSpellTypeLimitForCharacter(c, type)) return;
+      source[type].push(key);
+    });
+  }
+  source = source || {};
+  var seen = {};
+  Object.keys(result).forEach(function(type) {
+    (Array.isArray(source[type]) ? source[type] : []).slice(0, 24).forEach(function(id) {
+      var key = String(id), spell = findCharacterCatalogSpell(key), actualType = spell && String(spell.spellType || '').toLowerCase();
+      if (!key || seen[key] || !allowed[key] || learned[key] !== true || actualType !== type) return;
+      seen[key] = true;
+      result[type].push(key);
+    });
+  });
+  return result;
+}
+function ensurePreparedSpellsForCharacter(c) {
+  if (!c) return { kodex:[], folio:[], obrad:[] };
+  if ((!c.preparedSpells || typeof c.preparedSpells !== 'object') && !getCharacterSpellCatalogEntries().length) {
+    return { kodex:[], folio:[], obrad:[] };
+  }
+  var normalized = normalizePreparedSpellsForCharacter(c, {bootstrapLegacy:true});
+  c.preparedSpells = normalized;
+  return normalized;
+}
 function getSpellTypeCountsForCharacter(c) {
   var counts = { kodex:0, folio:0, obrad:0 };
-  var seen = {};
-  (c && c.spellRefs || []).forEach(function(id) {
-    var key = String(id);
-    if (seen[key]) return;
-    seen[key] = true;
-    var spell = findCharacterCatalogSpell(key);
-    if (spell && counts[spell.spellType] != null) counts[spell.spellType] += 1;
-  });
+  var prepared = normalizePreparedSpellsForCharacter(c, {bootstrapLegacy:true});
+  Object.keys(counts).forEach(function(type) { counts[type] = prepared[type].length; });
   return counts;
 }
 function buildSpellTypeLimitsHtml(c) {
@@ -46030,9 +46286,9 @@ function buildSpellTypeLimitsHtml(c) {
   };
   return '<div id="sp-picker-limits" style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:11px">' +
     Object.keys(labels).map(function(type) {
-      var limit = getSpellTypeLimitForCharacter(c, type);
+      var limit = getPreparedSpellTypeLimitForCharacter(c, type);
       var count = counts[type] || 0;
-      return '<div style="padding:7px 5px;border:1px solid ' + (count >= limit ? '#7b3b35' : '#3a2b17') +
+      return '<div title="Подготовлено заклинаний этого типа" style="padding:7px 5px;border:1px solid ' + (count >= limit ? '#7b3b35' : '#3a2b17') +
         ';border-radius:6px;background:#0a0704;text-align:center;font:9px Cinzel,serif;color:' +
         (count >= limit ? '#d57a70' : '#9b8966') + '">' + labels[type][0] + ' ' + labels[type][1] +
         '<b style="display:block;margin-top:3px;color:#dcc071;font-size:11px">' + count + '/' + limit + '</b></div>';
@@ -48767,6 +49023,11 @@ function toggleSpellLearned(charId, spellId) {
   var wasLearned = !!c.spellsLearned[spellId];
   if (wasLearned) {
     delete c.spellsLearned[spellId];
+    var prepared = ensurePreparedSpellsForCharacter(c);
+    Object.keys(prepared).forEach(function(type) {
+      prepared[type] = prepared[type].filter(function(id){ return String(id) !== String(spellId); });
+    });
+    c.preparedSpells = prepared;
     showToast('🔒 Заклинание не изучено');
   } else {
     c.spellsLearned[spellId] = true;
@@ -48929,21 +49190,18 @@ function pickSpell(charId, spellId, el) {
   var idx = c.spellRefs.findIndex(function(id){ return String(id) === String(spellId); });
   if (idx >= 0) {
     c.spellRefs.splice(idx, 1);
+    if (c.spellsLearned) delete c.spellsLearned[String(spellId)];
+    var prepared = ensurePreparedSpellsForCharacter(c);
+    Object.keys(prepared).forEach(function(type) {
+      prepared[type] = prepared[type].filter(function(id){ return String(id) !== String(spellId); });
+    });
+    c.preparedSpells = prepared;
     el.style.background = '#0a0704';
     el.querySelector('span:last-child').textContent = '＋';
     el.querySelector('span:last-child').style.color = 'var(--dim)';
   } else {
     var spell = findCharacterCatalogSpell(spellId);
     if (!spell) return;
-    var counts = getSpellTypeCountsForCharacter(c);
-    var limit = getSpellTypeLimitForCharacter(c, spell.spellType);
-    if ((counts[spell.spellType] || 0) >= limit) {
-      if (typeof showToast === 'function') {
-        var label = {kodex:'Кодексов',folio:'Фолиантов',obrad:'Ритуальников'}[spell.spellType] || 'заклинаний этого типа';
-        showToast('⚠ Лимит ' + label + ': ' + limit);
-      }
-      return;
-    }
     c.spellRefs.push(spellId);
     var col = el.style.borderLeftColor || '#e8c060';
     el.style.background = col + '12';
@@ -60719,6 +60977,10 @@ var SHOP_RARITY = [
 var SHOP_REGIONS = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopRegions === 'function' ? window.ZargotaItemEconomy.getShopRegions() : [];
 var SHOP_MARKETS = window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.getShopMarkets === 'function' ? window.ZargotaItemEconomy.getShopMarkets() : [];
 var _shopState = { filter:'', search:'', tab:'showcase', gmStatsOpen:false, rarity:'', priceBand:'', priceMin:'', priceMax:'', region:'', market:'', sort:'name', categoryFilters:{}, page:1, pageSize:24 };
+var ZG_QUEST_SHOP_KEY = 'zargota_gm_quest_items_v1';
+var ZG_LEGACY_PLAYER_SHOP_CLEANUP_KEY = 'zargota_shop_legacy_player_cleanup_v1';
+var _questShopIdbHydrated = false;
+var _shopLegacyPlayerCleanupStarted = false;
 var _shopCart = {}; // itemId -> qty (реальные товары витрины)
 var _ecoCart = {}; // name -> {price:{}, qty} (позиции из экономики)
 // Разбор строки цены "2 пл · 3 зл", "18 зл", "0.5 зл" в монеты
@@ -60887,7 +61149,7 @@ function zgCartEcoRemove(nm) { if (_ecoCart[nm]) { _ecoCart[nm].qty--; if (_ecoC
 // поэтому обработчики должны идти через window, иначе _shopState не виден)
 function zgShopSetFilter(f) { var next = f || ''; if (_shopState.filter !== next) _shopState.categoryFilters = {}; _shopState.filter = next; _shopState.page = 1; renderShopPage(); }
 function zgShopSetSearch(v) { _shopState.search = v || ''; _shopState.page = 1; renderShopPageDebounced(); }
-function zgShopSetTab(t) { _shopState.tab = t || 'showcase'; renderShopPage(); }
+function zgShopSetTab(t) { _shopState.tab = t || 'showcase'; _shopState.page = 1; renderShopPage(); }
 function zgShopToggleGmStats() { _shopState.gmStatsOpen = !_shopState.gmStatsOpen; renderShopPage(); }
 function zgShopSetBrowseFilter(key, value) { if (Object.prototype.hasOwnProperty.call(_shopState, key)) _shopState[key] = value || ''; _shopState.page = 1; renderShopPage(); }
 function zgShopSetCategoryFilter(key, value) { _shopState.categoryFilters = _shopState.categoryFilters || {}; if (value) _shopState.categoryFilters[key] = value; else delete _shopState.categoryFilters[key]; _shopState.page = 1; renderShopPage(); }
@@ -60919,6 +61181,11 @@ function zgHydrateShopFromIdb() {
       try {
         if (Array.isArray(parsed) && parsed.length && !loadShopItems().length) {
           localStorage.setItem('zargota_shop_v1', JSON.stringify(parsed));
+          // IDB может восстановиться позже первой очистки localStorage. Повторно
+          // применяем точный список ID из резервной копии старой оружейной.
+          _shopLegacyPlayerCleanupStarted = false;
+          try { localStorage.removeItem(ZG_LEGACY_PLAYER_SHOP_CLEANUP_KEY); } catch(ignore) {}
+          zgCleanupLegacyPlayerShopItems();
           // если магазин сейчас открыт — перерисуем
           var host = document.getElementById('shop-page-inner');
           if (host && host.style.display !== 'none' && typeof renderShopPage === 'function') renderShopPage();
@@ -60931,6 +61198,61 @@ function zgHydrateShopFromIdb() {
 function saveShopItems(items) {
   try { localStorage.setItem('zargota_shop_v1', JSON.stringify(items)); } catch(e) {}
   try { if (typeof queueIdbWrite === 'function') queueIdbWrite('zargota_armory_db', 'kv', 'zargota_shop_v1', JSON.stringify(items), 'shop to IDB'); } catch(e) {}
+}
+function loadQuestShopItems() {
+  try {
+    var raw = localStorage.getItem(ZG_QUEST_SHOP_KEY);
+    if (raw) { var arr = JSON.parse(raw); if (Array.isArray(arr)) return arr; }
+  } catch(e) {}
+  return [];
+}
+function saveQuestShopItems(items) {
+  items = Array.isArray(items) ? items.map(function(item){
+    return Object.assign({}, item || {}, { questItem:true, price:{pl:0,zl:0,sr:0,md:0} });
+  }) : [];
+  try { localStorage.setItem(ZG_QUEST_SHOP_KEY, JSON.stringify(items)); } catch(e) {}
+  try { if (typeof queueIdbWrite === 'function') queueIdbWrite('zargota_armory_db', 'kv', ZG_QUEST_SHOP_KEY, JSON.stringify(items), 'quest items to IDB'); } catch(e) {}
+}
+function zgHydrateQuestShopFromIdb() {
+  if (_questShopIdbHydrated) return;
+  _questShopIdbHydrated = true;
+  if (loadQuestShopItems().length || typeof zgReadIdbJson !== 'function') return;
+  zgReadIdbJson('zargota_armory_db', 'kv', ZG_QUEST_SHOP_KEY, function(parsed){
+    if (!Array.isArray(parsed) || !parsed.length || loadQuestShopItems().length) return;
+    saveQuestShopItems(parsed);
+    if (_shopState.tab === 'quest') renderShopPage();
+  });
+}
+function zgLegacyArmoryItemIds(rows, target) {
+  target = target || {};
+  (Array.isArray(rows) ? rows : []).forEach(function(item){
+    if (item && item.id != null && String(item.id)) target[String(item.id)] = true;
+  });
+  return target;
+}
+function zgCleanupLegacyPlayerShopItems() {
+  if (_shopLegacyPlayerCleanupStarted) return;
+  try { if (localStorage.getItem(ZG_LEGACY_PLAYER_SHOP_CLEANUP_KEY)) return; } catch(ignore) {}
+  _shopLegacyPlayerCleanupStarted = true;
+  var ids = {};
+  // Только исторический снимок до автоматического слияния. Текущая оружейная
+  // уже содержит общий каталог экипировки, поэтому использовать её ID здесь
+  // нельзя: это удалило бы из витрины законные товары.
+  try {
+    zgLegacyArmoryItemIds(JSON.parse(localStorage.getItem('zargota_armory_v1_backup_before_products') || '[]'), ids);
+  } catch(ignore) {}
+  function finish(idbRows) {
+    zgLegacyArmoryItemIds(idbRows, ids);
+    var before = loadShopItems();
+    var after = before.filter(function(item){ return !item || !ids[String(item.id || '')]; });
+    var removed = before.length - after.length;
+    if (removed) saveShopItems(after);
+    try { localStorage.setItem(ZG_LEGACY_PLAYER_SHOP_CLEANUP_KEY, JSON.stringify({removed:removed,cleanedAt:Date.now()})); } catch(ignore) {}
+    if (removed && _shopState.tab === 'showcase') renderShopPage();
+  }
+  if (typeof zgReadIdbJson === 'function') {
+    zgReadIdbJson('zargota_armory_db', 'kv', 'zargota_armory_v1_backup_before_products', function(rows){ finish(rows); });
+  } else finish([]);
 }
 // ═══ Стартовое наполнение витрины (по канону экономики Зарготы, цены в золоте) ═══
 function zgSeedLegacyShopItems() {
@@ -61975,6 +62297,8 @@ function renderShopPage() {
   var host = document.getElementById('shop-page-inner');
   if (!host) return;
   try { zgHydrateShopFromIdb(); } catch(e) {}
+  try { zgHydrateQuestShopFromIdb(); } catch(e) {}
+  try { zgCleanupLegacyPlayerShopItems(); } catch(e) {}
   if (!_shopState.tab) _shopState.tab = 'showcase';
 
   // Под-табы единого каталога: витрина, комплекты снаряжения и экономика.
@@ -61982,6 +62306,7 @@ function renderShopPage() {
     '<div style="display:flex;gap:0;justify-content:center;margin-bottom:22px;border-bottom:1px solid #2a1e10">'+
       '<button onclick="zgShopSetTab(\'showcase\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='showcase'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='showcase'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/showcase.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">ВИТРИНА</button>'+
       '<button onclick="zgShopSetTab(\'loadouts\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='loadouts'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='loadouts'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">КОМПЛЕКТЫ</button>'+
+      '<button onclick="zgShopSetTab(\'quest\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='quest'?'#6fcb83':'transparent') + ';color:' + (_shopState.tab==='quest'?'#8fdb9f':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">КВЕСТОВЫЕ · ГМ</button>'+
       '<button onclick="zgShopSetTab(\'economy\')" style="padding:10px 22px;background:transparent;border:none;border-bottom:2px solid ' + (_shopState.tab==='economy'?'#e8c060':'transparent') + ';color:' + (_shopState.tab==='economy'?'#e8c060':'#7a6a48') + ';font-family:\'Cinzel\',serif;font-size:12px;letter-spacing:1px;cursor:pointer"><img class="zg-shop-tab-icon" src="images/ui/arena-shop/economy.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">ЭКОНОМИКА</button>'+
     '</div>';
 
@@ -62007,6 +62332,35 @@ function renderShopPage() {
       '<div class="zg-economy-actions">'+
         '<button class="shop-cart-btn" onclick="zgRenderCart()">' + zgCoinStackHtml(17) + ' Корзина' + (ecoCartInfo.count ? '<span class="shop-cart-badge">' + ecoCartInfo.count + '</span>' : '') + '</button>'+
       '</div>' + zgEconomyMemoHtml();
+    return;
+  }
+
+  if (_shopState.tab === 'quest') {
+    var questItems = loadQuestShopItems();
+    var questQuery = String(_shopState.search || '').trim().toLowerCase();
+    var questFiltered = questItems.filter(function(item){
+      if (_shopState.filter && item.cat !== _shopState.filter) return false;
+      return !questQuery || [item.name,item.desc,item.effect,item.cat].join(' ').toLowerCase().indexOf(questQuery) >= 0;
+    });
+    var questToolbar =
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">'+
+        '<input type="text" value="' + escHTML(_shopState.search||'') + '" placeholder="Найти квестовую вещь…" oninput="zgShopSetSearch(this.value)" style="flex:1;min-width:220px;background:#0a0704;border:1px solid #29452f;border-radius:8px;color:#c8b89c;padding:10px 14px;font-family:\'Lora\',serif;font-size:13px">'+
+        '<button class="btn btn-gold btn-sm" onclick="zgShopEdit(null,\'quest\')" style="padding:9px 16px;border-color:#6fcb83;color:#8fdb9f">＋ Квестовая вещь</button>'+
+      '</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:22px">'+
+        '<button onclick="zgShopSetFilter(\'\')" style="padding:6px 12px;border:1px solid ' + (!_shopState.filter ? '#6fcb83' : '#2a1e10') + ';border-radius:16px;background:' + (!_shopState.filter ? '#6fcb8314' : 'transparent') + ';color:' + (!_shopState.filter ? '#8fdb9f' : '#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">Все</button>'+
+        SHOP_CATS.map(function(cat){ var on=_shopState.filter===cat.key; return '<button onclick="zgShopSetFilter(\'' + cat.key + '\')" style="padding:6px 12px;border:1px solid ' + (on?cat.color:'#2a1e10') + ';border-radius:16px;background:' + (on?cat.color+'18':'transparent') + ';color:' + (on?cat.color:'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + cat.icon + ' ' + cat.label + '</button>'; }).join('')+
+      '</div>';
+    var questGrid = questFiltered.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:16px">' + questFiltered.map(function(it){
+      var cat=SHOP_CATS.find(function(x){return x.key===it.cat;})||SHOP_CATS[SHOP_CATS.length-1];
+      var rar=SHOP_RARITY.find(function(x){return x.key===it.rarity;})||SHOP_RARITY[0];
+      return '<div class="shop-card" onclick="zgShopView(\'' + it.id + '\',\'quest\')" style="--shop-accent:' + cat.color + '">'+
+        '<div class="shop-card-hero' + (it.imgSize==='wide'?' shop-card-hero-wide':'') + '">' + (zgShopImageSource(it)?zgShopVisualMarkup(it,cat.icon,'width:100%;height:100%;object-fit:cover;display:block'):'<span class="shop-card-hero-emoji" style="display:block;width:64px;height:64px">'+zgItemIconMarkup(it.icon,cat.icon)+'</span>') + '</div>'+
+        '<div class="shop-card-name">' + escHTML(it.name||'Без имени') + '</div>'+
+        '<div style="font-size:9px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;text-align:center;margin-bottom:8px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>'+
+        shopStatChips(it)+(it.desc?'<div class="shop-card-desc">'+escHTML(it.desc)+'</div>':'')+
+        '<div style="margin-top:auto;padding-top:12px;color:#6fcb83;text-align:center;font-family:\'Cinzel\',serif;font-size:9px;letter-spacing:1px">ХРАНИЛИЩЕ ГМ · ГОТОВО К ВЫДАЧЕ</div></div>';
+    }).join('') + '</div>' : '<div style="text-align:center;padding:60px 20px;border:1px dashed #29452f;border-radius:14px;color:#7a6a48;font-family:\'Lora\',serif;font-style:italic">Квестовых вещей пока нет. Создай ключ, письмо, улику или сюжетный артефакт — они не попадут на торговую витрину.</div>';
+    host.innerHTML = '<div style="text-align:center;margin-bottom:18px"><img class="zg-shop-heading-icon" src="images/ui/arena-shop/armory.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72"><div style="font-family:\'Cinzel Decorative\',serif;font-size:22px;color:#8fdb9f">Квестовые вещи мастера</div><div style="font-size:11px;color:#7a6a48;margin-top:6px;font-family:\'Lora\',serif;font-style:italic">Отдельное закрытое хранилище без цен и корзины. Эти предметы доступны в сессионном окне «Выдать игроку».</div></div>' + subtabs + questToolbar + questGrid + '<div style="text-align:center;margin-top:26px;font-size:10px;color:#5a4a32">' + questFiltered.length + ' найдено · ' + questItems.length + ' квестовых вещей</div>';
     return;
   }
 
@@ -62091,8 +62445,9 @@ function renderShopPageDebounced() {
 }
 
 // Просмотр товара — расширенная карточка, редактирование через ⚙ в углу
-function zgShopView(itemId) {
-  var items = loadShopItems();
+function zgShopView(itemId, collection) {
+  var isQuest = collection === 'quest';
+  var items = isQuest ? loadQuestShopItems() : loadShopItems();
   var it = items.find(function(x){ return x.id === itemId; });
   if (!it) return;
   var cat = SHOP_CATS.find(function(x){ return x.key === it.cat; }) || SHOP_CATS[SHOP_CATS.length-1];
@@ -62123,24 +62478,24 @@ function zgShopView(itemId) {
   panel.innerHTML =
     // ⚙ + ✕ в углу
     '<div style="position:absolute;top:12px;right:12px;display:flex;gap:6px">' +
-      '<button onclick="document.getElementById(\'shop-view-popup\').remove();zgShopEdit(\'' + it.id + '\')" title="Редактировать" style="width:32px;height:32px;border:1px solid #3a2a14;background:#241a0e;color:#d4a04a;border-radius:8px;cursor:pointer;font-size:15px">⚙</button>' +
+      '<button onclick="document.getElementById(\'shop-view-popup\').remove();zgShopEdit(\'' + it.id + '\',\'' + (isQuest?'quest':'shop') + '\')" title="Редактировать" style="width:32px;height:32px;border:1px solid #3a2a14;background:#241a0e;color:#d4a04a;border-radius:8px;cursor:pointer;font-size:15px">⚙</button>' +
       '<button onclick="document.getElementById(\'shop-view-popup\').remove()" title="Закрыть" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
     '</div>' +
     '<div style="text-align:center;margin-bottom:8px">' + imgOrEmoji + '</div>' +
     '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:' + (isMobile ? '24px' : '28px') + ';color:#f6e6c0;margin-bottom:6px">' + escHTML(it.name || 'Без имени') + '</div>' +
     '<div style="text-align:center;font-size:12px;letter-spacing:1.4px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;margin-bottom:16px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>' +
-    '<div style="margin:-7px 0 14px;text-align:center;color:#887653;font-family:\'Lora\',serif;font-size:11px">📍 Базирование: ' + escHTML(regionLabel) + '</div>' +
-    (marketLinks ? '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:0 0 14px">' + marketLinks + '</div>' : '') +
+    (isQuest ? '<div style="margin:-7px 0 14px;text-align:center;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:10px;letter-spacing:1px">КВЕСТОВАЯ ВЕЩЬ · ХРАНИЛИЩЕ ГМ</div>' : '<div style="margin:-7px 0 14px;text-align:center;color:#887653;font-family:\'Lora\',serif;font-size:11px">📍 Базирование: ' + escHTML(regionLabel) + '</div>') +
+    (!isQuest && marketLinks ? '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:0 0 14px">' + marketLinks + '</div>' : '') +
     (chips ? '<div style="margin-bottom:16px">' + chips + '</div>' : '') +
     (it.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:14px 16px;font-family:\'Lora\',serif;font-size:15px;color:#d8c8a8;line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' + escHTML(it.desc) + '</div>' : '') +
-    '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:18px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:14px;margin-bottom:14px">' + shopPriceHtml(it.price) + '</div>' +
-    '<button onclick="zgCartAdd(\'' + it.id + '\')" style="width:100%;padding:13px;border:1px solid #e8c060;background:#e8c06018;color:#e8c060;font-family:\'Cinzel\',serif;font-size:14px;letter-spacing:.5px;cursor:pointer;border-radius:8px">🛒 Добавить в корзину</button>';
+    (isQuest ? '<div style="text-align:center;font-family:\'Lora\',serif;color:#8fdb9f;background:#112016;border:1px solid #29452f;border-radius:8px;padding:12px">Доступно в сессии: Выдать → Предмет → Квестовые вещи</div>' : '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:18px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:14px;margin-bottom:14px">' + shopPriceHtml(it.price) + '</div><button onclick="zgCartAdd(\'' + it.id + '\')" style="width:100%;padding:13px;border:1px solid #e8c060;background:#e8c06018;color:#e8c060;font-family:\'Cinzel\',serif;font-size:14px;letter-spacing:.5px;cursor:pointer;border-radius:8px">🛒 Добавить в корзину</button>');
   bd.appendChild(panel);
   document.body.appendChild(bd);
 }
 
-function zgShopEdit(itemId) {
-  var items = loadShopItems();
+function zgShopEdit(itemId, collection) {
+  var isQuest = collection === 'quest';
+  var items = isQuest ? loadQuestShopItems() : loadShopItems();
   var it = itemId ? items.find(function(x){ return x.id === itemId; }) : null;
 
   var old = document.getElementById('shop-edit-popup'); if (old) old.remove();
@@ -62157,7 +62512,7 @@ function zgShopEdit(itemId) {
   var fieldLbl = 'font-size:9px;color:#7a6a48;letter-spacing:1px;margin-bottom:4px';
   var inp = 'width:100%;box-sizing:border-box;background:#0a0704;border:1px solid #2a1e10;border-radius:8px;color:#c8b89c;padding:8px 10px;font-family:\'Lora\',serif;font-size:13px';
   panel.innerHTML =
-    '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#6fcb83;letter-spacing:1px;margin-bottom:14px;text-align:center">' + zgCoinStackHtml(18) + ' ' + (it ? 'Редактировать товар' : 'Новый товар') + '</div>'+
+    '<div style="font-family:\'Cinzel\',serif;font-size:14px;color:#6fcb83;letter-spacing:1px;margin-bottom:14px;text-align:center">' + (isQuest ? '◆ ' + (it ? 'Редактировать квестовую вещь' : 'Новая квестовая вещь') : zgCoinStackHtml(18) + ' ' + (it ? 'Редактировать товар' : 'Новый товар')) + '</div>'+
     // Иконка/фото (большая, с кнопкой пикера и загрузки) + название
     '<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch">'+
       '<div style="display:flex;flex-direction:column;align-items:center;gap:4px">'+
@@ -62211,8 +62566,8 @@ function zgShopEdit(itemId) {
       }).join('')+
     '</div>'+
     // Цена
-    '<div style="' + fieldLbl + ';margin-top:6px">СРЕДНЯЯ ЦЕНА</div>'+
-    '<div style="display:flex;gap:6px;margin-bottom:10px">'+
+    '<div style="' + fieldLbl + ';margin-top:6px;' + (isQuest?'display:none':'') + '">СРЕДНЯЯ ЦЕНА</div>'+
+    '<div style="display:' + (isQuest?'none':'flex') + ';gap:6px;margin-bottom:10px">'+
       '<div style="flex:1"><input id="shp-pl" type="number" min="0" placeholder="0" value="' + (p.pl || '') + '" style="' + inp + ';text-align:center;color:#e8e8f0"><div style="text-align:center;font-size:9px;color:#e8e8f0;margin-top:2px">платина</div></div>'+
       '<div style="flex:1"><input id="shp-zl" type="number" min="0" placeholder="0" value="' + (p.zl || '') + '" style="' + inp + ';text-align:center;color:#e8c060"><div style="text-align:center;font-size:9px;color:#e8c060;margin-top:2px">золото</div></div>'+
       '<div style="flex:1"><input id="shp-sr" type="number" min="0" placeholder="0" value="' + (p.sr || '') + '" style="' + inp + ';text-align:center;color:#b8bcc8"><div style="text-align:center;font-size:9px;color:#b8bcc8;margin-top:2px">серебро</div></div>'+
@@ -62229,7 +62584,7 @@ function zgShopEdit(itemId) {
       '</div>'+
     '</div>'+
     '<div style="display:flex;gap:8px;justify-content:' + (it ? 'space-between' : 'flex-end') + '">'+
-      (it ? '<button onclick="zgShopRemove(\'' + itemId + '\')" style="padding:8px 14px;border:1px solid #c0404066;background:#c0404014;color:#c08080;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">🗑 Удалить</button>' : '')+
+      (it ? '<button onclick="' + (isQuest?'zgQuestShopRemove':'zgShopRemove') + '(\'' + itemId + '\')" style="padding:8px 14px;border:1px solid #c0404066;background:#c0404014;color:#c08080;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">🗑 Удалить</button>' : '')+
       '<div style="display:flex;gap:8px">'+
         '<button onclick="document.getElementById(\'shop-edit-popup\').remove()" style="padding:8px 14px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">Отмена</button>'+
         '<button id="shp-save" style="padding:8px 18px;border:1px solid #6fcb83;background:#6fcb8318;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:5px">💾 Сохранить</button>'+
@@ -62356,7 +62711,7 @@ function zgShopEdit(itemId) {
     if (shopImagePreparing) { if (typeof showToast === 'function') showToast('Изображение ещё подготавливается'); return; }
     var name = (panel.querySelector('#shp-name').value || '').trim();
     if (!name) { if (typeof showToast === 'function') showToast('Нужно название'); return; }
-    var rec = it || { id: 'shp_' + Date.now() + '_' + Math.floor(Math.random()*1000) };
+    var rec = it || { id: (isQuest ? 'qst_' : 'shp_') + Date.now() + '_' + Math.floor(Math.random()*1000) };
     rec.name = name;
     rec.icon = (panel.querySelector('#shp-icon').value || '').trim();
     rec.image = (panel.querySelector('#shp-image').value || '').trim();
@@ -62376,13 +62731,14 @@ function zgShopEdit(itemId) {
       sr: parseInt(panel.querySelector('#shp-sr').value, 10) || 0,
       md: parseInt(panel.querySelector('#shp-md').value, 10) || 0
     };
-    if (window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItem === 'function') rec = window.ZargotaItemEconomy.enrichShopItem(rec);
-    var arr = loadShopItems();
+    rec.questItem = isQuest;
+    if (!isQuest && window.ZargotaItemEconomy && typeof window.ZargotaItemEconomy.enrichShopItem === 'function') rec = window.ZargotaItemEconomy.enrichShopItem(rec);
+    var arr = isQuest ? loadQuestShopItems() : loadShopItems();
     if (it) { var idx = arr.findIndex(function(x){ return x.id === rec.id; }); if (idx >= 0) arr[idx] = rec; else arr.push(rec); }
     else arr.push(rec);
-    saveShopItems(arr);
+    if (isQuest) saveQuestShopItems(arr); else saveShopItems(arr);
     try {
-      window.dispatchEvent(new CustomEvent('zargota:shop-catalog-changed', { detail:{ itemId:rec.id } }));
+      window.dispatchEvent(new CustomEvent(isQuest ? 'zargota:quest-catalog-changed' : 'zargota:shop-catalog-changed', { detail:{ itemId:rec.id } }));
       if (document.getElementById('char-equip-modal-overlay') && typeof _renderCharEquipModal === 'function') {
         _renderCharEquipModal();
       }
@@ -62474,14 +62830,23 @@ function zgShopRemove(itemId) {
   var p = document.getElementById('shop-edit-popup'); if (p) p.remove();
   renderShopPage();
 }
+function zgQuestShopRemove(itemId) {
+  if (!confirm('Удалить квестовую вещь из хранилища ГМ?')) return;
+  saveQuestShopItems(loadQuestShopItems().filter(function(x){ return x.id !== itemId; }));
+  var p = document.getElementById('shop-edit-popup'); if (p) p.remove();
+  renderShopPage();
+}
 if (typeof window !== 'undefined') {
   window.renderShopPage = renderShopPage;
   // Совместимый мост для редактора комплектов: источник предметов остаётся один.
   window.loadShopItems = loadShopItems;
   window.saveShopItems = saveShopItems;
+  window.loadQuestShopItems = loadQuestShopItems;
+  window.saveQuestShopItems = saveQuestShopItems;
   window.zgShopView = zgShopView;
   window.zgShopEdit = zgShopEdit;
   window.zgShopRemove = zgShopRemove;
+  window.zgQuestShopRemove = zgQuestShopRemove;
   window.renderShopPageDebounced = renderShopPageDebounced;
   window.zgShopOpenEmojiPicker = zgShopOpenEmojiPicker;
   window.zgShopAiTemplate = zgShopAiTemplate;
@@ -63042,7 +63407,6 @@ global.getStatusCombatMods = function(combatant) {
 (function(global) {
   'use strict';
 
-  var ITEM_KEY = 'zargota_armory_v1';
   var SET_KEY  = 'zargota_sets_v1';
 
   var SLOTS = [
@@ -63145,10 +63509,10 @@ global.getStatusCombatMods = function(combatant) {
 
   // ─── Совместимый вид каталога «Товары» для старых экранов Арены ───────
   // Единственный рабочий источник предметов — zargota_shop_v1.
-  // Старое хранилище оружейной один раз переносится с резервной копией.
+  // Старое хранилище оружейной больше не переносится: там могли находиться
+  // личные вещи игроков. Комплекты читают только канонический каталог товаров.
   var _itemsCache = null;
   var _setsCache = null;
-  var _legacyMigrationStarted = false;
   var IDB_NAME = 'zargota_armory_db';
   var IDB_STORE = 'kv';
 
@@ -63210,51 +63574,7 @@ global.getStatusCombatMods = function(combatant) {
       price:{ pl:item.pricePl||0, zl:item.priceGo||0, sr:item.priceAg||0, md:item.priceCu||0 }
     });
   }
-  function mergeLegacyItems(rawItems, sourceLabel) {
-    var legacy = Array.isArray(rawItems) ? rawItems : [];
-    if (!legacy.length || typeof global.loadShopItems !== 'function' || typeof global.saveShopItems !== 'function') return false;
-    var current = global.loadShopItems() || [], known = {};
-    current.forEach(function(item){ if(item&&item.id!=null)known[String(item.id)]=true; });
-    var added = 0;
-    legacy.forEach(function(item){
-      if(!item)return;
-      var converted=armoryItemToShop(item),key=String(converted.id||'');
-      if(key&&known[key])return;
-      current.push(converted);if(key)known[key]=true;added+=1;
-    });
-    if(added){
-      global.saveShopItems(current);
-      try{localStorage.setItem('zargota_item_catalog_migration_v1',JSON.stringify({source:sourceLabel||'legacy',count:added,migratedAt:Date.now()}));}catch(ignore){}
-    }
-    return !!added;
-  }
-  function migrateLegacyArmoryOnce() {
-    if(_legacyMigrationStarted)return;
-    _legacyMigrationStarted=true;
-    var rawText='',legacy=[];
-    try{rawText=localStorage.getItem(ITEM_KEY)||'';legacy=JSON.parse(rawText||'[]')||[];}catch(ignore){legacy=[];}
-    if(Array.isArray(legacy)&&legacy.length){
-      try{
-        if(!localStorage.getItem('zargota_armory_v1_backup_before_products'))localStorage.setItem('zargota_armory_v1_backup_before_products',rawText);
-      }catch(ignore){}
-      mergeLegacyItems(legacy,'localStorage');
-      try{localStorage.removeItem(ITEM_KEY);}catch(ignore){}
-    }
-    _idbGet(ITEM_KEY,function(raw){
-      if(!raw)return;
-      try{
-        var parsed=JSON.parse(raw)||[];
-        if(Array.isArray(parsed)&&parsed.length){
-          _idbPut('zargota_armory_v1_backup_before_products',JSON.stringify(parsed));
-          if(mergeLegacyItems(parsed,'IndexedDB')){
-            if(typeof global.renderArmoryCatalog==='function')try{global.renderArmoryCatalog();}catch(ignore){}
-          }
-        }
-      }catch(ignore){}
-    });
-  }
   function loadItems() {
-    migrateLegacyArmoryOnce();
     var canonical=typeof global.loadShopItems==='function'?(global.loadShopItems()||[]):[];
     _itemsCache=canonical.map(shopItemToArmory);
     return _itemsCache.slice();
@@ -64690,7 +65010,7 @@ global.getStatusCombatMods = function(combatant) {
     var c = {
       level:1,
       stats:{str:{base:0},dex:{base:0},int:{base:0},cha:{base:0},per:{base:0},con:{base:0}},
-      spellRefs:[]
+      spellRefs:[], preparedSpells:{kodex:[],folio:[],obrad:[]}
     };
     var spell = entries[0];
     zgAssert(spell && spell.id != null, 'Каталог должен содержать навык');
@@ -65085,7 +65405,7 @@ global.getStatusCombatMods = function(combatant) {
       },
       coins: { plat:0, gold:0, silv:0, bron:0 },
       tempEffects: [], effectHistory: [], statuses: [],
-      skills: [], mastery: [], spellRefs: [], spellsLearned: {}, spellCD: {}, spellsUsed: {},
+      skills: [], mastery: [], spellRefs: [], spellsLearned: {}, preparedSpells:{kodex:[],folio:[],obrad:[]}, spellCD: {}, spellsUsed: {},
       inventoryItems: [], equipItems: [],
       arenaSetId: '', arenaEquipSlots: {},
       deathSaves: { success:0, fail:0 },

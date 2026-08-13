@@ -2032,7 +2032,7 @@
     var spellRefs = (Array.isArray(character.spellRefs) ? character.spellRefs : []).slice(0, 80).filter(function (id) {
       return typeof id === 'string' || typeof id === 'number';
     });
-    var abilityUsage = {}, spellsLearned = {};
+    var abilityUsage = {}, spellsLearned = {}, preparedSpells = {kodex:[],folio:[],obrad:[]}, preparedSeen = {};
     spellRefs.forEach(function (id) {
       var resourceId = String(id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
       if (resourceId) {
@@ -2043,6 +2043,15 @@
       if (learnedKey && !/[.#$\[\]\/\u0000-\u001F\u007F]/.test(learnedKey) && ['__proto__','prototype','constructor'].indexOf(learnedKey) < 0) {
         spellsLearned[learnedKey] = !!(character.spellsLearned && character.spellsLearned[id] === true);
       }
+    });
+    Object.keys(preparedSpells).forEach(function(type){
+      var source=character.preparedSpells&&Array.isArray(character.preparedSpells[type])?character.preparedSpells[type]:[];
+      source.slice(0,24).forEach(function(rawId){
+        var id=String(rawId||'').slice(0,80);
+        if(!id||preparedSeen[id]||!spellRefs.some(function(spellId){return String(spellId)===id;})||spellsLearned[id]!==true)return;
+        if(/[.#$\[\]\/\u0000-\u001F\u007F]/.test(id)||['__proto__','prototype','constructor'].indexOf(id)>=0)return;
+        preparedSeen[id]=true;preparedSpells[type].push(id);
+      });
     });
     return {
       id: String(character.id),
@@ -2064,6 +2073,7 @@
       traits: displayList(character.traits, 40),
       spellRefs: spellRefs,
       spellsLearned: clean(spellsLearned, {}),
+      preparedSpells: clean(preparedSpells, {kodex:[],folio:[],obrad:[]}),
       weaponProfiles: clean(weaponProfiles, []).slice(0, 12),
       equipmentBonuses: clean(rawEquipmentBonuses, {}),
       resistances: clean(character.resistances || character.damageResistances, []),
@@ -5895,11 +5905,11 @@
         return readRoom(session.code).then(function (room) {
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
-          var combat = room.combat, order = combat && Array.isArray(combat.order) ? combat.order.slice() : [];
-          if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
-          var targetIndex = order.findIndex(function (entry) { return entry && entry.key === targetKey; });
-          if (targetIndex < 0) throw roomError('Участник боя не найден.', 'combat-participant-missing');
-          var target = combatEntryWithRoomStatuses(room, Object.assign({}, order[targetIndex]));
+          var combat = room.combat, activeCombat=!!(combat&&combat.active),order = activeCombat && Array.isArray(combat.order) ? combat.order.slice() : [];
+          var targetIndex = order.findIndex(function (entry) { return entry && entry.key === targetKey; }),target=null;
+          if(targetIndex>=0)target=combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex]));
+          if(!target){var memberUid=targetKey.indexOf('member:')===0?targetKey.slice(7):'',member=memberUid&&room.members&&room.members[memberUid],character=member&&member.character;if(character)target={key:'member:'+memberUid,uid:memberUid,kind:'hero',name:character.name||member.name||'Герой',portrait:character.portrait||'',hp:Math.max(0,combatNumber(character.hpCur,0)),hpMax:Math.max(0,combatNumber(character.hpMax,0)),tempHp:Math.max(0,combatNumber(character.tempHp,0)),ac:Math.max(0,combatNumber(character.ac,10)),stats:character.stats||{},statuses:Array.isArray(character.statuses)?character.statuses:[],statusEffects:Array.isArray(character.statusEffects)?character.statusEffects:[]};}
+          if (!target) throw roomError('Участник не найден.', 'combat-participant-missing');
           var statKey = ['str','dex','int','cha','per','con'].indexOf(options.statKey) >= 0 ? options.statKey : 'con';
           var statLabels = {str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
           var dc = Math.max(1, Math.min(40, Number(options.dc) || 10));
@@ -5919,10 +5929,9 @@
             target.statuses = (target.statuses || []).filter(function (status) { return String(typeof status === 'string' ? status : status && (status.key || status.statusKey || status.id) || '') !== removeKey; });
             target.statusEffects = (target.statusEffects || []).filter(function (effect) { return String(effect && (effect.statusKey || effect.key || effect.id) || '') !== removeKey; });
           }
-          order[targetIndex] = target;
+          if(targetIndex>=0)order[targetIndex] = target;
           var stamp = now(), updates = {};
-          updates['combat/order'] = order;
-          updates['combat/updatedAt'] = stamp;
+          if(activeCombat){updates['combat/order'] = order;updates['combat/updatedAt'] = stamp;}
           if (success && removeKey) queueCombatEntryState(room, updates, target, false);
           var rolls = second == null ? [first] : [first, second];
           var rollText = second == null ? String(natural) : first+' / '+second+' → '+natural;

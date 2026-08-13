@@ -44,7 +44,8 @@ const finishStart = html.indexOf('  function finishTokenDrag(');
 const beginStart = html.indexOf('  function beginTokenDrag(', finishStart);
 const dragBlock = html.slice(finishStart, helperStart);
 assert.match(dragBlock, /if \(moved\) \{\s*tokenClickSuppressedUntil=Date\.now\(\)\+260/, 'a completed drag suppresses the synthetic click that follows pointerup');
-assert.match(dragBlock, /if \(ev\.shiftKey\)\{ tokenClickSuppressedUntil=Date\.now\(\)\+260;toggleGroupSel\(token\)/, 'Shift selection cannot also open a creature sheet');
+assert.match(dragBlock, /if \(ev\.shiftKey&&gmWorkspaceMode==='edit'\)\{ tokenClickSuppressedUntil=Date\.now\(\)\+260;toggleGroupSel\(token\)/, 'legacy Shift+left selection remains confined to explicit edit mode');
+assert.match(html, /node\.addEventListener\('contextmenu'[\s\S]*if\(ev\.shiftKey\)\{toggleGroupSel\(token\)/, 'Shift+right click owns multi-token selection without opening the creature sheet');
 assert.match(html.slice(beginStart,helperStart), /token\.locked[\s\S]*zgGmInterventionOpenToken\(token\.id,'entity'\)/, 'locked creatures remain inspectable even though they cannot be dragged');
 
 const renderTokensStart = html.indexOf('  function renderTokens()');

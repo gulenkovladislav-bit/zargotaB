@@ -545,6 +545,7 @@
     try {
       if (source === 'armory') rows = typeof w.loadArmoryItems === 'function' ? w.loadArmoryItems() : JSON.parse(localStorage.getItem('zargota_armory_v1') || '[]');
       if (source === 'shop') rows = typeof w.loadShopItems === 'function' ? w.loadShopItems() : JSON.parse(localStorage.getItem('zargota_shop_v1') || '[]');
+      if (source === 'quest') rows = typeof w.loadQuestShopItems === 'function' ? w.loadQuestShopItems() : JSON.parse(localStorage.getItem('zargota_gm_quest_items_v1') || '[]');
     } catch (error) { rows = []; }
     return (Array.isArray(rows) ? rows : []).map(function (item, index) { return normalizeExternalItem(item, source, index); }).filter(function (item) {
       var query = ignoreSearch ? '' : importSearch.trim().toLowerCase();
@@ -725,7 +726,9 @@
   function importMarkup() {
     if (!importSource || activeKind !== 'item') return '';
     var rows = externalItems(importSource);
-    return '<section class="zg-gm-delivery-import"><header><div><small>ЕДИНЫЙ КАТАЛОГ</small><b>Товары</b></div><button type="button" onclick="zgGmDeliveryImportClose()">×</button></header>' +
+    var sourceLabel = importSource === 'quest' ? 'Квестовые вещи ГМ' : 'Товары';
+    var sourceCaption = importSource === 'quest' ? 'ЗАКРЫТОЕ ХРАНИЛИЩЕ МАСТЕРА' : 'ЕДИНЫЙ КАТАЛОГ';
+    return '<section class="zg-gm-delivery-import"><header><div><small>' + sourceCaption + '</small><b>' + sourceLabel + '</b></div><button type="button" onclick="zgGmDeliveryImportClose()">×</button></header>' +
       '<input type="search" value="' + esc(importSearch) + '" placeholder="Найти в источнике" oninput="zgGmDeliveryImportSearch(this.value)">' +
       '<div class="zg-gm-delivery-import-filters"><select onchange="zgGmDeliveryImportCategory(this.value)"><option value="all"' + selected(importCategory,'all') + '>Все категории</option><option value="weapon"' + selected(importCategory,'weapon') + '>Оружие</option><option value="armor"' + selected(importCategory,'armor') + '>Броня</option><option value="shield"' + selected(importCategory,'shield') + '>Щиты</option><option value="consumable"' + selected(importCategory,'consumable') + '>Расходники</option><option value="material"' + selected(importCategory,'material') + '>Материалы</option><option value="key"' + selected(importCategory,'key') + '>Ключи</option><option value="other"' + selected(importCategory,'other') + '>Другое</option></select><select onchange="zgGmDeliveryImportEquip(this.value)"><option value="all"' + selected(importEquip,'all') + '>Любое назначение</option><option value="equipment"' + selected(importEquip,'equipment') + '>Экипируемое</option><option value="backpack"' + selected(importEquip,'backpack') + '>В рюкзак</option></select></div>' +
       '<div>' + (rows.length ? rows.map(function (item) {
@@ -1024,7 +1027,7 @@
             var category = activeKind === 'item' ? itemCategoryLabel(template.payload && template.payload.category || 'other') : '';
             return '<article class="zg-gm-delivery-template-card"><button type="button" class="pick" onclick="zgGmDeliveryUseTemplate(\'' + esc(template.id) + '\')">' + artworkMarkup(template, template.payload && template.payload.icon || kindIcon(activeKind), 'zg-gm-delivery-item-art') + '<span><b>' + esc(template.title) + '</b><small>' + esc((category ? category + ' · ' : '') + (template.text || 'Без описания')) + '</small></span></button><footer><select aria-label="Папка заготовки" onchange="zgGmDeliveryTemplateFolder(\'' + esc(template.id) + '\',this.value)">' + folderOptions(template.folderId || '') + '</select>' + (activeKind === 'item' ? '<button type="button" class="bundle" onclick="zgGmDeliveryBundleAddTemplate(\'' + esc(template.id) + '\')">＋</button>' : '') + '<button type="button" class="remove" onclick="zgGmDeliveryRemoveTemplate(\'' + esc(template.id) + '\')" aria-label="Удалить">×</button></footer></article>';
           }).join('') : '<p>По этому фильтру заготовок нет.</p>') + '</div></section>' : '';
-    var itemSources = activeKind === 'item' ? '<section class="zg-gm-delivery-sources"><header><small>ДОБАВИТЬ ИЗ ДРУГИХ РАЗДЕЛОВ</small><b>Источник предмета</b></header><div><button type="button" onclick="zgGmDeliveryImportOpen(\'shop\')"><i>▦</i><span><b>Товары</b><small>Единый каталог вещей и снаряжения</small></span></button><button type="button" onclick="zgGmDeliveryNewCustom()"><i>＋</i><span><b>Свой предмет</b><small>Создать с нуля</small></span></button></div></section>' : '';
+    var itemSources = activeKind === 'item' ? '<section class="zg-gm-delivery-sources"><header><small>ДОБАВИТЬ ИЗ ДРУГИХ РАЗДЕЛОВ</small><b>Источник предмета</b></header><div><button type="button" onclick="zgGmDeliveryImportOpen(\'quest\')"><i>◆</i><span><b>Квестовые вещи</b><small>Закрытое хранилище ГМ из раздела «Товары»</small></span></button><button type="button" onclick="zgGmDeliveryImportOpen(\'shop\')"><i>▦</i><span><b>Товары</b><small>Единый коммерческий каталог</small></span></button><button type="button" onclick="zgGmDeliveryNewCustom()"><i>＋</i><span><b>Свой предмет</b><small>Создать с нуля</small></span></button></div></section>' : '';
     var textMode = activeKind === 'text' ? textDeliveryMode(payload.journalMode, payload.saveToJournal) : '';
     var route = composeRoute(activeKind, payload);
     var titleLabel = activeKind === 'text' ? (textMode === 'place' ? 'Название места' : textMode === 'letter' ? 'Тема письма' : 'Заголовок сообщения') : 'Название';
@@ -1692,7 +1695,7 @@
 
   w.zgGmDeliveryImportOpen = function (source) {
     rememberPanelDraft();
-    importSource = 'shop';
+    importSource = source === 'quest' ? 'quest' : 'shop';
     importSearch = '';
     importCategory = 'all';
     importEquip = 'all';
