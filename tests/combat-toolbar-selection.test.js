@@ -39,6 +39,7 @@ const nodes = {
 const context = {
   w:{zgMovementActive:()=>true},
   el:id => nodes[id] || null,
+  combatLongActionMode:'',
   combatAttackTool:false,
   playerDockAction:''
 };
@@ -54,11 +55,17 @@ for(const kind of ['movement','short','free','sheet']) {
   assert.ok(current.classList.values.has('tool-selected'), `${kind} reflects its real open state`);
   assert.strictEqual(current.attributes['aria-pressed'],'true',`${kind} exposes its selected state`);
 }
+
 for(const kind of ['long','prepare','inventory']) {
   const current = buttons.find(item => item.attributes['data-combat-tool'] === kind);
   assert.ok(!current.classList.values.has('tool-selected'), `${kind} stays inactive while closed`);
   assert.strictEqual(current.attributes['aria-pressed'],'false',`${kind} exposes its inactive state`);
 }
+
+context.combatLongActionMode='spells';
+context.combatAttackTool=false;
+context.w.zgCombatToolbarSync();
+assert.ok(buttons.find(item => item.attributes['data-combat-tool'] === 'long').classList.values.has('tool-selected'), 'spell palette keeps the long action selected');
 
 context.w.zgMovementActive=()=>false;
 context.combatAttackTool=true;

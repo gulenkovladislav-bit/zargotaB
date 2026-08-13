@@ -8,19 +8,21 @@ var root = path.resolve(__dirname, '..');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 var helperStart = html.indexOf('function abilityAssetForItem(item,fallback)');
-var panelStart = html.indexOf('function abilitiesPanel()', helperStart);
-assert(helperStart >= 0 && panelStart > helperStart, 'ability asset resolver must exist before the Magic panel');
+var builderStart = html.indexOf('function buildAbilityCards(', helperStart);
+var panelStart = html.indexOf('function abilitiesPanel()', builderStart);
+assert(helperStart >= 0 && builderStart > helperStart && panelStart > builderStart, 'ability asset resolver and shared card builder must exist before the Magic panel');
 
-var helper = html.slice(helperStart, panelStart);
+var helper = html.slice(helperStart, builderStart);
 assert.match(helper, /item\.iconAsset\|\|item\.abilityIcon\|\|item\.iconImage\|\|item\.image/);
 assert.match(helper, /data:image/);
 assert.match(helper, /return asset\|\|fallback\|\|''/);
 
 var panelEnd = html.indexOf('function drawerRenderSignature()', panelStart);
+var builder = html.slice(builderStart, panelStart);
 var panel = html.slice(panelStart, panelEnd);
-assert.match(panel, /abilityAssetForItem\(item,'images\/ui\/combat-generated\/innate\.png'\)/);
-assert.match(panel, /abilityAssetForItem\(spell,'images\/ui\/combat-generated\/'/);
-assert.doesNotMatch(panel, /iconAsset:'images\/ui\/combat-generated\/innate\.png'/);
+assert.match(builder, /abilityAssetForItem\(item,'images\/ui\/combat-generated\/innate\.png'\)/);
+assert.match(builder, /abilityAssetForItem\(spell,'images\/ui\/combat-generated\/'/);
+assert.doesNotMatch(builder, /iconAsset:'images\/ui\/combat-generated\/innate\.png'/);
 
 var renderStart = html.indexOf('function abilityIconHtml(card,extraClass)');
 var renderEnd = html.indexOf('function abilityAssetForItem', renderStart);
