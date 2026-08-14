@@ -13,7 +13,11 @@ assert.match(html, /function scheduleToolRangeVector\(config,previewPoint\)/, 'p
 assert.match(html, /if\(toolRangeFrame\)return/, 'only one range RAF may be active at a time');
 assert.match(html, /w\.requestAnimationFrame/, 'range rendering uses requestAnimationFrame');
 assert.match(html, /class="range-overflow overflow-core"/, 'range beyond the limit has a distinct overflow segment');
-assert.match(html, /data-tool',config\.tool==='attack'\?'attack':'movement'/, 'movement and attack receive distinct endpoints');
+assert.match(html, /vector\.setAttribute\('data-tool',toolKey\)/, 'every supported action keeps its own endpoint artwork key');
+assert.match(html, /class="range-vortex"><img alt="" aria-hidden="true">/, 'the line endpoint renders the selected cursor artwork instead of the old reticle');
+assert.match(html, /cursorIcon=actionCursorIcons\[toolKey\]\|\|actionCursorIcons\.custom/, 'the shared renderer resolves movement, attack and action cursor assets through one map');
+assert.doesNotMatch(html, /class="range-move-icon"/, 'the endpoint artwork replaces the duplicate movement symbol inside the distance badge');
+assert.match(html, /\.range-distance-value\{font-size:13\.5px;/, 'movement distance numbers are enlarged by fifty percent');
 assert.match(html, /attackPreview\.tool='attack';scheduleToolRangeVector\(attackPreview\)/, 'attack pointer movement reaches the shared renderer');
 assert.match(html, /clearToolRangeVector\(\);var abilityPreview/, 'leaving the scene clears the local SVG and pending RAF');
 assert.match(html, /\.combat-target-valid/, 'valid targets have visible feedback');
@@ -21,7 +25,7 @@ assert.match(html, /\.combat-target-out/, 'out-of-range targets have visible fee
 assert.match(html, /\.combat-target-selected/, 'selected targets have a persistent visible ring');
 assert.match(html, /\.combat-target-lock/, 'confirmed targets have visible lock feedback');
 assert.match(html, /\.combat-target-rejected/, 'rejected targets have visible feedback');
-assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\.zg-tool-range-vector/, 'endpoint animation respects reduced motion');
+assert.doesNotMatch(html, /@keyframes zgRangeVortexSpin/, 'the selected static artwork is not replaced by a rotating generic reticle');
 
 const geometryStart = html.indexOf('  function toolRangeGridGeometry(origin,point,limit)');
 const geometryEnd = html.indexOf('  function renderToolRangeVector(config)', geometryStart);

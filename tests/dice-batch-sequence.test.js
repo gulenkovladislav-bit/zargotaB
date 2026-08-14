@@ -23,7 +23,7 @@ assert.match(dice, /spacing=Math\.min\(22,148\/Math\.max\(1,diceDrag\.held\.leng
 assert.match(dice, /За один бросок можно выбрать до '\+MAX_DICE_BATCH\+' кубиков/, 'selection beyond twelve gives a clear limit notice');
 assert.match(network, /beginRollBatch:[\s\S]*?slice\(0, 12\)\.map/, 'Firebase transports all twelve dice instead of truncating the batch');
 
-const addStart = dice.indexOf('function freeRollDiceMixBlocked(sides)');
+const addStart = dice.indexOf('function diceMixBlocked(sides)');
 const addEnd = dice.indexOf('function clearSelectedDice()', addStart);
 const notices = [];
 const selectionContext = {
@@ -48,7 +48,6 @@ assert.equal(selectionContext.removeSelectedDieRef(20), true, 'right-click remov
 assert.equal(selectionContext.selectedDice['20'], undefined, 'removing the last die clears its selected state');
 assert.equal(selectionContext.removeSelectedDieRef(20), false, 'right click on an unselected die is a harmless no-op');
 selectionContext.selectedDice = {};
-selectionContext.freeRollMode = true;
 assert.equal(selectionContext.addSelectedDieRef(20), true, 'a free d20 can be selected on its own');
 assert.equal(selectionContext.addSelectedDieRef(6), false, 'damage dice cannot be mixed into a selected free d20');
 assert.equal(selectionContext.selectedDice['20'], 1, 'the rejected damage die leaves the selected d20 intact');
@@ -58,10 +57,11 @@ assert.equal(selectionContext.addSelectedDieRef(6), true, 'a free damage die can
 assert.equal(selectionContext.addSelectedDieRef(20), false, 'a d20 cannot be mixed into selected free damage dice');
 assert.equal(selectionContext.selectedDice['6'], 1, 'the rejected d20 leaves existing damage dice intact');
 assert.equal(selectionContext.selectedDice['20'], undefined, 'the rejected d20 is not added');
-assert.ok(notices.some(message => /d20 кидается отдельно/.test(message)), 'the incompatible free-roll mix explains why it was rejected');
-selectionContext.freeRollMode = false;
+assert.ok(notices.some(message => /d20 всегда кидается отдельно/.test(message)), 'the incompatible mix explains why it was rejected');
 assert.match(dice, /var isFreeRoll=freeRollMode,d20Included=false;sidesList=.*?\.filter\(function\(sides\)/, 'the throw boundary removes repeated ordinary d20 values defensively');
-assert.match(dice, /isFreeRoll&&sidesList\.some[\s\S]*?Number\(sides\)===20[\s\S]*?sidesList\.some[\s\S]*?Number\(sides\)!==20/, 'the throw boundary defensively rejects a mixed free d20 batch');
+assert.match(dice, /if\(sidesList\.some[\s\S]*?Number\(sides\)===20[\s\S]*?sidesList\.some[\s\S]*?Number\(sides\)!==20/, 'the throw boundary defensively rejects every mixed d20 batch');
+assert.match(dice, /if\(sides===20\)held=\[20\]/, 'dragging d20 always shows and throws d20 by itself');
+assert.match(dice, /if\(Number\(key\)===20\)return/, 'dragging damage dice excludes a previously selected d20');
 assert.match(dice, /count>0&&!singleD20\?String\(count\):''/, 'the single d20 does not display a misleading quantity badge');
 assert.match(dice, /contextmenu[\s\S]*?\.zg-dice-row button\[data-die\][\s\S]*?removeSelectedDie/, 'right click is routed from a die texture to decrement logic');
 assert.match(dice, /ЛКМ добавить · ПКМ убрать/, 'the palette explains both mouse controls');

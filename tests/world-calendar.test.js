@@ -33,7 +33,7 @@ assert.deepStrictEqual(calendar.phases.map((phase) => phase.key), [
   'deep-night','predawn','dawn','morning','noon','day','sunset','evening'
 ]);
 
-assert.match(html, /displayMode===['"]phase['"]\?['"]phase['"]:['"]exact['"]/);
+assert.match(html, /displayMode===['"]exact['"]\?['"]exact['"]:['"]phase['"]/, 'missing room state defaults to time-of-day without overriding an explicit exact mode');
 assert.match(html, /Что знают игроки/);
 assert.match(html, /Точное время/);
 assert.match(html, /Время суток/);
@@ -96,7 +96,8 @@ assert.match(html, /setWorldClockTarget\(relativeDay\*1440\+hour\*60\+minute,cur
 assert.match(html, /\.zg-gm-clock-step>div>button:hover/, 'clock steppers have authored hover feedback');
 
 assert.match(network, /calendarId:String\(clock\.calendarId\|\|'zargota-lvk'\)/);
-assert.match(network, /displayMode:clock\.displayMode==='phase'\?'phase':'exact'/);
+assert.match(network, /displayMode:clock\.displayMode==='exact'\?'exact':'phase'/, 'network normalization defaults legacy rooms to time-of-day');
+assert.match(network, /worldClock:\s*\{[\s\S]*?displayMode:\s*'phase'/, 'new rooms start in time-of-day mode');
 assert.match(network, /gmSetWorldClock: function \(operation\)/);
 assert.match(network, /gmSetWorldClockWidget: function \(mode\)/, 'clock visibility is synchronized through the room API');
 assert.match(network, /widgetMode:\['always','brief','hidden'\]/, 'room clock snapshots preserve their visibility mode');

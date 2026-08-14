@@ -18,7 +18,7 @@ assert.match(html, /zgCombatIntentDragStart/);
 assert.match(html, /Назначить бросок/);
 assert.match(html, /Оповестить игрока/);
 assert.match(html, />Провал<\/button><button[^>]*>Успех<\/button>/);
-assert.match(html, /requestAction\(text,'combat-intent'/);
+assert.match(html, /combatRequestAction\(intentApi,text,'combat-intent'/);
 assert.match(html, /Без броска/);
 assert.match(html, /Решение ГМа · без автоэффекта/);
 assert.match(network, /actionKind === 'combat-intent'/);
@@ -37,14 +37,13 @@ assert.match(network, /accepted && request\.status !== 'roll-result'/, 'GM canno
 assert.match(html, /<textarea id="zg-action-custom" maxlength="1000"/, 'custom actions must allow a long multiline description');
 assert.match(html, /oninput="zgVttActionCustomResize\(this\)"/, 'the custom action field must grow with its text');
 assert.match(html, /custom:'images\/vtt-actions\/cursors\/custom\.png'/, 'custom targeting must use the dedicated cursor artwork');
-assert.match(html, /\.zg-action-cursor:before\{[^}]*width:26px;[^}]*height:26px/, 'custom targeting must keep a visible center marker instead of a micro-dot');
-assert.match(html, /class="zg-action-cursor-action"/, 'cursor artwork must stay inside the compact action medallion');
-assert.match(html, /cursorIcon\+'\?v=20260813\.1" alt=""/, 'cursor artwork must use the current cache key');
+assert.match(html, /class="zg-action-cursor-glyph"/, 'custom targeting uses the approved full-size cursor glyph');
+assert.match(html, /cursorIcon\+'\?v=20260814\.1" alt="" aria-hidden="true"/, 'cursor artwork must use the current cache key');
 assert.match(html, /\.zg-action-cursor\{[^}]*overflow:visible;[^}]*contain:layout style/, 'the one-pixel cursor anchor must not clip its artwork in Safari');
 assert.doesNotMatch(html, /\.zg-action-cursor\{[^}]*contain:layout paint/, 'paint containment must not hide action cursors outside their one-pixel anchor');
-assert.match(html, /class="zg-action-cursor-label"/, 'every action cursor keeps a readable fallback label when its artwork is unavailable');
-assert.match(html, /if\(kind==='movement'\)return '<span class="zg-action-cursor-label">'/, 'movement cursor keeps only its precise reticle and label without the large boot artwork');
-assert.doesNotMatch(html, /\.zg-action-cursor\[data-tool="movement"\] img/, 'movement cursor must not render or size a detached boot image');
+assert.doesNotMatch(html, /class="zg-action-cursor-label"/, 'approved glyphs replace the unreadably small duplicate cursor labels');
+assert.doesNotMatch(html, /if\(kind==='movement'\)return '';/, 'movement uses the approved footprint glyph like every other action');
+assert.match(html, /movement:'images\/vtt-actions\/cursors\/movement\.png'/, 'movement keeps its dedicated footprint cursor asset');
 ['Осмотреть','Взаимодействовать','Искать','Говорить','Взять','Атаковать','Другое действие'].forEach(function(label){
   assert.match(html, new RegExp("[\\'\"]"+label+"[\\'\"]"), label+' must have a cursor label');
 });

@@ -15,10 +15,20 @@ assert.match(html, /var portraitMenuKey='member:'\+String\(member\.uid\|\|''\)/,
 assert.match(html, /function combatSaveTargets\(\)/, 'saving-throw targets are available outside initiative');
 assert.match(html, /w\.zgGmStatusCatalog=gmStatusCatalog/, 'the status catalog is explicitly shared with the saving-throw module');
 assert.match(html, /typeof w\.zgGmStatusCatalog==='function'\?w\.zgGmStatusCatalog\(\):\[\]/, 'saving throws do not reach into another module closure');
-assert.match(html, /if\(order\.length\)return order;/, 'active combat keeps using the synchronized initiative entries');
+assert.match(html, /return order\.filter\(function\(entry\)\{var uid=String\(entry&&entry\.uid\|\|''\);return !!\(uid&&members\[uid\]&&members\[uid\]\.character\);\}\)\.map\(function\(entry\)/, 'active combat saving throws only target heroes controlled by players and then hydrate their current sheet state');
 assert.match(html, /return heroMembers\(\)\.map/, 'outside combat the same menu uses current room heroes');
 assert.doesNotMatch(html, /if\(!combat\|\|!combat\.active\|\|!session\|\|session\.role!==\'master\'\)/, 'the saving-throw panel is no longer hard-closed outside combat');
+assert.match(html, /saveApi\.requestCombatSavingThrow\(combatSaveTargetKey,options\)/, 'the GM assigns a saving throw instead of resolving it immediately');
+assert.match(html, /Спасбросок назначен · '[+]\(combatQaActive\(\)\?'перетащите D20':'игрок должен перетащить D20'\)/, 'local Workshop saves instruct the GM to drag, while live saves instruct the player');
+assert.match(html, /actionKind==='saving-throw'/, 'assigned saving throws use their own player prompt');
+assert.match(html, /rollMethod=isSavingThrow\?'rollCombatSavingThrow':'rollCombatIntent'/, 'dragging the assigned die selects the saving-throw roller');
+assert.match(html, /МАСТЕР НАЗНАЧИЛ СПАСБРОСОК/, 'the player sees an explicit saving-throw drag prompt');
 
+assert.match(network, /requestCombatSavingThrow: function \(targetKey, options\)/, 'the network API stores a GM saving-throw request');
+assert.match(network, /actionKind:'saving-throw',status:'roll-requested',stage:'waiting-roll'/, 'the request waits for the player roll');
+assert.match(network, /rollCombatSavingThrow: function \(requestId, simulatedPlayerUid\)/, 'the player has a dedicated saving-throw roll endpoint');
+assert.match(network, /session\.role==='master'\?simulatedPlayerUid:user\.uid/, 'the live player can only roll their own assigned saving throw');
+assert.match(network, /request\.status!=='roll-requested'/, 'an assigned saving throw is consumed only once');
 assert.match(network, /activeCombat=!!\(combat&&combat\.active\)/, 'the resolver distinguishes combat from free-session saves');
 assert.match(network, /targetKey\.indexOf\('member:'\)===0/, 'the resolver accepts a persistent hero portrait key');
 assert.match(network, /if\(activeCombat\)\{updates\['combat\/order'\] = order;/, 'initiative is only rewritten during active combat');
