@@ -17,10 +17,15 @@ assert.match(html, /applyGmWorkspaceMode\(gmWorkspaceMode,false\)/);
 assert.match(html, /gm:not\(\.gm-vision\) \.zg-gm-actions>:not\(\.zg-vision-gear\):not\(\.zg-gm-mode-switch\)/);
 assert.match(html, /\.gm-run-mode \.zg-scene-settings[^}]+display:none!important/);
 assert.match(html, /\.gm-run-mode \.zg-zones-panel[^}]+display:none!important/);
+assert.match(html, /\.gm-run-mode \.zg-overview-panel[^}]+display:none!important/);
+assert.match(html, /class="zg-scene-publish zg-scene-tools-button"[^>]*>Обзор и зоны</);
+assert.strictEqual((html.match(/class="zg-scene-publish zg-scene-tools-button"/g)||[]).length, 1, 'overview and zones share one toolbar launcher');
+assert.strictEqual(html.indexOf('class="zg-scene-publish zg-overview-button"'), -1, 'legacy overview launcher is removed');
+assert.strictEqual(html.indexOf('class="zg-scene-publish zg-zones-button"'), -1, 'legacy zones launcher is removed');
 assert.match(html, /\.gm-run-mode \.zg-scene-drawer-foot\{display:none\}/);
 assert.match(html, /\.gm-run-mode \.zg-scene-quick-save[^}]+display:none/);
 assert.match(html, /if\(gmWorkspaceMode!=='edit'\)\{sceneNotice\('Переключитесь в «Редактирование сцены»'/);
-assert.match(html, /if\(gmWorkspaceMode!=='edit'\)\{sceneNotice\('Зоны доступны в режиме редактирования'/);
+assert.match(html, /w\.zgSceneToolsToggle=function\(ev,tab\)\{[\s\S]*?if\(!isMaster\|\|gmWorkspaceMode!=='edit'\)return;/, 'combined overview and zones tool is edit-only');
 assert.match(html, /id="zg-scene-published-state"[^>]*>Статус публикации неизвестен</);
 assert.match(html, /scenePublicationState==='published'\?'Игрокам показано'/);
 assert.match(html, /gmWorkspaceMode!=='run'[^;]+publishScene/);
@@ -49,8 +54,10 @@ function classList() {
 var overlay = {classList:classList()};
 var scenePanel = {classList:classList()};
 var zonesPanel = {classList:classList()};
+var overviewPanel = {classList:classList()};
 scenePanel.classList.toggle('open', true);
 zonesPanel.classList.toggle('open', true);
+overviewPanel.classList.toggle('open', true);
 var buttons = [
   {mode:'run',classList:classList(),attrs:{},getAttribute:function(){return this.mode;},setAttribute:function(k,v){this.attrs[k]=v;}},
   {mode:'edit',classList:classList(),attrs:{},getAttribute:function(){return this.mode;},setAttribute:function(k,v){this.attrs[k]=v;}}
@@ -64,7 +71,7 @@ var context = {
   isMaster:true,
   localStorage:{setItem:function(key,value){storedMode=value;}},
   document:{querySelectorAll:function(){return buttons;}},
-  el:function(id){return id==='zg-game-overlay'?overlay:(id==='zg-scene-settings'?scenePanel:(id==='zg-zones-panel'?zonesPanel:null));},
+  el:function(id){return id==='zg-game-overlay'?overlay:(id==='zg-scene-settings'?scenePanel:(id==='zg-zones-panel'?zonesPanel:(id==='zg-overview-panel'?overviewPanel:null)));},
   clearGroupSel:function(){cleared++;},
   renderTokens:function(){tokenRenders++;},
   w:{
@@ -85,6 +92,7 @@ assert.strictEqual(buttons[0].attrs['aria-pressed'], 'true');
 assert.strictEqual(buttons[1].attrs['aria-pressed'], 'false');
 assert.strictEqual(scenePanel.classList.contains('open'), false);
 assert.strictEqual(zonesPanel.classList.contains('open'), false);
+assert.strictEqual(overviewPanel.classList.contains('open'), false);
 assert.strictEqual(deactivated, 1);
 assert.strictEqual(cleared, 1);
 

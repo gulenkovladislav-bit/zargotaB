@@ -92,10 +92,9 @@ assert.match(html, /data-combat-tool="sheet" aria-pressed="false"/, 'creature sh
 assert.match(html, /combatToolbarVisible=!!\(active&&controlled\)/, 'combat toolbar is considered visible only when it can render a controlled participant');
 assert.match(html, /dock\.classList\.toggle\('combat-mode',combatToolbarVisible\)/, 'the regular toolbar stays visible when combat has no controlled participant');
 assert.match(html, /\.zg-combat-economy button\.tool-selected:not\(:disabled\)\{[^}]*box-shadow:/, 'selected tool receives a visible gold surface and outline');
-assert.match(html, /\.zg-action-cursor:before\{[^}]*width:26px;[^}]*height:26px;[^}]*border:1px solid #f0cb70/, 'custom cursor has a precise, restrained reticle instead of a micro-dot');
-assert.match(html, /\.zg-action-cursor-action\{[^}]*width:18px;[^}]*height:18px/, 'action artwork stays in a miniature medallion below the reticle');
-assert.match(html, /\.zg-action-cursor-action img\{[^}]*width:12px;[^}]*height:12px/, 'action artwork cannot expand into a detached scene prop');
-assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex/, 'combat targeting uses a scene-anchored reticle at the actual target point');
+assert.match(html, /\.zg-action-cursor-glyph\{[^}]*width:56px;[^}]*height:56px/, 'free-scene actions use a legible approved cursor glyph');
+assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex\{width:72px;height:72px/, 'combat targeting uses the approved rapier at the actual target point');
+assert.match(html, /\.range-vortex img\{[^}]*mix-blend-mode:screen/, 'cursor art loses its black source plate over the scene');
 assert.match(html, /\.zg-game-overlay\.combat-targeting \.zg-vtt-scene[^}]*cursor:none!important/, 'native crosshair cannot overlap the scene-anchored combat reticle');
 assert.match(html, /cursor\.classList\.remove\('open','over-range'\)/, 'combat targeting removes the detached sword cursor before showing its range reticle');
 assert.match(html, /attackPreview\.tool='attack';scheduleToolRangeVector\(attackPreview\)/, 'combat targeting drives the shared grid-aware range renderer');

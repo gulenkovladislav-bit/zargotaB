@@ -40,6 +40,36 @@ const characterStatsSource = html.slice(characterStatsStart, characterStatsEnd);
 assert.doesNotMatch(characterStatsSource, /<i>'\+injuryIconMarkup\(injury,'zg-injury-icon'\)/, 'the character drawer must not call the scene-private injury renderer directly');
 assert.doesNotMatch(html, /class="zg-state-injury filled"[\s\S]{0,220}<i>'\+esc\(typeof injury==='object'&&injury\.icon/, 'filled injury slots must not fall back to emoji when local art exists');
 
+const injuryInfoStart = html.indexOf('  w.zgVttInjuryInfo=function(index,injuryId){');
+const injuryInfoEnd = html.indexOf('\n  w.zgVttStatusInfo=function(index){', injuryInfoStart);
+assert.ok(injuryInfoStart >= 0 && injuryInfoEnd > injuryInfoStart, 'injury detail handler must remain extractable');
+const injuryInfoSource = html.slice(injuryInfoStart, injuryInfoEnd);
+assert.match(injuryInfoSource, /typeof w\.zgInjuryIconMarkup==='function'\?w\.zgInjuryIconMarkup/, 'injury detail modal must use the exported renderer across module boundaries');
+assert.doesNotMatch(injuryInfoSource, /[^.\w]injuryIconMarkup\(/, 'injury detail modal cannot call the scene-private renderer directly');
+let appendedInjuryModal = null;
+const injuryModalElement = {
+  id: '', className: '', innerHTML: '', onclick: null,
+  style: { setProperty() {} },
+  setAttribute() {},
+  querySelector() { return { focus() {} }; }
+};
+const injuryInfoWindow = {
+  zgVttStatusInfoClose() {},
+  zgVttStatusInfoBackdrop() {},
+  zgInjuryIconMarkup(injury) { return `<img src="${injury.iconPath}" alt="">`; }
+};
+const injuryInfoDocument = {
+  createElement() { return injuryModalElement; },
+  body: { appendChild(node) { appendedInjuryModal = node; } }
+};
+const injuryRecord = { id:'inj-arm', roll:1, name:'Сломанная рука', severity:'Тяжёлая', effect:'−1 к атакам', treatment:'Шина', iconPath:'images/vtt-injuries/broken-arm.png' };
+const installInjuryInfo = Function('w','document','drawerInjuryDetails','drawerMember','fullLocalCharacter','esc', `${injuryInfoSource}; return w.zgVttInjuryInfo;`);
+const openInjuryInfo = installInjuryInfo(injuryInfoWindow, injuryInfoDocument, [injuryRecord], () => ({ character:{ injuries:[injuryRecord] } }), () => null, (value) => String(value == null ? '' : value));
+assert.doesNotThrow(() => openInjuryInfo(0, 'inj-arm'), 'clicking a filled injury slot must not fail before mounting its dialog');
+assert.strictEqual(appendedInjuryModal, injuryModalElement, 'injury click must append a visible detail dialog');
+assert.match(injuryModalElement.innerHTML, /Сломанная рука/, 'injury detail dialog renders the selected injury');
+assert.match(injuryModalElement.innerHTML, /images\/vtt-injuries\/broken-arm\.png/, 'injury detail dialog renders the shared injury art');
+
 assert.match(network, /kind==='injury'/, 'Firebase GM operation must accept injury mutations');
 assert.match(network, /character\/injuries/, 'injuries must persist on the member character');
 assert.match(network, /function injuryPenaltyPercent\(injuries\)/, 'injury HP penalty must be available in the network runtime');

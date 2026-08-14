@@ -55,6 +55,11 @@ assert.doesNotMatch(html, /persistCampaignCharacter\(copy\)|syncCampaignHeroes\(
 assert.match(html, /function combatHeroRoster\(\)/, 'combat picker has a shared campaign hero roster');
 assert.match(html, /var heroes=combatHeroRoster\(\),tokens=combatSceneTokens\(\)/, 'combat picker renders summoned campaign heroes rather than only online room members');
 assert.match(html, /data-hero-index=/, 'combat hero rows retain a stable link to their roster candidate');
+assert.match(html, /function combatWorkshopHeroCandidates\(\)/, 'Workshop combat picker exposes unsummoned campaign heroes');
+assert.match(html, /zg-combat-summon-grid/, 'Workshop combat picker renders a dedicated summon roster');
+assert.match(html, /w\.zgCombatSummonCampaignHero=function\(uid\)/, 'Workshop combat picker has an explicit summon action');
+assert.match(html, /zgQaCampaignHeroSummon\(String\(uid\|\|''\),true\)/, 'combat picker reuses the established local Workshop summon adapter');
+assert.doesNotMatch(html, /zgCombatSummonCampaignHero=function\(uid\)[\s\S]{0,650}(?:ZargotaRooms|startCombat|syncCampaignHeroes)/, 'combat picker summon action does not write through Firebase or legacy whole-character sync');
 assert.match(html, /controlledHero=!!\(controlled&&controlled\.kind==='hero'\)/, 'summoned campaign heroes keep the hero sheet toolbar while taking a combat turn');
 assert.match(html, /if\(localQa\)\{if\(!w\.zgSceneQaActiveCombat\)/, 'Workshop starts selected participants through its local adapter');
 assert.doesNotMatch(html, /if\(localQa\)[\s\S]{0,260}ZargotaRooms\.startCombat/, 'Workshop participant start never writes to Firebase');

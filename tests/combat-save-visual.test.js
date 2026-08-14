@@ -20,6 +20,10 @@ assert.match(source, /zg-combat-save-modes/, 'roll modes are explicit visual cho
 assert.match(source, /Лучший из двух/);
 assert.match(source, /Худший из двух/);
 assert.match(source, /combatSaveStatuses\(target\)/, 'only active target statuses are offered for removal');
+assert.match(source, /entry&&Array\.isArray\(entry\.tempEffects\)\?entry\.tempEffects\.filter/, 'legacy sheet tempEffects remain visible in the saving-throw removal list');
+assert.match(source, /normalizeStatusDisplayKey\(raw\)/, 'saving-throw status keys use the same aliases as the character sheet and GM panel');
+assert.match(source, /mergeStatusDisplaySources\(member\.character\|\|\{\},local\|\|\{\},entry\)/, 'active combat targets merge the current sheet state over a stale combat projection');
+assert.match(source, /tempEffects:entry\.tempEffects/, 'an open saving-throw panel refreshes when legacy sheet effects change');
 assert.match(source, /options=\{statKey:combatSaveDraft\.statKey,dc:combatSaveDraft\.dc,bonus:combatSaveDraft\.bonus,mode:combatSaveDraft\.mode,removeStatus:combatSaveDraft\.removeStatus\}/, 'submission reads the same visible draft');
 assert.doesNotMatch(source, /zg-combat-save-grid/, 'the old spreadsheet-like form is gone');
 assert.doesNotMatch(source, /<select id="zg-combat-save-/, 'the saving throw no longer hides key choices in select menus');

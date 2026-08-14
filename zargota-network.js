@@ -1350,7 +1350,7 @@
     var totalMinutes=Math.max(0,Math.min(525600000,Math.floor(Number(clock.totalMinutes)||0)));
     return{
       calendarId:String(clock.calendarId||'zargota-lvk').slice(0,40),
-      displayMode:clock.displayMode==='phase'?'phase':'exact',
+      displayMode:clock.displayMode==='exact'?'exact':'phase',
       widgetMode:['always','brief','hidden'].indexOf(clock.widgetMode)>=0?clock.widgetMode:'always',
       totalMinutes:totalMinutes,
       day:Math.floor(totalMinutes/1440)+1,
@@ -1463,7 +1463,7 @@
   function setRoomWorldClockState(room, targetTotalMinutes, displayMode, operationId, uid, timestamp) {
     if(!room||typeof room!=='object')return{room:room,changed:false,duplicate:false,expiredCount:0};
     targetTotalMinutes=Math.max(0,Math.min(525600000,Math.floor(Number(targetTotalMinutes)||0)));
-    displayMode=displayMode==='phase'?'phase':'exact';operationId=String(operationId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);timestamp=Math.max(1,Number(timestamp)||now());
+    displayMode=displayMode==='exact'?'exact':'phase';operationId=String(operationId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);timestamp=Math.max(1,Number(timestamp)||now());
     var clock=normalizeWorldClock(room.worldClock);
     if(operationId&&clock.appliedOperationIds[operationId])return{room:room,changed:false,duplicate:true,expiredCount:0,beforeMinutes:clock.totalMinutes,afterMinutes:clock.totalMinutes};
     var beforeMinutes=clock.totalMinutes,forwardDelta=Math.max(0,targetTotalMinutes-beforeMinutes),result;
@@ -2726,7 +2726,7 @@
             updatedAt: now(),
             worldClock: {
               calendarId: 'zargota-lvk',
-              displayMode: 'exact',
+              displayMode: 'phase',
               widgetMode: 'always',
               totalMinutes: 0,
               day: 1,
@@ -5644,7 +5644,7 @@
           if(!memberUid&&sceneToken&&sceneToken.memberUid)memberUid=String(sceneToken.memberUid);
           var member=memberUid&&room.members&&room.members[memberUid],combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[],combatIndex=order.findIndex(function(entry){return entry&&((tokenId&&String(entry.tokenId)===tokenId)||(memberUid&&String(entry.uid)===memberUid));}),entry=combatIndex>=0?Object.assign({},order[combatIndex]):null;
           if(!sceneToken&&!member&&!entry)throw roomError('Сначала выберите жетон или героя на сцене.','entity-missing');
-          var source=entry||(member&&member.character)||sceneToken||{},name=String(source.name||member&&member.character&&member.character.name||member&&member.name||'Цель').slice(0,80),hpMax=Math.max(0,Number(source.hpMax)||0),hp=Math.max(0,Number(source.hp==null?source.hpCur:source.hp)||0),tempHp=Math.max(0,Number(source.tempHp)||0),statuses=Array.isArray(source.statuses)?source.statuses.slice(0,23):[],statusEffects=Array.isArray(source.statusEffects)?source.statusEffects.slice(0,40):[],zeroHp=source.zeroHp&&typeof source.zeroHp==='object'?Object.assign({},source.zeroHp):(member&&member.character&&member.character.deathSaves&&typeof member.character.deathSaves==='object'?Object.assign({},member.character.deathSaves):null);
+          var source=entry||(member&&member.character)||sceneToken||{},name=String(source.name||member&&member.character&&member.character.name||member&&member.name||'Цель').slice(0,80),hpMax=Math.max(0,Number(source.hpMax)||0),hp=Math.max(0,Number(source.hp==null?source.hpCur:source.hp)||0),tempHp=Math.max(0,Number(source.tempHp)||0),statuses=Array.isArray(source.statuses)?source.statuses.slice(0,23):[],statusEffects=Array.isArray(source.statusEffects)?source.statusEffects.slice(0,40):[],tempEffects=Array.isArray(source.tempEffects)?source.tempEffects.slice(0,80):(member&&member.character&&Array.isArray(member.character.tempEffects)?member.character.tempEffects.slice(0,80):[]),zeroHp=source.zeroHp&&typeof source.zeroHp==='object'?Object.assign({},source.zeroHp):(member&&member.character&&member.character.deathSaves&&typeof member.character.deathSaves==='object'?Object.assign({},member.character.deathSaves):null);
           var injurySource=Array.isArray(source.injuries)?source.injuries:(member&&member.character&&Array.isArray(member.character.injuries)?member.character.injuries:[]),injuries=injurySource.slice(0,4),baseHpMax=Math.max(0,Number(source.baseHpMax||source.hpMax)||0),gmNotes=String(source.gmNotes!=null?source.gmNotes:sceneToken&&sceneToken.gmNotes||'').slice(0,2400),gmReminders=Array.isArray(source.gmReminders)?source.gmReminders.slice(0,16):Array.isArray(sceneToken&&sceneToken.gmReminders)?sceneToken.gmReminders.slice(0,16):[];
           if(injuries.length&&baseHpMax)hpMax=Math.max(1,Math.floor(baseHpMax*(100-injuryPenaltyPercent(injuries))/100));
           var beforeHp=hp,amount=Math.max(0,Math.min(9999,Math.floor(Number(operation.amount)||0))),text='',statusKey='',statusEnabled=null,statusLabel='',statusVisibility='public',vitalsResult=null,statusResult=null,injuryResult=null,injuryAction='',injuryIndex=-1;
@@ -5665,6 +5665,7 @@
             var normalizedEffect=enable?normalizeStatusEffectInput(operation.effect,statusKey,statusLabel):null;
             statusVisibility=(normalizedEffect||previousEffect)&&String((normalizedEffect||previousEffect).visibility)==='gm'?'gm':'public';
             statusResult=applyStatusDomainOperation({statuses:statuses,statusEffects:statusEffects},{statusKey:statusKey,enable:enable,effect:normalizedEffect});statuses=statusResult.statuses;statusEffects=statusResult.statusEffects;
+            tempEffects=tempEffects.filter(function(effect){return !(effect&&effect.type==='status'&&normalizeCombatStatusKey(effect)===statusKey);});
             if(enable){text='Мастер назначает '+name+' эффект «'+statusLabel+'».';}else{text='Мастер снимает с '+name+' эффект «'+statusLabel+'».';}
           }else if(kind==='life-state'){
             var lifeState=['active','defeated','dead'].indexOf(String(operation.state||''))>=0?String(operation.state):'';
@@ -5713,14 +5714,14 @@
             else throw roomError('Напоминание больше не найдено.','adjust-invalid');
           }else throw roomError('Неизвестное действие пульта.','adjust-invalid');
           var updates={},stamp=now();
-          function writeToken(path){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;}else if(kind==='life-state'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;updates[path+'/zeroHp']=zeroHp;updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}else if(kind==='injury'){updates[path+'/injuries']=injuries;updates[path+'/hp']=hp;updates[path+'/hpMax']=hpMax;if(baseHpMax)updates[path+'/baseHpMax']=baseHpMax;}else if(kind==='notes'||kind==='reminder'){updates[path+'/gmNotes']=gmNotes;updates[path+'/gmReminders']=gmReminders;}else{updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}}
+          function writeToken(path){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;}else if(kind==='life-state'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;updates[path+'/zeroHp']=zeroHp;updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}else if(kind==='injury'){updates[path+'/injuries']=injuries;updates[path+'/hp']=hp;updates[path+'/hpMax']=hpMax;if(baseHpMax)updates[path+'/baseHpMax']=baseHpMax;}else if(kind==='notes'||kind==='reminder'){updates[path+'/gmNotes']=gmNotes;updates[path+'/gmReminders']=gmReminders;}else{updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;updates[path+'/tempEffects']=tempEffects;}}
           if(sceneIndex>=0)writeToken('scene/tokens/'+sceneIndex);
           Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===tokenId)writeToken('zones/'+zoneId+'/tokens/'+index);});});
-          if(entry){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){entry.hp=hp;entry.tempHp=tempHp;if(kind==='damage'||kind==='heal')syncCombatZeroHp(entry,beforeHp,'gm-adjust',stamp);}else if(kind==='life-state'){entry.hp=hp;entry.tempHp=tempHp;entry.zeroHp=zeroHp;entry.statuses=statuses;entry.statusEffects=statusEffects;entry.skipRounds=kind==='life-state'&&operation.state!=='active';entry.skipRoundsUpdatedAt=stamp;entry.skipRoundsUpdatedBy=user.uid;}else if(kind==='injury'){entry.injuries=injuries;entry.hp=hp;entry.hpMax=hpMax;if(baseHpMax)entry.baseHpMax=baseHpMax;}else if(kind==='notes'||kind==='reminder'){entry.gmNotes=gmNotes;entry.gmReminders=gmReminders;}else{entry.statuses=statuses;entry.statusEffects=statusEffects;}order[combatIndex]=entry;updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
+          if(entry){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){entry.hp=hp;entry.tempHp=tempHp;if(kind==='damage'||kind==='heal')syncCombatZeroHp(entry,beforeHp,'gm-adjust',stamp);}else if(kind==='life-state'){entry.hp=hp;entry.tempHp=tempHp;entry.zeroHp=zeroHp;entry.statuses=statuses;entry.statusEffects=statusEffects;entry.skipRounds=kind==='life-state'&&operation.state!=='active';entry.skipRoundsUpdatedAt=stamp;entry.skipRoundsUpdatedBy=user.uid;}else if(kind==='injury'){entry.injuries=injuries;entry.hp=hp;entry.hpMax=hpMax;if(baseHpMax)entry.baseHpMax=baseHpMax;}else if(kind==='notes'||kind==='reminder'){entry.gmNotes=gmNotes;entry.gmReminders=gmReminders;}else{entry.statuses=statuses;entry.statusEffects=statusEffects;entry.tempEffects=tempEffects;}order[combatIndex]=entry;updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
           gmAdjustEventSequence=(gmAdjustEventSequence+1)%1679616;
           var eventId='gm-adjust-'+stamp+'-'+gmAdjustEventSequence.toString(36)+'-'+Math.random().toString(36).slice(2,7);
           if(member&&kind!=='notes'&&kind!=='reminder'){
-            if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;if(entry)updates['members/'+memberUid+'/character/deathSaves']=entry.zeroHp||null;}else if(kind==='life-state'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;updates['members/'+memberUid+'/character/deathSaves']=zeroHp;updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;}else if(kind==='injury'){updates['members/'+memberUid+'/character/injuries']=injuries;updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/hpMax']=hpMax;if(baseHpMax)updates['members/'+memberUid+'/character/baseHpMax']=baseHpMax;}else{updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;}
+            if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;if(entry)updates['members/'+memberUid+'/character/deathSaves']=entry.zeroHp||null;}else if(kind==='life-state'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;updates['members/'+memberUid+'/character/deathSaves']=zeroHp;updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;}else if(kind==='injury'){updates['members/'+memberUid+'/character/injuries']=injuries;updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/hpMax']=hpMax;if(baseHpMax)updates['members/'+memberUid+'/character/baseHpMax']=baseHpMax;}else{updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;updates['members/'+memberUid+'/character/tempEffects']=tempEffects;}
             updates['members/'+memberUid+'/character/revision']=firebase.increment(1);
             updates['members/'+memberUid+'/character/updatedAt']=stamp;updates['members/'+memberUid+'/character/updatedBy']=user.uid;
             updates['members/'+memberUid+'/character/source']='gm-adjust-'+kind;updates['members/'+memberUid+'/character/syncOperationId']=eventId;
@@ -5773,7 +5774,7 @@
     gmSetWorldClock: function (operation) {
       operation=operation&&typeof operation==='object'?operation:{};
       var targetTotalMinutes=Math.floor(Number(operation.targetTotalMinutes));
-      var displayMode=operation.displayMode==='phase'?'phase':'exact';
+      var displayMode=operation.displayMode==='exact'?'exact':'phase';
       var operationId=String(operation.operationId||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
       if(!operationId)return Promise.reject(roomError('Не удалось определить операцию календаря.','world-clock-operation-invalid'));
       if(!Number.isFinite(targetTotalMinutes)||targetTotalMinutes<0||targetTotalMinutes>525600000)return Promise.reject(roomError('Дата выходит за пределы календаря.','world-clock-target-invalid'));

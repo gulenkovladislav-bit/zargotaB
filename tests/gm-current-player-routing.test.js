@@ -40,7 +40,7 @@ assert.strictEqual(context.gmControlledPlayerUid(), 'hero-1', 'an explicit selec
 const submitStart = html.indexOf('  w.zgCombatAttackSubmit=function()');
 const submitEnd = html.indexOf('\n  };', submitStart);
 const submit = html.slice(submitStart, submitEnd);
-assert.match(submit, /if\(combatPlayerContext\(\)\)[\s\S]*?requestApi\.requestAction\(/, 'current-hero attack creates a GM-visible player request');
-assert.match(html, /intentApi\.requestAction\(text,'combat-intent',combatLabPlayerUid\(\)/, 'current-hero short action creates a GM-visible player request');
+assert.match(submit, /if\(combatPlayerContext\(\)\)[\s\S]*?combatRequestAction\(requestApi,/, 'current-hero attack creates a GM-visible player request');
+assert.match(html, /combatRequestAction\(intentApi,text,'combat-intent',combatLabPlayerUid\(\)/, 'current-hero short action creates a GM-visible player request');
 
 console.log('automatic GM current-player routing passed');

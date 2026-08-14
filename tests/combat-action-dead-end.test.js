@@ -23,6 +23,23 @@ assert.match(actionUi, /if\(w\.showToast\)w\.showToast\(labels\[type\]/, 'action
 assert.match(actionUi, /catch\(function\(error\)\{if\(w\.showToast\)/, 'action failure always has visible feedback');
 assert.match(actionUi, /combatActionBusy=false/, 'action completion unlocks the controls');
 
+const qaAdapter = block(html, '  function combatQaApply(change){', '  function combatQaRollFormula');
+const combatRuntime = html.slice(html.indexOf('  w.zgVttApplyTestSnapshot='));
+assert.match(html, /w\.zgManualCheckActionKind=manualCheckActionKind;/, 'the scene owner exports the shared manual-check predicate');
+assert.doesNotMatch(combatRuntime, /(^|[^.\w])manualCheckActionKind\(/m, 'the combat module never calls the scene-private predicate directly');
+assert.match(html, /zgVttGetTestRoomSnapshot=function\(\)\{return roomSnapshot&&roomSnapshot\.room&&roomSnapshot\.room\.code==='TEST'\?roomSnapshot:null;\}/, 'the VTT owner exposes only its reserved local TEST snapshot');
+assert.match(html, /function combatQaSnapshot\(\)\{[\s\S]*w\.zgVttGetTestRoomSnapshot&&w\.zgVttGetTestRoomSnapshot\(\)/, 'Workshop actions recover the active TEST snapshot through the module boundary');
+assert.match(qaAdapter, /return Promise\.resolve\(\)\.then\(function\(\)\{/, 'local adapter must turn synchronous transition failures into rejected promises');
+assert.match(qaAdapter, /var current=combatQaActive\(\)&&combatQaSnapshot\(\)/, 'local mutations use the recovered TEST snapshot instead of a stale session snapshot');
+assert.match(qaAdapter, /catch\(renderError\)\{w\.zgLocalCombatQaPresentationError=renderError;\}/, 'a local presentation exception cannot strand an already-applied request transition');
+assert.match(html, /function combatRequestAction\(api,text,kind,uid,details,resolution\)/, 'represented hero actions use one guarded request helper');
+assert.match(html, /if\(!snapshot\|\|!snapshot\.room\|\|snapshot\.room\.code!=='TEST'\)return snapshot;/, 'Workshop GM orders bypass the self-approval dead end only when the request returns the reserved TEST room');
+assert.match(html, /return combatQaApi\.resolveAction\(uid,true,resolution\|\|null\)/, 'the guarded helper auto-approves the local represented hero action');
+
+const saveUi = block(html, '  var combatSaveTargetKey=', '  function renderCombatPrepare');
+assert.match(saveUi, /combatStartDeadline\(Promise\.resolve\(\)\.then\(function\(\)\{return saveApi\.requestCombatSavingThrow/, 'saving throw assignment catches synchronous failures and has a timeout');
+assert.match(saveUi, /combatSaveBusy=false;renderCombatSave\(\);renderCombat\(\)/, 'saving throw assignment always unlocks and restores the button');
+
 const reactionUi = block(html, '  var combatReactionBusy=false,combatConcentrationBusy=false;', '  w.zgCombatConfirmEnd=');
 ['zgCombatPrepareSubmit','zgCombatPreparedTrigger'].forEach((name) => {
   assert.match(reactionUi, new RegExp('w\\.' + name + '=function'), `${name} remains wired`);

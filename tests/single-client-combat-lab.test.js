@@ -110,13 +110,13 @@ assert.match(html, /function combatLabIsPlayer\(\)/, 'player simulation must be 
 assert.match(html, /w\.zgCombatLabSelect=function\(uid\)/, 'GM must be able to switch between direct and simulated-player control');
 assert.match(html, /w\.zgReleasePlayerControl=function\(\)[\s\S]*?zgPossessedPlayerUid=''[\s\S]*?zgCombatLabPlayerUid=''/, 'returning to direct GM control must clear both local identity aliases');
 assert.match(html, /function gmControlledPlayerUid\(\)/, 'GM player control follows the current hero without a sheet button');
-assert.match(html, /requestAction\([^\n]+combatLabPlayerUid\(\)/, 'simulated attacks must use the normal action request pipeline');
-assert.match(html, /intentApi\.requestAction\(text,'combat-intent',combatLabPlayerUid\(\)/, 'simulated short actions must use the local request pipeline');
+assert.match(html, /combatRequestAction\(requestApi,[^\n]+combatLabPlayerUid\(\)/, 'simulated attacks must use the guarded request pipeline');
+assert.match(html, /combatRequestAction\(intentApi,text,'combat-intent',combatLabPlayerUid\(\)/, 'simulated short actions must use the guarded local request pipeline');
 assert.match(html, /String\(w\.zgCombatLabPlayerUid\|\|w\.zgPossessedPlayerUid\|\|''\)/, 'simulated player drawers must be writable only for the represented hero');
 assert.match(html, /abilityApi\.requestAction\('Хочет применить/, 'simulated abilities must use the selected local or Firebase adapter');
 assert.match(html, /resolveCombatAbility:function\(uid,targetKeys,overrides\)\{return combatQaApply/, 'local QA must resolve ability damage and healing without Firebase');
 assert.match(html, /abilityApi\.resolveCombatAbility\(uid,abilityResolveTargets,abilityResolveDraft\)/, 'GM ability resolution must stay on the selected local or Firebase adapter');
-assert.match(html, /prepareApi\.requestAction&&prepareApi\.requestAction\('Хочет подготовить:/, 'simulated prepared actions must use the local request pipeline');
+assert.match(html, /prepareApi\.requestAction&&combatRequestAction\(prepareApi,'Хочет подготовить:/, 'simulated prepared actions must use the guarded local request pipeline');
 assert.match(html, /requestApprovedAttackRoll\(request\.id,combatLabPlayerUid\(\)\)/, 'hit dice must use the selected GM-controlled player');
 assert.match(html, /requestApprovedDamageRoll\(request\.id,combatLabPlayerUid\(\)\)/, 'damage dice must use the selected GM-controlled player');
 assert.match(html, /configureCombatIntent:function\(uid,resolution\)\{return combatQaApply/, 'local QA must configure a simulated short-action check without Firebase');

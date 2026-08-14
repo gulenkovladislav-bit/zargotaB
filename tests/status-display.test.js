@@ -52,10 +52,17 @@ var context = {
   Object:Object,
   String:String,
   Math:Math,
+  w:{},
   TOKEN_STATUS_DEFS:{dead:['☠','#a85d57','Мёртв']},
   gmStatusCatalog:function(){ return mechanics; }
 };
 vm.runInNewContext(html.slice(start, end), context);
+
+assert.ok(html.includes('w.zgTokenStatusGmAdjust=function'), 'GM status popup must expose stack and duration adjustment');
+assert.ok(html.includes('w.zgTokenStatusGmTrigger=function'), 'GM status popup must expose immediate effect activation');
+assert.ok(html.includes('w.zgTokenStatusGmRemove=function'), 'GM status popup must expose status removal');
+assert.ok(html.includes('Активировать эффект'), 'GM status popup must label the immediate trigger clearly');
+assert.ok(html.includes('tokenStatusGmControls(memberToken'), 'character drawer status details must reuse GM controls');
 
 assert.strictEqual(context.normalizeStatusDisplayKey('STUN'), 'stun');
 assert.strictEqual(context.normalizeStatusDisplayKey('Оглушён'), 'stun');
@@ -258,6 +265,14 @@ assert.doesNotMatch(html, /activeStatuses=collectDisplayStatuses\(/);
 assert.match(html, /class="zg-state-effect-row"[^>]*onclick="zgVttStatusInfo/);
 assert.match(html, /w\.zgVttStatusInfo=function\(index\)/);
 assert.match(html, /className='zg-vtt-status-info'/);
+assert.match(html, /activeStatusList\.forEach\(function\(status\)\{[\s\S]*?statusCatalog\.push/, 'custom active statuses must receive GM controls instead of only increasing the counter');
+assert.match(html, /activeStatusList\.forEach\(function\(status\)\{var key=normalizeStatusDisplayKey/, 'GM active-state lookup must normalize legacy aliases before rendering controls');
+assert.match(html, /Array\.isArray\(source\.tempEffects\)\?source\.tempEffects:\[\]\)\.filter\(function\(effect\)\{return effect&&effect\.type==='status';\}\)/, 'GM manual removal must resolve legacy tempEffects');
+assert.match(html, /\.zg-token-status-info article\{[\s\S]*?width:min\(507px,calc\(100vw - 44px\)\)/, 'token status detail window must be exactly 30 percent wider');
+assert.match(html, /\.zg-token-status-info article>i\{[\s\S]*?width:78px;height:78px/, 'token status icon must scale by 30 percent with the window');
+assert.match(html, /\.zg-token-status-info h3\{[^}]*font:600 23\.4px/, 'token status title must scale by 30 percent');
+assert.match(html, /\.zg-token-status-info small\{[^}]*font:13px/, 'token status duration must scale by 30 percent');
+assert.match(html, /\.zg-token-status-info p\{[\s\S]*?font:16\.9px/, 'token status description must scale by 30 percent');
 assert.match(html, /badge=document\.createElement\('span'\)/, 'map status controls must not nest a button inside the token button');
 assert.match(html, /badge\.setAttribute\('aria-haspopup','dialog'\)/, 'map status controls must expose their details dialog');
 assert.match(html, /badge\.addEventListener\('pointerdown',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);\}\)/, 'status interaction must not start token movement');

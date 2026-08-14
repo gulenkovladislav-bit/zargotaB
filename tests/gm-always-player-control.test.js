@@ -18,7 +18,7 @@ assert.match(html, /requestApprovedDamageRoll\(request\.id,combatLabPlayerUid\(\
 assert.match(html, /answerCombatReaction\(request\.id,accepted===true,combatLabPlayerUid\(\)\)/, 'reaction answers use the permanently selected hero');
 assert.match(html, /isMaster && movementApi\.requestMovementAs[\s\S]*?movementApi\.requestMovementAs\(actorUid,point\.x,point\.y,origin\)/, 'GM-controlled hero movement stays on the selected local or network adapter');
 assert.match(html, /movementResolveApi=w\.ZargotaCombatQa[\s\S]*?movementResolveApi\.resolveMovement\(uid, !!accepted\)/, 'the same adapter resolves the represented player movement');
-assert.match(html, /var actionApi=typeof combatQaActive==='function'&&combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms;[\s\S]*?actionApi\.requestAction\(labels\[kind\]/, 'scene commands from the represented player stay in the workshop adapter');
+assert.match(html, /var actionApi=typeof combatQaActive==='function'&&combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms;[\s\S]*?combatRequestAction\(actionApi,labels\[kind\]/, 'scene commands from the represented player stay in the guarded workshop adapter');
 assert.doesNotMatch(html, /zgGmPlayerControlRender|renderGmPlayerControl\(/, 'obsolete banner rendering is no longer called');
 
 console.log('always-available GM player control contracts passed');

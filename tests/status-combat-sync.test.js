@@ -222,6 +222,7 @@ var roomAdvance = context.advanceRoomWorldTimeState(timedRoom, 60, 'world-time-t
 assert.strictEqual(roomAdvance.changed, true);
 assert.strictEqual(roomAdvance.room.worldClock.totalMinutes, 1440);
 assert.strictEqual(roomAdvance.room.worldClock.day, 2);
+assert.strictEqual(roomAdvance.room.worldClock.displayMode, 'phase', 'a room without a saved display choice defaults to time-of-day');
 assert.strictEqual(roomAdvance.room.worldClock.lastOperation.beforeMinutes, 1380);
 assert.strictEqual(roomAdvance.room.worldClock.lastOperation.afterMinutes, 1440);
 assert.strictEqual(roomAdvance.room.worldClock.lastOperation.uid, 'gm');

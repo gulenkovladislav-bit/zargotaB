@@ -15,11 +15,11 @@ assert.match(html, /var portraitMenuKey='member:'\+String\(member\.uid\|\|''\)/,
 assert.match(html, /function combatSaveTargets\(\)/, 'saving-throw targets are available outside initiative');
 assert.match(html, /w\.zgGmStatusCatalog=gmStatusCatalog/, 'the status catalog is explicitly shared with the saving-throw module');
 assert.match(html, /typeof w\.zgGmStatusCatalog==='function'\?w\.zgGmStatusCatalog\(\):\[\]/, 'saving throws do not reach into another module closure');
-assert.match(html, /return order\.filter\(function\(entry\)\{var uid=String\(entry&&entry\.uid\|\|''\);return !!\(uid&&members\[uid\]&&members\[uid\]\.character\);\}\);/, 'active combat saving throws only target heroes controlled by players');
+assert.match(html, /return order\.filter\(function\(entry\)\{var uid=String\(entry&&entry\.uid\|\|''\);return !!\(uid&&members\[uid\]&&members\[uid\]\.character\);\}\)\.map\(function\(entry\)/, 'active combat saving throws only target heroes controlled by players and then hydrate their current sheet state');
 assert.match(html, /return heroMembers\(\)\.map/, 'outside combat the same menu uses current room heroes');
 assert.doesNotMatch(html, /if\(!combat\|\|!combat\.active\|\|!session\|\|session\.role!==\'master\'\)/, 'the saving-throw panel is no longer hard-closed outside combat');
 assert.match(html, /saveApi\.requestCombatSavingThrow\(combatSaveTargetKey,options\)/, 'the GM assigns a saving throw instead of resolving it immediately');
-assert.match(html, /Спасбросок назначен · игрок должен перетащить D20/, 'the GM is told that the player must drag the die');
+assert.match(html, /Спасбросок назначен · '[+]\(combatQaActive\(\)\?'перетащите D20':'игрок должен перетащить D20'\)/, 'local Workshop saves instruct the GM to drag, while live saves instruct the player');
 assert.match(html, /actionKind==='saving-throw'/, 'assigned saving throws use their own player prompt');
 assert.match(html, /rollMethod=isSavingThrow\?'rollCombatSavingThrow':'rollCombatIntent'/, 'dragging the assigned die selects the saving-throw roller');
 assert.match(html, /МАСТЕР НАЗНАЧИЛ СПАСБРОСОК/, 'the player sees an explicit saving-throw drag prompt');

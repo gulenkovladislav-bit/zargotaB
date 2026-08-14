@@ -785,7 +785,7 @@ assert.match(html, /function syncBackpackArt\(drawer,skin\)/);
 assert.match(html, /width:min\(670px,calc\(\(100vh - 32px\)\*\.72\),calc\(100vw - 18px\)\)/);
 assert.match(html, /background:none/);
 assert.match(html, /\.zg-vtt-drawer\.backpack-skin\{[^}]*pointer-events:none\}/, 'the decorative backpack frame must not intercept toolbar clicks');
-assert.match(html, /\.zg-vtt-drawer\.backpack-skin \.zg-bag-interface,\.zg-vtt-drawer\.backpack-skin>\.zg-vtt-panel-close\{pointer-events:auto\}/, 'backpack content and its close button must remain interactive');
+assert.match(html, /\.zg-vtt-drawer\.backpack-skin \.zg-bag-interface\{pointer-events:auto\}/, 'backpack content must remain interactive without restoring the removed corner close button');
 assert.match(html, /class="zg-state-board"/);
 assert.match(html, /class="zg-state-hp"/);
 assert.match(html, /class="zg-vital-emblem hp"/);
