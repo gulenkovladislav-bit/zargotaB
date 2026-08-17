@@ -39,5 +39,14 @@ assert.match(qaBlock, /requestAction:function/, 'the fixed guard must protect Wo
 var applyStart = html.indexOf('  function combatQaApply(change){');
 var applyBlock = html.slice(applyStart, helperStart);
 assert.match(applyBlock, /snapshot\.room\.scene=visibleScene/, 'Workshop commands must use the visible draft containing summoned hero tokens');
+assert.match(applyBlock, /state=snapshot;roomSnapshot=snapshot/, 'Workshop commands must publish their updated snapshot to the GM request surface');
+
+var requestStart = html.indexOf('  function combatRequestAction(', applyStart);
+var requestEnd = html.indexOf('  function combatQaRollFormula', requestStart);
+var requestBlock = html.slice(requestStart, requestEnd);
+assert.ok(requestStart >= 0 && requestEnd > requestStart, 'the Workshop action bridge remains locally auditable');
+assert.match(requestBlock, /if\(kind==='combat-attack'\)return combatQaApi\.resolveAction/, 'only the locally automated attack may resolve immediately');
+assert.doesNotMatch(requestBlock, /request\.status==='approved'/, 'ordinary Workshop actions must remain pending for the GM instead of silently auto-approving');
+assert.match(requestBlock, /return snapshot;/, 'the pending Workshop request is returned for the GM request panel');
 
 console.log('workshop summoned hero actions contract passed');

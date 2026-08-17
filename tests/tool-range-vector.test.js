@@ -18,6 +18,10 @@ assert.match(html, /class="range-vortex"><img alt="" aria-hidden="true">/, 'the 
 assert.match(html, /cursorIcon=actionCursorIcons\[toolKey\]\|\|actionCursorIcons\.custom/, 'the shared renderer resolves movement, attack and action cursor assets through one map');
 assert.doesNotMatch(html, /class="range-move-icon"/, 'the endpoint artwork replaces the duplicate movement symbol inside the distance badge');
 assert.match(html, /\.range-distance-value\{font-size:13\.5px;/, 'movement distance numbers are enlarged by fifty percent');
+assert.match(html, /var steps=16/, 'the spectral thread uses enough samples for a smooth organic curve');
+assert.match(html, /Math\.sin\(ratio\*Math\.PI\*5/, 'the spectral thread combines a visible secondary wave instead of drawing a rigid line');
+assert.match(html, /@keyframes zgGhostThreadFlow/, 'the spectral thread texture flows along the action path');
+assert.match(html, /\.range-vortex::before\{[^}]*border-radius:50%/, 'every endpoint cursor has a circular dark backplate and shadow over the map');
 assert.match(html, /attackPreview\.tool='attack';scheduleToolRangeVector\(attackPreview\)/, 'attack pointer movement reaches the shared renderer');
 assert.match(html, /clearToolRangeVector\(\);var abilityPreview/, 'leaving the scene clears the local SVG and pending RAF');
 assert.match(html, /\.combat-target-valid/, 'valid targets have visible feedback');

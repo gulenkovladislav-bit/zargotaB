@@ -93,7 +93,9 @@ assert.match(html, /combatToolbarVisible=!!\(active&&controlled\)/, 'combat tool
 assert.match(html, /dock\.classList\.toggle\('combat-mode',combatToolbarVisible\)/, 'the regular toolbar stays visible when combat has no controlled participant');
 assert.match(html, /\.zg-combat-economy button\.tool-selected:not\(:disabled\)\{[^}]*box-shadow:/, 'selected tool receives a visible gold surface and outline');
 assert.match(html, /\.zg-action-cursor-glyph\{[^}]*width:56px;[^}]*height:56px/, 'free-scene actions use a legible approved cursor glyph');
-assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex\{width:72px;height:72px/, 'combat targeting uses the approved rapier at the actual target point');
+assert.match(html, /attack:'images\/vtt-actions\/cursors\/attack-round\.svg'/, 'combat targeting uses the compact circular attack sigil rather than the oversized rapier');
+assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex\{width:72px;height:72px/, 'combat targeting keeps its attack endpoint legible at the actual target point');
+assert.match(html, /\.range-vortex::before\{[^}]*border-radius:50%/, 'combat endpoint artwork remains readable on a shadowed circular plate');
 assert.match(html, /\.range-vortex img\{[^}]*mix-blend-mode:screen/, 'cursor art loses its black source plate over the scene');
 assert.match(html, /\.zg-game-overlay\.combat-targeting \.zg-vtt-scene[^}]*cursor:none!important/, 'native crosshair cannot overlap the scene-anchored combat reticle');
 assert.match(html, /cursor\.classList\.remove\('open','over-range'\)/, 'combat targeting removes the detached sword cursor before showing its range reticle');

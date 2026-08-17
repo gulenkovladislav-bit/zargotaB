@@ -23,3 +23,11 @@ Prompt set: one isolated realistic hand-painted dark-fantasy object per icon, ag
 Files: `world-clock.png`, `round-counter.png`, `turn-marker.png`.
 
 Prompt: production sprite sheet of exactly three isolated dark-fantasy time and turn symbols on a solid `#ff00ff` background: celestial world-clock dial, compact engraved round counter medallion, luminous turn marker. Antique brass, moon-blue enamel, restrained glow, readable at small interface size, no text and no surrounding UI panel.
+
+## Automated spell icons
+
+File: `spell-finger-heat.png`.
+
+Generated with OpenAI ImageGen on 2026-08-14, resized to 512×512 RGBA, and visually checked at native size. No third-party source images were used.
+
+Prompt summary: one isolated dark-fantasy combat spell icon for «Жар Пальцев»: a blackened leather glove projects a narrow, concentrated tongue of fire toward an armored skull-shaped target. Painterly realistic materials, antique gold and ember-orange light, near-black background, strong silhouette readable at card size, no text, frame, watermark, or unrelated symbols.

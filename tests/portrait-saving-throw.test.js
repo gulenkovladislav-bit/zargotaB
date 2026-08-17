@@ -13,12 +13,15 @@ assert.match(html, /Назначить спасбросок/, 'the portrait gear
 assert.match(html, /zgPortraitSavingThrow\(event,/, 'the portrait action preselects its target');
 assert.match(html, /var portraitMenuKey='member:'\+String\(member\.uid\|\|''\)/, 'non-combat hero portraits receive stable saving-throw keys');
 assert.match(html, /function combatSaveTargets\(\)/, 'saving-throw targets are available outside initiative');
+assert.match(html, /function combatSaveEntryKey\(entry\)/, 'combat heroes receive a stable saving-throw key even when initiative data omitted one');
 assert.match(html, /w\.zgGmStatusCatalog=gmStatusCatalog/, 'the status catalog is explicitly shared with the saving-throw module');
 assert.match(html, /typeof w\.zgGmStatusCatalog==='function'\?w\.zgGmStatusCatalog\(\):\[\]/, 'saving throws do not reach into another module closure');
-assert.match(html, /return order\.filter\(function\(entry\)\{var uid=String\(entry&&entry\.uid\|\|''\);return !!\(uid&&members\[uid\]&&members\[uid\]\.character\);\}\)\.map\(function\(entry\)/, 'active combat saving throws only target heroes controlled by players and then hydrate their current sheet state');
-assert.match(html, /return heroMembers\(\)\.map/, 'outside combat the same menu uses current room heroes');
+assert.match(html, /key:combatSaveEntryKey\(entry\)/, 'active combat saving throws normalize missing initiative keys');
+assert.match(html, /return roomMembers\(\)\.filter\(function\(member\)\{return !!\(member&&member\.character&&String\(member\.uid\|\|''\)\);\}\)\.map/, 'outside combat all current room heroes remain eligible even without a characterId');
 assert.doesNotMatch(html, /if\(!combat\|\|!combat\.active\|\|!session\|\|session\.role!==\'master\'\)/, 'the saving-throw panel is no longer hard-closed outside combat');
 assert.match(html, /saveApi\.requestCombatSavingThrow\(combatSaveTargetKey,options\)/, 'the GM assigns a saving throw instead of resolving it immediately');
+assert.match(html, /Выберите игрока для спасброска/, 'a missing target produces a visible error instead of a dead button');
+assert.match(html, /Назначение спасброска недоступно: переподключите сессию/, 'a missing session adapter produces a visible recovery hint');
 assert.match(html, /Спасбросок назначен · '[+]\(combatQaActive\(\)\?'перетащите D20':'игрок должен перетащить D20'\)/, 'local Workshop saves instruct the GM to drag, while live saves instruct the player');
 assert.match(html, /actionKind==='saving-throw'/, 'assigned saving throws use their own player prompt');
 assert.match(html, /rollMethod=isSavingThrow\?'rollCombatSavingThrow':'rollCombatIntent'/, 'dragging the assigned die selects the saving-throw roller');
@@ -31,6 +34,7 @@ assert.match(network, /session\.role==='master'\?simulatedPlayerUid:user\.uid/, 
 assert.match(network, /request\.status!=='roll-requested'/, 'an assigned saving throw is consumed only once');
 assert.match(network, /activeCombat=!!\(combat&&combat\.active\)/, 'the resolver distinguishes combat from free-session saves');
 assert.match(network, /targetKey\.indexOf\('member:'\)===0/, 'the resolver accepts a persistent hero portrait key');
+assert.match(network, /room\.members&&room\.members\[targetKey\]/, 'the resolver also accepts a direct player uid from older initiative snapshots');
 assert.match(network, /if\(activeCombat\)\{updates\['combat\/order'\] = order;/, 'initiative is only rewritten during active combat');
 assert.match(network, /queueCombatEntryState\(room, updates, target, false\)/, 'successful status removal still synchronizes the character sheet');
 

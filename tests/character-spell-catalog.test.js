@@ -61,5 +61,13 @@ assert.doesNotMatch(
   /if \(entries\.length === 0\)/,
   'the picker must not rely on the stale initial catalog array'
 );
+assert.match(pickerSource, /className = 'zg-spell-picker-popup'/, 'the spell picker must use the enlarged modal shell');
+assert.match(pickerSource, /id=\"sp-picker-type\"/, 'the spell picker must expose a catalog-style type select');
+assert.match(pickerSource, /id=\"sp-picker-level\"/, 'the spell picker must expose a catalog-style level select');
+assert.match(pickerSource, /id=\"sp-picker-category\"/, 'the spell picker must expose a catalog-style category select');
+assert.match(pickerSource, /data-search=/, 'the spell picker must build full-text search data');
+assert.match(pickerSource, /data-categories=/, 'the spell picker must expose categories to the filter');
+assert.doesNotMatch(pickerSource, /sp-type-chip|sp-lvl-chip/, 'legacy miniature filter chips must be removed');
+assert.match(html, /\.zg-spell-picker-popup\{[^}]*width:588px/, 'the desktop spell picker must be enlarged by forty percent');
 
 console.log('character spell catalog binding contract passed');
