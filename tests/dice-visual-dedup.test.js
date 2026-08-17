@@ -56,6 +56,11 @@ assert.deepStrictEqual(
   {x:240,y:160},
   'a remote result anchors to the token centre in the same transformed scene'
 );
+assert.deepStrictEqual(
+  JSON.parse(JSON.stringify(context.diceRemoteTokenAnchor(resultLayer, anchorToken, '50%', '44%'))),
+  {left:'240px',top:'160px'},
+  'a remote die uses the real token rect instead of stale percentage styles'
+);
 
 const modeStart = html.indexOf('  function combatContestRollMode(');
 const modeEnd = html.indexOf('  function renderRollAnimations()', modeStart);
@@ -70,7 +75,19 @@ const listenerStart = html.indexOf("w.addEventListener('zg-local-roll'");
 const listenerEnd = html.indexOf('\n    });', listenerStart) + 7;
 const listener = html.slice(listenerStart, listenerEnd);
 assert.match(listener,/hasLocalVisual=pruneDuplicateRollVisuals/,'network confirmation checks the existing physical die');
-assert.match(listener,/if\(hasLocalVisual\)renderedRollVisuals\[localRollKey\]=Date\.now\(\);else delete renderedRollVisuals/,'network confirmation cannot reopen an already rendered id');
+assert.match(listener,/alreadyRendered=Boolean\(renderedRollVisuals\[localRollKey\]\)/,'network confirmation reads the stable playback claim');
+assert.match(listener,/if\(hasLocalVisual\|\|alreadyRendered\)renderedRollVisuals\[localRollKey\]=Number/,'network confirmation preserves an already rendered id');
+assert.doesNotMatch(listener,/delete seenRollVisuals/,'a transport echo cannot replay the dice sound');
+assert.doesNotMatch(listener,/delete renderedRollVisuals/,'a transport echo cannot reopen the visual playback claim');
+const renderStart = html.indexOf('  function renderRollAnimations()');
+const localRendererStart = html.indexOf('  w.zgRenderLocalDiceThrow=', renderStart);
+const localRendererEnd = html.indexOf('  var chatWorldMode', localRendererStart);
+const renderSource = html.slice(renderStart, localRendererStart);
+const localRendererSource = html.slice(localRendererStart, localRendererEnd);
+assert.match(renderSource,/if\(renderedRollVisuals\[rollKey\]\)return/,'every ingress path shares one stable visual playback claim');
+assert.match(localRendererSource,/if\(renderedRollVisuals\[rollKey\]\)return false/,'a repeated immediate local render is ignored');
+assert.doesNotMatch(localRendererSource,/delete seenRollVisuals/,'the immediate renderer does not reopen sound playback');
+assert.doesNotMatch(localRendererSource,/delete renderedRollVisuals/,'the immediate renderer does not reopen visual playback');
 assert.match(html,/isContest\?Math\.max\(104/,'advantage dice have a visibly separate flight path');
 assert.doesNotMatch(html, /label\.textContent=.*(?:ПРЕИМУЩЕСТВО|ПОМЕХА).*index\+1/, 'advantage dice do not show redundant numbered captions below their faces');
 assert.match(html,/if\(contestMode\)contestRoll=rolls\.find/,'only explicit advantage or disadvantage can activate contest presentation');
@@ -81,6 +98,13 @@ assert.match(html,/if\(!item\.kept\)setTimeout\(function\(\)\{if\(die\.parentNod
 assert.match(html,/world-roll\.local-thrown\.contest-resolve\.contest-loser img/, 'contest dissolve overrides the stronger local critical animation');
 assert.match(html,/world-roll\.local-thrown\.contest-resolve\.contest-winner b/, 'the kept number follows its die even after the local landing pulse');
 assert.match(html,/world-roll\.local-thrown\.contest-resolve\.contest-winner img/, 'the kept die texture follows the same contest path as its number');
+assert.match(html, /remote-token-roll/, 'remote dice use a dedicated visual-only scale class');
+assert.match(
+  html,
+  /remote-token-roll img\{inset:16\.2px!important;width:75\.6px!important;height:75\.6px!important\}/,
+  'only the remote die model is 30 percent smaller'
+);
+assert.doesNotMatch(html, /remote-token-roll b\{/, 'remote result numbers keep their existing size');
 const resultLayerStart = html.indexOf('  function ensureDiceResultLayer(');
 const resultLayerEnd = html.indexOf('  function pruneDuplicateRollVisuals(', resultLayerStart);
 const resultLayerSource = html.slice(resultLayerStart, resultLayerEnd);

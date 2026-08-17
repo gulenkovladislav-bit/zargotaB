@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-13\.2/, 'network cache key must change with the selective spellRefs proposal contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-15\.4/, 'network cache key must change with the GM journal mutation contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -353,6 +353,10 @@ assert.match(network, /next\s*=\s*applyEquipmentDerivedSnapshot\(next,\s*liveSna
 assert.match(network, /next\.syncOperationId\s*=\s*liveSnapshot\.syncOperationId/);
 assert.match(network, /gmAddInventoryItem:\s*function/);
 assert.match(network, /gmAddJournalEntry:\s*function/);
+assert.match(network, /gmUpdateJournalEntry:\s*function\s*\(memberUid, journalId, patch\)/, 'GM can edit a selected player journal entry');
+assert.match(network, /gmDeleteJournalEntry:\s*function\s*\(memberUid, journalId\)/, 'GM can remove a selected player journal entry');
+assert.match(network, /source:'gm-journal-update'/, 'GM journal edits use a distinct synchronized operation');
+assert.match(network, /source:'gm-journal-delete'/, 'GM journal removals use a distinct synchronized operation');
 assert.match(network, /gmAdjustAbilityUsage:\s*function/);
 assert.match(network, /adjustOwnAbilityUsage:\s*function/);
 assert.match(network, /current\.source='player-ability-resource'/);
@@ -951,7 +955,7 @@ var abilitiesStart = html.indexOf('function buildAbilityCards(');
 var abilitiesEnd = html.indexOf('function dicePanel()', abilitiesStart);
 var abilitiesBlock = html.slice(abilitiesStart, abilitiesEnd);
 assert.match(abilitiesBlock, /localCharacter=fullLocalCharacter\(member\)/);
-assert.match(abilitiesBlock, /Math\.max\(spellLimit\(spell\),Number\(sessionUsage&&sessionUsage\.max\)\|\|0\)/);
+assert.match(abilitiesBlock, /Math\.max\(spellLimit\(spell\),Number\(profile\.resourceMax\)\|\|0,Number\(sessionUsage&&sessionUsage\.max\)\|\|0\)/, 'canonical spell automation may define the combat charge limit');
 assert.match(abilitiesBlock, /cooldown\?1:0/, 'a spell with a cooldown label but no numeric count still gets one charge cell');
 assert.match(abilitiesBlock, /sessionUsage\?Number\(sessionUsage\.used\|\|0\)/);
 assert.match(abilitiesBlock, /card\.learned===false/);
@@ -1176,10 +1180,10 @@ assert.match(journalPanelContext.result, /data-journal-id="quest-main"/);
 assert.match(journalPanelContext.result, /data-journal-id="quest-side"/);
 assert.doesNotMatch(journalPanelContext.result, /data-journal-id="place-1"/);
 assert.doesNotMatch(journalPanelContext.result, /data-journal-id="note-1"/);
-assert.match(html, /w\.zgVttJournalConfirmRemove=function\(journalId,event\)/);
+assert.match(html, /w\.zgVttJournalConfirmRemove=function\(journalId,event,memberUid\)/);
 assert.match(html, /role="alertdialog"/);
 assert.match(html, /class="danger"[^>]*data-journal-id/);
-assert.doesNotMatch(html.slice(html.indexOf('w.zgVttJournalRemove=function(journalId)'), html.indexOf('w.zgVttJournalSelect=', html.indexOf('w.zgVttJournalRemove=function(journalId)'))), /w\.confirm/);
+assert.doesNotMatch(html.slice(html.indexOf('w.zgVttJournalRemove=function(journalId,memberUid)'), html.indexOf('w.zgVttJournalSelect=', html.indexOf('w.zgVttJournalRemove=function(journalId,memberUid)'))), /w\.confirm/);
 assert.match(html, /background-color:#d8bd84/);
 assert.match(html, /\.zg-bag-notes\.zg-journal3 \.zg-journal3-paper\{[\s\S]*?opacity:1!important/);
 assert.match(html, /\.zg-journal3-paper-text\{[\s\S]*?opacity:1!important/);
@@ -1187,7 +1191,7 @@ assert.match(html, /version:11/);
 assert.match(html, /rawVersion<11&&\(key==='journal\.paper'\|\|key==='journal\.entry-text'\)/);
 assert.match(html, /saveChars\(\{reason:reason\|\|'journal-update'\}\)/);
 assert.match(html, /journalSave\('journal-remove',true\)/);
-var journalDeleteStart = html.indexOf('w.zgVttJournalConfirmRemove=function(journalId,event)');
+var journalDeleteStart = html.indexOf('w.zgVttJournalConfirmRemove=function(journalId,event,memberUid)');
 var journalDeleteEnd = html.indexOf('w.zgVttJournalSelect=', journalDeleteStart);
 var journalDeleteHolder = { current:null };
 var journalDeleteCharacter = { journalEntries:[

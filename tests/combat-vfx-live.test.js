@@ -82,7 +82,9 @@ assert.ok(gmHelperStart >= 0 && gmHelperEnd > gmHelperStart, 'GM adjustment Canv
 assert.match(gmHelper, /gm-damage.*return'slash'/s, 'manual damage uses a weapon impact preset');
 assert.match(gmHelper, /gm-heal'.*gm-temp-hp'.*return'heal'/s, 'manual healing and temporary HP use support particles');
 assert.match(gmHelper, /!event\.statusEnabled.*return'cleanse'/s, 'manual status removal uses cleanse particles');
+assert.match(gmHelper, /gm-damage'\?1450:0/, 'manual damage receives a deliberately slower presentation timeline');
 assert.match(gmHelper, /scope:'public',channel:'live-gm-particles'/, 'GM adjustments render through the same public runtime on both clients');
+assert.match(gmHelper, /handle\.command\.durationMs\+120/, 'GM Canvas cleanup follows the effective overridden duration');
 assert.match(gmHelper, /schedulePlaybackCleanup\(event,'live-canvas-gm-adjustment'/, 'GM Canvas cleanup uses the playback director');
 assert.doesNotMatch(gmHelper, /setTimeout\(|setInterval\(/, 'GM Canvas adds no private timers');
 

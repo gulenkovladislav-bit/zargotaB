@@ -46,6 +46,6 @@ assert.match(html, /\.zg-vtt-log-entry\{[^}]*font-size:13px\}/, 'journal feed te
 
 assert.match(html, /var PLAYER_BAG_TEXT_SCALE=1\.3;/, 'the magic bag view must retain the shared 130 percent typography scaler');
 assert.match(html, /data-backpack-skin="magic"/, 'the readable bag scaler must still cover the magic view');
-assert.match(html, /\.zg-spell-catalog-card\.gm-editable\{\s*padding-right:64px/, 'the magic catalog must reserve a compact GM action rail instead of crushing enlarged spell text');
+assert.match(html, /data-backpack-skin="magic"\] \.zg-spell-catalog-card\.gm-editable\{\s*box-sizing:border-box;min-height:78px;padding-right:116px/, 'the magic catalog must reserve a wide GM action rail without crushing enlarged spell text');
 
 console.log('player HUD readability contract passed');

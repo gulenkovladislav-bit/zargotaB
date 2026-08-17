@@ -13,8 +13,16 @@ assert.match(html, /<h3>Полученные заклинания<\/h3>/);
 assert.match(html, /<h3>Подготовленные заклинания<\/h3>/);
 assert.match(html, /if\(card\.prepared\)grouped\[card\.spellType\]\.push\(card\)/);
 assert.match(html, /w\.zgVttSpellPreparation=function/);
+assert.match(html, /w\.zgVttSpellDragStart=function/);
+assert.match(html, /w\.zgVttPreparedSpellDrop=function/);
+assert.match(html, /data-spell-drop-type=/);
+assert.match(html, /return w\.zgVttSpellPreparation\(spellId,true,null\)/);
 assert.match(html, /Сначала изучите это заклинание/);
+assert.match(html, /Можно подготовить только изученное заклинание/);
+assert.match(html, /Перетащите сюда изученное заклинание/);
 assert.match(html, /Все слоты этого типа заняты/);
+assert.match(html, /var catalogPageSize=6/);
+assert.match(html, /grid-template-rows:repeat\(6,minmax\(0,1fr\)\)/);
 assert.match(html, /ensurePreparedSpellsForCharacter\(c\)/);
 assert.doesNotMatch(
   html.slice(html.indexOf('function pickSpell('), html.indexOf('var combatModeActive', html.indexOf('function pickSpell('))),
