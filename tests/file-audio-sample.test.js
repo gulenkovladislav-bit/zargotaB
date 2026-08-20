@@ -57,14 +57,20 @@ vm.runInNewContext(source, {
 
 fakeWindow.ZargotaSound.combatDiceRoll();
 fakeWindow.ZargotaSound.combatDamageImpact('physical', false, false);
+fakeWindow.ZargotaSound.damage();
+fakeWindow.ZargotaSound.attackTargetHover();
+fakeWindow.ZargotaSound.spellTargetHover();
 
 setImmediate(() => {
   assert.deepStrictEqual(played, [
     'audio/vtt-actions/dice-roll.mp3',
-    'audio/vtt-actions/hit-body-soft.mp3'
-  ], 'file:// Workshop plays the bundled custom roll and damage MP3 files');
+    'audio/vtt-actions/damage-impact.mp3',
+    'audio/vtt-actions/damage-impact.mp3',
+    'audio/vtt-actions/target-hover-attack.ogg',
+    'audio/vtt-actions/target-hover-spell.mp3'
+  ], 'file:// Workshop plays the bundled custom combat and targeting samples');
   const diagnostics = fakeWindow.ZargotaSound.diagnostics();
-  assert.strictEqual(diagnostics.plays, 2, 'both local MP3 samples start successfully');
+  assert.strictEqual(diagnostics.plays, 3, 'grouped impacts and hovers suppress stale starts while the latest local MP3 or OGG cue plays');
   assert.strictEqual(diagnostics.lastError, '', 'file transport does not leave a fetch error');
   console.log('file audio MP3 transport passed');
 });

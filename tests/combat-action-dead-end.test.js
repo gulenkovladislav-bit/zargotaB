@@ -37,7 +37,7 @@ assert.match(html, /if\(!snapshot\|\|!snapshot\.room\|\|snapshot\.room\.code!=='
 assert.match(html, /return combatQaApi\.resolveAction\(uid,true,resolution\|\|null\)/, 'the guarded helper auto-approves the local represented hero action');
 
 const saveUi = block(html, '  var combatSaveTargetKey=', '  function renderCombatPrepare');
-assert.match(saveUi, /combatStartDeadline\(Promise\.resolve\(\)\.then\(function\(\)\{return saveApi\.requestCombatSavingThrow/, 'saving throw assignment catches synchronous failures and has a timeout');
+assert.match(saveUi, /combatStartDeadline\(Promise\.resolve\(\)\.then\(function\(\)\{return assignToPlayer\?saveApi\.requestCombatSavingThrow/, 'saving throw assignment catches synchronous failures and has a timeout');
 assert.match(saveUi, /combatSaveBusy=false;renderCombatSave\(\);renderCombat\(\)/, 'saving throw assignment always unlocks and restores the button');
 
 const reactionUi = block(html, '  var combatReactionBusy=false,combatConcentrationBusy=false;', '  w.zgCombatConfirmEnd=');

@@ -37,6 +37,7 @@ const checks = [
   ['Карточка активного участника не обрезается', 'tests/party-card-overflow.test.js'],
   ['Звуки бросков без повторов', 'tests/combat-dice-sound.test.js'],
   ['Маршрутизация звуков live-боя', 'tests/live-combat-sound-routing.test.js'],
+  ['Авторские звуки боя и инвентаря', 'tests/custom-action-sounds.test.js'],
   ['Авторские текстуры удара', 'tests/authored-combat-impact.test.js'],
   ['Синхронизация листа персонажа', 'tests/session-character-sheet.test.js'],
   ['Сцена и перенос её состояния', 'tests/scene-transfer.test.js'],

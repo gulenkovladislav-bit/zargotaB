@@ -572,9 +572,11 @@ async function expectCode(operation, code) {
   assert.strictEqual(snapshot.room.combat.order[1].hp, 9, 'the damage roll must still wait for GM confirmation');
   snapshot = await master.resolveCombatAbility(playerUid, [enemyKey], { approvedResults:[{
     key:enemyKey, roll:15, rolls:[15], rollMode:'normal', modifier:0, total:15, dc:10,
-    success:true, damage:1, damageRolls:[1], statuses:[]
+    success:true, damage:1, damageRolls:[1], statuses:['spell-scar','arcane-glow','dead','spell-scar']
   }] });
   assert.strictEqual(snapshot.room.combat.order[1].hp, 8, 'the authoritative resolver applies the exact GM-approved damage');
+  assert.deepStrictEqual(Array.from(snapshot.room.combat.order[1].statuses).filter(status => status === 'spell-scar' || status === 'arcane-glow'), ['spell-scar','arcane-glow'], 'the GM can add several normalized conditions to the spell result');
+  assert.ok(!snapshot.room.combat.order[1].statuses.includes('dead'), 'the spell result cannot add the reserved death state');
   assert.strictEqual(snapshot.room.combatEvent.roll, 15, 'the event preserves the approved attack die');
   assert.deepStrictEqual(Array.from(snapshot.room.combatEvent.damageRolls), [1], 'the approved damage die reaches synchronized playback');
   await expectCode(() => master.resolveCombatAbility(playerUid, [enemyKey], { approvedResults:[] }), 'request-missing');

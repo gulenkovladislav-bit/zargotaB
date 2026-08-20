@@ -16,7 +16,8 @@ var delivery = fs.readFileSync(path.join(root, 'gm-delivery.js'), 'utf8');
   'gm-action-approved-pencil.mp3',
   'status-cleanse-holy.mp3',
   'map-ping.mp3',
-  'item-reward-bag.mp3'
+  'item-reward-bag.mp3',
+  'combat-start-drums.mp3'
 ].forEach(function (file) {
   assert.match(html, new RegExp('audio/vtt-actions/' + file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 });
@@ -29,8 +30,8 @@ assert.match(delivery, /!queued && w\.ZargotaSound && w\.ZargotaSound\.gmDeliver
 assert.match(html, /gmDeliverySent:'audio\/vtt-actions\/gm-action-approved-pencil\.mp3'/, 'GM delivery confirmation uses the existing pencil stroke');
 assert.match(html, /playerDeliveryReceivedPlaceholder:'audio\/vtt-actions\/gm-action-request-paper\.mp3'/, 'player delivery receipt temporarily reuses the verified paper sample');
 assert.match(html, /AUDIO_TAG: PLACEHOLDER_GM_DELIVERY_RECEIVED_PLAYER/, 'the player receipt placeholder remains easy to replace with a custom sound');
-assert.match(html, /combatStartPlaceholder:'audio\/vtt-actions\/round-start-warrior-kick\.mp3'/, 'combat start has a dedicated replaceable sound route');
-assert.match(html, /AUDIO_TAG: PLACEHOLDER_COMBAT_START/, 'the temporary combat-start sample remains easy to replace');
+assert.match(html, /combatStart:'audio\/vtt-actions\/combat-start-drums\.mp3'/, 'combat start uses its own recorded war-drum cue');
+assert.doesNotMatch(html, /PLACEHOLDER_COMBAT_START/, 'combat start is no longer routed through a temporary round sample');
 
 var start = html.indexOf('  function syncSessionSounds(snapshot){');
 var end = html.indexOf('  function render(snapshot){', start);

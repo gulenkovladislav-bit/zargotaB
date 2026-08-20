@@ -16,13 +16,21 @@ assert.match(html, /w\.zgVttSpellPreparation=function/);
 assert.match(html, /w\.zgVttSpellDragStart=function/);
 assert.match(html, /w\.zgVttPreparedSpellDrop=function/);
 assert.match(html, /data-spell-drop-type=/);
-assert.match(html, /return w\.zgVttSpellPreparation\(spellId,true,null\)/);
+assert.match(html, /var prepared=w\.zgVttSpellPreparation\(spellId,true,null\)/);
 assert.match(html, /Сначала изучите это заклинание/);
 assert.match(html, /Можно подготовить только изученное заклинание/);
 assert.match(html, /Перетащите сюда изученное заклинание/);
 assert.match(html, /Все слоты этого типа заняты/);
 assert.match(html, /var catalogPageSize=6/);
 assert.match(html, /grid-template-rows:repeat\(6,minmax\(0,1fr\)\)/);
+assert.match(html, /class="zg-spell-card-menu"/, 'spell card actions must collapse into one compact menu');
+assert.match(html, /w\.zgVttSpellCardAction=function/, 'the compact menu must route preparation and GM actions');
+assert.doesNotMatch(html, /class="zg-gm-spell-actions"/, 'large always-visible GM action buttons must not cover spell copy');
+assert.match(html, /createPreparedSpellDragGhost\(card,event\)/, 'spell preparation drag must create a dedicated visual ghost');
+assert.match(html, /event\.dataTransfer\.setDragImage\(transparent,0,0\)/, 'the browser duplicate drag bitmap must be hidden');
+assert.doesNotMatch(html, /zg-spell-drag-particles|zgSpellDragParticle/, 'spell preparation drag must stay free of particle DOM and animations');
+assert.match(html, /Ability detail readability v2: about 130% copy/, 'spell detail typography must keep the requested readability contract');
+assert.match(html, /\.zg-ability-detail-section>div\{[^}]*font-size:18px/, 'spell detail body copy must grow by about 30 percent');
 assert.match(html, /ensurePreparedSpellsForCharacter\(c\)/);
 assert.doesNotMatch(
   html.slice(html.indexOf('function pickSpell('), html.indexOf('var combatModeActive', html.indexOf('function pickSpell('))),

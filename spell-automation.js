@@ -55,6 +55,22 @@
     animationKey: 'finger-heat-v1',
     soundProfile: 'magic-fire',
     iconAsset: 'images/ui/combat-generated/spell-finger-heat.png',
+    resolutionPlan: {
+      version: 1,
+      staged: true,
+      steps: [
+        { key:'attack', kind:'attack', formula:'1d20', actor:'player', compare:'target-ac' },
+        { key:'damage', kind:'damage', formula:'1d6', actor:'player', when:'attack-hit' }
+      ]
+    },
+    effectPlan: {
+      version: 1,
+      prescribed: [
+        { key:'fire-damage', kind:'damage', icon:'🔥', label:'Огненный урон', summary:'1d6 урона огнём при попадании', trigger:'attack-hit', required:true },
+        { key:'ignite-flammable', kind:'scene', icon:'🕯', label:'Зажечь горючий объект', summary:'Факел, масло, свеча или костёр в пределах 1 клетки', trigger:'manual', required:false }
+      ],
+      gmAdditions: { kinds:['status'], max:6 }
+    },
     nonCombat: {
       kind: 'ignite',
       rangeCells: 1,
@@ -64,6 +80,7 @@
   }];
 
   function matches(profile, spell) {
+    if (spell && spell.automationKey && String(spell.automationKey) === String(profile.automationKey)) return true;
     var normalized = normalizeName(spell && (spell.name || spell.title));
     if (!normalized) return false;
     return profile.aliases.some(function (alias) { return normalizeName(alias) === normalized; });
@@ -87,6 +104,18 @@
 
   function catalog() {
     return profiles.map(clone);
+  }
+
+  function effectPlan(spell) {
+    var profile = spell && spell.effectPlan ? spell : resolve(spell);
+    var plan = profile && profile.effectPlan;
+    return plan ? clone(plan) : { version:1, prescribed:[], gmAdditions:{ kinds:['status'], max:6 } };
+  }
+
+  function prescribedStatusKeys(spell) {
+    return effectPlan(spell).prescribed.filter(function (effect) {
+      return effect && effect.kind === 'status' && effect.required !== false && effect.key;
+    }).map(function (effect) { return String(effect.key); });
   }
 
   function number(value, fallback) {
@@ -173,6 +202,8 @@
     resolve: resolve,
     mergeMeta: mergeMeta,
     catalog: catalog,
+    effectPlan: effectPlan,
+    prescribedStatusKeys: prescribedStatusKeys,
     buildPreview: buildPreview,
     projectVitals: projectVitals
   };

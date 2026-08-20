@@ -19,8 +19,8 @@
 <script src="combat-vfx-presets.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-runtime.js?v=2026-08-09.3"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-09.3"></script>
-<script src="spell-automation.js?v=2026-08-20.2"></script>
-<script src="zargota-network.js?v=2026-08-20.5"></script>
+<script src="spell-automation.js?v=2026-08-20.3"></script>
+<script src="zargota-network.js?v=2026-08-20.7"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-08-13.1">
 <script src="gm-delivery.js?v=2026-08-13.1"></script>
 <script>
@@ -9774,8 +9774,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-08-20.15';
+var ZG_APP_VERSION = '2026-08-20.17';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-08-20.17', notes: 'Карточки заклинаний получили компактное меню действий без перекрытия текста, собственный плавный drag-образ без тяжёлых частиц и более крупное, плотное окно подробностей.' },
+  { v: '2026-08-20.16', notes: 'Итог заклинания разделяет канонические эффекты из текста и добавки ГМа. Обязательные эффекты показываются первыми, а дополнительные состояния выбираются из общего каталога и проверяются перед применением.' },
   { v: '2026-08-20.15', notes: '«Жар Пальцев» разыгрывается честно по этапам: ГМ назначает d20, игрок бросает его физически, при попадании отдельно бросает d6, и только затем ГМ корректирует и применяет итог. Ошибки подтверждения теперь видны прямо в окне.' },
   { v: '2026-08-20.14', notes: '«Жар Пальцев» получил отдельный компактный вердикт ГМа: расчёт атаки и урона, прогноз HP, ручные поправки и эффекты применяются только после финального подтверждения; общий пульт больше не открывается сам.' },
   { v: '2026-08-20.13', notes: 'При выборе цели заклинания или навыка допустимый жетон мягко увеличивается и пульсирует; тихий звук срабатывает один раз при входе на новую цель.' },
@@ -10195,7 +10197,9 @@ document.addEventListener('DOMContentLoaded', function(){
     diceScoreGearClick:'audio/vtt-actions/dice-score-gear-click.mp3',diceScoreThresholdRise:'audio/vtt-actions/dice-score-threshold-rise.mp3',diceScoreFinalTom:'audio/vtt-actions/dice-score-final-tom.mp3',
     d20CriticalSuccess:'audio/vtt-actions/d20-critical-success-fairy.wav',d20CriticalFailure:'audio/vtt-actions/d20-critical-failure-gong.mp3',d20CheckFailure:'audio/vtt-actions/d20-check-failure-wood.mp3',d20AttackMiss:'audio/vtt-actions/d20-attack-miss-sword.mp3',
     deathCoinFlip:'audio/vtt-actions/coin-flip.mp3',deathHeartbeat:'audio/vtt-actions/heartbeat-short.mp3',deathSaveLife:'audio/vtt-actions/life-success.mp3',deathSaveFailure:'audio/vtt-actions/life-failure.mp3',deathSaveStabilized:'audio/vtt-actions/life-full-success.mp3',deathSaveDead:'audio/vtt-actions/life-final-failure.mp3',
-    combatStartPlaceholder:'audio/vtt-actions/round-start-warrior-kick.mp3',
+    damageImpact:'audio/vtt-actions/damage-impact.mp3',targetHoverAttack:'audio/vtt-actions/target-hover-attack.ogg',targetHoverSpell:'audio/vtt-actions/target-hover-spell.mp3',
+    combatStart:'audio/vtt-actions/combat-start-drums.mp3',
+    inventoryDrag:'audio/vtt-actions/inventory-drag.ogg',inventoryEquip:'audio/vtt-actions/inventory-equip.ogg',inventoryUnequip:'audio/vtt-actions/inventory-unequip.ogg',inventoryTab:'audio/vtt-actions/inventory-tab.ogg',bagOpen:'audio/vtt-actions/item-reward-bag.mp3',bagClose:'audio/vtt-actions/bag-close.ogg',
     actionRequestPlayerPlaceholder:'audio/vtt-actions/gm-action-request-paper.mp3',actionRequestGmPlaceholder:'audio/vtt-actions/gm-action-request-paper.mp3',
     gmDeliverySent:'audio/vtt-actions/gm-action-approved-pencil.mp3',playerDeliveryReceivedPlaceholder:'audio/vtt-actions/gm-action-request-paper.mp3'
   };
@@ -10366,9 +10370,9 @@ document.addEventListener('DOMContentLoaded', function(){
     // ═══ Исходы атаки ═══
     hit: function() {
       stopToneGroup('ui');
-      playSample('audio/vtt-actions/hit-body-soft.mp3', 0.9, function() {
+      playSample(sampleSources.damageImpact, 0.78, function() {
         tone(170, 0.09, { type:'triangle', vol:0.24, freqEnd:90 });
-      },{group:'impact',maxDuration:.55});
+      },{group:'impact',maxDuration:.7});
     },
     crit: function() {
       stopToneGroup('ui');
@@ -10408,7 +10412,10 @@ document.addEventListener('DOMContentLoaded', function(){
       tone(1047, 0.3, { delay:0.2, type:'sine', vol:0.24 });
     },
     damage: function() {
-      tone(110, 0.25, { type:'sawtooth', vol:0.22, freqEnd:55 });
+      stopToneGroup('ui');
+      playSample(sampleSources.damageImpact, 0.72, function() {
+        tone(110, 0.25, { type:'sawtooth', vol:0.22, freqEnd:55 });
+      },{group:'impact',maxDuration:.7});
     },
     down: function() {
       tone(300, 0.15, { type:'sawtooth', vol:0.3 });
@@ -10423,13 +10430,12 @@ document.addEventListener('DOMContentLoaded', function(){
     },
 
     // ═══ Navigation / flow ═══
-    // AUDIO_TAG: PLACEHOLDER_COMBAT_START — отдельное семантическое событие;
-    // короткий натуральный удар временно переиспользует запись начала раунда.
+    // Отдельный боевой стингер: не переиспользуем начало раунда или хода.
     combatStart: function() {
-      playSample(sampleSources.combatStartPlaceholder, 0.62, function() {
+      playSample(sampleSources.combatStart, 0.58, function() {
         tone(330, 0.12, { type:'triangle', vol:0.22 });
         tone(495, 0.16, { delay:0.08, type:'triangle', vol:0.24 });
-      },{group:'turn-flow',maxDuration:1.55});
+      },{group:'turn-flow',maxDuration:2.65});
     },
     turn: function() {
       playSample('audio/vtt-actions/turn-start-medieval-war.mp3', 0.38, function() {
@@ -10511,9 +10517,37 @@ document.addEventListener('DOMContentLoaded', function(){
     buttonSoft: function() {
       tone(660, 0.04, { type:'sine', vol:0.09, group:'ui' });
     },
-    targetHover: function() {
-      tone(740, 0.055, { type:'sine', vol:0.045, group:'ui' });
-      tone(1046, 0.07, { delay:0.018, type:'triangle', vol:0.025, group:'ui' });
+    attackTargetHover: function() {
+      playSample(sampleSources.targetHoverAttack, 0.32, function() {
+        tone(690, 0.045, { type:'triangle', vol:0.04, group:'ui' });
+      },{group:'target-hover',maxDuration:.34,playbackRate:.94});
+    },
+    spellTargetHover: function() {
+      playSample(sampleSources.targetHoverSpell, 0.24, function() {
+        tone(880, 0.055, { type:'sine', vol:0.04, group:'ui' });
+        tone(1244, 0.07, { delay:0.018, type:'triangle', vol:0.022, group:'ui' });
+      },{group:'target-hover',maxDuration:.44,playbackRate:1.04});
+    },
+    targetHover: function(kind) {
+      if(kind==='attack')Sound.attackTargetHover();else Sound.spellTargetHover();
+    },
+    inventoryDrag: function() {
+      playSample(sampleSources.inventoryDrag, 0.22, null,{group:'inventory-gesture',maxDuration:.38,playbackRate:.95});
+    },
+    inventoryEquip: function() {
+      playSample(sampleSources.inventoryEquip, 0.42, function(){tone(510,.06,{type:'triangle',vol:.08,group:'ui'});},{group:'inventory-confirm',maxDuration:.52});
+    },
+    inventoryUnequip: function() {
+      playSample(sampleSources.inventoryUnequip, 0.32, null,{group:'inventory-confirm',maxDuration:.42,playbackRate:.96});
+    },
+    inventoryTab: function() {
+      playSample(sampleSources.inventoryTab, 0.2, null,{group:'inventory-ui',maxDuration:.3});
+    },
+    bagOpen: function() {
+      playSample(sampleSources.bagOpen, 0.44, null,{group:'inventory-ui',maxDuration:.78});
+    },
+    bagClose: function() {
+      playSample(sampleSources.bagClose, 0.28, null,{group:'inventory-ui',maxDuration:.45});
     },
 
     // ═══ Атмосфера (эмбиент-дрон + ветер, набегает волнами) ═══
@@ -14511,7 +14545,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(mode==='ally')return token.type==='hero'||token.disposition==='ally';
     return ['hero','custom','object'].indexOf(token.type)>=0;
   }
-  var abilityHoverTokenId='',abilityHoverSoundAt=0;
+  var abilityHoverTokenId='',abilityHoverSoundAt=0,attackHoverTokenId='',attackHoverSoundAt=0;
   function syncAbilityTargetHover(node){
     var nextId=String(node&&node.getAttribute&&node.getAttribute('data-tid')||'');
     if(nextId===abilityHoverTokenId)return;
@@ -14520,7 +14554,15 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!node||!nextId)return;
     node.classList.add('zg-ability-target-hover');
     var now=Date.now();if(now-abilityHoverSoundAt<120)return;abilityHoverSoundAt=now;
-    try{if(w.ZargotaSound&&w.ZargotaSound.targetHover)w.ZargotaSound.targetHover();}catch(ignore){}
+    try{if(w.ZargotaSound){if(w.ZargotaSound.spellTargetHover)w.ZargotaSound.spellTargetHover();else if(w.ZargotaSound.targetHover)w.ZargotaSound.targetHover('spell');}}catch(ignore){}
+  }
+  function syncAttackTargetHover(node){
+    var nextId=String(node&&node.getAttribute&&node.getAttribute('data-tid')||'');
+    if(nextId===attackHoverTokenId)return;
+    attackHoverTokenId=nextId;
+    if(!node||!nextId)return;
+    var now=Date.now();if(now-attackHoverSoundAt<120)return;attackHoverSoundAt=now;
+    try{if(w.ZargotaSound){if(w.ZargotaSound.attackTargetHover)w.ZargotaSound.attackTargetHover();else if(w.ZargotaSound.targetHover)w.ZargotaSound.targetHover('attack');}}catch(ignore){}
   }
   function clearAbilityTargetVisuals(){
     syncAbilityTargetHover(null);
@@ -14713,10 +14755,14 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!automatedAbilityRequest(request))return null;
     var actor=order.find(function(entry){return entry&&String(entry.uid||'')===String(abilityResolveUid);}),resolution=request.abilityResolution||{},attack=resolution.attack,damage=resolution.damage,targetKey=String(resolution.targetKey||abilityResolveTargets[0]||''),target=order.find(function(entry){return entry&&String(entry.key||'')===targetKey;});
     if(!attack||!target)return{version:2,actorKey:actor&&actor.key||'',results:[]};
-    var rolledDamage=damage&&damage.damage||0,result={key:targetKey,name:target.name||'Цель',portrait:target.portrait||'',roll:attack.roll,rolls:attack.rolls||[attack.roll],rollMode:attack.rollMode||'normal',modifier:Number(attack.modifier)||0,total:Number(attack.total)||0,dc:Number(attack.dc)||Number(target.ac)||10,success:abilityResolveOutcomeOverride==null?!!attack.success:!!abilityResolveOutcomeOverride,critical:!!attack.critical,damageRolls:damage&&damage.rolls||[],damageRollTotal:damage&&damage.rolledTotal||0,rawDamage:damage&&damage.baseDamage||0,potentialDamage:rolledDamage,damage:abilityResolveDamageOverride==null?rolledDamage:abilityResolveDamageOverride,rolledDamage:rolledDamage,statuses:abilityResolveStatusOverrides.slice()};if(!result.success)result.damage=0;
+    var prescribedStatuses=w.ZargotaSpellAutomation&&typeof w.ZargotaSpellAutomation.prescribedStatusKeys==='function'?w.ZargotaSpellAutomation.prescribedStatusKeys(request.ability):[],statuses=prescribedStatuses.concat(abilityResolveStatusOverrides).filter(function(key,index,list){return key&&list.indexOf(key)===index;});
+    var rolledDamage=damage&&damage.damage||0,result={key:targetKey,name:target.name||'Цель',portrait:target.portrait||'',roll:attack.roll,rolls:attack.rolls||[attack.roll],rollMode:attack.rollMode||'normal',modifier:Number(attack.modifier)||0,total:Number(attack.total)||0,dc:Number(attack.dc)||Number(target.ac)||10,success:abilityResolveOutcomeOverride==null?!!attack.success:!!abilityResolveOutcomeOverride,critical:!!attack.critical,damageRolls:damage&&damage.rolls||[],damageRollTotal:damage&&damage.rolledTotal||0,rawDamage:damage&&damage.baseDamage||0,potentialDamage:rolledDamage,damage:abilityResolveDamageOverride==null?rolledDamage:abilityResolveDamageOverride,rolledDamage:rolledDamage,statuses:statuses};if(!result.success){result.damage=0;result.statuses=[];}
     var traits={immune:false,resisted:false,vulnerable:false},type=String(request.ability.damageType||'').toLowerCase();function has(values){return[].concat(values||[]).some(function(value){return String(value&&typeof value==='object'?(value.key||value.type||value.name||value.label):value||'').toLowerCase().indexOf(type)>=0;});}traits.immune=has(target.immunities);traits.resisted=has(target.resistances);traits.vulnerable=has(target.vulnerabilities);Object.assign(result,traits);abilityPreviewVitals(result,target);abilityResolvePreview={version:2,actorKey:actor&&actor.key||'',results:[result]};abilityResolvePreviewRequestId=String(request.id||'');return abilityResolvePreview;
   }
   function abilityPreviewVitals(result,target){var projected=w.ZargotaSpellAutomation.projectVitals(target,Math.max(0,Number(result.damage)||0));result.beforeHp=projected.beforeHp;result.beforeTempHp=projected.beforeTempHp;result.absorbed=projected.absorbed;result.hp=projected.hp;result.tempHp=projected.tempHp;}
+  function abilityEffectPlan(ability){return w.ZargotaSpellAutomation&&typeof w.ZargotaSpellAutomation.effectPlan==='function'?w.ZargotaSpellAutomation.effectPlan(ability):{version:1,prescribed:[],gmAdditions:{kinds:['status'],max:6}};}
+  function abilityAdditionalStatusCatalog(ability){var preferred={fire:'burn',cold:'freeze',poison:'poison',psych:'fear'}[String(ability&&ability.damageType||'').toLowerCase()]||'',seen={},catalog=(typeof w.zgGmStatusCatalog==='function'?w.zgGmStatusCatalog():[]).filter(function(status){var key=normalizeStatusDisplayKey(status);if(!key||key==='dead'||seen[key])return false;seen[key]=true;status.key=key;return true;});catalog.sort(function(a,b){if(a.key===preferred)return-1;if(b.key===preferred)return 1;return String(a.label||a.key).localeCompare(String(b.label||b.key),'ru');});return catalog;}
+  function abilityRenderEffectPlan(ability,result){var plan=abilityEffectPlan(ability),prescribed=Array.isArray(plan.prescribed)?plan.prescribed:[],max=Math.max(0,Math.min(12,Number(plan.gmAdditions&&plan.gmAdditions.max)||6)),catalog=abilityAdditionalStatusCatalog(ability),selected=abilityResolveStatusOverrides.slice(0,max),selectedMap={};selected.forEach(function(key){selectedMap[key]=true;});var prescribedHtml=prescribed.map(function(effect){var manual=effect.trigger==='manual';return'<article class="zg-spell-prescribed-effect '+(manual?'manual':'automatic')+'"><i>'+esc(effect.icon||'✦')+'</i><span><small>'+(manual?'Альтернативное применение':'По тексту заклинания')+'</small><b>'+esc(effect.label||'Эффект')+'</b><em>'+esc(effect.summary||'')+'</em></span><strong>'+(manual?'Ручное':'Учтено')+'</strong></article>';}).join(''),selectedHtml=selected.map(function(key){var status=catalog.find(function(item){return item.key===key;})||{key:key,label:key,icon:'✦'};return'<button type="button" class="zg-spell-added-effect" data-status-key="'+esc(key)+'" onclick="zgAbilityExtraStatusRemove(this.dataset.statusKey)"><i>'+esc(status.icon||'✦')+'</i><span>'+esc(status.label||key)+'</span><b>×</b></button>';}).join(''),options=catalog.filter(function(status){return !selectedMap[status.key];}).map(function(status){return'<option value="'+esc(status.key)+'">'+esc(status.icon||'✦')+' '+esc(status.label||status.key)+'</option>';}).join('');return'<section class="zg-spell-effect-plan '+(result&&result.success?'':'inactive')+'"><header><div><small>Эффекты результата</small><b>Сначала — канон заклинания</b></div><span>Дополнительно: '+selected.length+' / '+max+'</span></header><div class="zg-spell-prescribed-list">'+prescribedHtml+'</div><div class="zg-spell-extra-effects"><div><small>Добавить от ГМа</small><span>Состояния сверх текста заклинания отмечаются отдельно.</span></div><div class="zg-spell-extra-controls"><select id="zg-spell-extra-status-select" '+(!options||selected.length>=max?'disabled':'')+'><option value="">Выберите состояние…</option>'+options+'</select><button type="button" onclick="zgAbilityExtraStatusAdd()" '+(!options||selected.length>=max?'disabled':'')+'>＋ Добавить</button></div>'+(selectedHtml?'<div class="zg-spell-added-effects">'+selectedHtml+'</div>':'')+'</div>'+(result&&!result.success?'<p>При промахе эффекты цели не применяются.</p>':'')+'</section>';}
   function abilityRenderAutomated(request,order){
     var preview=abilityPreviewBuild(request,order),ability=request.ability,result=preview&&preview.results[0],actor=order.find(function(entry){return entry&&String(entry.uid||'')===String(abilityResolveUid);}),selectedKey=String((request.abilityResolution&&request.abilityResolution.targetKey)||abilityResolveTargets[0]||''),target=order.find(function(entry){return entry&&String(entry.key)===selectedKey;}),actorToken=abilityEntryToken(actor),range=Math.max(0,Number(ability.rangeCells)||0),distance=abilityCellDistance(actorToken,abilityEntryToken(target)),outOfRange=!!(target&&range&&distance!=null&&distance>range),stage=String(request.status||'pending'),waitingAttack=['ability-attack-ready'].indexOf(stage)>=0,waitingDamage=['ability-damage-ready'].indexOf(stage)>=0,hasAttack=!!(request.abilityResolution&&request.abilityResolution.attack),hasDamage=!!(request.abilityResolution&&request.abilityResolution.damage),trait=result&&(result.immune?'Иммунитет к огню':result.resisted?'Сопротивление огню':result.vulnerable?'Уязвимость к огню':''),portrait=target&&target.portrait?'<img src="'+esc(target.portrait)+'" alt="">':'<i>✦</i>',targetsHtml=order.filter(function(entry){return entry&&String(entry.key)!==String(actor&&actor.key||'');}).map(function(entry){var cells=abilityCellDistance(actorToken,abilityEntryToken(entry)),far=range&&cells!=null&&cells>range;return'<button type="button" class="'+(selectedKey===String(entry.key)?'active ':'')+(far?'invalid':'')+'" onclick="zgAbilityResolveTarget('+JSON.stringify(entry.key)+')">'+esc(entry.name||'Цель')+(cells!=null?' · '+cells+' кл.':'')+'</button>';}).join(''),errorHtml=abilityResolveError?'<p class="zg-spell-inline-error">'+esc(abilityResolveError)+'</p>':'';
     var head='<div class="zg-spell-verdict-head"><div class="zg-spell-verdict-icon"><img src="'+esc(ability.iconAsset||'images/ui/combat-generated/spell-finger-heat.png')+'" alt=""></div><div><small>Поэтапный розыгрыш · урон ещё не применён</small><b>'+esc(ability.name||'Жар Пальцев')+'</b><span>'+esc(request.name||'Герой')+' · d20, затем при попадании 1d6</span></div></div><div class="zg-spell-target-picker">'+targetsHtml+'</div>'+errorHtml;
@@ -14729,12 +14775,14 @@ document.addEventListener('DOMContentLoaded', function(){
       '<article class="zg-spell-verdict-card '+(result.success?'hit':'miss')+'"><header><span class="zg-spell-verdict-portrait">'+portrait+'</span><div><small>Цель</small><b>'+esc(result.name)+'</b><em>HP '+Number(target&&target.hp==null?target&&target.hpMax:target&&target.hp)+' · КД '+result.dc+'</em></div><strong>'+(result.success?'ПОПАДАНИЕ':'ПРОМАХ')+'</strong></header>'+
       '<div class="zg-spell-calc"><section><small>Атака заклинанием</small><b>d20 '+rollText+' <i>'+(result.modifier>=0?'+ ':'− ')+Math.abs(result.modifier)+'</i> = '+result.total+'</b><span>INT против КД '+result.dc+'</span></section><section><small>Урон огнём</small><b>'+damageDice+' = '+result.damage+'</b><span>'+hpText+'</span></section></div>'+
       (trait?'<p class="zg-spell-trait">'+esc(trait)+' уже учтено в результате.</p>':'')+
-      '<div class="zg-spell-gm-tools"><span>Коррекция ГМа</span><div class="zg-spell-hit-toggle"><button type="button" class="'+(result.success?'active':'')+'" onclick="zgAbilityPreviewOutcome(true)">Попадание</button><button type="button" class="'+(!result.success?'active':'')+'" onclick="zgAbilityPreviewOutcome(false)">Промах</button></div><div class="zg-spell-damage-stepper"><button type="button" onclick="zgAbilityPreviewDamage(-5)">−5</button><button type="button" onclick="zgAbilityPreviewDamage(-1)">−1</button><b>'+result.damage+' урона</b><button type="button" onclick="zgAbilityPreviewDamage(1)">+1</button><button type="button" onclick="zgAbilityPreviewDamage(5)">+5</button></div><button type="button" class="zg-spell-effect '+(result.statuses.indexOf('burn')>=0?'active':'')+'" onclick="zgAbilityPreviewBurn()"><i>🔥</i><span><b>Горит</b><small>Добавить состояние после попадания</small></span></button></div>'+
+      '<div class="zg-spell-gm-tools"><span>Коррекция ГМа</span><div class="zg-spell-hit-toggle"><button type="button" class="'+(result.success?'active':'')+'" onclick="zgAbilityPreviewOutcome(true)">Попадание</button><button type="button" class="'+(!result.success?'active':'')+'" onclick="zgAbilityPreviewOutcome(false)">Промах</button></div><div class="zg-spell-damage-stepper"><button type="button" onclick="zgAbilityPreviewDamage(-5)">−5</button><button type="button" onclick="zgAbilityPreviewDamage(-1)">−1</button><b>'+result.damage+' урона</b><button type="button" onclick="zgAbilityPreviewDamage(1)">+1</button><button type="button" onclick="zgAbilityPreviewDamage(5)">+5</button></div></div>'+abilityRenderEffectPlan(ability,result)+
       '<footer class="zg-spell-verdict-actions"><button type="button" onclick="zgAbilityPrepareRoll(\'attack\')">Назначить новый d20</button><button type="button" class="apply zg-combat-attack-submit" '+(abilityResolveBusy?'disabled':'')+' onclick="zgAbilityResolveSubmit()">'+(abilityResolveBusy?'Применяем…':'Подтвердить и применить')+'</button></footer></article>';
   }
   w.zgAbilityPreviewOutcome=function(success){var result=abilityResolvePreview&&abilityResolvePreview.results[0];if(!result)return;abilityResolveOutcomeOverride=!!success;result.success=!!success;result.damage=result.success?Math.max(0,Number(result.rolledDamage)||0):0;if(!result.success)result.statuses=[];var room=roomSnapshot&&roomSnapshot.room,order=room&&room.combat&&room.combat.order||[],target=order.find(function(entry){return entry&&String(entry.key)===String(result.key);});abilityPreviewVitals(result,target||{});w.zgAbilityResolveOpen(abilityResolveUid,true);};
   w.zgAbilityPreviewDamage=function(delta){var result=abilityResolvePreview&&abilityResolvePreview.results[0];if(!result)return;abilityResolveDamageOverride=Math.max(0,Math.min(999,Number(result.damage||0)+Number(delta||0)));if(abilityResolveDamageOverride>0)abilityResolveOutcomeOverride=true;w.zgAbilityResolveOpen(abilityResolveUid,true);};
-  w.zgAbilityPreviewBurn=function(){var index=abilityResolveStatusOverrides.indexOf('burn');if(index>=0)abilityResolveStatusOverrides.splice(index,1);else{abilityResolveStatusOverrides.push('burn');abilityResolveOutcomeOverride=true;}w.zgAbilityResolveOpen(abilityResolveUid,true);};
+  w.zgAbilityExtraStatusAdd=function(){var select=el('zg-spell-extra-status-select'),key=normalizeStatusDisplayKey(select&&select.value),room=roomSnapshot&&roomSnapshot.room,request=room&&room.members&&room.members[abilityResolveUid]&&room.members[abilityResolveUid].actionRequest,plan=abilityEffectPlan(request&&request.ability||{}),max=Math.max(0,Math.min(12,Number(plan.gmAdditions&&plan.gmAdditions.max)||6));if(!key||key==='dead'||abilityResolveStatusOverrides.indexOf(key)>=0||abilityResolveStatusOverrides.length>=max)return;abilityResolveStatusOverrides.push(key);w.zgAbilityResolveOpen(abilityResolveUid,true);};
+  w.zgAbilityExtraStatusRemove=function(key){key=normalizeStatusDisplayKey(key);abilityResolveStatusOverrides=abilityResolveStatusOverrides.filter(function(item){return item!==key;});w.zgAbilityResolveOpen(abilityResolveUid,true);};
+  w.zgAbilityPreviewBurn=function(){var index=abilityResolveStatusOverrides.indexOf('burn');if(index>=0)abilityResolveStatusOverrides.splice(index,1);else abilityResolveStatusOverrides.push('burn');w.zgAbilityResolveOpen(abilityResolveUid,true);};
   w.zgAbilityPreviewReroll=function(){w.zgAbilityPrepareRoll('attack');};
   w.zgAbilityPrepareRoll=function(phase,forceHit){var uid=abilityResolveUid,api=combatQaActive()?combatQaApi:w.ZargotaRooms;if(abilityResolveBusy||!uid||!abilityResolveTargets.length||!api||!api.prepareCombatAbilityRoll)return;abilityResolveBusy=true;abilityResolveError='';abilityResolveOutcomeOverride=null;abilityResolveDamageOverride=null;abilityResolveStatusOverrides=[];w.zgAbilityResolveOpen(uid,true);combatStartDeadline(api.prepareCombatAbilityRoll(uid,abilityResolveTargets[0],phase,!!forceHit),12000).then(function(snapshot){if(snapshot)render(snapshot);abilityResolveBusy=false;w.zgAbilityResolveOpen(uid,true);if(w.showToast)w.showToast(phase==='damage'?'Игроку назначен бросок урона':'Игроку назначен бросок d20');}).catch(function(error){abilityResolveBusy=false;abilityResolveError=error&&error.message||'Не удалось назначить бросок';w.zgAbilityResolveOpen(uid,true);if(w.showToast)w.showToast(abilityResolveError);});};
   function openAbilityTargetEntity(key,order){
@@ -14885,6 +14933,7 @@ document.addEventListener('DOMContentLoaded', function(){
       });
     }
     if(requestListChanged&&isMaster)actionPending.forEach(function(request){var details=request&&request.actionKind==='combat-attack'&&request.details;if(!details||!details.outOfRange)return;var card=Array.prototype.find.call(list.querySelectorAll('.zg-action-request'),function(node){return String(node.dataset.requestUid||'')===String(request.uid||'');});if(!card)return;card.classList.add('out-of-range');var copy=card.querySelector('.zg-move-request-copy'),tags=card.querySelector('.zg-action-request-tags');if(!tags&&copy){tags=document.createElement('div');tags.className='zg-action-request-tags';copy.appendChild(tags);}if(tags){var warning=document.createElement('span');warning.className='range-warning';warning.textContent='⚠ ВНЕ ДИСТАНЦИИ · '+Number(details.distanceCells||0)+' / '+Number(details.rangeCells||0)+' кл.';tags.appendChild(warning);}});
+    if(abilityResolveUid&&el('zg-combat-ability-resolve')&&el('zg-combat-ability-resolve').classList.contains('open'))w.zgAbilityResolveOpen(abilityResolveUid,true);
   }
   function movementFeedback(){
     var session = roomSnapshot && roomSnapshot.session;
@@ -17093,10 +17142,10 @@ document.addEventListener('DOMContentLoaded', function(){
           var preview=el('zg-move-preview'),actor=movementActorToken();if(!point||!preview||!actor)return;
           scheduleToolRangeVector({origin:{x:actor.x,y:actor.y},point:point,limit:movementBudgetCells(actor),label:'Движение',tokenId:actor.id,tool:'movement'},point);
         }else if(w.zgCombatAttackToolActive&&w.zgCombatTargetingPreview&&point){
-          var attackPreview=w.zgCombatTargetingPreview(point);if(attackPreview){var hoveredTarget=ev.target.closest&&ev.target.closest('.zg-vtt-token.combat-target-valid,.zg-vtt-token.combat-target-out');attackPreview.tool='attack';attackPreview.targetHovered=!!hoveredTarget;scheduleToolRangeVector(attackPreview);}
-        }
+          var attackPreview=w.zgCombatTargetingPreview(point);if(attackPreview){var hoveredTarget=ev.target.closest&&ev.target.closest('.zg-vtt-token.combat-target-valid,.zg-vtt-token.combat-target-out');syncAttackTargetHover(hoveredTarget);attackPreview.tool='attack';attackPreview.targetHovered=!!hoveredTarget;scheduleToolRangeVector(attackPreview);}
+        }else syncAttackTargetHover(null);
       });
-      scene.addEventListener('pointerleave', function(){ var preview=el('zg-move-preview'); if(preview)preview.style.display='';syncAbilityTargetHover(null);clearToolRangeVector();var abilityPreview=document.querySelector('.zg-ability-point-preview');if(abilityPreview)abilityPreview.style.display='none'; });
+      scene.addEventListener('pointerleave', function(){ var preview=el('zg-move-preview'); if(preview)preview.style.display='';syncAbilityTargetHover(null);syncAttackTargetHover(null);clearToolRangeVector();var abilityPreview=document.querySelector('.zg-ability-point-preview');if(abilityPreview)abilityPreview.style.display='none'; });
       scene.addEventListener('pointerdown',function(ev){
         if(!pingMode||ev.button!==0||(ev.target.closest&&ev.target.closest('.zg-vtt-token')))return;
         var point=regionPoint(ev);if(!point)return;
@@ -19254,10 +19303,12 @@ document.addEventListener('DOMContentLoaded', function(){
       var learned=card.group!=='spells'||card.learned===true,disabled=card.group==='spells'&&!learned,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
       var stateLabel=card.group==='spells'?(unknown?'Статус не передан':disabled?'Не изучено':card.prepared?'Подготовлено':'Изучено'):(card.passive?'Пассивно':'Готово');
       var searchText=String(card.name+' '+card.kind+' '+card.description).toLowerCase();
-      var preparationAction=canEditPreparation&&!disabled&&!unknown?'<button type="button" class="zg-spell-prepare-action '+(card.prepared?'active':'')+'" onclick="zgVttSpellPreparation(\''+card.spellId+'\','+(!card.prepared)+',arguments[0])" title="'+(card.prepared?'Убрать из подготовленных':'Подготовить заклинание')+'" aria-label="'+(card.prepared?'Убрать из подготовленных':'Подготовить заклинание')+'">'+(card.prepared?'Снять':'＋')+'</button>':'';
-      var gmActions=gmMagicEdit?'<span class="zg-gm-spell-actions"><button type="button" onclick="zgVttGmSpellLearn(\''+card.spellId+'\','+(!learned)+',arguments[0])" title="'+(!learned?'Изучить заклинание':'Разучить заклинание')+'">'+(!learned?'Изучить':'Разучить')+'</button><button type="button" class="remove" onclick="zgVttGmSpellRemove(\''+card.spellId+'\',arguments[0])" title="Убрать заклинание у героя">×</button></span>':'';
-      var dragAttributes=card.group==='spells'?' draggable="'+learned+'" ondragstart="return zgVttSpellDragStart(event,\''+card.spellId+'\')" ondragend="zgVttSpellDragEnd(event)"':'';
-      return '<article class="zg-spell-catalog-card tone-'+card.tone+(card.prepared?' prepared':'')+(disabled?' locked is-unlearned':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+(learned&&card.group==='spells'?' is-draggable':'')+(gmMagicEdit?' gm-editable':'')+'" data-spell-id="'+esc(card.spellId||'')+'" data-ability-search="'+esc(searchText)+'"'+dragAttributes+'><button type="button" class="zg-spell-card-main" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button>'+preparationAction+gmActions+'</article>';
+      var actionOptions='';
+      if(canEditPreparation&&!disabled&&!unknown)actionOptions+='<option value="'+(card.prepared?'unprepare':'prepare')+'">'+(card.prepared?'Снять с подготовки':'Подготовить')+'</option>';
+      if(gmMagicEdit)actionOptions+='<option value="'+(learned?'unlearn':'learn')+'">'+(learned?'Разучить':'Отметить изученным')+'</option><option value="remove">Убрать у героя…</option>';
+      var actionMenu=actionOptions?'<label class="zg-spell-card-menu" title="Действия с заклинанием"><span class="sr-only">Действия с '+esc(card.name)+'</span><select aria-label="Действия с '+esc(card.name)+'" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()" ondragstart="event.stopPropagation();return false" onchange="zgVttSpellCardAction(\''+card.spellId+'\',this,event)"><option value="">•••</option>'+actionOptions+'</select></label>':'';
+      var dragAttributes=card.group==='spells'?' draggable="'+learned+'" ondragstart="return zgVttSpellDragStart(event,\''+card.spellId+'\')" ondrag="zgVttSpellDragMove(event)" ondragend="zgVttSpellDragEnd(event)"':'';
+      return '<article class="zg-spell-catalog-card tone-'+card.tone+(card.prepared?' prepared':'')+(disabled?' locked is-unlearned':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+(learned&&card.group==='spells'?' is-draggable':'')+(actionOptions?' has-actions':'')+'" data-spell-id="'+esc(card.spellId||'')+'" data-ability-search="'+esc(searchText)+'"'+dragAttributes+'><button type="button" class="zg-spell-card-main" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button>'+actionMenu+'</article>';
     }
     function innateCardHtml(card){
       return '<article class="zg-spell-innate-card tone-'+card.tone+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><div><b>'+esc(compactInnateName(card))+'</b><small class="zg-magic3-innate-type">'+esc(compactInnateType(card))+'</small></div></button></article>';
@@ -19494,7 +19545,6 @@ document.addEventListener('DOMContentLoaded', function(){
     renderJournal();
     renderDrawer(false);
     renderCombat();
-    if(abilityResolveUid&&el('zg-combat-ability-resolve')&&el('zg-combat-ability-resolve').classList.contains('open'))w.zgAbilityResolveOpen(abilityResolveUid,true);
     syncOwnDeathSaveAmbient();
     processApprovedAttackRolls();
     processApprovedDamageRolls();
@@ -20974,7 +21024,7 @@ document.addEventListener('DOMContentLoaded', function(){
         var fixed=approved[String(target.key||'')]||null;if(Object.keys(approved).length&&!fixed)throw new Error('Утверждённый результат QA устарел');
         var before=Math.max(0,Number(target.hp==null?target.hpMax:target.hp)||0),beforeTemp=Math.max(0,Number(target.tempHp)||0),damageRoll=ability.damageFormula?combatQaRollFormula(ability.damageFormula,false):null,healRoll=ability.healFormula?combatQaRollFormula(ability.healFormula,false):null,damage=fixed?Math.max(0,Math.min(999,Math.floor(Number(fixed.damage)||0))):Math.max(0,Number(damageRoll&&damageRoll.total)||0),healing=Math.max(0,Number(healRoll&&healRoll.total)||0),absorbed=Math.min(beforeTemp,damage);
         target.tempHp=Math.max(0,beforeTemp-absorbed);target.hp=Math.max(0,Math.min(Number(target.hpMax)||before,Math.max(0,before-Math.max(0,damage-absorbed))+healing));
-        var statuses=fixed&&fixed.success!==false&&Array.isArray(fixed.statuses)?fixed.statuses.filter(function(key){return key==='burn';}):[];if(statuses.length){target.statuses=Array.isArray(target.statuses)?target.statuses.slice():[];statuses.forEach(function(key){if(target.statuses.indexOf(key)<0)target.statuses.push(key);});}
+        var prescribed=w.ZargotaSpellAutomation&&typeof w.ZargotaSpellAutomation.prescribedStatusKeys==='function'?w.ZargotaSpellAutomation.prescribedStatusKeys(ability):[],statuses=fixed&&fixed.success!==false?prescribed.concat(Array.isArray(fixed.statuses)?fixed.statuses:[]).map(normalizeStatusDisplayKey).filter(function(key,index,list){return key&&key!=='dead'&&list.indexOf(key)===index;}).slice(0,12):[];if(statuses.length){target.statuses=Array.isArray(target.statuses)?target.statuses.slice():[];statuses.forEach(function(key){if(target.statuses.indexOf(key)<0)target.statuses.push(key);});}
         combatQaSyncZeroHp(target,before,stamp);combatQaSyncTarget(snapshot,target);results.push({key:target.key,name:target.name,roll:fixed&&Number(fixed.roll)||null,rolls:fixed&&fixed.rolls||[],rollMode:fixed&&fixed.rollMode||'normal',modifier:fixed&&Number(fixed.modifier)||0,total:fixed&&Number(fixed.total)||null,dc:fixed&&Number(fixed.dc)||null,success:fixed?!!fixed.success:true,beforeHp:before,beforeTempHp:beforeTemp,hp:target.hp,tempHp:target.tempHp,damage:damage,heal:healing,absorbed:absorbed,damageRolls:fixed&&fixed.damageRolls||damageRoll&&damageRoll.rolls||[],healRolls:healRoll&&healRoll.rolls||[],statuses:statuses});
       });
       request.status='resolved';request.resolvedAt=stamp;request.resultEventId='qa-combat-ability-'+stamp;if(request.ability&&Number(request.ability.resourceMax)>0)request.ability.resourceUsed=Math.min(Number(request.ability.resourceMax),Math.max(0,Number(request.ability.resourceUsed)||0)+1);combat.updatedAt=stamp;
@@ -21477,8 +21527,8 @@ document.addEventListener('DOMContentLoaded', function(){
     if(typeof w.addInventoryItem==='function')w.addInventoryItem(c.id);
     setTimeout(function(){w.zgVttOpenPanel('inventory');},120);
   };
-  w.zgVttInventoryFilter=function(filter){inventoryFilter=['all','consumable','material','key','equipment','other'].indexOf(filter)>=0?filter:'all';inventoryPage=0;renderDrawer();};
-  w.zgVttInventoryPage=function(delta){inventoryPage=Math.max(0,inventoryPage+(Number(delta)<0?-1:1));renderDrawer();};
+  w.zgVttInventoryFilter=function(filter){var next=['all','consumable','material','key','equipment','other'].indexOf(filter)>=0?filter:'all';if(next!==inventoryFilter)try{if(w.ZargotaSound&&w.ZargotaSound.inventoryTab)w.ZargotaSound.inventoryTab();}catch(ignore){}inventoryFilter=next;inventoryPage=0;renderDrawer();};
+  w.zgVttInventoryPage=function(delta){var previous=inventoryPage;inventoryPage=Math.max(0,inventoryPage+(Number(delta)<0?-1:1));if(previous!==inventoryPage)try{if(w.ZargotaSound&&w.ZargotaSound.inventoryTab)w.ZargotaSound.inventoryTab();}catch(ignore){}renderDrawer();};
   w.zgVttStatusInfoClose=function(){
     var modal=el('zg-vtt-status-info');
     if(modal)modal.remove();
@@ -21622,7 +21672,7 @@ document.addEventListener('DOMContentLoaded', function(){
     inventorySearch=String(value||'').slice(0,80);renderDrawer();
     var input=el('zg-bag-search');if(input){input.focus();try{input.setSelectionRange(inventorySearch.length,inventorySearch.length);}catch(ignore){}}
   };
-  w.zgVttInventorySort=function(sort){inventorySort=['name','qty'].indexOf(sort)>=0?sort:'manual';renderDrawer();};
+  w.zgVttInventorySort=function(sort){var next=['name','qty'].indexOf(sort)>=0?sort:'manual';if(next!==inventorySort)try{if(w.ZargotaSound&&w.ZargotaSound.inventoryTab)w.ZargotaSound.inventoryTab();}catch(ignore){}inventorySort=next;renderDrawer();};
   w.zgVttRefreshDrawer=function(){if(activePanel)renderDrawer();};
   function inventoryDropAllowed(item,slotName){
     var equipmentRules=w.ZargotaEquipmentRules||{},isHandSlot=slotName==='mainHand'||slotName==='offHand';
@@ -21645,6 +21695,7 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttInventoryDrag=function(event,index){
     if(!event||!event.dataTransfer)return;
     var member=drawerMember(),editable=editableDrawerCharacter(member),c=editable.character,item=c&&c.inventoryItems&&c.inventoryItems[index];
+    if(!item)return;
     event.dataTransfer.setData('text/zargota-item',String(index));
     event.dataTransfer.setData('text/plain',String(index));
     event.dataTransfer.effectAllowed='move';
@@ -21652,6 +21703,7 @@ document.addEventListener('DOMContentLoaded', function(){
     Array.prototype.forEach.call(document.querySelectorAll('.zg-inv2-equip-slot[data-equip-slot]'),function(slot){slot.classList.add(inventoryDropAllowed(item,slot.getAttribute('data-equip-slot'))?'can-drop':'cannot-drop');});
     var ghost=document.createElement('div');ghost.id='zg-inventory-drag-ghost';ghost.className='zg-inventory-drag-ghost';var src=typeof w.charInventoryImage==='function'?w.charInventoryImage(item):item&&(item.imageThumb||item.image)||'';ghost.innerHTML=(src?'<img src="'+esc(src)+'" alt="">':'<i>'+esc(item&&item.icon||'◈')+'</i>')+'<b>'+esc(item&&item.name||'Предмет')+'</b>';document.body.appendChild(ghost);
     try{event.dataTransfer.setDragImage(ghost,24,24);}catch(ignore){}
+    try{if(w.ZargotaSound&&w.ZargotaSound.inventoryDrag)w.ZargotaSound.inventoryDrag();}catch(ignore){}
   };
   w.zgVttInventoryDrop=function(event,slotName){
     if(event){event.preventDefault();if(event.currentTarget)event.currentTarget.classList.remove('dragover');}
@@ -21680,7 +21732,7 @@ document.addEventListener('DOMContentLoaded', function(){
       item.slot=slotName;item.equipped=true;
     }
     renderDrawer(true);
-    commitInventoryMutation(member,c,before,'inventory-equip','Предмет экипирован и подтверждён комнатой.');
+    return commitInventoryMutation(member,c,before,'inventory-equip','Предмет экипирован и подтверждён комнатой.').then(function(saved){if(saved)try{if(w.ZargotaSound&&w.ZargotaSound.inventoryEquip)w.ZargotaSound.inventoryEquip();}catch(ignore){}return saved;});
   };
   w.zgVttInventoryOpenItem=function(source,index){
     var member=drawerMember(),c=fullLocalCharacter(member)||member&&member.character;if(!c)return;
@@ -21757,7 +21809,7 @@ document.addEventListener('DOMContentLoaded', function(){
       item.equipped=false;delete item.slot;delete item.handsRequired;
     }
     w.zgVttInventoryCloseItem();renderDrawer(true);
-    commitInventoryMutation(member,c,before,'inventory-unequip','Предмет снят и изменение подтверждено комнатой.');
+    return commitInventoryMutation(member,c,before,'inventory-unequip','Предмет снят и изменение подтверждено комнатой.').then(function(saved){if(saved)try{if(w.ZargotaSound&&w.ZargotaSound.inventoryUnequip)w.ZargotaSound.inventoryUnequip();}catch(ignore){}return saved;});
   };
   function journalEntryId(){
     var suffix='';
@@ -22121,6 +22173,14 @@ document.addEventListener('DOMContentLoaded', function(){
       var prepared=typeof w.normalizePreparedSpellsForCharacter==='function'?w.normalizePreparedSpellsForCharacter(character,{bootstrapLegacy:false}):{kodex:[],folio:[],obrad:[]};Object.keys(prepared).forEach(function(type){prepared[type]=prepared[type].filter(function(id){return String(id)!==key;});});character.preparedSpells=prepared;modal.remove();commitGmMagicCharacter(current.member,character,'gm-spell-remove','Заклинание убрано у героя');
     };document.body.appendChild(modal);return true;
   };
+  w.zgVttSpellCardAction=function(spellId,select,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    var action=String(select&&select.value||'');if(select)select.selectedIndex=0;if(!action)return false;
+    if(action==='prepare'||action==='unprepare')return w.zgVttSpellPreparation(spellId,action==='prepare',event);
+    if(action==='learn'||action==='unlearn')return w.zgVttGmSpellLearn(spellId,action==='learn',event);
+    if(action==='remove')return w.zgVttGmSpellRemove(spellId,event);
+    return false;
+  };
   w.zgVttSpellPreparation=function(spellId,shouldPrepare,event){
     if(event){event.preventDefault();event.stopPropagation();}
     var member=drawerMember(),localCharacter=fullLocalCharacter(member),editable=editableDrawerCharacter(member),character=editable&&editable.character;
@@ -22150,6 +22210,22 @@ document.addEventListener('DOMContentLoaded', function(){
     var key=String(spellId||draggedPreparedSpellId||'');
     return abilityCardsByKey['spell-'+key]||null;
   }
+  function movePreparedSpellDragGhost(event){
+    var ghost=el('zg-spell-drag-ghost');if(!ghost||!event||!Number.isFinite(event.clientX)||!Number.isFinite(event.clientY)||(!event.clientX&&!event.clientY))return;
+    ghost.style.left=(event.clientX+18)+'px';ghost.style.top=(event.clientY+16)+'px';
+  }
+  function createPreparedSpellDragGhost(card,event){
+    var old=el('zg-spell-drag-ghost');if(old)old.remove();
+    var ghost=document.createElement('div');ghost.id='zg-spell-drag-ghost';ghost.className='zg-spell-drag-ghost tone-'+card.tone;
+    ghost.setAttribute('aria-hidden','true');
+    ghost.innerHTML='<i class="zg-spell-drag-glyph">'+abilityIconHtml(card)+'</i><span><small>В ПОДГОТОВКУ</small><b>'+esc(card.name)+'</b></span>';
+    document.body.appendChild(ghost);movePreparedSpellDragGhost(event);requestAnimationFrame(function(){if(ghost.isConnected)ghost.classList.add('is-visible');});
+  }
+  function finishPreparedSpellDragGhost(success,targetRect){
+    var ghost=el('zg-spell-drag-ghost');if(!ghost||ghost.dataset.finished)return;ghost.dataset.finished='1';
+    if(success&&targetRect){ghost.style.left=(targetRect.left+targetRect.width/2-92)+'px';ghost.style.top=(targetRect.top+targetRect.height/2-27)+'px';}
+    ghost.classList.add(success?'is-dropped':'is-cancelled');setTimeout(function(){if(ghost.isConnected)ghost.remove();},success?360:220);
+  }
   function clearPreparedSpellDropState(){
     draggedPreparedSpellId='';
     document.querySelectorAll('.zg-magic3-slot-group.drop-ready,.zg-spell-catalog-card.is-dragging').forEach(function(node){node.classList.remove('drop-ready','is-dragging');});
@@ -22163,14 +22239,17 @@ document.addEventListener('DOMContentLoaded', function(){
     }
     draggedPreparedSpellId=String(card.spellId||spellId||'');
     if(event&&event.currentTarget)event.currentTarget.classList.add('is-dragging');
+    createPreparedSpellDragGhost(card,event);
     if(event&&event.dataTransfer){
       event.dataTransfer.effectAllowed='move';
       event.dataTransfer.setData('application/x-zargota-spell',draggedPreparedSpellId);
       event.dataTransfer.setData('text/plain',draggedPreparedSpellId);
+      var transparent=document.createElement('canvas');transparent.width=transparent.height=1;event.dataTransfer.setDragImage(transparent,0,0);
     }
     return true;
   };
-  w.zgVttSpellDragEnd=function(){clearPreparedSpellDropState();};
+  w.zgVttSpellDragMove=function(event){movePreparedSpellDragGhost(event);};
+  w.zgVttSpellDragEnd=function(){finishPreparedSpellDragGhost(false,null);clearPreparedSpellDropState();};
   w.zgVttPreparedSpellDragOver=function(event,type){
     var card=draggedSpellCard();
     if(!card||card.learned!==true||card.spellType!==String(type||''))return false;
@@ -22187,8 +22266,8 @@ document.addEventListener('DOMContentLoaded', function(){
     var card=draggedSpellCard(transferred);
     if(!card||card.learned!==true){clearPreparedSpellDropState();if(w.showToast)w.showToast('Можно подготовить только изученное заклинание');return false;}
     if(card.spellType!==String(type||'')){clearPreparedSpellDropState();if(w.showToast)w.showToast('Перетащите заклинание в слот его типа');return false;}
-    var spellId=String(card.spellId||transferred||'');clearPreparedSpellDropState();
-    return w.zgVttSpellPreparation(spellId,true,null);
+    var spellId=String(card.spellId||transferred||''),dropTarget=event&&event.currentTarget,dropRect=dropTarget&&dropTarget.getBoundingClientRect?dropTarget.getBoundingClientRect():null;
+    clearPreparedSpellDropState();var prepared=w.zgVttSpellPreparation(spellId,true,null);finishPreparedSpellDragGhost(prepared!==false,dropRect);return prepared;
   };
   w.zgVttAbilitiesSearch=function(value){
     abilitySearch=String(value||'').trim().toLowerCase().slice(0,120);
@@ -22498,11 +22577,12 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttCloseDrawer = function(options){
     options=options||{};
     if(backpackCloseTimer){clearTimeout(backpackCloseTimer);backpackCloseTimer=0;}
+    var drawer = el('zg-vtt-drawer');
+    var wasBackpackOpen=!!(drawer&&drawer.classList.contains('open')&&drawer.classList.contains('backpack-skin'));
     activePanel = '';
     lastBackpackSkin = '';
     lastDrawerRenderSignature = '';
     drawerMemberUid = '';
-    var drawer = el('zg-vtt-drawer');
     var party=el('zg-vtt-party');if(party)party.classList.remove('drawer-priority');
     var animate=drawer&&drawer.classList.contains('open')&&drawer.classList.contains('backpack-skin')&&!options.immediate&&!document.documentElement.classList.contains('zg-reduced-effects');
     if(drawer){
@@ -22520,13 +22600,14 @@ document.addEventListener('DOMContentLoaded', function(){
     document.querySelectorAll('[data-vtt-tool]').forEach(function(button){ button.classList.remove('active'); });
     if(playerDockAction==='inventory'||playerDockAction==='abilities')w.zgPlayerDockSet(playerDockAction,false);
     schedulePlayerDockBagLayout();
+    if(wasBackpackOpen&&!options.silent)try{if(w.ZargotaSound&&w.ZargotaSound.bagClose)w.ZargotaSound.bagClose();}catch(ignore){}
   };
   w.zgVttOpenPanel = function(panel,options){
     options=options||{};
     var panelSession=state&&state.session;
     if(panelSession&&panelSession.role==='player'&&panel!=='character')drawerMemberUid='';
     if(backpackCloseTimer){clearTimeout(backpackCloseTimer);backpackCloseTimer=0;}
-    var drawer=el('zg-vtt-drawer');if(drawer)drawer.classList.remove('closing');
+    var drawer=el('zg-vtt-drawer'),drawerWasOpen=!!(drawer&&drawer.classList.contains('open')&&!drawer.classList.contains('closing')),previousPanel=activePanel;if(drawer)drawer.classList.remove('closing');
     if(options.resetMember)drawerMemberUid='';
     if(options.memberUid!=null){
       var session=state&&state.session,candidate=roomMembers().find(function(member){return String(member.uid)===String(options.memberUid)&&member.character;});
@@ -22552,6 +22633,9 @@ document.addEventListener('DOMContentLoaded', function(){
     if(['character','inventory','abilities','journal'].indexOf(panel)>=0&&w.zgPlayerDockSet)w.zgPlayerDockSet('inventory',true);
     renderDrawer();
     schedulePlayerDockBagLayout();
+    if(['character','inventory','abilities','journal'].indexOf(panel)>=0){
+      try{if(w.ZargotaSound){if(!drawerWasOpen&&w.ZargotaSound.bagOpen)w.ZargotaSound.bagOpen();else if(previousPanel!==panel&&w.ZargotaSound.inventoryTab)w.ZargotaSound.inventoryTab();}}catch(ignore){}
+    }
   };
   w.zgVttOpenPanelForMember=function(panel,uid,options){
     var session=state&&state.session;
@@ -27149,7 +27233,8 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-combat-attack-confirm{padding:14px 2px 2px;text-align:center}.zg-combat-player-weapon{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;margin:0 0 12px;padding:10px 12px;border:1px solid #5d4022;border-radius:9px;background:linear-gradient(135deg,#171008,#0b0805);color:#bca574;font:700 10px 'Cinzel',serif;letter-spacing:.8px;text-transform:uppercase;text-align:left}.zg-combat-player-weapon select{min-width:0;height:42px;padding:0 12px;border:1px solid #795329;border-radius:7px;background:#090604;color:#efd690;font:600 12px Georgia,serif;outline:0}.zg-combat-player-weapon select:focus{border-color:#c18d36;box-shadow:0 0 0 2px #c18d3626}.zg-combat-attack-duel{display:grid;grid-template-columns:minmax(0,1fr) 36px minmax(0,1fr);align-items:center;gap:9px}.zg-combat-attack-duel>span:not(.arrow){display:grid;grid-template-columns:58px minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:12px;align-items:center;min-height:78px;padding:10px;border:1px solid #53391f;border-radius:10px;background:radial-gradient(circle at 10% 20%,#2b190b,#0c0906 58%);text-align:left;box-shadow:inset 0 1px #e5ba5b12,0 8px 20px #0007}.zg-combat-attack-duel>span.from-item{border-color:#896127;box-shadow:inset 0 1px #f1c76522,0 8px 20px #0008,0 0 20px #b77b1d12}.zg-combat-attack-duel>span>img,.zg-combat-attack-duel>span>i{grid-row:1/4;width:58px;height:58px;border:1px solid #8c6529;border-radius:9px;object-fit:cover;display:grid;place-items:center;background:#160e07;color:#d5a84f;font-style:normal;font-size:23px;box-shadow:inset 0 0 14px #000b,0 5px 14px #0009}.zg-combat-attack-duel>span>i svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.5}.zg-combat-attack-duel em{align-self:end;color:#866d45;font:700 7px 'Cinzel',serif;letter-spacing:1px}.zg-combat-attack-duel b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#ead08e;font:600 12px 'Cinzel',serif}.zg-combat-attack-duel small{align-self:start;color:#a38a5f;font:11px/1.25 Georgia,serif}.zg-combat-attack-duel .arrow{display:grid;place-items:center;width:32px;height:32px;border:1px solid #6c4c22;border-radius:50%;background:#130d07;color:#d19b3e;font-size:20px;box-shadow:0 0 18px #c98c2820}.zg-combat-attack-confirm p{margin:13px 0 10px;color:#b39b70;font:12px Georgia,serif}.zg-combat-confirm-actions{display:grid;grid-template-columns:1fr 1.35fr;gap:8px}.zg-combat-confirm-actions.has-target{grid-template-columns:.75fr 1fr 1.35fr}.zg-combat-confirm-actions button{height:42px;border:1px solid #553a20;border-radius:6px;background:#100b07;color:#bca574;font:600 11px 'Cinzel',serif;cursor:pointer}.zg-combat-confirm-actions button.target-pick{border-color:#77602d;color:#e0c47c}.zg-combat-confirm-actions button.approve{border-color:#a9792f;background:linear-gradient(180deg,#35220d,#211306);color:#f0cf7b}.zg-combat-confirm-actions button:disabled{opacity:.45}@media(max-width:520px){.zg-combat-player-weapon{grid-template-columns:1fr}.zg-combat-attack-duel{grid-template-columns:1fr}.zg-combat-attack-duel .arrow{margin:auto;transform:rotate(90deg)}.zg-combat-confirm-actions.has-target{grid-template-columns:1fr 1fr}.zg-combat-confirm-actions.has-target .approve{grid-column:1/-1}}
   .zg-combat-save-open{height:29px;padding:0 10px;border:1px solid #665126;border-radius:15px;background:#171006;color:#d8bb6e;font:8px 'Cinzel',serif;cursor:pointer}.zg-combat-bar-actions .zg-combat-save-open{padding:0 8px;border-color:#6e5325;border-radius:5px;background:#201507}.zg-combat-save{width:min(720px,calc(100vw - 28px));max-height:min(82vh,760px);overflow:auto}.zg-combat-save-section{margin-top:10px;padding:10px;border:1px solid #392817;border-radius:9px;background:linear-gradient(135deg,#100b07,#090604)}.zg-combat-save-section>header{display:flex;align-items:center;gap:8px;margin-bottom:8px}.zg-combat-save-section>header>span{width:22px;height:22px;border:1px solid #80602e;border-radius:50%;display:grid;place-items:center;background:#1c1107;color:#e0bd63;font:700 9px 'Cinzel',serif}.zg-combat-save-section>header div{display:grid;gap:1px}.zg-combat-save-section>header b{color:#ddc184;font:700 10px 'Cinzel',serif}.zg-combat-save-section>header small{color:#78694d;font:italic 9px Georgia,serif}.zg-combat-save-targets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.zg-combat-save-target{position:relative;min-width:0;display:grid;grid-template-columns:42px minmax(0,1fr);align-items:center;gap:8px;padding:6px;border:1px solid #3d2c1b;border-radius:8px;background:#0c0906;color:#9b8967;text-align:left;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}.zg-combat-save-target:hover{transform:translateY(-1px);border-color:#73552b}.zg-combat-save-target img,.zg-combat-save-target>i{width:42px;height:42px;border:1px solid #5a4424;border-radius:50%;object-fit:cover;display:grid;place-items:center;background:#1b1008;color:#bd9550;font:18px Georgia,serif}.zg-combat-save-target b,.zg-combat-save-target small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-combat-save-target b{color:#cbb27b;font:700 9px 'Cinzel',serif}.zg-combat-save-target small{margin-top:3px;color:#726449;font:8px Georgia,serif}.zg-combat-save-target em{position:absolute;right:6px;top:6px;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:#b88431;color:#160e05;font:700 9px Arial,sans-serif}.zg-combat-save-target.active{border-color:#bd8736;background:radial-gradient(circle at 16% 28%,#3a2410,#140c06 70%);box-shadow:0 0 15px #b77a2928}.zg-combat-save-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}.zg-combat-save-stat{min-width:0;padding:7px 3px 6px;border:1px solid #3d2c1b;border-radius:8px;display:grid;justify-items:center;gap:3px;background:#0b0805;color:#897758;cursor:pointer}.zg-combat-save-stat img{width:25px;height:25px;object-fit:contain;filter:saturate(.68) sepia(.14);opacity:.72}.zg-combat-save-stat span{font:700 7px 'Cinzel',serif;letter-spacing:.5px}.zg-combat-save-stat b{color:#bda570;font:700 11px 'Cinzel',serif}.zg-combat-save-stat.active{border-color:#c08a35;background:radial-gradient(circle at 50% 20%,#4a2e12,#160d06 75%);color:#efd176;box-shadow:0 0 14px #bd7b2927}.zg-combat-save-stat.active img{opacity:1;filter:drop-shadow(0 0 5px #d7a43c66)}.zg-combat-save-numbers{display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-top:8px}.zg-combat-save-numbers>div{padding:8px;border:1px solid #322416;border-radius:7px;display:flex;align-items:center;gap:8px;background:#0a0705}.zg-combat-save-numbers small{margin-right:auto;color:#7e6c4d;font:700 7px 'Cinzel',serif;letter-spacing:.7px}.zg-combat-save-stepper{height:30px;display:grid;grid-template-columns:27px 37px 27px;border:1px solid #5e4323;border-radius:16px;overflow:hidden;background:#100b07}.zg-combat-save-stepper button{border:0;background:transparent;color:#b9944d;font:18px/1 Georgia,serif;cursor:pointer}.zg-combat-save-stepper b{display:grid;place-items:center;border-inline:1px solid #43301c;color:#edcc78;font:700 11px 'Cinzel',serif}.zg-combat-save-stepper input{width:37px;min-width:0;padding:0;border:0;border-inline:1px solid #43301c;border-radius:0;outline:0;background:transparent;color:#edcc78;text-align:center;font:700 11px 'Cinzel',serif;appearance:textfield;-webkit-appearance:none}.zg-combat-save-stepper input::-webkit-inner-spin-button,.zg-combat-save-stepper input::-webkit-outer-spin-button{margin:0;-webkit-appearance:none}.zg-combat-save-stepper input:focus{background:#291706;box-shadow:inset 0 0 0 1px #a87930;color:#ffe19a}.zg-combat-save-numbers nav{display:flex;gap:3px}.zg-combat-save-numbers nav button{width:26px;height:24px;padding:0;border:1px solid #3e2c1b;border-radius:5px;background:#0d0906;color:#806f50;font:8px 'Cinzel',serif;cursor:pointer}.zg-combat-save-numbers nav button.active{border-color:#a87930;color:#e7c56f;background:#291706}.zg-combat-save-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.zg-combat-save-mode{min-width:0;min-height:54px;padding:7px 9px;border:1px solid #3d2b1a;border-radius:8px;display:grid;grid-template-columns:31px minmax(0,1fr);align-items:center;gap:8px;background:#0b0805;color:#806e51;text-align:left;cursor:pointer}.zg-combat-save-mode svg,.zg-combat-save-summary svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round}.zg-combat-save-mode b,.zg-combat-save-mode small{display:block}.zg-combat-save-mode b{color:#b8a16e;font:700 9px 'Cinzel',serif}.zg-combat-save-mode small{margin-top:3px;color:#6f6148;font:8px Georgia,serif}.zg-combat-save-mode.active{border-color:#bd8735;background:radial-gradient(circle at 15% 30%,#42280e,#150c06 72%);color:#edca71;box-shadow:0 0 14px #be7c2926}.zg-combat-save-mode.active b{color:#f0d184}.zg-combat-save-section.compact{padding-bottom:9px}.zg-combat-save-statuses{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}.zg-combat-save-status{flex:0 0 auto;height:32px;padding:0 9px;border:1px solid #39291a;border-radius:17px;display:flex;align-items:center;gap:6px;background:#0a0705;color:#847456;font:8px 'Cinzel',serif;cursor:pointer}.zg-combat-save-status i{width:19px;height:19px;border:1px solid color-mix(in srgb,var(--status-color,#70562f) 65%,#2a1c10);border-radius:50%;display:grid;place-items:center;background:#140d07;color:var(--status-color,#a98a4c);font-style:normal}.zg-combat-save-status.active{border-color:var(--status-color,#a87d34);color:#ead08c;background:#211407;box-shadow:inset 0 0 0 1px #ffffff0b}.zg-combat-save-summary{position:sticky;bottom:-12px;margin:10px -12px -12px;padding:10px 12px;display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:9px;border-top:1px solid #634522;background:#0b0705f2;backdrop-filter:blur(8px);box-shadow:0 -10px 22px #0008}.zg-combat-save-summary>span{width:36px;height:36px;border:1px solid #8a632b;border-radius:50%;display:grid;place-items:center;color:#e2bb5a;background:#1b1007}.zg-combat-save-summary small,.zg-combat-save-summary b{display:block}.zg-combat-save-summary small{color:#7d6949;font:700 7px 'Cinzel',serif;letter-spacing:1px}.zg-combat-save-summary b{margin-top:3px;color:#d9bd7c;font:700 9px 'Cinzel',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.zg-combat-save-summary>button{height:36px;padding:0 15px;border:1px solid #bd8531;border-radius:7px;background:linear-gradient(180deg,#3c250d,#241305);color:#f1cf75;font:700 9px 'Cinzel',serif;cursor:pointer}.zg-combat-save-summary>button:disabled{opacity:.4;cursor:not-allowed}.zg-vtt-log-entry.combat-save-success{border-left-color:#5d9a63}.zg-vtt-log-entry.combat-save-fail{border-left-color:#a94d45}@media(max-width:720px){.zg-combat-save-targets{grid-template-columns:1fr 1fr}.zg-combat-save-stats{grid-template-columns:repeat(3,1fr)}.zg-combat-save-numbers{grid-template-columns:1fr}.zg-combat-save-modes{grid-template-columns:1fr}.zg-combat-save-summary{grid-template-columns:34px minmax(0,1fr)}.zg-combat-save-summary>button{grid-column:1/-1}.zg-combat-save-numbers nav{display:none}}
   .zg-combat-ability-resolve{width:min(690px,calc(100vw - 28px));max-height:min(78vh,720px);overflow:auto}.zg-ability-resolve-title{display:flex;align-items:baseline;justify-content:space-between;margin:11px 1px 4px}.zg-ability-resolve-title b{color:#ebcf84;font:600 14px 'Cinzel',serif}.zg-ability-resolve-title small{color:#7d6c4d;font:9px Georgia,serif}.zg-ability-builder{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px;padding:9px;border:1px solid #342617;border-radius:6px;background:#0c0906}.zg-ability-builder label{display:grid;gap:4px;color:#806f4e;font:8px 'Cinzel',serif;text-transform:uppercase}.zg-ability-builder select,.zg-ability-builder input{min-width:0;height:32px;padding:0 7px;border:1px solid #47321d;border-radius:4px;background:#080604;color:#dfc58d;font:10px Georgia,serif;outline:0}.zg-ability-builder label.wide{grid-column:span 2}.zg-ability-builder label.zg-ability-half{grid-column:span 2;display:flex;align-items:center;gap:7px;padding-top:14px;text-transform:none}.zg-ability-builder label.zg-ability-half input{width:15px;height:15px;accent-color:#b98b36}.zg-ability-target-head{display:flex;justify-content:space-between;align-items:center;margin:10px 2px 5px;color:#8b7853;font:8px 'Cinzel',serif;text-transform:uppercase}.zg-ability-target-head button{border:0;background:transparent;color:#bd9852;font:8px 'Cinzel',serif;cursor:pointer}.zg-combat-attack-target.anchor{border-color:#f0c75b;box-shadow:inset 0 0 0 1px #d19c2d,0 0 12px #d7a33233}.zg-vtt-log-entry.combat-ability{border-left-color:#9b6fc0;box-shadow:inset 10px 0 18px #6f3f8c12}@media(max-width:720px){.zg-ability-builder{grid-template-columns:1fr 1fr}.zg-ability-builder label.wide,.zg-ability-builder label.zg-ability-half{grid-column:1/-1}}
-  .zg-spell-verdict-head{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:12px;padding:12px 4px 13px;border-bottom:1px solid #392916}.zg-spell-verdict-icon{width:50px;height:50px;display:grid;place-items:center;overflow:hidden;border:1px solid #926a25;border-radius:50%;background:radial-gradient(circle,#4a210f,#100a06 68%);box-shadow:0 0 18px #d06b2030}.zg-spell-verdict-icon img{width:100%;height:100%;object-fit:cover}.zg-spell-verdict-head>div:last-child{display:grid;gap:3px}.zg-spell-verdict-head small{color:#826e49;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-spell-verdict-head b{color:#efd28a;font:700 17px 'Cinzel',serif}.zg-spell-verdict-head span{color:#8d7a59;font:10px Georgia,serif}.zg-spell-target-picker{display:flex;gap:6px;margin:10px 0;overflow-x:auto}.zg-spell-target-picker button{flex:0 0 auto;max-width:170px;height:30px;padding:0 10px;overflow:hidden;border:1px solid #3d2d1b;border-radius:15px;background:#0c0906;color:#77684e;font:8px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.zg-spell-target-picker button.active{border-color:#c38b2f;background:#241307;color:#f1cf7a;box-shadow:0 0 12px #d66b2230}.zg-spell-target-picker button.invalid{border-color:#62332c;color:#b77868}.zg-spell-inline-error{margin:8px 0;padding:9px 11px;border:1px solid #813f35;border-radius:7px;background:#2a0f0b;color:#ef9a88;font:10px Georgia,serif}.zg-spell-verdict-card{padding:13px;border:1px solid #49331d;border-radius:10px;background:radial-gradient(circle at 90% 0,#4c21121f,transparent 42%),#0a0705}.zg-spell-verdict-card.hit{border-color:#875825}.zg-spell-verdict-card.miss{border-color:#63322c}.zg-spell-verdict-card>header{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px;padding-bottom:11px;border-bottom:1px solid #302214}.zg-spell-verdict-portrait{width:46px;height:46px;display:grid;place-items:center;overflow:hidden;border:2px solid #a06f2b;border-radius:50%;background:#160d07;color:#d9a943}.zg-spell-verdict-portrait img{width:100%;height:100%;object-fit:cover}.zg-spell-verdict-card>header>div{display:grid;gap:2px}.zg-spell-verdict-card>header small{color:#6f6047;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-spell-verdict-card>header b{color:#dfc17d;font:600 12px 'Cinzel',serif}.zg-spell-verdict-card>header em{color:#776a52;font:normal 9px Georgia,serif}.zg-spell-verdict-card>header strong{padding:7px 10px;border:1px solid #476c40;border-radius:14px;background:#0d2111;color:#76c982;font:700 8px 'Cinzel',serif}.zg-spell-verdict-card.miss>header strong{border-color:#773f35;background:#2a0f0b;color:#e77d6d}.zg-spell-calc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:11px 0}.zg-spell-calc section{display:grid;gap:4px;padding:10px;border:1px solid #382817;border-radius:7px;background:#080604}.zg-spell-calc small{color:#776546;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-spell-calc b{color:#edd08a;font:700 15px Georgia,serif}.zg-spell-calc b i{color:#9b8154;font-style:normal}.zg-spell-calc span{color:#796c55;font:9px Georgia,serif}.zg-spell-trait{margin:0 0 9px;padding:7px 9px;border:1px solid #654d25;border-radius:6px;background:#1b1308;color:#ba9c5e;font:9px Georgia,serif}.zg-spell-gm-tools{display:grid;grid-template-columns:auto minmax(160px,.75fr) minmax(250px,1fr) minmax(170px,.75fr);align-items:center;gap:7px;padding:10px;border:1px solid #3a2a19;border-radius:8px;background:#0d0a07}.zg-spell-gm-tools>span{color:#7c6949;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-spell-hit-toggle,.zg-spell-damage-stepper{display:flex;min-height:34px;overflow:hidden;border:1px solid #44311d;border-radius:6px}.zg-spell-hit-toggle button,.zg-spell-damage-stepper button{flex:1;border:0;border-right:1px solid #44311d;background:#130d08;color:#897451;font:700 8px 'Cinzel',serif;cursor:pointer}.zg-spell-hit-toggle button:last-child,.zg-spell-damage-stepper button:last-child{border-right:0}.zg-spell-hit-toggle button.active{background:#213019;color:#9fd18a}.zg-spell-verdict-card.miss .zg-spell-hit-toggle button.active{background:#361611;color:#e08a78}.zg-spell-damage-stepper b{min-width:78px;display:grid;place-items:center;padding:0 7px;background:#080604;color:#e9ca80;font:700 9px 'Cinzel',serif;white-space:nowrap}.zg-spell-effect{min-height:38px;display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:7px;padding:4px 8px;border:1px solid #44311d;border-radius:6px;background:#110c08;color:#82704f;text-align:left;cursor:pointer}.zg-spell-effect>i{font-style:normal;font-size:17px;filter:grayscale(.8)}.zg-spell-effect>span{display:grid;gap:2px}.zg-spell-effect b{font:600 8px 'Cinzel',serif}.zg-spell-effect small{color:#665a45;font:8px Georgia,serif}.zg-spell-effect.active{border-color:#bd6328;background:#291208;color:#efb35f;box-shadow:inset 0 0 16px #d44e1e20}.zg-spell-effect.active>i{filter:none}.zg-spell-verdict-actions{display:grid;grid-template-columns:minmax(170px,.6fr) minmax(260px,1fr);gap:8px;margin-top:10px}.zg-spell-verdict-actions button{min-height:43px;border:1px solid #49351e;border-radius:7px;background:#100c08;color:#9a8157;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-spell-verdict-actions button:disabled{opacity:.42;cursor:default}.zg-spell-verdict-actions button.apply{margin:0;border-color:#9b681f;background:linear-gradient(180deg,#38210c,#1e1107);color:#f2d187}.zg-spell-verdict-empty{display:grid;gap:6px;padding:26px;border:1px dashed #65461f;border-radius:9px;text-align:center}.zg-spell-verdict-empty b{color:#e1c17b;font:600 13px 'Cinzel',serif}.zg-spell-verdict-empty span{color:#837355;font:10px Georgia,serif}@media(max-width:820px){.zg-spell-gm-tools{grid-template-columns:1fr 1fr}.zg-spell-gm-tools>span{grid-column:1/-1}.zg-spell-calc{grid-template-columns:1fr}.zg-spell-verdict-actions{grid-template-columns:1fr}}@media(max-width:540px){.zg-spell-gm-tools{grid-template-columns:1fr}.zg-spell-gm-tools>span{grid-column:auto}.zg-spell-verdict-card>header{grid-template-columns:44px minmax(0,1fr)}.zg-spell-verdict-card>header strong{grid-column:1/-1;text-align:center}.zg-spell-verdict-actions{grid-template-columns:1fr}}
+  .zg-spell-verdict-head{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:12px;padding:12px 4px 13px;border-bottom:1px solid #392916}.zg-spell-verdict-icon{width:50px;height:50px;display:grid;place-items:center;overflow:hidden;border:1px solid #926a25;border-radius:50%;background:radial-gradient(circle,#4a210f,#100a06 68%);box-shadow:0 0 18px #d06b2030}.zg-spell-verdict-icon img{width:100%;height:100%;object-fit:cover}.zg-spell-verdict-head>div:last-child{display:grid;gap:3px}.zg-spell-verdict-head small{color:#826e49;font:7px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-spell-verdict-head b{color:#efd28a;font:700 17px 'Cinzel',serif}.zg-spell-verdict-head span{color:#8d7a59;font:10px Georgia,serif}.zg-spell-target-picker{display:flex;gap:6px;margin:10px 0;overflow-x:auto}.zg-spell-target-picker button{flex:0 0 auto;max-width:170px;height:30px;padding:0 10px;overflow:hidden;border:1px solid #3d2d1b;border-radius:15px;background:#0c0906;color:#77684e;font:8px 'Cinzel',serif;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}.zg-spell-target-picker button.active{border-color:#c38b2f;background:#241307;color:#f1cf7a;box-shadow:0 0 12px #d66b2230}.zg-spell-target-picker button.invalid{border-color:#62332c;color:#b77868}.zg-spell-inline-error{margin:8px 0;padding:9px 11px;border:1px solid #813f35;border-radius:7px;background:#2a0f0b;color:#ef9a88;font:10px Georgia,serif}.zg-spell-verdict-card{padding:13px;border:1px solid #49331d;border-radius:10px;background:radial-gradient(circle at 90% 0,#4c21121f,transparent 42%),#0a0705}.zg-spell-verdict-card.hit{border-color:#875825}.zg-spell-verdict-card.miss{border-color:#63322c}.zg-spell-verdict-card>header{display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:10px;padding-bottom:11px;border-bottom:1px solid #302214}.zg-spell-verdict-portrait{width:46px;height:46px;display:grid;place-items:center;overflow:hidden;border:2px solid #a06f2b;border-radius:50%;background:#160d07;color:#d9a943}.zg-spell-verdict-portrait img{width:100%;height:100%;object-fit:cover}.zg-spell-verdict-card>header>div{display:grid;gap:2px}.zg-spell-verdict-card>header small{color:#6f6047;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-spell-verdict-card>header b{color:#dfc17d;font:600 12px 'Cinzel',serif}.zg-spell-verdict-card>header em{color:#776a52;font:normal 9px Georgia,serif}.zg-spell-verdict-card>header strong{padding:7px 10px;border:1px solid #476c40;border-radius:14px;background:#0d2111;color:#76c982;font:700 8px 'Cinzel',serif}.zg-spell-verdict-card.miss>header strong{border-color:#773f35;background:#2a0f0b;color:#e77d6d}.zg-spell-calc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:11px 0}.zg-spell-calc section{display:grid;gap:4px;padding:10px;border:1px solid #382817;border-radius:7px;background:#080604}.zg-spell-calc small{color:#776546;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-spell-calc b{color:#edd08a;font:700 15px Georgia,serif}.zg-spell-calc b i{color:#9b8154;font-style:normal}.zg-spell-calc span{color:#796c55;font:9px Georgia,serif}.zg-spell-trait{margin:0 0 9px;padding:7px 9px;border:1px solid #654d25;border-radius:6px;background:#1b1308;color:#ba9c5e;font:9px Georgia,serif}.zg-spell-gm-tools{display:grid;grid-template-columns:auto minmax(160px,.75fr) minmax(250px,1fr);align-items:center;gap:7px;padding:10px;border:1px solid #3a2a19;border-radius:8px;background:#0d0a07}.zg-spell-gm-tools>span{color:#7c6949;font:7px 'Cinzel',serif;text-transform:uppercase}.zg-spell-hit-toggle,.zg-spell-damage-stepper{display:flex;min-height:34px;overflow:hidden;border:1px solid #44311d;border-radius:6px}.zg-spell-hit-toggle button,.zg-spell-damage-stepper button{flex:1;border:0;border-right:1px solid #44311d;background:#130d08;color:#897451;font:700 8px 'Cinzel',serif;cursor:pointer}.zg-spell-hit-toggle button:last-child,.zg-spell-damage-stepper button:last-child{border-right:0}.zg-spell-hit-toggle button.active{background:#213019;color:#9fd18a}.zg-spell-verdict-card.miss .zg-spell-hit-toggle button.active{background:#361611;color:#e08a78}.zg-spell-damage-stepper b{min-width:78px;display:grid;place-items:center;padding:0 7px;background:#080604;color:#e9ca80;font:700 9px 'Cinzel',serif;white-space:nowrap}.zg-spell-verdict-actions{display:grid;grid-template-columns:minmax(170px,.6fr) minmax(260px,1fr);gap:8px;margin-top:10px}.zg-spell-verdict-actions button{min-height:43px;border:1px solid #49351e;border-radius:7px;background:#100c08;color:#9a8157;font:600 9px 'Cinzel',serif;cursor:pointer}.zg-spell-verdict-actions button:disabled{opacity:.42;cursor:default}.zg-spell-verdict-actions button.apply{margin:0;border-color:#9b681f;background:linear-gradient(180deg,#38210c,#1e1107);color:#f2d187}.zg-spell-verdict-empty{display:grid;gap:6px;padding:26px;border:1px dashed #65461f;border-radius:9px;text-align:center}.zg-spell-verdict-empty b{color:#e1c17b;font:600 13px 'Cinzel',serif}.zg-spell-verdict-empty span{color:#837355;font:10px Georgia,serif}@media(max-width:820px){.zg-spell-gm-tools{grid-template-columns:1fr 1fr}.zg-spell-gm-tools>span{grid-column:1/-1}.zg-spell-calc{grid-template-columns:1fr}.zg-spell-verdict-actions{grid-template-columns:1fr}}@media(max-width:540px){.zg-spell-gm-tools{grid-template-columns:1fr}.zg-spell-gm-tools>span{grid-column:auto}.zg-spell-verdict-card>header{grid-template-columns:44px minmax(0,1fr)}.zg-spell-verdict-card>header strong{grid-column:1/-1;text-align:center}.zg-spell-verdict-actions{grid-template-columns:1fr}}
+  .zg-spell-effect-plan{display:grid;gap:8px;margin-top:9px;padding:10px;border:1px solid #49351e;border-radius:8px;background:linear-gradient(135deg,#151009,#090705 65%)}.zg-spell-effect-plan>header{display:flex;align-items:center;justify-content:space-between;gap:12px}.zg-spell-effect-plan>header>div{display:grid;gap:2px}.zg-spell-effect-plan>header small,.zg-spell-extra-effects small{color:#8a724a;font:7px 'Cinzel',serif;letter-spacing:.8px;text-transform:uppercase}.zg-spell-effect-plan>header b{color:#dfc17d;font:600 10px 'Cinzel',serif}.zg-spell-effect-plan>header>span{color:#7b694c;font:8px Georgia,serif}.zg-spell-prescribed-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.zg-spell-prescribed-effect{display:grid;grid-template-columns:31px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:54px;padding:7px 9px;border:1px solid #765122;border-radius:7px;background:#1a1007}.zg-spell-prescribed-effect.manual{border-color:#403322;background:#0e0b07}.zg-spell-prescribed-effect>i{font:normal 20px/1 serif;text-align:center}.zg-spell-prescribed-effect>span{display:grid;gap:2px}.zg-spell-prescribed-effect small{color:#a57838;font:6px 'Cinzel',serif;letter-spacing:.6px;text-transform:uppercase}.zg-spell-prescribed-effect b{color:#e2c47e;font:600 9px 'Cinzel',serif}.zg-spell-prescribed-effect em{overflow:hidden;color:#8b7756;font:normal 8px Georgia,serif;text-overflow:ellipsis;white-space:nowrap}.zg-spell-prescribed-effect>strong{color:#a98547;font:7px 'Cinzel',serif}.zg-spell-extra-effects{display:grid;grid-template-columns:minmax(150px,.65fr) minmax(250px,1fr);align-items:center;gap:7px;padding-top:8px;border-top:1px solid #332414}.zg-spell-extra-effects>div:first-child{display:grid;gap:3px}.zg-spell-extra-effects>div:first-child>span{color:#77684e;font:8px Georgia,serif}.zg-spell-extra-controls{display:grid;grid-template-columns:minmax(150px,1fr) auto;gap:6px}.zg-spell-extra-controls select,.zg-spell-extra-controls button{min-height:34px;border:1px solid #52391e;border-radius:6px;background:#0b0805;color:#c2a56c;font:8px 'Cinzel',serif}.zg-spell-extra-controls select{min-width:0;padding:0 8px}.zg-spell-extra-controls button{padding:0 12px;cursor:pointer}.zg-spell-extra-controls :disabled{opacity:.4;cursor:default}.zg-spell-added-effects{grid-column:1/-1;display:flex!important;flex-wrap:wrap;gap:5px!important}.zg-spell-added-effect{display:flex;align-items:center;gap:5px;min-height:28px;padding:0 7px;border:1px solid #865025;border-radius:14px;background:#211107;color:#dfad63;cursor:pointer}.zg-spell-added-effect i{font-style:normal}.zg-spell-added-effect span{font:7px 'Cinzel',serif}.zg-spell-added-effect b{font:12px Arial,sans-serif}.zg-spell-effect-plan>p{margin:0;color:#b46f61;font:8px Georgia,serif}.zg-spell-effect-plan.inactive .zg-spell-extra-effects{opacity:.58}@media(max-width:820px){.zg-spell-prescribed-list,.zg-spell-extra-effects{grid-template-columns:1fr}}@media(max-width:540px){.zg-spell-extra-controls{grid-template-columns:1fr}}
   .zg-scene-tools-button{padding:0 13px}
   .zg-overview-panel{display:none;position:absolute;right:120px;top:66px;z-index:18;width:310px;padding:14px;border:1px solid #745824;border-radius:8px;background:linear-gradient(180deg,rgba(20,15,9,.98),rgba(8,7,5,.98));box-shadow:0 22px 70px #000d;color:#bda978}
   .zg-overview-panel.open{display:block;animation:zgPopIn .2s ease}
@@ -27777,8 +27862,24 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-ability-use-context span{color:#8f8164;font:10px/1.35 Georgia,serif}
   .zg-ability-use-context.combat{border-color:#674129;background:#160d09}.zg-ability-use-context.combat small{color:#d17b55}
   @media(max-width:620px){.zg-ability-use-context{grid-template-columns:1fr}.zg-ability-use-context small{justify-self:start}}
+  /* Ability detail readability v2: about 130% copy with a denser resource row. */
+  .zg-ability-modal{width:min(920px,calc(100vw - 32px));max-height:min(88vh,860px);padding:30px 32px 24px;border-radius:12px;scrollbar-color:#705027 #090604}
+  .zg-ability-modal-close{right:13px;top:11px;width:42px;height:42px;font-size:32px}
+  .zg-ability-modal header{gap:18px;padding-right:48px}.zg-ability-modal header>i{flex:0 0 auto;width:66px;height:66px;font-size:32px}.zg-ability-modal header small{font-size:11px;letter-spacing:1.8px}.zg-ability-modal h3{margin:6px 0;font-size:29px;line-height:1.2}.zg-ability-modal header em{font-size:13px}
+  .zg-ability-spell-state{margin:16px 0 10px;padding:13px 15px;border-radius:7px}.zg-ability-spell-state b{font-size:12px;letter-spacing:.35px}
+  .zg-ability-use-context{gap:12px;margin:10px 0 14px;padding:12px 14px;border-radius:7px}.zg-ability-use-context small{padding:5px 9px;font-size:10px}.zg-ability-use-context span{font-size:13px;line-height:1.45}
+  .zg-ability-battle-tags{gap:7px;margin:0 0 11px}.zg-ability-battle-tags span{padding:5px 9px;border-radius:13px;font-size:10px}
+  .zg-ability-resource-console{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 16px;margin:14px 0;padding:14px 16px;border-radius:8px}.zg-ability-resource-console>header{grid-column:1/-1}.zg-ability-resource-console>header small{font-size:11px}.zg-ability-resource-console>header em{font-size:13px}.zg-ability-resource-console>header b{padding:5px 11px;font-size:13px}.zg-ability-charge-cells{align-self:center;margin:0;gap:9px}.zg-ability-charge-cell{width:36px;height:36px;font-size:17px}.zg-ability-resource-console>p{align-self:center;margin:0;font-size:12px;line-height:1.45}
+  .zg-ability-detail-sections{margin-top:18px}.zg-ability-detail-section summary{min-height:58px;grid-template-columns:31px minmax(0,1fr) 22px;gap:11px;padding:0 11px}.zg-ability-detail-section summary i{font-size:19px}.zg-ability-detail-section summary b{font-size:12px;letter-spacing:1.45px}.zg-ability-detail-section summary span{font-size:20px}.zg-ability-detail-section>div{padding:5px 48px 22px;color:#c7b895;font-size:18px;line-height:1.68}
+  .zg-ability-modal footer{position:sticky;z-index:3;bottom:-24px;grid-template-columns:minmax(0,1fr) 180px;gap:12px;margin:18px -4px -24px;padding:18px 4px 24px;background:linear-gradient(180deg,transparent,#090705 26%)}.zg-ability-modal footer button{height:54px;border-radius:7px;font-size:13px}
+  .zg-spell-card-menu>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .zg-spell-drag-ghost.tone-fire{--spell-tone:#df6726}.zg-spell-drag-ghost.tone-ice{--spell-tone:#5aa8df}.zg-spell-drag-ghost.tone-life{--spell-tone:#83b63f}.zg-spell-drag-ghost.tone-storm{--spell-tone:#728ee5}.zg-spell-drag-ghost.tone-ward{--spell-tone:#d4a33d}.zg-spell-drag-ghost.tone-void{--spell-tone:#9b66d4}.zg-spell-drag-ghost.tone-blood{--spell-tone:#b95047}.zg-spell-drag-ghost.tone-arcane{--spell-tone:#7666c5}
+  .zg-magic3-slot-group.drop-ready{animation:zgSpellDropReady 1s ease-in-out infinite}
+  @keyframes zgSpellDropReady{50%{box-shadow:inset 0 0 0 1px #e0b458,inset 0 0 28px rgba(211,160,65,.24),0 0 12px rgba(211,160,65,.2)}}
+  @media(max-width:620px){.zg-ability-modal{width:calc(100vw - 18px);padding:22px 17px 18px}.zg-ability-modal header>i{width:58px;height:58px}.zg-ability-modal h3{font-size:24px}.zg-ability-modal header small{font-size:10px}.zg-ability-use-context{grid-template-columns:1fr}.zg-ability-resource-console{grid-template-columns:1fr}.zg-ability-resource-console>header{grid-column:1}.zg-ability-detail-section>div{padding:5px 12px 20px;font-size:17px}.zg-ability-modal footer{grid-template-columns:1fr;bottom:-18px;margin-bottom:-18px;padding-bottom:18px}.zg-ability-modal footer button:last-child{display:none}}
+  @media(prefers-reduced-motion:reduce){.zg-spell-drag-ghost,.zg-spell-drag-ghost *,.zg-magic3-slot-group.drop-ready{animation:none!important;transition-duration:.01ms!important}}
   .zg-generated-ability-icon{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px #000b)}
-  .zg-spell-glyph .zg-generated-ability-icon,.zg-magic3-slot i .zg-generated-ability-icon{width:82%;height:82%;margin:auto}.zg-ability-modal header>i .zg-generated-ability-icon{width:42px;height:42px}.zg-magic3-slot-group>header>span img,.zg-spellbook-catalog>nav img{display:block;width:22px;height:22px;margin:auto;object-fit:contain;filter:drop-shadow(0 2px 3px #000b)}
+  .zg-spell-glyph .zg-generated-ability-icon,.zg-magic3-slot i .zg-generated-ability-icon{width:82%;height:82%;margin:auto}.zg-ability-modal header>i .zg-generated-ability-icon{width:58px;height:58px}.zg-magic3-slot-group>header>span img,.zg-spellbook-catalog>nav img{display:block;width:22px;height:22px;margin:auto;object-fit:contain;filter:drop-shadow(0 2px 3px #000b)}
   .zg-state-armor i img,.zg-state-combat-values i img{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 2px 4px #000b);pointer-events:none}
   .zg-skill-proposal-state{margin:13px 0;padding:10px 12px;border:1px solid #735a2b;border-radius:5px;background:#171108;display:flex;flex-direction:column;gap:4px}.zg-skill-proposal-state small{font:700 7px 'Cinzel',serif;letter-spacing:1.2px;color:#92743d}.zg-skill-proposal-state b{font:600 11px 'Cinzel',serif;color:#dfc276}.zg-skill-proposal-state span{font:11px/1.45 Georgia,serif;color:#9f9175}.zg-skill-proposal-state.saved{border-color:#426c49}.zg-skill-proposal-state.rejected,.zg-skill-proposal-state.conflict{border-color:#74433c}
   .zg-skill-proposal-editor,.zg-character-update-modal,.zg-character-field-patch{position:relative;width:min(820px,calc(100vw - 30px));max-height:min(92vh,900px);overflow:auto;padding:25px;border:1px solid #846229;border-radius:8px;background:linear-gradient(145deg,#181109,#090705 74%);box-shadow:0 30px 100px #000;color:#b9aa8a}.zg-skill-proposal-editor header small,.zg-character-update-modal header small,.zg-character-field-patch header small{font:700 8px 'Cinzel',serif;letter-spacing:1.4px;color:#a98640}.zg-skill-proposal-editor h3,.zg-character-update-modal h3,.zg-character-field-patch h3{margin:6px 0;color:#ead49a;font:600 21px 'Cinzel',serif}.zg-skill-proposal-editor header p,.zg-character-update-modal header p,.zg-character-field-patch header p{margin:0 0 16px;color:#8e8169;font:12px/1.5 Georgia,serif}.zg-skill-proposal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.zg-skill-proposal-editor label,.zg-character-field-patch label{display:flex;flex-direction:column;gap:5px;margin:10px 0;color:#9c8350;font:700 8px 'Cinzel',serif;letter-spacing:.7px}.zg-skill-proposal-editor input,.zg-skill-proposal-editor textarea,.zg-character-field-patch select,.zg-character-field-patch textarea{box-sizing:border-box;width:100%;border:1px solid #4c391d;border-radius:5px;background:#090705;color:#d2c19d;padding:10px;font:13px/1.5 Georgia,serif;resize:vertical}.zg-character-field-patch textarea[readonly]{color:#9f9278;background:#0e0b08}.zg-character-field-patch label>small{color:#7e6f56;font:10px/1.4 Georgia,serif;letter-spacing:0}.zg-skill-proposal-editor input:focus,.zg-skill-proposal-editor textarea:focus,.zg-character-field-patch select:focus,.zg-character-field-patch textarea:focus{outline:1px solid #a27d35;border-color:#a27d35}.zg-skill-proposal-editor footer,.zg-character-update-modal footer,.zg-character-field-patch footer{display:grid;grid-template-columns:1fr 160px;gap:9px;margin-top:15px}.zg-skill-proposal-editor footer button,.zg-character-update-modal footer button,.zg-character-field-patch footer button{min-height:42px;border:1px solid #795925;border-radius:5px;background:#26190b;color:#e2c577;font:600 9px 'Cinzel',serif}.zg-skill-proposal-editor footer button:last-child,.zg-character-field-patch footer button:last-child{background:#0d0b08;color:#8f8064}
@@ -30690,10 +30791,12 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-spell-catalog-card[hidden]{display:none}
   .zg-spell-catalog-card>.zg-spell-card-main{
     width:100%;
-    min-height:51px;
+    min-height:64px;
     display:grid;
-    grid-template-columns:40px minmax(0,1fr) auto;
-    gap:8px;
+    grid-template-columns:40px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    column-gap:8px;
+    row-gap:2px;
     align-items:center;
     padding:5px 8px 5px 5px;
     border:0;
@@ -30718,7 +30821,8 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     font:normal 18px/1 Georgia,serif;
     text-shadow:0 0 7px var(--spell-tone);
   }
-  .zg-spell-catalog-card>.zg-spell-card-main>span{min-width:0;display:flex;flex-direction:column;gap:3px}
+  .zg-spell-catalog-card>.zg-spell-card-main>.zg-spell-glyph{grid-column:1;grid-row:1 / span 2}
+  .zg-spell-catalog-card>.zg-spell-card-main>span{grid-column:2;grid-row:1;min-width:0;align-self:end;display:flex;flex-direction:column;gap:3px}
   .zg-spell-catalog-card .zg-ability-eyebrow{
     display:flex!important;
     flex-direction:column!important;
@@ -30740,21 +30844,25 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     text-overflow:ellipsis;
   }
   .zg-spell-catalog-card>.zg-spell-card-main>em{
-    color:#82a853;
+    grid-column:2;grid-row:2;justify-self:start;align-self:start;color:#82a853;
     font:normal 8px 'Cinzel',serif;
     white-space:nowrap;
   }
   .zg-spell-catalog-card>.zg-spell-card-main>em.spent{color:#bd733d}
-  .zg-spell-catalog-card{position:relative;padding-right:35px}
-  .zg-spell-catalog-card>.zg-spell-prepare-action{
-    position:absolute;z-index:2;top:50%;right:5px;min-width:27px;height:27px;transform:translateY(-50%);
-    border:1px solid #604826;border-radius:7px;background:#0a0705;color:#bc9655;
-    font:600 9px 'Cinzel',serif;cursor:pointer;box-shadow:inset 0 0 8px #000;
+  .zg-spell-catalog-card{position:relative}
+  .zg-spell-catalog-card.has-actions>.zg-spell-card-main{padding-right:50px}
+  .zg-spell-card-menu{position:absolute;z-index:4;right:7px;top:50%;width:36px;height:34px;transform:translateY(-50%)}
+  .zg-spell-card-menu select{
+    box-sizing:border-box;width:36px;height:34px;padding:0 4px;border:1px solid #684d27;border-radius:9px;
+    appearance:none;-webkit-appearance:none;background:radial-gradient(circle at 50% 28%,#34220f,#0a0705 72%);
+    color:#dfbd72;font:700 15px/1 'Cinzel',serif;text-align:center;text-align-last:center;cursor:pointer;
+    box-shadow:inset 0 0 9px #000,0 3px 9px #0008;transition:border-color .16s ease,color .16s ease,transform .16s ease;
   }
-  .zg-spell-catalog-card>.zg-spell-prepare-action:hover{border-color:#c59b45;color:#f1d28b}
-  .zg-spell-catalog-card>.zg-spell-prepare-action.active{border-color:#668942;background:#16200e;color:#a9cc79}
+  .zg-spell-card-menu select:hover,.zg-spell-card-menu select:focus-visible{border-color:#d2a34a;color:#ffe39a;transform:translateY(-1px)}
+  .zg-spell-card-menu select option{background:#140d07;color:#ecd397;font:600 15px Georgia,serif;text-align:left}
   .zg-spell-catalog-card.prepared{box-shadow:inset 3px 0 color-mix(in srgb,var(--spell-tone) 70%,#b88a3d)}
   .zg-spell-catalog-card.locked{opacity:.56;filter:saturate(.6)}
+  .zg-spell-catalog-card.locked.has-actions{opacity:.84;filter:saturate(.82)}
   .zg-spell-catalog-card.is-unlearned{
     background:repeating-linear-gradient(135deg,rgba(119,69,38,.12) 0,rgba(119,69,38,.12) 7px,transparent 7px,transparent 14px);
     box-shadow:inset 3px 0 #9f5a37;
@@ -30764,27 +30872,29 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   }
   .zg-spell-catalog-card.is-draggable{cursor:grab}
   .zg-spell-catalog-card.is-draggable:active{cursor:grabbing}
-  .zg-spell-catalog-card.is-dragging{opacity:.48;filter:saturate(.65)}
+  .zg-spell-catalog-card.is-dragging{z-index:3;opacity:.78;filter:saturate(.82) brightness(1.13);transform:scale(.985);box-shadow:inset 3px 0 var(--spell-tone),0 0 18px color-mix(in srgb,var(--spell-tone) 34%,transparent)}
   .zg-spell-catalog-card.exhausted{background:linear-gradient(90deg,#4a18151f,transparent)}
-  .zg-spell-catalog-card.gm-editable{padding-right:104px}
-  .zg-spell-catalog-card.gm-editable.locked{opacity:.82}
-  .zg-spell-catalog-card.gm-editable>.zg-spell-prepare-action{
-    top:4px;
-    right:4px;
-    min-width:58px;
-    height:21px;
-    transform:none;
-  }
-  .zg-gm-spell-actions{
-    position:absolute;z-index:3;right:4px;bottom:4px;display:flex;gap:3px;
-  }
-  .zg-gm-spell-actions button,.zg-gm-spell-add{
+  .zg-gm-spell-add{
     min-height:22px;padding:0 7px;border:1px solid #604826;border-radius:6px;background:#0b0805;color:#c7a45e;
     font:700 7px 'Cinzel',serif;cursor:pointer;
   }
-  .zg-gm-spell-actions button:hover,.zg-gm-spell-add:hover{border-color:#c59b45;color:#f4d993;background:#201407}
-  .zg-gm-spell-actions button.remove{min-width:22px;padding:0;border-color:#71332d;color:#d98b80}
+  .zg-gm-spell-add:hover{border-color:#c59b45;color:#f4d993;background:#201407}
   .zg-spellbook-catalog>header .zg-gm-spell-add{margin-left:auto;margin-right:7px;height:25px;font-size:8px}
+  .zg-spell-drag-ghost{
+    --spell-tone:#b88a3d;position:fixed;z-index:13080;left:0;top:0;box-sizing:border-box;width:184px;min-height:56px;
+    display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;padding:6px 12px 6px 7px;
+    border:1px solid color-mix(in srgb,var(--spell-tone) 72%,#8e6a31);border-radius:13px;
+    background:radial-gradient(circle at 18% 45%,color-mix(in srgb,var(--spell-tone) 25%,transparent),transparent 43%),linear-gradient(145deg,#25170bf2,#090705f5 78%);
+    box-shadow:0 15px 38px #000d,0 0 22px color-mix(in srgb,var(--spell-tone) 42%,transparent),inset 0 1px #ffe7a129;
+    pointer-events:none;opacity:0;transform:scale(.82) rotate(-3deg);transition:opacity .14s ease,transform .18s cubic-bezier(.2,.85,.25,1.2),left .045s linear,top .045s linear,filter .3s ease;
+  }
+  .zg-spell-drag-ghost.is-visible{opacity:1;transform:scale(1) rotate(1deg)}
+  .zg-spell-drag-ghost.is-dropped{opacity:0;transform:scale(.42) rotate(8deg);filter:brightness(2.4)}
+  .zg-spell-drag-ghost.is-cancelled{opacity:0;transform:scale(.78) translateY(8px);filter:saturate(.3)}
+  .zg-spell-drag-glyph{box-sizing:border-box;width:44px;height:44px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--spell-tone) 70%,#4a321b);border-radius:10px;background:#090604;box-shadow:inset 0 0 13px color-mix(in srgb,var(--spell-tone) 20%,transparent);font-style:normal;animation:zgSpellDragGlyph 1.15s ease-in-out infinite}
+  .zg-spell-drag-glyph .zg-generated-ability-icon{width:40px;height:40px;object-fit:contain}
+  .zg-spell-drag-ghost>span{min-width:0;display:grid;gap:4px}.zg-spell-drag-ghost>span small{color:color-mix(in srgb,var(--spell-tone) 70%,#c9a568);font:700 7px 'Cinzel',serif;letter-spacing:1.15px}.zg-spell-drag-ghost>span b{overflow:hidden;color:#f0d89c;font:700 12px/1.2 'Cinzel',serif;white-space:nowrap;text-overflow:ellipsis}
+  @keyframes zgSpellDragGlyph{50%{transform:translateY(-2px) scale(1.04);filter:brightness(1.25)}}
   .zg-gm-spell-library-card{width:min(860px,calc(100vw - 32px));max-height:min(820px,calc(100vh - 32px));display:flex;flex-direction:column;gap:12px}
   .zg-gm-spell-library-card>p{margin:0;color:#a99166;font:16px/1.45 Georgia,serif}
   .zg-gm-spell-library-controls{display:grid;gap:10px;padding:12px;border:1px solid #443118;border-radius:12px;background:linear-gradient(135deg,rgba(42,27,12,.72),rgba(8,6,4,.9));box-shadow:inset 0 1px rgba(235,191,91,.06)}

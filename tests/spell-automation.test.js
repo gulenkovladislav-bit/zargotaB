@@ -23,11 +23,21 @@ assert.strictEqual(profile.resourceScopeKind, 'battle');
 assert.strictEqual(profile.animationKey, 'finger-heat-v1');
 assert.strictEqual(profile.soundProfile, 'magic-fire');
 assert.strictEqual(profile.iconAsset, 'images/ui/combat-generated/spell-finger-heat.png');
+assert.strictEqual(profile.resolutionPlan.staged, true, 'the staged roll sequence is data, not a modal-only special case');
+assert.deepStrictEqual(profile.resolutionPlan.steps.map(function(step){ return step.key; }), ['attack','damage']);
+var effectPlan = automation.effectPlan(profile);
+assert.deepStrictEqual(effectPlan.prescribed.map(function(effect){ return effect.key; }), ['fire-damage','ignite-flammable']);
+assert.strictEqual(effectPlan.prescribed[0].required, true, 'the combat effect from the catalog is shown as canonical');
+assert.strictEqual(effectPlan.prescribed[1].kind, 'scene', 'environment ignition is not mislabeled as a creature condition');
+assert.deepStrictEqual(effectPlan.gmAdditions.kinds, ['status']);
+assert.strictEqual(effectPlan.gmAdditions.max, 6);
+assert.deepStrictEqual(automation.prescribedStatusKeys(profile), [], 'Finger Heat does not silently invent Burning for creatures');
 assert.deepStrictEqual(profile.nonCombat.targets, ['torch', 'oil', 'candle', 'campfire']);
 assert.strictEqual(profile.nonCombat.manual, true, 'environment ignition remains explicit instead of silently mutating the scene');
 
 assert.strictEqual(automation.resolve({ name: 'Искры' }), null, 'the removed Sparks prototype is not automated');
 assert.strictEqual(automation.resolve({ name: 'Искры света' }), null, 'partial names must not accidentally inherit automation');
+assert.strictEqual(automation.resolve({ automationKey:'finger-heat-v1' }).name, 'Жар Пальцев', 'synchronized requests resolve their canonical profile by stable key');
 assert.strictEqual(automation.normalizeName(' ✴\u200BЖАР\u202fПАЛЬЦЕВ '), 'жар пальцев');
 
 var untouched = automation.mergeMeta({ name: 'Неизвестное заклинание' }, { actionCost: 'short' });
