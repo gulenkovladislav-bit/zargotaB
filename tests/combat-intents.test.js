@@ -38,7 +38,7 @@ assert.match(html, /<textarea id="zg-action-custom" maxlength="1000"/, 'custom a
 assert.match(html, /oninput="zgVttActionCustomResize\(this\)"/, 'the custom action field must grow with its text');
 assert.match(html, /custom:'images\/vtt-actions\/cursors\/custom\.png'/, 'custom targeting must use the dedicated cursor artwork');
 assert.match(html, /class="zg-action-cursor-glyph"/, 'custom targeting uses the approved full-size cursor glyph');
-assert.match(html, /cursorIcon\+'\?v=20260814\.3" alt="" aria-hidden="true"/, 'cursor artwork must use the current cache key');
+assert.match(html, /cursorIcon\+'\?v=20260820\.2" alt="" aria-hidden="true"/, 'cursor artwork must use the current cache key');
 assert.match(html, /\.zg-action-cursor\{[^}]*overflow:visible;[^}]*contain:layout style/, 'the one-pixel cursor anchor must not clip its artwork in Safari');
 assert.doesNotMatch(html, /\.zg-action-cursor\{[^}]*contain:layout paint/, 'paint containment must not hide action cursors outside their one-pixel anchor');
 assert.doesNotMatch(html, /class="zg-action-cursor-label"/, 'approved glyphs replace the unreadably small duplicate cursor labels');
@@ -47,12 +47,17 @@ assert.match(html, /movement:'images\/vtt-actions\/cursors\/movement\.png'/, 'mo
 ['Осмотреть','Взаимодействовать','Искать','Говорить','Взять','Атаковать','Другое действие'].forEach(function(label){
   assert.match(html, new RegExp("[\\'\"]"+label+"[\\'\"]"), label+' must have a cursor label');
 });
-assert.match(html, /w\.zgActionRequestDetailsOpen=function\(uid\)/, 'the GM must be able to open a wide custom-request view');
+assert.match(html, /w\.zgActionRequestDetailsOpen=function\(uid,request\)/, 'the GM must be able to open a wide custom-request view from a bound request snapshot');
 assert.match(html, /zgActionRequestCheckOpen/, 'custom request cards must expose the existing characteristic-check flow');
 assert.match(html, /function combatIntentResolveRequest\(uid\)/, 'the GM check dialog must resolve its request through one shared snapshot helper');
 assert.match(html, /requestFrom\(roomSnapshot\),requestFrom\(state\)/, 'the GM check dialog must prefer the live room snapshot and retain the combat-state fallback');
-assert.match(html, /w\.zgActionRequestCheckOpen=function\(uid\)\{var request=currentActionRequestForMember\(uid\)/, 'the request is captured before its detail modal closes');
+assert.match(html, /w\.zgActionRequestCheckOpen=function\(uid,request\)\{request=request&&typeof request==='object'\?request:currentActionRequestForMember\(uid\)/, 'the bound request is preferred before the live-state fallback');
 assert.match(html, /w\.zgCombatIntentResolveOpen=function\(uid,request\)/, 'the check dialog receives the captured request directly');
+assert.match(html, /data-action-request-command="check"/, 'the check button uses an explicit request command instead of a fragile inline lookup');
+assert.match(html, /data-action-request-command="open"/, 'the full-request button uses an explicit request command instead of a fragile inline lookup');
+assert.match(html, /button\.addEventListener\('click',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);var command=button\.getAttribute\('data-action-request-command'\)/, 'request commands are wired directly when the card is rendered');
+assert.match(html, /zgActionRequestCheckOpen\(request\.uid,request\)/, 'the check command passes the exact rendered request snapshot');
+assert.match(html, /zgActionRequestDetailsOpen\(request\.uid,request\)/, 'the full-request command passes the exact rendered request snapshot');
 assert.match(html, /combatIntentResolveRequestSnapshot/, 'the check dialog retains its request while opening');
 assert.match(html, /request=combatIntentResolveRequest\(combatIntentResolveUid\)/, 'the GM check dialog renderer must not read only the potentially stale combat state');
 assert.match(html, /Заявка уже закрыта или ещё не успела синхронизироваться/, 'the GM check dialog must never leave an unexplained empty shell');

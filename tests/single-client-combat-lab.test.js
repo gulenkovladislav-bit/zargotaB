@@ -92,6 +92,7 @@ assert.match(html, /var actionApi=combatQaActive\(\)\?combatQaApi:w\.ZargotaRoom
 assert.match(html, /intentApi\.useCombatAction\('short'/, 'direct short-action intent must use the selected local or Firebase adapter');
 assert.match(html, /var masterAttackApi=combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms/, 'direct GM attack must use the local adapter in TEST workshop');
 assert.match(html, /combatQaActive\(\)&&w\.zgRenderLocalDiceThrow[\s\S]*?'qa-attack-visual-'\+event\.id/, 'TEST creature hit rolls must create one local d20 visual without Firebase');
+assert.match(html, /combatQaActive\(\)&&w\.zgRenderLocalDiceThrow[\s\S]*?'qa-damage-visual-'\+event\.id/, 'TEST damage rolls must create local physical dice without Firebase');
 assert.match(html, /masterPendingAttackRoll=\{id:'gm-attack-drag-'/, 'a direct TEST attack must wait for the GM to drag its hit die');
 assert.match(html, /w\.zgCombatMasterAttackRoll=function\(\)[\s\S]*?masterAttackApi\.resolveCombatAttack/, 'the local hit-die release must enter the TEST combat resolver');
 assert.match(html, /var masterDamageApi=combatQaActive\(\)\?combatQaApi:w\.ZargotaRooms/, 'direct GM damage roll must stay on the same local adapter');
@@ -115,7 +116,8 @@ assert.match(html, /combatRequestAction\(intentApi,text,'combat-intent',combatLa
 assert.match(html, /String\(w\.zgCombatLabPlayerUid\|\|w\.zgPossessedPlayerUid\|\|''\)/, 'simulated player drawers must be writable only for the represented hero');
 assert.match(html, /abilityApi\.requestAction\('Хочет применить/, 'simulated abilities must use the selected local or Firebase adapter');
 assert.match(html, /resolveCombatAbility:function\(uid,targetKeys,overrides\)\{return combatQaApply/, 'local QA must resolve ability damage and healing without Firebase');
-assert.match(html, /abilityApi\.resolveCombatAbility\(uid,abilityResolveTargets,abilityResolveDraft\)/, 'GM ability resolution must stay on the selected local or Firebase adapter');
+assert.match(html, /abilityApi\.resolveCombatAbility\(uid,abilityResolveTargets,resolveOptions\)/, 'GM ability resolution must stay on the selected local or Firebase adapter');
+assert.match(html, /resolveOptions\.approvedResults=approved/, 'GM-approved preview results reach the selected adapter');
 assert.match(html, /prepareApi\.requestAction&&combatRequestAction\(prepareApi,'Хочет подготовить:/, 'simulated prepared actions must use the guarded local request pipeline');
 assert.match(html, /requestApprovedAttackRoll\(request\.id,combatLabPlayerUid\(\)\)/, 'hit dice must use the selected GM-controlled player');
 assert.match(html, /requestApprovedDamageRoll\(request\.id,combatLabPlayerUid\(\)\)/, 'damage dice must use the selected GM-controlled player');

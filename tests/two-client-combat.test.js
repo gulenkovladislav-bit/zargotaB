@@ -545,6 +545,42 @@ async function expectCode(operation, code) {
   assert.strictEqual(snapshot.room.members[playerUid].character.abilityUsage['spell-two-client-mark'].used, 1);
   await player.acknowledgeAction(spellRequestId);
 
+  snapshot = await player.requestAction('Применяет тестовый Жар Пальцев', 'ability', '', {
+    operationId:'two-client-finger-heat-approved',
+    key:'spell-finger-heat', sourceId:'spell-finger-heat', name:'Жар Пальцев', kind:'spell',
+    automationKey:'finger-heat-v1', animationKey:'finger-heat-v1', soundProfile:'magic-fire',
+    actionCost:'free', resolutionMode:'attack', attackStat:'int', rangeCells:10, targetCount:1,
+    damageFormula:'1d6', damageType:'fire', targetMode:'target',
+    targeting:{ mode:'token', tokenId:enemyTokenId, targetKey:enemyKey, targetName:'Учебный противник' }
+  });
+  const fingerHeatRequestId = snapshot.room.members[playerUid].actionRequest.id;
+  assert.strictEqual(snapshot.room.combat.order[1].hp, 9, 'opening the GM verdict must not mutate HP');
+  snapshot = await master.prepareCombatAbilityRoll(playerUid, enemyKey, 'attack');
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-attack-ready', 'the GM must explicitly assign the d20');
+  assert.strictEqual(snapshot.room.combat.order[1].hp, 9, 'assigning the d20 must not mutate HP');
+  queueDeterministicRandom(0.74);
+  snapshot = await player.rollCombatAbilityStage(fingerHeatRequestId);
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-attack-result');
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.abilityResolution.attack.roll, 15, 'the player d20 must be stored before the GM verdict');
+  assert.strictEqual(snapshot.room.combat.order[1].hp, 9, 'the attack roll must not mutate HP');
+  snapshot = await master.prepareCombatAbilityRoll(playerUid, enemyKey, 'damage');
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-damage-ready', 'a hit must explicitly request the damage die');
+  queueDeterministicRandom(0.01);
+  snapshot = await player.rollCombatAbilityStage(fingerHeatRequestId);
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-damage-result');
+  assert.deepStrictEqual(Array.from(snapshot.room.members[playerUid].actionRequest.abilityResolution.damage.rolls), [1]);
+  assert.strictEqual(snapshot.room.combat.order[1].hp, 9, 'the damage roll must still wait for GM confirmation');
+  snapshot = await master.resolveCombatAbility(playerUid, [enemyKey], { approvedResults:[{
+    key:enemyKey, roll:15, rolls:[15], rollMode:'normal', modifier:0, total:15, dc:10,
+    success:true, damage:1, damageRolls:[1], statuses:[]
+  }] });
+  assert.strictEqual(snapshot.room.combat.order[1].hp, 8, 'the authoritative resolver applies the exact GM-approved damage');
+  assert.strictEqual(snapshot.room.combatEvent.roll, 15, 'the event preserves the approved attack die');
+  assert.deepStrictEqual(Array.from(snapshot.room.combatEvent.damageRolls), [1], 'the approved damage die reaches synchronized playback');
+  await expectCode(() => master.resolveCombatAbility(playerUid, [enemyKey], { approvedResults:[] }), 'request-missing');
+  assert.strictEqual(shared.data.rooms[roomCode].combat.order[1].hp, 8, 'a confirmed spell result cannot apply twice');
+  await player.acknowledgeAction(fingerHeatRequestId);
+
   snapshot = await player.requestAction('Просит потратить заряд «Испытательная метка»', 'ability-resource', '', {
     resourceKey:'spell-two-client-mark', delta:1, max:3, name:'Испытательная метка'
   });
@@ -627,8 +663,8 @@ async function expectCode(operation, code) {
     statKey:'dex'
   }, `member:${playerUid}`);
   assert.strictEqual(snapshot.room.combatEvent.damage, 6, '1d8 + 1 Dexterity must produce six deterministic damage');
-  assert.strictEqual(snapshot.room.combat.order[1].hp, 3, 'enemy combat HP must decrease after spell and weapon damage');
-  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === enemyTokenId).hp, 3, 'enemy token HP must stay synchronized');
+  assert.strictEqual(snapshot.room.combat.order[1].hp, 2, 'enemy combat HP must decrease after spells and weapon damage');
+  assert.strictEqual(snapshot.room.scene.tokens.find((token) => token.id === enemyTokenId).hp, 2, 'enemy token HP must stay synchronized');
   await master.finishApprovedDamageRoll(playerUid, requestId, true, snapshot.room.combatEvent.id, '');
 
   shared.data.rooms[roomCode].combat.order[0].economy.long = 1;

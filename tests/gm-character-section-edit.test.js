@@ -39,7 +39,7 @@ assert.match(html, /Заклинание разучено/, 'the GM receives exp
 assert.match(html, /'Разучить'/, 'a learned spell exposes the unlearn action');
 assert.match(html, /Не изучено/, 'an unlearned spell has a visible state marker');
 assert.match(html, /w\.zgVttSpellPreparation=function\(spellId,shouldPrepare,event\)/, 'GM and owner share the canonical preparation control');
-assert.match(html, /zargota-network\.js\?v=2026-08-15\.4/, 'the page loads the current scoped Firebase character editor instead of a cached network client');
+assert.match(html, /zargota-network\.js\?v=2026-08-20\.5/, 'the page loads the current scoped Firebase character editor instead of a cached network client');
 
 var start = network.indexOf('gmUpdateCharacterSections: function');
 var end = network.indexOf('gmAddJournalEntry: function', start);

@@ -89,11 +89,91 @@
     return profiles.map(clone);
   }
 
+  function number(value, fallback) {
+    value = Number(value);
+    return isFinite(value) ? value : (fallback == null ? 0 : fallback);
+  }
+
+  function stat(entry, key) {
+    var value = entry && entry.stats && entry.stats[key];
+    if (typeof value === 'number') return number(value, 0);
+    return number(value && (value.cur != null && value.cur !== 0 ? value.cur : value.base), 0);
+  }
+
+  function die(sides, random) {
+    return 1 + Math.floor(Math.max(0, Math.min(.999999, number(random(), 0))) * sides);
+  }
+
+  function formulaRoll(formula, critical, random) {
+    var match = String(formula || '').replace(/\s+/g, '').match(/^(\d{1,2})d(4|6|8|10|12|20|100)([+-]\d{1,3})?$/i);
+    if (!match) return { formula:'', rolls:[], modifier:0, total:0 };
+    var count = Math.max(1, Number(match[1])) * (critical ? 2 : 1), sides = Number(match[2]), modifier = Number(match[3] || 0), rolls = [];
+    for (var index = 0; index < count; index++) rolls.push(die(sides, random));
+    return { formula:String(formula), rolls:rolls, modifier:modifier, total:Math.max(0, rolls.reduce(function (sum, value) { return sum + value; }, 0) + modifier) };
+  }
+
+  function hasTrait(values, damageType) {
+    var needle = normalizeName(damageType);
+    return [].concat(values || []).some(function (value) {
+      var raw = value && typeof value === 'object' ? (value.key || value.type || value.name || value.label) : value;
+      raw = normalizeName(raw);
+      return !!needle && (raw === needle || raw.indexOf(needle) >= 0 || needle.indexOf(raw) >= 0);
+    });
+  }
+
+  function projectVitals(target, damage) {
+    var hp = Math.max(0, number(target && (target.hp == null ? target.hpMax : target.hp), 0));
+    var tempHp = Math.max(0, number(target && target.tempHp, 0));
+    var absorbed = Math.min(tempHp, damage);
+    return { beforeHp:hp, beforeTempHp:tempHp, absorbed:absorbed, hp:Math.max(0, hp - Math.max(0, damage - absorbed)), tempHp:Math.max(0, tempHp - absorbed) };
+  }
+
+  function buildPreview(profile, context, random) {
+    profile = clone(profile || {});
+    context = context || {};
+    random = typeof random === 'function' ? random : Math.random;
+    var actor = context.actor || {}, targets = Array.isArray(context.targets) ? context.targets : [], attackModifier = stat(actor, profile.attackStat || 'int') + number(context.attackModifier, 0);
+    return {
+      version:1,
+      automationKey:String(profile.automationKey || ''),
+      abilityName:String(profile.name || ''),
+      actorKey:String(actor.key || ''),
+      actorName:String(actor.name || ''),
+      damageFormula:String(profile.damageFormula || ''),
+      damageType:String(profile.damageType || ''),
+      results:targets.map(function (target) {
+        var rollMode = ['advantage','disadvantage'].indexOf(target && target.rollMode) >= 0 ? target.rollMode : 'normal', first = die(20, random), second = rollMode === 'normal' ? null : die(20, random), rolls = second == null ? [first] : [first, second];
+        var natural = second == null ? first : (rollMode === 'advantage' ? Math.max(first, second) : Math.min(first, second)), ac = Math.max(0, number(target && target.ac, 10) + number(target && target.acModifier, 0));
+        var total = natural + attackModifier, success = natural === 20 || (natural !== 1 && total >= ac);
+        var damageRoll = formulaRoll(profile.damageFormula, natural === 20 && profile.resolutionMode === 'attack', random);
+        var rolledDamage = Math.max(0, damageRoll.total + number(context.damageModifier, 0)), rawDamage = success ? rolledDamage : 0;
+        var immune = hasTrait(target && target.immunities, profile.damageType), resisted = hasTrait(target && target.resistances, profile.damageType), vulnerable = hasTrait(target && target.vulnerabilities, profile.damageType), damage = rawDamage, potentialDamage = rolledDamage;
+        if (immune) damage = 0;
+        else if (resisted && !vulnerable) damage = Math.floor(damage / 2);
+        else if (vulnerable && !resisted) damage *= 2;
+        if (immune) potentialDamage = 0;
+        else if (resisted && !vulnerable) potentialDamage = Math.floor(potentialDamage / 2);
+        else if (vulnerable && !resisted) potentialDamage *= 2;
+        var vitals = projectVitals(target, damage);
+        return {
+          key:String(target && target.key || ''), name:String(target && target.name || 'Цель'), portrait:String(target && target.portrait || ''),
+          roll:natural, rolls:rolls, rollMode:rollMode, modifier:attackModifier, total:total, dc:ac, success:success,
+          damageRolls:damageRoll.rolls, damageRollTotal:damageRoll.total, rawDamage:rawDamage, potentialDamage:potentialDamage, damage:damage, heal:0,
+          immune:immune, resisted:resisted, vulnerable:vulnerable,
+          beforeHp:vitals.beforeHp, beforeTempHp:vitals.beforeTempHp, absorbed:vitals.absorbed, hp:vitals.hp, tempHp:vitals.tempHp,
+          statuses:[]
+        };
+      })
+    };
+  }
+
   return {
-    version: 1,
+    version: 2,
     normalizeName: normalizeName,
     resolve: resolve,
     mergeMeta: mergeMeta,
-    catalog: catalog
+    catalog: catalog,
+    buildPreview: buildPreview,
+    projectVitals: projectVitals
   };
 });

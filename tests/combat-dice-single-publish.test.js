@@ -47,7 +47,10 @@ assert.match(attack, /publishCombatDiceOnce\(singleAttackClientId/);
 assert.doesNotMatch(attack, /renderedRollVisuals\[attackClientId\]/);
 assert.doesNotMatch(attack, /renderedRollVisuals\[singleAttackClientId\]/);
 
-assert.doesNotMatch(damage, /zgRenderLocalDiceThrow/);
+assert.match(damage, /combatQaActive\(\)&&w\.zgRenderLocalDiceThrow/, 'Workshop damage selects the local visual renderer before the Firebase guard');
+assert.match(damage, /'qa-damage-visual-'\+event\.id/, 'Workshop damage owns one stable local visual id');
+assert.match(damage, /localDamageWait=Math\.max\([^;]*Number\(event\.revealAt\|\|0\)-Date\.now\(\)\+80\)/, 'Workshop damage stays alive through the impact reveal frame');
+assert.match(damage, /if\(!w\.ZargotaRooms\|\|!w\.ZargotaRooms\.beginRollBatch\)return Promise\.resolve\(\)/, 'the Firebase guard remains after the local Workshop route');
 assert.match(damage, /stageSyncedCombatDiceThrow\(damageClientId,throwMotion\)/);
 assert.match(damage, /publishCombatDiceOnce\(damageClientId/);
 

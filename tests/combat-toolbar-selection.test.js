@@ -90,16 +90,19 @@ assert.match(html, /data-combat-tool="'\+type\+'" aria-pressed="false"/, 'long, 
 assert.match(html, /data-combat-tool="prepare" aria-pressed="false"/, 'prepare button participates in the shared selection contract');
 assert.match(html, /data-combat-tool="sheet" aria-pressed="false"/, 'creature sheet participates in the shared selection contract');
 assert.match(html, /combatToolbarVisible=!!\(active&&controlled\)/, 'combat toolbar is considered visible only when it can render a controlled participant');
+assert.match(html, /if\(w\.zgCombatAttackToolActive\)\{\s*if\(ev\.button!==0\)return;\s*ev\.preventDefault\(\);ev\.stopPropagation\(\);/, 'only the primary mouse button can select a combat target token');
 assert.match(html, /dock\.classList\.toggle\('combat-mode',combatToolbarVisible\)/, 'the regular toolbar stays visible when combat has no controlled participant');
 assert.match(html, /\.zg-combat-economy button\.tool-selected:not\(:disabled\)\{[^}]*box-shadow:/, 'selected tool receives a visible gold surface and outline');
 assert.match(html, /\.zg-action-cursor-glyph\{[^}]*width:56px;[^}]*height:56px/, 'free-scene actions use a legible approved cursor glyph');
-assert.match(html, /attack:'images\/vtt-actions\/cursors\/attack-round\.svg'/, 'combat targeting uses the compact circular attack sigil rather than the oversized rapier');
-assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex\{width:72px;height:72px/, 'combat targeting keeps its attack endpoint legible at the actual target point');
-assert.match(html, /\.range-vortex::before\{[^}]*border-radius:50%/, 'combat endpoint artwork remains readable on a shadowed circular plate');
-assert.match(html, /\.range-vortex img\{[^}]*mix-blend-mode:screen/, 'cursor art loses its black source plate over the scene');
+assert.match(html, /attack:'images\/vtt-actions\/cursors\/attack-corners\.png'/, 'combat targeting uses the selected four-corner attack cursor');
+assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex\{width:48px;height:48px/, 'combat targeting keeps the corner arrows compact over empty map space');
+assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\]\.on-token \.range-vortex\{width:72px;height:72px/, 'combat targeting expands the corner arrows when the pointer reaches a target token');
+assert.match(html, /\.zg-tool-range-vector \.range-vortex::before\{display:none\}/, 'combat targeting shares the background-free action cursor treatment');
+assert.match(html, /\.zg-tool-range-vector\[data-tool="attack"\] \.range-vortex img\{mix-blend-mode:normal\}/, 'the transparent attack image renders without a nested blend layer');
 assert.match(html, /\.zg-game-overlay\.combat-targeting \.zg-vtt-scene[^}]*cursor:none!important/, 'native crosshair cannot overlap the scene-anchored combat reticle');
+assert.doesNotMatch(html, /\.zg-game-overlay\.combat-targeting \.zg-vtt-token\{cursor:crosshair!important\}/, 'the superseded native token crosshair cannot reappear over the new target cursor');
 assert.match(html, /cursor\.classList\.remove\('open','over-range'\)/, 'combat targeting removes the detached sword cursor before showing its range reticle');
-assert.match(html, /attackPreview\.tool='attack';scheduleToolRangeVector\(attackPreview\)/, 'combat targeting drives the shared grid-aware range renderer');
+assert.match(html, /attackPreview\.tool='attack';attackPreview\.targetHovered=!!hoveredTarget;scheduleToolRangeVector\(attackPreview\)/, 'combat targeting drives the shared grid-aware range renderer with its target-hover state');
 assert.match(html, /@media\(prefers-reduced-motion:reduce\)\{\.zg-combat-economy button\{transition:none\}/, 'selected-state motion respects reduced-motion');
 
 console.log('combat toolbar selection and cursor contract passed');
