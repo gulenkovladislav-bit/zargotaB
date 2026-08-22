@@ -10,16 +10,21 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 var transferStart = html.indexOf("var SCENE_TRANSFER_FORMAT='zargota-scene'");
 var transferEnd = html.indexOf('w.zgSceneExport=function', transferStart);
+var gmNoteHelperStart = html.indexOf('var SCENE_GM_NOTE_FIELDS =');
+var gmNoteHelperEnd = html.indexOf('function sceneDeviceId()', gmNoteHelperStart);
 
 assert.ok(transferStart >= 0 && transferEnd > transferStart, 'scene transfer helpers must exist');
+assert.ok(gmNoteHelperStart >= 0 && gmNoteHelperEnd > gmNoteHelperStart, 'scene GM note sanitizer must exist');
 
 var context = { result:null };
 vm.runInNewContext(
   'function sceneForLibrary(scene){return JSON.parse(JSON.stringify(scene));}' +
+  html.slice(gmNoteHelperStart, gmNoteHelperEnd) +
   html.slice(transferStart, transferEnd) +
   ';result={' +
     'payload:buildSceneExportPackage({' +
       'id:"local-only-id",name:"Храм / ночь",folder:"Глава 1",created:42,revision:3,updatedAt:84,updatedByDevice:"device-a",' +
+      'gmNotes:{description:"Сначала слышен колокол",temperature:"Холодно",important:"Алтарь открывает проход"},' +
       'scene:{layers:[{id:"bg-1",image:"data:image/png;base64,AAAA"},{id:"bg-2",image:"images/maps/temple.webp"}],tokens:[{id:"npc-1",type:"custom",image:"data:image/webp;base64,BBBB"}]}' +
     '},"2026-07-27T12:00:00.000Z"),' +
     'fileName:sceneExportFileName("Храм / ночь:*?"),' +
@@ -48,6 +53,9 @@ assert.strictEqual(context.result.payload.scene.created, 42);
 assert.strictEqual(context.result.payload.scene.revision, 3);
 assert.strictEqual(context.result.payload.scene.updatedAt, 84);
 assert.strictEqual(context.result.payload.scene.updatedByDevice, 'device-a');
+assert.strictEqual(context.result.payload.scene.gmNotes.description, 'Сначала слышен колокол');
+assert.strictEqual(context.result.payload.scene.gmNotes.temperature, 'Холодно');
+assert.strictEqual(context.result.payload.scene.gmNotes.important, 'Алтарь открывает проход');
 assert.strictEqual(context.result.payload.scene.id, undefined, 'a local IndexedDB id must not become an import identity');
 assert.strictEqual(context.result.payload.assets.embeddedCount, 2);
 assert.strictEqual(context.result.payload.assets.externalCount, 1);
@@ -238,6 +246,7 @@ var importContext = {
   w:{ZargotaLib:{}}
 };
 vm.runInNewContext(
+  html.slice(gmNoteHelperStart, gmNoteHelperEnd) +
   html.slice(importHelpersStart, importHelpersEnd) +
   ';result=runPreparedSceneImport([{name:"Храм",folder:"Новый",scene:{layers:[{id:"new",image:"new"}],tokens:[]}}],[{id:"old",name:"Храм",folder:"Старый",scene:{layers:[{id:"old-bg",image:"old"}],tokens:[]},created:10,order:3}],"replace");',
   importContext
@@ -266,6 +275,7 @@ importContext.result.then(function(result) {
     w:{ZargotaLib:{}}
   };
   vm.runInNewContext(
+    html.slice(gmNoteHelperStart, gmNoteHelperEnd) +
     html.slice(importHelpersStart, importHelpersEnd) +
     ';result=runPreparedSceneImport([{name:"Храм",scene:{layers:[],tokens:[]}}],[{id:"old",name:"Храм",scene:{layers:[],tokens:[]}}],"replace");',
     activeContext
@@ -288,6 +298,7 @@ importContext.result.then(function(result) {
       w:{ZargotaLib:{}}
     };
     vm.runInNewContext(
+      html.slice(gmNoteHelperStart, gmNoteHelperEnd) +
       html.slice(importHelpersStart, importHelpersEnd) +
       ';result=runPreparedSceneImport([{name:"Храм",scene:{layers:[],tokens:[]}}],[{id:"old",name:"Храм",scene:{layers:[],tokens:[]}}],"replace");',
       failedContext

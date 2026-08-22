@@ -318,7 +318,7 @@
     return [
       'room-required','room-not-found','player-missing','member-required','master-only',
       'delivery-title-required','delivery-image-large','character-missing',
-      'ability-exhausted','combat-zero-hp','spell-learning-invalid','spell-already-learned'
+      'ability-exhausted','combat-zero-hp','combat-status-blocked','combat-not-turn','combat-action-spent','hero-incapacitated','spell-learning-invalid','spell-already-learned'
     ].indexOf(code) >= 0 || code.indexOf('permission-denied') >= 0;
   }
 
@@ -978,6 +978,17 @@
     return collectActiveStatusEffects(entry,{includeHidden:true}).levelsByKey[key]||0;
   }
 
+  function combatStatusSourceActorKeys(entry,key) {
+    key=normalizeCombatStatusKey(key);
+    var result=[];
+    collectActiveStatusEffects(entry,{includeHidden:true}).effects.forEach(function(effect){
+      if(normalizeCombatStatusKey(effect)!==key)return;
+      var sourceKey=String(effect.sourceActorKey||'');
+      if(sourceKey&&result.indexOf(sourceKey)<0)result.push(sourceKey);
+    });
+    return result;
+  }
+
   function combatEntryWithRoomStatuses(room, entry) {
     if (!entry || !entry.uid || !room || !room.members || !room.members[entry.uid] || !room.members[entry.uid].character) return entry;
     return Object.assign({}, entry, {
@@ -992,6 +1003,10 @@
     var modifiers = combatStatusModifiers(entry);
     var blocked = { long:false, short:false, reaction:false, movement:false };
     var reasons = [];
+    if (has('dead')) {
+      blocked.long = blocked.short = blocked.reaction = blocked.movement = true;
+      reasons.push('Мёртв: действия, реакции и движение недоступны');
+    }
     if (has('paralyze')) {
       blocked.long = blocked.short = blocked.reaction = blocked.movement = true;
       reasons.push('Паралич: действия, реакции и движение недоступны');
@@ -1031,7 +1046,7 @@
       if (!blocked.reaction) reasons.push('Состояние запрещает реакции');
       blocked.reaction = true;
     }
-    return { blocked:blocked, slowed:has('slow'), prone:has('prone'), reasons:reasons };
+    return { blocked:blocked, slowed:has('slow'), prone:has('prone'), flying:has('fly'), anchored:has('anchor'), reasons:reasons };
   }
 
   function combatTurnMovement(entry) {
@@ -1042,8 +1057,46 @@
     var slowSpeedMod = modifiers.byKey.slow ? Number(modifiers.byKey.slow.speedMod) || 0 : 0;
     base = Math.max(0, base + modifiers.speedMod - slowSpeedMod);
     if (restrictions.slowed) base = Math.floor(base / 2);
+    // Подъём после опрокидывания расходует половину доступного движения.
+    if (restrictions.prone) base = Math.floor(base / 2);
     if (combatStatusLevel(entry,'exhausted') >= 2) base = Math.floor(base / 2);
     return base;
+  }
+
+  function combatEffectiveHpMax(entry) {
+    var base=Math.max(1,combatNumber(entry&&entry.statusBaseHpMax,entry&&entry.hpMax||entry&&entry.baseHpMax||1));
+    return combatStatusLevel(entry,'exhausted')>=4?Math.max(1,Math.floor(base/2)):base;
+  }
+
+  function combatReconcileStatusHpMax(entry) {
+    var next=Object.assign({},entry||{}),level=combatStatusLevel(next,'exhausted');
+    var saved=Math.max(0,combatNumber(next.statusBaseHpMax,0)),current=Math.max(1,combatNumber(next.hpMax,1));
+    if(level>=4){
+      if(!saved)saved=current;
+      next.statusBaseHpMax=saved;
+      next.hpMax=Math.max(1,Math.floor(saved/2));
+      if(next.hp!=null)next.hp=Math.min(next.hpMax,Math.max(0,combatNumber(next.hp,0)));
+      if(next.hpCur!=null)next.hpCur=Math.min(next.hpMax,Math.max(0,combatNumber(next.hpCur,0)));
+    }else if(saved){
+      next.hpMax=saved;
+      next.statusBaseHpMax=null;
+    }
+    return next;
+  }
+
+  function combatMovementStatusCheck(room, entry, fromX, fromY, toX, toY) {
+    var restrictions=combatRestrictions(entry);
+    if(restrictions.blocked.movement)return{allowed:false,reason:restrictions.reasons[0]||'Текущее состояние не позволяет двигаться.'};
+    var fearSources=combatStatusSourceActorKeys(entry,'fear');
+    if(!fearSources.length)return{allowed:true,reason:''};
+    var order=room&&room.combat&&Array.isArray(room.combat.order)?room.combat.order:[],scene=room&&room.scene||{};
+    for(var index=0;index<fearSources.length;index+=1){
+      var source=order.filter(function(item){return item&&String(item.key||'')===fearSources[index];})[0],point=combatEntryScenePoint(room,source);
+      if(!point)continue;
+      var before=movementCells(scene,fromX,fromY,point.x,point.y),after=movementCells(scene,toX,toY,point.x,point.y);
+      if(after<before)return{allowed:false,reason:'Страх: нельзя добровольно приближаться к источнику'};
+    }
+    return{allowed:true,reason:''};
   }
 
   function reconcileCombatEquipmentEntry(entry, character, phase) {
@@ -1127,6 +1180,73 @@
     return result;
   }
 
+  function combatStatusFlagExcept(entry, flag, excludedKeys) {
+    excludedKeys=Array.isArray(excludedKeys)?excludedKeys:[];
+    var modifiers=combatStatusModifiers(entry),found=false;
+    Object.keys(modifiers.byKey).forEach(function(key){
+      if(excludedKeys.indexOf(key)<0&&modifiers.byKey[key]&&modifiers.byKey[key][flag])found=true;
+    });
+    return found;
+  }
+
+  function combatAttackStatusContext(room, attacker, target, distance) {
+    var attackerModifiers=combatStatusModifiers(attacker),targetModifiers=combatStatusModifiers(target);
+    var hasAdvantage=false,hasDisadvantage=combatStatusFlagExcept(attacker,'attackDisadvantage',['fear']);
+    var targetKeys=combatStatusKeys(target),attackerKeys=combatStatusKeys(attacker),reasons=[];
+    // Страх даёт помеху только рядом с известным источником. Для старого
+    // ручного статуса без источника сохраняем безопасное каноническое поведение.
+    if(attackerKeys.indexOf('fear')>=0){
+      var sources=combatStatusSourceActorKeys(attacker,'fear');
+      if(!sources.length||sources.some(function(sourceKey){
+        var source=(room&&room.combat&&Array.isArray(room.combat.order)?room.combat.order:[]).filter(function(item){return item&&String(item.key||'')===sourceKey;})[0];
+        var sourceDistance=combatEntryDistance(room,attacker,source);
+        return sourceDistance==null||sourceDistance<=1;
+      }))hasDisadvantage=true;
+    }
+    if(targetModifiers.grantAdvantageToAttackers&&targetKeys.indexOf('prone')<0)hasAdvantage=true;
+    if(targetKeys.indexOf('prone')>=0){
+      if(distance==null||distance<=1)hasAdvantage=true;
+      else hasDisadvantage=true;
+    }
+    if(attackerKeys.indexOf('invisible')>=0)hasAdvantage=true;
+    if(targetKeys.indexOf('invisible')>=0)hasDisadvantage=true;
+    var charmSources=combatStatusSourceActorKeys(attacker,'charm');
+    if(charmSources.indexOf(String(target&&target.key||''))>=0)reasons.push('Очарование: нельзя атаковать источник чар');
+    return{hasAdvantage:hasAdvantage,hasDisadvantage:hasDisadvantage,blocked:reasons.length>0,reasons:reasons};
+  }
+
+  function combatConfusionTarget(room, order, attackerIndex, requestedTargetKey) {
+    order=Array.isArray(order)?order:[];
+    var attacker=order[attackerIndex];
+    if(!attacker||combatStatusKeys(attacker).indexOf('confusion')<0||Math.random()>=.5)return{triggered:false,targetKey:requestedTargetKey};
+    var adjacent=order.filter(function(entry,index){
+      if(!entry||index===attackerIndex||combatEntryCurrentHp(entry)<=0)return false;
+      var distance=combatEntryDistance(room,attacker,entry);
+      return distance!=null&&distance<=1;
+    });
+    if(!adjacent.length)return{triggered:false,targetKey:requestedTargetKey};
+    var target=adjacent[Math.min(adjacent.length-1,Math.floor(Math.random()*adjacent.length))];
+    return{triggered:true,targetKey:String(target.key||''),targetName:String(target.name||'случайная цель')};
+  }
+
+  function combatStatusDamageTraits(target, damageType) {
+    var type=String(damageType||'').toLowerCase();
+    var frozen=combatStatusKeys(target).indexOf('freeze')>=0;
+    return{vulnerable:!!(frozen&&/(дроб|bludge|звук|sonic|thunder)/.test(type)),reason:frozen?'Заморожен':''};
+  }
+
+  function combatAbilityStatusBlock(actor, effect, targets) {
+    effect=effect&&typeof effect==='object'?effect:{};targets=Array.isArray(targets)?targets:[];
+    var actorKeys=combatStatusKeys(actor),isSpell=/^spell-/.test(String(effect.key||''))||/^spell-/.test(String(effect.sourceId||''))||String(effect.kind||'')==='spell';
+    if(isSpell&&actorKeys.indexOf('silence')>=0)return'Магическая немота запрещает применять заклинания.';
+    if(isSpell&&combatStatusLevel(actor,'exhausted')>=4)return'Истощение IV запрещает применять заклинания.';
+    var movementText=String(effect.name||'')+' '+String(effect.description||effect.text||'');
+    var magicalMovement=effect.movementKind==='magical'||sanitizeAbilityStatusKeys(effect.statuses,12).indexOf('fly')>=0||(effect.effectKind==='movement'&&(isSpell||/телеп|магич|портал|сквозь.?тень|пол[её]т/i.test(movementText)));
+    if(magicalMovement&&actorKeys.indexOf('anchor')>=0)return'Магический якорь запрещает магическое перемещение.';
+    if(magicalMovement&&targets.some(function(target){return combatStatusKeys(target).indexOf('anchor')>=0;}))return'Магический якорь цели запрещает магическое перемещение.';
+    return'';
+  }
+
   function combatStatusEffectForKey(key, options) {
     options=options&&typeof options==='object'?options:{};
     var rule={};
@@ -1156,6 +1276,29 @@
     return'normal';
   }
 
+  function combatStatusRollMode(entry, statKey, rollKind, requested, context) {
+    var modifiers=combatStatusModifiers(entry),exhaustion=combatStatusLevel(entry,'exhausted'),disadvantage=false;
+    if(rollKind==='attack')disadvantage=modifiers.hasDisadvantage||modifiers.attackDisadvantage||exhaustion>=3;
+    else if(rollKind==='save')disadvantage=modifiers.hasDisadvantage||modifiers.saveDisadvantage||(statKey==='dex'&&modifiers.dexSaveDisadvantage)||exhaustion>=3;
+    else{
+      context=context&&typeof context==='object'?context:{};
+      disadvantage=modifiers.hasDisadvantage||combatStatusFlagExcept(entry,'abilityCheckDisadvantage',['fear','charm'])||exhaustion>=1;
+      var fearSources=combatStatusSourceActorKeys(entry,'fear'),charmSources=combatStatusSourceActorKeys(entry,'charm'),target=context.target||null;
+      if(combatStatusKeys(entry).indexOf('fear')>=0&&(!fearSources.length||fearSources.some(function(sourceKey){
+        var source=(context.room&&context.room.combat&&Array.isArray(context.room.combat.order)?context.room.combat.order:[]).filter(function(item){return item&&String(item.key||'')===sourceKey;})[0],distance=combatEntryDistance(context.room,entry,source);
+        return distance==null||distance<=1;
+      })))disadvantage=true;
+      if(target&&charmSources.indexOf(String(target.key||''))>=0)disadvantage=true;
+    }
+    return combatRollMode(requested||'normal',false,disadvantage);
+  }
+
+  function rollCombatStatusD20(entry, statKey, rollKind, requested, context) {
+    var mode=combatStatusRollMode(entry,statKey,rollKind,requested,context),first=rollDie(20),second=mode==='normal'?null:rollDie(20);
+    var natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second));
+    return{natural:natural,rolls:second==null?[first]:[first,second],mode:mode};
+  }
+
   function queueCombatEntryState(room, updates, entry, includeVitals, options) {
     if (!entry) return;
     options = options && typeof options === 'object' ? options : {};
@@ -1170,6 +1313,8 @@
       if (includeVitals) {
         updates[path+'/hp'] = Math.max(0, combatNumber(entry.hp, 0));
         updates[path+'/tempHp'] = Math.max(0, combatNumber(entry.tempHp, 0));
+        updates[path+'/hpMax'] = Math.max(0, combatNumber(entry.hpMax, 0));
+        updates[path+'/statusBaseHpMax'] = Math.max(0, combatNumber(entry.statusBaseHpMax, 0)) || null;
       }
     }
     if (writeMember && entry.uid && room && room.members && room.members[entry.uid]) {
@@ -1179,6 +1324,8 @@
       if (includeVitals) {
         updates['members/'+entry.uid+'/character/hpCur'] = Math.max(0, combatNumber(entry.hp, 0));
         updates['members/'+entry.uid+'/character/tempHp'] = Math.max(0, combatNumber(entry.tempHp, 0));
+        updates['members/'+entry.uid+'/character/hpMax'] = Math.max(0, combatNumber(entry.hpMax, 0));
+        updates['members/'+entry.uid+'/character/statusBaseHpMax'] = Math.max(0, combatNumber(entry.statusBaseHpMax, 0)) || null;
       }
     }
     if (!writeScene || !entry.tokenId || !room) return;
@@ -1293,8 +1440,8 @@
     effects.forEach(function (effect) {
       var effectKey=normalizeCombatStatusKey(effect);if(effectKey&&keys.indexOf(effectKey)<0)keys.push(effectKey);
     });
-    var hpMax = Math.max(0, combatNumber(entry && entry.hpMax, 0));
-    var hp = Math.max(0, combatNumber(entry && entry.hp != null ? entry.hp : hpMax, 0));
+    var hpMax = combatEffectiveHpMax(entry);
+    var hp = Math.min(hpMax, Math.max(0, combatNumber(entry && entry.hp != null ? entry.hp : hpMax, 0)));
     var tempHp = Math.max(0, combatNumber(entry && entry.tempHp, 0));
     keys.forEach(function (key) {
       if (seen[key]) return;
@@ -1329,10 +1476,11 @@
     var modifiers=combatStatusModifiers(Object.assign({},entry,{statuses:keys,statusEffects:effects}));
     var statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
     keys.forEach(function(key){
-      var effect=effects.filter(function(item){return item&&normalizeCombatStatusKey(item)===key;})[0],rule=effect||modifiers.byKey[key]||{};
+      var effect=effects.filter(function(item){return item&&normalizeCombatStatusKey(item)===key;})[0],rule=Object.assign({},modifiers.byKey[key]||{},effect||{});
+      if(key==='poison')Object.assign(rule,{autoRemove:'save_dc',saveDC:14,saveStat:'con'});
       if(rule.autoRemove!=='save_dc'||Number(rule.saveDC)<=0)return;
       var stat=['str','dex','int','cha','per','con'].indexOf(rule.saveStat)>=0?rule.saveStat:'con';
-      var mode=combatRollMode('normal',false,modifiers.hasDisadvantage||modifiers.saveDisadvantage||(stat==='dex'&&modifiers.dexSaveDisadvantage)),first=rollDie(20),second=mode==='normal'?null:rollDie(20);
+      var mode=combatRollMode('normal',false,modifiers.hasDisadvantage||modifiers.saveDisadvantage||(stat==='dex'&&modifiers.dexSaveDisadvantage)||combatStatusLevel(entry,'exhausted')>=3),first=rollDie(20),second=mode==='normal'?null:rollDie(20);
       var natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),bonus=combatStat(entry,stat),total=natural+bonus,success=natural===20||(natural!==1&&total>=Number(rule.saveDC));
       saves.push({statusKey:key,label:rule.label||rule.value||key,statKey:stat,roll:natural,rolls:second==null?[first]:[first,second],mode:mode,bonus:bonus,total:total,dc:Number(rule.saveDC),success:success});
       changes.push((rule.label||rule.value||key)+': спасбросок '+statLabels[stat]+' '+total+' против DC '+Number(rule.saveDC)+' — '+(success?'успех, состояние снято':'провал'));
@@ -1342,7 +1490,7 @@
       keys=keys.filter(function(key){return !removedKeys[key];});
       effects=effects.filter(function(effect){return !effect||!removedKeys[normalizeCombatStatusKey(effect)];});
     }
-    return { hp:hp, tempHp:tempHp, statuses:keys, statusEffects:effects, changes:changes, impacts:impacts, saves:saves, removedStatuses:Object.keys(removedKeys) };
+    return { hp:hp, hpMax:hpMax, tempHp:tempHp, statuses:keys, statusEffects:effects, changes:changes, impacts:impacts, saves:saves, removedStatuses:Object.keys(removedKeys) };
   }
 
   function expireTurnStatuses(entry) {
@@ -1362,7 +1510,9 @@
     var statuses = combatStatusKeys(entry).filter(function (key) {
       return !expired.some(function (effect) { return normalizeCombatStatusKey(effect) === key; }) || active.some(function (effect) { return normalizeCombatStatusKey(effect) === key; });
     });
-    return { effects:active, statuses:statuses, expired:expired };
+    var hpMax=Math.max(0,combatNumber(entry&&entry.hpMax,0)),statusBaseHpMax=Math.max(0,combatNumber(entry&&entry.statusBaseHpMax,0));
+    if(statuses.indexOf('exhausted')<0&&statusBaseHpMax){hpMax=statusBaseHpMax;statusBaseHpMax=0;}
+    return { effects:active, statuses:statuses, expired:expired, hpMax:hpMax, statusBaseHpMax:statusBaseHpMax||null };
   }
 
   function normalizeWorldClock(clock) {
@@ -2601,7 +2751,9 @@
     if (!layers.length && scene.background) {
       layers.push({ id:'legacy-background', name:'Фон', image:String(scene.background), visible:true, opacity:1, fit:'cover', scale:1, x:0, y:0, brightness:1, contrast:1, saturation:1, darken:0, locked:false });
     }
-    var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).slice(0, 60).map(function (token, index) {
+    // GM map notes are local scene-authoring data. They must never enter the
+    // shared room payload, even though the player renderer also hides them.
+    var tokens = (Array.isArray(scene.tokens) ? scene.tokens : []).filter(function(token){ return token && token.type !== 'note'; }).slice(0, 60).map(function (token, index) {
       function safeList(value, limit) {
         if (!Array.isArray(value)) return [];
         try { return JSON.parse(JSON.stringify(value.slice(0, limit || 24))); } catch (e) { return []; }
@@ -2635,7 +2787,7 @@
         statusEffects: safeList(token.statusEffects, 40),
         opacity: Math.max(0.15, Math.min(1, Number(token.opacity == null ? 1 : token.opacity))),
         memberUid: String(token.memberUid || '').slice(0, 128),
-        name: token.type === 'note' ? 'GM' : String(token.name || 'Жетон').slice(0, 80),
+        name: String(token.name || 'Жетон').slice(0, 80),
         image: (token.type === 'custom' || token.type === 'object') ? String(token.image || '') : '',
         x: Math.max(0, Math.min(100, Number(token.x == null ? 50 : token.x))),
         y: Math.max(0, Math.min(100, Number(token.y == null ? 50 : token.y))),
@@ -2656,6 +2808,11 @@
     var regions = (Array.isArray(scene.regions) ? scene.regions : []).slice(0, 60).map(function(region,index){
       return {id:String(region.id||('region-'+index)).slice(0,100),name:String(region.name||'Зона').slice(0,80),kind:region.kind==='place'?'place':'fog',shape:['polygon','rect','circle'].indexOf(region.shape)>=0?region.shape:'polygon',tooltip:String(region.tooltip||'').slice(0,180),opacity:Math.max(.08,Math.min(.95,Number(region.opacity==null ? .76 : region.opacity))),visible:region.visible!==false,points:(Array.isArray(region.points)?region.points:[]).slice(0,32).map(function(point){return{x:Math.max(0,Math.min(100,Number(point.x)||0)),y:Math.max(0,Math.min(100,Number(point.y)||0))};})};
     }).filter(function(region){return region.points.length>=3;});
+    var fogCloudPresets={soft:true,storm:true,serpent:true,dense:true,wisps:true,vortex:true};
+    var fogClouds=(Array.isArray(scene.fogClouds)?scene.fogClouds:[]).slice(0,40).map(function(cloud,index){
+      cloud=cloud&&typeof cloud==='object'?cloud:{};var preset=fogCloudPresets[String(cloud.preset||'')]?String(cloud.preset):'soft';
+      return{id:String(cloud.id||('fog-cloud-'+index)).slice(0,100),preset:preset,x:Math.max(0,Math.min(100,Number(cloud.x==null?50:cloud.x))),y:Math.max(0,Math.min(100,Number(cloud.y==null?50:cloud.y))),size:Math.max(8,Math.min(55,Number(cloud.size)||24)),rotation:Math.max(-180,Math.min(180,Number(cloud.rotation)||0)),opacity:Math.max(.25,Math.min(1,Number(cloud.opacity==null ? .82 : cloud.opacity))),visible:cloud.visible!==false};
+    });
     var view=scene.view||{};
     var statusVisibility={};
     Object.keys(view.statusVisibility||{}).slice(0,40).forEach(function(key){
@@ -2668,6 +2825,7 @@
       layers: layers,
       tokens: tokens,
       regions: regions,
+      fogClouds: fogClouds,
       view:{fog:view.fog!==false,visionMode:view.visionMode==='individual'?'individual':'party',rememberExplored:view.rememberExplored!==false,cinematic:!!view.cinematic,showOtherRequests:!!view.showOtherRequests,allowPlayerInspectAllies:view.allowPlayerInspectAllies!==false,showPublicStatuses:view.showPublicStatuses!==false,showPublicInjuries:!!view.showPublicInjuries,worldClockWidget:['always','brief','hidden'].indexOf(view.worldClockWidget)>=0?view.worldClockWidget:'always',statusVisibility:statusVisibility,minZoom:Math.max(.4,Math.min(2,Number(view.minZoom)||.6)),maxZoom:Math.max(.6,Math.min(3,Number(view.maxZoom)||2.2)),panLimit:Math.max(10,Math.min(100,Number(view.panLimit)||45))},
       grid: scene.grid !== false,
       gridSize: Math.max(24, Math.min(160, Number(scene.gridSize) || 64)),
@@ -3512,7 +3670,8 @@
             entryIndex=order.findIndex(function(entry){return entry&&String(entry.tokenId||'')===tokenId;});
             if(entryIndex<0||entryIndex!==Number(combat.turnIndex||0))throw roomError('В бою можно двигать только активное существо.','combat-not-turn');
             var entry=combatEntryWithRoomStatuses(room,Object.assign({},order[entryIndex]));
-            if(combatRestrictions(entry).blocked.movement)throw roomError('Текущее состояние не позволяет двигаться.','combat-status-blocked');
+            var movementStatus=combatMovementStatusCheck(room,entry,fromX,fromY,targetX,targetY);
+            if(!movementStatus.allowed)throw roomError(movementStatus.reason,'combat-status-blocked');
             var economy=Object.assign({movement:7,movementMax:7},entry.economy||{});if(spent>Number(economy.movement||0))throw roomError('Не хватает движения: нужно '+spent+', осталось '+Number(economy.movement||0)+' клеток.','combat-movement-spent');
             economy.movement=Math.max(0,Number(economy.movement||0)-spent);entry.economy=economy;order[entryIndex]=entry;
           }
@@ -3559,7 +3718,8 @@
           if (battle.combat && battle.combat.active) {
             if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
             if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP герой не может передвигаться.', 'combat-zero-hp');
-            if (combatRestrictions(combatEntryWithRoomStatuses(room, battle.entry)).blocked.movement) throw roomError('Текущее состояние не позволяет двигаться.', 'combat-status-blocked');
+            var requestMovementStatus=combatMovementStatusCheck(room,combatEntryWithRoomStatuses(room,battle.entry),request.fromX,request.fromY,request.toX,request.toY);
+            if(!requestMovementStatus.allowed)throw roomError(requestMovementStatus.reason,'combat-status-blocked');
             request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
             var moveLeft = Number(battle.entry.economy && battle.entry.economy.movement);
             if (!isFinite(moveLeft)) moveLeft = Math.max(0, Number(member.character && member.character.speed) || 7);
@@ -3605,7 +3765,8 @@
           if (battle.combat && battle.combat.active) {
             if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
             if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP герой не может передвигаться.', 'combat-zero-hp');
-            if (combatRestrictions(combatEntryWithRoomStatuses(room, battle.entry)).blocked.movement) throw roomError('Текущее состояние не позволяет двигаться.', 'combat-status-blocked');
+            var simulatedMovementStatus=combatMovementStatusCheck(room,combatEntryWithRoomStatuses(room,battle.entry),request.fromX,request.fromY,request.toX,request.toY);
+            if(!simulatedMovementStatus.allowed)throw roomError(simulatedMovementStatus.reason,'combat-status-blocked');
             request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
             var moveLeft = Number(battle.entry.economy && battle.entry.economy.movement);
             if (!isFinite(moveLeft)) moveLeft = Math.max(0, Number(member.character && member.character.speed) || 7);
@@ -3650,7 +3811,8 @@
             if (battle.combat && battle.combat.active) {
               if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Ход этого героя уже завершён.', 'combat-not-turn');
               if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP герой не может передвигаться.', 'combat-zero-hp');
-              if (combatRestrictions(combatEntryWithRoomStatuses(room, battle.entry)).blocked.movement) throw roomError('Текущее состояние не позволяет двигаться.', 'combat-status-blocked');
+              var resolvedMovementStatus=combatMovementStatusCheck(room,combatEntryWithRoomStatuses(room,battle.entry),request.fromX,request.fromY,request.toX,request.toY);
+              if(!resolvedMovementStatus.allowed)throw roomError(resolvedMovementStatus.reason,'combat-status-blocked');
               var spent = request.cells == null ? movementCells(scene, request.fromX, request.fromY, request.toX, request.toY) : Math.max(0, Number(request.cells) || 0);
               var battleEntry = Object.assign({}, battle.entry), battleEconomy = Object.assign({ movement:7, movementMax:7 }, battleEntry.economy || {});
               if (spent > Number(battleEconomy.movement || 0)) throw roomError('У героя больше нет движения на этот путь.', 'combat-movement-spent');
@@ -3808,6 +3970,10 @@
             var abilityBattle = combatHeroEntry(room, targetUid);
             if (abilityBattle.combat && abilityBattle.combat.active && abilityBattle.entry && Number(abilityBattle.entry.hp == null ? abilityBattle.entry.hpMax : abilityBattle.entry.hp) <= 0) {
               throw roomError('При 0 HP герой не может применять способности и заклинания.', 'combat-zero-hp');
+            }
+            if(abilityBattle.combat&&abilityBattle.combat.active&&abilityBattle.entry){
+              var requestAbilityStatusBlock=combatAbilityStatusBlock(combatEntryWithRoomStatuses(room,abilityBattle.entry),details||{},[]);
+              if(requestAbilityStatusBlock)throw roomError(requestAbilityStatusBlock,'combat-status-blocked');
             }
           }
           if (abilityOperationId && member.actionOperationIds && member.actionOperationIds[abilityOperationId]) {
@@ -4019,14 +4185,14 @@
           var targetIndex = resolution.targetKey ? order.findIndex(function (entry) { return entry && String(entry.key || '') === String(resolution.targetKey); }) : -1;
           var target = targetIndex >= 0 ? combatEntryWithRoomStatuses(room, Object.assign({}, order[targetIndex])) : null;
           if ((resolution.mode === 'contest' || resolution.mode === 'save') && !target) throw roomError('Цель проверки больше недоступна.', 'combat-target-invalid');
-          var actorNatural = rollDie(20), actorModifier = combatStat(actor, resolution.actorStat), actorTotal = actorNatural + actorModifier;
-          var targetNatural = null, targetModifier = 0, targetTotal = null, success = null;
-          if (resolution.mode === 'contest') { targetNatural = rollDie(20); targetModifier = combatStat(target, resolution.targetStat); targetTotal = targetNatural + targetModifier; success = actorNatural === 20 || (actorNatural !== 1 && actorTotal >= targetTotal); }
-          else if (resolution.mode === 'save') { targetNatural = rollDie(20); targetModifier = combatStat(target, resolution.targetStat); targetTotal = targetNatural + targetModifier; success = targetNatural === 1 || (targetNatural !== 20 && targetTotal < Number(resolution.dc || 10)); }
+          var actorRoll=rollCombatStatusD20(actor,resolution.actorStat,'check','normal',{room:room,target:target}),actorNatural=actorRoll.natural, actorModifier = combatStat(actor, resolution.actorStat), actorTotal = actorNatural + actorModifier;
+          var targetNatural = null, targetModifier = 0, targetTotal = null, targetRoll=null, success = null;
+          if (resolution.mode === 'contest') { targetRoll=rollCombatStatusD20(target,resolution.targetStat,'check','normal',{room:room,target:actor});targetNatural=targetRoll.natural; targetModifier = combatStat(target, resolution.targetStat); targetTotal = targetNatural + targetModifier; success = actorNatural === 20 || (actorNatural !== 1 && actorTotal >= targetTotal); }
+          else if (resolution.mode === 'save') { targetRoll=rollCombatStatusD20(target,resolution.targetStat,'save','normal',{room:room,target:actor});targetNatural=targetRoll.natural; targetModifier = combatStat(target, resolution.targetStat); targetTotal = targetNatural + targetModifier; success = targetNatural === 1 || (targetNatural !== 20 && targetTotal < Number(resolution.dc || 10)); }
           else success = actorNatural === 20 || (actorNatural !== 1 && actorTotal >= Number(resolution.dc || 10));
-          var stamp = now(), rolls = [{sides:20,value:actorNatural,total:actorTotal,statLabel:actor.name||'Герой',outcome:actorNatural===20?'critical-success':actorNatural===1?'critical-fail':''}];
-          if (targetNatural != null) rolls.push({sides:20,value:targetNatural,total:targetTotal,statLabel:target.name||'Цель',outcome:targetNatural===20?'critical-success':targetNatural===1?'critical-fail':''});
-          var result = {mode:resolution.mode,actorRoll:actorNatural,actorModifier:actorModifier,actorTotal:actorTotal,targetRoll:targetNatural,targetModifier:targetModifier,targetTotal:targetTotal,dc:resolution.dc,success:!!success,rolls:rolls,rolledAt:stamp};
+          var stamp = now(), rolls = actorRoll.rolls.map(function(value){return{sides:20,value:value,total:value+actorModifier,statLabel:actor.name||'Герой',outcome:value===20?'critical-success':value===1?'critical-fail':'',kept:value===actorNatural,rollMode:actorRoll.mode};});
+          if (targetNatural != null) rolls=rolls.concat(targetRoll.rolls.map(function(value){return{sides:20,value:value,total:value+targetModifier,statLabel:target.name||'Цель',outcome:value===20?'critical-success':value===1?'critical-fail':'',kept:value===targetNatural,rollMode:targetRoll.mode};}));
+          var result = {mode:resolution.mode,actorRoll:actorNatural,actorRolls:actorRoll.rolls,actorRollMode:actorRoll.mode,actorModifier:actorModifier,actorTotal:actorTotal,targetRoll:targetNatural,targetRolls:targetRoll&&targetRoll.rolls||[],targetRollMode:targetRoll&&targetRoll.mode||'normal',targetModifier:targetModifier,targetTotal:targetTotal,dc:resolution.dc,success:!!success,rolls:rolls,rolledAt:stamp};
           var nextRequest = Object.assign({}, request, {status:'roll-result',stage:'roll-result',result:result,resultAt:stamp});
           return firebase.runTransaction(firebase.ref(db,'rooms/'+session.code+'/members/'+requestUid+'/actionRequest'),function(current){
             if(!current||current.id!==request.id||!isManualCheckActionKind(current.actionKind)||current.status!=='roll-requested')return;
@@ -4571,7 +4737,7 @@
           if(!combat||combat.phase!=='initiative'||combat.active)throw roomError('Инициатива уже завершена.','initiative-closed');
           if(!order.length||order.some(function(entry){return entry.total==null;}))throw roomError('Ещё не все участники бросили инициативу.','initiative-pending');
           order.sort(function(a,b){return Number(b.total)-Number(a.total)||Number(b.bonus)-Number(a.bonus)||Number(a.orderHint||0)-Number(b.orderHint||0)||String(a.name||'').localeCompare(String(b.name||''),'ru');});
-          var opening=order[0],openingBeforeHp=opening.hp,openingBeforeTempHp=opening.tempHp,openingBeforeStatuses=(opening.statuses||[]).slice(),openingBeforeStatusEffects=(opening.statusEffects||[]).slice(),tick=statusTurnTick(opening),stamp=now();opening.hp=tick.hp;opening.tempHp=tick.tempHp;opening.statuses=tick.statuses;opening.statusEffects=tick.statusEffects;syncCombatZeroHp(opening,openingBeforeHp,'status-turn',stamp);order[0]=opening;
+          var opening=order[0],openingBeforeHp=opening.hp,openingBeforeTempHp=opening.tempHp,openingBeforeStatuses=(opening.statuses||[]).slice(),openingBeforeStatusEffects=(opening.statusEffects||[]).slice(),tick=statusTurnTick(opening),stamp=now();opening.hp=tick.hp;opening.tempHp=tick.tempHp;opening.statuses=tick.statuses;opening.statusEffects=tick.statusEffects;opening=combatReconcileStatusHpMax(opening);syncCombatZeroHp(opening,openingBeforeHp,'status-turn',stamp);order[0]=opening;
           var updates={combat:{active:true,phase:'active',round:1,turnIndex:0,order:order,startedAt:combat.startedAt||stamp,battleStartedAt:stamp,updatedAt:stamp},combatEvent:{id:'combat-start-'+stamp,kind:'combat',name:'Мир Зарготы',text:'Бой! Ход: '+(opening.name||'участник')+'.'+(tick.changes.length?' '+tick.changes.join('; '):''),ts:stamp},updatedAt:stamp};
           if(tick.impacts.length||tick.removedStatuses.length)Object.assign(updates.combatEvent,{targetKey:opening.key,statusTicks:tick.impacts,statusRemoved:tick.removedStatuses,beforeHp:openingBeforeHp,beforeTempHp:openingBeforeTempHp,beforeStatuses:openingBeforeStatuses,beforeStatusEffects:openingBeforeStatusEffects,revealAt:stamp+500});
           queueCombatEntryState(room,updates,opening,true);
@@ -4609,6 +4775,8 @@
           var ending = order[previous], expiry = expireTurnStatuses(ending);
           ending.statusEffects = expiry.effects;
           ending.statuses = expiry.statuses;
+          ending.hpMax = expiry.hpMax;
+          ending.statusBaseHpMax = expiry.statusBaseHpMax;
           if (expiry.expired.length) phaseNotes.push('Истекло: ' + expiry.expired.map(function (effect) { return effect.label || effect.value || effect.statusKey; }).join(', '));
           order[previous] = ending;
           order = order.map(function (entry, index) {
@@ -4634,6 +4802,7 @@
           current.tempHp = tick.tempHp;
           current.statuses = tick.statuses;
           current.statusEffects = tick.statusEffects;
+          current = combatReconcileStatusHpMax(current);
           syncCombatZeroHp(current,currentBeforeHp,'status-turn',stamp);
           order[next] = current;
           if (tick.changes.length) phaseNotes.push(tick.changes.join('; '));
@@ -4642,7 +4811,7 @@
           // character in the same atomic update. Firebase rejects the whole
           // update when even one of those paths is forbidden.
           var masterAdvance=session.role==='master';
-          queueCombatEntryState(room,updates,ending,false,{
+          queueCombatEntryState(room,updates,ending,true,{
             writeMember:masterAdvance||String(ending.uid||'')===String(user.uid),
             writeScene:masterAdvance
           });
@@ -5103,6 +5272,8 @@
       delete queuedDeliveryValue.fromOutbox;
       var kind=['item','quest','text','image'].indexOf(value.kind)>=0?value.kind:'text';
       var mood=['calm','solemn','ominous'].indexOf(value.mood)>=0?value.mood:'calm';
+      var deliverySoundIds=['auto','none','paper','seal','reward','mystic'];
+      var soundId=deliverySoundIds.indexOf(String(value.soundId||'auto').toLowerCase())>=0?String(value.soundId||'auto').toLowerCase():'auto';
       var presentation=kind==='image'&&value.presentation==='cinematic'?'cinematic':'card';
       var privateDelivery=kind==='text'&&value.privateDelivery===true;
       var title=String(value.title||'').trim().slice(0,180);
@@ -5225,6 +5396,7 @@
               batchId:members.length>1?deliveryOperationId:'',
               kind:kind,
               mood:mood,
+              soundId:soundId,
               presentation:presentation,
               privateDelivery:privateDelivery,
               showPopup:value.showPopup!==false,
@@ -5712,7 +5884,7 @@
           var member=memberUid&&room.members&&room.members[memberUid],combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order.slice():[],combatIndex=order.findIndex(function(entry){return entry&&((tokenId&&String(entry.tokenId)===tokenId)||(memberUid&&String(entry.uid)===memberUid));}),entry=combatIndex>=0?Object.assign({},order[combatIndex]):null;
           if(!sceneToken&&!member&&!entry)throw roomError('Сначала выберите жетон или героя на сцене.','entity-missing');
           var source=entry||(member&&member.character)||sceneToken||{},name=String(source.name||member&&member.character&&member.character.name||member&&member.name||'Цель').slice(0,80),hpMax=Math.max(0,Number(source.hpMax)||0),hp=Math.max(0,Number(source.hp==null?source.hpCur:source.hp)||0),tempHp=Math.max(0,Number(source.tempHp)||0),statuses=Array.isArray(source.statuses)?source.statuses.slice(0,23):[],statusEffects=Array.isArray(source.statusEffects)?source.statusEffects.slice(0,40):[],tempEffects=Array.isArray(source.tempEffects)?source.tempEffects.slice(0,80):(member&&member.character&&Array.isArray(member.character.tempEffects)?member.character.tempEffects.slice(0,80):[]),zeroHp=source.zeroHp&&typeof source.zeroHp==='object'?Object.assign({},source.zeroHp):(member&&member.character&&member.character.deathSaves&&typeof member.character.deathSaves==='object'?Object.assign({},member.character.deathSaves):null);
-          var injurySource=Array.isArray(source.injuries)?source.injuries:(member&&member.character&&Array.isArray(member.character.injuries)?member.character.injuries:[]),injuries=injurySource.slice(0,4),baseHpMax=Math.max(0,Number(source.baseHpMax||source.hpMax)||0),gmNotes=String(source.gmNotes!=null?source.gmNotes:sceneToken&&sceneToken.gmNotes||'').slice(0,2400),gmReminders=Array.isArray(source.gmReminders)?source.gmReminders.slice(0,16):Array.isArray(sceneToken&&sceneToken.gmReminders)?sceneToken.gmReminders.slice(0,16):[];
+          var injurySource=Array.isArray(source.injuries)?source.injuries:(member&&member.character&&Array.isArray(member.character.injuries)?member.character.injuries:[]),injuries=injurySource.slice(0,4),baseHpMax=Math.max(0,Number(source.baseHpMax||source.hpMax)||0),statusBaseHpMax=Math.max(0,Number(source.statusBaseHpMax)||0),gmNotes=String(source.gmNotes!=null?source.gmNotes:sceneToken&&sceneToken.gmNotes||'').slice(0,2400),gmReminders=Array.isArray(source.gmReminders)?source.gmReminders.slice(0,16):Array.isArray(sceneToken&&sceneToken.gmReminders)?sceneToken.gmReminders.slice(0,16):[];
           if(injuries.length&&baseHpMax)hpMax=Math.max(1,Math.floor(baseHpMax*(100-injuryPenaltyPercent(injuries))/100));
           var beforeHp=hp,amount=Math.max(0,Math.min(9999,Math.floor(Number(operation.amount)||0))),text='',statusKey='',statusEnabled=null,statusLabel='',statusVisibility='public',vitalsResult=null,statusResult=null,injuryResult=null,injuryAction='',injuryIndex=-1;
           if(kind==='damage'){
@@ -5732,6 +5904,9 @@
             var normalizedEffect=enable?normalizeStatusEffectInput(operation.effect,statusKey,statusLabel):null;
             statusVisibility=(normalizedEffect||previousEffect)&&String((normalizedEffect||previousEffect).visibility)==='gm'?'gm':'public';
             statusResult=applyStatusDomainOperation({statuses:statuses,statusEffects:statusEffects},{statusKey:statusKey,enable:enable,effect:normalizedEffect});statuses=statusResult.statuses;statusEffects=statusResult.statusEffects;
+            var exhaustionAfter=combatStatusLevel({statuses:statuses,statusEffects:statusEffects},'exhausted');
+            if(exhaustionAfter>=4){if(!statusBaseHpMax)statusBaseHpMax=Math.max(1,hpMax);hpMax=Math.max(1,Math.floor(statusBaseHpMax/2));hp=Math.min(hp,hpMax);}
+            else if(statusBaseHpMax){hpMax=statusBaseHpMax;statusBaseHpMax=0;}
             tempEffects=tempEffects.filter(function(effect){return !(effect&&effect.type==='status'&&normalizeCombatStatusKey(effect)===statusKey);});
             if(enable){text='Мастер назначает '+name+' эффект «'+statusLabel+'».';}else{text='Мастер снимает с '+name+' эффект «'+statusLabel+'».';}
           }else if(kind==='life-state'){
@@ -5781,14 +5956,14 @@
             else throw roomError('Напоминание больше не найдено.','adjust-invalid');
           }else throw roomError('Неизвестное действие пульта.','adjust-invalid');
           var updates={},stamp=now();
-          function writeToken(path){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;}else if(kind==='life-state'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;updates[path+'/zeroHp']=zeroHp;updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}else if(kind==='injury'){updates[path+'/injuries']=injuries;updates[path+'/hp']=hp;updates[path+'/hpMax']=hpMax;if(baseHpMax)updates[path+'/baseHpMax']=baseHpMax;}else if(kind==='notes'||kind==='reminder'){updates[path+'/gmNotes']=gmNotes;updates[path+'/gmReminders']=gmReminders;}else{updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;updates[path+'/tempEffects']=tempEffects;}}
+          function writeToken(path){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;}else if(kind==='life-state'){updates[path+'/hp']=hp;updates[path+'/tempHp']=tempHp;updates[path+'/zeroHp']=zeroHp;updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;}else if(kind==='injury'){updates[path+'/injuries']=injuries;updates[path+'/hp']=hp;updates[path+'/hpMax']=hpMax;if(baseHpMax)updates[path+'/baseHpMax']=baseHpMax;}else if(kind==='notes'||kind==='reminder'){updates[path+'/gmNotes']=gmNotes;updates[path+'/gmReminders']=gmReminders;}else{updates[path+'/statuses']=statuses;updates[path+'/statusEffects']=statusEffects;updates[path+'/tempEffects']=tempEffects;if(kind==='status'){updates[path+'/hp']=hp;updates[path+'/hpMax']=hpMax;updates[path+'/statusBaseHpMax']=statusBaseHpMax||null;}}}
           if(sceneIndex>=0)writeToken('scene/tokens/'+sceneIndex);
           Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===tokenId)writeToken('zones/'+zoneId+'/tokens/'+index);});});
-          if(entry){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){entry.hp=hp;entry.tempHp=tempHp;if(kind==='damage'||kind==='heal')syncCombatZeroHp(entry,beforeHp,'gm-adjust',stamp);}else if(kind==='life-state'){entry.hp=hp;entry.tempHp=tempHp;entry.zeroHp=zeroHp;entry.statuses=statuses;entry.statusEffects=statusEffects;entry.skipRounds=kind==='life-state'&&operation.state!=='active';entry.skipRoundsUpdatedAt=stamp;entry.skipRoundsUpdatedBy=user.uid;}else if(kind==='injury'){entry.injuries=injuries;entry.hp=hp;entry.hpMax=hpMax;if(baseHpMax)entry.baseHpMax=baseHpMax;}else if(kind==='notes'||kind==='reminder'){entry.gmNotes=gmNotes;entry.gmReminders=gmReminders;}else{entry.statuses=statuses;entry.statusEffects=statusEffects;entry.tempEffects=tempEffects;}order[combatIndex]=entry;updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
+          if(entry){if(kind==='damage'||kind==='heal'||kind==='temp-hp'){entry.hp=hp;entry.tempHp=tempHp;if(kind==='damage'||kind==='heal')syncCombatZeroHp(entry,beforeHp,'gm-adjust',stamp);}else if(kind==='life-state'){entry.hp=hp;entry.tempHp=tempHp;entry.zeroHp=zeroHp;entry.statuses=statuses;entry.statusEffects=statusEffects;entry.skipRounds=kind==='life-state'&&operation.state!=='active';entry.skipRoundsUpdatedAt=stamp;entry.skipRoundsUpdatedBy=user.uid;}else if(kind==='injury'){entry.injuries=injuries;entry.hp=hp;entry.hpMax=hpMax;if(baseHpMax)entry.baseHpMax=baseHpMax;}else if(kind==='notes'||kind==='reminder'){entry.gmNotes=gmNotes;entry.gmReminders=gmReminders;}else{entry.statuses=statuses;entry.statusEffects=statusEffects;entry.tempEffects=tempEffects;if(kind==='status'){entry.hp=hp;entry.hpMax=hpMax;entry.statusBaseHpMax=statusBaseHpMax||null;}}order[combatIndex]=entry;updates['combat/order']=order;updates['combat/updatedAt']=stamp;}
           gmAdjustEventSequence=(gmAdjustEventSequence+1)%1679616;
           var eventId='gm-adjust-'+stamp+'-'+gmAdjustEventSequence.toString(36)+'-'+Math.random().toString(36).slice(2,7);
           if(member&&kind!=='notes'&&kind!=='reminder'){
-            if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;if(entry)updates['members/'+memberUid+'/character/deathSaves']=entry.zeroHp||null;}else if(kind==='life-state'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;updates['members/'+memberUid+'/character/deathSaves']=zeroHp;updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;}else if(kind==='injury'){updates['members/'+memberUid+'/character/injuries']=injuries;updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/hpMax']=hpMax;if(baseHpMax)updates['members/'+memberUid+'/character/baseHpMax']=baseHpMax;}else{updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;updates['members/'+memberUid+'/character/tempEffects']=tempEffects;}
+            if(kind==='damage'||kind==='heal'||kind==='temp-hp'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;if(entry)updates['members/'+memberUid+'/character/deathSaves']=entry.zeroHp||null;}else if(kind==='life-state'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/tempHp']=tempHp;updates['members/'+memberUid+'/character/deathSaves']=zeroHp;updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;}else if(kind==='injury'){updates['members/'+memberUid+'/character/injuries']=injuries;updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/hpMax']=hpMax;if(baseHpMax)updates['members/'+memberUid+'/character/baseHpMax']=baseHpMax;}else{updates['members/'+memberUid+'/character/statuses']=statuses;updates['members/'+memberUid+'/character/statusEffects']=statusEffects;updates['members/'+memberUid+'/character/tempEffects']=tempEffects;if(kind==='status'){updates['members/'+memberUid+'/character/hpCur']=hp;updates['members/'+memberUid+'/character/hpMax']=hpMax;updates['members/'+memberUid+'/character/statusBaseHpMax']=statusBaseHpMax||null;}}
             updates['members/'+memberUid+'/character/revision']=firebase.increment(1);
             updates['members/'+memberUid+'/character/updatedAt']=stamp;updates['members/'+memberUid+'/character/updatedBy']=user.uid;
             updates['members/'+memberUid+'/character/source']='gm-adjust-'+kind;updates['members/'+memberUid+'/character/syncOperationId']=eventId;
@@ -5948,6 +6123,47 @@
       });
     },
 
+    gmBroadcastCue: function (recipientUids, value) {
+      recipientUids=(Array.isArray(recipientUids)?recipientUids:[recipientUids]).map(function(uid){return String(uid||'').slice(0,160);}).filter(Boolean).filter(function(uid,index,list){return list.indexOf(uid)===index;}).slice(0,12);
+      value=value&&typeof value==='object'?value:{};
+      if(!tabCanWrite())return Promise.reject(roomError('Эта вкладка работает только для просмотра. Передайте управление ей перед показом.','tab-read-only'));
+      if(!recipientUids.length)return Promise.reject(roomError('Выберите хотя бы одного игрока.','member-required'));
+      var name=String(value.name||'').trim().slice(0,120);
+      var title=String(value.title||name||'Оповещение мастера').trim().slice(0,180);
+      var body=String(value.body||'').trim().slice(0,4000);
+      var imageSrc=String(value.imageSrc||'').trim();
+      var audioSrc=String(value.audioSrc||'').trim();
+      var durationMs=[0,5000,8000,15000,30000].indexOf(Number(value.durationMs))>=0?Number(value.durationMs):8000;
+      if(!name)name=title;
+      if(!title&&!body&&!imageSrc&&!audioSrc)return Promise.reject(roomError('Добавьте текст, изображение или звук.','cue-empty'));
+      if(imageSrc.length>450000)return Promise.reject(roomError('Изображение слишком большое для показа.','cue-image-large'));
+      if(audioSrc.length>1500000)return Promise.reject(roomError('Звук слишком большой для показа. Используйте короткий файл или ссылку.','cue-audio-large'));
+      if(imageSrc&&!/^(?:https?:|data:image\/(?:png|jpe?g|webp);base64,|images\/|assets\/|\.?\.?\/)/i.test(imageSrc))return Promise.reject(roomError('Укажите безопасную ссылку или файл изображения.','cue-image-invalid'));
+      if(audioSrc&&!/^(?:https?:|data:audio\/(?:mpeg|mp3|ogg|wav|webm|mp4|aac|x-m4a);base64,|audio\/|assets\/|\.?\.?\/)/i.test(audioSrc))return Promise.reject(roomError('Укажите безопасную ссылку или аудиофайл.','cue-audio-invalid'));
+      return ensureReady().then(function(user){
+        var session=readSession();
+        if(!session||session.role!=='master')throw roomError('Заготовки показывает только мастер.','master-only');
+        return readRoom(session.code).then(function(room){
+          if(!room)throw roomError('Комната больше недоступна.','room-not-found');
+          if(room.masterUid!==user.uid)throw roomError('Эта комната принадлежит другому мастеру.','master-only');
+          var targets=recipientUids.filter(function(uid){var member=room.members&&room.members[uid];return member&&member.role==='player';});
+          if(!targets.length)throw roomError('Выбранные игроки уже вышли из комнаты.','member-required');
+          var stamp=now(),event={
+            id:'gm-cue-'+stamp+'-'+Math.random().toString(36).slice(2,9),kind:'gm-cue',
+            name:name,title:title,body:body,imageSrc:imageSrc,audioSrc:audioSrc,
+            recipientUids:targets,durationMs:durationMs,createdBy:user.uid,createdAt:stamp,
+            expiresAt:stamp+Math.max(durationMs||300000,120000)
+          };
+          return firebase.update(roomRef(session.code),{cueEvent:event,updatedAt:stamp}).then(function(){
+            return refreshRoom(session.code).catch(function(){return currentRoom;}).then(function(){return api.getSnapshot();});
+          });
+        });
+      }).catch(function(error){
+        if(error&&['tab-read-only','member-required','cue-empty','cue-image-large','cue-audio-large','cue-image-invalid','cue-audio-invalid','master-only','room-not-found'].indexOf(error.code)>=0)throw error;
+        throw friendlyFirebaseError(error);
+      });
+    },
+
     configurePendingCombatDamage: function (options) {
       options=options&&typeof options==='object'?options:{};
       return ensureReady().then(function(user){
@@ -5992,9 +6208,12 @@
           var preparedExecutionId=String(options.preparedExecutionId||''),preparedAttack=!!(pendingPrepared&&preparedExecutionId&&String(pendingPrepared.id||'')===preparedExecutionId&&String(pendingPrepared.participantKey||'')===participantKey&&['ranged-attack','melee-attack'].indexOf(String(pendingPrepared.actionKind||''))>=0);
           var turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0)),attackerIndex=participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey;}):turnIndex;
           if(attackerIndex<0||(!preparedAttack&&attackerIndex!==turnIndex))throw roomError('Атаковать можно только в свой ход.','combat-not-turn');
+          var preliminaryAttacker=combatEntryWithRoomStatuses(room,Object.assign({},order[attackerIndex]));
+          var confusion=combatConfusionTarget(room,order,attackerIndex,targetKey);
+          if(confusion.triggered)targetKey=confusion.targetKey;
           var targetIndex=order.findIndex(function(entry){return entry&&entry.key===targetKey;});
           if(targetIndex<0||targetIndex===attackerIndex)throw roomError('Выберите другую цель.','combat-target-invalid');
-          var attacker=combatEntryWithRoomStatuses(room,Object.assign({},order[attackerIndex])),target=combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex]));
+          var attacker=preliminaryAttacker,target=combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex]));
           if(Number(attacker.hp==null?attacker.hpMax:attacker.hp)<=0)throw roomError('Участник с 0 HP ожидает решения мастера и не может атаковать.','combat-zero-hp');
           if(Number(target.hp==null?target.hpMax:target.hp)<=0)throw roomError('Цель уже сражена. Выберите другую цель.','combat-target-down');
           var restrictions=combatRestrictions(attacker),economy=Object.assign({long:1,short:1,reaction:1},attacker.economy||{});
@@ -6007,9 +6226,10 @@
           if(distance!=null&&distance>rangeCells&&!rangeOverride)throw roomError('Цель слишком далеко: '+distance+' кл., дальность оружия '+rangeCells+' кл.','combat-target-range');
           var statKey=['str','dex','int','cha','per','con'].indexOf(options.statKey)>=0?options.statKey:(weapon.stat||'str');
           var statBonus=combatStat(attacker,statKey),masteryBonus=Math.max(0,Math.min(3,Number(options.masteryBonus)||0));
-          var keys=combatStatusKeys(attacker),attackerModifiers=combatStatusModifiers(attacker),targetModifiers=combatStatusModifiers(target);
-          var forcedDisadvantage=['stun','blind','fear'].some(function(key){return keys.indexOf(key)>=0;})||attackerModifiers.hasDisadvantage||attackerModifiers.attackDisadvantage||combatStatusLevel(attacker,'exhausted')>=3;
-          var mode=combatRollMode(String(options.mode||'normal'),targetModifiers.grantAdvantageToAttackers,forcedDisadvantage);
+          var attackerModifiers=combatStatusModifiers(attacker),targetModifiers=combatStatusModifiers(target),attackStatus=combatAttackStatusContext(room,attacker,target,distance);
+          if(attackStatus.blocked)throw roomError(attackStatus.reasons[0],'combat-status-blocked');
+          var forcedDisadvantage=attackerModifiers.hasDisadvantage||attackStatus.hasDisadvantage||combatStatusLevel(attacker,'exhausted')>=3;
+          var mode=combatRollMode(String(options.mode||'normal'),attackStatus.hasAdvantage,forcedDisadvantage);
           var first=rollDie(20),second=mode==='normal'?null:rollDie(20),attackKeptIndex=second==null?0:(mode==='advantage'?(first>=second?0:1):(first<=second?0:1)),natural=(second==null?[first]:[first,second])[attackKeptIndex];
           var attackTotal=natural+statBonus+masteryBonus+attackerModifiers.attackMod+(Number(attackerOverride.attackMod)||0),targetAc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod+(Number(targetOverride.acMod)||0)),critical=natural===20,failed=natural===1,hit=!failed&&(critical||attackTotal>=targetAc);
           if(!preparedAttack){economy.long=0;if(restrictions.slowed)economy.short=0;}attacker.economy=economy;order[attackerIndex]=attacker;
@@ -6026,7 +6246,7 @@
             updates['members/'+attacker.uid+'/actionRequest/hitResultEventId']=attackEventId;
             updates['members/'+attacker.uid+'/actionRequest/hitResultAt']=stamp;
           }
-          updates.combatEvent={id:attackEventId,operationId:attackOperationId,resultPhase:'hit',kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:(preparedAttack?'Исполняет подготовленную реакцию. ':'')+'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+(attackerModifiers.attackMod?' + состояния '+attackerModifiers.attackMod:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(rangeOverride&&distance>rangeCells?' · мастер разрешил атаку вне дистанции':'')+(hit?'. Ожидание урона.':''),hiddenText:'Существо атакует цель '+(target.name||'цель')+'. Результат броска скрыт мастером.',creatureRoll:creatureRoll,revealResult:revealResult,preparedExecutionId:preparedAttack?preparedExecutionId:'',attackRoll:natural,attackRolls:second==null?[first]:[first,second],attackKeptIndex:attackKeptIndex,rollMode:mode,attackTotal:attackTotal,statusAttackMod:attackerModifiers.attackMod,targetAc:targetAc,targetStatusAcMod:targetModifiers.acMod,hit:hit,critical:critical,damageFormula:String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,damageType:String(weapon.damageType||''),distanceCells:distance,rangeCells:rangeCells,actorKey:attacker.key,targetKey:target.key,attackerKey:attacker.key,rangeOverride:rangeOverride,weapon:weapon.name||'Оружие',ts:stamp,revealAt:stamp+3200};
+          updates.combatEvent={id:attackEventId,operationId:attackOperationId,resultPhase:'hit',kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:(preparedAttack?'Исполняет подготовленную реакцию. ':'')+(confusion.triggered?'Замешательство меняет цель на «'+(target.name||confusion.targetName)+'». ':'')+'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+(attackerModifiers.attackMod?' + состояния '+attackerModifiers.attackMod:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(rangeOverride&&distance>rangeCells?' · мастер разрешил атаку вне дистанции':'')+(hit?'. Ожидание урона.':''),hiddenText:'Существо атакует цель '+(target.name||'цель')+'. Результат броска скрыт мастером.',creatureRoll:creatureRoll,revealResult:revealResult,preparedExecutionId:preparedAttack?preparedExecutionId:'',attackRoll:natural,attackRolls:second==null?[first]:[first,second],attackKeptIndex:attackKeptIndex,rollMode:mode,attackTotal:attackTotal,statusAttackMod:attackerModifiers.attackMod,targetAc:targetAc,targetStatusAcMod:targetModifiers.acMod,hit:hit,critical:critical,confusionRedirected:!!confusion.triggered,damageFormula:String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,damageType:String(weapon.damageType||''),distanceCells:distance,rangeCells:rangeCells,actorKey:attacker.key,targetKey:target.key,attackerKey:attacker.key,rangeOverride:rangeOverride,weapon:weapon.name||'Оружие',ts:stamp,revealAt:stamp+3200};
           updates['combat/pendingDamage']=hit?{id:'pending-damage-'+attackOperationId,sourceEventId:attackEventId,hitResultAt:stamp,operationId:damageOperationId,damageOperationId:damageOperationId,attackerKey:String(attacker.key||''),attackerUid:String(attacker.uid||''),targetKey:String(target.key||''),weaponId:String(weapon.id||weaponId||''),statKey:statKey,masteryBonus:masteryBonus,mode:mode,bonusDiceCount:Math.max(0,Math.min(8,Math.floor(Number(options.bonusDiceCount)||0))),bonusDieSides:[4,6,8,10,12,20].indexOf(Number(options.bonusDieSides))>=0?Number(options.bonusDieSides):0,critical:critical,createdAt:stamp}:null;
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
@@ -6075,7 +6295,7 @@
           var bonusRolls=[],bonusRollCount=bonusDiceCount*(critical?2:1);
           for(var bonusIndex=0;bonusIndex<bonusRollCount;bonusIndex++)bonusRolls.push(Math.floor(Math.random()*bonusDieSides)+1);
           var bonusDamage=bonusRolls.reduce(function(sum,value){return sum+value;},0);
-          var rawDamage=Math.max(0,damageResult.total+bonusDamage+statBonus+attackerModifiers.damageMod+(Number(attackerOverride.damageMod)||0)),damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType),immune=combatHasDamageTrait(target.immunities,damageType);
+          var rawDamage=Math.max(0,damageResult.total+bonusDamage+statBonus+attackerModifiers.damageMod+(Number(attackerOverride.damageMod)||0)),damage=rawDamage,damageType=String(weapon.damageType||''),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType)||combatStatusDamageTraits(target,damageType).vulnerable,immune=combatHasDamageTrait(target.immunities,damageType);
           if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
           var vitalsResult=applyVitalsDomainOperation(target,{damage:damage}),before=vitalsResult.beforeHp,absorbed=vitalsResult.absorbed,hpDamage=vitalsResult.hpDamage,after=vitalsResult.hp,tempAfter=vitalsResult.tempHp,reachedZero=vitalsResult.reachedZero;
           var stamp=operationStamp,creatureRoll=!attacker.uid,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
@@ -6290,14 +6510,18 @@
           if(!request||request.actionKind!=='ability'||!ability||String(ability.automationKey||'')!=='finger-heat-v1')throw roomError('Заявка заклинания больше недоступна.','request-missing');
           var allowed=phase==='attack'?['pending','ability-attack-result','ability-damage-result']:['ability-attack-result','ability-damage-result'];
           if(allowed.indexOf(String(request.status||''))<0)throw roomError(phase==='attack'?'Бросок атаки уже назначен.':'Сначала дождитесь броска атаки.','request-missing');
-          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],actor=order.find(function(entry){return entry&&String(entry.uid||'')===requestUid;}),target=order.find(function(entry){return entry&&String(entry.key||'')===targetKey;});
+          var combat=room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],actorIndex=order.findIndex(function(entry){return entry&&String(entry.uid||'')===requestUid;}),actor=actorIndex>=0?combatEntryWithRoomStatuses(room,order[actorIndex]):null,target=order.find(function(entry){return entry&&String(entry.key||'')===targetKey;}),confusionRedirect=null;
           if(!combat||!combat.active)throw roomError('Бой уже завершён.','combat-missing');
           if(!actor||!target)throw roomError('Участник или цель больше не найдены.','combat-participant-missing');
+          if(phase==='attack'){
+            confusionRedirect=combatConfusionTarget(room,order,actorIndex,targetKey);
+            if(confusionRedirect.triggered){var confusedTarget=order.find(function(entry){return entry&&String(entry.key||'')===String(confusionRedirect.targetKey||'');});if(confusedTarget){targetKey=String(confusedTarget.key||'');target=confusedTarget;}}
+          }
           var range=Math.max(0,Number(ability.rangeCells)||0),distance=combatEntryDistance(room,actor,target);
           if(range&&distance!=null&&distance>range)throw roomError((target.name||'Цель')+' слишком далеко: '+distance+' кл., дальность заклинания '+range+' кл.','combat-target-range');
           var attack=request.abilityResolution&&request.abilityResolution.attack;
           if(phase==='damage'&&!forceHit&&(!attack||!attack.success))throw roomError('При промахе бросок урона не требуется.','roll-not-required');
-          var stamp=now(),nextResolution=Object.assign({},request.abilityResolution||{}, {targetKey:targetKey,targetName:target.name||'Цель',distanceCells:distance,rangeCells:range});
+          var stamp=now(),nextResolution=Object.assign({},request.abilityResolution||{}, {targetKey:targetKey,targetName:target.name||'Цель',distanceCells:distance,rangeCells:range,confusionRedirected:!!(confusionRedirect&&confusionRedirect.triggered)});
           if(phase==='damage'&&forceHit&&attack)nextResolution.attack=Object.assign({},attack,{success:true,overriddenByGm:true});
           if(phase==='attack'){delete nextResolution.attack;delete nextResolution.damage;}
           var nextRequest=Object.assign({},request,{status:phase==='damage'?'ability-damage-ready':'ability-attack-ready',stage:phase==='damage'?'waiting-damage-roll':'waiting-attack-roll',abilityResolution:nextResolution,rollError:null,configuredAt:stamp});
@@ -6328,14 +6552,16 @@
           var range=Math.max(0,Number(ability.rangeCells)||0),distance=combatEntryDistance(room,actor,target);if(range&&distance!=null&&distance>range)throw roomError((target.name||'Цель')+' слишком далеко: '+distance+' кл., дальность заклинания '+range+' кл.','combat-target-range');
           var actorModifiers=combatStatusModifiers(actor),targetModifiers=combatStatusModifiers(target),stamp=now(),rollItems=[],event={id:'combat-ability-roll-'+request.id+'-'+phase,kind:'combat-ability-roll',phase:phase,name:actor.name||request.name||'Герой',portrait:actor.portrait||request.portrait||'',ability:ability.name||'Заклинание',actorKey:actor.key||'',targetKey:target.key||'',ts:stamp};
           if(phase==='attack'){
-            var modifier=combatStat(actor,ability.attackStat||'int')+actorModifiers.attackMod,mode=combatRollMode('normal',targetModifiers.grantAdvantageToAttackers,actorModifiers.hasDisadvantage||actorModifiers.attackDisadvantage||combatStatusLevel(actor,'exhausted')>=3),first=rollDie(20),second=mode==='normal'?null:rollDie(20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),dc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod),total=natural+modifier,success=natural===20||(natural!==1&&total>=dc),rolls=second==null?[first]:[first,second];
+            var stageAttackStatus=combatAttackStatusContext(room,actor,target,distance);
+            if(stageAttackStatus.blocked)throw roomError(stageAttackStatus.reasons[0],'combat-status-blocked');
+            var modifier=combatStat(actor,ability.attackStat||'int')+actorModifiers.attackMod,mode=combatRollMode('normal',stageAttackStatus.hasAdvantage,actorModifiers.hasDisadvantage||stageAttackStatus.hasDisadvantage||combatStatusLevel(actor,'exhausted')>=3),first=rollDie(20),second=mode==='normal'?null:rollDie(20),natural=second==null?first:(mode==='advantage'?Math.max(first,second):Math.min(first,second)),dc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod),total=natural+modifier,success=natural===20||(natural!==1&&total>=dc),rolls=second==null?[first]:[first,second];
             resolution.attack={roll:natural,rolls:rolls,rollMode:mode,modifier:modifier,total:total,dc:dc,success:success,critical:natural===20,rolledAt:stamp};
             rollItems=rolls.map(function(value){return{sides:20,value:value,total:value+modifier,statLabel:'Атака заклинанием',outcome:value===20?'critical-success':value===1?'critical-fail':'',kept:value===natural,rollMode:mode};});
-            event.text=(success?'Попадание':'Промах')+': '+(ability.name||'заклинание')+' по цели '+(target.name||'Цель');event.roll=natural;event.rolls=rolls;event.rollMode=mode;event.modifier=modifier;event.total=total;event.dc=dc;event.success=success;event.critical=natural===20;
+            event.text=(resolution.confusionRedirected?'Замешательство меняет цель. ':'')+(success?'Попадание':'Промах')+': '+(ability.name||'заклинание')+' по цели '+(target.name||'Цель');event.roll=natural;event.rolls=rolls;event.rollMode=mode;event.modifier=modifier;event.total=total;event.dc=dc;event.success=success;event.critical=natural===20;
           }else{
             var attack=resolution.attack;if(!attack||!attack.success)throw roomError('При промахе бросок урона не требуется.','roll-not-required');
-            var damageRoll=rollFormula(ability.damageFormula||'',!!attack.critical),baseDamage=Math.max(0,(Number(damageRoll.total)||0)+actorModifiers.damageMod),damage=baseDamage,damageType=String(ability.damageType||'');
-            if(combatHasDamageTrait(target.immunities,damageType))damage=0;else if(combatHasDamageTrait(target.resistances,damageType)&&!combatHasDamageTrait(target.vulnerabilities,damageType))damage=Math.floor(damage/2);else if(combatHasDamageTrait(target.vulnerabilities,damageType)&&!combatHasDamageTrait(target.resistances,damageType))damage*=2;
+            var damageRoll=rollFormula(ability.damageFormula||'',!!attack.critical),baseDamage=Math.max(0,(Number(damageRoll.total)||0)+actorModifiers.damageMod),damage=baseDamage,damageType=String(ability.damageType||''),stageVulnerable=combatHasDamageTrait(target.vulnerabilities,damageType)||combatStatusDamageTraits(target,damageType).vulnerable;
+            if(combatHasDamageTrait(target.immunities,damageType))damage=0;else if(combatHasDamageTrait(target.resistances,damageType)&&!stageVulnerable)damage=Math.floor(damage/2);else if(stageVulnerable&&!combatHasDamageTrait(target.resistances,damageType))damage*=2;
             resolution.damage={formula:damageRoll.formula||ability.damageFormula||'',rolls:damageRoll.rolls||[],rolledTotal:Number(damageRoll.total)||0,modifier:actorModifiers.damageMod,baseDamage:baseDamage,damage:damage,rolledAt:stamp};
             var match=String(ability.damageFormula||'').match(/d(4|6|8|10|12|20|100)/i),sides=Number(match&&match[1])||6;rollItems=(damageRoll.rolls||[]).map(function(value){return{sides:sides,value:value,total:value,statLabel:'Урон · '+(ability.name||'Заклинание'),scoreKind:'damage'};});
             event.text='Бросок урона «'+(ability.name||'заклинание')+'»: '+damage;event.damage=damage;event.damageFormula=ability.damageFormula||'';event.damageRolls=damageRoll.rolls||[];
@@ -6347,7 +6573,7 @@
             var updates={combatEvent:event,updatedAt:stamp};updates['combat/updatedAt']=stamp;return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
           });
         });
-      }).catch(function(error){if(error&&['player-only','master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-target-range','roll-not-required'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
+      }).catch(function(error){if(error&&['player-only','master-only','room-not-found','request-missing','combat-missing','combat-participant-missing','combat-target-range','combat-status-blocked','roll-not-required'].indexOf(error.code)>=0)throw error;throw friendlyFirebaseError(error);});
     },
 
     resolveCombatAbility: function (requestUid, targetKeys, overrides) {
@@ -6395,14 +6621,18 @@
             targetIndexes=order.map(function(entry,index){if(effect.areaMode!=='circle'&&index===actorIndex)return-1;return combatAreaContains(room,effect.areaMode,order[actorIndex],areaAnchorEntry,entry,effect.areaRadius,effect.areaWidth)?index:-1;}).filter(function(index){return index>=0;});
             targetKeys=targetIndexes.map(function(index){return order[index].key;});
           }
+          var abilityConfusion={triggered:false,targetKey:targetKeys[0]||''};
+          if(!stagedAutomation&&effect.areaMode==='manual'&&effect.resolutionMode==='attack'&&targetIndexes.length===1&&targetIndexes[0]>=0){
+            abilityConfusion=combatConfusionTarget(room,order,actorIndex,targetKeys[0]);
+            if(abilityConfusion.triggered){var confusedIndex=order.findIndex(function(entry){return entry&&String(entry.key||'')===String(abilityConfusion.targetKey||'');});if(confusedIndex>=0){targetIndexes=[confusedIndex];targetKeys=[String(order[confusedIndex].key||'')];}}
+          }
           if(!targetIndexes.length||targetIndexes.some(function(index){return index<0;}))throw roomError('Цели способности не найдены.','combat-participant-missing');
+          var abilityStatusBlock=combatAbilityStatusBlock(actor,effect,targetIndexes.map(function(index){return combatEntryWithRoomStatuses(room,order[index]);}));
+          if(abilityStatusBlock)throw roomError(abilityStatusBlock,'combat-status-blocked');
           var resourceKey=String(effect.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),resourceMax=Math.max(0,Math.min(99,Number(effect.resourceMax)||0)),battleStartedAt=Number(combat.battleStartedAt||combat.startedAt||0),battleScopeKey=effect.resourceScopeKind==='battle'&&battleStartedAt>0?'battle-'+battleStartedAt:'',resourceMutation=resourceKey&&resourceMax?applyAbilityUsageDomainOperation(member.character&&member.character.abilityUsage,resourceKey,{delta:1,max:resourceMax,minimumUsed:effect.resourceUsed,preserveExistingMax:false,scopeKey:battleScopeKey,scopeKind:effect.resourceScopeKind,resetWhenScopeChanges:effect.resourceScopeKind==='battle'&&!!battleScopeKey}):null;if(resourceMax&&(resourceKey?!resourceMutation||!resourceMutation.changed:Math.max(0,Number(effect.resourceUsed)||0)>=resourceMax))throw roomError('Заряды этой способности закончились.','ability-exhausted');
           var cost=['long','short','reaction','free'].indexOf(effect.actionCost)>=0?effect.actionCost:'long',turnIndex=Math.max(0,Math.min(order.length-1,Number(combat.turnIndex)||0));
           if((cost==='long'||cost==='short')&&actorIndex!==turnIndex)throw roomError('Долгие и короткие способности применяются только в свой ход.','combat-not-turn');
           var economy=Object.assign({long:1,short:1,reaction:1},actor.economy||{}),restrictions=combatRestrictions(actor);
-          var isSpellAbility=/^spell-/.test(String(effect.key||''))||/^spell-/.test(String(effect.sourceId||''));
-          if(isSpellAbility&&combatStatusKeys(actor).indexOf('silence')>=0)throw roomError('Магическая немота запрещает применять заклинания.','combat-status-blocked');
-          if(isSpellAbility&&combatStatusLevel(actor,'exhausted')>=4)throw roomError('Истощение IV запрещает применять заклинания.','combat-status-blocked');
           if(cost!=='free'&&restrictions.blocked[cost])throw roomError(restrictions.reasons[0]||'Текущее состояние запрещает способность.','combat-status-blocked');
           if(cost!=='free'&&Number(economy[cost]||0)<1)throw roomError('Нужное действие уже израсходовано.','combat-action-spent');
           var castStamp=now(),effectSource='ability-'+requestUid+'-'+castStamp,concentrationTouched=[];
@@ -6413,32 +6643,34 @@
             var target=concentrationTouched.indexOf(targetIndex)>=0?Object.assign({},order[targetIndex]):combatEntryWithRoomStatuses(room,Object.assign({},order[targetIndex])),beforeStatuses=combatStatusKeys(target),beforeStatusEffects=(Array.isArray(target.statusEffects)?target.statusEffects:[]).map(function(item){return item&&typeof item==='object'?Object.assign({},item):item;}),approved=approvedResults[String(order[targetIndex].key||'')]||null,natural=null,rolls=[],modifier=0,total=null,success=true,dc=null,rollMode='normal',targetModifiers=combatStatusModifiers(target);
             if(mode==='attack'&&!approved){
               modifier=combatStat(actor,effect.attackStat)+actorModifiers.attackMod;
-              rollMode=combatRollMode('normal',targetModifiers.grantAdvantageToAttackers,actorModifiers.hasDisadvantage||actorModifiers.attackDisadvantage||combatStatusLevel(actor,'exhausted')>=3);
+              var abilityDistance=combatEntryDistance(room,actor,target),abilityAttackStatus=combatAttackStatusContext(room,actor,target,abilityDistance);
+              if(abilityAttackStatus.blocked)throw roomError(abilityAttackStatus.reasons[0],'combat-status-blocked');
+              rollMode=combatRollMode('normal',abilityAttackStatus.hasAdvantage,actorModifiers.hasDisadvantage||abilityAttackStatus.hasDisadvantage||combatStatusLevel(actor,'exhausted')>=3);
               var attackFirst=rollDie(20),attackSecond=rollMode==='normal'?null:rollDie(20);
               natural=attackSecond==null?attackFirst:(rollMode==='advantage'?Math.max(attackFirst,attackSecond):Math.min(attackFirst,attackSecond));rolls=attackSecond==null?[attackFirst]:[attackFirst,attackSecond];
               total=natural+modifier;dc=Math.max(0,(Number(target.ac)||10)+targetModifiers.acMod);success=natural===20||(natural!==1&&total>=dc);
             }
             if(mode==='save'){
               modifier=combatStat(target,effect.saveStat);
-              rollMode=combatRollMode('normal',false,targetModifiers.hasDisadvantage||targetModifiers.saveDisadvantage||(effect.saveStat==='dex'&&targetModifiers.dexSaveDisadvantage));
+              rollMode=combatRollMode('normal',false,targetModifiers.hasDisadvantage||targetModifiers.saveDisadvantage||(effect.saveStat==='dex'&&targetModifiers.dexSaveDisadvantage)||combatStatusLevel(target,'exhausted')>=3);
               var saveFirst=rollDie(20),saveSecond=rollMode==='normal'?null:rollDie(20);
               natural=saveSecond==null?saveFirst:(rollMode==='advantage'?Math.max(saveFirst,saveSecond):Math.min(saveFirst,saveSecond));rolls=saveSecond==null?[saveFirst]:[saveFirst,saveSecond];
               dc=effect.saveDC==null?10+combatStat(actor,effect.attackStat):Math.max(1,Number(effect.saveDC)||10);total=natural+modifier;success=natural===20||(natural!==1&&total>=dc);
             }
             var damageRoll=effect.damageFormula&&!approved?rollFormula(effect.damageFormula,natural===20&&mode==='attack'):{total:0,formula:effect.damageFormula||'',rolls:[]},healRoll=effect.healFormula?rollFormula(effect.healFormula,false):{total:0,formula:''},damage=Math.max(0,(Number(damageRoll.total)||0)+(effect.damageFormula?actorModifiers.damageMod:0));if(mode==='attack'&&!success)damage=0;if(mode==='save'&&success)damage=effect.halfOnSave?Math.floor(damage/2):0;
-            var immune=combatHasDamageTrait(target.immunities,damageType),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType);if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
+            var immune=combatHasDamageTrait(target.immunities,damageType),resisted=combatHasDamageTrait(target.resistances,damageType),vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType)||combatStatusDamageTraits(target,damageType).vulnerable;if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
             if(Object.keys(approvedResults).length){if(!approved)throw roomError('Утверждённый результат цели устарел. Откройте расчёт снова.','combat-ability-preview-invalid');natural=approved.roll;rolls=approved.rolls;rollMode=approved.rollMode;modifier=approved.modifier;total=approved.total;dc=approved.dc;success=approved.success;damage=approved.damage;damageRoll.rolls=approved.damageRolls;damageRoll.total=approved.damageRolls.reduce(function(sum,value){return sum+value;},0);}
-            var heal=Math.max(0,Number(healRoll.total)||0),vitalsResult=applyVitalsDomainOperation(target,{damage:damage,heal:heal,preserveOverMax:true}),absorbed=vitalsResult.absorbed,after=vitalsResult.hp;target.hp=after;target.tempHp=vitalsResult.tempHp;syncCombatZeroHp(target,vitalsResult.beforeHp,actor.key,castStamp);
-            var targetStatuses=approved?approved.statuses:effect.statuses,applyStatuses=mode==='save'?!success:success;if(applyStatuses&&targetStatuses.length){targetStatuses.forEach(function(key){var statusEffect=combatStatusEffectForKey(key,{duration:effect.durationRounds||null,remaining:effect.durationRounds||null,sourceId:effectSource,sourceActorKey:actor.key,concentration:effect.concentration});var statusResult=applyStatusDomainOperation(target,{statusKey:key,enable:true,effect:statusEffect});target.statuses=statusResult.statuses;target.statusEffects=statusResult.statusEffects;});}
+            var heal=Math.max(0,Number(healRoll.total)||0),vitalsResult=applyVitalsDomainOperation(Object.assign({},target,{hpMax:combatEffectiveHpMax(target)}),{damage:damage,heal:heal}),absorbed=vitalsResult.absorbed,after=vitalsResult.hp;target.hp=after;target.tempHp=vitalsResult.tempHp;syncCombatZeroHp(target,vitalsResult.beforeHp,actor.key,castStamp);
+            var targetStatuses=approved?approved.statuses:effect.statuses,applyStatuses=mode==='save'?!success:success;if(applyStatuses&&targetStatuses.length){targetStatuses.forEach(function(key){var statusEffect=combatStatusEffectForKey(key,{duration:effect.durationRounds||null,remaining:effect.durationRounds||null,sourceId:effectSource,sourceActorKey:actor.key,concentration:effect.concentration});var statusResult=applyStatusDomainOperation(target,{statusKey:key,enable:true,effect:statusEffect});target.statuses=statusResult.statuses;target.statusEffects=statusResult.statusEffects;});target=combatReconcileStatusHpMax(target);after=target.hp;}
             var beforeHp=vitalsResult.beforeHp,beforeTempHp=vitalsResult.beforeTempHp;order[targetIndex]=target;results.push({key:target.key,name:target.name||'Цель',roll:natural,rolls:rolls,rollMode:rollMode,modifier:modifier,total:total,dc:dc,success:success,damage:damage,damageRolls:damageRoll.rolls||[],heal:heal,absorbed:absorbed,beforeHp:beforeHp,beforeTempHp:beforeTempHp,beforeStatuses:beforeStatuses,beforeStatusEffects:beforeStatusEffects,hp:after,tempHp:target.tempHp,statuses:applyStatuses?targetStatuses:[]});
           });
           if(cost!=='free')economy[cost]=Math.max(0,Number(economy[cost]||0)-1);if(restrictions.slowed&&(cost==='long'||cost==='short')){economy.long=0;economy.short=0;}order[actorIndex].economy=economy;if(effect.concentration)order[actorIndex].concentration={sourceId:effectSource,abilityKey:effect.key||'',name:effect.name||'Способность',startedAt:castStamp,durationRounds:effect.durationRounds||0};
           var stamp=now(),updates={};updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['members/'+requestUid+'/actionRequest/status']='approved';updates['members/'+requestUid+'/actionRequest/resolvedAt']=stamp;updates['members/'+requestUid+'/actionOperationIds']=rememberActionOperation(member.actionOperationIds,request.id,stamp);
           if(resourceMutation&&resourceMutation.changed){updates['members/'+requestUid+'/character/abilityUsage/'+resourceKey]=Object.assign({},resourceMutation.state,{updatedAt:stamp});}
-          targetIndexes.forEach(function(targetIndex,listIndex){var target=order[targetIndex],result=results[listIndex];if(target.uid){updates['members/'+target.uid+'/character/hpCur']=result.hp;updates['members/'+target.uid+'/character/tempHp']=result.tempHp;updates['members/'+target.uid+'/character/deathSaves']=target.zeroHp||null;updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=result.hp;updates['scene/tokens/'+index+'/tempHp']=result.tempHp;updates['scene/tokens/'+index+'/statuses']=target.statuses||[];updates['scene/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=result.hp;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=result.tempHp;updates['zones/'+zoneId+'/tokens/'+index+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});});}});
+          targetIndexes.forEach(function(targetIndex,listIndex){var target=order[targetIndex],result=results[listIndex];if(target.uid){updates['members/'+target.uid+'/character/hpCur']=result.hp;updates['members/'+target.uid+'/character/hpMax']=target.hpMax;updates['members/'+target.uid+'/character/statusBaseHpMax']=target.statusBaseHpMax||null;updates['members/'+target.uid+'/character/tempHp']=result.tempHp;updates['members/'+target.uid+'/character/deathSaves']=target.zeroHp||null;updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+index+'/hp']=result.hp;updates['scene/tokens/'+index+'/hpMax']=target.hpMax;updates['scene/tokens/'+index+'/statusBaseHpMax']=target.statusBaseHpMax||null;updates['scene/tokens/'+index+'/tempHp']=result.tempHp;updates['scene/tokens/'+index+'/statuses']=target.statuses||[];updates['scene/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,index){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+index+'/hp']=result.hp;updates['zones/'+zoneId+'/tokens/'+index+'/hpMax']=target.hpMax;updates['zones/'+zoneId+'/tokens/'+index+'/statusBaseHpMax']=target.statusBaseHpMax||null;updates['zones/'+zoneId+'/tokens/'+index+'/tempHp']=result.tempHp;updates['zones/'+zoneId+'/tokens/'+index+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+index+'/statusEffects']=target.statusEffects||[];}});});}});
           concentrationTouched.forEach(function(index){if(targetIndexes.indexOf(index)>=0)return;var target=order[index];if(target.uid){updates['members/'+target.uid+'/character/statuses']=target.statuses||[];updates['members/'+target.uid+'/character/statusEffects']=target.statusEffects||[];}if(target.tokenId){(room.scene&&Array.isArray(room.scene.tokens)?room.scene.tokens:[]).forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['scene/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['scene/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});Object.keys(room.zones||{}).forEach(function(zoneId){var tokens=room.zones[zoneId]&&room.zones[zoneId].tokens||[];tokens.forEach(function(token,tokenIndex){if(token&&String(token.id)===String(target.tokenId)){updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statuses']=target.statuses||[];updates['zones/'+zoneId+'/tokens/'+tokenIndex+'/statusEffects']=target.statusEffects||[];}});});}});
           var summaries=results.map(function(result){var outcome=mode==='save'?(result.success?'спасся':'провалил спасбросок'):mode==='attack'?(result.success?'попадание':'промах'):'эффект применён';return result.name+': '+outcome+(result.damage?' · урон '+result.damage:'')+(result.heal?' · лечение '+result.heal:'')+(result.statuses.length?' · '+result.statuses.join(', '):'');});var firstRoll=results.filter(function(result){return result.roll!=null;})[0]||{};
-          var abilityEventId='combat-ability-'+stamp+'-'+Math.random();updates.combatEvent={id:abilityEventId,kind:'combat-ability',name:actor.name||request.name||'Участник',portrait:actor.portrait||'',text:'Применяет «'+(effect.name||'способность')+'»'+(effect.areaMode!=='manual'?' по области «'+({circle:'круг',line:'линия',cone:'конус'}[effect.areaMode]||effect.areaMode)+'» длиной '+effect.areaRadius+' кл.':'')+'. '+summaries.join('; ')+'.'+(effect.durationRounds?' Длительность: '+effect.durationRounds+' р.':'')+(effect.concentration?' Требует концентрации.':''),ability:effect.name||'',abilityKey:effect.key||'',damageType:damageType,damageFormula:effect.damageFormula||'',damageRolls:results.reduce(function(list,result){return list.concat(result.damageRolls||[]);},[]),targetKeys:targetKeys,results:results,areaMode:effect.areaMode,areaRadius:effect.areaMode!=='manual'?effect.areaRadius:0,areaWidth:effect.areaMode==='line'?effect.areaWidth:0,areaAnchorKey:effect.areaMode!=='manual'?effect.areaAnchorKey:'',concentration:effect.concentration,durationRounds:effect.durationRounds,roll:firstRoll.roll==null?null:firstRoll.roll,rolls:firstRoll.rolls||[],total:firstRoll.total==null?null:firstRoll.total,dc:firstRoll.dc==null?null:firstRoll.dc,success:results.every(function(result){return result.success;}),damage:results.reduce(function(sum,result){return sum+result.damage;},0),heal:results.reduce(function(sum,result){return sum+result.heal;},0),ts:stamp,revealAt:stamp+(firstRoll.roll!=null?3200:500)};updates.updatedAt=stamp;
+          var abilityEventId='combat-ability-'+stamp+'-'+Math.random();updates.combatEvent={id:abilityEventId,kind:'combat-ability',name:actor.name||request.name||'Участник',portrait:actor.portrait||'',text:(abilityConfusion.triggered?'Замешательство меняет цель. ':'')+'Применяет «'+(effect.name||'способность')+'»'+(effect.areaMode!=='manual'?' по области «'+({circle:'круг',line:'линия',cone:'конус'}[effect.areaMode]||effect.areaMode)+'» длиной '+effect.areaRadius+' кл.':'')+'. '+summaries.join('; ')+'.'+(effect.durationRounds?' Длительность: '+effect.durationRounds+' р.':'')+(effect.concentration?' Требует концентрации.':''),ability:effect.name||'',abilityKey:effect.key||'',damageType:damageType,damageFormula:effect.damageFormula||'',damageRolls:results.reduce(function(list,result){return list.concat(result.damageRolls||[]);},[]),targetKeys:targetKeys,results:results,areaMode:effect.areaMode,areaRadius:effect.areaMode!=='manual'?effect.areaRadius:0,areaWidth:effect.areaMode==='line'?effect.areaWidth:0,areaAnchorKey:effect.areaMode!=='manual'?effect.areaAnchorKey:'',concentration:effect.concentration,durationRounds:effect.durationRounds,roll:firstRoll.roll==null?null:firstRoll.roll,rolls:firstRoll.rolls||[],total:firstRoll.total==null?null:firstRoll.total,dc:firstRoll.dc==null?null:firstRoll.dc,success:results.every(function(result){return result.success;}),damage:results.reduce(function(sum,result){return sum+result.damage;},0),heal:results.reduce(function(sum,result){return sum+result.heal;},0),ts:stamp,revealAt:stamp+(firstRoll.roll!=null?3200:500)};updates.updatedAt=stamp;
           updates.combatEvent.actorKey=actor.key||'';
           updates.combatEvent.effectKind=String(effect.effectKind||'utility');
           updates.combatEvent.automationKey=String(effect.automationKey||'');

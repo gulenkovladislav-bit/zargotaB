@@ -11,6 +11,14 @@
   var snapshot = null;
   var activeKind = 'item';
   var activeMood = 'calm';
+  var DELIVERY_SOUND_LIBRARY = [
+    {id:'auto',icon:'◇',title:'По типу',note:'Предмет или весть'},
+    {id:'none',icon:'∅',title:'Без звука',note:'Тихая выдача'},
+    {id:'paper',icon:'▤',title:'Шорох письма',note:'Бумага и сообщение',method:'playerDeliveryReceived'},
+    {id:'seal',icon:'✒',title:'Печать мастера',note:'Короткое подтверждение',method:'gmDeliverySent'},
+    {id:'reward',icon:'◆',title:'Получение вещи',note:'Награда и находка',method:'itemReward'},
+    {id:'mystic',icon:'✦',title:'Мистический знак',note:'Магия и откровение',method:'statusCleanse'}
+  ];
   var activeImage = '';
   var activeTarget = '';
   var activeTargets = [];
@@ -429,6 +437,7 @@
     if (activeKind === 'item' && !title) {
       var stored = JSON.parse(JSON.stringify(draftForKind('item')));
       stored.mood = activeMood;
+      stored.soundId = deliverySoundId(node('zg-gm-delivery-sound') && node('zg-gm-delivery-sound').value || stored.soundId);
       stored.showPopup = !!(node('zg-gm-delivery-popup-toggle') && node('zg-gm-delivery-popup-toggle').checked);
       stored.payload = stored.payload || {};
       stored.payload.rarity = itemRarity(node('zg-gm-delivery-rarity') && node('zg-gm-delivery-rarity').value || stored.payload.rarity);
@@ -481,6 +490,7 @@
     return {
       kind:activeKind,
       mood:activeMood,
+      soundId:deliverySoundId(node('zg-gm-delivery-sound') && node('zg-gm-delivery-sound').value || draftForKind(activeKind).soundId),
       presentation:activeKind === 'image' && node('zg-gm-delivery-presentation') && node('zg-gm-delivery-presentation').value === 'cinematic' ? 'cinematic' : 'card',
       privateDelivery:activeKind === 'text' && !!(node('zg-gm-delivery-private') && node('zg-gm-delivery-private').checked),
       showPopup:!!(node('zg-gm-delivery-popup-toggle') && node('zg-gm-delivery-popup-toggle').checked),
@@ -500,7 +510,7 @@
     var value = drafts[kind];
     if (value) return value;
     value = {
-      kind:kind,mood:activeMood,presentation:'card',privateDelivery:false,showPopup:true,title:'',text:'',image:'',
+      kind:kind,mood:activeMood,soundId:'auto',presentation:'card',privateDelivery:false,showPopup:true,title:'',text:'',image:'',
       payload:kind === 'item'
         ? {icon:'📦',qty:1,category:'other',acBonus:0,attackStat:'str',range:'1 клетка',weight:0,slot:'',rarity:'common',presentationFx:'none'}
         : kind === 'quest'
@@ -517,6 +527,47 @@
 
   function selected(value, expected) {
     return String(value == null ? '' : value) === String(expected) ? ' selected' : '';
+  }
+
+  function deliverySoundId(value) {
+    value = String(value || 'auto').toLowerCase();
+    return DELIVERY_SOUND_LIBRARY.some(function (sound) { return sound.id === value; }) ? value : 'auto';
+  }
+
+  function deliverySound(value) {
+    var id = deliverySoundId(value);
+    return DELIVERY_SOUND_LIBRARY.filter(function (sound) { return sound.id === id; })[0] || DELIVERY_SOUND_LIBRARY[0];
+  }
+
+  function playDeliverySound(delivery) {
+    delivery = delivery || {};
+    var sound = deliverySound(delivery.soundId);
+    if (sound.id === 'none') return false;
+    if (sound.id === 'auto') {
+      if (delivery.kind === 'item' && w.ZargotaSound && typeof w.ZargotaSound.itemReward === 'function') {
+        w.ZargotaSound.itemReward();
+        return true;
+      }
+      if (w.ZargotaSound && typeof w.ZargotaSound.playerDeliveryReceived === 'function') {
+        w.ZargotaSound.playerDeliveryReceived();
+        return true;
+      }
+      return false;
+    }
+    if (!sound.method || !w.ZargotaSound || typeof w.ZargotaSound[sound.method] !== 'function') return false;
+    w.ZargotaSound[sound.method]();
+    return true;
+  }
+
+  function deliverySoundLibraryMarkup(value) {
+    if (['item','quest','text'].indexOf(activeKind) < 0) return '';
+    var activeId = deliverySoundId(value);
+    var activeSound = deliverySound(activeId);
+    return '<section class="zg-gm-delivery-sounds"><input id="zg-gm-delivery-sound" type="hidden" value="' + esc(activeId) + '">' +
+      '<header><span><small>ЗВУК ПОЛУЧЕНИЯ</small><b>' + esc(activeSound.title) + '</b></span><button type="button" onclick="zgGmDeliverySoundPreview()" ' + (activeId === 'none' ? 'disabled' : '') + ' aria-label="Прослушать выбранный звук">▶ Прослушать</button></header>' +
+      '<div>' + DELIVERY_SOUND_LIBRARY.map(function (sound) {
+        return '<button type="button" class="' + (sound.id === activeId ? 'active' : '') + '" data-sound-id="' + esc(sound.id) + '" onclick="zgGmDeliverySound(\'' + esc(sound.id) + '\')"><i>' + esc(sound.icon) + '</i><span><b>' + esc(sound.title) + '</b><small>' + esc(sound.note) + '</small></span></button>';
+      }).join('') + '</div></section>';
   }
 
   function itemCategoryLabel(category) {
@@ -677,7 +728,7 @@
   function bundledSendValue(value) {
     if (itemDeliveryMode !== 'bundle') return value;
     return {
-      kind:'item',mood:value.mood,showPopup:value.showPopup,
+      kind:'item',mood:value.mood,soundId:deliverySoundId(value.soundId),showPopup:value.showPopup,
       title:'Набор предметов · ' + itemBundle.length,
       text:'Мастер передаёт набор предметов.',
       image:'',
@@ -1147,6 +1198,7 @@
         '<button type="button" class="' + (activeMood === 'solemn' ? 'active' : '') + '" data-mood="solemn" onclick="zgGmDeliveryMood(\'solemn\')">Торжественное</button>' +
         '<button type="button" class="' + (activeMood === 'ominous' ? 'active' : '') + '" data-mood="ominous" onclick="zgGmDeliveryMood(\'ominous\')">Тревожное</button>' +
       '</fieldset>' +
+      deliverySoundLibraryMarkup(draft.soundId) +
       '<label class="zg-gm-delivery-check"><input id="zg-gm-delivery-popup-toggle" type="checkbox" ' + (draft.showPopup === false ? '' : 'checked') + '><span>Показать игроку большое уведомление</span></label>' +
       itemPresentationMarkup(payload) +
       ((activeKind === 'quest' || (activeKind === 'image' && payload.saveToJournal) || (activeKind === 'text' && textMode !== 'message')) ? '<label class="zg-gm-delivery-check"><input id="zg-gm-delivery-player-delete" type="checkbox" ' + (payload.playerCanDelete === false ? '' : 'checked') + '><span>Игрок может удалить запись из журнала</span></label>' : '') +
@@ -1554,6 +1606,20 @@
     refreshDeliveryPreview();
   };
 
+  w.zgGmDeliverySound = function (soundId) {
+    var draft = currentForm();
+    draft.soundId = deliverySoundId(soundId);
+    drafts[activeKind] = draft;
+    renderPanel({skipRemember:true});
+  };
+
+  w.zgGmDeliverySoundPreview = function () {
+    var soundId = deliverySoundId(node('zg-gm-delivery-sound') && node('zg-gm-delivery-sound').value || draftForKind(activeKind).soundId);
+    if (!playDeliverySound({kind:activeKind,soundId:soundId}) && soundId !== 'none' && w.showToast) {
+      w.showToast('Звук сейчас недоступен');
+    }
+  };
+
   w.zgGmDeliveryShelf = function (shelf) {
     rememberPanelDraft();
     if (shelf === 'history') {
@@ -1890,7 +1956,7 @@
 
   function historySafeValue(value) {
     var copy;
-    try { copy = JSON.parse(JSON.stringify(value)); } catch (error) { copy = {kind:value.kind,title:value.title,text:value.text,mood:value.mood,showPopup:value.showPopup,payload:value.payload || {}}; }
+    try { copy = JSON.parse(JSON.stringify(value)); } catch (error) { copy = {kind:value.kind,title:value.title,text:value.text,mood:value.mood,soundId:deliverySoundId(value.soundId),showPopup:value.showPopup,payload:value.payload || {}}; }
     if (copy.image && /^data:image\//i.test(copy.image) && copy.image.length > 300000) {
       copy.image = '';
       copy.imageOmittedFromHistory = true;
@@ -2365,8 +2431,7 @@
     applying[delivery.id] = true;
     applyDelivery(delivery, member).then(function () {
       var present = claimDeliveryPresentation(delivery.id);
-      if (present && delivery.kind === 'item' && w.ZargotaSound && w.ZargotaSound.itemReward) w.ZargotaSound.itemReward();
-      else if (present && w.ZargotaSound && w.ZargotaSound.playerDeliveryReceived) w.ZargotaSound.playerDeliveryReceived();
+      if (present) playDeliverySound(delivery);
       if (present && delivery.showPopup !== false) enqueuePopup(delivery);
       else if (present && w.showToast) w.showToast('Получено: ' + (delivery.title || kindLabel(delivery.kind)));
       if (w.zgVttRefreshDrawer) w.zgVttRefreshDrawer();

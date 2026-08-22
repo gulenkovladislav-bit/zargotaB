@@ -8,6 +8,12 @@ var vm = require('vm');
 var root = path.resolve(__dirname, '..');
 var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+var canonicalStatusKeys=['stun','freeze','paralyze','restrain','prone','fear','blind','charm','dominate','confusion','burn','poison','bleed','slow','curse','exhausted','silence','anchor','invisible','regen','shield','rage','fly'];
+assert.strictEqual(canonicalStatusKeys.length,23,'the Manual defines exactly 23 canonical statuses');
+canonicalStatusKeys.forEach(function(key){
+  assert.match(html,new RegExp('\\n\\s{4}'+key+':\\s+\\{'),'default mechanics must define '+key);
+});
+assert.match(html,/Состояния \(23 канонических\)/,'the player Manual and mechanics matrix must stay aligned');
 [
   'blood-token-atlas-a-v2.webp','blood-token-atlas-b-v2.webp',
   'blood-portrait-atlas-a-v2.webp','blood-portrait-atlas-b-v2.webp',
@@ -28,7 +34,7 @@ assert.match(html, /w\.zgCombatAttackWeapon=function\(id\)/, 'player attack pane
 assert.match(html, /clearCombatAttackTarget\(\);combatAttackError='Нельзя выбрать себя/, 'invalid map targets must clear every stale target identity');
 assert.match(html, /request\.status==='damage-requested'/, 'a successful hit must be animated before the damage prompt is enabled');
 assert.match(html, /zg-approved-attack-dice\.multi/, 'multiple damage dice must have a readable non-overlapping layout');
-var start = network.indexOf('  function combatNumber(');
+var start = network.indexOf('  function movementCells(');
 var end = network.indexOf('  function normalizeRoomCode(', start);
 assert.ok(start >= 0 && end > start, 'combat status helper block must remain extractable');
 
@@ -344,6 +350,78 @@ assert.strictEqual(context.combatTurnMovement({
   statusEffects:[],
   economy:{movementMax:7}
 }), 3, 'slow must halve movement without applying its legacy speed modifier twice');
+assert.strictEqual(context.combatTurnMovement({
+  statuses:['prone'],
+  statusEffects:[],
+  economy:{movementMax:7}
+}), 3, 'standing after being knocked prone must spend half of the turn movement');
+assert.strictEqual(context.combatEffectiveHpMax({
+  hpMax:11,
+  statuses:['exhausted'],
+  statusEffects:[{type:'status',statusKey:'exhausted',stacks:4,unit:'manual'}]
+}), 5, 'exhaustion IV must halve maximum HP and round down');
+var exhaustedVitals=context.combatReconcileStatusHpMax({hp:11,hpMax:11,statuses:['exhausted'],statusEffects:[{type:'status',statusKey:'exhausted',stacks:4,unit:'manual'}]});
+assert.strictEqual(exhaustedVitals.hpMax,5);
+assert.strictEqual(exhaustedVitals.hp,5);
+assert.strictEqual(exhaustedVitals.statusBaseHpMax,11);
+var restoredVitals=context.combatReconcileStatusHpMax(Object.assign({},exhaustedVitals,{statuses:[],statusEffects:[]}));
+assert.strictEqual(restoredVitals.hpMax,11,'removing exhaustion IV restores the saved maximum HP');
+assert.strictEqual(restoredVitals.statusBaseHpMax,null);
+assert.strictEqual(context.combatStatusRollMode({
+  statuses:['exhausted'],
+  statusEffects:[{type:'status',statusKey:'exhausted',stacks:1,unit:'manual'}]
+}, 'per', 'check', 'normal'), 'disadvantage', 'exhaustion I affects ability checks');
+assert.strictEqual(context.combatStatusRollMode({
+  statuses:['exhausted'],
+  statusEffects:[{type:'status',statusKey:'exhausted',stacks:3,unit:'manual'}]
+}, 'con', 'save', 'normal'), 'disadvantage', 'exhaustion III affects saving throws');
+
+var statusRoom = {
+  scene:{boardWidth:10,boardHeight:10,tokens:[
+    {id:'attacker-token',x:10,y:10},
+    {id:'near-token',x:20,y:10},
+    {id:'far-token',x:80,y:10},
+    {id:'source-token',x:50,y:10}
+  ]},
+  combat:{order:[]}
+};
+var attackEntry={key:'attacker',tokenId:'attacker-token',hp:10,hpMax:10,statuses:[],statusEffects:[]};
+var nearEntry={key:'near',tokenId:'near-token',hp:10,hpMax:10,statuses:['prone'],statusEffects:[]};
+var farEntry={key:'far',tokenId:'far-token',hp:10,hpMax:10,statuses:['prone'],statusEffects:[]};
+var sourceEntry={key:'source',tokenId:'source-token',hp:10,hpMax:10,statuses:[],statusEffects:[]};
+statusRoom.combat.order=[attackEntry,nearEntry,farEntry,sourceEntry];
+assert.strictEqual(context.combatAttackStatusContext(statusRoom,attackEntry,nearEntry,1).hasAdvantage,true,'melee attacks against prone targets gain advantage');
+assert.strictEqual(context.combatAttackStatusContext(statusRoom,attackEntry,farEntry,7).hasDisadvantage,true,'ranged attacks against prone targets gain disadvantage');
+assert.strictEqual(context.combatAttackStatusContext(statusRoom,Object.assign({},attackEntry,{statuses:['invisible']}),sourceEntry,4).hasAdvantage,true,'an invisible attacker gains advantage');
+assert.strictEqual(context.combatAttackStatusContext(statusRoom,attackEntry,Object.assign({},sourceEntry,{statuses:['invisible']}),4).hasDisadvantage,true,'attacks against an invisible target gain disadvantage');
+var charmedEntry=Object.assign({},attackEntry,{statuses:['charm'],statusEffects:[{type:'status',statusKey:'charm',sourceActorKey:'source',unit:'manual'}]});
+assert.strictEqual(context.combatAttackStatusContext(statusRoom,charmedEntry,sourceEntry,4).blocked,true,'charm blocks attacks against its source only');
+assert.strictEqual(context.combatAttackStatusContext(statusRoom,charmedEntry,nearEntry,1).blocked,false,'charm does not block attacks against another target');
+assert.strictEqual(context.combatStatusRollMode(charmedEntry,'cha','check','normal',{room:statusRoom,target:sourceEntry}),'disadvantage','charm penalizes checks against its source');
+assert.strictEqual(context.combatStatusRollMode(charmedEntry,'cha','check','normal',{room:statusRoom,target:nearEntry}),'normal','charm does not penalize unrelated checks');
+var fearedEntry=Object.assign({},attackEntry,{statuses:['fear'],statusEffects:[{type:'status',statusKey:'fear',sourceActorKey:'source',unit:'manual'}]});
+assert.strictEqual(context.combatMovementStatusCheck(statusRoom,fearedEntry,10,10,20,10).allowed,false,'fear blocks voluntary movement toward its source');
+assert.strictEqual(context.combatMovementStatusCheck(statusRoom,fearedEntry,10,10,0,10).allowed,true,'fear allows movement away from its source');
+assert.strictEqual(context.combatStatusDamageTraits({statuses:['freeze'],statusEffects:[]},'Дробящий').vulnerable,true,'frozen targets are vulnerable to bludgeoning damage');
+assert.strictEqual(context.combatStatusDamageTraits({statuses:['freeze'],statusEffects:[]},'Звуковой').vulnerable,true,'frozen targets are vulnerable to sonic damage');
+assert.strictEqual(context.combatStatusDamageTraits({statuses:['freeze'],statusEffects:[]},'Огонь').vulnerable,false,'freeze does not invent vulnerability to unrelated damage');
+assert.strictEqual(context.combatRestrictions({statuses:['fly'],statusEffects:[]}).flying,true,'flight is exposed to movement/reaction rules');
+var rageModifiers=context.combatStatusModifiers({statuses:['rage'],statusEffects:[{type:'status',statusKey:'rage',attackMod:2,damageMod:3,acMod:-1,unit:'manual'}]});
+assert.strictEqual(rageModifiers.attackMod,2,'rage uses the source-authored attack bonus');
+assert.strictEqual(rageModifiers.damageMod,3,'rage uses the source-authored damage bonus');
+assert.strictEqual(rageModifiers.acMod,-1,'rage uses the source-authored defense penalty');
+assert.match(context.combatAbilityStatusBlock({statuses:['silence'],statusEffects:[]},{kind:'spell'},[]),/немота/i,'silence blocks spells');
+assert.match(context.combatAbilityStatusBlock({statuses:['anchor'],statusEffects:[]},{kind:'spell',effectKind:'movement'},[]),/якорь/i,'anchor blocks magical movement abilities');
+assert.match(context.combatAbilityStatusBlock({statuses:[],statusEffects:[]},{kind:'spell',effectKind:'movement'},[{statuses:['anchor'],statusEffects:[]}]),/цели/i,'anchor also protects a target from magical movement');
+assert.strictEqual(context.combatAbilityStatusBlock({statuses:['anchor'],statusEffects:[]},{kind:'skill',effectKind:'movement',name:'Рывок'},[]),'','anchor does not block mundane movement skills');
+var confusionEntry=Object.assign({},attackEntry,{statuses:['confusion'],statusEffects:[]});
+var confusionOrder=[confusionEntry,nearEntry,sourceEntry];statusRoom.combat.order=confusionOrder;
+var confusionSequence=[0,0],confusionIndex=0;
+deterministicMath.random=function(){return confusionSequence[confusionIndex++]||0;};
+var redirected=context.combatConfusionTarget(statusRoom,confusionOrder,0,'source');
+assert.strictEqual(redirected.triggered,true,'confusion triggers on the lower half of its d100 chance');
+assert.strictEqual(redirected.targetKey,'near','confusion redirects to an adjacent participant, including allies');
+deterministicMath.random=function(){return 0;};
 
 var tick = context.statusTurnTick({
   hp:10,
@@ -365,6 +443,10 @@ assert.strictEqual(tick.tempHp, 0, 'status tick must consume temporary HP before
 assert.ok(tick.changes.length, 'status tick must produce a combat note');
 assert.strictEqual(tick.impacts.length, 1, 'status tick exposes one structured presentation impact');
 assert.deepStrictEqual(JSON.parse(JSON.stringify(tick.impacts[0])), {statusKey:'burn',label:'Горит',type:'damage',amount:1,hpDelta:0,tempHpAbsorbed:1,beforeHp:10,beforeTempHp:1,hp:10,tempHp:0,damageType:'fire'});
+
+var regenTick=context.statusTurnTick({hp:5,hpMax:10,tempHp:0,statuses:['regen'],statusEffects:[]});
+assert.strictEqual(regenTick.hp,6,'regeneration restores 1d4 HP at the start of the turn');
+assert.strictEqual(regenTick.impacts[0].type,'heal');
 
 var stackedTick = context.statusTurnTick({
   hp:10,
@@ -629,7 +711,7 @@ assert.match(network, /dexSaveDisadvantage/);
 assert.match(network, /Истощение IV запрещает применять заклинания/);
 assert.match(network, /stacks:Math\.max\(1,Math\.min\(20/);
 assert.match(network, /autoRemove!=='save_dc'/);
-assert.match(network, /queueCombatEntryState\(room,updates,ending,false,\{/);
+assert.match(network, /queueCombatEntryState\(room,updates,ending,true,\{/);
 assert.match(network, /queueCombatEntryState\(room,updates,current,true,\{/);
 assert.match(network, /writeMember:masterAdvance\|\|String\(current\.uid\|\|''\)===String\(user\.uid\)/);
 assert.match(network, /writeScene:masterAdvance/);
@@ -644,7 +726,7 @@ assert.match(network, /function scheduleMasterCombatEquipmentReconcile\(room\)/)
 assert.match(network, /session\.role !== 'master'/);
 assert.match(network, /firebase\.runTransaction\(combatRef/);
 assert.match(network, /nextCombat\.equipmentSyncedAt/);
-assert.match(network, /combatRollMode\(String\(options\.mode\|\|'normal'\),targetModifiers\.grantAdvantageToAttackers,forcedDisadvantage\)/);
+assert.match(network, /combatRollMode\(String\(options\.mode\|\|'normal'\),attackStatus\.hasAdvantage,forcedDisadvantage\)/);
 assert.match(network, /damageResult\.total\+bonusDamage\+statBonus\+attackerModifiers\.damageMod/);
 assert.match(network, /request\.target=normalizeAbilityTargeting\(details\.targeting\)/);
 assert.match(network, /areaAnchorEntry=effect\.areaAnchorPoint\?\{scenePoint:effect\.areaAnchorPoint\}/);

@@ -827,7 +827,7 @@ async function expectCode(operation, code) {
     enable:true,
     effect:{ durationUnit:'rounds', durationValue:1, icon:'🔇' }
   });
-  snapshot = await player.requestAction('Пытается колдовать под немотой', 'ability', '', {
+  await expectCode(() => player.requestAction('Пытается колдовать под немотой', 'ability', '', {
     operationId:'two-client-spell-silenced',
     key:'spell-two-client-silenced',
     sourceId:'spell-two-client-silenced',
@@ -840,11 +840,8 @@ async function expectCode(operation, code) {
     damageFormula:'1d4',
     targetMode:'target',
     targeting:{ mode:'token', tokenId:enemyTokenId, targetKey:enemyKey }
-  });
-  const silencedRequestId = snapshot.room.members[playerUid].actionRequest.id;
-  await expectCode(() => master.resolveCombatAbility(playerUid, [enemyKey], {}), 'combat-status-blocked');
-  await master.resolveAction(playerUid, false, {});
-  await player.acknowledgeAction(silencedRequestId);
+  }), 'combat-status-blocked');
+  assert.notStrictEqual(String(shared.data.rooms[roomCode].members[playerUid].actionRequest&&shared.data.rooms[roomCode].members[playerUid].actionRequest.id||''),'two-client-spell-silenced','silence rejects the spell before creating a stale GM request');
   await master.gmAdjustEntity({ memberUid:playerUid }, {
     kind:'status',
     statusKey:'silence',

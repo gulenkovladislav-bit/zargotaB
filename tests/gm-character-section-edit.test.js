@@ -33,13 +33,14 @@ var spellLibraryEnd = html.indexOf('w.zgVttGmSpellLibraryAdd=function', spellLib
 assert.ok(spellLibraryStart >= 0 && spellLibraryEnd > spellLibraryStart, 'the GM spell picker implementation is present');
 assert.doesNotMatch(html.slice(spellLibraryStart, spellLibraryEnd), /\.slice\(0,\s*160\)/, 'the GM picker must not silently truncate the catalog');
 assert.match(html, /w\.zgVttGmSpellLearn=function\(spellId,learned,event\)/, 'GM can change learned spell state');
-assert.match(html, /zgVttGmSpellLearn\([^\n]+arguments\[0\]/, 'inline learn actions pass the real click event instead of relying on a missing global event');
+assert.match(html, /zgVttSpellCardAction\([^\n]+event\)/, 'custom spell menu actions pass the real click event into the shared router');
+assert.match(html, /if\(action==='learn'\|\|action==='unlearn'\)return w\.zgVttGmSpellLearn\(spellId,action==='learn',event\)/, 'the custom menu routes learn actions with the real click event');
 assert.match(html, /var shouldLearn=learned===true/, 'learn and unlearn use an explicit boolean state');
 assert.match(html, /Заклинание разучено/, 'the GM receives explicit unlearn feedback');
 assert.match(html, /'Разучить'/, 'a learned spell exposes the unlearn action');
 assert.match(html, /Не изучено/, 'an unlearned spell has a visible state marker');
 assert.match(html, /w\.zgVttSpellPreparation=function\(spellId,shouldPrepare,event\)/, 'GM and owner share the canonical preparation control');
-assert.match(html, /zargota-network\.js\?v=2026-08-20\.7/, 'the page loads the current scoped Firebase character editor instead of a cached network client');
+assert.match(html, /zargota-network\.js\?v=2026-08-21\.1/, 'the page loads the current scoped Firebase character editor instead of a cached network client');
 
 var start = network.indexOf('gmUpdateCharacterSections: function');
 var end = network.indexOf('gmAddJournalEntry: function', start);

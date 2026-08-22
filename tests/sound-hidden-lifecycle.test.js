@@ -46,7 +46,7 @@ vm.runInNewContext(source, {
   setTimeout,clearTimeout,fetch:undefined
 });
 
-fakeWindow.ZargotaSound.buttonTap();
+fakeWindow.ZargotaSound.damage();
 assert.strictEqual(oscillators.length,1);
 assert.strictEqual(fakeWindow.ZargotaSound.diagnostics().activeNodes,1);
 
@@ -56,7 +56,7 @@ assert.strictEqual(fakeWindow.ZargotaSound.diagnostics().activeNodes,0);
 assert.strictEqual(fakeWindow.ZargotaSound.diagnostics().hiddenStops,1);
 assert.strictEqual(oscillators[0].stopCalls.length,2,'scheduled envelope stop plus immediate hidden-tab stop');
 
-fakeWindow.ZargotaSound.buttonTap();
+fakeWindow.ZargotaSound.damage();
 assert.strictEqual(oscillators.length,1,'hidden tabs cannot create another oscillator');
 
 console.log('sound hidden-tab lifecycle passed');

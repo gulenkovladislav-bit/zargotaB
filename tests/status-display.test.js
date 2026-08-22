@@ -302,6 +302,9 @@ assert.match(html, /aria-label="Увеличить длительность"/);
 assert.match(html, /zgGmInterventionStatusRemoveConfirm/);
 assert.match(html, /zgGmInterventionStatusRemoveApply/);
 assert.match(html, /Удалить состояние/);
+assert.match(html, /function gmStatusNeedsSource\(key\)/, 'fear, charm and dominate must request an explicit source');
+assert.match(html, /id="zg-gm-status-source-actor"/, 'GM status dialog must offer a compact source selector');
+assert.match(html, /sourceActorKey:sourceNode\?String\(sourceNode\.value/, 'selected status source must persist into combat mechanics');
 assert.match(html, /field==='duration'/);
 assert.match(html, /remainingMinutes=Math\.max\(factor/);
 assert.match(html, /\.zg-vtt-status-vfx-freeze\{overflow:hidden[^}]*background:/);
@@ -332,7 +335,11 @@ Object.keys(statusAtlases).forEach(function(name){
 assert.match(html,/layer\.style\.animationDelay='-'\+phase\+'s'/,'status animations must not pulse in lockstep');
 assert.match(html, /function syncTokenHealthPresentation\(node,token,combatEntry,member\)/, 'one adapter must own token blood and death classes');
 assert.match(html, /syncTokenHealthPresentation\(node,token,combatEntry,tokenMember\)/, 'full token render must restore blood and death classes');
+assert.match(html, /statusInvisible&&!viewerGm&&!ownToken\)return/, 'true invisibility must hide a token from other players');
+assert.match(html, /status-invisible-own/, 'the invisible token owner must retain a subdued control silhouette');
 assert.match(html, /function patchTokenRuntime\(\)[^]*syncTokenHealthPresentation\(node,token,combatEntry,member\)/, 'Firebase runtime patches must restore blood and death classes');
 assert.match(html, /mark\.textContent=health\.dead\?'☠ ПОГИБ':'СРАЖЁН'/, 'dead and downed tokens must keep distinct marks');
+assert.match(html, /\.zg-gm-intervention-statuses\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/, 'GM status catalog must fit three compact cards per row');
+assert.match(html, /\.zg-gm-intervention-statuses button\{[^}]*grid-template-columns:24px minmax\(0,1fr\);grid-template-rows:auto auto/, 'compact GM status cards must preserve a readable icon, label and action');
 
 console.log('status display tests passed');

@@ -136,6 +136,7 @@ nodes['zg-scene-grid-thickness'].value = 2.5;
 nodes['zg-scene-grid-contrast'].value = 1.4;
 nodes['zg-scene-grid-saturation'].value = 0;
 controlContext.w.zgSceneControl();
+assert.strictEqual(draft.gridAboveTokens, true, 'grid must stay above scene objects');
 assert.strictEqual(draft.gridColor, '#336699');
 assert.strictEqual(draft.gridOpacity, .36);
 assert.strictEqual(draft.gridThickness, 2.5);

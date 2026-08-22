@@ -12,6 +12,12 @@ var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 assert.match(html, /w\.ZargotaPerformance=\{/);
 assert.match(html, /setPlaybackProvider:function\(provider\)/);
 assert.match(html, /setVfxProvider:function\(provider\)/);
+assert.match(html, /startCapture:startCapture/);
+assert.match(html, /buildReport:buildReport/);
+assert.match(html, /PerformanceObserver/);
+assert.match(html, /data-game-panel-tab="optimization"/);
+assert.match(html, /id="zg-performance-report"/);
+assert.match(html, /zgPerformanceCopyReport/);
 assert.match(html, /playback:playbackProvider\?playbackProvider\(\):null/);
 assert.match(html, /vfx:vfxProvider\?vfxProvider\(\):null/);
 assert.match(html, /BroadcastChannel\('zargota-performance-v1'\)/);
@@ -54,6 +60,7 @@ assert.match(network, /remove: trackedFirebaseWrite\('remove', databaseModule\.r
 
 var start = html.indexOf('(function(w){\n  var startedAt=Date.now()');
 var end = html.indexOf('})(window);', start) + '})(window);'.length;
+var profilerSource = html.slice(start,end);
 var fakeWindow = {addEventListener:function(){}};
 var context = {
   window:fakeWindow,
@@ -72,7 +79,57 @@ snapshot=fakeWindow.ZargotaPerformance.snapshot();
 assert.deepStrictEqual(snapshot.playback,{lateCues:2,maxPending:4});
 assert.deepStrictEqual(snapshot.vfx,{activeVfx:1,activeParticles:12});
 
-var profilerSource = html.slice(start,end);
+var frameQueue=[],cancelledFrame=0,observerCallback=null;
+var frameDocument={
+  hidden:false,
+  getElementsByTagName:function(){return{length:1240};},
+  getAnimations:function(){return[{playState:'running'},{playState:'paused'},{playState:'running'}];},
+  querySelectorAll:function(selector){return{length:selector==='.zg-vtt-token'?4:selector==='canvas'?2:0};}
+};
+var frameWindow={
+  addEventListener:function(){},document:frameDocument,innerWidth:1920,innerHeight:1080,devicePixelRatio:2,
+  navigator:{hardwareConcurrency:8,deviceMemory:16,userAgent:'Zargota test browser'},
+  localStorage:{getItem:function(){return null;},setItem:function(){}},
+  performance:{memory:{usedJSHeapSize:104857600,jsHeapSizeLimit:1073741824}},
+  requestAnimationFrame:function(callback){frameQueue.push(callback);return frameQueue.length;},
+  cancelAnimationFrame:function(id){cancelledFrame=id;},
+  PerformanceObserver:function(callback){observerCallback=callback;this.observe=function(){};}
+};
+vm.runInNewContext(profilerSource,{
+  window:frameWindow,Date:Date,Math:Math,Object:Object,String:String,Number:Number,Array:Array,
+  BroadcastChannel:undefined
+});
+var frameTime=0;
+for(var frameIndex=0;frameIndex<600;frameIndex++){
+  var frameCallback=frameQueue.shift();
+  frameTime+=16.67;
+  frameCallback(frameTime);
+}
+observerCallback({getEntries:function(){return[{duration:128}];}});
+var frameSnapshot=frameWindow.ZargotaPerformance.snapshot({after:Date.now()-10000});
+assert.ok(frameSnapshot.frames.fps>59&&frameSnapshot.frames.fps<61,'RAF sampling reports stable 60 FPS');
+assert.ok(frameSnapshot.frames.frameP95Ms>16&&frameSnapshot.frames.frameP95Ms<17,'frame p95 is computed from bounded samples');
+assert.strictEqual(frameSnapshot.longTasks.count,1,'long tasks are observed without polling');
+assert.strictEqual(frameSnapshot.runtime.domNodes,1240,'DOM size is collected only in snapshots');
+assert.strictEqual(frameSnapshot.runtime.animations,2,'running CSS animations are counted');
+assert.strictEqual(frameSnapshot.runtime.tokens,4,'scene token count is part of the lag context');
+var report=frameWindow.ZargotaPerformance.buildReport({after:Date.now()-10000});
+assert.match(report,/ZARGOTA PERFORMANCE REPORT/);
+assert.match(report,/FPS: 60\.0/);
+assert.match(report,/Long tasks: 1; максимум 128 мс/);
+assert.match(report,/DOM: 1240; активные анимации: 2; токены: 4/);
+assert.match(report,/Firebase subscriptions: room/);
+assert.match(report,/VFX: active\/max/);
+assert.match(report,/Playback: pending/);
+assert.match(report,/Audio: active\/max/);
+assert.match(report,/Диагноз:/);
+assert.match(report,/User agent: Zargota test browser/);
+var capture=frameWindow.ZargotaPerformance.startCapture(30);
+assert.strictEqual(capture.seconds,30,'lag capture uses the requested bounded interval');
+assert.strictEqual(frameWindow.ZargotaPerformance.captureState().complete,false);
+assert.strictEqual(frameWindow.ZargotaPerformance.setEnabled(false),false);
+assert.ok(cancelledFrame>0,'disabled monitoring cancels its single RAF loop');
+
 var channels = [];
 function FakeBroadcastChannel(name){this.name=name;this.onmessage=null;channels.push(this);}
 FakeBroadcastChannel.prototype.postMessage=function(data){

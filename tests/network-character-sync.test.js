@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-20\.7/, 'network cache key must change with the staged spell effect contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-21\.1/, 'network cache key must change with the staged delivery sound contract');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -1235,12 +1235,12 @@ assert.deepStrictEqual(journalDeleteCalls.filter(function(call){return call[0]==
 assert.strictEqual(journalDeleteContext.w.zgVttJournalConfirmRemove('gm-entry'), false);
 assert.strictEqual(journalDeleteHolder.current, null);
 assert.match(html, /w\.zgVttJournalOpenManual=function\(event\)/);
-assert.match(html, /w\.showPage\('manual'\)/);
+assert.match(html, /w\.zgManualOpenFromGame\('journal'\)/);
 var journalManualStart = html.indexOf('w.zgVttJournalOpenManual=function(event)');
 var journalManualEnd = html.indexOf('w.zgVttJournalOpen=function(journalId)', journalManualStart);
 var journalManualCalls = [];
 var journalManualContext = { w:{
-  zgVttCloseDrawer:function(options){ journalManualCalls.push(['close',options]); },
+  zgManualOpenFromGame:function(source){ journalManualCalls.push(['bridge',source]); },
   showPage:function(page){ journalManualCalls.push(['page',page]); }
 }};
 vm.runInNewContext(html.slice(journalManualStart, journalManualEnd), journalManualContext);
@@ -1250,7 +1250,7 @@ journalManualContext.w.zgVttJournalOpenManual({
 });
 assert.deepStrictEqual(
   JSON.parse(JSON.stringify(journalManualCalls)),
-  [['prevent'],['stop'],['close',{immediate:true}],['page','manual']]
+  [['prevent'],['stop'],['bridge','journal']]
 );
 
 var inventoryHelperStart = network.indexOf('function normalizeInventoryOperationItem');

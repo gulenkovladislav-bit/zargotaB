@@ -1,8 +1,8 @@
 # VTT action sound sources
 
 These files are stored as their original downloads and have not been
-transcoded or edited. Most are Pixabay MP3 files; newer UI cues keep their
-original Kenney OGG or Mixkit MP3 format.
+transcoded or edited. Most are Pixabay MP3 files; the critical-success cue is
+the original Mixkit WAV.
 
 All source pages identify the files as free for use under the Pixabay
 Content License:
@@ -79,27 +79,7 @@ Content License:
 - `attack-slash.mp3` — "Slash" by Chromascension
   - https://pixabay.com/sound-effects/film-special-effects-slash-542396/
 
-Mixkit combat and targeting one-shots:
-
-- `damage-impact.mp3` — "Impact of a blow" (SFX 2150)
-  - https://mixkit.co/free-sound-effects/impact/
-- `target-hover-spell.mp3` — "Fairy magic sparkle" (SFX 871)
-  - https://mixkit.co/free-sound-effects/magic/
-- `combat-start-drums.mp3` — "Drums of war call" (SFX 2780)
-  - https://mixkit.co/free-sound-effects/impact/
-
-Kenney Interface Sounds 1.0 (Creative Commons CC0):
-
-- `target-hover-attack.ogg` — `Audio/select_006.ogg`
-- `inventory-drag.ogg` — `Audio/scratch_001.ogg`
-- `inventory-equip.ogg` — `Audio/drop_004.ogg`
-- `inventory-unequip.ogg` — `Audio/back_003.ogg`
-- `inventory-tab.ogg` — `Audio/switch_003.ogg`
-- `bag-close.ogg` — `Audio/close_003.ogg`
-  - https://kenney.nl/assets/interface-sounds
-
 License summaries:
 
 - Pixabay Content License: https://pixabay.com/service/license-summary/
 - Mixkit Sound Effects Free License: https://mixkit.co/license/#sfxFree
-- Creative Commons CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/

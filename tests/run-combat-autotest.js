@@ -17,6 +17,7 @@ const checks = [
   ['Решение судьбы героев и существ', 'tests/combat-fate-decision.test.js'],
   ['Пропуск участников по инициативе', 'tests/combat-round-skip.test.js'],
   ['Визуальное меню спасброска', 'tests/combat-save-visual.test.js'],
+  ['Спасбросок поверх мастерских панелей', 'tests/portrait-saving-throw-layering.test.js'],
   ['Плавное появление меню тулбара', 'tests/combat-popup-position.test.js'],
   ['Правая кнопка без браузерного меню на поле', 'tests/game-context-menu.test.js'],
   ['Сражён и личная предсмертная виньетка', 'tests/downed-player-vignette.test.js'],
@@ -37,9 +38,13 @@ const checks = [
   ['Карточка активного участника не обрезается', 'tests/party-card-overflow.test.js'],
   ['Звуки бросков без повторов', 'tests/combat-dice-sound.test.js'],
   ['Маршрутизация звуков live-боя', 'tests/live-combat-sound-routing.test.js'],
-  ['Авторские звуки боя и инвентаря', 'tests/custom-action-sounds.test.js'],
   ['Авторские текстуры удара', 'tests/authored-combat-impact.test.js'],
   ['Синхронизация листа персонажа', 'tests/session-character-sheet.test.js'],
+  ['Поэтапный бросок заклинания в Мастерской', 'tests/combat-spell-staged-roll.test.js'],
+  ['Кнопка назначения d20 заклинания в Мастерской', 'tests/workshop-spell-roll-assignment.test.js'],
+  ['Мануал без разрыва игровой сессии', 'tests/manual-session-bridge.test.js'],
+  ['Памятка ГМа для активной сцены', 'tests/scene-gm-notes.test.js'],
+  ['Облачный туман и пульт видимости', 'tests/scene-fog-clouds.test.js'],
   ['Сцена и перенос её состояния', 'tests/scene-transfer.test.js'],
   ['Полный сценарий ГМ + игрок', 'tests/two-client-combat.test.js']
 ];

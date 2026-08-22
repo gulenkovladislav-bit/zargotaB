@@ -47,8 +47,8 @@ assert.match(launchBlock, /roomSnapshot\.room\.phase==='playing' \|\| roomSnapsh
   'an already launched room must reject repeated start actions');
 assert.match(html, /onclick="zgPrimarySessionAction\(\)"/, 'primary session control routes Workshop back to the live room');
 assert.match(html, /showPage\('home'\)/, 'Workshop opened without a live room still has a working close path');
-assert.match(html, /Закрыть мастерскую/, 'Workshop without a live room does not advertise a dead live-room action');
-assert.match(html, /startButton\.textContent=localWorkshop\?\(workshopHasLive\?'← В живую сессию':'← Закрыть мастерскую'\)/, 'Workshop always exposes the correct primary escape action');
+assert.match(html, /startButton\.style\.display=localWorkshop\?'none':''/,
+  'Workshop hides the redundant primary exit button while Escape remains available');
 assert.match(html, /launchComplete\?'✓ Игроки на сцене':'Запустить игроков'/,
   'the launch action becomes a clear completed status after players enter');
 assert.match(html, /startButton\.disabled=launchBusy\|\|launchComplete/,
