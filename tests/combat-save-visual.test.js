@@ -12,6 +12,8 @@ var source = html.slice(start, end);
 assert.ok(start >= 0 && end > start, 'saving-throw UI remains a bounded combat module');
 assert.match(source, /combatSaveDraft=\{statKey:'con',dc:10,bonus:0,mode:'normal',removeStatus:''\}/, 'the visual controls have one persistent draft');
 assert.match(source, /combatEntryPortrait\(entry\)/, 'targets are recognizable portrait cards');
+assert.ok(source.includes(`onclick="zgCombatSaveTarget('+esc(JSON.stringify(entry.key))+')"`), 'saving-throw target ids are escaped before entering the inline handler');
+assert.doesNotMatch(source, /onclick="zgCombatSaveTarget\('\+JSON\.stringify\(entry\.key\)\+/, 'raw JSON quotes must not truncate the target click handler');
 assert.match(source, /w\.zgStatIcon\(key,'zg-combat-save-stat-icon'\)/, 'stat choices reuse the custom stat icon system');
 assert.match(source, /zg-combat-save-stepper/, 'DC and bonus use visual steppers');
 assert.match(source, /type="number" inputmode="numeric" min="1" max="40" step="1" value="'\+combatSaveDraft\.dc\+'"/, 'DC can be typed directly inside the existing stepper');

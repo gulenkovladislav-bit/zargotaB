@@ -740,7 +740,7 @@ assert.match(html, /function completeAbilityTarget\(point,token\)/);
 assert.match(html, /w\.zgSceneAbilityTarget=function\(profile,meta\)/);
 assert.match(html, /w\.zgVttSendAbilityTarget=function\(selection\)/);
 assert.match(html, /actionRequest\.details\|\|actionRequest\.target\|\|\{\}/);
-assert.match(html, /requestedTargetKey=request\.abilityResolution&&String\(request\.abilityResolution\.targetKey\|\|''\)\|\|request\.target&&String\(request\.target\.targetKey\|\|''\)/);
+assert.match(html, /requestedTargetKey=String\(request\.abilityResolution&&request\.abilityResolution\.targetKey\|\|request\.target&&request\.target\.targetKey/);
 assert.match(html, /areaAnchorPoint=\{x:clamp\(request\.target\.x,0,100\),y:clamp\(request\.target\.y,0,100\)\}/);
 assert.match(html, /a=d\.areaAnchorPoint&&d\.areaAnchorPoint\.x!=null&&d\.areaAnchorPoint\.y!=null\?d\.areaAnchorPoint:abilityEntryToken\(anchor\)/);
 assert.match(html, /function animateCombatAbilityVisual\(event\)/);

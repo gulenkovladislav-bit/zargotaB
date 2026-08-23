@@ -52,6 +52,10 @@ const abilityVisualEnd = html.indexOf('  function animateCombatVisual()', abilit
 const abilityVisual = html.slice(abilityVisualStart, abilityVisualEnd);
 assert.match(abilityVisual, /playLiveCombatAbilityCanvas\(event,actorPoint,targetPoints\.length\?targetPoints:\(anchor\?\[anchor\]:\[\]\),tone\)/, 'confirmed ability events enter the shared runtime');
 assert.match(abilityVisual, /schedulePlaybackCleanup\(event,'combat-ability-dom',1900/, 'spell DOM readability layer shares the director');
+assert.match(abilityVisual, /combatAbilityPublicAnnouncement\(event\)/, 'confirmed ability events build a public caster, spell, and result announcement');
+assert.match(abilityVisual, /ensureDiceResultLayer\(layer\)/, 'the public spell announcement renders above scene tokens in the shared result layer');
+assert.match(abilityVisual, /zg-combat-spell-announcement/, 'the public spell announcement has a dedicated readable presentation layer');
+assert.match(abilityVisual, /schedulePlaybackCleanup\(event,'combat-ability-announcement',2900/, 'the public announcement cleanup shares the playback director');
 assert.doesNotMatch(abilityVisual, /setTimeout\(/, 'spell cleanup has no private timer');
 
 const saveHelperStart = html.indexOf('  function playLiveCombatSaveCanvas(event)');
