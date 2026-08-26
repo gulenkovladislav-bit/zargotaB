@@ -2652,6 +2652,57 @@ window.addEventListener('load', function(){
   }
   .skill-text:focus { outline: none; border-bottom-color: var(--gold2); }
 
+  /* Character registry: the same action-language as the live GM console. */
+  .char-ability-row {
+    --char-ability-accent: #c7a451;
+    --char-ability-rgb: 199,164,81;
+    position: relative;
+    display: flex; align-items: center; gap: 10px;
+    min-height: 58px; padding: 8px 10px; margin-bottom: 6px;
+    border: 1px solid color-mix(in srgb, var(--char-ability-accent) 42%, #21170e);
+    border-radius: 7px;
+    background: radial-gradient(circle at 4% 22%, rgba(var(--char-ability-rgb),.18), transparent 42%), linear-gradient(105deg, #161008, #0b0806 72%);
+    box-shadow: inset 3px 0 var(--char-ability-accent), inset 0 1px rgba(var(--char-ability-rgb),.08);
+    cursor: pointer; overflow: hidden;
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+  }
+  .char-ability-row::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .14; background: linear-gradient(125deg, transparent 0 68%, rgba(var(--char-ability-rgb),.32) 68% 69%, transparent 69% 76%, rgba(var(--char-ability-rgb),.18) 76% 77%, transparent 77%); }
+  .char-ability-row:hover { border-color: var(--char-ability-accent); box-shadow: inset 3px 0 var(--char-ability-accent), 0 0 18px rgba(var(--char-ability-rgb),.12); transform: translateY(-1px); }
+  .char-ability-row.kind-short { --char-ability-accent:#55c5bc; --char-ability-rgb:85,197,188; }
+  .char-ability-row.kind-long { --char-ability-accent:#c58d43; --char-ability-rgb:197,141,67; }
+  .char-ability-row.kind-passive { --char-ability-accent:#7fbd72; --char-ability-rgb:127,189,114; }
+  .char-ability-row.kind-trait { --char-ability-accent:#aa85d3; --char-ability-rgb:170,133,211; }
+  .char-ability-row.kind-reaction { --char-ability-accent:#df7d62; --char-ability-rgb:223,125,98; }
+  .char-ability-row.kind-active { --char-ability-accent:#c7a451; --char-ability-rgb:199,164,81; }
+  .char-ability-icon { position: relative; z-index: 1; width: 40px; height: 40px; flex: 0 0 40px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--char-ability-accent); border-radius: 9px 9px 14px 9px; background: radial-gradient(circle, rgba(var(--char-ability-rgb),.19), #0b0705 72%); box-shadow: inset 0 0 0 2px #0b0805, 0 0 12px rgba(var(--char-ability-rgb),.2); color: var(--char-ability-accent); font-size: 18px; }
+  .char-ability-icon img { width: 100%; height: 100%; display: block; object-fit: cover; filter: saturate(.92) contrast(1.05); }
+  .char-ability-copy { position: relative; z-index: 1; flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+  .char-ability-copy strong { max-width: 100%; color: var(--text); font: 600 13.5px/1.25 'Cinzel',serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .char-ability-copy strong.empty { color: var(--dim); font-weight: 400; }
+  .char-ability-kind { display: inline-flex; width: max-content; max-width: 100%; padding: 2px 7px; border: 1px solid rgba(var(--char-ability-rgb),.48); border-radius: 999px; background: rgba(var(--char-ability-rgb),.09); color: var(--char-ability-accent); font: 700 9px/1.2 'Cinzel',serif; letter-spacing: .65px; text-transform: uppercase; }
+  .char-ability-preview { width: 100%; color: #a9956d; font: 11px/1.35 'Lora',serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .char-ability-row .char-ability-cd, .char-ability-row .char-ability-open, .char-ability-row .char-ability-delete { position: relative; z-index: 1; }
+  .char-ability-cd { display: grid; gap: 4px; min-width: 66px; padding: 5px 6px; border: 1px solid #506b49; border-radius: 7px; background: #071008d9; transition: border-color .15s, background .15s, box-shadow .15s; }
+  .char-ability-cd.exhausted { border-color: #b84d46; background: linear-gradient(135deg,#36100edb,#140706ed); box-shadow: 0 0 13px #b83c3433, inset 0 0 12px #5d18183d; }
+  .char-ability-cd-label { color: #83bd82; font: 700 8px/1.15 'Cinzel',serif; letter-spacing: .55px; text-align: center; white-space: nowrap; }
+  .char-ability-cd.exhausted .char-ability-cd-label { color: #ff8a7f; }
+  .char-ability-charge-cells { display: flex; justify-content: center; gap: 3px; max-width: 63px; flex-wrap: wrap; }
+  .char-ability-charge-cell { width: 19px; height: 19px; display: grid; place-items: center; padding: 0; border: 1px solid #57945d; border-radius: 4px; background: linear-gradient(#18341d,#0b190e); color: #a9d6a9; font: 700 8px/1 'Cinzel',serif; cursor: pointer; box-shadow: inset 0 1px #d9ffdc16; }
+  .char-ability-charge-cell:hover { border-color: #8bd391; filter: brightness(1.2); }
+  .char-ability-charge-cell.spent { border-color: #c45249; background: linear-gradient(#501a17,#240b09); color: #ff9a8f; box-shadow: inset 0 0 7px #a72f2f66; }
+  .char-ability-charge-cell:focus-visible { outline: 2px solid #e2bd66; outline-offset: 2px; }
+  .char-ability-row .char-ability-open { color: var(--char-ability-accent); font-size: 12px; opacity: .72; }
+  .char-ability-row .char-ability-delete { background: transparent; border: none; color: #574d40; font-size: 19px; cursor: pointer; padding: 2px 5px; line-height: 1; }
+  .char-ability-row .char-ability-delete:hover { color: #d06d62; }
+  @media (max-width: 760px) {
+    .char-ability-row { min-height: 54px; padding: 7px 8px; gap: 8px; }
+    .char-ability-icon { width: 36px; height: 36px; flex-basis: 36px; }
+    .char-ability-copy strong { font-size: 12px; }
+    .char-ability-preview { font-size: 10px; }
+    .char-ability-cd { min-width: 54px; padding: 4px; }
+    .char-ability-charge-cell { width: 17px; height: 17px; }
+  }
+
   /* Sheet action bar */
   .sheet-actions {
     border-top: 1px solid var(--border); padding: 14px 20px;
@@ -9794,6 +9845,13 @@ window.addEventListener('load', function(){
   .zg-adv-card-art--join { width:92px; }
   .zg-adv-card-title { font-family: 'Cinzel', serif; font-size: 16px; color: var(--gold); letter-spacing: 0.5px; margin-bottom: 10px; }
   .zg-adv-card-desc { font-size: 13px; color: var(--muted); line-height: 1.55; }
+  .zg-adv-mode-mark {
+    width: 74px; height: 74px; margin: 0 auto 16px; display: grid; place-items: center;
+    border: 1px solid #6b5128; border-radius: 50%;
+    background: radial-gradient(circle at 42% 36%, #3c2b12, #120c06 68%);
+    color: #f0cf76; font-size: 29px; text-shadow: 0 0 18px #e8c06066;
+    box-shadow: inset 0 0 18px #e8c06010, 0 8px 24px #0009;
+  }
 
   .zg-adv-view { animation: zgAdvViewIn .34s ease both; }
   @keyframes zgAdvViewIn {
@@ -9866,6 +9924,71 @@ window.addEventListener('load', function(){
     .zg-pair-slots { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .zg-pair-slot:last-child { grid-column:1 / -1;width:50%;justify-self:center; }
   }
+
+  /* Пустой IRL-стол: отдельное рабочее пространство без Firebase-комнаты. */
+  body.zg-irl-table-view #header, #header[hidden] { display:none!important; }
+  body.zg-irl-table-view #main { top:0; }
+  .zg-irl-table {
+    position:relative; min-height:100vh;
+    background:
+      radial-gradient(ellipse at 50% 18%, rgba(119,81,31,.11), transparent 45%),
+      linear-gradient(180deg, #0b0805, #050403 72%);
+  }
+  .zg-irl-table-back { position:absolute;z-index:2;left:18px;top:18px;padding:10px 14px;border:1px solid #4b371d;border-radius:8px;background:#100b06;color:var(--muted);font:12px 'Cinzel',serif;letter-spacing:.6px;cursor:pointer; }
+  .zg-irl-table-back:hover { color:var(--gold);border-color:var(--gold2);box-shadow:0 0 18px #c8983420; }
+  .zg-irl-name-tool{position:absolute;z-index:4;left:18px;top:72px;width:76px;min-height:76px;display:grid;place-items:center;align-content:center;gap:5px;padding:9px 7px;border:1px solid #59401e;border-radius:10px;background:linear-gradient(145deg,#1b1208,#0b0805);color:#b99b5c;cursor:pointer;transition:.18s}
+  .zg-irl-name-tool:hover,.zg-irl-name-tool.active,.zg-irl-saved-tool:hover,.zg-irl-saved-tool.active{border-color:#bc8d34;color:#f0ce78;background:radial-gradient(circle at 50% 20%,#4b30165c,transparent 68%),#130d06;box-shadow:0 9px 26px #000b,0 0 20px #c58d2a20}
+  .zg-irl-name-tool:focus{outline:none}.zg-irl-name-tool:focus-visible{border-color:#d3a344;box-shadow:0 0 0 2px #0b0805,0 0 0 3px #b47d2c,0 9px 26px #000b}
+  .zg-irl-icon{width:22px;height:22px;display:block;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+  .zg-irl-name-tool>.zg-irl-icon{width:29px;height:29px;filter:drop-shadow(0 0 8px #d9a63a30)}.zg-irl-name-tool span{font:700 10px 'Cinzel',serif;letter-spacing:.45px}
+  .zg-irl-saved-tool{position:absolute;z-index:4;left:18px;top:158px;width:82px;min-height:46px;display:none;grid-template-columns:22px 1fr;align-items:center;gap:6px;padding:8px;border:1px solid #4d381d;border-radius:9px;background:linear-gradient(145deg,#151007,#090705);color:#b69b65;cursor:pointer;transition:.18s}.zg-irl-saved-tool.has-items{display:grid}.zg-irl-saved-tool .zg-irl-icon{width:21px}.zg-irl-saved-tool span{font:700 10px 'Cinzel',serif;line-height:1.2}.zg-irl-saved-tool b{min-width:22px;height:22px;display:grid;place-items:center;border:1px solid #6f5024;border-radius:50%;background:#0b0805;color:#efd182;font:700 11px Georgia,serif}
+  .zg-irl-name-popover{position:absolute;z-index:5;left:108px;top:72px;width:min(640px,calc(100vw - 138px));display:none;padding:24px;border:1px solid #835e2a;border-radius:14px;background:radial-gradient(circle at 12% 0,#6a401f52,transparent 43%),linear-gradient(150deg,#1b1108f8,#090705f8);box-shadow:0 26px 70px #000e,inset 0 1px #d5a34a30}
+  .zg-irl-name-popover.open{display:block;animation:zgAdvViewIn .2s ease both}
+  .zg-irl-name-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center;padding-bottom:12px;border-bottom:1px solid #382713}.zg-irl-name-head>div:first-child{display:contents}
+  .zg-irl-name-head small{display:block;grid-column:1;grid-row:1;margin:0;color:#b89a63;font:700 12px 'Cinzel',serif;letter-spacing:1.8px;text-transform:uppercase}
+  .zg-irl-name-result{display:block;grid-column:1/-1;grid-row:2;width:100%;min-width:0;padding:10px 13px;border:1px solid #6e4d20;border-radius:8px;background:linear-gradient(100deg,#2b1b0b,#100a05 70%);color:#ffe3a0;font:700 clamp(32px,3.2vw,42px)/1.16 'Cinzel',serif;text-align:left;text-shadow:0 2px 5px #000,0 0 18px #d39a3030;white-space:normal;overflow:visible;overflow-wrap:break-word;box-shadow:inset 0 1px #d9a94a24;cursor:pointer}.zg-irl-name-result:hover{border-color:#9d712d;color:#ffe8ad}.zg-irl-name-result:focus-visible{color:#fff0be;outline:2px solid #b88733;outline-offset:3px;text-shadow:0 2px 5px #000,0 0 20px #d59b3445}
+  .zg-irl-name-head-actions{display:flex;grid-column:2;grid-row:1;gap:7px}.zg-irl-name-copy,.zg-irl-name-close{width:44px;height:44px;display:grid;place-items:center;border:1px solid #6a4b21;border-radius:9px;background:#100b06;color:#d3aa52;cursor:pointer;transition:.16s}.zg-irl-name-copy .zg-irl-icon,.zg-irl-name-close .zg-irl-icon{width:21px}.zg-irl-name-copy:hover,.zg-irl-name-close:hover{border-color:#d1a13c;color:#ffe08c;background:#25170a;transform:translateY(-1px)}
+  .zg-irl-name-lore{display:none;margin:14px 0 0;padding:18px;border:1px solid #735327;border-radius:9px;background:linear-gradient(135deg,#241708f5,#0b0805f5);box-shadow:0 12px 28px #000b}.zg-irl-name-lore.open{display:grid;gap:13px;animation:zgAdvViewIn .14s ease both}.zg-irl-name-lore-full{padding-bottom:11px;border-bottom:1px solid #493218;color:#f5dd9e;font:700 20px 'Cinzel',serif;overflow-wrap:anywhere}.zg-irl-name-lore-row{display:grid;grid-template-columns:112px minmax(0,1fr);gap:14px;color:#d2be8d;font-size:15.5px;line-height:1.55}.zg-irl-name-lore-row b{padding-top:2px;color:#b59a66;font:700 11px 'Cinzel',serif;letter-spacing:.85px;text-transform:uppercase}.zg-irl-name-lore-hint{color:#98835c;font-size:12px;text-align:right}
+  .zg-irl-name-control{position:relative;margin-top:17px}.zg-irl-name-control>label{display:block;margin-bottom:8px;color:#ad9160;font:700 11px 'Cinzel',serif;letter-spacing:1.25px;text-transform:uppercase}.zg-irl-race-button{width:100%;min-height:60px;display:flex;align-items:center;justify-content:space-between;padding:7px 15px;border:1px solid #59401e;border-radius:9px;background:linear-gradient(180deg,#120c06,#0a0705);color:#e8ce91;font:700 15px 'Cinzel',serif;cursor:pointer}.zg-irl-race-button:hover,.zg-irl-race-button[aria-expanded="true"]{border-color:#9b702b;box-shadow:0 0 18px #c28c2d16}.zg-irl-race-current{display:flex;align-items:center;gap:12px;text-align:left}.zg-irl-race-current .zg-irl-icon{width:28px;color:#c9953d}.zg-irl-race-current b,.zg-irl-race-current small{display:block}.zg-irl-race-current small{margin-top:4px;color:#a18b63;font:400 13px 'Lora',serif}.zg-irl-chevron{color:#a77b31;font-size:21px;transition:.15s}.zg-irl-race-button[aria-expanded="true"] .zg-irl-chevron{transform:rotate(180deg)}
+  .zg-irl-race-menu{position:absolute;z-index:3;left:0;right:0;top:76px;display:none;grid-template-columns:1fr 1fr;gap:5px;padding:7px;border:1px solid #654820;border-radius:9px;background:#0b0805;box-shadow:0 16px 32px #000d}.zg-irl-race-menu.open{display:grid}
+  .zg-irl-race-menu button{min-height:54px;display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid transparent;border-radius:7px;background:transparent;color:#8d7a58;text-align:left;cursor:pointer}.zg-irl-race-menu button .zg-irl-icon{width:23px;flex:0 0 auto}.zg-irl-race-menu button b,.zg-irl-race-menu button small{display:block}.zg-irl-race-menu button b{font:700 11px 'Cinzel',serif}.zg-irl-race-menu button small{margin-top:3px;color:#665941;font:400 9px 'Lora',serif}.zg-irl-race-menu button:hover{border-color:#513a1c;background:#151006;color:#d9b96f}.zg-irl-race-menu button.active{border-color:#815b21;background:linear-gradient(135deg,#30200c,#171006);color:#f0ce78}.zg-irl-race-menu button.active small{color:#9f8454}
+  .zg-irl-profile-row{display:grid;grid-template-columns:.8fr 1.55fr;gap:11px;margin-top:16px}.zg-irl-profile-field{min-width:0;margin:0;padding:0;border:0}.zg-irl-profile-field legend{display:block;width:100%;margin-bottom:7px;color:#ad9160;font:700 11px 'Cinzel',serif;letter-spacing:1.1px;text-transform:uppercase}.zg-irl-segments{display:grid;padding:3px;border:1px solid #5e421e;border-radius:8px;background:#090705}.zg-irl-segments-two{grid-template-columns:1fr 1fr}.zg-irl-age-segments{grid-template-columns:repeat(4,1fr)}.zg-irl-segments button{min-width:0;min-height:44px;display:flex;align-items:center;justify-content:center;gap:5px;padding:0 7px;border:1px solid transparent;border-radius:6px;background:transparent;color:#ad986c;font:700 11px 'Cinzel',serif;cursor:pointer}.zg-irl-segments button .zg-irl-icon{width:19px}.zg-irl-segments button span{display:none}.zg-irl-segments button:hover{color:#dec17a}.zg-irl-segments button.active{border-color:#9d7029;background:linear-gradient(180deg,#3f2a0f,#1a1107);color:#f8d989;box-shadow:inset 0 1px #daa6442d}.zg-irl-profession-field{margin-top:15px}.zg-irl-professions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.zg-irl-job{min-width:0;min-height:50px;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 9px;border:1px solid #5e421e;border-radius:8px;background:#0c0906;color:#ad986c;font:700 11px 'Cinzel',serif;cursor:pointer}.zg-irl-job .zg-irl-icon{width:19px;flex:0 0 auto;color:#b98938}.zg-irl-job:hover{border-color:#8f6629;color:#e0c079}.zg-irl-job.active{border-color:#bd8731;background:linear-gradient(135deg,#432c10,#181006);color:#f8d786;box-shadow:0 0 14px #c48c2d1d}.zg-irl-job.active .zg-irl-icon{color:#f0bd51}
+  .zg-irl-detail-toggle{margin-top:18px;display:flex;align-items:center;gap:11px;color:#d1b982;font-size:16px;cursor:pointer;user-select:none}.zg-irl-detail-toggle input{position:absolute;opacity:0;pointer-events:none}.zg-irl-detail-box{width:24px;height:24px;display:grid;place-items:center;border:1px solid #745222;border-radius:6px;background:#0b0805;color:#f0ca65;font:700 15px Georgia,serif}.zg-irl-detail-toggle input:checked+.zg-irl-detail-box::before{content:'✓'}
+  .zg-irl-name-feature{display:none;margin:14px 0 0;padding:16px 18px;border:1px solid #825d28;border-left:5px solid #d09a37;border-radius:9px;background:radial-gradient(circle at 0 50%,#b8782630,transparent 50%),linear-gradient(100deg,#251708,#0d0905);color:#f0d9a4;box-shadow:inset 0 1px #e1ae4e22,0 9px 22px #0006}.zg-irl-name-feature.visible{display:grid;gap:7px}.zg-irl-name-feature b{color:#e8bd62;font:700 11px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-irl-name-feature span{display:block;font:600 17px/1.55 'Lora',serif;text-shadow:0 1px 2px #000}
+  .zg-irl-name-actions{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:20px}.zg-irl-name-actions button{min-height:56px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid #705027;border-radius:10px;background:#171006;color:#e0c585;font:700 14px 'Cinzel',serif;cursor:pointer;transition:.16s}.zg-irl-name-actions button .zg-irl-icon{width:21px}.zg-irl-name-actions button.primary{border-color:#c18a2f;background:linear-gradient(180deg,#432d10,#211607);color:#f6d986}.zg-irl-name-actions button:hover:not(:disabled){border-color:#d1a03c;transform:translateY(-1px);box-shadow:0 8px 18px #0007}.zg-irl-name-actions button:disabled{opacity:.56;cursor:default}
+  .zg-irl-saved{position:absolute;z-index:5;left:108px;top:158px;width:min(540px,calc(100vw - 138px));display:none;padding:20px;border:1px solid #805b29;border-radius:13px;background:radial-gradient(circle at 10% 0,#5a351f4d,transparent 46%),linear-gradient(150deg,#191108f8,#080604f8);box-shadow:0 24px 65px #000e,inset 0 1px #d5a34a28}.zg-irl-saved.open{display:block;animation:zgAdvViewIn .18s ease both}.zg-irl-saved-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;padding-bottom:13px;border-bottom:1px solid #4a3419}.zg-irl-saved h2{margin:0;color:#e7c77a;font:700 15px 'Cinzel',serif;letter-spacing:1.2px;text-transform:uppercase}.zg-irl-saved-close{width:38px;height:38px;display:grid;place-items:center;border:1px solid #5e421f;border-radius:7px;background:#0c0805;color:#b99a5c;cursor:pointer}.zg-irl-saved-close .zg-irl-icon{width:19px}.zg-irl-saved-close:hover{border-color:#a8792c;color:#f3cf78}
+  .zg-irl-saved-list{display:grid;gap:10px;max-height:min(70vh,700px);overflow:auto;padding-right:4px}.zg-irl-saved-card{padding:13px;border:1px solid #50391c;border-radius:10px;background:radial-gradient(circle at 0 0,#5a35152b,transparent 52%),linear-gradient(145deg,#171107e8,#090705e8);box-shadow:0 8px 22px #0006;transition:.18s}.zg-irl-saved-card:hover,.zg-irl-saved-card.expanded{border-color:#87602b}.zg-irl-saved-card-head{display:grid;grid-template-columns:minmax(0,1fr) 38px;gap:9px;align-items:center}.zg-irl-saved-summary{min-width:0;display:grid;grid-template-columns:42px minmax(0,1fr) 27px;gap:12px;align-items:center;padding:0;border:0;background:transparent;text-align:left;cursor:pointer}.zg-irl-saved-race{width:42px;height:42px;display:grid;place-items:center;border:1px solid #725124;border-radius:50%;color:#dbad52;background:#100b06}.zg-irl-saved-race .zg-irl-icon{width:23px}.zg-irl-saved-card strong{display:block;color:#f6dc99;font:700 17px/1.35 'Cinzel',serif;white-space:normal;overflow-wrap:anywhere;text-shadow:0 1px 3px #000}.zg-irl-saved-card small{display:block;margin-top:4px;color:#a58e64;font-size:12.5px}.zg-irl-saved-chevron{color:#b6873d;font-size:20px;transition:.16s}.zg-irl-saved-card.expanded .zg-irl-saved-chevron{transform:rotate(180deg)}.zg-irl-saved-details{display:none;margin-top:13px;padding:15px;border:1px solid #533a1b;border-radius:8px;background:#070504b5}.zg-irl-saved-card.expanded .zg-irl-saved-details{display:grid;gap:12px;animation:zgAdvViewIn .14s ease both}.zg-irl-saved-facts{color:#dfc27b;font-size:14.5px;line-height:1.5}.zg-irl-saved-lore-row{display:grid;grid-template-columns:108px minmax(0,1fr);gap:12px;color:#d1bc8b;font-size:14.5px;line-height:1.55}.zg-irl-saved-lore-row b{color:#aa9162;font:700 10.5px 'Cinzel',serif;letter-spacing:.7px;text-transform:uppercase}.zg-irl-saved-feature{margin:3px 0 0;padding:12px 13px;border:1px solid #65471f;border-left:4px solid #bd8730;border-radius:7px;background:linear-gradient(100deg,#241608,#0b0805);color:#ecd49e;font-size:15.5px;line-height:1.55}.zg-irl-saved-feature b{color:#e1b75e}.zg-irl-saved-delete{width:38px;height:38px;display:grid;place-items:center;border:1px solid transparent;border-radius:7px;background:transparent;color:#8d6b5b;cursor:pointer}.zg-irl-saved-delete .zg-irl-icon{width:19px}.zg-irl-saved-delete:hover{border-color:#74382f;background:#250e0b;color:#df7f6e}.zg-irl-saved-card.delete-pending{border-color:#7e392f;background:linear-gradient(145deg,#25100ce8,#0b0705e8)}.zg-irl-delete-confirm{display:flex;align-items:center;justify-content:space-between;gap:9px;margin-top:12px;padding-top:11px;border-top:1px solid #5a2c25;color:#d69a8b;font-size:13px}.zg-irl-delete-confirm>div{display:flex;gap:6px}.zg-irl-delete-confirm button{min-height:34px;padding:0 11px;border:1px solid #4f3820;border-radius:6px;background:#100b06;color:#c0a575;font:700 10px 'Cinzel',serif;cursor:pointer}.zg-irl-delete-confirm button.danger{border-color:#873e33;background:#2b100d;color:#efa08f}
+  .zg-irl-character-dock{position:fixed;z-index:30;left:50%;bottom:14px;display:flex;align-items:center;gap:10px;padding:7px 13px;border:1px solid #76531f;border-radius:999px;background:linear-gradient(180deg,#1b1208fa,#090604fa);box-shadow:0 12px 34px #000d,inset 0 1px #dba74520;transform:translateX(-50%);isolation:isolate}
+  .zg-irl-hero-button{position:relative;width:58px;height:58px;padding:0;border:2px solid #59421e;border-radius:50%;background:#0d0905;color:#cfb36e;cursor:pointer;box-shadow:0 0 0 3px #0a0704;transition:border-color .15s,filter .15s,box-shadow .15s}.zg-irl-hero-button:hover{border-color:#a6772c;filter:brightness(1.1)}.zg-irl-hero-button.active{border-color:#e2ae43;box-shadow:0 0 0 3px #0a0704,0 0 0 5px #9e6c223d,0 0 20px #c990292b}.zg-irl-hero-button img,.zg-irl-hero-fallback{width:100%;height:100%;display:grid;place-items:center;border-radius:50%;object-fit:cover}.zg-irl-hero-fallback{background:radial-gradient(circle at 50% 28%,#53391b,#160f07 72%);font:700 18px 'Cinzel',serif}.zg-irl-hero-hp{position:absolute;left:50%;bottom:-8px;min-width:26px;height:20px;display:grid;place-items:center;padding:0 6px;border:1px solid #653922;border-radius:10px;background:#170b07;color:#efbf92;font:700 11.5px Georgia,serif;transform:translateX(-50%)}
+  .zg-irl-character-card{position:fixed;z-index:20;left:118px;right:18px;bottom:91px;display:none;max-height:calc(100vh - 122px);overflow:auto;border:1px solid #966720;border-radius:15px;background:radial-gradient(circle at 6% 0,#6f421b38,transparent 34%),linear-gradient(145deg,#171006fc,#090705fc 58%,#060403fc);box-shadow:0 22px 70px #000e,inset 0 1px #e2af5224}.zg-irl-character-card.open{display:block;animation:zgAdvViewIn .16s ease both}.zg-irl-character-card::before{content:'';position:absolute;top:-1px;left:4%;right:4%;height:1px;background:linear-gradient(90deg,transparent,#dc9f36,transparent)}
+  .zg-irl-character-head{display:flex;align-items:center;gap:12px;padding:15px 17px;border-bottom:1px solid #442f14}.zg-irl-character-head-copy{min-width:0}.zg-irl-character-head h2{margin:0;color:#f2d180;font:700 25px 'Cinzel',serif;white-space:normal}.zg-irl-character-head p{margin:5px 0 0;color:#a08a60;font-size:14px}.zg-irl-character-head-actions{display:flex;gap:7px;margin-left:auto}.zg-irl-character-refresh,.zg-irl-character-close{height:42px;display:grid;place-items:center;border:1px solid #60441d;border-radius:8px;background:#100b06;color:#c9a55a;cursor:pointer}.zg-irl-character-refresh{grid-template-columns:20px auto;gap:8px;padding:0 13px;font:700 11.5px 'Cinzel',serif}.zg-irl-character-close{width:42px;padding:0;font-size:21px}.zg-irl-character-refresh:hover,.zg-irl-character-close:hover{border-color:#a8782b;color:#f1cb71;background:#1b1107}.zg-irl-character-refresh .zg-irl-icon{width:20px}
+  .zg-irl-character-layout{display:grid;grid-template-columns:minmax(430px,.96fr) minmax(390px,1.04fr)}.zg-irl-character-mechanics{padding:16px;border-right:1px solid #493216}.zg-irl-character-live{padding:16px}.zg-irl-character-profile{display:grid;grid-template-columns:112px minmax(0,1fr);gap:15px;align-items:start}.zg-irl-character-portrait{position:relative;width:112px;height:142px;border:1px solid #a07125;border-radius:12px 12px 34px 12px;overflow:hidden;background:#0c0805;box-shadow:inset 0 0 26px #000,0 8px 20px #0008}.zg-irl-character-portrait img{width:100%;height:100%;display:block;object-fit:cover}.zg-irl-character-portrait .zg-irl-hero-fallback{border-radius:0;font-size:25px}.zg-irl-character-portrait::after{content:'';position:absolute;inset:6px;border:1px solid #e0aa4129;border-radius:8px 8px 27px 8px;pointer-events:none}
+  .zg-irl-hp-controls{display:grid;grid-template-columns:44px minmax(116px,1fr) 44px;gap:8px;margin-bottom:10px}.zg-irl-hp-controls button{min-height:66px;border:1px solid #683722;border-radius:9px;background:#120805;color:#e27c59;font:700 26px Georgia,serif;cursor:pointer}.zg-irl-hp-controls button:last-child{border-color:#35643b;color:#72c180}.zg-irl-hp-controls button:hover{filter:brightness(1.18)}.zg-irl-hp-value{display:grid;place-items:center;min-height:66px;border:1px solid #79531c;border-radius:9px;background:radial-gradient(circle at 50% 120%,#70251d3b,transparent 65%),#090604;color:#f4cc70;text-align:center}.zg-irl-hp-value b{font:700 31px 'Cinzel',serif}.zg-irl-hp-value small{display:block;color:#8b7750;font:700 10.5px 'Cinzel',serif;letter-spacing:1px}.zg-irl-quick-values{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px}.zg-irl-quick-value{padding:9px 5px;border:1px solid #423017;border-radius:7px;background:#0d0905;text-align:center}.zg-irl-quick-value b{display:block;color:#e5c46d;font:700 18px 'Cinzel',serif}.zg-irl-quick-value small{display:block;margin-top:3px;color:#877450;font:700 10px 'Cinzel',serif;letter-spacing:.65px}.zg-irl-session-hp-note{color:#8b7958;font-size:12.5px;line-height:1.5}
+  .zg-irl-character-section-title{display:flex;align-items:center;gap:9px;margin:0 0 11px;color:#c1a263;font:700 13px 'Cinzel',serif;letter-spacing:1.25px;text-transform:uppercase}.zg-irl-character-section-title::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,#5b401a,transparent)}.zg-irl-character-mechanics>.zg-irl-character-section-title{margin-top:18px}.zg-irl-stats{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}.zg-irl-stat{min-width:0;padding:10px 3px 9px;border:1px solid #493418;border-radius:7px;background:linear-gradient(180deg,#110c06,#090604);text-align:center}.zg-irl-stat img{width:28px;height:28px;display:block;margin:0 auto 4px;object-fit:contain;filter:drop-shadow(0 2px 3px #000)}.zg-irl-stat b{display:block;color:#efcb75;font:700 18px 'Cinzel',serif}.zg-irl-stat small{display:block;color:#897650;font:700 9.5px 'Cinzel',serif;letter-spacing:.5px}
+  .zg-irl-status-list,.zg-irl-ability-list{display:grid;gap:8px}.zg-irl-status-list{margin-bottom:18px}.zg-irl-entry{border:1px solid #493318;border-radius:9px;overflow:hidden;background:linear-gradient(90deg,#120c06,#090604);transition:border-color .15s,background .15s}.zg-irl-entry.open{border-color:#8a6225;background:linear-gradient(105deg,#1c1207,#090604)}.zg-irl-entry-toggle{width:100%;display:grid;grid-template-columns:40px minmax(0,1fr) auto 20px;gap:10px;align-items:center;padding:11px 12px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}.zg-irl-entry-toggle:hover{background:#2b1b0a45}.zg-irl-entry-toggle:focus-visible{outline:2px solid #b98631;outline-offset:-2px}.zg-irl-entry.open .zg-irl-entry-toggle{background:#5b38132b}.zg-irl-status-row.empty{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:center;padding:11px 12px;border:1px solid #493318;border-radius:8px;background:linear-gradient(90deg,#120c06,#090604);color:#91805f}.zg-irl-status-row.empty strong{display:block;color:#d1b879;font-size:14.5px}.zg-irl-status-row.empty small{display:block;margin-top:4px;color:#91805f;font-size:12.5px}.zg-irl-row-icon{width:38px;height:38px;display:grid;place-items:center;border:1px solid #6d4c1c;border-radius:50%;background:#120d06;color:#d4a13a;font-size:18px}.zg-irl-entry-copy{min-width:0}.zg-irl-entry-copy strong{display:block;color:#e6cb8c;font-size:15px;line-height:1.4;white-space:normal}.zg-irl-entry-copy small{display:block;margin-top:4px;color:#a08a60;font-size:12.5px;line-height:1.4}.zg-irl-ability-use{color:#8fc494;font-size:12px;line-height:1.4;text-align:right;white-space:normal}.zg-irl-entry-chevron{color:#bc8b38;font-size:18px;transition:transform .16s}.zg-irl-entry.open .zg-irl-entry-chevron{transform:rotate(180deg)}.zg-irl-entry-detail{display:none;padding:17px 18px 18px 60px;border-top:1px solid #493318;background:#070504b8}.zg-irl-entry.open .zg-irl-entry-detail{display:block;animation:zgAdvViewIn .14s ease both}.zg-irl-entry-meta{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px}.zg-irl-entry-meta span{padding:5px 9px;border:1px solid #5c4320;border-radius:999px;background:#120c06;color:#c9ad76;font:700 11px 'Cinzel',serif;letter-spacing:.3px}.zg-irl-entry-description{color:#ead7a3;font-size:16px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere}.zg-irl-entry-no-description{color:#93805b;font-size:14px;font-style:italic}.zg-irl-status-rules{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.zg-irl-status-rules span{padding:5px 9px;border:1px solid #684a22;border-radius:6px;background:#130c06;color:#d3b779;font-size:12px}.zg-irl-character-empty{padding:18px;border:1px solid #3e2c16;border-radius:8px;color:#91805f;background:#0b0805;text-align:center;font-size:14px}
+  .zg-irl-entry.ability-card{--ability-accent:#c4933b;--ability-rgb:196,147,59;--ability-aura:118,75,27;position:relative;border-color:color-mix(in srgb,var(--ability-accent) 48%,#20150b);background:radial-gradient(circle at 3% 15%,rgba(var(--ability-aura),.22),transparent 42%),linear-gradient(100deg,#150e08,#090605 68%);box-shadow:inset 3px 0 var(--ability-accent),inset 0 1px rgba(var(--ability-rgb),.08)}.zg-irl-entry.ability-card::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:.18;background:linear-gradient(120deg,transparent 0 68%,rgba(var(--ability-rgb),.22) 68% 69%,transparent 69% 74%,rgba(var(--ability-rgb),.1) 74% 75%,transparent 75%)}.zg-irl-entry.ability-card.open{border-color:var(--ability-accent);box-shadow:inset 3px 0 var(--ability-accent),0 0 22px rgba(var(--ability-rgb),.12)}.zg-irl-entry.ability-card.kind-short{--ability-accent:#55c5bc;--ability-rgb:85,197,188}.zg-irl-entry.ability-card.kind-long{--ability-accent:#c58d43;--ability-rgb:197,141,67}.zg-irl-entry.ability-card.kind-passive{--ability-accent:#7fbd72;--ability-rgb:127,189,114}.zg-irl-entry.ability-card.kind-trait{--ability-accent:#aa85d3;--ability-rgb:170,133,211}.zg-irl-entry.ability-card.kind-reaction{--ability-accent:#df7d62;--ability-rgb:223,125,98}.zg-irl-entry.ability-card.kind-spell{--ability-accent:#bd79cf;--ability-rgb:189,121,207}.zg-irl-entry.ability-card.tone-nature{--ability-aura:50,123,72}.zg-irl-entry.ability-card.tone-decay{--ability-aura:82,116,45}.zg-irl-entry.ability-card.tone-harvest{--ability-aura:154,102,25}.zg-irl-entry.ability-card.tone-soul{--ability-aura:76,95,146}.zg-irl-entry.ability-card.tone-mind{--ability-aura:105,70,145}.zg-irl-entry.ability-card.tone-blood{--ability-aura:143,45,43}.zg-irl-entry.ability-card.tone-storm{--ability-aura:51,105,141}.zg-irl-entry.ability-card .zg-irl-entry-toggle{position:relative;z-index:1;grid-template-columns:50px minmax(0,1fr) auto 20px;min-height:68px;padding:9px 12px 9px 13px}.zg-irl-entry.ability-card .zg-irl-entry-copy strong{color:#f1d795;font-size:16.5px;line-height:1.34}.zg-irl-entry.ability-card .zg-irl-entry-copy small{color:#b9a071;font-size:13px}.zg-irl-ability-visual{position:relative;width:46px;height:46px;display:grid;place-items:center;border:1px solid var(--ability-accent);border-radius:11px 11px 17px 11px;background:radial-gradient(circle,rgba(var(--ability-rgb),.18),#0b0705 72%);color:var(--ability-accent);font-size:21px;overflow:hidden;box-shadow:0 0 14px rgba(var(--ability-rgb),.16),inset 0 0 12px #000}.zg-irl-ability-visual::after{content:'';position:absolute;inset:4px;border:1px solid rgba(var(--ability-rgb),.2);border-radius:7px 7px 13px 7px;pointer-events:none}.zg-irl-ability-visual img{width:100%;height:100%;display:block;object-fit:cover;filter:saturate(.9) contrast(1.05)}.zg-irl-ability-kind{display:inline-flex!important;width:max-content;margin:0 0 3px!important;padding:2px 7px;border:1px solid rgba(var(--ability-rgb),.48);border-radius:999px;background:rgba(var(--ability-rgb),.09);color:var(--ability-accent)!important;font:700 9.5px 'Cinzel',serif!important;letter-spacing:.85px;text-transform:uppercase}.zg-irl-ability-use{position:relative;z-index:1;min-width:70px;color:#c5ad77}.zg-irl-charge-pips{display:flex;justify-content:flex-end;gap:4px;margin-bottom:4px}.zg-irl-charge-pips i{width:11px;height:11px;border:1px solid #5d9e63;border-radius:3px;background:linear-gradient(#1e4324,#0d1d10);box-shadow:0 0 6px #4c9a552c}.zg-irl-charge-pips i.used{background:linear-gradient(#541b17,#260b09);border-color:#c9564c;box-shadow:inset 0 0 6px #b8393966}.zg-irl-charge-pips.exhausted{padding:3px;border:1px solid #a7403a;border-radius:5px;background:#3d1210a8;box-shadow:0 0 10px #b5363030}.zg-irl-charge-label{display:block;color:#aa9368;font-size:11.5px}.zg-irl-entry.ability-card .zg-irl-entry-detail{position:relative;z-index:1;padding:16px 18px 18px 64px;border-top-color:rgba(var(--ability-rgb),.34);background:linear-gradient(110deg,rgba(var(--ability-aura),.09),#070504d9 48%)}.zg-irl-entry.ability-card .zg-irl-entry-meta span{border-color:rgba(var(--ability-rgb),.42);background:rgba(var(--ability-rgb),.07);color:#dec78f}.zg-irl-spell-section+.zg-irl-spell-section{margin-top:13px}.zg-irl-spell-section>h5{display:flex;align-items:center;gap:8px;margin:0 0 7px;color:var(--ability-accent);font:700 11px 'Cinzel',serif;letter-spacing:1.1px;text-transform:uppercase}.zg-irl-spell-section>h5::after{content:'';height:1px;flex:1;background:linear-gradient(90deg,rgba(var(--ability-rgb),.45),transparent)}.zg-irl-rule-lines{display:grid;gap:5px}.zg-irl-rule-line{position:relative;margin:0;padding:7px 10px;border-left:3px solid #5b4528;border-radius:0 6px 6px 0;background:#120d0791;color:#e7d4a6;font-size:16px;line-height:1.58;white-space:pre-wrap;overflow-wrap:anywhere}.zg-irl-rule-line.tone-damage{border-color:#d36456;background:#4f1d184a;color:#ffc1ae}.zg-irl-rule-line.tone-healing{border-color:#61b67a;background:#173c244d;color:#bcebc4}.zg-irl-rule-line.tone-check{border-color:#55aeca;background:#15354352;color:#bce8f2}.zg-irl-rule-line.tone-success{border-color:#72c57b;background:#183d2252;color:#c9efc9}.zg-irl-rule-line.tone-failure{border-color:#dc685a;background:#4a191954;color:#ffc0b5}.zg-irl-rule-line.tone-critical{border-color:#cf81e6;background:#40234f59;color:#f0c6ff;box-shadow:inset 0 0 18px #8d48ac14}.zg-irl-rule-line.tone-restriction{border-color:#d2a241;background:#49361442;color:#f0d18d}.zg-irl-rule-line.tone-roleplay{border-color:#9c7acf;background:#2e23464f;color:#ddc8f2}.zg-irl-rule-line.tone-heading{padding:4px 9px;border-color:var(--ability-accent);background:rgba(var(--ability-rgb),.08);color:#f1d795;font-family:'Cinzel',serif;font-weight:700}.zg-irl-section-description .zg-irl-rule-line{color:#d8c7a0}.zg-irl-section-manifestation .zg-irl-rule-line{border-color:#8b6cc2;background:#2c21414a;color:#d9c8ec;font-style:italic}.zg-irl-section-restriction .zg-irl-rule-line{border-color:#d2a241;background:#49361442;color:#f0d18d}.zg-irl-section-learning .zg-irl-rule-line{border-color:#5999b8;background:#18364442}.zg-irl-section-extra .zg-irl-rule-line{border-color:#be9140;background:#3d2c1245}
+  .zg-irl-cooldown-console{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin:0 0 15px;padding:12px;border:1px solid rgba(var(--ability-rgb),.48);border-radius:9px;background:linear-gradient(110deg,rgba(var(--ability-rgb),.12),#0b0705 72%);box-shadow:inset 0 1px rgba(var(--ability-rgb),.12);transition:.16s ease}.zg-irl-cooldown-console.exhausted{border-color:#bd4b43;background:radial-gradient(circle at 85% 20%,#8f2f2733,transparent 48%),linear-gradient(110deg,#35110f,#0d0605 72%);box-shadow:inset 0 0 20px #7d201f3b,0 0 16px #a92f2b27}.zg-irl-cooldown-copy small{display:block;color:var(--ability-accent);font:700 10px 'Cinzel',serif;letter-spacing:1.05px}.zg-irl-cooldown-copy b{display:block;margin-top:4px;color:#f0d493;font:700 16px 'Cinzel',serif}.zg-irl-cooldown-console.exhausted .zg-irl-cooldown-copy small,.zg-irl-cooldown-console.exhausted .zg-irl-cooldown-copy b{color:#ff8d82}.zg-irl-cooldown-copy span{display:block;margin-top:3px;color:#9f8a63;font-size:12.5px}.zg-irl-charge-cells{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.zg-irl-charge-cell{width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid #57945d;border-radius:7px;background:linear-gradient(#1b3a20,#0b180e);color:#b7dfb7;font:700 11px 'Cinzel',serif;cursor:pointer;box-shadow:inset 0 1px #e1ffe218,0 3px 8px #0008;transition:.14s ease}.zg-irl-charge-cell:hover,.zg-irl-charge-cell:focus-visible{border-color:#8bd391;filter:brightness(1.2);outline:0;transform:translateY(-1px)}.zg-irl-charge-cell.spent{border-color:#ca574d;background:linear-gradient(#571c18,#260b09);color:#ff9b90;box-shadow:inset 0 0 10px #a82e2e73,0 0 8px #b534302e}.zg-irl-charge-cell.spent:hover,.zg-irl-charge-cell.spent:focus-visible{border-color:#ff8174}.zg-irl-cooldown-note{grid-column:1/-1;margin:0;color:#78694f;font-size:11.5px;line-height:1.45}.zg-irl-gm-note.tone-secret{border-color:#754d86;background:radial-gradient(circle at 0 0,#6d3f7d2b,transparent 60%),#0c0808}.zg-irl-gm-note.tone-trigger{border-color:#8a5930;background:radial-gradient(circle at 0 0,#9348262e,transparent 60%),#0c0806}.zg-irl-gm-note.tone-warning{border-color:#7c4839;background:radial-gradient(circle at 0 0,#8b36272b,transparent 60%),#0c0706}.zg-irl-gm-note.tone-roleplay{border-color:#526f4b;background:radial-gradient(circle at 0 0,#3e71382b,transparent 60%),#080b07}.zg-irl-gm-note.tone-mechanic{border-color:#476d78;background:radial-gradient(circle at 0 0,#2f66782b,transparent 60%),#070a0b}.zg-irl-gm-note.tone-secret .zg-irl-gm-note-icon{border-color:#795590;color:#c79bde}.zg-irl-gm-note.tone-trigger .zg-irl-gm-note-icon,.zg-irl-gm-note.tone-warning .zg-irl-gm-note-icon{border-color:#8b5133;color:#df9b61}.zg-irl-gm-note.tone-roleplay .zg-irl-gm-note-icon{border-color:#4e7448;color:#9cce8d}.zg-irl-gm-note.tone-mechanic .zg-irl-gm-note-icon{border-color:#47717e;color:#8fc6d5}
+  .zg-irl-gm-focus{position:relative;padding:18px 20px 20px;border-top:1px solid #63461d;background:radial-gradient(circle at 7% 0,#96582828,transparent 38%),linear-gradient(110deg,#150d06,#080604 62%);overflow:hidden}.zg-irl-gm-focus::after{content:'✦';position:absolute;right:22px;top:12px;color:#9b6a2840;font-size:62px;line-height:1;pointer-events:none}.zg-irl-gm-focus-head{position:relative;z-index:1;display:flex;align-items:center;gap:13px;margin-bottom:14px}.zg-irl-gm-focus-glyph{width:44px;height:44px;display:grid;place-items:center;flex:0 0 auto;border:1px solid #916525;border-radius:50%;background:radial-gradient(circle,#3d240d,#100a05 72%);color:#e0ae4d;font-size:20px;box-shadow:0 0 20px #b7782220}.zg-irl-gm-focus-head small,.zg-irl-gm-focus-head h3{display:block;margin:0}.zg-irl-gm-focus-head small{color:#a1885d;font:700 10.5px 'Cinzel',serif;letter-spacing:1.45px;text-transform:uppercase}.zg-irl-gm-focus-head h3{margin-top:3px;color:#f0cf83;font:700 21px 'Cinzel',serif}.zg-irl-gm-focus-count{margin-left:auto;padding:6px 10px;border:1px solid #5c421e;border-radius:999px;color:#b89b65;font:700 11.5px 'Cinzel',serif;letter-spacing:.45px}.zg-irl-gm-focus-grid{position:relative;z-index:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.zg-irl-gm-note{position:relative;min-width:0;padding:15px 16px 16px 53px;border:1px solid #553a19;border-radius:9px;background:linear-gradient(135deg,#160f08e8,#090605e8);box-shadow:inset 0 1px #d6a24813}.zg-irl-gm-note.priority{border-color:#8a5c21;background:radial-gradient(circle at 0 0,#9d562326,transparent 60%),linear-gradient(135deg,#1a1007,#090605)}.zg-irl-gm-note-icon{position:absolute;left:14px;top:15px;width:28px;height:28px;display:grid;place-items:center;border:1px solid #704c1d;border-radius:50%;background:#0d0905;color:#d8a240;font-size:15px}.zg-irl-gm-note small{display:block;color:#a78a58;font:700 10.5px 'Cinzel',serif;letter-spacing:1px;text-transform:uppercase}.zg-irl-gm-note h4{margin:4px 0 7px;color:#efcd7c;font:700 17px 'Cinzel',serif}.zg-irl-gm-note p{margin:0;color:#e1cb99;font-size:16px;line-height:1.62}.zg-irl-gm-focus-empty{position:relative;z-index:1;padding:16px;border:1px dashed #503818;border-radius:8px;color:#a99468;font-size:15px;line-height:1.6}.zg-irl-gm-focus-empty b{color:#d8b673}
+  .zg-irl-session-bridge[hidden]{display:none!important}
+  .zg-irl-session-bridge{display:flex;align-items:center;gap:6px;margin-right:2px}
+  .zg-irl-session-return,.zg-irl-session-end{height:36px;border-radius:7px;font-family:'Cinzel',serif;cursor:pointer;transition:.18s}
+  .zg-irl-session-return{padding:0 13px;border:1px solid #8a672b;background:linear-gradient(180deg,#2a1b0a,#130d06);color:#edcf82;font-size:10px;letter-spacing:.35px;box-shadow:inset 0 1px #d7a84220}
+  .zg-irl-session-return:hover{border-color:#d1a23d;color:#ffe4a0;box-shadow:0 0 16px #d39b3025}
+  .zg-irl-session-end{width:36px;padding:0;border:1px solid #5a3027;background:#170b08;color:#a7695e;font-size:16px}
+  .zg-irl-session-end:hover{border-color:#a04e43;color:#e28c80}
+  .zg-irl-end-overlay{position:fixed;z-index:18000;inset:0;display:none;place-items:center;padding:20px;background:#050302c7;backdrop-filter:blur(5px)}
+  .zg-irl-end-overlay.open{display:grid}
+  .zg-irl-end-dialog{width:min(460px,100%);padding:28px;border:1px solid #725025;border-radius:13px;background:radial-gradient(circle at 50% 0,#39200d55,transparent 52%),#100b06;box-shadow:0 30px 90px #000f;text-align:center}
+  .zg-irl-end-dialog i{width:54px;height:54px;margin:0 auto 15px;display:grid;place-items:center;border:1px solid #7b3d34;border-radius:50%;background:#1c0b08;color:#d66d60;font:normal 24px Georgia,serif}
+  .zg-irl-end-dialog h2{margin:0;color:#edd08a;font:700 20px 'Cinzel',serif}
+  .zg-irl-end-dialog p{margin:11px 0 20px;color:#8e7c5e;font-size:13px;line-height:1.55}
+  .zg-irl-end-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .zg-irl-end-actions button{min-height:44px;border:1px solid #5d4525;border-radius:7px;background:#171006;color:#cbb37b;font:700 11px 'Cinzel',serif;cursor:pointer}
+  .zg-irl-end-actions button.danger{border-color:#7d3932;background:#210d09;color:#df8276}
+  @media(max-width:900px){.zg-irl-character-card{left:106px;right:10px}.zg-irl-character-layout{grid-template-columns:1fr}.zg-irl-character-mechanics{border-right:0;border-bottom:1px solid #493216}.zg-irl-character-profile{grid-template-columns:96px minmax(0,1fr)}.zg-irl-character-portrait{width:96px;height:122px}}
+  @media(max-width:760px){.zg-irl-table-back{left:12px;top:12px}.zg-irl-name-tool{left:12px;top:66px}.zg-irl-saved-tool{left:12px;top:152px}.zg-irl-name-popover{left:98px;top:66px;width:calc(100vw - 110px)}.zg-irl-saved{left:98px;top:152px;width:calc(100vw - 110px)}.zg-irl-session-return{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.zg-irl-character-card{left:8px;right:8px;bottom:84px;max-height:calc(100vh - 96px)}.zg-irl-character-dock{bottom:10px;gap:6px;padding:6px 9px}.zg-irl-hero-button{width:49px;height:49px}.zg-irl-character-refresh span{display:none}.zg-irl-character-refresh{grid-template-columns:20px;padding:0;width:42px}.zg-irl-stats{grid-template-columns:repeat(3,1fr)}.zg-irl-gm-focus-grid{grid-template-columns:1fr}}
+  @media(max-width:430px){.zg-irl-character-card{bottom:78px}.zg-irl-character-head{padding:11px}.zg-irl-character-head h2{font-size:20px}.zg-irl-character-head p{font-size:12.5px}.zg-irl-character-mechanics,.zg-irl-character-live{padding:12px}.zg-irl-character-profile{grid-template-columns:78px minmax(0,1fr);gap:9px}.zg-irl-character-portrait{width:78px;height:103px}.zg-irl-quick-values{grid-template-columns:repeat(3,1fr)}.zg-irl-hero-button{width:43px;height:43px}.zg-irl-character-dock{gap:4px}.zg-irl-hp-controls{grid-template-columns:36px minmax(92px,1fr) 36px}.zg-irl-entry-toggle{grid-template-columns:32px minmax(0,1fr) 16px;padding:9px}.zg-irl-entry-toggle .zg-irl-ability-use{display:none}.zg-irl-entry-detail{padding:13px}.zg-irl-row-icon{width:32px;height:32px}.zg-irl-entry-description{font-size:15px}.zg-irl-gm-focus{padding:16px 13px}.zg-irl-gm-focus-count{display:none}.zg-irl-gm-note{padding-left:48px}}
+  @media(max-width:560px){.zg-irl-cooldown-console{grid-template-columns:1fr}.zg-irl-charge-cells{justify-content:flex-start}.zg-irl-entry.ability-card .zg-irl-entry-detail{padding-left:13px}}
 </style>
 <script>
 // ═══════════════════════════════════════════════════════════════════
@@ -9873,8 +9996,33 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-08-21.14';
+var ZG_APP_VERSION = '2026-08-26.8';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-08-26.8', notes: 'Кулдауны навыков стали кликаемыми ячейками зарядов; потраченные ячейки и полностью исчерпанный ресурс краснеют. Цветокод теперь работает и внутри карточек, а повторяющиеся типы, названия и строки ресурса скрыты.' },
+  { v: '2026-08-26.7', notes: 'Иконки личных предметов перенесены в единый каталог: сетка, снаряжение и окно предмета теперь показывают один ассет; композиция стала компактнее и ближе к штатному стилю.' },
+  { v: '2026-08-26.6', notes: 'Кастомные предметы Лин’Ин, Евангелия и Эстероса получили 17 отдельных тёмно-фэнтезийных иллюстраций в листах и игровом инвентаре.' },
+  { v: '2026-08-26.5', notes: 'В Столе мастера появились сессионные кнопки кулдауна и памятки всех пяти героев; долгие, короткие, пассивные навыки и особенности получили тот же цветокод в разделе Персонажи.' },
+  { v: '2026-08-26.4', notes: 'Способности получили разные визуальные карточки по типу и теме героя; заклинания подтягиваются из гримуара, а урон, лечение, проверки, исходы и ограничения выделяются цветом.' },
+  { v: '2026-08-26.3', notes: 'Текст карточек героев стал крупнее; внизу появился «Фокус мастера» с первыми подтверждёнными ролеплейными напоминаниями для Эстероса.' },
+  { v: '2026-08-26.2', notes: 'Карточка героя на Столе мастера возвращена к выбранной композиции: характеристики слева, состояния и способности справа; строки раскрывают полные данные из листа.' },
+  { v: '2026-08-26.1', notes: 'На Столе мастера появились пять портретов героев и компактная карточка с сессионным HP, характеристиками, состояниями и способностями из общего реестра.' },
+  { v: '2026-08-25.17', notes: 'Средневековые прозвища расширены по ремёслам, приметам и предметам; все полные имена сохраняются в истории генерации.' },
+  { v: '2026-08-25.16', notes: 'Имена и прозвища проходят свои профильные пулы без ранних повторов; генератор и сохранённые карточки стали крупнее и контрастнее.' },
+  { v: '2026-08-25.15', notes: 'Верхняя панель сайта больше не возвращается после действий внутри Стола мастера.' },
+  { v: '2026-08-25.14', notes: 'История имени теперь открывается только кликом по имени; полное имя занимает всю ширину и больше не обрезается.' },
+  { v: '2026-08-25.13', notes: 'Редакторски разведены поколения имён и прозвища жителей, стражников, ремесленников и купцов для всех четырёх рас.' },
+  { v: '2026-08-25.12', notes: 'Возраст теперь выбирает поколенческий пул личных имён, а занятие — тематический пул прозвищ; смена любого параметра сразу пересобирает NPC.' },
+  { v: '2026-08-25.11', notes: 'История имени очищена от технических пояснений и сведена к трём коротким ответам для мастера.' },
+  { v: '2026-08-25.10', notes: 'Генератор и сохранённые имена сворачиваются в две малые кнопки; сохранённый NPC раскрывает полную историю имени только по запросу.' },
+  { v: '2026-08-25.9', notes: 'Генератор NPC стал крупнее и читаемее, а происхождения полностью переведены на 38 канонических мест основного острова из Атласа Зарготы.' },
+  { v: '2026-08-25.8', notes: 'У полного имени NPC появилась компактная легенда: значение имени, кто его дал и место происхождения; для каждой расы предусмотрено 200 сочетаний биографии.' },
+  { v: '2026-08-25.7', notes: 'Генератор NPC стал компактнее: пол и возраст расположены рядом, а профессии заменены четырьмя быстрыми направлениями — житель, стражник, ремесленник и купец.' },
+  { v: '2026-08-25.6', notes: 'Современные русские фамилии людей заменены на 50 средневековых фэнтезийных прозвищ по ремеслу, месту, примете и репутации.' },
+  { v: '2026-08-25.5', notes: 'В генератор NPC добавлены пол, четыре возрастные категории и четыре контрастные профессии для каждой расы; выбранные параметры сохраняются в карточке персонажа.' },
+  { v: '2026-08-25.4', notes: 'Генератор имён расширен до четырёх народов: по 100 имён и 50 фамилий, спокойные расовые особенности без ранних повторов, собственные SVG-иконки и управляемое удаление сохранённых NPC.' },
+  { v: '2026-08-25.3', notes: 'На реальном Столе мастера появился первый рабочий инструмент: генератор полных дворфийских имён, необязательная особенность, копирование и сохранённые карточки внутри локальной IRL-сессии.' },
+  { v: '2026-08-25.2', notes: 'Стол мастера очищен до пустого пространства и одной кнопки «На главную». Реальная сессия сохраняется локально при переходах по сайту; в шапке доступен быстрый возврат и отдельное подтверждаемое завершение без Firebase.' },
+  { v: '2026-08-25.1', notes: 'Создание приключения сначала спрашивает формат игры. Firebase-комната создаётся только после выбора онлайн-игры и подтверждения пароля; реальная игра открывает отдельный пустой «Стол мастера» без сетевой комнаты.' },
   { v: '2026-08-21.14', notes: 'Назначение d20 для поэтапного заклинания в Мастерской больше не застревает серой кнопкой: задание создаётся до тяжёлой перерисовки, а успех, ошибка и таймаут гарантированно разблокируют окно.' },
   { v: '2026-08-21.13', notes: 'Кнопка книги в журнале больше не дёргается и открывает Мануал внутренним мостом без закрытия игровой сессии. Мануал получил поиск по ключевым словам, категории, счётчик результатов и возврат ровно в прежнее игровое состояние.' },
   { v: '2026-08-21.12', notes: 'Памятка мастера получила ИИ-помощник: готовый промпт копируется одним нажатием, а ответ ИИ вставляется в кастомное окно и автоматически распределяется по речи, климату, среде, запаху и важным деталям.' },
@@ -10785,14 +10933,17 @@ document.addEventListener('DOMContentLoaded', function(){
 (function(w){
   function el(id){ return document.getElementById(id); }
   var lastOpenedPhase = '';
+  var activeAdventureView = 'zg-adv-view-main';
+  var createGameMode = '';
 
   function showView(viewId, wide){
-    ['zg-adv-view-main','zg-adv-view-create','zg-adv-view-join','zg-adv-view-host','zg-adv-view-player'].forEach(function(id){
+    ['zg-adv-view-main','zg-adv-view-format','zg-adv-view-create','zg-adv-view-join','zg-adv-view-host','zg-adv-view-player'].forEach(function(id){
       var node = el(id); if (node) node.style.display = id === viewId ? '' : 'none';
     });
+    activeAdventureView = viewId;
     var dialog = document.querySelector('.zg-adv-dialog');
     if (dialog) dialog.classList.toggle('zg-pairing-wide', !!wide);
-    var back = el('zg-adv-back'); if (back) back.style.display = viewId === 'zg-adv-view-join' || viewId === 'zg-adv-view-create' ? '' : 'none';
+    var back = el('zg-adv-back'); if (back) back.style.display = ['zg-adv-view-format','zg-adv-view-join','zg-adv-view-create'].indexOf(viewId)>=0 ? '' : 'none';
   }
 
   w.zgAdvOpen = function() {
@@ -10818,8 +10969,14 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 
   w.zgAdvShowMain = function() {
+    createGameMode = '';
     showView('zg-adv-view-main', false);
     var h = el('zg-adv-hint'); if (h) h.textContent = '';
+  };
+
+  w.zgAdvBack = function() {
+    if (activeAdventureView === 'zg-adv-view-create') { w.zgAdvShowCreate(); return; }
+    w.zgAdvShowMain();
   };
 
   w.zgAdvShowJoin = function() {
@@ -10829,8 +10986,19 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 
   w.zgAdvShowCreate = function() {
+    createGameMode = '';
+    showView('zg-adv-view-format', false);
+    var hint=el('zg-adv-create-hint');if(hint)hint.textContent='';
+  };
+
+  w.zgAdvChooseMode = function(mode) {
+    createGameMode = mode === 'irl' ? 'irl' : 'online';
     showView('zg-adv-view-create', false);
-    var inp=el('zg-adv-master-password'),hint=el('zg-adv-create-hint');if(inp){inp.value='';setTimeout(function(){try{inp.focus();}catch(e){}},120);}if(hint)hint.textContent='';
+    var inp=el('zg-adv-master-password'),hint=el('zg-adv-create-hint'),title=el('zg-adv-create-title'),sub=el('zg-adv-create-sub'),submit=el('zg-adv-create-submit');
+    if(title)title.textContent=createGameMode==='irl'?'Открыть Стол мастера':'Создать онлайн-игру';
+    if(sub)sub.innerHTML=createGameMode==='irl'?'Введите пароль гейм-мастера.<br>Firebase-комната для реальной игры не создаётся.':'Введите пароль гейм-мастера.<br>После подтверждения создадим Firebase-комнату и код приглашения.';
+    if(submit)submit.textContent=createGameMode==='irl'?'Открыть Стол мастера':'Создать онлайн-комнату';
+    if(inp){inp.value='';setTimeout(function(){try{inp.focus();}catch(e){}},120);}if(hint)hint.textContent='';
   };
 
   w.zgAdvShowHost = function() {
@@ -10844,9 +11012,18 @@ document.addEventListener('DOMContentLoaded', function(){
   };
 
   w.zgAdvCreateGame = function() {
-    if (!w.ZargotaRooms) return;
     var password=el('zg-adv-master-password'),hint=el('zg-adv-create-hint');
-    if(!password||String(password.value||'')!=='7777'){if(hint)hint.textContent='Неверный пароль гейм-мастера.';if(password){password.value='';password.focus();}return;}
+    var entered=String(password&&password.value||'');
+    if(entered!=='777'&&entered!=='7777'){if(hint)hint.textContent='Неверный пароль гейм-мастера.';if(password){password.value='';password.focus();}return;}
+    if(createGameMode==='irl'){
+      if(hint)hint.textContent='Открываем Стол мастера…';
+      if(typeof w.zgIrlSessionStart==='function')w.zgIrlSessionStart();
+      w.zgAdvClose();
+      if(typeof w.showPage==='function')w.showPage('gm-table');
+      return;
+    }
+    if(createGameMode!=='online'){w.zgAdvShowCreate();return;}
+    if (!w.ZargotaRooms) { if(hint)hint.textContent='Сетевая система ещё загружается.'; return; }
     if(hint)hint.textContent='Создаём мастерскую комнату…';
     w.ZargotaRooms.createRoom().then(function(){
       w.zgAdvShowHost();
@@ -19912,8 +20089,8 @@ document.addEventListener('DOMContentLoaded', function(){
       return'kodex';
     }
     var cards=[];
-    positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',innate:true,activeInnate:false,tone:abilityTone(item),kind:item.type||'Позиция',icon:item.icon||'⚔',iconAsset:abilityAssetForItem(item,'images/ui/combat-generated/innate.png'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
-    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key],limit=Math.max(0,Number(item.cdMax)||0,Number(sessionUsage&&sessionUsage.max)||0),used=sessionUsage?Number(sessionUsage.used||0):Number(item.cdUsed||0),profile=vttAbilityProfile(key,item,false);profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;cards.push({key:key,skillIndex:index,raw:item,group:'skills',innate:true,activeInnate:true,tone:abilityTone(item),kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),iconAsset:abilityAssetForItem(item,'images/ui/combat-generated/innate.png'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',cdMax:limit,used:used,limit:limit,passive:/пассив/i.test(item.type||''),profile:profile});});
+    positions.forEach(function(raw,index){var item=objectItem(raw);cards.push({key:'mastery-'+index,group:'skills',innate:true,activeInnate:false,tone:abilityTone(item),kind:item.type||'Позиция',icon:item.icon||'⚔',iconAsset:abilityAssetForItem(item,'images/ui/combat-generated/prepare.png'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.text||'',usage:item.usages||item.cd||'',passive:/пассив|позици|стиль|стойк/i.test(item.type||'')});});
+    skills.forEach(function(raw,index){var item=objectItem(raw),key='skill-'+index,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key],limit=Math.max(0,Number(item.cdMax)||0,Number(sessionUsage&&sessionUsage.max)||0),used=sessionUsage?Number(sessionUsage.used||0):Number(item.cdUsed||0),profile=vttAbilityProfile(key,item,false),actionHay=String((item.name||item.title||'')+' '+(item.type||'')).toLowerCase(),actionKind=/пассив/.test(actionHay)?'passive':/коротк/.test(actionHay)?'short':/реакц/.test(actionHay)?'reaction':/долг/.test(actionHay)?'long':profile.actionCost||'long',actionAsset={short:'short-action',reaction:'free-action',free:'free-action',long:'long-action',passive:'innate'}[actionKind]||'innate';profile.resourceKey=key;profile.resourceMax=limit;profile.resourceUsed=used;cards.push({key:key,skillIndex:index,raw:item,group:'skills',innate:true,activeInnate:true,tone:abilityTone(item),kind:item.type||'Навык',icon:item.icon||(/реак/i.test(item.type||'')?'↩':'✦'),iconAsset:abilityAssetForItem(item,'images/ui/combat-generated/'+actionAsset+'.png'),name:item.name||item.title||'Без названия',description:item.description||item.desc||item.effect||item.text||'',usage:item.usages||item.cd||'',cdMax:limit,used:used,limit:limit,passive:/пассив/i.test(actionHay),profile:profile});});
     (c.spellRefs||[]).forEach(function(id){
       var spell=spellById(id);if(!spell)return;
       var key='spell-'+id,sessionUsage=member&&member.character&&member.character.abilityUsage&&member.character.abilityUsage[key];
@@ -19945,11 +20122,16 @@ document.addEventListener('DOMContentLoaded', function(){
       return name.replace(/^[^\p{L}\p{N}]*/u,'').replace(/^(?:короткий|долгий|пассивный)\s+навык\s*[:—-]?\s*/i,'').trim()||'Без названия';
     }
     function compactInnateType(card){
-      var action=card&&card.profile&&card.profile.actionCost,hay=String((card&&card.kind||'')+' '+(card&&card.name||'')+' '+(card&&card.description||'')).toLowerCase();
+      var action=card&&card.profile&&card.profile.actionCost,hay=String((card&&card.kind||'')+' '+(card&&card.name||'')).toLowerCase();
+      if(card&&card.activeInnate===false)return /черта|риса/.test(hay)?'Особенность':card.kind||'Позиция';
       if(card&&card.passive||/пассив/.test(hay))return'Пассивный';
       if(action==='short'||/коротк/.test(hay))return'Короткий';
+      if(action==='reaction'||/реакц/.test(hay))return'Реакция';
       if(action==='long'||/долг/.test(hay))return'Долгий';
-      return'Долгий';
+      return'Активный';
+    }
+    function innateActionKind(card){
+      var type=compactInnateType(card);return type==='Короткий'?'short':type==='Долгий'?'long':type==='Пассивный'?'passive':type==='Реакция'?'reaction':type==='Активный'?'active':'trait';
     }
     function catalogCardHtml(card){
       var learned=card.group!=='spells'||card.learned===true,disabled=card.group==='spells'&&!learned,unknown=card.group==='spells'&&card.learned==null,exhausted=card.limit>0&&card.used>=card.limit;
@@ -19963,7 +20145,7 @@ document.addEventListener('DOMContentLoaded', function(){
       return '<article class="zg-spell-catalog-card tone-'+card.tone+(card.prepared?' prepared':'')+(disabled?' locked is-unlearned':'')+(unknown?' unknown':'')+(exhausted?' exhausted':'')+(learned&&card.group==='spells'?' is-draggable':'')+(actionItems.length?' has-actions':'')+'" data-spell-id="'+esc(card.spellId||'')+'" data-ability-search="'+esc(searchText)+'"'+dragAttributes+'><button type="button" class="zg-spell-card-main" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><span class="zg-ability-eyebrow"><b>'+esc(card.name)+'</b><small>'+esc(card.kind)+(card.profile&&card.profile.actionCost?' · '+esc({long:'долгое действие',short:'короткое действие',reaction:'реакция',free:'свободное действие'}[card.profile.actionCost]||''):'')+'</small></span><em class="'+(exhausted||disabled?'spent':'')+'">'+esc(exhausted?'Исчерпано':stateLabel)+'</em></button>'+actionMenu+'</article>';
     }
     function innateCardHtml(card){
-      return '<article class="zg-spell-innate-card tone-'+card.tone+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><div><b>'+esc(compactInnateName(card))+'</b><small class="zg-magic3-innate-type">'+esc(compactInnateType(card))+'</small></div></button></article>';
+      return '<article class="zg-spell-innate-card tone-'+card.tone+' kind-'+innateActionKind(card)+'"><button type="button" onclick="zgVttAbilityOpen(\''+card.key+'\')"><i class="zg-spell-glyph">'+abilityIconHtml(card)+'</i><div><b>'+esc(compactInnateName(card))+'</b><small class="zg-magic3-innate-type">'+esc(compactInnateType(card))+'</small></div></button></article>';
     }
     function pageButton(direction,current,total,handler,label){
       return '<button type="button" onclick="'+handler+'('+direction+')" '+((direction<0?current<=0:current>=total-1)?'disabled':'')+' aria-label="'+label+'">'+(direction<0?'‹':'›')+'</button>';
@@ -26877,6 +27059,10 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       title="Нажми чтобы посмотреть версию и историю изменений">v…</span>
   </div>
   <div id="nav">
+    <div id="zg-irl-session-bridge" class="zg-irl-session-bridge" hidden>
+      <button type="button" class="zg-irl-session-return" onclick="zgIrlSessionReturn()">✦ Вернуться к игре</button>
+      <button type="button" class="zg-irl-session-end" onclick="zgIrlSessionEndRequest()" title="Завершить реальную сессию" aria-label="Завершить реальную сессию">×</button>
+    </div>
     <div id="zg-char-sync-state" class="zg-char-sync-state" role="status" aria-live="polite" hidden>
       <span class="zg-char-sync-state-dot" aria-hidden="true"></span>
       <span class="zg-char-sync-state-text">Сохранено на устройстве</span>
@@ -26925,6 +27111,188 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     <button id="nav-catalog" style="display:none"></button>
   </div>
 </div>
+
+<script src="js/irl-name-catalog.js"></script>
+<script>
+(function(w){
+  var ACTIVE_KEY='zg_irl_session_v1',ARCHIVE_KEY='zg_irl_session_archive_v1';
+  var catalog=w.ZARGOTA_IRL_NAME_CATALOG||{},raceOrder=['dwarf','human','orc','elf'];
+  var currentIrlName=null,pendingNameDelete='',expandedSavedNameId='',savedNamesOpen=false,irlLorePinned=false,irlCurrentPage='';
+  function el(id){return document.getElementById(id);}
+  function esc(value){return String(value==null?'':value).replace(/[&<>"']/g,function(ch){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];});}
+  function sentence(value){value=String(value||'');return value?value.charAt(0).toUpperCase()+value.slice(1):'';}
+  function randomIndex(length){if(w.crypto&&w.crypto.getRandomValues){var values=new Uint32Array(1);w.crypto.getRandomValues(values);return values[0]%length;}return Math.floor(Math.random()*length);}
+  function read(){try{var value=JSON.parse(localStorage.getItem(ACTIVE_KEY)||'null');return value&&value.active?value:null;}catch(e){return null;}}
+  function write(value){try{localStorage.setItem(ACTIVE_KEY,JSON.stringify(value));return true;}catch(e){return false;}}
+  function icon(kind){var paths={names:'<path d="M5 19c3-1 5-3 6-6l5-9 3 3-9 5c-3 1-5 3-6 6l1 1Z"/><path d="m13 7 4 4"/>',copy:'<rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',reroll:'<path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 0-2 5"/>',save:'<path d="M6 4h12v16l-6-4-6 4Z"/>',saved:'<path d="m5 12 4 4L19 6"/>',trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',dwarf:'<path d="M8 5h8l2 5-3 8H9l-3-8Z"/><path d="M9 10h6M10 14h4"/>',human:'<circle cx="12" cy="8" r="3"/><path d="M6 20c0-4 2-7 6-7s6 3 6 7"/>',orc:'<path d="M5 8c2-4 12-4 14 0v6c-2 5-12 5-14 0Z"/><path d="m7 14-3 3 5-1M17 14l3 3-5-1M9 10h.01M15 10h.01"/>',elf:'<path d="M12 20C6 15 7 8 18 4c1 8-1 14-6 16Z"/><path d="M7 19c3-4 6-7 11-11"/>',male:'<circle cx="10" cy="14" r="5"/><path d="m14 10 5-5M15 5h4v4"/>',female:'<circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 18h6"/>',blade:'<path d="m5 19 4-4M8 16l8-11 3-1-1 3L7 17Z"/>',craft:'<path d="M4 20 14 10M13 5l6 6M11 7l6 6M17 3l4 4-4 4-4-4Z"/>',trade:'<path d="M4 8h16v11H4Z"/><path d="M8 8V5h8v3M4 12h16M10 12v2h4v-2"/>',lore:'<path d="M5 5c3-1 5 0 7 2v13c-2-2-4-3-7-2ZM19 5c-3-1-5 0-7 2v13c2-2 4-3 7-2Z"/>',close:'<path d="m7 7 10 10M17 7 7 17"/>'};return '<svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true">'+(paths[kind]||paths.names)+'</svg>';}
+  function blankHistory(){return{dwarf:[],human:[],orc:[],elf:[]};}
+  function nameState(){var state=read(),stored=state&&state.data&&state.data.nameGenerator;if(!stored||typeof stored!=='object')stored={};stored.usedByRace=stored.usedByRace&&typeof stored.usedByRace==='object'?stored.usedByRace:blankHistory();stored.firstUsedByProfile=stored.firstUsedByProfile&&typeof stored.firstUsedByProfile==='object'?stored.firstUsedByProfile:{};stored.surnameUsedByProfile=stored.surnameUsedByProfile&&typeof stored.surnameUsedByProfile==='object'?stored.surnameUsedByProfile:{};stored.featureUsedByRace=stored.featureUsedByRace&&typeof stored.featureUsedByRace==='object'?stored.featureUsedByRace:blankHistory();stored.loreUsedByRace=stored.loreUsedByRace&&typeof stored.loreUsedByRace==='object'?stored.loreUsedByRace:blankHistory();stored.saved=Array.isArray(stored.saved)?stored.saved:[];stored.race=catalog[stored.race]?stored.race:'dwarf';stored.gender=stored.gender==='female'?'female':'male';stored.age=['young','adult','mature','old'].indexOf(stored.age)>=0?stored.age:'adult';var jobs=(catalog[stored.race]||catalog.dwarf).professions;stored.profession=jobs.some(function(job){return job.id===stored.profession;})?stored.profession:jobs[0].id;if(!stored.current&&stored.used&&stored.used.length)stored.usedByRace.dwarf=stored.used.slice();return stored;}
+  function saveNameState(value){return w.zgIrlSessionSaveData('nameGenerator',value);}
+  var ageLabels={young:'Молодой',adult:'Взрослый',mature:'Зрелый',old:'Пожилой'},genderLabels={male:'Мужчина',female:'Женщина'};
+  function renderRace(state){var race=state.race,meta=catalog[race]||catalog.dwarf,button=el('zg-irl-race-button'),caption=el('zg-irl-name-caption'),menu=el('zg-irl-race-menu'),job=meta.professions.filter(function(item){return item.id===state.profession;})[0];if(button)button.innerHTML='<span class="zg-irl-race-current">'+icon(meta.icon)+'<span><b>'+esc(meta.label)+'</b><small>'+esc(meta.subtitle)+'</small></span></span><span class="zg-irl-chevron" aria-hidden="true">⌄</span>';if(caption)caption.textContent=meta.label+' · '+(ageLabels[state.age]||'Взрослый')+' · '+(job&&job.label||'Житель');if(menu)Array.prototype.forEach.call(menu.querySelectorAll('button[data-race]'),function(item){var active=item.getAttribute('data-race')===race;item.classList.toggle('active',active);item.setAttribute('aria-checked',active?'true':'false');});}
+  function renderProfileControls(state){var meta=catalog[state.race]||catalog.dwarf;Array.prototype.forEach.call(document.querySelectorAll('[data-irl-gender]'),function(button){button.classList.toggle('active',button.getAttribute('data-irl-gender')===state.gender);});Array.prototype.forEach.call(document.querySelectorAll('[data-irl-age]'),function(button){button.classList.toggle('active',button.getAttribute('data-irl-age')===state.age);});var jobs=el('zg-irl-professions');if(jobs)jobs.innerHTML=meta.professions.map(function(job){return'<button type="button" class="zg-irl-job'+(job.id===state.profession?' active':'')+'" onclick="zgIrlProfileChoose(\'profession\',\''+job.id+'\')">'+icon(job.icon)+'<span>'+esc(job.label)+'</span></button>';}).join('');}
+  function lorePool(meta){var result=[];(meta.lore.givers||[]).forEach(function(giver,giverIndex){(meta.lore.origins||[]).forEach(function(origin,originIndex){result.push(giverIndex+':'+originIndex);});});return result;}
+  function buildNameLore(meta,firstName,byname,used){var key=pickUnused(lorePool(meta),used),parts=key.split(':'),giver=meta.lore.givers[Number(parts[0])]||meta.lore.givers[0],origin=meta.lore.origins[Number(parts[1])]||meta.lore.origins[0],firstIndex=Math.max(0,meta.first.indexOf(firstName)),root=meta.lore.meaningRoots[Math.floor(firstIndex/meta.lore.meaningBlessings.length)%meta.lore.meaningRoots.length],blessing=meta.lore.meaningBlessings[firstIndex%meta.lore.meaningBlessings.length],about=/^[аеёиоуыэюя]/i.test(root)?'об ':'о ';return{version:5,key:key,meaning:'В имени «'+firstName+'» — память '+about+root+'. Пожелание: '+blessing+'. «'+byname+'» — прозвище, закрепившееся за человеком.',namedBy:giver,origin:origin};}
+  function syncLoreVisibility(){var panel=el('zg-irl-name-lore'),result=el('zg-irl-name-result'),open=!!currentIrlName&&irlLorePinned;if(panel)panel.classList.toggle('open',open);if(result)result.setAttribute('aria-expanded',open?'true':'false');}
+  function renderCurrent(){var state=nameState(),result=el('zg-irl-name-result'),feature=el('zg-irl-name-feature'),detail=el('zg-irl-name-detail'),save=el('zg-irl-name-save'),lore=el('zg-irl-name-lore'),meta=catalog[state.race]||catalog.dwarf;if(!currentIrlName&&state.current)currentIrlName=state.current;if(currentIrlName){var nameParts=String(currentIrlName.name||'').split(' ');currentIrlName.firstName=currentIrlName.firstName||nameParts.shift()||meta.first[0];currentIrlName.byname=currentIrlName.byname||nameParts.join(' ')||meta.surnames[0];currentIrlName.name=currentIrlName.firstName+' '+currentIrlName.byname;currentIrlName.gender=currentIrlName.gender||state.gender;currentIrlName.age=currentIrlName.age||state.age;currentIrlName.profession=currentIrlName.profession||state.profession;if(!currentIrlName.lore||currentIrlName.lore.version!==5){var loreUsed=state.loreUsedByRace[state.race]||(state.loreUsedByRace[state.race]=[]);currentIrlName.lore=buildNameLore(meta,currentIrlName.firstName,currentIrlName.byname,loreUsed);}}renderRace(state);renderProfileControls(state);if(result)result.textContent=currentIrlName?currentIrlName.name:'—';if(lore)lore.innerHTML=currentIrlName?'<div class="zg-irl-name-lore-row"><b>Значение</b><span>'+esc(currentIrlName.lore.meaning)+'</span></div><div class="zg-irl-name-lore-row"><b>Кто назвал</b><span>'+esc(sentence(currentIrlName.lore.namedBy))+'</span></div><div class="zg-irl-name-lore-row"><b>Родом из</b><span>'+esc(currentIrlName.lore.origin)+'</span></div>':'';if(feature){feature.innerHTML=currentIrlName?'<b>Деталь для отыгрыша</b><span>'+esc(currentIrlName.feature)+'</span>':'';feature.classList.toggle('visible',!!(detail&&detail.checked&&currentIrlName));}if(save){var exists=!!(currentIrlName&&state.saved.some(function(item){return item.name===currentIrlName.name;}));save.disabled=exists;save.innerHTML=icon(exists?'saved':'save')+'<span>'+(exists?'Сохранено':'Сохранить')+'</span>';}syncLoreVisibility();}
+  function renderSaved(){var wrap=el('zg-irl-saved'),list=el('zg-irl-saved-list'),tool=el('zg-irl-saved-tool'),count=el('zg-irl-saved-count'),state=nameState(),saved=state.saved||[],migrated=false;if(!wrap||!list)return;saved.forEach(function(item){if(item.lore&&item.lore.version===5)return;var meta=catalog[item.race]||catalog.dwarf,parts=String(item.name||'').split(' '),firstName=parts.shift()||meta.first[0],surname=parts.join(' ')||meta.surnames[0],used=state.loreUsedByRace[item.race]||(state.loreUsedByRace[item.race]=[]);item.lore=buildNameLore(meta,firstName,surname,used);migrated=true;});if(migrated)saveNameState(state);if(!saved.length){savedNamesOpen=false;expandedSavedNameId='';}wrap.classList.toggle('open',savedNamesOpen&&saved.length>0);wrap.setAttribute('aria-hidden',savedNamesOpen&&saved.length>0?'false':'true');if(tool){tool.classList.toggle('has-items',saved.length>0);tool.classList.toggle('active',savedNamesOpen&&saved.length>0);tool.setAttribute('aria-expanded',savedNamesOpen&&saved.length>0?'true':'false');}if(count)count.textContent=String(saved.length);list.innerHTML=saved.slice().reverse().map(function(item){var meta=catalog[item.race]||catalog.dwarf,isPending=item.id===pendingNameDelete,isExpanded=item.id===expandedSavedNameId,job=meta.professions.filter(function(value){return value.id===item.profession;})[0],facts=[genderLabels[item.gender],ageLabels[item.age],job&&job.label].filter(Boolean).join(' · '),lore=item.lore||{};return'<article class="zg-irl-saved-card'+(isPending?' delete-pending':'')+(isExpanded?' expanded':'')+'"><div class="zg-irl-saved-card-head"><button type="button" class="zg-irl-saved-summary" onclick="zgIrlSavedExpand(\''+esc(item.id)+'\')" aria-expanded="'+(isExpanded?'true':'false')+'" aria-label="'+(isExpanded?'Свернуть ':'Показать полностью ')+esc(item.name)+'"><span class="zg-irl-saved-race">'+icon(meta.icon)+'</span><span><strong>'+esc(item.name)+'</strong><small>'+esc(meta.label)+' · '+esc(job&&job.label||'NPC')+'</small></span><span class="zg-irl-saved-chevron" aria-hidden="true">⌄</span></button><button type="button" class="zg-irl-saved-delete" onclick="zgIrlSavedDeleteRequest(\''+esc(item.id)+'\')" title="Удалить карточку" aria-label="Удалить '+esc(item.name)+'">'+icon('trash')+'</button></div><div class="zg-irl-saved-details">'+(facts?'<div class="zg-irl-saved-facts">'+esc(facts)+'</div>':'')+(lore.meaning?'<div class="zg-irl-saved-lore-row"><b>Значение</b><span>'+esc(lore.meaning)+'</span></div>':'')+(lore.namedBy?'<div class="zg-irl-saved-lore-row"><b>Кто назвал</b><span>'+esc(sentence(lore.namedBy))+'</span></div>':'')+(lore.origin?'<div class="zg-irl-saved-lore-row"><b>Родом из</b><span>'+esc(lore.origin)+'</span></div>':'')+(item.feature?'<p class="zg-irl-saved-feature"><b>Для отыгрыша:</b> '+esc(item.feature)+'</p>':'')+'</div>'+(isPending?'<div class="zg-irl-delete-confirm"><span>Удалить из этой сессии?</span><div><button type="button" onclick="zgIrlSavedDeleteCancel()">Отмена</button><button type="button" class="danger" onclick="zgIrlSavedDeleteConfirm(\''+esc(item.id)+'\')">Удалить</button></div></div>':'')+'</article>';}).join('');}
+  var IRL_HERO_ORDER=['lin-yin','vrotik','evan','melissa','esteros'];
+  var IRL_HERO_META={
+    'lin-yin':{name:'Лин’Ин',portrait:'images/heroart/LinIn.png',legacyId:'1778221143711'},
+    vrotik:{name:'Вротик',portrait:'images/heroart/Vrotik.png',legacyId:'1778221131899'},
+    evan:{name:'Евангелие',portrait:'images/heroart/Evan.png',legacyId:'1776627463516'},
+    melissa:{name:'Мелисса',portrait:'images/heroart/Melissa.png',legacyId:'1776626039651'},
+    esteros:{name:'Эстерос',portrait:'images/heroart/Esteros.png',legacyId:'1776463717210'}
+  };
+  var IRL_STAT_LABELS={str:'СИЛ',dex:'ЛОВ',int:'ИНТ',cha:'ХАР',per:'ВОС',con:'ВЫН'};
+  var IRL_GM_FOCUS={
+    'lin-yin':{title:'Лин’Ин — трещины памяти',items:[
+      {kind:'Секрет мастера',tone:'secret',icon:'◐',title:'Холодный дом — защитная версия',text:'Лин’Ин уверена, что отец был холоден, мать угасла, а любви в доме не было. Не подтверждай это как объективную истину: психика переписала прошлое, чтобы заменить вину и утрату презрением.',priority:true},
+      {kind:'Триггер памяти',tone:'trigger',icon:'🔥',title:'Огонь возвращает настоящее тепло',text:'Рядом с огнём прорываются короткие настоящие кадры: смех за столом, руки матери, вино отца на празднике, блеск подвески. Они должны быть теплее и живее её привычных воспоминаний.'},
+      {kind:'Телесный маркер',tone:'warning',icon:'🩸',title:'Носовая кровь и проверка себя',text:'В сильном напряжении могут возвращаться приступы носовой крови. Зеркала и тонкие порезы — не случайная эстетика, а болезненная попытка убедиться, что она сама всё ещё существует.'},
+      {kind:'Не раскрывать сразу',tone:'roleplay',icon:'◇',title:'Реликт был меткой ведьм',text:'Родители любили Лин’Ин и достали огненный камень как подарок после её болезни. Ведьмы использовали реликт как пускатель пожара; правда должна проступать фрагментами, а не объяснением мастера.'}
+    ]},
+    vrotik:{title:'Вротик — чужие голоса и души',items:[
+      {kind:'Правило речи',tone:'roleplay',icon:'🎭',title:'Собственного голоса нет',text:'Вротик говорит только услышанными словами, интонациями и звуками. Чем дольше он слушал оригинал, тем точнее копия; незнакомый голос или фразу из ничего он создать не может.',priority:true},
+      {kind:'Сущность внутри',tone:'secret',icon:'💀',title:'Осколок души меняет поведение',text:'После «Пожирателя душ» в нём остаётся не только бонус характеристики. Чужие сны, привычки или эмоциональные реакции могут кратко проступать наружу; новая душа вытесняет предыдущую.'},
+      {kind:'Уязвимость',tone:'warning',icon:'🪽',title:'Одно крыло раскрывает секрет',text:'При осознанном падении крыло может смягчить удар, но становится хорошо заметно. Это повод для подозрения окружающих и риск раскрыть то, что Вротик старается скрывать.'},
+      {kind:'Условие навыка',tone:'mechanic',icon:'🗝️',title:'Замок надо сначала увидеть',text:'«Каррк-злом» работает только с конкретным немагическим замком, который Вротик уже видел открытым. На критическом провале громкое «КАРРК!» обязательно привлекает внимание.'}
+    ]},
+    evan:{title:'Евангелие — голос Агра’рия',items:[
+      {kind:'Главный отыгрыш',tone:'secret',icon:'🌾',title:'Агра’рий — отдельная сущность',text:'Внутри Евана живёт Агра’рий, за которого отвечает мастер. В отчаянии, страхе и сильных эмоциях его признаки должны проявляться чаще: чужая воля, навязчивые формулы, внезапный гнев к осквернению.',priority:true},
+      {kind:'Триггер прошлого',tone:'trigger',icon:'⛪',title:'Монастырь разрушил детскую веру',text:'Молитвы и ритуалы монастыря всё больше походили на жестокий бред. Давление священников, издевательства над детьми и потеря крупиц разума ведут к появлению Агра’рия, убийству священника и пожару.'},
+      {kind:'Триггер ярости',tone:'warning',icon:'🔥',title:'Порча еды и урожая',text:'Испорченная пища, сожжённое поле, отравленная земля и некромантия вызывают не бытовое раздражение, а религиозную Злобу. Покажи учащённое дыхание, сжатый батон и ненависть в глазах.'},
+      {kind:'Нить истории',tone:'mechanic',icon:'⌁',title:'Кража брата оставила слух',text:'Брат украл редкие взрывные метательные болты или кинжалы. По миру ходит слух об опытном воре без указания расы — это зацепка, а не готовое раскрытие.'}
+    ]},
+    melissa:{title:'Мелисса — лес не защитит себя',items:[
+      {kind:'Секрет мастера',tone:'secret',icon:'🐝',title:'Она никому не рассказала о видении',text:'После видения Мелисса очнулась рядом с мёртвыми пчёлами и сохранила всё в тайне. Не выдавай пророчество окружающим без её поступка или сильного сюжетного прорыва.',priority:true},
+      {kind:'Лейтмотив',tone:'trigger',icon:'🌑',title:'«Лес не защитит себя»',text:'Голос Еллирии звучал узнаваемо, но тревожно и без утешения. Повторяй эту фразу в моменты сомнения: Мелисса должна решить, достаточно ли хранить баланс или пора действовать.'},
+      {kind:'Образы пророчества',tone:'warning',icon:'◈',title:'Корень, чёрное озеро и багровая луна',text:'Ключевые знаки: изуродованный белый корень, чёрное озеро без отражения, алое и фиолетово-синее пламя, белые частицы над рощей, освящённый металл и круг теней под ужасной луной.'},
+      {kind:'Правило характера',tone:'roleplay',icon:'🌿',title:'Жизнь нельзя приносить в жертву удобству',text:'Сознательный вред живой природе ради выгоды требует реакции: возражение, уход из сцены или физическое вмешательство. Её сомнения важны, но равнодушно проигнорировать выбор она не может.'}
+    ]},
+    esteros:{title:'Эстерос — Свет Гнили',items:[
+      {kind:'Приоритет сцены',tone:'roleplay',icon:'🎭',title:'Роскошь ему непривычна',text:'Эстерос вырос в Гнилушино на болотах Мещеры — среди сырости, болезней, голода и пьяных взрослых. Чистая постель, дорогая еда и чужое богатство должны казаться ему почти неприличными: не уютом, а чем-то из другого мира.',priority:true},
+      {kind:'Триггер воспоминания',tone:'trigger',icon:'⚡',title:'Колесо, которое он не поднял',text:'При тяжёлой проверке Силы — особенно на критическом успехе — вспомни повозку. В детстве Эстерос не смог поднять колесо, и придавленное животное погибло у него на глазах.'},
+      {kind:'Компаньон',tone:'mechanic',icon:'🐹',title:'Лупоглазик — не просто атака',text:'Это гнилой маленький спутник: шпионит, переносит мелочи и издаёт мерзкие звуки. Если «погибает», превращается в кашу до следующего оживления — но для Эстероса всё равно остаётся своим.'},
+      {kind:'Правило отыгрыша',tone:'secret',icon:'◉',title:'Доверие оживлённой души',text:'Оживлённое животное не обязано понимать человеческую ценность. Оно может вести к тому, что было важно именно ему: из страха, любви или долга. Подсказка должна быть правдивой, но не обязательно удобной.'}
+    ]}
+  };
+  function irlHeroKey(character){var id=String(character&&character.id||'');if(character&&character.campaignKey)return String(character.campaignKey);var found=IRL_HERO_ORDER.find(function(key){return IRL_HERO_META[key].legacyId===id;});return found||'';}
+  function irlHeroList(){var source=Array.isArray(w.characters)?w.characters:[];return IRL_HERO_ORDER.map(function(key){var character=source.find(function(item){return irlHeroKey(item)===key;});return{key:key,character:character||null,meta:IRL_HERO_META[key]};});}
+  function irlConsoleState(){var state=read(),stored=state&&state.data&&state.data.characterConsole;if(!stored||typeof stored!=='object')stored={};stored.selectedKey=IRL_HERO_ORDER.indexOf(stored.selectedKey)>=0?stored.selectedKey:'';stored.hpByKey=stored.hpByKey&&typeof stored.hpByKey==='object'?stored.hpByKey:{};stored.abilityUsageByKey=stored.abilityUsageByKey&&typeof stored.abilityUsageByKey==='object'?stored.abilityUsageByKey:{};stored.expandedEntry=typeof stored.expandedEntry==='string'?stored.expandedEntry:'';return stored;}
+  function saveIrlConsoleState(value){var state=read();if(!state)return false;state.data=state.data&&typeof state.data==='object'?state.data:{};state.data.characterConsole=value;state.updatedAt=new Date().toISOString();return write(state);}
+  function irlInitials(value){return String(value||'Г').trim().split(/\s+/).slice(0,2).map(function(part){return part.charAt(0);}).join('').toUpperCase();}
+  function irlPortrait(character,meta,className){var src=character&&character.portrait||meta.portrait,name=character&&character.name||meta.name;if(src)return'<img class="'+className+'" src="'+esc(src)+'" alt="">';return'<span class="zg-irl-hero-fallback">'+esc(irlInitials(name))+'</span>';}
+  function irlCurrentHp(entry,consoleState){var character=entry.character,key=entry.key,max=Math.max(1,Number(character&&character.hpMax)||1);var stored=Object.prototype.hasOwnProperty.call(consoleState.hpByKey,key)?Number(consoleState.hpByKey[key]):NaN;var value=isFinite(stored)?stored:Number(character&&character.hpCur);if(!isFinite(value))value=max;return Math.max(0,Math.min(max,Math.round(value)));}
+  function irlStatValue(character,key){var stat=character&&character.stats&&character.stats[key];if(typeof stat==='number')return Number(stat)||0;if(!stat)return 0;if(stat.cur!==undefined&&stat.cur!==null)return Number(stat.cur)||0;return Number(stat.base)||0;}
+  function irlList(value){if(Array.isArray(value))return value;if(value&&typeof value==='object')return Object.keys(value).map(function(key){return value[key];});if(value)return[value];return[];}
+  function irlItemName(value){if(value==null)return'';if(typeof value==='string')return value;return value.name||value.label||value.title||value.value||'';}
+  function irlCompactText(value){return String(value||'').replace(/[\r\n\s]+/g,' ').trim();}
+  function irlLongText(value){return String(value||'').replace(/\\n/g,'\n').replace(/\r\n?/g,'\n').replace(/[\u2028\u2029]/g,'\n').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();}
+  function irlStatusKey(value){if(value==null)return'';if(typeof value==='string')return value;return value.statusKey||value.key||value.value||value.name||value.label||'';}
+  function irlStatusDuration(value){if(!value||typeof value!=='object')return'';var remaining=value.remaining!=null?value.remaining:value.duration;if(remaining==null||remaining==='')return'';var unit={rounds:'раунд.',minutes:'мин.',hours:'ч.',days:'дн.'}[value.unit]||value.unit||'';var total=value.duration!=null&&String(value.duration)!==String(remaining)?' / '+value.duration:'';return[String(remaining)+total,unit].filter(Boolean).join(' ');}
+  function irlStatusRules(effect,mechanics){var result=[],value=effect&&typeof effect==='object'?effect:{},m=mechanics||{};if(m.cantAct)result.push('Блокирует действия');if(m.cantMove)result.push('Блокирует движение');if(m.cantReact)result.push('Без реакций');if(m.hasDisadvantage||m.attackDisadvantage)result.push('Помеха атак');if(m.grantAdvantageToAttackers)result.push('Преимущество атакующим');if(m.acMod)result.push((m.acMod>0?'+':'')+m.acMod+' КД');if(m.attackMod&&Math.abs(m.attackMod)<50)result.push((m.attackMod>0?'+':'')+m.attackMod+' к атаке');if(m.damageMod)result.push((m.damageMod>0?'+':'')+m.damageMod+' к урону');if(m.speedMod)result.push((m.speedMod>0?'+':'')+m.speedMod+' к скорости');if(m.startOfTurnEffect==='damage')result.push('Урон в начале хода: '+(Number(m.startOfTurnValue)>0?m.startOfTurnValue:m.startOfTurnDice||'1d4'));if(m.startOfTurnEffect==='heal')result.push('Лечение в начале хода: '+(Number(m.startOfTurnValue)>0?m.startOfTurnValue:m.startOfTurnDice||'1d4'));if(value.tickType)result.push((Number(value.tickValue)>0?'+':'')+(Number(value.tickValue)||0)+' '+value.tickType+' каждый раунд');return result;}
+  function irlStatuses(character){
+    var seen={},catalog=[];try{catalog=catalog.concat(Array.isArray(w.ALL_STATUSES)?w.ALL_STATUSES:[]);if(typeof w.zgGmStatusCatalog==='function')catalog=catalog.concat(w.zgGmStatusCatalog()||[]);}catch(ignore){}
+    return irlList(character&&character.statuses).concat(irlList(character&&character.statusEffects)).concat(irlList(character&&character.tempEffects).filter(function(effect){return effect&&effect.type==='status';})).map(function(raw,index){
+      var key=irlCompactText(irlStatusKey(raw)),definition=catalog.find(function(item){return item&&irlCompactText(item.key)===key;})||{},mechanics=null;try{mechanics=typeof w.getStatusMechanics==='function'&&(w.getStatusMechanics()||[]).find(function(item){return item&&irlCompactText(item.key)===key;});}catch(ignore){}
+      var name=irlCompactText(raw&&typeof raw==='object'&&(raw.label||raw.name||raw.value)||definition.label||key);if(!name||seen[key||name.toLowerCase()])return null;seen[key||name.toLowerCase()]=true;
+      var duration=irlStatusDuration(raw),description=irlLongText(raw&&typeof raw==='object'&&raw.description||definition.description||mechanics&&mechanics.description||'');
+      return{index:index,key:key,name:name,icon:raw&&typeof raw==='object'&&raw.icon||definition.icon||'✦',summary:duration||'Активное состояние',duration:duration,description:description,rules:irlStatusRules(raw,mechanics)};
+    }).filter(Boolean);
+  }
+  function irlSpellById(id){try{if(typeof w.findCharacterCatalogSpell==='function')return w.findCharacterCatalogSpell(id);}catch(ignore){}var source=Array.isArray(w.entries)?w.entries:[];return source.find(function(item){return item&&String(item.id)===String(id);})||null;}
+  function irlUsageLimit(value){var match=String(value||'').match(/(\d+)\s*раз/i);return match?Math.max(1,Number(match[1])||1):0;}
+  function irlAbilityDisplayName(value){var name=irlCompactText(value),quoted=name.match(/[«“"]([^»”"]+)[»”"]/);if(quoted&&quoted[1])return quoted[1].trim();return name.replace(/^[^\p{L}\p{N}]*/u,'').replace(/^(?:(?:коротк(?:ий|а)|долг(?:ий|ая)|довг(?:ий|а)|пассивн(?:ый|ая)|пасивн(?:ий|а))\s+(?:навык|навичка)|навык|навичка|позиция|черта|риса|стиль)\s*[:—-]?\s*/i,'').replace(/^[^\p{L}\p{N}]*/u,'').trim()||name;}
+  function irlAbilityVisual(raw,sourceKind){
+    raw=raw||{};var actionHay=[raw.name,raw.title,raw.type,raw.tip].join(' ').toLowerCase(),hay=[actionHay,raw.description,raw.effect,raw.schoolCustom].concat(raw.categories||[]).join(' ').toLowerCase(),kind='active',label='Активная способность',asset='images/ui/combat-generated/innate.png',icon=raw.icon||'✦';
+    if(sourceKind==='spell'){kind='spell';label=raw.spellType==='obrad'?'Обряд':raw.spellType==='folio'?'Фолиант':raw.spellType==='kodex'?'Боевой кодекс':'Заклинание';asset='images/ui/combat-generated/'+({obrad:'ritual',folio:'folio',kodex:'codex'}[raw.spellType]||'folio')+'.png';icon=raw.spellType==='obrad'?'◇':raw.spellType==='kodex'?'⚔':'◉';}
+    else if(/реакц|реакцi|reaction/.test(actionHay)){kind='reaction';label='Реакция';asset='images/ui/combat-generated/free-action.png';icon='↩';}
+    else if(/пассив|пасив/.test(actionHay)){kind='passive';label='Пассивный навык';asset='images/ui/combat-generated/innate.png';icon='◌';}
+    else if(sourceKind==='mastery'||/позици|стиль|стойк|черта|риса/.test(actionHay)){kind='trait';label=/черта|риса/.test(actionHay)?'Особенность':'Позиция · стиль';asset='images/ui/combat-generated/prepare.png';icon='⚜';}
+    else if(/коротк|коротка|short/.test(actionHay)){kind='short';label='Короткий навык';asset='images/ui/combat-generated/short-action.png';icon='➤';}
+    else if(/долг|довг|long/.test(actionHay)){kind='long';label='Долгий навык';asset='images/ui/combat-generated/long-action.png';icon='◈';}
+    var tone='gold';if(/пчел|рой|м[её]д|лес|природ|снадоб/.test(hay))tone='nature';else if(/кров|ожог|плам|огн/.test(hay))tone='blood';else if(/мертв|некро|гнил|кост|лупоглаз|труп/.test(hay))tone='decay';else if(/хлеб|агра|урож|батон/.test(hay))tone='harvest';else if(/душ|крыл|полет|пол[её]т|паден/.test(hay))tone='soul';else if(/экзист|разум|бестелес|памят|видени/.test(hay))tone='mind';else if(/гром|молн|бур|шторм/.test(hay))tone='storm';
+    return{kind:kind,label:label,tone:tone,asset:asset,icon:icon};
+  }
+  function irlSpellSections(spell){
+    var sections=[],push=function(key,label,value){value=irlLongText(value);if(value)sections.push({key:key,label:label,text:value});};push('description','Образ и предмет',spell.description);push('manifestation','Проявление',spell.manifestation||spell.visual);push('effect','Эффект и механика',[spell.effect,spell.battle,spell.extra||spell.additional].filter(Boolean).join('\n'));push('learning','Активация · изучение',spell.learnText);push('restriction','Ограничения',spell.restriction);irlList(spell.optFields).forEach(function(field){push('extra',field&&field.label||'Дополнительно',field&&field.text);});return sections;
+  }
+  function irlAbilities(character,consoleState,heroKey){
+    var source=[];irlList(character&&character.skills).forEach(function(raw,index){source.push({raw:raw,sourceKind:'skill',resourceKey:'skill-'+index});});irlList(character&&character.mastery).forEach(function(raw,index){source.push({raw:raw,sourceKind:'mastery',resourceKey:'mastery-'+index});});irlList(character&&character.spellRefs).forEach(function(id){var spell=irlSpellById(id);if(spell)source.push({raw:spell,sourceKind:'spell',spellId:String(id),resourceKey:'spell-'+String(id)});});
+    consoleState=consoleState||{abilityUsageByKey:{}};var seen={},result=[];source.forEach(function(sourceItem){var raw=sourceItem.raw||{},name=irlCompactText(irlItemName(raw));if(!name||seen[name.toLowerCase()])return;seen[name.toLowerCase()]=true;var visual=irlAbilityVisual(raw,sourceItem.sourceKind),isSpell=sourceItem.sourceKind==='spell',type=isSpell?visual.label:irlCompactText(raw.type||visual.label),uses=irlCompactText(isSpell?raw.cd:raw.usages||raw.cd||''),sheetUsage=character&&character.abilityUsage&&character.abilityUsage[sourceItem.resourceKey],spellUsage=isSpell&&character&&character.spellCD&&character.spellCD[sourceItem.spellId],cdMax=isSpell?irlUsageLimit(raw.cd):Math.max(0,Number(raw.cdMax)||0);cdMax=Math.max(cdMax,Number(sheetUsage&&sheetUsage.max)||0);var sheetUsed=sheetUsage?Math.max(0,Number(sheetUsage.used)||0):isSpell?Math.max(0,Number(spellUsage&&spellUsage.used)||0):Math.max(0,Number(raw.cdUsed)||0),sessionKey=String(heroKey||'')+'|'+sourceItem.resourceKey,hasSession=Object.prototype.hasOwnProperty.call(consoleState.abilityUsageByKey||{},sessionKey),cdUsed=hasSession?Math.max(0,Number(consoleState.abilityUsageByKey[sessionKey])||0):sheetUsed;cdUsed=Math.min(cdMax||cdUsed,cdUsed);var cooldown=cdMax?(cdUsed>=cdMax?'В кулдауне':'Доступно '+Math.max(0,cdMax-cdUsed)+' / '+cdMax):'';result.push({index:result.length,resourceKey:sourceItem.resourceKey,name:irlAbilityDisplayName(name),icon:visual.icon,iconAsset:visual.asset,visual:visual,type:type,uses:uses,cooldown:cooldown,cdMax:cdMax,cdUsed:cdUsed,isSpell:isSpell,description:irlLongText(raw.description||raw.desc||raw.effect||raw.text||''),sections:isSpell?irlSpellSections(raw):[]});});return result;
+  }
+  function irlCleanAbilityText(text,item){var aliases=[item&&item.name,item&&item.type,item&&item.uses].filter(Boolean).map(function(value){return irlCompactText(value).toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ');}),lines=irlLongText(text).split('\n'),kept=[];lines.forEach(function(line,index){var compact=irlCompactText(line),normalized=compact.toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ');if(index<4&&aliases.some(function(alias){return normalized===alias||normalized==='название '+alias||normalized==='тип '+alias||normalized==='использование '+alias;}))return;kept.push(line);});return irlLongText(kept.join('\n'));}
+  function irlRuleTone(line){var value=String(line||'').toLowerCase();if(!value)return'neutral';if(/критичес|критичн|критичне/.test(value))return'critical';if(/✔|✅|успех|успіх|срабатывает|спрацьовує/.test(value))return'success';if(/✘|❌|провал|невдач|неудач/.test(value))return'failure';if(/леч|исцел|восстан[^\n]*hp|стабилиз|віднов|регенер|\+\s*\d+\s*(?:hp|хп)/.test(value))return'healing';if(/урон|шкод|damage|ранен|кровотеч|теряет?\s+\d+\s*(?:hp|хп)|[−-]\s*\d+\s*(?:hp|хп)/.test(value))return'damage';if(/провер|перевір|спасброс|испытан|складн|сложност|\bсл\s*\d|бросок/.test(value))return'check';if(/огранич|обмеж|требует|потребує|не действует|не працю|нельзя|только после|лише в тому|совместимость|сумісн|повторное|условие|умова/.test(value))return'restriction';if(/ролевая|рольова|отыгр|фраза|произносит|промовля|игровая реакция|поведение|настроение|суть:|описание злобы/.test(value))return'roleplay';if(/^[🎯🌀🕊📌📜💀🧠🧬🟣🟡⚔🩸🔥💚]?\s*[\p{L}\s·/]+:\s*$/u.test(String(line||'').trim()))return'heading';return'neutral';}
+  function irlRuleLinesHtml(text){var prepared=irlLongText(text).replace(/\s+(?=(?:✔|✘|✅|❌|🎯|🌀|🕊|📌|📜|💀|🧠|🧬|🟣|🟡|⚔|🩸|🔥|💚)\s*)/g,'\n').replace(/\s+(?=(?:Критичес(?:кий|кая|кое)|Успех|Провал|Ограничение|Условие|Проверка)\s*:)/gi,'\n'),safeLines=prepared.split('\n').map(function(line){return line.trim();}).filter(Boolean);return'<div class="zg-irl-rule-lines">'+safeLines.map(function(line){var tone=irlRuleTone(line);return'<p class="zg-irl-rule-line tone-'+tone+'">'+esc(line)+'</p>';}).join('')+'</div>';}
+  function irlAbilityDescriptionHtml(item){var sections=item.sections&&item.sections.length?item.sections:[{key:'rules',label:item.isSpell?'Эффект':'Правила способности',text:irlCleanAbilityText(item.description,item)}];return sections.filter(function(section){return section.text;}).map(function(section){return'<section class="zg-irl-spell-section zg-irl-section-'+esc(section.key)+'"><h5>'+esc(section.label)+'</h5>'+irlRuleLinesHtml(section.text)+'</section>';}).join('');}
+  function irlAbilityResourceHtml(item){if(!item.cdMax)return'<span class="zg-irl-charge-label">'+esc(item.uses||item.cooldown||'Подробнее')+'</span>';var exhausted=item.cdUsed>=item.cdMax,pips='';for(var i=0;i<item.cdMax;i++)pips+='<i'+(i<item.cdUsed?' class="used"':'')+'></i>';return'<span class="zg-irl-charge-pips'+(exhausted?' exhausted':'')+'" aria-label="Потрачено '+item.cdUsed+' из '+item.cdMax+'">'+pips+'</span><span class="zg-irl-charge-label">'+esc(exhausted?'Все заряды потрачены':Math.max(0,item.cdMax-item.cdUsed)+' / '+item.cdMax+' готово')+'</span>';}
+  function irlAbilityCooldownHtml(item,heroKey){if(!item.cdMax)return'';var remaining=Math.max(0,item.cdMax-item.cdUsed),exhausted=remaining===0,cells='';for(var i=0;i<item.cdMax;i++){var spent=i<item.cdUsed,targetUsed=spent?i:i+1;cells+='<button type="button" class="zg-irl-charge-cell'+(spent?' spent':' ready')+'" onclick="zgIrlCharacterAbilityUsage(\''+heroKey+'\',\''+item.resourceKey+'\','+targetUsed+')" aria-label="'+(spent?'Вернуть заряд ':'Потратить заряд ')+(i+1)+'" aria-pressed="'+(spent?'true':'false')+'"><span>'+(i+1)+'</span></button>';}return'<section class="zg-irl-cooldown-console'+(exhausted?' exhausted':'')+'" aria-label="Кулдаун '+esc(item.name)+'"><div class="zg-irl-cooldown-copy"><small>⏱ КУЛДАУН · ЗАРЯДЫ</small><b>'+(remaining?'Готово '+remaining+' из '+item.cdMax:'Все заряды потрачены')+'</b>'+(item.uses?'<span>'+esc(item.uses)+'</span>':'')+'</div><div class="zg-irl-charge-cells">'+cells+'</div><p class="zg-irl-cooldown-note">Нажмите зелёную ячейку, чтобы потратить заряд. Нажмите красную, чтобы вернуть его. Изменение останется только в этой реальной сессии.</p></section>';}
+  function irlEntryHtml(item,kind,heroKey,consoleState){
+    var entryKey=heroKey+'|'+kind+'|'+item.index,open=consoleState.expandedEntry===entryKey,id='zg-irl-'+kind+'-'+heroKey+'-'+item.index,meta=kind==='ability'?(item.cdMax?[item.type]:[item.type,item.uses]):[item.duration],rules=kind==='status'?item.rules:[],isAbility=kind==='ability',visual=item.visual||{},articleClass='zg-irl-entry'+(isAbility?' ability-card kind-'+esc(visual.kind||'active')+' tone-'+esc(visual.tone||'gold'):'')+(open?' open':'');
+    var iconHtml=isAbility?'<span class="zg-irl-ability-visual">'+(item.iconAsset?'<img src="'+esc(item.iconAsset)+'" alt="">':esc(item.icon||'✦'))+'</span>':'<span class="zg-irl-row-icon">'+esc(item.icon||'✦')+'</span>',copyHtml=isAbility?'<span class="zg-irl-entry-copy"><small class="zg-irl-ability-kind">'+esc(visual.label||item.type)+'</small><strong>'+esc(item.name)+'</strong><small>'+esc(item.isSpell?'Заклинание из общего гримуара':item.uses||'Нажмите, чтобы открыть')+'</small></span>':'<span class="zg-irl-entry-copy"><strong>'+esc(item.name)+'</strong><small>'+esc(item.summary||item.type||'Нажмите, чтобы открыть')+'</small></span>',rightHtml=isAbility?irlAbilityResourceHtml(item):esc(item.duration||'Подробнее');
+    var seenMeta={};meta=meta.filter(function(value){if(!value)return false;var key=irlCompactText(value).toLowerCase(),visualKey=irlCompactText(visual.label).toLowerCase();if(!key||key===visualKey||seenMeta[key])return false;seenMeta[key]=true;return true;});return'<article class="'+articleClass+'"><button type="button" class="zg-irl-entry-toggle" onclick="zgIrlCharacterEntryToggle(\''+kind+'\','+item.index+')" aria-expanded="'+(open?'true':'false')+'" aria-controls="'+id+'">'+iconHtml+copyHtml+'<span class="zg-irl-ability-use">'+rightHtml+'</span><span class="zg-irl-entry-chevron">⌄</span></button><div id="'+id+'" class="zg-irl-entry-detail"'+(open?'':' hidden')+'>'+(meta.length?'<div class="zg-irl-entry-meta">'+meta.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+(isAbility?irlAbilityCooldownHtml(item,heroKey):'')+(isAbility?(item.description||item.sections&&item.sections.length?'<div class="zg-irl-entry-description">'+irlAbilityDescriptionHtml(item)+'</div>':'<div class="zg-irl-entry-no-description">В листе нет отдельного описания.</div>'):(item.description?'<div class="zg-irl-entry-description">'+esc(item.description)+'</div>':'<div class="zg-irl-entry-no-description">В листе нет отдельного описания.</div>'))+(rules.length?'<div class="zg-irl-status-rules">'+rules.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+'</div></article>';
+  }
+  function irlGmFocusHtml(heroKey,heroName){
+    var focus=IRL_GM_FOCUS[heroKey],title=focus&&focus.title||heroName,items=focus&&Array.isArray(focus.items)?focus.items:[];
+    return'<section class="zg-irl-gm-focus" aria-label="Фокус мастера: '+esc(heroName)+'"><header class="zg-irl-gm-focus-head"><span class="zg-irl-gm-focus-glyph">◉</span><span><small>Ролеплей · памятка мастера</small><h3>'+esc(title)+'</h3></span>'+(items.length?'<b class="zg-irl-gm-focus-count">'+items.length+' напоминания</b>':'')+'</header>'+(items.length?'<div class="zg-irl-gm-focus-grid">'+items.map(function(item){return'<article class="zg-irl-gm-note'+(item.priority?' priority':'')+(item.tone?' tone-'+esc(item.tone):'')+'"><span class="zg-irl-gm-note-icon">'+esc(item.icon||'✦')+'</span><small>'+esc(item.kind||'Заметка')+'</small><h4>'+esc(item.title||'Без названия')+'</h4><p>'+esc(item.text||'')+'</p></article>';}).join('')+'</div>':'<div class="zg-irl-gm-focus-empty"><b>Памятка ещё не собрана.</b> Добавим её вместе, когда определим главные триггеры и то, что мастер должен держать в голове во время сцены.</div>')+'</section>';
+  }
+  function renderIrlCharacters(){
+    var dock=el('zg-irl-character-dock'),card=el('zg-irl-character-card');if(!dock||!card)return;
+    var consoleState=irlConsoleState(),heroes=irlHeroList();
+    dock.innerHTML=heroes.map(function(entry){var character=entry.character,name=character&&character.name||entry.meta.name,hp=irlCurrentHp(entry,consoleState),active=consoleState.selectedKey===entry.key;return'<button type="button" class="zg-irl-hero-button'+(active?' active':'')+'" onclick="zgIrlCharacterToggle(\''+entry.key+'\')" aria-label="'+(active?'Свернуть карточку ':'Открыть карточку ')+esc(name)+'" aria-expanded="'+(active?'true':'false')+'">'+irlPortrait(character,entry.meta,'')+'<span class="zg-irl-hero-hp">'+hp+'</span></button>';}).join('');
+    var selected=heroes.find(function(entry){return entry.key===consoleState.selectedKey;});
+    card.classList.toggle('open',!!selected);if(!selected){card.innerHTML='';return;}
+    var character=selected.character||{},meta=selected.meta,name=character.name||meta.name,maxHp=Math.max(1,Number(character.hpMax)||1),hp=irlCurrentHp(selected,consoleState),quick=[['КД',Number(character.ac)||10],['СКОР.',character.speed||'—'],['ИНИЦ.',(Number(character.initiative)||0)>=0?'+'+(Number(character.initiative)||0):Number(character.initiative)||0]],statKeys=['str','dex','int','cha','per','con'],statuses=irlStatuses(character),abilities=irlAbilities(character,consoleState,selected.key),sub=[character.race,character.klasse,character.level!=null?'ур. '+character.level:''].filter(Boolean).join(' · ');
+    var statsHtml=statKeys.map(function(key){var value=irlStatValue(character,key);return'<div class="zg-irl-stat">'+(typeof w.zgStatIcon==='function'?w.zgStatIcon(key,'zg-irl-stat-icon'):'')+'<b>'+(value>=0?'+':'')+value+'</b><small>'+IRL_STAT_LABELS[key]+'</small></div>';}).join('');
+    var statusHtml=statuses.length?statuses.map(function(item){return irlEntryHtml(item,'status',selected.key,consoleState);}).join(''):'<div class="zg-irl-status-row empty"><span class="zg-irl-row-icon">✓</span><span><strong>Активных состояний нет</strong><small>Данные взяты из листа персонажа</small></span></div>';
+    var abilityCountLabel=abilities.length?' · '+abilities.length:'',abilitiesHtml=abilities.length?abilities.map(function(item){return irlEntryHtml(item,'ability',selected.key,consoleState);}).join(''):'<div class="zg-irl-character-empty">В листе пока нет способностей.</div>';
+    card.innerHTML='<header class="zg-irl-character-head"><div class="zg-irl-character-head-copy"><h2>'+esc(name)+'</h2><p>'+esc(sub||'Герой кампании')+'</p></div><div class="zg-irl-character-head-actions"><button type="button" class="zg-irl-character-refresh" onclick="zgIrlCharactersRefresh()" title="Заново взять данные из реестра">'+icon('reroll')+'<span>Обновить из реестра</span></button><button type="button" class="zg-irl-character-close" onclick="zgIrlCharacterClose()" aria-label="Закрыть карточку">×</button></div></header><div class="zg-irl-character-layout"><section class="zg-irl-character-mechanics"><div class="zg-irl-character-profile"><div class="zg-irl-character-portrait">'+irlPortrait(character,meta,'')+'</div><div><div class="zg-irl-hp-controls"><button type="button" onclick="zgIrlCharacterHp(\''+selected.key+'\',-1)" aria-label="Уменьшить HP">−</button><div class="zg-irl-hp-value"><div><b>'+hp+' / '+maxHp+'</b><small>СЕССИОННОЕ HP</small></div></div><button type="button" onclick="zgIrlCharacterHp(\''+selected.key+'\',1)" aria-label="Увеличить HP">+</button></div><div class="zg-irl-quick-values">'+quick.map(function(item){return'<div class="zg-irl-quick-value"><b>'+esc(item[1])+'</b><small>'+item[0]+'</small></div>';}).join('')+'</div><div class="zg-irl-session-hp-note">Изменение HP хранится только в текущей реальной сессии. Кнопка обновления снова берёт значения из реестра.</div></div></div><h3 class="zg-irl-character-section-title">Характеристики</h3><div class="zg-irl-stats">'+statsHtml+'</div></section><section class="zg-irl-character-live"><h3 class="zg-irl-character-section-title">Состояния</h3><div class="zg-irl-status-list">'+statusHtml+'</div><h3 class="zg-irl-character-section-title">Способности'+abilityCountLabel+'</h3><div class="zg-irl-ability-list">'+abilitiesHtml+'</div></section></div>'+irlGmFocusHtml(selected.key,name);
+  }
+  w.zgIrlCharactersRender=renderIrlCharacters;
+  w.zgIrlCharacterToggle=function(key){if(IRL_HERO_ORDER.indexOf(key)<0)return;var state=irlConsoleState(),next=state.selectedKey===key?'':key;if(next!==state.selectedKey)state.expandedEntry='';state.selectedKey=next;saveIrlConsoleState(state);if(state.selectedKey){w.zgIrlNamesToggle(false);savedNamesOpen=false;renderSaved();}renderIrlCharacters();};
+  w.zgIrlCharacterClose=function(){var state=irlConsoleState();state.selectedKey='';saveIrlConsoleState(state);renderIrlCharacters();};
+  w.zgIrlCharacterEntryToggle=function(kind,index){if(kind!=='status'&&kind!=='ability')return;var state=irlConsoleState();if(!state.selectedKey)return;var entryKey=state.selectedKey+'|'+kind+'|'+Math.max(0,Number(index)||0);state.expandedEntry=state.expandedEntry===entryKey?'':entryKey;saveIrlConsoleState(state);renderIrlCharacters();};
+  w.zgIrlCharacterHp=function(key,delta){var entry=irlHeroList().find(function(item){return item.key===key;});if(!entry||!entry.character)return;var state=irlConsoleState(),max=Math.max(1,Number(entry.character.hpMax)||1),current=irlCurrentHp(entry,state);state.hpByKey[key]=Math.max(0,Math.min(max,current+(Number(delta)||0)));saveIrlConsoleState(state);renderIrlCharacters();};
+  w.zgIrlCharacterAbilityUsage=function(heroKey,resourceKey,targetUsed){var entry=irlHeroList().find(function(item){return item.key===heroKey;});if(!entry||!entry.character)return;var state=irlConsoleState(),ability=irlAbilities(entry.character,state,heroKey).find(function(item){return item.resourceKey===resourceKey;});if(!ability||!ability.cdMax)return;var next=Math.max(0,Math.min(ability.cdMax,Number(targetUsed)||0));state.abilityUsageByKey[heroKey+'|'+resourceKey]=next;saveIrlConsoleState(state);renderIrlCharacters();};
+  w.zgIrlCharactersRefresh=function(){var state=irlConsoleState();irlHeroList().forEach(function(entry){if(entry.character)state.hpByKey[entry.key]=Math.max(0,Math.min(Math.max(1,Number(entry.character.hpMax)||1),Number(entry.character.hpCur)||0));});state.abilityUsageByKey={};state.syncedAt=new Date().toISOString();saveIrlConsoleState(state);renderIrlCharacters();if(typeof w.showToast==='function')w.showToast('Карточки и кулдауны обновлены из реестра персонажей.');};
+  function activePageName(){var active=document.querySelector?document.querySelector('.page.active'):null;return active&&active.id?active.id.replace(/^page-/,''):'';}
+  function render(page){var state=read(),bridge=el('zg-irl-session-bridge'),header=el('header'),current=page||activePageName()||irlCurrentPage||w.currentPage||'';if(current)irlCurrentPage=current;document.body.classList.toggle('zg-irl-table-view',current==='gm-table');if(header)header.hidden=current==='gm-table';if(bridge)bridge.hidden=!state||current==='gm-table';if(current==='gm-table'){renderCurrent();renderSaved();renderIrlCharacters();}}
+  w.zgIrlSessionStart=function(){var state=read();if(!state){var now=new Date().toISOString();state={id:'irl-'+Date.now(),active:true,startedAt:now,updatedAt:now,data:{}};write(state);}render('gm-table');return state;};
+  w.zgIrlSessionRead=function(){return read();};
+  w.zgIrlSessionSaveData=function(key,value){var state=read();if(!state)return false;state.data=state.data&&typeof state.data==='object'?state.data:{};state.data[String(key||'draft')]=value;state.updatedAt=new Date().toISOString();var saved=write(state);render();return saved;};
+  w.zgIrlSessionPageChanged=function(page){render(page);};
+  w.zgIrlSessionReturn=function(){if(read()&&typeof w.showPage==='function')w.showPage('gm-table');};
+  w.zgIrlSessionEndRequest=function(){var overlay=el('zg-irl-end-overlay');if(overlay)overlay.classList.add('open');};
+  w.zgIrlSessionEndCancel=function(){var overlay=el('zg-irl-end-overlay');if(overlay)overlay.classList.remove('open');};
+  w.zgIrlSessionEndConfirm=function(){
+    var state=read();
+    if(state){state.active=false;state.endedAt=new Date().toISOString();state.updatedAt=state.endedAt;try{var archive=JSON.parse(localStorage.getItem(ARCHIVE_KEY)||'[]');if(!Array.isArray(archive))archive=[];archive.unshift(state);localStorage.setItem(ARCHIVE_KEY,JSON.stringify(archive.slice(0,20)));localStorage.removeItem(ACTIVE_KEY);}catch(e){}}
+    w.zgIrlSessionEndCancel();render('home');if(typeof w.showPage==='function')w.showPage('home');if(typeof w.showToast==='function')w.showToast('Реальная сессия завершена. Данные сохранены в архиве этого устройства.');
+  };
+  function pickUnused(pool,used){var normalized=[];used.forEach(function(value){if(pool.indexOf(value)>=0&&normalized.indexOf(value)<0)normalized.push(value);});used.splice.apply(used,[0,used.length].concat(normalized));var available=pool.filter(function(value){return used.indexOf(value)<0;});while(!available.length&&used.length){used.shift();available=pool.filter(function(value){return used.indexOf(value)<0;});}if(!available.length)available=pool.slice();var value=available[randomIndex(available.length)];used.push(value);if(used.length>pool.length)used.splice(0,used.length-pool.length);return value;}
+  function findUnusedPair(first,bynames,used){var total=first.length*bynames.length,start=randomIndex(total);for(var offset=0;offset<total;offset++){var index=(start+offset)%total,firstName=first[Math.floor(index/bynames.length)],byname=bynames[index%bynames.length],name=firstName+' '+byname;if(used.indexOf(name)<0)return{firstName:firstName,byname:byname,name:name};}return null;}
+  function namesForProfile(meta,gender,age){var agePool=meta.firstByAge&&meta.firstByAge[age]||meta.first,result=agePool.filter(function(name){var feminine=/(?:а|ия)$/.test(name);return gender==='female'?feminine:!feminine;});return result.length?result:agePool;}
+  function surnamesForProfession(meta,profession){var result=meta.surnamesByProfession&&meta.surnamesByProfession[profession];return result&&result.length?result:meta.surnames;}
+  w.zgIrlNamesGenerate=function(){var data=nameState(),race=data.race,meta=catalog[race]||catalog.dwarf,first=namesForProfile(meta,data.gender,data.age),bynames=surnamesForProfession(meta,data.profession),firstKey=[race,data.gender,data.age].join(':'),bynameKey=race,firstUsed=data.firstUsedByProfile[firstKey]||(data.firstUsedByProfile[firstKey]=[]),bynameUsed=data.surnameUsedByProfile[bynameKey]||(data.surnameUsedByProfile[bynameKey]=[]),used=data.usedByRace[race]||(data.usedByRace[race]=[]),featureUsed=data.featureUsedByRace[race]||(data.featureUsedByRace[race]=[]),loreUsed=data.loreUsedByRace[race]||(data.loreUsedByRace[race]=[]),firstName=pickUnused(first,firstUsed),byname=pickUnused(bynames,bynameUsed),candidate=firstName+' '+byname,pair;if(used.indexOf(candidate)>=0){pair=findUnusedPair(first,bynames,used);if(pair){firstName=pair.firstName;byname=pair.byname;candidate=pair.name;}}currentIrlName={name:candidate,firstName:firstName,byname:byname,feature:pickUnused(meta.features,featureUsed),lore:buildNameLore(meta,firstName,byname,loreUsed),race:race,gender:data.gender,age:data.age,profession:data.profession};irlLorePinned=false;if(used.indexOf(candidate)<0)used.push(candidate);data.usedByRace[race]=used;data.firstUsedByProfile[firstKey]=firstUsed;data.surnameUsedByProfile[bynameKey]=bynameUsed;data.featureUsedByRace[race]=featureUsed;data.loreUsedByRace[race]=loreUsed;data.current=currentIrlName;saveNameState(data);renderCurrent();};
+  w.zgIrlNamesToggle=function(force){var pop=el('zg-irl-name-popover'),tool=el('zg-irl-name-tool');if(!pop)return;var opening=typeof force==='boolean'?force:!pop.classList.contains('open');if(opening&&savedNamesOpen){savedNamesOpen=false;renderSaved();}pop.classList.toggle('open',opening);if(tool){tool.classList.toggle('active',opening);tool.setAttribute('aria-expanded',opening?'true':'false');}if(opening&&!currentIrlName)w.zgIrlNamesGenerate();else if(opening)renderCurrent();};
+  w.zgIrlNamesDetailToggle=function(){renderCurrent();};
+  w.zgIrlNameLoreToggle=function(){irlLorePinned=!irlLorePinned;syncLoreVisibility();};
+  w.zgIrlRaceToggle=function(){var menu=el('zg-irl-race-menu'),button=el('zg-irl-race-button');if(!menu)return;var open=!menu.classList.contains('open');menu.classList.toggle('open',open);if(button)button.setAttribute('aria-expanded',open?'true':'false');};
+  w.zgIrlRaceChoose=function(race){if(!catalog[race])return;var data=nameState(),menu=el('zg-irl-race-menu'),button=el('zg-irl-race-button');data.race=race;data.profession=catalog[race].professions[0].id;data.current=null;currentIrlName=null;saveNameState(data);if(menu)menu.classList.remove('open');if(button)button.setAttribute('aria-expanded','false');w.zgIrlNamesGenerate();};
+  w.zgIrlProfileChoose=function(kind,value){var data=nameState(),meta=catalog[data.race]||catalog.dwarf,changed=false;if(kind==='gender'&&(value==='male'||value==='female')){changed=data.gender!==value;data.gender=value;}else if(kind==='age'&&ageLabels[value]){changed=data.age!==value;data.age=value;}else if(kind==='profession'&&meta.professions.some(function(job){return job.id===value;})){changed=data.profession!==value;data.profession=value;}else return;if(!changed)return;data.current=null;currentIrlName=null;saveNameState(data);w.zgIrlNamesGenerate();};
+  w.zgIrlNamesCopy=function(){if(!currentIrlName)return;var value=currentIrlName.name,done=function(){if(typeof w.showToast==='function')w.showToast('Имя скопировано: '+value);};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(value).then(done).catch(function(){var area=document.createElement('textarea');area.value=value;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();try{document.execCommand('copy');}catch(e){}area.remove();done();});};
+  w.zgIrlNamesSave=function(){if(!currentIrlName)return;var data=nameState(),saved=data.saved;if(saved.some(function(item){return item.name===currentIrlName.name;}))return;var detail=el('zg-irl-name-detail');saved.push({id:currentIrlName.race+'-'+Date.now(),name:currentIrlName.name,firstName:currentIrlName.firstName,byname:currentIrlName.byname,race:currentIrlName.race,gender:currentIrlName.gender,age:currentIrlName.age,profession:currentIrlName.profession,feature:detail&&detail.checked?currentIrlName.feature:'',lore:currentIrlName.lore,savedAt:new Date().toISOString()});data.saved=saved;data.current=currentIrlName;saveNameState(data);renderCurrent();renderSaved();if(typeof w.showToast==='function')w.showToast(currentIrlName.name+' сохранён на Столе мастера.');};
+  w.zgIrlSavedToggle=function(force){var opening=typeof force==='boolean'?force:!savedNamesOpen;savedNamesOpen=opening;if(opening)w.zgIrlNamesToggle(false);renderSaved();};
+  w.zgIrlSavedExpand=function(id){expandedSavedNameId=expandedSavedNameId===id?'':String(id||'');pendingNameDelete='';renderSaved();};
+  w.zgIrlSavedDeleteRequest=function(id){pendingNameDelete=String(id||'');renderSaved();};
+  w.zgIrlSavedDeleteCancel=function(){pendingNameDelete='';renderSaved();};
+  w.zgIrlSavedDeleteConfirm=function(id){var data=nameState(),before=data.saved.length;data.saved=data.saved.filter(function(item){return item.id!==id;});pendingNameDelete='';if(expandedSavedNameId===id)expandedSavedNameId='';if(data.saved.length===before)return;saveNameState(data);renderCurrent();renderSaved();if(typeof w.showToast==='function')w.showToast('Карточка удалена из этой сессии.');};
+  document.addEventListener('keydown',function(event){if(event.key==='Escape'){var pop=el('zg-irl-name-popover'),tool=el('zg-irl-name-tool'),menu=el('zg-irl-race-menu'),race=el('zg-irl-race-button');irlLorePinned=false;savedNamesOpen=false;if(menu)menu.classList.remove('open');if(race)race.setAttribute('aria-expanded','false');if(pop)pop.classList.remove('open');if(tool){tool.classList.remove('active');tool.setAttribute('aria-expanded','false');}renderSaved();syncLoreVisibility();}});
+  function init(){render(w.currentPage||'home');}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})(window);
+</script>
 
 <script>
 (function(w){
@@ -27064,12 +27432,62 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   </div>
 
 
+  <!-- ══ СТОЛ МАСТЕРА · РЕАЛЬНАЯ ИГРА ══ -->
+  <div class="page" id="page-gm-table">
+    <div class="zg-irl-table">
+      <button type="button" class="zg-irl-table-back" onclick="showPage('home')">← На главную</button>
+      <button type="button" id="zg-irl-name-tool" class="zg-irl-name-tool" onclick="zgIrlNamesToggle()" aria-expanded="false" aria-controls="zg-irl-name-popover"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c3-1 5-3 6-6l5-9 3 3-9 5c-3 1-5 3-6 6l1 1Z"/><path d="m13 7 4 4"/></svg><span>Имена</span></button>
+      <button type="button" id="zg-irl-saved-tool" class="zg-irl-saved-tool" onclick="zgIrlSavedToggle()" aria-expanded="false" aria-controls="zg-irl-saved"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Z"/></svg><span>Сохранённые</span><b id="zg-irl-saved-count">0</b></button>
+      <section id="zg-irl-name-popover" class="zg-irl-name-popover" aria-label="Генератор имён">
+        <div class="zg-irl-name-head">
+          <div><small id="zg-irl-name-caption">Случайный персонаж</small><button type="button" id="zg-irl-name-result" class="zg-irl-name-result" aria-expanded="false" aria-controls="zg-irl-name-lore" onclick="zgIrlNameLoreToggle()">—</button></div>
+          <div class="zg-irl-name-head-actions"><button type="button" class="zg-irl-name-copy" onclick="zgIrlNamesCopy()" aria-label="Копировать имя"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button><button type="button" class="zg-irl-name-close" onclick="zgIrlNamesToggle(false)" aria-label="Свернуть генератор"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div>
+        </div>
+        <div id="zg-irl-name-lore" class="zg-irl-name-lore" aria-live="polite"></div>
+        <div class="zg-irl-name-control">
+          <label>Раса</label>
+          <button type="button" id="zg-irl-race-button" class="zg-irl-race-button" onclick="zgIrlRaceToggle()" aria-expanded="false" aria-haspopup="listbox"><span>Дворф</span><span aria-hidden="true">⌄</span></button>
+          <div id="zg-irl-race-menu" class="zg-irl-race-menu" role="listbox" aria-label="Раса персонажа">
+            <button type="button" class="active" data-race="dwarf" role="option" aria-checked="true" onclick="zgIrlRaceChoose('dwarf')"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5h8l2 5-3 8H9l-3-8Z"/><path d="M9 10h6M10 14h4"/></svg><span><b>Дворф</b><small>Горные кланы</small></span></button>
+            <button type="button" data-race="human" role="option" aria-checked="false" onclick="zgIrlRaceChoose('human')"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M6 20c0-4 2-7 6-7s6 3 6 7"/></svg><span><b>Человек</b><small>Города и дороги</small></span></button>
+            <button type="button" data-race="orc" role="option" aria-checked="false" onclick="zgIrlRaceChoose('orc')"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8c2-4 12-4 14 0v6c-2 5-12 5-14 0Z"/><path d="m7 14-3 3 5-1M17 14l3 3-5-1M9 10h.01M15 10h.01"/></svg><span><b>Орк</b><small>Степные роды</small></span></button>
+            <button type="button" data-race="elf" role="option" aria-checked="false" onclick="zgIrlRaceChoose('elf')"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20C6 15 7 8 18 4c1 8-1 14-6 16Z"/><path d="M7 19c3-4 6-7 11-11"/></svg><span><b>Эльф</b><small>Лесные дома</small></span></button>
+          </div>
+        </div>
+        <div class="zg-irl-profile-row">
+          <fieldset class="zg-irl-profile-field"><legend>Пол</legend><div class="zg-irl-segments zg-irl-segments-two"><button type="button" class="active" data-irl-gender="male" aria-label="Мужчина" title="Мужчина" onclick="zgIrlProfileChoose('gender','male')"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="14" r="5"/><path d="m14 10 5-5M15 5h4v4"/></svg><span>Мужчина</span></button><button type="button" data-irl-gender="female" aria-label="Женщина" title="Женщина" onclick="zgIrlProfileChoose('gender','female')"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="5"/><path d="M12 14v7M9 18h6"/></svg><span>Женщина</span></button></div></fieldset>
+          <fieldset class="zg-irl-profile-field"><legend>Возраст</legend><div class="zg-irl-segments zg-irl-age-segments"><button type="button" data-irl-age="young" onclick="zgIrlProfileChoose('age','young')">Юный</button><button type="button" class="active" data-irl-age="adult" onclick="zgIrlProfileChoose('age','adult')">Взрослый</button><button type="button" data-irl-age="mature" onclick="zgIrlProfileChoose('age','mature')">Зрелый</button><button type="button" data-irl-age="old" onclick="zgIrlProfileChoose('age','old')">Пожилой</button></div></fieldset>
+        </div>
+        <fieldset class="zg-irl-profile-field zg-irl-profession-field"><legend>Занятие</legend><div id="zg-irl-professions" class="zg-irl-professions"></div></fieldset>
+        <label class="zg-irl-detail-toggle"><input id="zg-irl-name-detail" type="checkbox" onchange="zgIrlNamesDetailToggle()"><span class="zg-irl-detail-box" aria-hidden="true"></span><span>Особенность для отыгрыша</span></label>
+        <p id="zg-irl-name-feature" class="zg-irl-name-feature"></p>
+        <div class="zg-irl-name-actions"><button type="button" class="primary" onclick="zgIrlNamesGenerate()"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 0-2 5"/></svg><span>Ещё имя</span></button><button type="button" id="zg-irl-name-save" onclick="zgIrlNamesSave()"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Z"/></svg><span>Сохранить</span></button></div>
+      </section>
+      <aside id="zg-irl-saved" class="zg-irl-saved" aria-hidden="true"><div class="zg-irl-saved-head"><h2>Сохранённые имена</h2><button type="button" class="zg-irl-saved-close" onclick="zgIrlSavedToggle(false)" aria-label="Свернуть сохранённые имена"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div><div id="zg-irl-saved-list" class="zg-irl-saved-list"></div></aside>
+      <section id="zg-irl-character-card" class="zg-irl-character-card" aria-live="polite" aria-label="Карточка персонажа"></section>
+      <nav id="zg-irl-character-dock" class="zg-irl-character-dock" aria-label="Персонажи партии"></nav>
+    </div>
+  </div>
+
+  <div id="zg-irl-end-overlay" class="zg-irl-end-overlay" onclick="if(event.target===this)zgIrlSessionEndCancel()">
+    <div class="zg-irl-end-dialog" role="alertdialog" aria-modal="true" aria-labelledby="zg-irl-end-title">
+      <i aria-hidden="true">×</i>
+      <h2 id="zg-irl-end-title">Завершить реальную сессию?</h2>
+      <p>Быстрый возврат исчезнет, но данные этой игры останутся в локальном архиве устройства.</p>
+      <div class="zg-irl-end-actions">
+        <button type="button" onclick="zgIrlSessionEndCancel()">Продолжить игру</button>
+        <button type="button" class="danger" onclick="zgIrlSessionEndConfirm()">Завершить сессию</button>
+      </div>
+    </div>
+  </div>
+
+
   <!-- ══ МОДАЛКА: ОТПРАВИТЬСЯ В ПРИКЛЮЧЕНИЕ ══ -->
   <div id="zg-adv-overlay" class="zg-adv-overlay" onclick="if(event.target===this)zgAdvClose()">
     <div class="zg-adv-dialog" role="dialog" aria-modal="true">
       <div class="zg-adv-ornament">🧭</div>
       <button type="button" class="zg-adv-close" onclick="zgAdvClose()" aria-label="Закрыть">✕</button>
-      <button type="button" class="zg-adv-back" id="zg-adv-back" style="display:none" onclick="zgAdvShowMain()">← Назад</button>
+      <button type="button" class="zg-adv-back" id="zg-adv-back" style="display:none" onclick="zgAdvBack()">← Назад</button>
 
       <!-- Вид 1: выбор -->
       <div id="zg-adv-view-main" class="zg-adv-view">
@@ -27089,15 +27507,33 @@ window.zgEnsurePortableCharacterMedia = function(character) {
         </div>
       </div>
 
-      <!-- Вид 2: пароль мастера -->
+      <!-- Вид 2: выбор формата. На этом шаге Firebase-комната не создаётся. -->
+      <div id="zg-adv-view-format" class="zg-adv-view" style="display:none">
+        <div class="zg-adv-title">Как пройдёт игра?</div>
+        <div class="zg-adv-sub">Сетевую комнату создадим только для онлайн-игры.</div>
+        <div class="zg-adv-cards">
+          <button type="button" class="zg-adv-card" onclick="zgAdvChooseMode('online')">
+            <div class="zg-adv-mode-mark" aria-hidden="true">⌁</div>
+            <div class="zg-adv-card-title">Онлайн-игра</div>
+            <div class="zg-adv-card-desc">Firebase-комната, код приглашения и подключение игроков с других устройств.</div>
+          </button>
+          <button type="button" class="zg-adv-card" onclick="zgAdvChooseMode('irl')">
+            <div class="zg-adv-mode-mark" aria-hidden="true">✦</div>
+            <div class="zg-adv-card-title">Реальная игра</div>
+            <div class="zg-adv-card-desc">Пустой «Стол мастера» для игры за одним столом — без создания онлайн-комнаты.</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Вид 3: пароль мастера -->
       <div id="zg-adv-view-create" class="zg-adv-view" style="display:none">
-        <div class="zg-adv-title">Создать приключение</div>
-        <div class="zg-adv-sub">Введите пароль гейм-мастера.<br>Эта вкладка станет единственной мастерской вкладкой комнаты.</div>
+        <div class="zg-adv-title" id="zg-adv-create-title">Создать приключение</div>
+        <div class="zg-adv-sub" id="zg-adv-create-sub">Введите пароль гейм-мастера.</div>
         <div class="zg-adv-input-wrap">
           <span class="icon">⚔</span>
           <input id="zg-adv-master-password" class="zg-adv-input" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Пароль мастера" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')zgAdvCreateGame()">
         </div>
-        <button type="button" class="zg-adv-submit" onclick="zgAdvCreateGame()">Создать комнату</button>
+        <button type="button" class="zg-adv-submit" id="zg-adv-create-submit" onclick="zgAdvCreateGame()">Продолжить</button>
         <div class="zg-adv-hint" id="zg-adv-create-hint"></div>
       </div>
 
@@ -28701,7 +29137,8 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .sc-editor-description{margin-bottom:16px;padding:13px;border:1px solid #4a351b;border-left:2px solid #9d7130;border-radius:9px;background:linear-gradient(145deg,#080605ed,#141008e8);box-shadow:inset 0 0 24px #0007}.sc-editor-description-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:9px}.sc-editor-description-head>div{display:grid;gap:2px}.sc-editor-description-head .sc-editor-label{margin:0}.sc-editor-description-head small{color:#655a46;font:italic 9px Georgia,serif}
   .sc-level-toggle{position:relative;display:flex;align-items:center;gap:8px;min-height:30px;cursor:pointer;color:#9d8a61;font:700 8px/1.25 'Cinzel',serif;text-align:right}.sc-level-toggle input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.sc-level-toggle i{position:relative;flex:0 0 auto;width:34px;height:18px;border:1px solid #4d3b23;border-radius:10px;background:#0b0806;box-shadow:inset 0 0 8px #000;transition:.18s ease}.sc-level-toggle i:after{content:'';position:absolute;left:3px;top:3px;width:10px;height:10px;border-radius:50%;background:#66583f;box-shadow:0 1px 3px #000;transition:.18s ease}.sc-level-toggle input:checked+i{border-color:#9f7736;background:#35230c}.sc-level-toggle input:checked+i:after{left:19px;background:#e0b55d;box-shadow:0 0 7px #dcae51}.sc-level-toggle input:focus-visible+i{outline:2px solid #d0a149;outline-offset:2px}.skill-card-popup .sc-desc,.skill-card-popup .sc-desc-lvl{min-height:150px!important;padding:13px 14px!important;line-height:1.65!important;scrollbar-width:thin;scrollbar-color:#6e4e21 #090604}
   .sc-editor-actions{display:grid!important;grid-template-columns:minmax(0,1fr) 150px;gap:9px!important}.skill-card-popup .sc-save-btn,.skill-card-popup .sc-cancel-btn{box-sizing:border-box;border-radius:7px!important}.skill-card-popup .sc-save-btn{border-color:#a77b31!important;background:linear-gradient(#3a260d,#201408)!important;color:#f0cc78!important}.skill-card-popup .sc-save-btn:hover{border-color:#d1a74d!important;background:linear-gradient(#4a3010,#291908)!important}.skill-card-popup .sc-cancel-btn{border-color:#493b27!important;background:#0d0a07!important;color:#938263!important}.skill-card-popup .sc-cancel-btn:hover{border-color:#745a2d!important;color:#c7af79!important}
-  @media(max-width:600px){.skill-card-popup{padding:21px 15px 16px!important}.sc-editor-grid{grid-template-columns:1fr}.sc-editor-stepper{grid-template-columns:38px 62px 38px}.sc-editor-hint{grid-column:1/-1;padding:3px 0 0}.sc-editor-description-head{align-items:flex-start;flex-direction:column}.sc-level-toggle{align-self:stretch;justify-content:space-between;text-align:left}.sc-editor-actions{grid-template-columns:1fr!important}}
+  .sc-view-kicker{margin:0 42px 6px 0;font:700 10px/1.4 'Cinzel Decorative',serif;letter-spacing:1.8px;text-transform:uppercase}.sc-view-title{margin:0 32px 13px 0;color:#f0d89f;font:700 21px/1.32 'Cinzel Decorative',serif;overflow-wrap:anywhere}.sc-cooldown-console{margin-bottom:14px;padding:13px 14px;border:1px solid #4d6f4b;border-radius:9px;background:radial-gradient(circle at 92% 0,#3a7d4220,transparent 45%),linear-gradient(135deg,#0d170e,#080705);box-shadow:inset 0 1px #d9ffd913;transition:.16s ease}.sc-cooldown-console.exhausted{border-color:#bd4c44;background:radial-gradient(circle at 92% 0,#a8393038,transparent 47%),linear-gradient(135deg,#35110f,#0b0605);box-shadow:inset 0 0 18px #7d201f3d,0 0 15px #a92f2b25}.sc-cooldown-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.sc-cooldown-head span{color:#7fa980;font:700 9px/1.3 'Cinzel',serif;letter-spacing:1.3px}.sc-cooldown-head b{padding:3px 9px;border:1px solid #56865a;border-radius:999px;color:#93ca96;font:700 9px/1.2 'Cinzel',serif;letter-spacing:.4px}.sc-cooldown-console.exhausted .sc-cooldown-head span,.sc-cooldown-console.exhausted .sc-cooldown-head b{border-color:#bd4c44;color:#ff8f83}.sc-charge-cells{display:flex;gap:7px;flex-wrap:wrap}.sc-charge-cell{width:36px;height:36px;display:grid;place-items:center;padding:0;border:1px solid #57945d;border-radius:7px;background:linear-gradient(#1b3a20,#0b180e);color:#b7dfb7;font:700 11px/1 'Cinzel',serif;cursor:pointer;box-shadow:inset 0 1px #e1ffe218,0 3px 8px #0008;transition:.14s ease}.sc-charge-cell:hover,.sc-charge-cell:focus-visible{border-color:#8bd391;filter:brightness(1.2);outline:0;transform:translateY(-1px)}.sc-charge-cell.spent{border-color:#ca574d;background:linear-gradient(#571c18,#260b09);color:#ff9b90;box-shadow:inset 0 0 10px #a82e2e73,0 0 8px #b534302e}.sc-charge-cell.spent:hover,.sc-charge-cell.spent:focus-visible{border-color:#ff8174}.sc-cooldown-console>p{margin:9px 0 0;color:#74674f;font:italic 10px/1.4 Georgia,serif}.sc-ability-rules{margin-bottom:14px;padding:13px;border:1px solid color-mix(in srgb,var(--sc-accent),#22170d 64%);border-left:2px solid var(--sc-accent);border-radius:8px;background:radial-gradient(circle at 0 0,color-mix(in srgb,var(--sc-accent),transparent 88%),transparent 42%),#080604}.char-ability-rule-lines{display:grid;gap:6px}.char-ability-rule-line{margin:0;padding:8px 10px;border-left:3px solid #5b4528;border-radius:0 6px 6px 0;background:#120d0791;color:#d9c79e;font:13px/1.58 'Lora',serif;white-space:pre-wrap;overflow-wrap:anywhere}.char-ability-rule-line.tone-damage{border-color:#d36456;background:#4f1d184a;color:#ffc1ae}.char-ability-rule-line.tone-healing{border-color:#61b67a;background:#173c244d;color:#bcebc4}.char-ability-rule-line.tone-check{border-color:#55aeca;background:#15354352;color:#bce8f2}.char-ability-rule-line.tone-success{border-color:#72c57b;background:#183d2252;color:#c9efc9}.char-ability-rule-line.tone-failure{border-color:#dc685a;background:#4a191954;color:#ffc0b5}.char-ability-rule-line.tone-critical{border-color:#cf81e6;background:#40234f59;color:#f0c6ff;box-shadow:inset 0 0 18px #8d48ac14}.char-ability-rule-line.tone-restriction{border-color:#d2a241;background:#49361442;color:#f0d18d}.char-ability-rule-line.tone-roleplay{border-color:#9c7acf;background:#2e23464f;color:#ddc8f2}.char-ability-rule-line.tone-heading{padding:5px 9px;border-color:var(--sc-accent);background:color-mix(in srgb,var(--sc-accent),transparent 90%);color:#f1d795;font-family:'Cinzel',serif;font-weight:700}
+  @media(max-width:600px){.skill-card-popup{padding:21px 15px 16px!important}.sc-editor-grid{grid-template-columns:1fr}.sc-editor-stepper{grid-template-columns:38px 62px 38px}.sc-editor-hint{grid-column:1/-1;padding:3px 0 0}.sc-editor-description-head{align-items:flex-start;flex-direction:column}.sc-level-toggle{align-self:stretch;justify-content:space-between;text-align:left}.sc-editor-actions{grid-template-columns:1fr!important}.sc-cooldown-head{align-items:flex-start;flex-direction:column}.sc-charge-cell{width:34px;height:34px}}
 
   /* Character dialogs live outside the scaled sheet, so they need their own
      readability scale. Keep the physical height below the viewport and scroll
@@ -32182,6 +32619,13 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   .zg-magic3 .tone-blood{--spell-tone:#b95047}
   .zg-magic3 .tone-arcane{--spell-tone:#7666c5}
   .zg-magic3 .tone-gold{--spell-tone:#b88a3d}
+  .zg-magic3 .zg-spell-innate-card.kind-short{--spell-tone:#55c5bc}
+  .zg-magic3 .zg-spell-innate-card.kind-long{--spell-tone:#c58d43}
+  .zg-magic3 .zg-spell-innate-card.kind-passive{--spell-tone:#78b86e}
+  .zg-magic3 .zg-spell-innate-card.kind-trait{--spell-tone:#a77bcb}
+  .zg-magic3 .zg-spell-innate-card.kind-reaction{--spell-tone:#dc785f}
+  .zg-magic3 .zg-spell-innate-card.kind-active{--spell-tone:#c7a451}
+  .zg-magic3 .zg-spell-innate-card[class*="kind-"]{background:radial-gradient(circle at 10% 25%,color-mix(in srgb,var(--spell-tone) 22%,transparent),transparent 48%),linear-gradient(110deg,#1b130c,#0b0907 74%);box-shadow:inset 3px 0 var(--spell-tone),inset 0 0 0 1px #090705,0 4px 11px #0008}.zg-magic3 .zg-spell-innate-card[class*="kind-"]::before{content:'';position:absolute;inset:0;pointer-events:none;opacity:.14;background:linear-gradient(125deg,transparent 0 67%,var(--spell-tone) 67% 68%,transparent 68% 75%,var(--spell-tone) 75% 76%,transparent 76%)}.zg-magic3 .zg-spell-innate-card[class*="kind-"] .zg-spell-glyph{border-color:var(--spell-tone);box-shadow:inset 0 0 0 2px #0b0805,0 0 12px color-mix(in srgb,var(--spell-tone) 28%,transparent)}.zg-magic3 .zg-spell-innate-card[class*="kind-"] .zg-magic3-innate-type{box-sizing:border-box;width:max-content;max-width:100%;padding:2px 6px;border:1px solid color-mix(in srgb,var(--spell-tone) 58%,#24190f);border-radius:999px;background:color-mix(in srgb,var(--spell-tone) 9%,transparent);color:color-mix(in srgb,var(--spell-tone) 78%,#f2d898);font:700 6.5px/1.15 'Cinzel',serif;letter-spacing:.45px;text-transform:uppercase}
   @media(max-width:560px){
     .zg-vtt-drawer.backpack-skin[data-backpack-skin="magic"] .zg-magic3{
       height:100%;
@@ -39164,6 +39608,7 @@ function showPage(name) {
   if (!targetPage) { console.warn('showPage: page not found:', name); return; }
   targetPage.classList.add('active');
   currentPage = name;
+  if (typeof window.zgIrlSessionPageChanged === 'function') window.zgIrlSessionPageChanged(name);
   if (name !== 'home') {
     const homePage = document.getElementById('page-home');
     if (homePage) homePage.classList.remove('particles-live');
@@ -39184,7 +39629,7 @@ function showPage(name) {
   // logo sub
   const sub = document.getElementById('hub-logo-sub');
   if (sub) {
-    const labels = { home:'ПАНЕЛЬ МАСТЕРА', arena:'АРЕНА', catalog:'КАТАЛОГ', form:'КОНСТРУКТОР', detail:'ЗАПИСЬ', characters:'ПЕРСОНАЖИ', bestiary:'БЕСТИАРИЙ', world:'МИР И ЛОР', workshop:'МАСТЕРСКАЯ', manual:'МАНУАЛ' };
+    const labels = { home:'ПАНЕЛЬ МАСТЕРА', arena:'АРЕНА', catalog:'КАТАЛОГ', form:'КОНСТРУКТОР', detail:'ЗАПИСЬ', characters:'ПЕРСОНАЖИ', bestiary:'БЕСТИАРИЙ', world:'МИР И ЛОР', workshop:'МАСТЕРСКАЯ', 'gm-table':'СТОЛ МАСТЕРА', manual:'МАНУАЛ' };
     sub.textContent = labels[name] || 'ПАНЕЛЬ МАСТЕРА';
   }
   // detail back title
@@ -45655,6 +46100,7 @@ function applyCharsMigrations(arr, options) {
   (arr || []).forEach(function(c){
     if (!c) return;
     if(!c.campaignKey&&campaignKeys[String(c.id)])c.campaignKey=campaignKeys[String(c.id)];
+    try { applyCharacterCustomItemImages(c); } catch(eCustomArt) {}
     if (c.skills) c.skills = c.skills.filter(function(s){
       if (!s) return false;
       if (typeof s === 'object') return s.name || s.description;
@@ -45727,6 +46173,9 @@ function loadChars() {
       }
       if (typeof renderCharSheet === 'function' && typeof viewingCharId !== 'undefined' && viewingCharId) {
         try { renderCharSheet(); } catch(e2) {}
+      }
+      if (typeof window.zgIrlCharactersRender === 'function') {
+        try { window.zgIrlCharactersRender(); } catch(e3) {}
       }
       if (result.added && result.added.length && typeof showToast === 'function') {
         showToast('Добавлены отсутствующие герои: ' + result.added.length);
@@ -47571,6 +48020,116 @@ function removeBtn(onclick) {
     'onmouseover="this.style.color=\'#c05050\'" onmouseout="this.style.color=\'var(--dim)\'">✕</button>';
 }
 
+function characterAbilityVisual(item, field) {
+  item = item || {};
+  var hay = [item.name, item.type].join(' ').toLowerCase();
+  var kind = 'active';
+  var label = item.type || 'Активный';
+  var asset = 'images/ui/combat-generated/innate.png';
+  var color = '#c7a451';
+  if (/реакц|reaction/.test(hay)) {
+    kind = 'reaction'; label = 'Реакция'; asset = 'images/ui/combat-generated/free-action.png'; color = '#df7d62';
+  } else if (/пассив|пасив/.test(hay)) {
+    kind = 'passive'; label = 'Пассивный'; asset = 'images/ui/combat-generated/innate.png'; color = '#7fbd72';
+  } else if (/коротк|коротка|short/.test(hay)) {
+    kind = 'short'; label = 'Короткий'; asset = 'images/ui/combat-generated/short-action.png'; color = '#55c5bc';
+  } else if (/долг|довг|long/.test(hay)) {
+    kind = 'long'; label = 'Долгий'; asset = 'images/ui/combat-generated/long-action.png'; color = '#c58d43';
+  } else if (field === 'mastery' || /позици|стиль|стойк|черта|риса|ман[её]вр|заповед/.test(hay)) {
+    kind = 'trait'; label = item.type || 'Позиция · особенность'; asset = 'images/ui/combat-generated/prepare.png'; color = '#aa85d3';
+  }
+  return { kind: kind, label: label, asset: asset, color: color };
+}
+
+function characterAbilityDisplayName(value) {
+  var name = String(value || '').replace(/[\r\n\s]+/g, ' ').trim();
+  var quoted = name.match(/[«“"]([^»”"]+)[»”"]/);
+  if (quoted && quoted[1]) return quoted[1].trim();
+  return name.replace(/^[^\p{L}\p{N}]*/u, '')
+    .replace(/^(?:(?:коротк(?:ий|ая)|долг(?:ий|ая)|довг(?:ий|а)|пассивн(?:ый|ая)|пасивн(?:ий|а))\s+(?:навык|навичка)|навык|навичка|позиция|черта|риса|стиль|реакция)\s*[:—-]?\s*/i, '')
+    .replace(/^[^\p{L}\p{N}]*/u, '').trim() || name;
+}
+
+function characterAbilityCleanDescription(text, item) {
+  var normalize = function(value) { return String(value || '').replace(/[\r\n\s]+/g, ' ').trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' '); };
+  var aliases = [item && item.name, characterAbilityDisplayName(item && item.name), item && item.type, item && item.usages].filter(Boolean).map(normalize);
+  return String(text || '').replace(/\\n/g, '\n').replace(/\r\n?/g, '\n').split('\n').filter(function(line, index) {
+    var normalized = normalize(line);
+    if (!normalized) return false;
+    return !(index < 4 && aliases.some(function(alias) {
+      return normalized === alias || normalized === 'название ' + alias || normalized === 'тип ' + alias || normalized === 'использование ' + alias;
+    }));
+  }).join('\n').trim();
+}
+
+function characterAbilityRuleTone(line) {
+  var value = String(line || '').toLowerCase();
+  if (/критичес|критичн|критичне/.test(value)) return 'critical';
+  if (/✔|✅|успех|успіх|срабатывает|спрацьовує/.test(value)) return 'success';
+  if (/✘|❌|провал|невдач|неудач/.test(value)) return 'failure';
+  if (/леч|исцел|восстан[^\n]*hp|стабилиз|віднов|регенер|\+\s*\d+\s*(?:hp|хп)/.test(value)) return 'healing';
+  if (/урон|шкод|damage|ранен|кровотеч|теряет?\s+\d+\s*(?:hp|хп)|[−-]\s*\d+\s*(?:hp|хп)/.test(value)) return 'damage';
+  if (/провер|перевір|спасброс|испытан|складн|сложност|\bсл\s*\d|бросок/.test(value)) return 'check';
+  if (/огранич|обмеж|требует|потребує|не действует|не працю|нельзя|только после|лише в тому|совместимость|сумісн|повторное|условие|умова/.test(value)) return 'restriction';
+  if (/ролевая|рольова|отыгр|фраза|произносит|промовля|игровая реакция|поведение|настроение|суть:|описание злобы/.test(value)) return 'roleplay';
+  if (/^[🎯🌀🕊📌📜💀🧠🧬🟣🟡⚔🩸🔥💚]?\s*[\p{L}\s·/]+:\s*$/u.test(String(line || '').trim())) return 'heading';
+  return 'neutral';
+}
+
+function characterAbilityRulesHtml(text, item) {
+  var prepared = characterAbilityCleanDescription(text, item)
+    .replace(/\s+(?=(?:✔|✘|✅|❌|🎯|🌀|🕊|📌|📜|💀|🧠|🧬|🟣|🟡|⚔|🩸|🔥|💚)\s*)/g, '\n')
+    .replace(/\s+(?=(?:Критичес(?:кий|кая|кое)|Успех|Провал|Ограничение|Условие|Проверка)\s*:)/gi, '\n');
+  var lines = prepared.split('\n').map(function(line) { return line.trim(); }).filter(Boolean);
+  return '<div class="char-ability-rule-lines">' + lines.map(function(line) {
+    return '<p class="char-ability-rule-line tone-' + characterAbilityRuleTone(line) + '">' + escHTML(line) + '</p>';
+  }).join('') + '</div>';
+}
+
+function characterAbilityRowHtml(c, field, item, index, emptyLabel, fallbackIcon) {
+  var rawName = (item && item.name) || '';
+  var name = characterAbilityDisplayName(rawName);
+  var descRaw = (item && item.description) || '';
+  var cleanDesc = characterAbilityCleanDescription(descRaw, item);
+  var hasDesc = !!cleanDesc;
+  var descPreview = hasDesc ? cleanDesc.replace(/\s+/g, ' ').slice(0, 86) + (cleanDesc.length > 86 ? '…' : '') : 'Нажмите, чтобы открыть карточку';
+  var visual = characterAbilityVisual(item, field);
+  var cdMax = parseInt(item && item.cdMax, 10) || 0;
+  var cdUsed = parseInt(item && item.cdUsed, 10) || 0;
+  var cdBadge = '';
+  if (cdMax > 0) {
+    var remaining = Math.max(0, cdMax - cdUsed);
+    var cells = '';
+    for (var ci = 0; ci < cdMax; ci++) {
+      var spent = ci < cdUsed;
+      var targetUsed = spent ? ci : ci + 1;
+      cells += '<button type="button" class="char-ability-charge-cell' + (spent ? ' spent' : '') + '" onclick="event.stopPropagation();characterAbilitySetUsage(' + c.id + ',\'' + field + '\',' + index + ',' + targetUsed + ')" aria-label="' + (spent ? 'Вернуть заряд ' : 'Потратить заряд ') + (ci + 1) + '" aria-pressed="' + (spent ? 'true' : 'false') + '">' + (ci + 1) + '</button>';
+    }
+    cdBadge = '<span class="char-ability-cd' + (remaining === 0 ? ' exhausted' : '') + '"><span class="char-ability-cd-label">' + (remaining === 0 ? 'ВСЁ ПОТРАЧЕНО' : remaining + ' / ' + cdMax + ' ГОТОВО') + '</span><span class="char-ability-charge-cells">' + cells + '</span></span>';
+  }
+  return '<div class="char-ability-row kind-' + visual.kind + '" data-character-ability-kind="' + visual.kind + '" onclick="openSkillCardPopup(' + c.id + ',\'' + field + '\',' + index + ')">' +
+    '<span class="char-ability-icon"><img src="' + visual.asset + '" alt="" onerror="this.remove();this.parentNode.textContent=\'' + fallbackIcon + '\'"></span>' +
+    '<span class="char-ability-copy"><small class="char-ability-kind">' + escHTML(visual.label) + '</small><strong class="' + (name ? '' : 'empty') + '">' + escHTML(name || emptyLabel) + '</strong><small class="char-ability-preview">' + escHTML(descPreview) + '</small></span>' +
+    cdBadge +
+    '<span class="char-ability-open">' + (hasDesc ? '▶' : '✎') + '</span>' +
+    '<button class="char-ability-delete" onclick="event.stopPropagation();removeListItem(' + c.id + ',\'' + field + '\',' + index + ')" title="Удалить" aria-label="Удалить">×</button>' +
+  '</div>';
+}
+
+window.characterAbilitySetUsage = function(charId, field, index, targetUsed) {
+  var c = characters.find(function(character) { return String(character.id) === String(charId); });
+  var list = c && Array.isArray(c[field]) ? c[field] : null;
+  var item = list && list[index];
+  if (!item) return;
+  var cdMax = Math.max(0, parseInt(item.cdMax, 10) || 0);
+  if (!cdMax) return;
+  item.cdUsed = Math.max(0, Math.min(cdMax, parseInt(targetUsed, 10) || 0));
+  saveChars();
+  var listId = (field === 'skills' ? 'skills-list-' : 'mastery-list-') + charId;
+  var el = document.getElementById(listId);
+  if (el) el.innerHTML = field === 'skills' ? buildSkillsList(c) : buildMasteryList(c);
+};
+
 function buildSkillsList(c) {
   var items = c.skills || [];
   // Migration: string → object
@@ -47583,45 +48142,7 @@ function buildSkillsList(c) {
     }
   }
   return items.map(function(sk, i) {
-    var name = (sk && sk.name) || '';
-    var type = (sk && sk.type) || '';
-    var descRaw = (sk && sk.description) || '';
-    var hasDesc = descRaw && descRaw.trim();
-    var descPreview = hasDesc ? descRaw.replace(/\s+/g, ' ').slice(0, 70) + (descRaw.length > 70 ? '…' : '') : '';
-    var displayName = name || 'Новый навык — нажми чтобы создать';
-
-    // CD-бейдж (как у заклинаний, только без parse из текста — прямое cdMax/cdUsed)
-    var cdMax = parseInt(sk.cdMax, 10) || 0;
-    var cdUsed = parseInt(sk.cdUsed, 10) || 0;
-    var cdBadge = '';
-    if (cdMax > 0) {
-      var onCD = cdUsed >= cdMax;
-      var partialCD = cdUsed > 0 && !onCD;
-      if (onCD) {
-        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#ff6060;padding:2px 8px;border:2px solid #c04040;border-radius:9px;background:#c0404025;white-space:nowrap;box-shadow:0 0 6px #c0404044">⏳КД</span>';
-      } else if (partialCD) {
-        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#e0a040;padding:2px 8px;border:1px solid #e0a04088;border-radius:9px;background:#e0a04018;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
-      } else {
-        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#60c060;padding:2px 8px;border:1px solid #60c06066;border-radius:9px;background:#60c06014;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
-      }
-    }
-
-    return '<div onclick="openSkillCardPopup(' + c.id + ',\'skills\',' + i + ')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:5px;border-left:3px solid var(--gold2);background:#0e0a06;border-radius:0 4px 4px 0;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#1a1208\'" onmouseout="this.style.background=\'#0e0a06\'">' +
-      '<span style="font-size:13px;color:var(--gold2)">🎯</span>' +
-      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
-        '<div style="font-family:\'Cinzel\',serif;font-size:12px;color:' + (name?'var(--text)':'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:' + (name?'600':'400') + '">' + escHTML(displayName) + '</div>' +
-        (type || descPreview
-          ? '<div style="font-size:10px;color:var(--dim);letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-              (type ? escHTML(type) : '') +
-              (type && descPreview ? ' · ' : '') +
-              (descPreview ? '<span style="font-style:italic">ⓘ ' + escHTML(descPreview) + '</span>' : '') +
-            '</div>'
-          : '') +
-      '</div>' +
-      cdBadge +
-      (hasDesc ? '<span style="font-size:10px;color:var(--dim)">▶</span>' : '<span style="font-size:10px;color:var(--gold2);opacity:.6">✎</span>') +
-      '<button onclick="event.stopPropagation();removeListItem(' + c.id + ',\'skills\',' + i + ')" style="background:transparent;border:none;color:#444;font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Удалить">×</button>' +
-    '</div>';
+    return characterAbilityRowHtml(c, 'skills', sk, i, 'Новый навык — нажми чтобы создать', '🎯');
   }).join('');
 }
 
@@ -47636,44 +48157,7 @@ function buildMasteryList(c) {
     }
   }
   return items.map(function(m, i) {
-    var name = (m && m.name) || '';
-    var type = (m && m.type) || '';
-    var descRaw = (m && m.description) || '';
-    var hasDesc = descRaw && descRaw.trim();
-    var descPreview = hasDesc ? descRaw.replace(/\s+/g, ' ').slice(0, 70) + (descRaw.length > 70 ? '…' : '') : '';
-    var displayName = name || 'Новое мастерство — нажми чтобы создать';
-
-    var cdMax = parseInt(m.cdMax, 10) || 0;
-    var cdUsed = parseInt(m.cdUsed, 10) || 0;
-    var cdBadge = '';
-    if (cdMax > 0) {
-      var onCD = cdUsed >= cdMax;
-      var partialCD = cdUsed > 0 && !onCD;
-      if (onCD) {
-        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#ff6060;padding:2px 8px;border:2px solid #c04040;border-radius:9px;background:#c0404025;white-space:nowrap;box-shadow:0 0 6px #c0404044">⏳КД</span>';
-      } else if (partialCD) {
-        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#e0a040;padding:2px 8px;border:1px solid #e0a04088;border-radius:9px;background:#e0a04018;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
-      } else {
-        cdBadge = '<span style="font-family:\'Cinzel\',serif;font-size:10px;font-weight:700;color:#60c060;padding:2px 8px;border:1px solid #60c06066;border-radius:9px;background:#60c06014;white-space:nowrap">' + (cdMax - cdUsed) + '/' + cdMax + '</span>';
-      }
-    }
-
-    return '<div onclick="openSkillCardPopup(' + c.id + ',\'mastery\',' + i + ')" style="display:flex;align-items:center;gap:8px;padding:9px 11px;margin-bottom:5px;border-left:3px solid #8f7f5f;background:#0e0a06;border-radius:0 4px 4px 0;cursor:pointer;transition:background .15s" onmouseover="this.style.background=\'#1a1208\'" onmouseout="this.style.background=\'#0e0a06\'">' +
-      '<span style="font-size:13px;color:#8f7f5f">⚔</span>' +
-      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
-        '<div style="font-family:\'Cinzel\',serif;font-size:12px;color:' + (name?'var(--text)':'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:' + (name?'600':'400') + '">' + escHTML(displayName) + '</div>' +
-        (type || descPreview
-          ? '<div style="font-size:10px;color:var(--dim);letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-              (type ? escHTML(type) : '') +
-              (type && descPreview ? ' · ' : '') +
-              (descPreview ? '<span style="font-style:italic">ⓘ ' + escHTML(descPreview) + '</span>' : '') +
-            '</div>'
-          : '') +
-      '</div>' +
-      cdBadge +
-      (hasDesc ? '<span style="font-size:10px;color:var(--dim)">▶</span>' : '<span style="font-size:10px;color:#8f7f5f;opacity:.6">✎</span>') +
-      '<button onclick="event.stopPropagation();removeListItem(' + c.id + ',\'mastery\',' + i + ')" style="background:transparent;border:none;color:#444;font-size:18px;cursor:pointer;padding:0 4px;line-height:1" title="Удалить">×</button>' +
-    '</div>';
+    return characterAbilityRowHtml(c, 'mastery', m, i, 'Новое мастерство — нажми чтобы создать', '⚔');
   }).join('');
 }
 
@@ -47695,7 +48179,8 @@ window.openSkillCardPopup = function(charId, field, idx) {
   if (old) old.remove();
 
   var isMobile = window.innerWidth < 600;
-  var typeColor = field==='skills' ? 'var(--gold2)' : '#8f7f5f';
+  var viewVisual = characterAbilityVisual(item, field);
+  var typeColor = viewVisual.color;
   var typeIcon = field==='skills' ? '🎯' : '⚔';
   var typeLabel = field==='skills' ? 'НАВЫК' : 'МАСТЕРСТВО / ПОЗИЦИЯ';
   var typeOptions = field==='skills'
@@ -47717,6 +48202,10 @@ window.openSkillCardPopup = function(charId, field, idx) {
   popup.style.setProperty('--sc-accent', typeColor);
 
   function renderContent() {
+    viewVisual = characterAbilityVisual(item, field);
+    typeColor = viewVisual.color;
+    popup.style.setProperty('--sc-accent', typeColor);
+    popup.style.borderColor = typeColor;
     var mode = popup.dataset.mode;
     if (mode === 'edit') {
       popup.innerHTML =
@@ -47886,24 +48375,18 @@ window.openSkillCardPopup = function(charId, field, idx) {
         var charges = '';
         for (var ci = 0; ci < cdMax; ci++) {
           var spent = ci < cdUsed;
-          charges += '<div data-charge-idx="' + ci + '" class="sc-charge" ' +
-            'style="width:26px;height:26px;border-radius:50%;border:2px solid ' + (spent?'#c04040':'#50a050') + ';' +
-            'background:' + (spent?'#c0404030':'#50a05020') + ';cursor:pointer;display:flex;align-items:center;justify-content:center">' +
-            '<span style="font-size:11px;color:' + (spent?'#c04040':'#50a050') + '">' + (spent?'✕':'✓') + '</span></div>';
+          charges += '<button type="button" data-charge-idx="' + ci + '" class="sc-charge-cell' + (spent ? ' spent' : '') + '" aria-label="' + (spent ? 'Вернуть заряд ' : 'Потратить заряд ') + (ci + 1) + '" aria-pressed="' + (spent ? 'true' : 'false') + '"><span>' + (ci + 1) + '</span></button>';
         }
         var onCD = cdUsed >= cdMax;
-        cdWidgetHTML = '<div style="background:#0a0804;border:1px solid ' + (onCD ? '#c04040' : 'var(--border)') + ';border-radius:4px;padding:10px 14px;margin-bottom:14px">' +
-          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' +
-            '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px">⏱ КУЛДАУН</span>' +
+        cdWidgetHTML = '<div class="sc-cooldown-console' + (onCD ? ' exhausted' : '') + '">' +
+          '<div class="sc-cooldown-head">' +
+            '<span>⏱ КУЛДАУН · ЗАРЯДЫ</span>' +
             (onCD
-              ? '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#ff6060;padding:2px 10px;border:2px solid #c04040;border-radius:10px;background:#c0404025;letter-spacing:.5px">⏳ В КД</span>'
-              : '<span style="font-family:\'Cinzel\',serif;font-size:11px;font-weight:700;color:#60c060;padding:2px 9px;border:1px solid #60c06066;border-radius:10px;background:#60c06014">' + (cdMax - cdUsed) + '/' + cdMax + '</span>') +
+              ? '<b>ВСЕ ЗАРЯДЫ ПОТРАЧЕНЫ</b>'
+              : '<b>' + (cdMax - cdUsed) + ' ИЗ ' + cdMax + ' ГОТОВО</b>') +
           '</div>' +
-          '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-            '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim)">Заряды:</span>' +
-            '<div class="sc-charges" style="display:flex;gap:5px;flex-wrap:wrap">' + charges + '</div>' +
-            (cdUsed > 0 ? '<button class="sc-cd-reset" style="margin-left:auto;padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:\'Cinzel\',serif;font-size:10px;cursor:pointer;border-radius:3px">↩ Сброс</button>' : '') +
-          '</div>' +
+          '<div class="sc-charge-cells">' + charges + '</div>' +
+          '<p>Зелёная ячейка тратит заряд, красная возвращает его.</p>' +
         '</div>';
       }
 
@@ -47945,12 +48428,12 @@ window.openSkillCardPopup = function(charId, field, idx) {
 
       popup.innerHTML =
         '<button class="sc-close-x" style="position:absolute;top:8px;right:10px;background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>' +
-        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:11px;color:' + typeColor + ';letter-spacing:2px;margin-bottom:6px">' + typeIcon + ' ' + typeLabel + (item.type ? ' · <span style="color:var(--muted)">' + escHTML(item.type) + '</span>' : '') + '</div>' +
-        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:19px;color:var(--text);margin-bottom:' + (item.usages?'6':'16') + 'px;padding-right:28px;line-height:1.3">' + escHTML(item.name || '—') + '</div>' +
+        '<div class="sc-view-kicker" style="color:' + typeColor + '">' + typeIcon + ' ' + escHTML(viewVisual.label.toUpperCase()) + '</div>' +
+        '<div class="sc-view-title">' + escHTML(characterAbilityDisplayName(item.name) || '—') + '</div>' +
         (item.usages ? '<div style="font-size:11px;color:var(--dim);margin-bottom:14px">⏳ ' + escHTML(item.usages) + '</div>' : '') +
         cdWidgetHTML +
         lvlSwitcherHTML +
-        (viewDescText ? '<div style="color:var(--muted);line-height:1.7;white-space:pre-wrap;font-size:13px;font-family:\'Lora\',serif;padding:14px;background:#080604;border-radius:6px;border:1px solid #1e1508;margin-bottom:14px">' + escHTML(viewDescText) + '</div>' : '<div style="color:var(--dim);font-size:12px;font-style:italic;margin-bottom:14px;padding:14px;background:#080604;border-radius:6px;border:1px dashed #1e1508">Нет описания. Нажми «Редактировать» чтобы добавить.</div>') +
+        (characterAbilityCleanDescription(viewDescText, item) ? '<div class="sc-ability-rules">' + characterAbilityRulesHtml(viewDescText, item) + '</div>' : '<div style="color:var(--dim);font-size:12px;font-style:italic;margin-bottom:14px;padding:14px;background:#080604;border-radius:6px;border:1px dashed #1e1508">Нет описания. Нажми «Редактировать» чтобы добавить.</div>') +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           '<button class="sc-edit-btn" style="flex:1;padding:11px;border:1px solid ' + typeColor + ';background:#1a1208;color:var(--gold);font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">✏ Редактировать</button>' +
           '<button class="sc-close-btn" style="padding:11px 20px;border:1px solid #333;background:transparent;color:#888;font-family:\'Cinzel\',serif;font-size:12px;cursor:pointer;border-radius:4px;min-height:44px">Закрыть</button>' +
@@ -47968,14 +48451,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
         };
       });
       // Кликабельные заряды: клик по чарджу тратит/возвращает
-      var cdReset = popup.querySelector('.sc-cd-reset');
-      if (cdReset) cdReset.onclick = function() {
-        item.cdUsed = 0;
-        saveChars();
-        refreshList();
-        renderContent();
-      };
-      popup.querySelectorAll('.sc-charge').forEach(function(ch){
+      popup.querySelectorAll('.sc-charge-cell').forEach(function(ch){
         ch.onclick = function() {
           var i = parseInt(ch.getAttribute('data-charge-idx'), 10);
           var curUsed = parseInt(item.cdUsed, 10) || 0;
@@ -48075,7 +48551,7 @@ function buildEquipList(c) {
     return '<div onclick="openItemConstructor(' + c.id + ',\'inventory\',' + entry.index + ')" ' +
       'style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:6px 9px;border:1px solid #60a06055;border-radius:4px;background:#60a0600d;cursor:pointer">' +
       '<button type="button" onclick="event.stopPropagation();toggleInventoryEquip(' + c.id + ',' + entry.index + ')" title="Снять" style="width:18px;height:18px;border-radius:3px;border:2px solid #60a060;background:#60a06030;color:#8bd28b;cursor:pointer;padding:0">✓</button>' +
-      '<div style="width:32px;height:32px;flex-shrink:0;border:1px solid var(--border);border-radius:4px;background:#0a0704;font-size:17px;display:flex;align-items:center;justify-content:center">' + iicon(item) + '</div>' +
+      '<div class="char-inventory-equip-art">' + iicon(item) + '</div>' +
       '<div style="flex:1;min-width:0"><div style="font-family:\'Lora\',serif;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(name) + '</div>' +
       (description ? '<div style="font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic">ⓘ ' + escHTML(description) + '</div>' : '') +
       '</div><small style="color:#6a9b6a;font-family:\'Cinzel\',serif;font-size:8px">' + escHTML(item.slot || 'экипировано') + '</small></div>';
@@ -48122,7 +48598,7 @@ function buildEquipList(c) {
         'background:' + (isEquipped ? '#60a06030' : 'transparent') + ';flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px">' +
         (isEquipped ? '✓' : '') +
       '</div>' +
-      '<div style="width:32px;height:32px;flex-shrink:0;border:1px solid var(--border);border-radius:4px;background:#0a0704;display:flex;align-items:center;justify-content:center">' + icon + '</div>' +
+      '<div class="char-inventory-equip-art">' + icon + '</div>' +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">' +
         '<div style="font-family:\'Lora\',serif;font-size:12px;color:' + (hasName ? 'var(--text)' : 'var(--dim)') + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + escHTML(displayName) + '</div>' +
         (descPreview ? '<div style="font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:italic">ⓘ ' + escHTML(descPreview) + '</div>' : '') +
@@ -48964,6 +49440,51 @@ var _charInventorySelection = {};
 var _charInventorySort = {};
 var _charInventoryOpen = {};
 
+var CHARACTER_CUSTOM_ITEM_ICONS = {
+  evan: {
+    'затвердевший батон (повреждено)': 'hero-evan-hardened-baguette',
+    'кулон-батон (талисман)': 'hero-evan-bread-pendant',
+    'обугленная ряса (одежда)': 'hero-evan-charred-robe',
+    'мешок': 'hero-evan-pilgrim-sack'
+  },
+  esteros: {
+    'порванная одежда': 'hero-esteros-torn-clothes',
+    'гримуар': 'hero-esteros-animal-grimoire',
+    'картошка (большая)': 'hero-esteros-large-potatoes',
+    'мешок малый с монетами': 'hero-esteros-coin-sack',
+    'зубы крысы х2когти крысы х6': 'hero-esteros-rat-teeth-claws',
+    'гриб надкушенный х2,гриб зеленая хрупь': 'hero-esteros-swamp-mushrooms',
+    'обломок посоха': 'hero-esteros-staff-fragment',
+    '3 мертвые белки': 'hero-esteros-dead-white-squirrels'
+  },
+  'lin-yin': {
+    'красный цветок «тель-мох»': 'hero-linyin-tel-moss-flower',
+    'книга «человеческие фразы: как не использовать их правильно»': 'hero-linyin-human-phrases-book',
+    'фляга с чаем из разочарования человечеством': 'hero-linyin-disappointment-tea-flask',
+    'загадочный металлический ящик': 'hero-linyin-mysterious-metal-box',
+    'обгорелая страница ×1': 'hero-linyin-charred-clue-page'
+  }
+};
+
+function characterCustomItemKey(item) {
+  return String(item && item.name || '').toLowerCase().replace(/^[^\p{L}\p{N}]+/u, '').replace(/\s+/g, ' ').trim();
+}
+
+function applyCharacterCustomItemImages(character) {
+  var iconMap = CHARACTER_CUSTOM_ITEM_ICONS[String(character && character.campaignKey || '')];
+  if (!iconMap) return character;
+  (character.equipItems || []).concat(character.inventoryItems || []).forEach(function(item) {
+    if (!item || typeof item !== 'object') return;
+    var iconKey = iconMap[characterCustomItemKey(item)];
+    if (!iconKey) return;
+    var image = 'images/ui/item-icons/' + iconKey + '.png';
+    item.icon = 'art:' + iconKey;
+    item.image = image;
+    item.imageThumb = image;
+  });
+  return character;
+}
+
 function charInventoryImage(item) {
   if (item && item.imageThumb) return String(item.imageThumb);
   if (item && item.image) return String(item.image);
@@ -48978,9 +49499,9 @@ function charInventoryImage(item) {
 }
 
 function charInventoryArt(item) {
-  if (typeof zgItemVisualMarkup === 'function') return zgItemVisualMarkup(item, '📦');
   var image = charInventoryImage(item);
   if (image) return '<img src="' + escHTML(image) + '" alt="' + escHTML(item && item.name || 'Предмет') + '">';
+  if (typeof zgItemVisualMarkup === 'function') return zgItemVisualMarkup(item, '📦');
   return escHTML(item && item.icon || '📦');
 }
 
@@ -48990,7 +49511,7 @@ function buildCharacterInventoryLauncher(c) {
   var rows=c.inventoryItems.map(function(item,index){return{item:item,index:index};}).filter(function(row){return !row.item||row.item.equipped!==true;}),sortKey=_charInventorySort[c.id]||'manual';
   if(sortKey==='name')rows.sort(function(a,b){return String(a.item.name||'').localeCompare(String(b.item.name||''),'ru');});
   if(sortKey==='qty')rows.sort(function(a,b){return(parseInt(b.item.qty,10)||1)-(parseInt(a.item.qty,10)||1);});
-  var slots=rows.map(function(row){var item=row.item,qty=Math.max(1,parseInt(item.qty,10)||1);return '<button type="button" class="char-inventory-inline-slot" onclick="openItemConstructor('+c.id+',\'inventory\','+row.index+')" title="'+escHTML(item.name||'Предмет')+'"><span>'+charInventoryArt(item)+'</span>'+(qty>1?'<b>'+qty+'</b>':'')+'</button>';}).join('');
+  var slots=rows.map(function(row){var item=row.item,qty=Math.max(1,parseInt(item.qty,10)||1),itemRef=encodeURIComponent(String(item.name||item.text||'')).replace(/'/g,'%27');return '<button type="button" class="char-inventory-inline-slot" onclick="openItemConstructorByName('+c.id+',\'inventory\',\''+itemRef+'\','+row.index+')" title="'+escHTML(item.name||'Предмет')+'"><span>'+charInventoryArt(item)+'</span>'+(qty>1?'<b>'+qty+'</b>':'')+'</button>';}).join('');
   for(var i=rows.length;i<Math.max(20,rows.length);i++)slots+='<span class="char-inventory-inline-slot empty"></span>';
   var equipment=buildEquipList(c)||'<div class="char-inventory-inline-empty">Снаряжение пока не добавлено</div>';
   return '<div class="char-inventory-inline">'+
@@ -49336,6 +49857,21 @@ function openInventoryEmojiPicker(charId, itemIdx, event) {
 // Новые предметы всегда хранятся в c.inventoryItems.
 // Нажатие по предмету на листе → сюда. Здесь мини-форма: эмодзи (большой picker),
 // название, описание (с абзацами), сохранение.
+function openItemConstructorByName(charId, type, encodedName, fallbackIdx) {
+  var c = characters.find(function(x){ return x.id === charId; });
+  if (!c) return;
+  var arrKey = type === 'equip' ? 'equipItems' : 'inventoryItems';
+  var items = c[arrKey] || [];
+  var decodedName = '';
+  try { decodedName = decodeURIComponent(String(encodedName || '')); } catch(e) { decodedName = String(encodedName || ''); }
+  var wanted = characterCustomItemKey({name:decodedName});
+  var currentIdx = items.findIndex(function(candidate) {
+    var name = typeof candidate === 'string' ? candidate : candidate && (candidate.name || candidate.text);
+    return characterCustomItemKey({name:name}) === wanted;
+  });
+  openItemConstructor(charId, type, currentIdx >= 0 ? currentIdx : fallbackIdx);
+}
+
 function openItemConstructor(charId, type, idx) {
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
@@ -49390,7 +49926,7 @@ function openItemConstructor(charId, type, idx) {
     '</div>' +
 
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">' +
-      '<button id="ic-emoji-btn" style="width:66px;height:66px;flex-shrink:0;border:2px solid ' + accent + '55;border-radius:10px;background:#0a0704;color:var(--text);font-size:36px;cursor:pointer;padding:7px;display:flex;align-items:center;justify-content:center" title="Сменить иконку">' + zgItemIconMarkup(item.icon, equipmentMode ? '🗃️' : '📦') + '</button>' +
+      '<button id="ic-emoji-btn" style="width:66px;height:66px;flex-shrink:0;border:2px solid ' + accent + '55;border-radius:10px;background:#0a0704;color:var(--text);font-size:36px;cursor:pointer;padding:7px;display:flex;align-items:center;justify-content:center;overflow:hidden" title="Сменить иконку">' + zgItemVisualMarkup(item, equipmentMode ? '🗃️' : '📦') + '</button>' +
       '<div style="flex:1;min-width:0">' +
         '<div style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:4px">НАЗВАНИЕ</div>' +
         '<input id="ic-name" type="text" value="' + escHTML(item.name || '') + '" placeholder="Зелье исцеления, Кольцо ветров..." style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Lora\',serif;font-size:13px;box-sizing:border-box">' +
@@ -49502,6 +50038,7 @@ function openItemConstructor(charId, type, idx) {
   document.getElementById('ic-cancel').onclick = function(){closeIt(false);};
 
   // Развернуть / свернуть эмодзи-picker
+  var originalIcon = String(item.icon || '');
   var currentEmoji = item.icon;
   document.getElementById('ic-emoji-btn').onclick = function() {
     var p = document.getElementById('ic-emoji-panel');
@@ -49549,7 +50086,12 @@ function openItemConstructor(charId, type, idx) {
   document.getElementById('ic-save').onclick = function() {
     var newName = (document.getElementById('ic-name').value || '').trim();
     var newDesc = document.getElementById('ic-desc').value || '';
+    var iconChanged = String(currentEmoji || '') !== originalIcon;
     item.icon = currentEmoji;
+    if (iconChanged) {
+      item.image = zgItemIconPath(currentEmoji);
+      item.imageThumb = item.image;
+    }
     item.name = newName;
     item.description = newDesc;
     if (!equipmentMode) {

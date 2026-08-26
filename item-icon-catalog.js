@@ -16,7 +16,16 @@
     ['herbs','Травы','Материалы'],['material-pouch','Материалы','Материалы'],['weapon-oil','Масло для оружия','Расходники'],['bomb','Бомба','Расходники'],
     ['candle','Свеча','Разное'],['arrows','Стрелы','Боеприпасы'],['bolas','Боласы','Оружие'],['whistle','Свисток','Инструменты'],
     ['instrument','Лютня','Инструменты'],['drum','Барабан','Инструменты'],['flute','Флейта','Инструменты'],['backpack','Рюкзак','Разное'],
-    ['crowbar','Лом','Инструменты']
+    ['crowbar','Лом','Инструменты'],
+    ['hero-evan-hardened-baguette','Затвердевший батон','Герои'],['hero-evan-bread-pendant','Кулон-батон','Герои'],
+    ['hero-evan-charred-robe','Обугленная ряса','Герои'],['hero-evan-pilgrim-sack','Мешок Евангелия','Герои'],
+    ['hero-esteros-torn-clothes','Порванная одежда Эстероса','Герои'],['hero-esteros-animal-grimoire','Гримуар Эстероса','Герои'],
+    ['hero-esteros-large-potatoes','Большая картошка Эстероса','Герои'],['hero-esteros-coin-sack','Мешок с монетами Эстероса','Герои'],
+    ['hero-esteros-rat-teeth-claws','Зубы и когти крысы','Герои'],['hero-esteros-swamp-mushrooms','Болотные грибы Эстероса','Герои'],
+    ['hero-esteros-staff-fragment','Обломок посоха Эстероса','Герои'],['hero-esteros-dead-white-squirrels','Белки Эстероса','Герои'],
+    ['hero-linyin-tel-moss-flower','Тель-Мох Лин’Ин','Герои'],['hero-linyin-human-phrases-book','Книга человеческих фраз','Герои'],
+    ['hero-linyin-disappointment-tea-flask','Фляга Лин’Ин','Герои'],['hero-linyin-mysterious-metal-box','Металлическая шкатулка Лин’Ин','Герои'],
+    ['hero-linyin-charred-clue-page','Обгорелая страница Лин’Ин','Герои']
   ];
   var catalog = DEFINITIONS.map(function (entry) {
     return { key:entry[0], label:entry[1], group:entry[2], path:BASE + entry[0] + '.png' };
