@@ -9,12 +9,12 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="zargota-i18n.css?v=2026-08-26.1">
-  <script src="zargota-i18n.js?v=2026-08-27.18"></script>
-<script src="zargota-i18n-content-uk.js?v=2026-08-27.2"></script>
+  <script src="zargota-i18n.js?v=2026-08-27.29"></script>
+  <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
 <script src="zargota-i18n-characters-uk.js?v=2026-08-27.3"></script>
 <script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
 <script src="zargota-i18n-npc-uk.js?v=2026-08-27.1"></script>
-<script src="zargota-i18n-shop-uk.js?v=2026-08-27.14"></script>
+  <script src="zargota-i18n-shop-uk.js?v=2026-08-27.15"></script>
 <script src="zargota-i18n-manual-uk.js?v=2026-08-27.2"></script>
 <script src="zargota-i18n-encyclopedia-uk.js?v=2026-08-27.1"></script>
   <script src="zargota-i18n-catalog-uk.js?v=2026-08-27.16"></script>
@@ -61006,57 +61006,65 @@ function importBeasts(e) {
     return parts.length ? parts.join(' · ') : '';
   }
 
+  function combatI18nText(value) {
+    var source = String(value == null ? '' : value);
+    return window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
+      ? window.ZargotaI18n.translate(source)
+      : source;
+  }
+
   function logText(entry, battle) {
     var payload = entry.payload || {};
+    var ukrainian = !!(window.ZargotaI18n && window.ZargotaI18n.getLocale && window.ZargotaI18n.getLocale() === 'uk');
     var names = {};
     (battle.combatants || []).forEach(function(combatant) {
-      names[combatant.id] = combatant.name;
+      names[combatant.id] = combatI18nText(combatant.name);
     });
     if (entry.type === 'attack_resolved') {
-      var atkName = payload.actionName ? ' <span style="color:#888;font-size:10px">[' + esc(payload.actionName) + ']</span>' : '';
+      var atkName = payload.actionName ? ' <span style="color:#888;font-size:10px">[' + esc(combatI18nText(payload.actionName)) + ']</span>' : '';
       var hitStr = payload.hit
-        ? '<span style="color:#6fcb83">✅ попадание</span> — <b style="color:#e8c060">' + esc(String(payload.damage)) + ' урона</b>' + (payload.resistNote ? ' <span style="color:#a07fd4">' + esc(payload.resistNote) + '</span>' : '') + (payload.natural20 ? ' <span style="color:#f7d96a">💥 КРИТ!</span>' : '')
-        : (payload.natural1 ? '<span style="color:#e06060">❌ фатальный промах!</span>' : '<span style="color:#c87878">❌ промах</span>');
+        ? '<span style="color:#6fcb83">✅ ' + (ukrainian ? 'влучання' : 'попадание') + '</span> — <b style="color:#e8c060">' + esc(String(payload.damage)) + (ukrainian ? ' шкоди' : ' урона') + '</b>' + (payload.resistNote ? ' <span style="color:#a07fd4">' + esc(combatI18nText(payload.resistNote)) + '</span>' : '') + (payload.natural20 ? ' <span style="color:#f7d96a">💥 КРИТ!</span>' : '')
+        : (payload.natural1 ? '<span style="color:#e06060">❌ ' + (ukrainian ? 'фатальний промах!' : 'фатальный промах!') + '</span>' : '<span style="color:#c87878">❌ промах</span>');
       return '⚔️ <b>' + esc(names[payload.attackerId]||payload.attackerId) + '</b>' + atkName + ' → <b>' + esc(names[payload.targetId]||payload.targetId) + '</b>: ' + hitStr;
     }
     if (entry.type === 'reaction_resolved') {
       return '⚡ ' + esc(names[payload.attackerId] || payload.attackerId) + ' применяет реакцию по ' + esc(names[payload.targetId] || payload.targetId) + ': ' + (payload.hit ? 'успех' : 'мимо') + ' (' + esc(payload.total) + ' vs AC ' + esc(payload.targetAc) + ')';
     }
-    if (entry.type === 'reaction_used') return '⚡ ' + esc(names[payload.reactorId] || payload.reactorId) + ' использует реакцию ' + esc(payload.reactionName || payload.reactionId);
+    if (entry.type === 'reaction_used') return '⚡ ' + esc(names[payload.reactorId] || payload.reactorId) + ' использует реакцию ' + esc(combatI18nText(payload.reactionName || payload.reactionId));
     if (entry.type === 'reaction_prompt_opened') return '⚡ Открыто окно реакции для ' + esc(names[payload.reactorId] || payload.reactorId) + ' против ' + esc(names[payload.targetId] || payload.targetId);
     if (entry.type === 'reaction_prompt_closed') return '↷ Окно реакции закрыто';
-    if (entry.type === 'combat_action_used') return '🪄 ' + esc(names[payload.actorId] || payload.actorId) + ' применяет ' + esc(payload.actionName || payload.actionId);
-    if (entry.type === 'spell_resolved') return '✨ ' + esc(payload.desc || ((names[payload.actorId] || payload.actorId) + ' применяет ' + (payload.actionName || 'заклинание')));
+    if (entry.type === 'combat_action_used') return '🪄 ' + esc(names[payload.actorId] || payload.actorId) + ' применяет ' + esc(combatI18nText(payload.actionName || payload.actionId));
+    if (entry.type === 'spell_resolved') return '✨ ' + esc(combatI18nText(payload.desc || ((names[payload.actorId] || payload.actorId) + ' применяет ' + (payload.actionName || 'заклинание'))));
     if (entry.type === 'spell_attack_resolved') return '✨ ' + esc(names[payload.attackerId] || payload.attackerId) + ' бьёт заклинанием по ' + esc(names[payload.targetId] || payload.targetId) + ': ' + (payload.hit ? 'попадание' : 'промах') + ' (' + esc(payload.total) + ' vs AC ' + esc(payload.targetAc) + ')';
-    if (entry.type === 'spell_save_resolved') return '✨ ' + esc(payload.desc || ((names[payload.actorId] || payload.actorId) + ' применяет заклинание'));
+    if (entry.type === 'spell_save_resolved') return '✨ ' + esc(combatI18nText(payload.desc || ((names[payload.actorId] || payload.actorId) + ' применяет заклинание')));
     if (entry.type === 'contest_shove' || entry.type === 'contest_grapple' || entry.type === 'contest_disarm' || entry.type === 'contest_knockdown' || entry.type === 'contest_resolved') {
       var icon = payload.success ? '✅' : '❌';
-      return icon + ' ' + esc(payload.resultDesc || (payload.actionName + ': ' + (payload.success ? 'успех' : 'провал')));
+      return icon + ' ' + esc(combatI18nText(payload.resultDesc || (payload.actionName + ': ' + (payload.success ? 'успех' : 'провал'))));
     }
-    if (entry.type === 'dodge_start') return '💨 ' + esc(payload.desc || (names[payload.actorId] + ' уклоняется'));
-    if (entry.type === 'help_ally')  return '🤝 ' + esc(payload.desc || 'Помощь союзнику');
-    if (entry.type === 'help_distract') return '😵 ' + esc(payload.desc || 'Отвлечение врага');
-    if (entry.type === 'stabilize_attempt') return (payload.success ? '🩹 ✅ ' : '🩹 ❌ ') + esc(payload.desc || 'Попытка стабилизации');
-    if (entry.type === 'assess_enemy')  return '🔍 ' + esc(payload.desc || 'Оценка врага');
-    if (entry.type === 'throw_item')    return (payload.hit ? '🪃 ✅ ' : '🪃 ❌ ') + esc(payload.desc || 'Бросок предмета');
-    if (entry.type === 'item_used')     return '🎒 ' + esc(payload.desc || 'Предмет использован');
-    if (entry.type === 'quick_assess')  return '👁 ' + esc(payload.desc || 'Быстрый анализ');
-    if (entry.type === 'use_item_empty') return '🎒 ' + esc(payload.desc || 'Расходник не найден');
+    if (entry.type === 'dodge_start') return '💨 ' + esc(combatI18nText(payload.desc || (names[payload.actorId] + ' уклоняется')));
+    if (entry.type === 'help_ally')  return '🤝 ' + esc(combatI18nText(payload.desc || 'Помощь союзнику'));
+    if (entry.type === 'help_distract') return '😵 ' + esc(combatI18nText(payload.desc || 'Отвлечение врага'));
+    if (entry.type === 'stabilize_attempt') return (payload.success ? '🩹 ✅ ' : '🩹 ❌ ') + esc(combatI18nText(payload.desc || 'Попытка стабилизации'));
+    if (entry.type === 'assess_enemy')  return '🔍 ' + esc(combatI18nText(payload.desc || 'Оценка врага'));
+    if (entry.type === 'throw_item')    return (payload.hit ? '🪃 ✅ ' : '🪃 ❌ ') + esc(combatI18nText(payload.desc || 'Бросок предмета'));
+    if (entry.type === 'item_used')     return '🎒 ' + esc(combatI18nText(payload.desc || 'Предмет использован'));
+    if (entry.type === 'quick_assess')  return '👁 ' + esc(combatI18nText(payload.desc || 'Быстрый анализ'));
+    if (entry.type === 'use_item_empty') return '🎒 ' + esc(combatI18nText(payload.desc || 'Расходник не найден'));
     if (entry.type === 'damage_applied') {
-      var src = payload.meta && payload.meta.sourceCombatantId ? ' от ' + esc(names[payload.meta.sourceCombatantId] || payload.meta.sourceCombatantId) : '';
-      var rn = payload.resistNote ? ' ' + esc(payload.resistNote) : '';
-      return '💢 ' + esc(names[payload.combatantId] || payload.combatantId) + ' получает ' + esc(payload.amount) + ' урона' + rn + src;
+      var src = payload.meta && payload.meta.sourceCombatantId ? (ukrainian ? ' · джерело: ' : ' от ') + esc(names[payload.meta.sourceCombatantId] || payload.meta.sourceCombatantId) : '';
+      var rn = payload.resistNote ? ' ' + esc(combatI18nText(payload.resistNote)) : '';
+      return '💢 ' + esc(names[payload.combatantId] || payload.combatantId) + (ukrainian ? ' отримує ' : ' получает ') + esc(payload.amount) + (ukrainian ? ' шкоди' : ' урона') + rn + src;
     }
     if (entry.type === 'status_applied') {
       var st = payload.status || {};
-      return (st.icon||'⚡') + ' ' + esc(names[payload.combatantId] || payload.combatantId) + ' получает статус: ' + esc(st.label || st.statusKey || 'статус') + (st.duration ? ' (' + st.duration + ' ходов)' : '');
+      return (st.icon||'⚡') + ' ' + esc(names[payload.combatantId] || payload.combatantId) + (ukrainian ? ' отримує стан: ' : ' получает статус: ') + esc(combatI18nText(st.label || st.statusKey || (ukrainian ? 'стан' : 'статус'))) + (st.duration ? ' (' + st.duration + (ukrainian ? ' ходів)' : ' ходов)') : '');
     }
     if (entry.type === 'saving_throw') {
       return (payload.saved ? '🛡✅' : '🎲❌') + ' ' + esc(names[payload.combatantId] || payload.combatantId) + ' спасбросок ' + esc(payload.stat||'') + ' DC' + esc(payload.dc) + ': ' + esc(payload.roll) + '+' + esc(payload.modifier) + '=' + esc(payload.total) + (payload.saved ? ' — устоял!' : ' — провал! ' + esc(payload.statusKey||''));
     }
-    if (entry.type === 'combatant_downed') return '☠️ ' + esc(names[payload.combatantId] || payload.combatantId) + ' падает при 0 HP';
-    if (entry.type === 'combatant_recovered') return '💚 ' + esc(names[payload.combatantId] || payload.combatantId) + ' приходит в себя';
-    if (entry.type === 'healing_applied') return '💚 ' + esc(names[payload.combatantId] || payload.combatantId) + ' восстанавливает ' + esc(payload.amount) + ' HP';
+    if (entry.type === 'combatant_downed') return '☠️ ' + esc(names[payload.combatantId] || payload.combatantId) + (ukrainian ? ' падає при 0 HP' : ' падает при 0 HP');
+    if (entry.type === 'combatant_recovered') return '💚 ' + esc(names[payload.combatantId] || payload.combatantId) + (ukrainian ? ' приходить до тями' : ' приходит в себя');
+    if (entry.type === 'healing_applied') return '💚 ' + esc(names[payload.combatantId] || payload.combatantId) + (ukrainian ? ' відновлює ' : ' восстанавливает ') + esc(payload.amount) + ' HP';
     if (entry.type === 'combatant_moved') return '📍 ' + esc(names[payload.combatantId] || payload.combatantId) + ' перемещается на ' + esc(payload.x + ',' + payload.y) + ' (' + esc(payload.distance || 0) + ' кл., осталось ' + esc(payload.movementRemaining || 0) + ')';
     if (entry.type === 'turn_started') return '⏳ Начинает ход ' + esc(names[payload.combatantId] || payload.combatantId);
     if (entry.type === 'round_started') return '🔄 Стартует раунд ' + esc(payload.round);
@@ -61957,7 +61965,7 @@ function importBeasts(e) {
           effects.slice(0,6).map(function(e){
             if (!e) return '';
             var _sk = String(e.statusKey||'').replace(/[\\'"]/g,'');
-            return '<span onclick="zgStatusInfoLite(\''+combatant.id+'\',\''+_sk+'\')" title="Нажми — что делает статус (реально/метка)" style="padding:1px 5px;border:1px solid '+(e.color||'#888')+'44;border-radius:4px;background:'+(e.color||'#888')+'12;font-size:10px;color:'+(e.color||'#888')+';cursor:pointer">'+esc(e.icon||'⚡')+' '+esc(e.label||e.statusKey||'')+(e.duration!=null?' ×'+e.duration:'')+'</span>';
+            return '<span onclick="zgStatusInfoLite(\''+combatant.id+'\',\''+_sk+'\')" title="Нажми — что делает статус (реально/метка)" style="padding:1px 5px;border:1px solid '+(e.color||'#888')+'44;border-radius:4px;background:'+(e.color||'#888')+'12;font-size:10px;color:'+(e.color||'#888')+';cursor:pointer">'+esc(e.icon||'⚡')+' '+esc(combatI18nText(e.label||e.statusKey||''))+(e.duration!=null?' ×'+e.duration:'')+'</span>';
           }).join('') +
         '</div>'
       : '';
@@ -61970,15 +61978,17 @@ function importBeasts(e) {
         beastTraitsRow = '<div style="border-top:1px solid #ffffff08;padding-top:6px;margin-top:4px">' +
           '<div style="font-size:9px;color:#a07fd4;font-family:\'Cinzel\',serif;letter-spacing:1px;margin-bottom:4px">🧬 ЧЕРТЫ</div>' +
           srcBeast.traits.map(function(tr){
-            return '<div style="font-size:10px;color:var(--dim);margin-bottom:3px"><span style="color:#a07fd4;font-weight:600">'+escHTML(tr.name||'')+'</span> — '+escHTML((tr.desc||'').slice(0,80))+(tr.desc&&tr.desc.length>80?'…':'')+'</div>';
+            var traitName = combatI18nText(tr.name||'');
+            var traitDesc = combatI18nText(tr.desc||'');
+            return '<div style="font-size:10px;color:var(--dim);margin-bottom:3px"><span style="color:#a07fd4;font-weight:600">'+escHTML(traitName)+'</span> — '+escHTML(traitDesc.slice(0,80))+(traitDesc.length>80?'…':'')+'</div>';
           }).join('') +
         '</div>';
       }
       if (srcBeast && (srcBeast.immunities||[]).length + (srcBeast.resistances||[]).length + (srcBeast.vulnerabilities||[]).length > 0) {
         beastTraitsRow += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">' +
-          (srcBeast.immunities||[]).map(function(im){ return '<span style="padding:1px 5px;border:1px solid #6aa8d644;border-radius:3px;font-size:9px;color:#6aa8d6">🛡 '+escHTML(im)+'</span>'; }).join('') +
-          (srcBeast.resistances||[]).map(function(r){ return '<span style="padding:1px 5px;border:1px solid #c4a84b44;border-radius:3px;font-size:9px;color:#c4a84b">↓ '+escHTML(r)+'</span>'; }).join('') +
-          (srcBeast.vulnerabilities||[]).map(function(v){ return '<span style="padding:1px 5px;border:1px solid #c8787844;border-radius:3px;font-size:9px;color:#c87878">↑ '+escHTML(v)+'</span>'; }).join('') +
+          (srcBeast.immunities||[]).map(function(im){ return '<span style="padding:1px 5px;border:1px solid #6aa8d644;border-radius:3px;font-size:9px;color:#6aa8d6">🛡 '+escHTML(combatI18nText(im))+'</span>'; }).join('') +
+          (srcBeast.resistances||[]).map(function(r){ return '<span style="padding:1px 5px;border:1px solid #c4a84b44;border-radius:3px;font-size:9px;color:#c4a84b">↓ '+escHTML(combatI18nText(r))+'</span>'; }).join('') +
+          (srcBeast.vulnerabilities||[]).map(function(v){ return '<span style="padding:1px 5px;border:1px solid #c8787844;border-radius:3px;font-size:9px;color:#c87878">↑ '+escHTML(combatI18nText(v))+'</span>'; }).join('') +
         '</div>';
       }
     }
@@ -66690,11 +66700,11 @@ function zgShopSortItems(items) {
 function zgShopMarketOptionsHtml() {
   var grouped = {};
   SHOP_MARKETS.forEach(function(market){ (grouped[market.region] = grouped[market.region] || []).push(market); });
-  return '<option value="">Все торговые места</option>' + ['root-valley','upperland','levoshlak'].map(function(regionId){
+  return '<option value="">' + escHTML(shopUiText('Все торговые места')) + '</option>' + ['root-valley','upperland','levoshlak'].map(function(regionId){
     var region = zgShopRegionById(regionId);
     var rows = grouped[regionId] || [];
     if (!rows.length) return '';
-    return '<optgroup label="' + escHTML(region ? region.label : regionId) + '">' + rows.map(function(market){ return '<option value="' + escHTML(market.id) + '"' + (_shopState.market === market.id ? ' selected' : '') + '>' + escHTML(market.location + ' · ' + market.name) + '</option>'; }).join('') + '</optgroup>';
+    return '<optgroup label="' + escHTML(shopUiText(region ? region.label : regionId)) + '">' + rows.map(function(market){ return '<option value="' + escHTML(market.id) + '"' + (_shopState.market === market.id ? ' selected' : '') + '>' + escHTML(shopUiText(market.location) + ' · ' + shopUiText(market.name)) + '</option>'; }).join('') + '</optgroup>';
   }).join('');
 }
 
@@ -66743,8 +66753,8 @@ function zgShopMarketGuideListHtml(rows, selectedId) {
     var region = zgShopRegionById(market.region);
     var active = market.id === selectedId;
     return '<button type="button" data-guide-market="' + escHTML(market.id) + '" onclick="zgShopSelectMarketGuide(\'' + escHTML(market.id) + '\')" aria-current="' + (active ? 'true' : 'false') + '" style="width:100%;padding:10px 11px;border:1px solid ' + (active ? '#8d6a2c' : '#2f2213') + ';border-left:3px solid ' + (active ? '#d4a04a' : '#59401e') + ';border-radius:7px;background:' + (active ? '#d4a04a14' : '#0d0905') + ';color:' + (active ? '#ead496' : '#ad9a76') + ';text-align:left;cursor:pointer">' +
-      '<span style="display:block;font-family:\'Cinzel\',serif;font-size:10px;line-height:1.35">' + escHTML(market.name) + '</span>' +
-      '<span style="display:block;margin-top:4px;color:#756346;font-family:\'Cinzel\',serif;font-size:7px;line-height:1.35;text-transform:uppercase">' + escHTML((region ? region.label + ' · ' : '') + market.location) + '</span>' +
+      '<span style="display:block;font-family:\'Cinzel\',serif;font-size:10px;line-height:1.35">' + escHTML(shopUiText(market.name)) + '</span>' +
+      '<span style="display:block;margin-top:4px;color:#756346;font-family:\'Cinzel\',serif;font-size:7px;line-height:1.35;text-transform:uppercase">' + escHTML((region ? shopUiText(region.label) + ' · ' : '') + shopUiText(market.location)) + '</span>' +
     '</button>';
   }).join('');
 }
@@ -66754,15 +66764,15 @@ function zgShopMarketGuideDetailHtml(market) {
   var crest = 'images/shop/market-crests/' + market.id + '.png';
   return '<article data-guide-detail="' + escHTML(market.id) + '" style="padding:18px;border:1px solid #3a2a14;border-radius:10px;background:radial-gradient(circle at 0 0,#d4a04a0b,transparent 38%),#100b06">' +
     '<div class="zg-shop-market-detail-head">' +
-      '<img class="zg-shop-market-detail-crest" src="' + escHTML(crest) + '" alt="Гобелен мастерской: ' + escHTML(market.name) + '" decoding="async">' +
-      '<div><div style="font-family:\'Cinzel Decorative\',serif;color:#ead496;font-size:24px;line-height:1.25">' + escHTML(market.name) + '</div>' +
-      '<div style="margin-top:8px;color:#806f51;font-family:\'Cinzel\',serif;font-size:9px;line-height:1.5;text-transform:uppercase">' + escHTML((region ? region.label + ' · ' : '') + market.location + ' · ' + market.kind) + '</div>' +
-      '<p style="margin:18px 0 0;color:#d0c0a2;font-family:\'Lora\',serif;font-size:15px;line-height:1.7">' + escHTML(market.description) + '</p></div>' +
+      '<img class="zg-shop-market-detail-crest" src="' + escHTML(crest) + '" alt="' + escHTML(shopUiText('Гобелен мастерской')) + ': ' + escHTML(shopUiText(market.name)) + '" decoding="async">' +
+      '<div><div style="font-family:\'Cinzel Decorative\',serif;color:#ead496;font-size:24px;line-height:1.25">' + escHTML(shopUiText(market.name)) + '</div>' +
+      '<div style="margin-top:8px;color:#806f51;font-family:\'Cinzel\',serif;font-size:9px;line-height:1.5;text-transform:uppercase">' + escHTML((region ? shopUiText(region.label) + ' · ' : '') + shopUiText(market.location) + ' · ' + shopUiText(market.kind)) + '</div>' +
+      '<p style="margin:18px 0 0;color:#d0c0a2;font-family:\'Lora\',serif;font-size:15px;line-height:1.7">' + escHTML(shopUiText(market.description)) + '</p></div>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:20px;padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#ac9975;font-size:12px;line-height:1.55"><div><b style="color:#d9bd75">Владелец</b><br>' + escHTML(market.owner) + '</div><div><b style="color:#d9bd75">Уровень мастерства</b><br>' + escHTML(market.quality) + '</div><div><b style="color:#d9bd75">Режим</b><br>' + escHTML(market.hours) + '</div></div>' +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:20px;padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#ac9975;font-size:12px;line-height:1.55"><div><b style="color:#d9bd75">Владелец</b><br>' + escHTML(shopUiText(market.owner)) + '</div><div><b style="color:#d9bd75">Уровень мастерства</b><br>' + escHTML(shopUiText(market.quality)) + '</div><div><b style="color:#d9bd75">Режим</b><br>' + escHTML(shopUiText(market.hours)) + '</div></div>' +
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:14px">' +
-      (market.people && market.people.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЛЮДИ</b><div style="margin-top:7px">' + market.people.map(escHTML).join('<br>') + '</div></section>' : '') +
-      (market.stock && market.stock.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЧТО ИСКАТЬ</b><div style="margin-top:7px">' + market.stock.map(function(row){ return '• ' + zgCurrencyTextHtml(row); }).join('<br>') + '</div></section>' : '') +
+      (market.people && market.people.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЛЮДИ</b><div style="margin-top:7px">' + market.people.map(function(row){ return escHTML(shopUiText(row)); }).join('<br>') + '</div></section>' : '') +
+      (market.stock && market.stock.length ? '<section style="padding:13px;border:1px solid #2d2112;border-radius:8px;background:#0c0906;color:#998562;font-size:12px;line-height:1.65"><b style="color:#d9bd75;font-family:\'Cinzel\',serif;font-size:10px">ЧТО ИСКАТЬ</b><div style="margin-top:7px">' + market.stock.map(function(row){ return '• ' + zgCurrencyTextHtml(shopUiText(row)); }).join('<br>') + '</div></section>' : '') +
     '</div>' +
   '</article>';
 }

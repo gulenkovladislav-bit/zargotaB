@@ -7,6 +7,10 @@ const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
 const require = createRequire(import.meta.url);
 const economy = require(path.join(root, 'item-economy.js'));
 const items = economy.getShopSeedItems();
+const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const featuredMatch = indexSource.match(/var featured = (\[[\s\S]*?\n    \]);\n    var foundation/);
+if (!featuredMatch) throw new Error('Unable to locate the built-in featured shop items');
+const featuredItems = Function(`"use strict"; return (${featuredMatch[1]});`)();
 const defaultReviewPaths = [
   path.join(root, 'localization/uk/shop-foundation-reviewed.json'),
   path.join(root, 'localization/uk/shop-consumables-reviewed.json'),
@@ -23,20 +27,32 @@ const defaultReviewPaths = [
   path.join(root, 'localization/uk/shop-food-reviewed.json'),
   path.join(root, 'localization/uk/shop-remedies-reviewed.json'),
   path.join(root, 'localization/uk/shop-mobility-reviewed.json'),
-  path.join(root, 'localization/uk/shop-minor-artifacts-reviewed.json')
+  path.join(root, 'localization/uk/shop-minor-artifacts-reviewed.json'),
+  path.join(root, 'localization/uk/shop-arcane-focus-reviewed.json'),
+  path.join(root, 'localization/uk/shop-transport-reviewed.json'),
+  path.join(root, 'localization/uk/shop-potions-poisons-reviewed.json'),
+  path.join(root, 'localization/uk/shop-services-reviewed.json'),
+  path.join(root, 'localization/uk/shop-regional-arms-reviewed.json'),
+  path.join(root, 'localization/uk/shop-adornments-spellforms-reviewed.json'),
+  path.join(root, 'localization/uk/shop-underground-reviewed.json'),
+  path.join(root, 'localization/uk/shop-remaining-utilities-reviewed.json')
 ];
 const reviewPaths = process.argv[2] ? [path.resolve(process.argv[2])] : defaultReviewPaths;
 const outputPath = path.resolve(process.argv[3] || path.join(root, 'zargota-i18n-shop-uk.js'));
 const reviews = reviewPaths.map((reviewPath) => JSON.parse(fs.readFileSync(reviewPath, 'utf8')));
 const sourceHash = crypto.createHash('sha256').update(JSON.stringify(items)).digest('hex');
+const featuredSourceHash = crypto.createHash('sha256').update(JSON.stringify(featuredItems)).digest('hex');
+const featuredReview = process.argv[2] ? null : JSON.parse(fs.readFileSync(path.join(root, 'localization/uk/shop-featured-reviewed.json'), 'utf8'));
+if (featuredReview) reviews.push(featuredReview);
 const russianText = /[А-ЯЁа-яё]/u;
 const translations = Object.create(null);
 const reviewedTranslations = Object.create(null);
 const reviewedEntryIds = [];
 
 for (const review of reviews) {
-  if (review.schemaVersion !== 1 || review.sourceHash !== sourceHash) {
-    throw new Error(`Shop review does not match current source: ${review.sourceHash || 'missing'} != ${sourceHash}`);
+  const expectedHash = review === featuredReview ? featuredSourceHash : sourceHash;
+  if (review.schemaVersion !== 1 || review.sourceHash !== expectedHash) {
+    throw new Error(`Shop review does not match current source: ${review.sourceHash || 'missing'} != ${expectedHash}`);
   }
 }
 
@@ -48,7 +64,7 @@ function collect(value, output = new Set()) {
   return output;
 }
 
-const sourceById = new Map(items.map((entry) => [String(entry.id), entry]));
+const sourceById = new Map(items.concat(featuredItems).map((entry) => [String(entry.id), entry]));
 const reviewedEntries = reviews.flatMap((review) => review.entries || []);
 for (const reviewed of reviewedEntries) {
   for (const [sourceText, target] of Object.entries(reviewed.translations || {})) {
@@ -84,8 +100,8 @@ const output = `(function(root, factory) {\n` +
   `  }\n` +
   `})(typeof window !== 'undefined' ? window : null, function() {\n` +
   `  'use strict';\n` +
-  `  return Object.freeze({ sourceHash: '${sourceHash}', reviewedEntryIds: Object.freeze(${JSON.stringify(reviewedEntryIds)}), translations: Object.freeze(${payload}) });\n` +
+  `  return Object.freeze({ sourceHash: '${sourceHash}', featuredSourceHash: '${featuredSourceHash}', reviewedEntryIds: Object.freeze(${JSON.stringify(reviewedEntryIds)}), translations: Object.freeze(${payload}) });\n` +
   `});\n`;
 
 fs.writeFileSync(outputPath, output, 'utf8');
-console.log(JSON.stringify({ reviewedEntries: reviewedEntryIds.length, totalEntries: items.length, translations: Object.keys(ordered).length, bytes: Buffer.byteLength(output) }));
+console.log(JSON.stringify({ reviewedEntries: reviewedEntryIds.length, totalEntries: items.length + featuredItems.length, translations: Object.keys(ordered).length, bytes: Buffer.byteLength(output) }));

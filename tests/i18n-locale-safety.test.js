@@ -35,7 +35,9 @@ function makeHarness() {
   builtInContent.skipAuthored = true;
   builtInContent.className = 'card-name';
   const builtInContentText = text('Эстерос', builtInContent);
-  html.childrenForWalker = [button, buttonText, authored, authoredText, builtInContent, builtInContentText];
+  const textarea = element('textarea', { placeholder: 'Сохранить' });
+  const textareaText = text('Мастер', textarea);
+  html.childrenForWalker = [button, buttonText, authored, authoredText, builtInContent, builtInContentText, textarea, textareaText];
 
   const storage = new Map([
     ['grimoire_chars', '[{"id":1,"name":"Эстерос"}]'],
@@ -64,7 +66,7 @@ function makeHarness() {
     },
     CustomEvent: function CustomEvent(type, options) { this.type = type; this.detail = options && options.detail; }
   };
-  return { window, document, storage, button, buttonText, authoredText, builtInContent, builtInContentText, listeners };
+  return { window, document, storage, button, buttonText, authoredText, builtInContent, builtInContentText, textarea, textareaText, listeners };
 }
 
 const harness = makeHarness();
@@ -82,7 +84,13 @@ assert.strictEqual(i18n.translate('Настройки', 'uk'), 'Налаштув
 assert.strictEqual(i18n.translate('Исцеление', 'uk'), 'Зцілення');
 assert.strictEqual(i18n.translate('Трансформация', 'uk'), 'Перетворення');
 assert.strictEqual(i18n.translate('Риск', 'uk'), 'Ризик');
+assert.strictEqual(i18n.translate('QA Крыса', 'uk'), 'QA Щур', 'built-in Workshop fixtures should localize without changing stored scene data');
 assert.strictEqual(i18n.translate('  Сессия ABCD  ', 'uk'), '  Сесія ABCD  ');
+assert.strictEqual(
+  i18n.translate('Открыть управление временем. 67-й день летнего расцвета, 1276 год от Великого Корня (ЛВК), Глубокая ночь', 'uk'),
+  'Відкрити керування часом. 67-й день літнього розквіту, 1276 рік від Великого Кореня (ЛВК), Глибока ніч',
+  'dynamic calendar labels should translate compositionally'
+);
 assert.strictEqual(i18n.translate('Неизвестная будущая фраза', 'uk'), 'Неизвестная будущая фраза', 'missing entries must fall back to Russian');
 
 const gameplayBefore = Object.fromEntries(
@@ -102,6 +110,8 @@ assert.strictEqual(i18n.registerContentTranslations({ Эстерос: 'Есте�
 i18n.refresh(harness.builtInContentText);
 assert.strictEqual(harness.builtInContentText.data, 'Естерос', 'registered built-in content should translate inside authored-content surfaces');
 assert.strictEqual(i18n.hasContentTranslation('  Эстерос  '), true);
+assert.strictEqual(harness.textarea.attrs.placeholder, 'Зберегти', 'textarea UI attributes should translate');
+assert.strictEqual(harness.textareaText.data, 'Мастер', 'textarea contents must remain untouched');
 
 const dynamic = element('button', { title: 'Сохранить' });
 const dynamicText = text('Сохранить', dynamic);

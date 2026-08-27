@@ -6,13 +6,19 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const economy = require(path.join(root, 'item-economy.js'));
 const items = economy.getShopSeedItems();
+const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const featuredMatch = indexSource.match(/var featured = (\[[\s\S]*?\n    \]);\n    var foundation/);
+assert(featuredMatch, 'built-in featured shop items must remain discoverable for localization coverage');
+const featuredItems = Function(`"use strict"; return (${featuredMatch[1]});`)();
 const sidecar = require(path.join(root, 'zargota-i18n-shop-uk.js'));
 const sourceHash = crypto.createHash('sha256').update(JSON.stringify(items)).digest('hex');
+const featuredSourceHash = crypto.createHash('sha256').update(JSON.stringify(featuredItems)).digest('hex');
 assert.strictEqual(sidecar.sourceHash, sourceHash, 'shop source changed and requires a new Ukrainian review');
+assert.strictEqual(sidecar.featuredSourceHash, featuredSourceHash, 'featured shop source changed and requires a new Ukrainian review');
 
 const reviewedIds = new Set(sidecar.reviewedEntryIds.map(String));
-const required = items.filter((entry) => /^shp_(foundation|consumable|weapon|counter|armor|shield|cuirass|hunt|expedition|scroll|magiccons|craft|alcohol|food|remedy|mobility|artifact)_/.test(String(entry.id)));
-assert.deepStrictEqual(required.filter((entry) => !reviewedIds.has(String(entry.id))), [], 'all enabled manual-review shop sections must be complete');
+const required = featuredItems.concat(items);
+assert.deepStrictEqual(required.filter((entry) => !reviewedIds.has(String(entry.id))), [], 'all built-in shop items must have complete Ukrainian review');
 
 const russianText = /[А-ЯЁа-яё]/u;
 function collect(value, output = new Set()) {
@@ -34,8 +40,7 @@ const numericMismatches = Object.entries(sidecar.translations).filter(([source, 
 assert.deepStrictEqual(numericMismatches, [], 'shop translations must preserve numeric tokens');
 assert.deepStrictEqual(Object.values(sidecar.translations).filter((target) => /[ЫыЭэЪъЁё]/u.test(target)), [], 'shop translations must not contain Russian-specific letters');
 
-const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert(indexSource.includes('zargota-i18n-shop-uk.js'), 'index.html must load the shop sidecar');
 assert(indexSource.includes('shopItemIsReviewed') && indexSource.includes('shopItemText'), 'reviewed shop text must localize explicitly while unreviewed items keep their source text');
 assert(indexSource.includes("document.addEventListener('zargota:localechange'") && indexSource.includes("zgShopView(popup.dataset.shopItemId"), 'shop grid and open item details must rerender immediately after a locale change');
-console.log(`i18n Shop coverage: OK (${reviewedIds.size}/${items.length} entries, ${Object.keys(sidecar.translations).length} strings reviewed)`);
+console.log(`i18n Shop coverage: OK (${reviewedIds.size}/${required.length} entries, ${Object.keys(sidecar.translations).length} strings reviewed)`);
