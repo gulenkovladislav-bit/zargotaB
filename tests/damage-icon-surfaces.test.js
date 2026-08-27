@@ -18,5 +18,6 @@ assert.match(html, /id:'damage', icon:'<img class="manual-section-art" src="imag
 keys.forEach((key) => assert.match(html, new RegExp(`DAMAGE_TAG\\('${key}'`), `manual must render ${key} through project art`));
 assert.match(html, /found\.map\(function\(key\)\{ return zgDamageIconMarkup\(key,'btype-damage-icon'\); \}\)/, 'bestiary guide weakness icons use the same project set');
 assert.doesNotMatch(html, /id:'damage', icon:'💥'/, 'manual damage header no longer uses an emoji');
+assert.match(html, /#page-detail \.detail-meta \.catalog-filter-art,[\s\S]*?#page-detail \.dmg-chip \.catalog-pill-icon \{[\s\S]*?width: 20px; height: 20px; flex: 0 0 20px;/, 'catalog detail artwork must stay icon-sized instead of using intrinsic PNG dimensions');
 
 console.log('damage icon surfaces contract passed');
