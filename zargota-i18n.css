@@ -1,0 +1,169 @@
+.zg-language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  padding: 3px;
+  border: 1px solid #49371f;
+  border-radius: 999px;
+  background: #090705e8;
+  box-shadow: inset 0 0 0 1px #d4a04a0b;
+}
+
+.zg-language-switch > span {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: #8c7449;
+  font: 12px Georgia, serif;
+}
+
+.zg-language-switch button {
+  min-width: 31px;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #75684f;
+  font: 700 9px 'Cinzel', serif;
+  letter-spacing: .5px;
+  cursor: pointer;
+}
+
+.zg-language-switch button:hover {
+  color: #e2c67e;
+  background: #1a1209;
+}
+
+.zg-language-switch button.active {
+  border-color: #9d7733;
+  background: linear-gradient(145deg, #3b2710, #171006);
+  color: #f0d58b;
+  box-shadow: 0 0 10px #c9973626, inset 0 1px #f4dd8c1c;
+}
+
+.zg-language-settings {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 11px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid #372817;
+}
+
+.zg-language-settings > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.zg-language-settings > header > span {
+  display: grid;
+  gap: 2px;
+}
+
+.zg-language-settings > header b {
+  color: #d8bd7c;
+  font: 600 9px 'Cinzel', serif;
+}
+
+.zg-language-settings > header small,
+.zg-language-settings > small {
+  color: #796b52;
+  font: 8px/1.35 Georgia, serif;
+}
+
+.zg-language-settings output {
+  color: #8fca8d;
+  font: 600 8px 'Cinzel', serif;
+}
+
+.zg-language-settings > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.zg-language-settings > div button {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 7px 9px;
+  border: 1px solid #3b2e1c;
+  border-radius: 7px;
+  background: #0e0b07;
+  color: #7d6e52;
+  text-align: left;
+  cursor: pointer;
+}
+
+.zg-language-settings > div button i {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #554322;
+  border-radius: 50%;
+  color: #ae9258;
+  font: normal 700 8px 'Cinzel', serif;
+}
+
+.zg-language-settings > div button span {
+  display: grid;
+  gap: 2px;
+}
+
+.zg-language-settings > div button b {
+  color: #bba36d;
+  font: 600 9px 'Cinzel', serif;
+}
+
+.zg-language-settings > div button small {
+  color: #695e49;
+  font: 8px Georgia, serif;
+}
+
+.zg-language-settings > div button.active {
+  border-color: #557b4a;
+  background: linear-gradient(90deg, #142116, #0e0b07);
+  box-shadow: inset 0 0 14px #70aa5e14;
+}
+
+.zg-language-settings > div button.active i {
+  border-color: #67945a;
+  color: #9fd290;
+}
+
+.zg-language-settings > div button.active b {
+  color: #a9d59f;
+}
+
+html[lang="uk"] .zg-qa-session-modes::before { content: 'Режим тесту'; }
+html[lang="uk"] .zg-qa-workshop-backgrounds::before { content: 'Поле й тло'; }
+html[lang="uk"] .zg-qa-outcome-control::before { content: 'Керування результатом'; }
+html[lang="uk"] .zg-qa-workshop-maintenance::before { content: 'Інструменти тесту'; }
+
+@media (min-width: 700px) {
+  .zg-game-settings .zg-language-settings {
+    gap: 11px;
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+  }
+
+  .zg-game-settings .zg-language-settings > header b { font-size: 14px; }
+  .zg-game-settings .zg-language-settings > header small,
+  .zg-game-settings .zg-language-settings > small,
+  .zg-game-settings .zg-language-settings output { font-size: 11px; }
+  .zg-game-settings .zg-language-settings > div button { min-height: 58px; padding: 9px 11px; border-radius: 9px; }
+  .zg-game-settings .zg-language-settings > div button b { font-size: 12px; }
+  .zg-game-settings .zg-language-settings > div button small { font-size: 11px; }
+}
+
+@media (max-width: 620px) {
+  #header .zg-language-switch > span { display: none; }
+  #header .zg-language-switch button { min-width: 28px; padding: 0 5px; }
+}

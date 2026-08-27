@@ -8,6 +8,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>⚔ Заргота — Панель Мастера</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="zargota-i18n.css?v=2026-08-26.1">
+  <script src="zargota-i18n.js?v=2026-08-27.18"></script>
+<script src="zargota-i18n-content-uk.js?v=2026-08-27.2"></script>
+<script src="zargota-i18n-characters-uk.js?v=2026-08-27.3"></script>
+<script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
+<script src="zargota-i18n-npc-uk.js?v=2026-08-27.1"></script>
+<script src="zargota-i18n-shop-uk.js?v=2026-08-27.14"></script>
+<script src="zargota-i18n-manual-uk.js?v=2026-08-27.2"></script>
+<script src="zargota-i18n-encyclopedia-uk.js?v=2026-08-27.1"></script>
+  <script src="zargota-i18n-catalog-uk.js?v=2026-08-27.16"></script>
+<script src="zargota-i18n-bestiary-uk.js?v=2026-08-27.6"></script>
 <script src="item-icon-catalog.js?v=2026-08-12.1"></script>
 <script src="character-store.js?v=2026-08-01.1"></script>
 <script src="character-sync-outbox.js?v=2026-07-27.2"></script>
@@ -27059,6 +27070,11 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       title="Нажми чтобы посмотреть версию и историю изменений">v…</span>
   </div>
   <div id="nav">
+    <div class="zg-language-switch" role="group" aria-label="Язык интерфейса">
+      <span aria-hidden="true">◎</span>
+      <button type="button" class="active" data-zg-locale="ru" aria-pressed="true" onclick="ZargotaI18n.setLocale('ru')">RU</button>
+      <button type="button" data-zg-locale="uk" aria-pressed="false" onclick="ZargotaI18n.setLocale('uk')">UA</button>
+    </div>
     <div id="zg-irl-session-bridge" class="zg-irl-session-bridge" hidden>
       <button type="button" class="zg-irl-session-return" onclick="zgIrlSessionReturn()">✦ Вернуться к игре</button>
       <button type="button" class="zg-irl-session-end" onclick="zgIrlSessionEndRequest()" title="Завершить реальную сессию" aria-label="Завершить реальную сессию">×</button>
@@ -33999,6 +34015,11 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       <div class="zg-game-settings-title"><span>Настройки</span><small>Потяните нижний левый угол</small></div>
       <nav class="zg-game-settings-tabs" role="tablist" aria-label="Разделы настроек"><button type="button" class="active" data-game-panel-tab="general" role="tab" aria-selected="true" onclick="zgGamePanelTab('general')">Общее</button><button type="button" data-game-panel-tab="workshop" role="tab" aria-selected="false" onclick="zgGamePanelTab('workshop')">Мастерская</button><button type="button" data-game-panel-tab="effects" role="tab" aria-selected="false" onclick="zgGamePanelTab('effects')">Эффекты</button><button type="button" data-game-panel-tab="optimization" role="tab" aria-selected="false" onclick="zgGamePanelTab('optimization')">Оптимизация</button></nav>
       <div class="zg-game-settings-pane active" data-game-panel-pane="general">
+      <section class="zg-language-settings" id="zg-language-settings">
+        <header><span><b>Язык интерфейса</b><small>Отображение меняется только на этом устройстве</small></span><output data-zg-locale-state>Русский</output></header>
+        <div role="group" aria-label="Язык интерфейса"><button type="button" class="active" data-zg-locale="ru" aria-pressed="true" onclick="ZargotaI18n.setLocale('ru')"><i>RU</i><span><b>Русский</b><small>Исходный интерфейс</small></span></button><button type="button" data-zg-locale="uk" aria-pressed="false" onclick="ZargotaI18n.setLocale('uk')"><i>UA</i><span><b>Українська</b><small>Украинская локализация</small></span></button></div>
+        <small>Данные персонажей и мира не изменяются</small>
+      </section>
       <section class="zg-sound-settings" id="zg-sound-settings">
         <header><b>Звук</b><small id="zg-sound-state">Ожидает проверки</small></header>
         <div><button type="button" id="zg-sound-toggle" onclick="zgSoundSettingsToggle()" aria-pressed="false"><span><b>Включить звук</b><small>Снять сохранённое отключение</small></span></button><button type="button" class="test" onclick="zgSoundSettingsTest()">▶ Тест</button></div>
@@ -39676,6 +39697,34 @@ function zgNpcStatus(key) { return NPC_STATUSES.find(function(s){ return s.key =
 var _npcState = { q:'', place:'', faction:'', status:'' };
 var _npcIdbHydrated = false;
 
+function npcEntryIsReviewed(entry) {
+  var payload = window.ZargotaI18nNpcUk;
+  return !!(entry && payload && Array.isArray(payload.reviewedEntryIds) && payload.reviewedEntryIds.indexOf(String(entry.id)) !== -1);
+}
+
+function npcEntryUsesUkrainian(entry) {
+  return !!(window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && npcEntryIsReviewed(entry));
+}
+
+function npcUiText(value) {
+  var source = value == null ? '' : String(value);
+  return window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
+    ? window.ZargotaI18n.translate(source)
+    : source;
+}
+
+function npcEntryText(entry, value) {
+  var source = value == null ? '' : String(value);
+  if (!npcEntryUsesUkrainian(entry)) return source;
+  return window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
+    ? window.ZargotaI18n.translate(source, 'uk')
+    : source;
+}
+
+function npcEntrySkipAttr(entry) {
+  return npcEntryIsReviewed(entry) ? '' : ' data-zg-i18n-skip';
+}
+
 function zgNpcLoad() {
   try {
     var raw = localStorage.getItem('zargota_npc_v1');
@@ -40550,20 +40599,23 @@ function zgNpcRender() {
   var host = document.getElementById('npc-registry-inner');
   if (!host) return;
   var all = zgNpcLoad();
+  var npcUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
   var q = (_npcState.q||'').toLowerCase();
   var list = all.filter(function(n){
     if (_npcState.place && zgNpcPlaceKey(n.place) !== zgNpcPlaceKey(_npcState.place)) return false;
     if (_npcState.faction && zgNpcNorm(n.faction) !== zgNpcNorm(_npcState.faction)) return false;
     if (_npcState.status && (n.status||'unknown') !== _npcState.status) return false;
     if (q) {
-      var hay = ((n.name||'') + ' ' + (n.role||'') + ' ' + (n.place||'') + ' ' + (n.faction||'') + ' ' + (n.tags||[]).join(' ')).toLowerCase();
+      var sourceText = (n.name||'') + ' ' + (n.role||'') + ' ' + (n.place||'') + ' ' + (n.faction||'') + ' ' + (n.tags||[]).join(' ');
+      var localizedText = [n.name, n.role, n.place, n.faction].concat(n.tags||[]).map(function(value){ return npcEntryText(n, value); }).join(' ');
+      var hay = (sourceText + ' ' + localizedText).toLowerCase();
       if (hay.indexOf(q) < 0) return false;
     }
     return true;
   });
 
   var head = '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">' +
-    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#f6e6c0">👥 Реестр НПС <span style="font-size:12px;color:#7a6a48;font-family:\'Lora\',serif">' + all.length + ' записей</span></div>' +
+    '<div style="font-family:\'Cinzel Decorative\',serif;font-size:20px;color:#f6e6c0">👥 Реестр НПС <span style="font-size:12px;color:#7a6a48;font-family:\'Lora\',serif">' + all.length + (npcUkrainian ? ' записів' : ' записей') + '</span></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
       '<button onclick="zgNpcImportHtree()" class="btn" style="padding:8px 14px;border:1px solid #3a2a14;background:#1a1309;color:#c8b89c;border-radius:8px;cursor:pointer;font-size:12px;font-family:\'Cinzel\',serif" title="Подтянуть персон из деревьев Иерархии">⬇ Из Иерархии</button>' +
       '<button onclick="zgNpcEdit(null)" class="btn btn-gold" style="padding:8px 16px;border:1px solid #e8c060;background:#e8c06018;color:#e8c060;border-radius:8px;cursor:pointer;font-size:12px;font-family:\'Cinzel\',serif">＋ НПС</button>' +
@@ -40581,7 +40633,8 @@ function zgNpcRender() {
     html += '<button onclick="_npcState.' + field + '=\'\';zgNpcRender()" style="padding:5px 12px;border:1px solid ' + (cur===''?'#e8c060':'#2a1e10') + ';border-radius:14px;background:' + (cur===''?'#e8c06018':'transparent') + ';color:' + (cur===''?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + icon + ' Все</button>';
     vals.forEach(function(v){
       var on = (field === 'place') ? (zgNpcPlaceKey(cur) === zgNpcPlaceKey(v) && !!cur) : (cur === v);
-      html += '<button onclick="_npcState.' + field + '=\'' + v.replace(/'/g,"\\'") + '\';zgNpcRender()" style="padding:5px 12px;border:1px solid ' + (on?'#e8c060':'#2a1e10') + ';border-radius:14px;background:' + (on?'#e8c06018':'transparent') + ';color:' + (on?'#e8c060':'#8a7a5e') + ';font-size:11px;cursor:pointer;font-family:\'Lora\',serif">' + escHTML(v) + '</button>';
+      var sourceEntry = all.find(function(entry){ return field === 'place' ? zgNpcPlaceKey(entry.place) === zgNpcPlaceKey(v) : entry[field] === v; });
+      html += '<button onclick="_npcState.' + field + '=\'' + v.replace(/'/g,"\\'") + '\';zgNpcRender()" style="padding:5px 12px;border:1px solid ' + (on?'#e8c060':'#2a1e10') + ';border-radius:14px;background:' + (on?'#e8c06018':'transparent') + ';color:' + (on?'#e8c060':'#8a7a5e') + ';font-size:11px;cursor:pointer;font-family:\'Lora\',serif">' + escHTML(sourceEntry ? npcEntryText(sourceEntry, v) : v) + '</button>';
     });
     return html + '</div>';
   }
@@ -40594,7 +40647,7 @@ function zgNpcRender() {
     var ddOn = curPlace && !curInChips;
     placeSel = '<div style="position:relative;display:inline-block;margin-bottom:8px" id="npc-place-dd-wrap">' +
       '<button onclick="zgNpcPlaceDdToggle()" style="display:flex;align-items:center;gap:8px;padding:7px 14px;background:' + (ddOn?'#e8c06018':'#17110a') + ';border:1px solid ' + (ddOn?'#e8c060':'#2f2112') + ';border-radius:14px;color:' + (ddOn?'#e8c060':'#8a7a5e') + ';font-family:\'Lora\',serif;font-size:12px;cursor:pointer">' +
-        '🗺️ ' + (ddOn ? '📍 ' + escHTML(curPlace) : 'Все локации атласа (' + allPlaces.length + ')') + ' <span style="font-size:9px">▼</span>' +
+        '🗺️ ' + (ddOn ? '📍 ' + escHTML(curPlace) : (npcUkrainian ? 'Усі локації атласу (' : 'Все локации атласа (') + allPlaces.length + ')') + ' <span style="font-size:9px">▼</span>' +
       '</button>' +
       '<div id="npc-place-dd" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:500;width:300px;max-width:82vw;background:linear-gradient(160deg,#1a1408,#0e0a06);border:1px solid #d4a04a66;border-radius:12px;box-shadow:0 16px 50px #000c;padding:10px;box-sizing:border-box">' +
         '<input id="npc-place-dd-q" type="text" placeholder="🔍 Найти локацию…" oninput="zgNpcPlaceDdFilter(this.value)" onclick="event.stopPropagation()" style="width:100%;box-sizing:border-box;padding:8px 12px;background:#17110a;border:1px solid #2f2112;border-radius:8px;color:#e8d8b8;font-family:\'Lora\',serif;font-size:13px;margin-bottom:8px">' +
@@ -40602,7 +40655,8 @@ function zgNpcRender() {
           '<div class="npc-place-dd-item" data-place="" onclick="zgNpcPlaceDdPick(\'\')" style="padding:7px 10px;border-radius:8px;cursor:pointer;font-family:\'Cinzel\',serif;font-size:12px;color:' + (!curPlace?'#e8c060':'#8a7a5e') + '">🌍 Все локации</div>' +
           allPlaces.map(function(p){
             var on = !!curPlace && zgNpcPlaceKey(curPlace) === zgNpcPlaceKey(p);
-            return '<div class="npc-place-dd-item" data-place="' + escHTML(p) + '" onclick="zgNpcPlaceDdPick(this.getAttribute(\'data-place\'))" style="padding:7px 10px;border-radius:8px;cursor:pointer;font-family:\'Lora\',serif;font-size:13px;color:' + (on?'#e8c060':'#c8b89c') + ';background:' + (on?'#e8c06012':'transparent') + '">📍 ' + escHTML(p) + '</div>';
+            var sourceEntry = all.find(function(entry){ return zgNpcPlaceKey(entry.place) === zgNpcPlaceKey(p); });
+            return '<div class="npc-place-dd-item" data-place="' + escHTML(p) + '" onclick="zgNpcPlaceDdPick(this.getAttribute(\'data-place\'))" style="padding:7px 10px;border-radius:8px;cursor:pointer;font-family:\'Lora\',serif;font-size:13px;color:' + (on?'#e8c060':'#c8b89c') + ';background:' + (on?'#e8c06012':'transparent') + '">📍 ' + escHTML(sourceEntry ? npcEntryText(sourceEntry, p) : p) + '</div>';
           }).join('') +
         '</div>' +
       '</div>' +
@@ -40614,7 +40668,7 @@ function zgNpcRender() {
   st += '<button onclick="_npcState.status=\'\';zgNpcRender()" style="padding:5px 12px;border:1px solid ' + (_npcState.status===''?'#e8c060':'#2a1e10') + ';border-radius:14px;background:' + (_npcState.status===''?'#e8c06018':'transparent') + ';color:' + (_npcState.status===''?'#e8c060':'#7a6a48') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">Все</button>';
   NPC_STATUSES.forEach(function(s){
     var on = _npcState.status === s.key;
-    st += '<button onclick="_npcState.status=\'' + s.key + '\';zgNpcRender()" style="padding:5px 12px;border:1px solid ' + (on?s.color:'#2a1e10') + ';border-radius:14px;background:' + (on?s.color+'22':'transparent') + ';color:' + (on?s.color:'#8a7a5e') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + s.icon + ' ' + s.label + '</button>';
+    st += '<button onclick="_npcState.status=\'' + s.key + '\';zgNpcRender()" style="padding:5px 12px;border:1px solid ' + (on?s.color:'#2a1e10') + ';border-radius:14px;background:' + (on?s.color+'22':'transparent') + ';color:' + (on?s.color:'#8a7a5e') + ';font-size:11px;cursor:pointer;font-family:\'Cinzel\',serif">' + s.icon + ' ' + escHTML(npcUiText(s.label)) + '</button>';
   });
   st += '</div>';
 
@@ -40628,19 +40682,19 @@ function zgNpcRender() {
       var s = zgNpcStatus(n.status);
       var sheet = zgNpcResolvedSheet(n);
       var portrait = zgNpcPortrait(n);
-      var av = portrait ? '<img src="' + escHTML(portrait) + '" alt="' + escHTML(n.name || 'НПС') + '" style="width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid ' + s.color + '55">' :
+      var av = portrait ? '<img src="' + escHTML(portrait) + '" alt="' + escHTML(npcEntryText(n, n.name || 'НПС')) + '" style="width:54px;height:54px;object-fit:cover;border-radius:50%;border:2px solid ' + s.color + '55">' :
         '<div style="width:54px;height:54px;border-radius:50%;border:2px solid ' + s.color + '55;background:#241a0e;display:flex;align-items:center;justify-content:center;font-size:26px">' + (n.icon||'👤') + '</div>';
       var dead = n.status === 'dead';
-      grid += '<div class="shop-card" onclick="zgNpcView(\'' + n.id + '\')" style="' + (dead?'filter:grayscale(.55);':'') + '--shop-accent:' + s.color + '">' +
+      grid += '<div class="shop-card"' + npcEntrySkipAttr(n) + ' onclick="zgNpcView(\'' + n.id + '\')" style="' + (dead?'filter:grayscale(.55);':'') + '--shop-accent:' + s.color + '">' +
         '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">' + av +
-          '<div style="min-width:0"><div style="font-family:\'Cinzel\',serif;font-size:14px;color:#f0e0be;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (dead?'text-decoration:line-through;':'') + '">' + escHTML(n.name||'—') + '</div>' +
-          (n.role ? '<div style="font-size:11px;color:#a8987c;font-family:\'Lora\',serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHTML(n.role) + '</div>' : '') + '</div></div>' +
+          '<div style="min-width:0"><div style="font-family:\'Cinzel\',serif;font-size:14px;color:#f0e0be;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (dead?'text-decoration:line-through;':'') + '">' + escHTML(npcEntryText(n, n.name||'—')) + '</div>' +
+          (n.role ? '<div style="font-size:11px;color:#a8987c;font-family:\'Lora\',serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHTML(npcEntryText(n, n.role)) + '</div>' : '') + '</div></div>' +
         '<div style="display:flex;gap:5px;flex-wrap:wrap;font-size:10px">' +
-          '<span style="color:' + s.color + ';border:1px solid ' + s.color + '44;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">' + s.icon + ' ' + s.label + '</span>' +
-          '<span style="color:#e8c060;border:1px solid #e8c06044;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">Ур. ' + (sheet.level >= 11 ? '∞' : sheet.level) + '</span>' +
+          '<span style="color:' + s.color + ';border:1px solid ' + s.color + '44;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">' + s.icon + ' ' + escHTML(npcUiText(s.label)) + '</span>' +
+          '<span style="color:#e8c060;border:1px solid #e8c06044;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">' + (npcUkrainian ? 'Рів. ' : 'Ур. ') + (sheet.level >= 11 ? '∞' : sheet.level) + '</span>' +
           '<span style="color:#7fd68a;border:1px solid #6fcb8344;border-radius:8px;padding:2px 8px;font-family:\'Cinzel\',serif">HP ' + sheet.hp + '</span>' +
-          (n.place ? '<span style="color:#8fb8c8;border:1px solid #8fb8c844;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">📍 ' + escHTML(n.place) + '</span>' : '') +
-          (n.faction ? '<span style="color:#c9a06a;border:1px solid #c9a06a44;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">⚜️ ' + escHTML(n.faction) + '</span>' : '') +
+          (n.place ? '<span style="color:#8fb8c8;border:1px solid #8fb8c844;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">📍 ' + escHTML(npcEntryText(n, n.place)) + '</span>' : '') +
+          (n.faction ? '<span style="color:#c9a06a;border:1px solid #c9a06a44;border-radius:8px;padding:2px 8px;font-family:\'Lora\',serif">⚜️ ' + escHTML(npcEntryText(n, n.faction)) + '</span>' : '') +
         '</div>' +
         ((n.secret||'').trim() ? '<div style="margin-top:7px;font-size:10px;color:#e8a040;font-family:\'Cinzel\',serif">🔒 есть секрет ГМа</div>' : '') +
       '</div>';
@@ -40649,6 +40703,13 @@ function zgNpcRender() {
   }
   host.innerHTML = head + search + chips + st + grid;
 }
+
+document.addEventListener('zargota:localechange', function() {
+  var page = document.getElementById('page-workshop');
+  if (page && page.classList.contains('active')) zgNpcRender();
+  var popup = document.getElementById('npc-view-popup');
+  if (popup && popup.dataset.npcId) zgNpcView(popup.dataset.npcId);
+});
 
 // Комбобокс локаций: открыть/закрыть, живой поиск, выбор
 function zgNpcPlaceDdToggle() {
@@ -40691,15 +40752,17 @@ function zgNpcPlaceDdPick(place) {
 function zgNpcView(id) {
   var n = zgNpcLoad().find(function(x){ return x.id === id; });
   if (!n) return;
+  var npcUkrainian = npcEntryUsesUkrainian(n);
   var s = zgNpcStatus(n.status);
   var sheet = zgNpcResolvedSheet(n);
   var old = document.getElementById('npc-view-popup'); if (old) old.remove();
   var wrap = document.createElement('div');
   wrap.id = 'npc-view-popup';
+  wrap.dataset.npcId = n.id;
   wrap.className = 'npc-sheet-overlay';
   wrap.onclick = function(e){ if (e.target === wrap) wrap.remove(); };
   var portrait = zgNpcPortrait(n);
-  var av = portrait ? '<img class="npc-sheet-avatar" src="' + escHTML(portrait) + '" alt="' + escHTML(n.name || 'НПС') + '" style="object-fit:cover;border:2px solid ' + s.color + '88">' :
+  var av = portrait ? '<img class="npc-sheet-avatar" src="' + escHTML(portrait) + '" alt="' + escHTML(npcEntryText(n, n.name || 'НПС')) + '" style="object-fit:cover;border:2px solid ' + s.color + '88">' :
     '<div class="npc-sheet-avatar" style="border:2px solid ' + s.color + '88;background:#241a0e;display:inline-flex;align-items:center;justify-content:center;font-size:54px">' + (n.icon||'👤') + '</div>';
   var links = '';
   if (Array.isArray(n.links) && n.links.length) {
@@ -40708,11 +40771,11 @@ function zgNpcView(id) {
     n.links.forEach(function(l){
       var t = allNpc.find(function(x){ return x.id === l.id; });
       if (!t) return;
-      links += '<button class="npc-sheet-link" onclick="zgNpcView(\'' + t.id + '\')">' + (t.icon||'👤') + '&nbsp; ' + escHTML(t.name) + (l.label ? ' <span style="color:#847351">&nbsp;· ' + escHTML(l.label) + '</span>' : '') + '</button>';
+      links += '<button class="npc-sheet-link" onclick="zgNpcView(\'' + t.id + '\')">' + (t.icon||'👤') + '&nbsp; ' + escHTML(npcEntryText(t, t.name)) + (l.label ? ' <span style="color:#847351">&nbsp;· ' + escHTML(npcEntryText(n, l.label)) + '</span>' : '') + '</button>';
     });
     links += '</div></div>';
   }
-  var tags = (n.tags||[]).slice(0, 4).map(function(t){ return '<span class="npc-sheet-chip" style="color:#8a7a5e">#' + escHTML(t) + '</span>'; }).join('');
+  var tags = (n.tags||[]).slice(0, 4).map(function(t){ return '<span class="npc-sheet-chip" style="color:#8a7a5e">#' + escHTML(npcEntryText(n, t)) + '</span>'; }).join('');
   var statTiles = ZG_NPC_STAT_KEYS.map(function(st){
     return '<button class="npc-sheet-stat" onclick="event.stopPropagation();zgNpcRollCheck(\'' + n.id + '\', \'' + st.key + '\')" title="Кинуть d20: ' + escHTML(st.title) + '">' +
       '<span class="npc-sheet-stat-icon">' + st.icon + '</span>' +
@@ -40724,14 +40787,15 @@ function zgNpcView(id) {
     if (!text) return '';
     return '<div class="npc-sheet-copy-block' + (secret ? ' npc-sheet-secret' : '') + '">' +
       '<div class="npc-sheet-copy-title">' + label + '</div>' +
-      '<div class="npc-sheet-copy-text">' + escHTML(text) + '</div>' +
+      '<div class="npc-sheet-copy-text">' + escHTML(npcEntryText(n, text)) + '</div>' +
     '</div>';
   }
   var panel = document.createElement('div');
   panel.className = 'npc-sheet-panel';
+  if (!npcEntryIsReviewed(n)) panel.setAttribute('data-zg-i18n-skip', '');
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
-  panel.setAttribute('aria-label', 'Карточка НПС: ' + (n.name || 'без имени'));
+  panel.setAttribute('aria-label', (npcEntryUsesUkrainian(n) ? 'Картка NPC: ' : 'Карточка НПС: ') + npcEntryText(n, n.name || (npcEntryUsesUkrainian(n) ? 'без імені' : 'без имени')));
   panel.style.setProperty('--npc-accent', s.color);
   panel.innerHTML =
     '<div class="npc-sheet-actions">' +
@@ -40741,15 +40805,15 @@ function zgNpcView(id) {
     '<div class="npc-sheet-header">' +
       '<div>' + av + '</div>' +
       '<div style="min-width:0">' +
-        '<div class="npc-sheet-name" style="' + (n.status==='dead'?'text-decoration:line-through;':'') + '">' + escHTML(n.name||'—') + '</div>' +
-        (n.role ? '<div class="npc-sheet-role">' + escHTML(n.role) + '</div>' : '') +
+        '<div class="npc-sheet-name" style="' + (n.status==='dead'?'text-decoration:line-through;':'') + '">' + escHTML(npcEntryText(n, n.name||'—')) + '</div>' +
+        (n.role ? '<div class="npc-sheet-role">' + escHTML(npcEntryText(n, n.role)) + '</div>' : '') +
         '<div class="npc-sheet-tags">' +
-          '<span class="npc-sheet-chip npc-sheet-chip-status" style="color:' + s.color + ';border-color:' + s.color + '66">' + s.icon + ' ' + s.label + '</span>' +
-          '<span class="npc-sheet-chip npc-sheet-chip-level" style="color:#e8c060;border-color:#e8c06066">Ур. ' + (sheet.level >= 11 ? '∞' : sheet.level) + ' · ' + escHTML(sheet.levelLabel) + '</span>' +
-          '<span class="npc-sheet-chip">' + escHTML(sheet.race) + '</span>' +
-          (sheet.age ? '<span class="npc-sheet-chip">Возраст: ' + escHTML(sheet.age) + '</span>' : '') +
-          (n.place ? '<span class="npc-sheet-chip" style="color:#8fb8c8;border-color:#8fb8c855">📍 ' + escHTML(n.place) + '</span>' : '') +
-          (n.faction ? '<span class="npc-sheet-chip" style="color:#c9a06a;border-color:#c9a06a55">⚜ ' + escHTML(n.faction) + '</span>' : '') +
+          '<span class="npc-sheet-chip npc-sheet-chip-status" style="color:' + s.color + ';border-color:' + s.color + '66">' + s.icon + ' ' + escHTML(npcUiText(s.label)) + '</span>' +
+          '<span class="npc-sheet-chip npc-sheet-chip-level" style="color:#e8c060;border-color:#e8c06066">' + (npcUkrainian ? 'Рів. ' : 'Ур. ') + (sheet.level >= 11 ? '∞' : sheet.level) + ' · ' + escHTML(npcEntryText(n, sheet.levelLabel)) + '</span>' +
+          '<span class="npc-sheet-chip">' + escHTML(npcEntryText(n, sheet.race)) + '</span>' +
+          (sheet.age ? '<span class="npc-sheet-chip">' + (npcUkrainian ? 'Вік: ' : 'Возраст: ') + escHTML(npcEntryText(n, sheet.age)) + '</span>' : '') +
+          (n.place ? '<span class="npc-sheet-chip" style="color:#8fb8c8;border-color:#8fb8c855">📍 ' + escHTML(npcEntryText(n, n.place)) + '</span>' : '') +
+          (n.faction ? '<span class="npc-sheet-chip" style="color:#c9a06a;border-color:#c9a06a55">⚜ ' + escHTML(npcEntryText(n, n.faction)) + '</span>' : '') +
           tags +
         '</div>' +
       '</div>' +
@@ -40757,12 +40821,12 @@ function zgNpcView(id) {
     '<div class="npc-sheet-body">' +
       '<aside class="npc-sheet-side">' +
         '<div class="npc-sheet-frame">' +
-          '<div class="npc-sheet-frame-title">СТАТУС <span class="npc-sheet-frame-title-note">· ' + escHTML(sheet.archetype) + '</span></div>' +
+          '<div class="npc-sheet-frame-title">СТАТУС <span class="npc-sheet-frame-title-note">· ' + escHTML(npcEntryText(n, sheet.archetype)) + '</span></div>' +
           '<div class="npc-sheet-vitals">' +
             '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">❤</span><span class="npc-sheet-vital-label">HP</span><span class="npc-sheet-vital-value" style="color:#7fd68a">' + sheet.hp + '</span></div>' +
             '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">🛡</span><span class="npc-sheet-vital-label">БРОНЯ</span><span class="npc-sheet-vital-value">' + sheet.armor + '</span></div>' +
             '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">🎲</span><span class="npc-sheet-vital-label">ИНИЦ.</span><span class="npc-sheet-vital-value">' + zgNpcSigned(sheet.init) + '</span></div>' +
-            '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">👁</span><span class="npc-sheet-vital-label">УГРОЗА</span><span class="npc-sheet-vital-value" style="color:#e8c060;font-size:13px;line-height:1.2">' + escHTML(sheet.threat) + '</span></div>' +
+            '<div class="npc-sheet-vital"><span class="npc-sheet-vital-icon">👁</span><span class="npc-sheet-vital-label">УГРОЗА</span><span class="npc-sheet-vital-value" style="color:#e8c060;font-size:13px;line-height:1.2">' + escHTML(npcEntryText(n, sheet.threat)) + '</span></div>' +
           '</div>' +
         '</div>' +
         '<div class="npc-sheet-frame">' +
@@ -40773,7 +40837,7 @@ function zgNpcView(id) {
       '<section class="npc-sheet-copy">' +
         infoBlock('ВНЕШНОСТЬ', sheet.appearance) +
         infoBlock('ПОВЕДЕНИЕ', sheet.behavior) +
-        infoBlock('ПРО НЕГО', sheet.about) +
+        infoBlock('ПРО НЕГО', n.about || n.desc || sheet.about) +
         (sheet.secret ? infoBlock('🔒 СЕКРЕТ ГМа', sheet.secret, true) : '') +
         links +
       '</section>' +
@@ -41370,6 +41434,27 @@ function saveEncState() {
   try { localStorage.setItem(ENC_STORAGE_KEY, JSON.stringify(encState)); } catch(e) {}
 }
 function getEncEntry(id) { return encState.entries.find(function(e){ return e.id === id; }); }
+function encDisplayText(value, localeOverride) {
+  var source = String(value == null ? '' : value);
+  if (window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function') {
+    return window.ZargotaI18n.translate(source, localeOverride);
+  }
+  return source;
+}
+function encMatchesQuery(entry, query) {
+  if (!query) return true;
+  var sourceName = String(entry.name || '');
+  var sourceSub = String(entry.sub || '');
+  var haystack = [sourceName, sourceSub, encDisplayText(sourceName, 'uk'), encDisplayText(sourceSub, 'uk')].join(' ').toLowerCase();
+  return haystack.indexOf(query) >= 0;
+}
+function encConnectionPairs(value) {
+  var sourceItems = String(value || '').split(',').map(function(item){ return item.trim(); }).filter(Boolean);
+  var localizedItems = encDisplayText(value).split(',').map(function(item){ return item.trim(); }).filter(Boolean);
+  return sourceItems.map(function(source, index) {
+    return { source: source, label: localizedItems.length === sourceItems.length ? localizedItems[index] : encDisplayText(source) };
+  });
+}
 
 function getEncStatusBadge(e) {
   if (e.status === 'done') return '<span title="Готова" style="font-size:10px;margin-left:4px;opacity:.9">✅</span>';
@@ -41380,8 +41465,8 @@ function getEncStatusBadge(e) {
 function encLeafHtml(e, selectedId) {
   return '<button class="enc-leaf' + (e.id===selectedId?' active':'') + '" onclick="selectEncEntry(\'' + String(e.id).replace(/'/g,"\\'") + '\')">' +
     '<span class="enc-leaf-dot" style="background:' + (e.color||'#d5b26d') + '"></span>' +
-    '<span class="enc-leaf-name">' + escHTML(e.name) + '</span>' +
-    (e.tag ? '<span class="enc-leaf-tag">' + escHTML(e.tag) + '</span>' : '') +
+    '<span class="enc-leaf-name">' + escHTML(encDisplayText(e.name)) + '</span>' +
+    (e.tag ? '<span class="enc-leaf-tag">' + escHTML(encDisplayText(e.tag)) + '</span>' : '') +
     getEncStatusBadge(e) +
   '</button>';
 }
@@ -41443,10 +41528,10 @@ function renderEncyclopedia() {
 function renderEncSidebar() {
   var el = document.getElementById('world-enc-sidebar');
   if (!el) return;
-  var q = (encState.query || '').toLowerCase();
+  var q = (encState.query || '').trim().toLowerCase();
   var html = '<input class="enc-search" placeholder="Поиск по энциклопедии..." value="' + escHTML(encState.query||'') + '" oninput="encState.query=this.value;renderEncSidebar()">';
   ENC_CATEGORIES.forEach(function(cat) {
-    var items = encState.entries.filter(function(e){ return e.category === cat.key && (!q || e.name.toLowerCase().indexOf(q) >= 0 || (e.sub||'').toLowerCase().indexOf(q) >= 0); });
+    var items = encState.entries.filter(function(e){ return e.category === cat.key && encMatchesQuery(e, q); });
     if (q && !items.length) return;
     var isOpen = !!encState.openBranches[cat.key];
     html += '<div class="enc-branch">';
@@ -41454,7 +41539,7 @@ function renderEncSidebar() {
     html += '<button class="enc-root' + (isOpen?' open':'') + '" onclick="toggleEncBranch(\'' + cat.key + '\')" style="flex:1">';
     html += '<span class="enc-chevron">&#9654;</span>';
     html += '<span class="enc-root-icon">' + cat.icon + '</span>';
-    html += '<span class="enc-root-label">' + escHTML(cat.label) + '</span>';
+    html += '<span class="enc-root-label">' + escHTML(encDisplayText(cat.label)) + '</span>';
     html += '<span class="enc-root-count">' + items.length + '</span>';
     html += '</button>';
     html += '<button onclick="event.stopPropagation();addEncEntryTo(\'' + cat.key + '\')" style="background:transparent;border:none;color:var(--dim);cursor:pointer;padding:4px 8px;font-size:14px;flex-shrink:0" title="Добавить в ' + escHTML(cat.label) + '">＋</button>';
@@ -41472,7 +41557,7 @@ function renderEncSidebar() {
         html += '<div style="display:flex;align-items:center">';
         html += '<button class="enc-sub-head" onclick="toggleEncBranch(\'' + subKey + '\')" style="flex:1">';
         html += '<span class="enc-chevron" style="' + (subOpen?'transform:rotate(90deg)':'') + '">&#9654;</span>';
-        html += '<span class="enc-sub-label">' + escHTML(sub) + ' <span style="color:var(--dim);font-size:10px">(' + subItems.length + ')</span></span>';
+        html += '<span class="enc-sub-label">' + escHTML(encDisplayText(sub)) + ' <span style="color:var(--dim);font-size:10px">(' + subItems.length + ')</span></span>';
         html += '</button>';
         html += '<button onclick="event.stopPropagation();addEncEntryTo(\'' + cat.key + '\',\'' + escHTML(sub).replace(/'/g,"\\'") + '\')" style="background:transparent;border:none;color:var(--dim);cursor:pointer;padding:2px 6px;font-size:12px;flex-shrink:0" title="Добавить в ' + escHTML(sub) + '">＋</button>';
         html += '</div>';
@@ -41489,7 +41574,7 @@ function renderEncSidebar() {
             html += '<div style="display:flex;align-items:center;padding-left:8px">';
             html += '<button class="enc-sub-head" onclick="toggleEncBranch(\'' + sub2Key + '\')" style="flex:1;font-size:11px;padding-left:4px">';
             html += '<span class="enc-chevron" style="font-size:9px;' + (sub2Open?'transform:rotate(90deg)':'') + '">&#9654;</span>';
-            html += '<span class="enc-sub-label" style="font-size:11px;color:var(--dim)">' + escHTML(sub2) + ' <span style="font-size:10px">(' + sub2Items.length + ')</span></span>';
+            html += '<span class="enc-sub-label" style="font-size:11px;color:var(--dim)">' + escHTML(encDisplayText(sub2)) + ' <span style="font-size:10px">(' + sub2Items.length + ')</span></span>';
             html += '</button>';
             html += '<button onclick="event.stopPropagation();addEncEntryTo(\'' + cat.key + '\',\'' + escHTML(sub).replace(/'/g,"\\'") + '\',\'' + escHTML(sub2).replace(/'/g,"\\'") + '\')" style="background:transparent;border:none;color:var(--dim);cursor:pointer;padding:2px 6px;font-size:11px;flex-shrink:0" title="Добавить в ' + escHTML(sub2) + '">＋</button>';
             html += '</div>';
@@ -41567,8 +41652,8 @@ function renderEncMain() {
   var header =
     '<div class="enc-main-head">' +
       '<div class="enc-main-head-copy">' +
-        '<div class="enc-article-title">' + escHTML(e.name) + '</div>' +
-        '<div class="enc-article-meta">' + (catObj ? catObj.icon + ' ' + escHTML(catObj.label) : '') + (e.sub ? ' • ' + escHTML(e.sub) : '') + (e.sub2 ? ' • ' + escHTML(e.sub2) : '') + (e.tag ? ' • ' + escHTML(e.tag) : '') + '</div>' +
+        '<div class="enc-article-title">' + escHTML(encDisplayText(e.name)) + '</div>' +
+        '<div class="enc-article-meta">' + (catObj ? catObj.icon + ' ' + escHTML(encDisplayText(catObj.label)) : '') + (e.sub ? ' • ' + escHTML(encDisplayText(e.sub)) : '') + (e.sub2 ? ' • ' + escHTML(encDisplayText(e.sub2)) : '') + (e.tag ? ' • ' + escHTML(encDisplayText(e.tag)) : '') + '</div>' +
       '</div>' +
       htreeBadge +
       '<div class="enc-main-head-actions">' +
@@ -41615,33 +41700,38 @@ function renderEncMain() {
       '</div>';
   } else {
     // VIEW MODE — улучшенный вид статьи
-    var connectList = (e.connections || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+    var connectList = encConnectionPairs(e.connections || '');
     body =
       (e.body
-        ? '<div class="enc-article-section" style="margin-top:0;padding-top:0;border-top:none"><div class="enc-article-body enc-body-prose">' + escHTML(e.body).replace(/\n\n/g,'</p><p class="enc-body-para">').replace(/\n/g,'<br>') + '</div></div>'
+        ? '<div class="enc-article-section" style="margin-top:0;padding-top:0;border-top:none"><div class="enc-article-body enc-body-prose">' + escHTML(encDisplayText(e.body)).replace(/\n\n/g,'</p><p class="enc-body-para">').replace(/\n/g,'<br>') + '</div></div>'
         : '<div style="color:var(--dim);font-size:13px;padding:12px 0;font-style:italic">Описание пока не добавлено. Нажми «Редактировать» чтобы заполнить.</div>') +
       (e.details
-        ? '<div class="enc-article-section"><div class="enc-article-section-title">Подробности</div><div class="enc-article-body">' + escHTML(e.details).replace(/\n/g,'<br>') + '</div></div>'
+        ? '<div class="enc-article-section"><div class="enc-article-section-title">Подробности</div><div class="enc-article-body">' + escHTML(encDisplayText(e.details)).replace(/\n/g,'<br>') + '</div></div>'
         : '') +
       (connectList.length
         ? '<div class="enc-article-section"><div class="enc-article-section-title">Связи</div>' +
             '<div class="enc-connections-list">' +
               connectList.map(function(conn){
-                var linked = encState.entries.find(function(en){ return String(en.name||'').trim().toLowerCase() === conn.toLowerCase(); });
+                var linked = encState.entries.find(function(en){ return String(en.name||'').trim().toLowerCase() === conn.source.toLowerCase(); });
                 if (linked) {
-                  return '<button class="enc-conn-chip enc-conn-linked" onclick="selectEncEntry(\'' + String(linked.id).replace(/'/g,"\\'") + '\')">' + escHTML(conn) + '</button>';
+                  return '<button class="enc-conn-chip enc-conn-linked" onclick="selectEncEntry(\'' + String(linked.id).replace(/'/g,"\\'") + '\')">' + escHTML(conn.label) + '</button>';
                 }
-                return '<span class="enc-conn-chip">' + escHTML(conn) + '</span>';
+                return '<span class="enc-conn-chip">' + escHTML(conn.label) + '</span>';
               }).join('') +
             '</div>' +
           '</div>'
         : '') +
       (e.gmNotes
-        ? '<div class="enc-article-section enc-gm-section"><div class="enc-article-section-title" style="color:#8a7a5a">⚿ Заметки мастера</div><div class="enc-article-body" style="color:#9a8a6a;font-style:italic;font-size:13px">' + escHTML(e.gmNotes).replace(/\n/g,'<br>') + '</div></div>'
+        ? '<div class="enc-article-section enc-gm-section"><div class="enc-article-section-title" style="color:#8a7a5a">⚿ Заметки мастера</div><div class="enc-article-body" style="color:#9a8a6a;font-style:italic;font-size:13px">' + escHTML(encDisplayText(e.gmNotes)).replace(/\n/g,'<br>') + '</div></div>'
         : '');
   }
   el.innerHTML = header + body;
 }
+document.addEventListener('zargota:localechange', function() {
+  if (!document.getElementById('world-enc-sidebar')) return;
+  renderEncSidebar();
+  renderEncMain();
+});
 function cycleEncStatus(id) {
   var e = getEncEntry(id); if (!e) return;
   if (!e.body || !e.body.trim()) { showToast('Заполни описание прежде чем отмечать статус.'); return; }
@@ -43303,6 +43393,36 @@ function renderGrimoireStats() {
   detail.hidden = !grimoireDetailsOpen;
 }
 
+function catalogReviewPayload() {
+  return window.ZargotaI18nCatalogUk || { reviewedEntryIds: [], translations: {} };
+}
+
+function catalogEntryIsReviewed(entry) {
+  return catalogReviewPayload().reviewedEntryIds.indexOf(String(entry && entry.id)) >= 0;
+}
+
+function catalogEntryText(entry, value) {
+  const source = value == null ? '' : String(value);
+  const isUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
+  if (!isUkrainian || !catalogEntryIsReviewed(entry)) return source;
+  const translations = catalogReviewPayload().translations || {};
+  return Object.prototype.hasOwnProperty.call(translations, source) ? translations[source] : source;
+}
+
+function catalogEntrySkipAttr(entry) {
+  return catalogEntryIsReviewed(entry) ? '' : ' data-zg-i18n-skip';
+}
+
+function catalogCooldownText(entry) {
+  const isUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
+  const value = catalogEntryText(entry, entry && entry.cd);
+  if (!isUkrainian || !catalogEntryIsReviewed(entry)) return `КД: ${entry && entry.cd || ''}`;
+  if (/(?:Восстановление|Відновлення)(?=\s|:|$)/iu.test(value)) return value;
+  if (/^(?:Постоянно|Постійно)(?=\s|,|;|:|$)/iu.test(value.trim())) return value;
+  if (/^Одночасно(?=\s|:|$)/iu.test(value.trim())) return value;
+  return `Відновлення: ${value}`;
+}
+
 function renderCatalog() {
   try { zgMigrateObradSchools(); } catch(e) {}
   renderGrimoireStats();
@@ -43311,7 +43431,9 @@ function renderCatalog() {
 
   const filtered = entries.filter(e => {
     if (fSearch) {
-      const hay = `${e.name||''} ${e.description||''} ${e.school||''} ${e.schoolCustom||''}`.toLowerCase();
+      const searchParts = [e.name||'', e.description||'', e.school||'', e.schoolCustom||''];
+      searchParts.push.apply(searchParts, searchParts.map(function(value) { return catalogEntryText(e, value); }));
+      const hay = searchParts.join(' ').toLowerCase();
       if (!hay.includes(fSearch)) return false;
     }
     if (fLevel !== 'all' && e.level !== fLevel) return false;
@@ -43348,6 +43470,12 @@ function renderCatalog() {
   grid.innerHTML = filtered.map(e => cardHTML(e)).join('');
 }
 
+document.addEventListener('zargota:localechange', function() {
+  if (document.getElementById('page-catalog') && document.getElementById('search-input')) renderCatalog();
+  const detailPage = document.getElementById('page-detail');
+  if (detailId != null && detailPage && detailPage.classList.contains('active')) openDetail(detailId);
+});
+
 function cardHTML(e) {
   const cats = CATEGORIES.filter(c => (e.categories||[]).includes(c.key));
   const dmgs = DAMAGE_TYPES.filter(d => (e.damageTypes||[]).includes(d.key));
@@ -43371,7 +43499,7 @@ function cardHTML(e) {
     : `<span class="badge badge-level">ур. ${escHTML(e.level)}</span>`;
 
   const schoolBadge = schoolLabel
-    ? `<span class="badge">${escHTML(schoolLabel)}</span>`
+    ? `<span class="badge"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, schoolLabel))}</span>`
     : '';
 
   const catChips = cats.map(c =>
@@ -43390,11 +43518,11 @@ function cardHTML(e) {
       ${schoolBadge}
       ${levelBadge}
     </div>
-    <div class="card-name">${escHTML(e.name||'Без названия')}</div>
-    ${e.description ? `<div class="card-desc">${escHTML(e.description)}</div>` : ''}
+    <div class="card-name"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.name||'Без названия'))}</div>
+    ${e.description ? `<div class="card-desc"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.description))}</div>` : ''}
     ${catChips ? `<div class="cat-chips">${catChips}</div>` : ''}
     ${dmgChips ? `<div class="dmg-chips">${dmgChips}</div>` : ''}
-    ${e.cd ? `<div class="card-cd">КД: ${escHTML(e.cd)}</div>` : ''}
+    ${e.cd ? `<div class="card-cd"${catalogEntrySkipAttr(e)}>${escHTML(catalogCooldownText(e))}</div>` : ''}
   </div>`;
 }
 
@@ -43434,12 +43562,12 @@ function openDetail(id) {
 
   const metaChips = [
     `<span class="chip">${catalogTypeIcon(st)}${escHTML(st.label)}</span>`,
-    schoolLabel ? `<span class="chip">${escHTML(schoolLabel)}</span>` : '',
+    schoolLabel ? `<span class="chip"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, schoolLabel))}</span>` : '',
     e.level==='Абсолют'
       ? `<span class="chip" style="border-color:#d4a84b66;color:var(--gold);background:#d4a84b10">✦ Абсолют</span>`
       : `<span class="chip">ур. ${escHTML(e.level)}</span>`,
-    e.klasse ? `<span class="chip">${escHTML(e.klasse)}</span>` : '',
-    e.tip    ? `<span class="chip">${escHTML(e.tip)}</span>` : '',
+    e.klasse ? `<span class="chip"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.klasse))}</span>` : '',
+    e.tip    ? `<span class="chip"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.tip))}</span>` : '',
   ].filter(Boolean).join('');
 
   const catChips = cats.map(c =>
@@ -43452,35 +43580,35 @@ function openDetail(id) {
 
   const optFieldsHTML = (e.optFields||[]).map(of => `
     <div class="opt-block">
-      <div class="opt-block-label">${escHTML(of.label||'Поле')}</div>
-      <div class="opt-block-text">${escHTML(of.text||'')}</div>
+      <div class="opt-block-label"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, of.label||'Поле'))}</div>
+      <div class="opt-block-text"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, of.text||''))}</div>
     </div>`
   ).join('');
 
   const battleHTML = e.hasBattle && e.battle ? `
     <div id="detail-battle-box">
       <div style="font-size:10px;color:var(--muted);font-family:'Cinzel',serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">⚔ БОЙ</div>
-      <div style="font-size:13px;color:#b8a87a;line-height:1.75;white-space:pre-line">${escHTML(e.battle)}</div>
+      <div${catalogEntrySkipAttr(e)} style="font-size:13px;color:#b8a87a;line-height:1.75;white-space:pre-line">${escHTML(catalogEntryText(e, e.battle))}</div>
     </div>` : '';
 
   document.getElementById('detail-body').innerHTML = `
     <div class="detail-meta">${metaChips}</div>
-    <div id="detail-name">${escHTML(e.name||'Без названия')}</div>
+    <div id="detail-name"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.name||'Без названия'))}</div>
     ${catChips ? `<div style="margin-bottom:10px">${catChips}</div>` : ''}
     ${dmgChips ? `<div style="margin-bottom:16px">${dmgChips}</div>` : ''}
     <hr class="detail-hr">
-    ${e.description ? detailBlock('📜','ОПИСАНИЕ ПРЕДМЕТА', e.description) : ''}
-    ${e.manifestation ? detailBlock('✨','ПРОЯВЛЕНИЕ', e.manifestation) : ''}
+    ${e.description ? detailBlock(e, '📜','ОПИСАНИЕ ПРЕДМЕТА', e.description) : ''}
+    ${e.manifestation ? detailBlock(e, '✨','ПРОЯВЛЕНИЕ', e.manifestation) : ''}
     ${e.effect ? `
       <div id="detail-effect-box" style="border:1px solid ${accent}33;border-left:3px solid ${accent}66">
         <div class="detail-block-label">🌀 ЭФФЕКТ</div>
-        <div id="detail-effect-text">${escHTML(e.effect)}</div>
+        <div id="detail-effect-text"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.effect))}</div>
         ${battleHTML}
       </div>` : ''}
     ${optFieldsHTML}
-    ${e.learnText ? detailBlock(learnLabels[e.learnType]?.split(' ')[0]||'🧠', (learnLabels[e.learnType]||'').split(' ').slice(1).join(' ')||'ОБУЧЕНИЕ', e.learnText) : ''}
-    ${e.cd ? `<div class="cd-badge">КД: ${escHTML(e.cd)}</div>` : ''}
-    ${e.restriction ? detailBlock('🛑','ОГРАНИЧЕНИЯ', e.restriction, '#4a2020') : ''}
+    ${e.learnText ? detailBlock(e, learnLabels[e.learnType]?.split(' ')[0]||'🧠', (learnLabels[e.learnType]||'').split(' ').slice(1).join(' ')||'ОБУЧЕНИЕ', e.learnText) : ''}
+    ${e.cd ? `<div class="cd-badge"${catalogEntrySkipAttr(e)}>${escHTML(catalogCooldownText(e))}</div>` : ''}
+    ${e.restriction ? detailBlock(e, '🛑','ОГРАНИЧЕНИЯ', e.restriction, '#4a2020') : ''}
     <hr class="detail-hr">
     <div id="detail-actions">
       <button class="btn btn-dim btn-sm" id="detail-edit-btn">✏️ Редактировать</button>
@@ -43497,12 +43625,12 @@ function openDetail(id) {
   if (db) db.addEventListener('click', function(){ deleteEntry(id); });
 }
 
-function detailBlock(icon, label, text, borderColor) {
+function detailBlock(entry, icon, label, text, borderColor) {
   return `
   <div class="detail-block">
     <div class="detail-block-label">${icon} ${label}</div>
-    <div class="detail-block-text" style="${borderColor?`border-color:${borderColor}`:''}">
-      ${escHTML(text)}
+    <div class="detail-block-text"${catalogEntrySkipAttr(entry)} style="${borderColor?`border-color:${borderColor}`:''}">
+      ${escHTML(catalogEntryText(entry, text))}
     </div>
   </div>`;
 }
@@ -45976,6 +46104,27 @@ var charView = 'list';  // list | sheet | editor
 var editingCharId = null;
 var editingCharType = 'hero';
 var viewingCharId = null;
+
+function characterEntryIsReviewed(entry) {
+  var payload = window.ZargotaI18nCharactersUk;
+  return !!(entry && payload && Array.isArray(payload.reviewedEntryIds) && payload.reviewedEntryIds.indexOf(String(entry.id)) !== -1);
+}
+
+function characterEntryUsesUkrainian(entry) {
+  return !!(window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && characterEntryIsReviewed(entry));
+}
+
+function characterEntryText(entry, value) {
+  var source = value == null ? '' : String(value);
+  if (!characterEntryUsesUkrainian(entry)) return source;
+  return window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
+    ? window.ZargotaI18n.translate(source, 'uk')
+    : source;
+}
+
+function characterEntrySkipAttr(entry) {
+  return characterEntryIsReviewed(entry) ? '' : ' data-zg-i18n-skip';
+}
 var efPortraitData = null; // путь к оригиналу в локальном хранилище
 var efPortraitThumbData = ''; // переносимое превью для комнаты/Firebase
 
@@ -47841,7 +47990,7 @@ function showCharView(v) {
     if (titleEl) {
       if (v === 'sheet') {
         var c = characters.find(function(x){ return x.id === viewingCharId; });
-        titleEl.textContent = c ? c.name : 'Персонаж';
+        titleEl.textContent = c ? characterEntryText(c, c.name) : 'Персонаж';
       } else titleEl.textContent = 'Редактор';
     }
   }
@@ -47913,17 +48062,17 @@ function renderCharList() {
       : '<div class="char-card-portrait-placeholder">🧙</div>';
     var hpPct = c.hpMax > 0 ? Math.round(c.hpCur / c.hpMax * 100) : 0;
     var hpColor = hpPct > 60 ? '#50a050' : hpPct > 25 ? '#a0a020' : '#a03020';
-    return '<div class="char-card" onclick="openCharSheet(' + c.id + ')">' +
+    return '<div class="char-card"' + characterEntrySkipAttr(c) + ' onclick="openCharSheet(' + c.id + ')">' +
       campaignBadge(c) +
       '<div class="char-card-lvl">LVL ' + c.level + '</div>' +
       portrait +
       '<div class="char-card-body">' +
-        '<div class="char-card-name">' + escHTML(c.name || 'Без имени') + '</div>' +
+        '<div class="char-card-name">' + escHTML(characterEntryText(c, c.name || 'Без имени')) + '</div>' +
         '<div class="char-card-meta">' +
-          (c.race ? escHTML(c.race) : '') +
+          (c.race ? escHTML(characterEntryText(c, c.race)) : '') +
           (c.race && c.age ? ' · ' : '') +
-          (c.age ? escHTML(c.age) : '') +
-          (c.klasse ? '<br>' + escHTML(c.klasse) : '') +
+          (c.age ? escHTML(characterEntryText(c, c.age)) : '') +
+          (c.klasse ? '<br>' + escHTML(characterEntryText(c, c.klasse)) : '') +
         '</div>' +
         '<div class="char-card-hp">' +
           '<span style="color:' + hpColor + '">❤ ' + c.hpCur + '</span>' +
@@ -48087,15 +48236,22 @@ function characterAbilityRulesHtml(text, item) {
 }
 
 function characterAbilityRowHtml(c, field, item, index, emptyLabel, fallbackIcon) {
-  var rawName = (item && item.name) || '';
+  var displayItem = Object.assign({}, item || {}, {
+    name: characterEntryText(c, item && item.name),
+    type: characterEntryText(c, item && item.type),
+    usages: characterEntryText(c, item && item.usages),
+    description: characterEntryText(c, item && item.description)
+  });
+  var rawName = displayItem.name || '';
   var name = characterAbilityDisplayName(rawName);
-  var descRaw = (item && item.description) || '';
-  var cleanDesc = characterAbilityCleanDescription(descRaw, item);
+  var descRaw = displayItem.description || '';
+  var cleanDesc = characterAbilityCleanDescription(descRaw, displayItem);
   var hasDesc = !!cleanDesc;
   var descPreview = hasDesc ? cleanDesc.replace(/\s+/g, ' ').slice(0, 86) + (cleanDesc.length > 86 ? '…' : '') : 'Нажмите, чтобы открыть карточку';
-  var visual = characterAbilityVisual(item, field);
+  var visual = characterAbilityVisual(displayItem, field);
   var cdMax = parseInt(item && item.cdMax, 10) || 0;
   var cdUsed = parseInt(item && item.cdUsed, 10) || 0;
+  var characterUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && characterEntryIsReviewed(c);
   var cdBadge = '';
   if (cdMax > 0) {
     var remaining = Math.max(0, cdMax - cdUsed);
@@ -48103,9 +48259,9 @@ function characterAbilityRowHtml(c, field, item, index, emptyLabel, fallbackIcon
     for (var ci = 0; ci < cdMax; ci++) {
       var spent = ci < cdUsed;
       var targetUsed = spent ? ci : ci + 1;
-      cells += '<button type="button" class="char-ability-charge-cell' + (spent ? ' spent' : '') + '" onclick="event.stopPropagation();characterAbilitySetUsage(' + c.id + ',\'' + field + '\',' + index + ',' + targetUsed + ')" aria-label="' + (spent ? 'Вернуть заряд ' : 'Потратить заряд ') + (ci + 1) + '" aria-pressed="' + (spent ? 'true' : 'false') + '">' + (ci + 1) + '</button>';
+      cells += '<button type="button" class="char-ability-charge-cell' + (spent ? ' spent' : '') + '" onclick="event.stopPropagation();characterAbilitySetUsage(' + c.id + ',\'' + field + '\',' + index + ',' + targetUsed + ')" aria-label="' + (spent ? (characterUkrainian ? 'Повернути заряд ' : 'Вернуть заряд ') : (characterUkrainian ? 'Витратити заряд ' : 'Потратить заряд ')) + (ci + 1) + '" aria-pressed="' + (spent ? 'true' : 'false') + '">' + (ci + 1) + '</button>';
     }
-    cdBadge = '<span class="char-ability-cd' + (remaining === 0 ? ' exhausted' : '') + '"><span class="char-ability-cd-label">' + (remaining === 0 ? 'ВСЁ ПОТРАЧЕНО' : remaining + ' / ' + cdMax + ' ГОТОВО') + '</span><span class="char-ability-charge-cells">' + cells + '</span></span>';
+    cdBadge = '<span class="char-ability-cd' + (remaining === 0 ? ' exhausted' : '') + '"><span class="char-ability-cd-label">' + (remaining === 0 ? (characterUkrainian ? 'УСЕ ВИТРАЧЕНО' : 'ВСЁ ПОТРАЧЕНО') : remaining + ' / ' + cdMax + (characterUkrainian ? ' ГОТОВО' : ' ГОТОВО')) + '</span><span class="char-ability-charge-cells">' + cells + '</span></span>';
   }
   return '<div class="char-ability-row kind-' + visual.kind + '" data-character-ability-kind="' + visual.kind + '" onclick="openSkillCardPopup(' + c.id + ',\'' + field + '\',' + index + ')">' +
     '<span class="char-ability-icon"><img src="' + visual.asset + '" alt="" onerror="this.remove();this.parentNode.textContent=\'' + fallbackIcon + '\'"></span>' +
@@ -48368,6 +48524,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
       setTimeout(function(){ popup.querySelector('.sc-name').focus(); }, 50);
     } else {
       // VIEW mode: отображение + CD-виджет с зарядами (если cdMax > 0)
+      var viewUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && characterEntryIsReviewed(c);
       var cdMax = parseInt(item.cdMax, 10) || 0;
       var cdUsed = parseInt(item.cdUsed, 10) || 0;
       var cdWidgetHTML = '';
@@ -48375,15 +48532,15 @@ window.openSkillCardPopup = function(charId, field, idx) {
         var charges = '';
         for (var ci = 0; ci < cdMax; ci++) {
           var spent = ci < cdUsed;
-          charges += '<button type="button" data-charge-idx="' + ci + '" class="sc-charge-cell' + (spent ? ' spent' : '') + '" aria-label="' + (spent ? 'Вернуть заряд ' : 'Потратить заряд ') + (ci + 1) + '" aria-pressed="' + (spent ? 'true' : 'false') + '"><span>' + (ci + 1) + '</span></button>';
+          charges += '<button type="button" data-charge-idx="' + ci + '" class="sc-charge-cell' + (spent ? ' spent' : '') + '" aria-label="' + (spent ? (viewUkrainian ? 'Повернути заряд ' : 'Вернуть заряд ') : (viewUkrainian ? 'Витратити заряд ' : 'Потратить заряд ')) + (ci + 1) + '" aria-pressed="' + (spent ? 'true' : 'false') + '"><span>' + (ci + 1) + '</span></button>';
         }
         var onCD = cdUsed >= cdMax;
         cdWidgetHTML = '<div class="sc-cooldown-console' + (onCD ? ' exhausted' : '') + '">' +
           '<div class="sc-cooldown-head">' +
             '<span>⏱ КУЛДАУН · ЗАРЯДЫ</span>' +
             (onCD
-              ? '<b>ВСЕ ЗАРЯДЫ ПОТРАЧЕНЫ</b>'
-              : '<b>' + (cdMax - cdUsed) + ' ИЗ ' + cdMax + ' ГОТОВО</b>') +
+              ? '<b>' + (viewUkrainian ? 'УСІ ЗАРЯДИ ВИТРАЧЕНО' : 'ВСЕ ЗАРЯДЫ ПОТРАЧЕНЫ') + '</b>'
+              : '<b>' + (cdMax - cdUsed) + (viewUkrainian ? ' З ' : ' ИЗ ') + cdMax + ' ГОТОВО</b>') +
           '</div>' +
           '<div class="sc-charge-cells">' + charges + '</div>' +
           '<p>Зелёная ячейка тратит заряд, красная возвращает его.</p>' +
@@ -48395,7 +48552,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
       // popup.dataset.viewLvl хранит выбор пользователя (если он сам кликнул на LV).
       var viewLevels = [];
       var viewActiveLvl = null;
-      var viewDescText = item.description || '';
+      var viewDescText = characterEntryText(c, item.description || '');
       if (item.descByLevel && typeof item.descByLevel === 'object') {
         viewLevels = Object.keys(item.descByLevel).map(function(k){ return parseInt(k,10); }).filter(function(n){ return !isNaN(n) && n > 0; }).sort(function(a,b){ return a-b; });
         if (viewLevels.length) {
@@ -48411,7 +48568,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
             }
             viewActiveLvl = picked;
           }
-          viewDescText = item.descByLevel[String(viewActiveLvl)] || '';
+          viewDescText = characterEntryText(c, item.descByLevel[String(viewActiveLvl)] || '');
         }
       }
       var lvlSwitcherHTML = '';
@@ -48429,8 +48586,8 @@ window.openSkillCardPopup = function(charId, field, idx) {
       popup.innerHTML =
         '<button class="sc-close-x" style="position:absolute;top:8px;right:10px;background:transparent;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;padding:4px 8px">×</button>' +
         '<div class="sc-view-kicker" style="color:' + typeColor + '">' + typeIcon + ' ' + escHTML(viewVisual.label.toUpperCase()) + '</div>' +
-        '<div class="sc-view-title">' + escHTML(characterAbilityDisplayName(item.name) || '—') + '</div>' +
-        (item.usages ? '<div style="font-size:11px;color:var(--dim);margin-bottom:14px">⏳ ' + escHTML(item.usages) + '</div>' : '') +
+        '<div class="sc-view-title">' + escHTML(characterAbilityDisplayName(characterEntryText(c, item.name)) || '—') + '</div>' +
+        (item.usages ? '<div style="font-size:11px;color:var(--dim);margin-bottom:14px">⏳ ' + escHTML(characterEntryText(c, item.usages)) + '</div>' : '') +
         cdWidgetHTML +
         lvlSwitcherHTML +
         (characterAbilityCleanDescription(viewDescText, item) ? '<div class="sc-ability-rules">' + characterAbilityRulesHtml(viewDescText, item) + '</div>' : '<div style="color:var(--dim);font-size:12px;font-style:italic;margin-bottom:14px;padding:14px;background:#080604;border-radius:6px;border:1px dashed #1e1508">Нет описания. Нажми «Редактировать» чтобы добавить.</div>') +
@@ -48508,7 +48665,7 @@ function buildEquipList(c) {
   var CICONS = {weapon:'⚔️',armor:'🧥',shield:'🛡️',accessory:'💍',artifact:'✨',consumable:'🧪'};
   var CCOLORS = {weapon:'#c87878',armor:'#8fa2c9',shield:'#7aadca',accessory:'#c4a84b',artifact:'#a07fd4',consumable:'#7dba7d'};
   function iicon(item){
-    if (typeof charInventoryArt === 'function') return charInventoryArt(item);
+    if (typeof charInventoryArt === 'function') return charInventoryArt(item, c);
     return typeof zgItemVisualMarkup === 'function' ? zgItemVisualMarkup(item, SICONS[item.slot]||CICONS[item.category]||'art:backpack') : '';
   }
 
@@ -48526,15 +48683,15 @@ function buildEquipList(c) {
       if (!item) return null;
       var col = CCOLORS[item.category] || '#888';
       var stats = [];
-      if (item.category === 'weapon' && item.damageFormula) stats.push(item.damageFormula + (item.damageType ? ' ' + item.damageType : ''));
+      if (item.category === 'weapon' && item.damageFormula) stats.push(item.damageFormula + (item.damageType ? ' ' + armoryItemText(item, item.damageType) : ''));
       if ((item.category === 'armor' || item.category === 'shield') && item.acBonus) stats.push('AC +' + item.acBonus);
-      if (item.category === 'weapon' && item.range && item.range !== '1 клетка') stats.push('📍 ' + item.range);
-      if (item.effects) stats.push(item.effects);
-      if (item.charges) stats.push('🔋 ' + item.charges);
+      if (item.category === 'weapon' && item.range && item.range !== '1 клетка') stats.push('📍 ' + armoryItemText(item, item.range));
+      if (item.effects) stats.push(armoryItemText(item, item.effects));
+      if (item.charges) stats.push('🔋 ' + armoryItemText(item, item.charges));
       return '<div onclick="armoryOpenItemPreview(\'' + escHTML(item.id) + '\')" style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:7px 10px;border:1px solid ' + col + '33;border-radius:6px;background:' + col + '0d;cursor:pointer">' +
         '<div class="char-inventory-equip-art">' + iicon(item) + '</div>' +
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:12px;color:' + col + ';font-weight:600;line-height:1.2">' + escHTML(item.name) + '</div>' +
+          '<div style="font-size:12px;color:' + col + ';font-weight:600;line-height:1.2">' + escHTML(armoryItemText(item, item.name)) + '</div>' +
           (stats.length ? '<div style="font-size:10px;color:#666;margin-top:2px">' + escHTML(stats.join(' · ')) + '</div>' : '') +
         '</div>' +
         '<div style="font-size:9px;color:#444;text-align:right;flex-shrink:0">' + escHTML(SICONS[slotKey] || '') + '</div>' +
@@ -48547,7 +48704,7 @@ function buildEquipList(c) {
   }).filter(function(entry) {
     return entry.item && entry.item.equipped === true;
   }).map(function(entry) {
-    var item = entry.item, name = item.name || 'Без названия', description = String(item.description || '').replace(/\s+/g, ' ').slice(0, 90);
+    var item = entry.item, name = characterEntryText(c, item.name || 'Без названия'), description = characterEntryText(c, item.description || '').replace(/\s+/g, ' ').slice(0, 90);
     return '<div onclick="openItemConstructor(' + c.id + ',\'inventory\',' + entry.index + ')" ' +
       'style="display:flex;align-items:center;gap:8px;margin-bottom:5px;padding:6px 9px;border:1px solid #60a06055;border-radius:4px;background:#60a0600d;cursor:pointer">' +
       '<button type="button" onclick="event.stopPropagation();toggleInventoryEquip(' + c.id + ',' + entry.index + ')" title="Снять" style="width:18px;height:18px;border-radius:3px;border:2px solid #60a060;background:#60a06030;color:#8bd28b;cursor:pointer;padding:0">✓</button>' +
@@ -48583,9 +48740,9 @@ function buildEquipList(c) {
       '</div>';
     }
     // Новая карточка с конструктором
-    var icon = charInventoryArt(eq);
-    var name = eq.name || eq.text || '';
-    var desc = (eq.description || '').trim();
+    var icon = charInventoryArt(eq, c);
+    var name = characterEntryText(c, eq.name || eq.text || '');
+    var desc = characterEntryText(c, eq.description || '').trim();
     var descPreview = desc ? desc.replace(/\s+/g, ' ').slice(0, 90) + (desc.length > 90 ? '…' : '') : '';
     var hasName = !!name.trim();
     var displayName = hasName ? name : '— без названия (нажми чтобы настроить) —';
@@ -48908,10 +49065,10 @@ function renderCharSheet() {
     }
   });
   var invItemsHTML = (c.inventoryItems || []).map(function(item, i) {
-    var icon = charInventoryArt(item);
-    var name = item.name || '';
+    var icon = charInventoryArt(item, c);
+    var name = characterEntryText(c, item.name || '');
     var qty = parseInt(item.qty, 10) || 1;
-    var desc = (item.description || '').trim();
+    var desc = characterEntryText(c, item.description || '').trim();
     // Превью описания: первая строка/фраза, обрезанная до разумной длины
     var descPreview = desc ? desc.replace(/\s+/g, ' ').slice(0, 90) + (desc.length > 90 ? '…' : '') : '';
     var hasName = !!name.trim();
@@ -48985,10 +49142,10 @@ function renderCharSheet() {
         '</div>' +
         // Name + class
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-family:\'Cinzel\',serif;font-size:17px;font-weight:700;color:#f4e8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(c.name||'')+'</div>' +
+          '<div style="font-family:\'Cinzel\',serif;font-size:17px;font-weight:700;color:#f4e8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(characterEntryText(c, c.name||''))+'</div>' +
           '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">' +
-            (c.race?'<span style="font-size:11px;color:var(--muted)">'+escHTML(c.race)+'</span>':'') +
-            (c.klasse?'<span style="font-size:11px;color:var(--dim)">·</span><span style="font-size:11px;color:var(--muted)">'+escHTML(c.klasse)+'</span>':'') +
+            (c.race?'<span style="font-size:11px;color:var(--muted)">'+escHTML(characterEntryText(c, c.race))+'</span>':'') +
+            (c.klasse?'<span style="font-size:11px;color:var(--dim)">·</span><span style="font-size:11px;color:var(--muted)">'+escHTML(characterEntryText(c, c.klasse))+'</span>':'') +
           '</div>' +
         '</div>' +
         // Fame (compact)
@@ -49172,9 +49329,9 @@ function renderCharSheet() {
           '<input type="file" id="sheet-portrait-input" accept="image/*" style="display:none" onchange="handleSheetPortrait('+c.id+',event)">' +
         '</div>' +
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:#f4e8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(c.name||'Персонаж')+'</div>' +
+          '<div style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:#f4e8b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHTML(characterEntryText(c, c.name||'Персонаж'))+'</div>' +
           '<div style="font-size:11px;color:var(--dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-            '<span>'+(c.race?escHTML(c.race):'')+(c.klasse?' · '+escHTML(c.klasse):'')+'</span>' +
+            '<span>'+(c.race?escHTML(characterEntryText(c, c.race)):'')+(c.klasse?' · '+escHTML(characterEntryText(c, c.klasse)):'')+'</span>' +
             '<span onclick="event.stopPropagation();openLevelManager('+c.id+')" style="display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border:1px solid ' + ((c.level||1)>=11?'#e8c060':'var(--gold2)') + ';border-radius:6px;background:#0e0a04;color:' + ((c.level||1)>=11?'#e8c060':'var(--gold)') + ';cursor:pointer;font-family:\'Cinzel\',serif;font-size:10px;font-weight:600">' +
               ((c.level||1)>=11 ? '∞ АБСОЛЮТ' : 'Ур. ' + (c.level||1)) +
             '</span>' +
@@ -49408,7 +49565,7 @@ function renderCharSheet() {
   // ─── СБОРКА ───
   var sheet = document.getElementById('char-sheet');
   sheet.innerHTML =
-    '<div style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
+    '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
       header +
       '<div class="tab-content-wrap">' + tabContent + '</div>' +
     '</div>';
@@ -49435,6 +49592,16 @@ function renderCharSheet() {
     document.querySelectorAll('#char-sheet textarea').forEach(function(ta) { autoResize(ta); });
   }, 60);
 }
+
+document.addEventListener('zargota:localechange', function() {
+  var page = document.getElementById('page-characters');
+  if (!page || !page.classList.contains('active')) return;
+  if (charView === 'sheet' && viewingCharId != null) {
+    showCharView('sheet');
+  } else if (charView === 'list') {
+    renderCharList();
+  }
+});
 
 var _charInventorySelection = {};
 var _charInventorySort = {};
@@ -49498,9 +49665,9 @@ function charInventoryImage(item) {
   return item && window.ZargotaItemIcons ? window.ZargotaItemIcons.pathFor(item) : item && typeof zgItemIconPath === 'function' ? zgItemIconPath(item.icon) : '';
 }
 
-function charInventoryArt(item) {
+function charInventoryArt(item, character) {
   var image = charInventoryImage(item);
-  if (image) return '<img src="' + escHTML(image) + '" alt="' + escHTML(item && item.name || 'Предмет') + '">';
+  if (image) return '<img src="' + escHTML(image) + '" alt="' + escHTML(characterEntryText(character, item && item.name || 'Предмет')) + '">';
   if (typeof zgItemVisualMarkup === 'function') return zgItemVisualMarkup(item, '📦');
   return escHTML(item && item.icon || '📦');
 }
@@ -49511,12 +49678,12 @@ function buildCharacterInventoryLauncher(c) {
   var rows=c.inventoryItems.map(function(item,index){return{item:item,index:index};}).filter(function(row){return !row.item||row.item.equipped!==true;}),sortKey=_charInventorySort[c.id]||'manual';
   if(sortKey==='name')rows.sort(function(a,b){return String(a.item.name||'').localeCompare(String(b.item.name||''),'ru');});
   if(sortKey==='qty')rows.sort(function(a,b){return(parseInt(b.item.qty,10)||1)-(parseInt(a.item.qty,10)||1);});
-  var slots=rows.map(function(row){var item=row.item,qty=Math.max(1,parseInt(item.qty,10)||1),itemRef=encodeURIComponent(String(item.name||item.text||'')).replace(/'/g,'%27');return '<button type="button" class="char-inventory-inline-slot" onclick="openItemConstructorByName('+c.id+',\'inventory\',\''+itemRef+'\','+row.index+')" title="'+escHTML(item.name||'Предмет')+'"><span>'+charInventoryArt(item)+'</span>'+(qty>1?'<b>'+qty+'</b>':'')+'</button>';}).join('');
+  var slots=rows.map(function(row){var item=row.item,qty=Math.max(1,parseInt(item.qty,10)||1),itemRef=encodeURIComponent(String(item.name||item.text||'')).replace(/'/g,'%27');return '<button type="button" class="char-inventory-inline-slot" onclick="openItemConstructorByName('+c.id+',\'inventory\',\''+itemRef+'\','+row.index+')" title="'+escHTML(characterEntryText(c,item.name||'Предмет'))+'"><span>'+charInventoryArt(item,c)+'</span>'+(qty>1?'<b>'+qty+'</b>':'')+'</button>';}).join('');
   for(var i=rows.length;i<Math.max(20,rows.length);i++)slots+='<span class="char-inventory-inline-slot empty"></span>';
   var equipment=buildEquipList(c)||'<div class="char-inventory-inline-empty">Снаряжение пока не добавлено</div>';
   return '<div class="char-inventory-inline">'+
     '<section class="char-inventory-inline-equip"><div class="char-inventory-inline-head"><span>Снаряжение</span><button type="button" onclick="charOpenEquipModal('+c.id+')" title="Выбрать из каталога товаров">＋</button></div><button type="button" class="char-inventory-arena-link" onclick="charOpenEquipModal('+c.id+')">⚔ Выбрать из товаров</button><div class="char-inventory-inline-equip-list" id="equip-list-'+c.id+'">'+equipment+'</div></section>'+
-    '<section class="char-inventory-inline-items"><div class="char-inventory-inline-head"><span>Инвентарь</span><small>Вместимость '+c.inventoryItems.length+' / 20</small><select class="char-inventory-sort" onchange="charInventorySetSort('+c.id+',this.value)" title="Сортировка"><option value="manual"'+(sortKey==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(sortKey==='name'?' selected':'')+'>По названию</option><option value="qty"'+(sortKey==='qty'?' selected':'')+'>По количеству</option></select><button type="button" onclick="addInventoryItem('+c.id+')" title="Добавить предмет">＋</button></div><div class="char-inventory-inline-grid">'+slots+'</div></section>'+
+    '<section class="char-inventory-inline-items"><div class="char-inventory-inline-head"><span>Инвентарь</span><small>'+(characterEntryUsesUkrainian(c)?'Місткість ':'Вместимость ')+c.inventoryItems.length+' / 20</small><select class="char-inventory-sort" onchange="charInventorySetSort('+c.id+',this.value)" title="Сортировка"><option value="manual"'+(sortKey==='manual'?' selected':'')+'>По добавлению</option><option value="name"'+(sortKey==='name'?' selected':'')+'>По названию</option><option value="qty"'+(sortKey==='qty'?' selected':'')+'>По количеству</option></select><button type="button" onclick="addInventoryItem('+c.id+')" title="Добавить предмет">＋</button></div><div class="char-inventory-inline-grid">'+slots+'</div></section>'+
   '</div>';
 }
 
@@ -49610,8 +49777,8 @@ function charRenderInventoryPanel(charId) {
     var item = row.item;
     var qty = Math.max(1, parseInt(item.qty,10) || 1);
     return '<button type="button" class="char-inventory-slot' + (row.index === selectedIndex ? ' selected' : '') + '" onclick="charInventorySelect(' + charId + ',' + row.index + ')" title="' + escHTML(item.name || 'Предмет') + '">' +
-      '<span class="char-inventory-slot-art">' + charInventoryArt(item) + '</span>' +
-      '<span class="char-inventory-slot-name">' + escHTML(item.name || 'Без названия') + '</span>' +
+      '<span class="char-inventory-slot-art">' + charInventoryArt(item, c) + '</span>' +
+      '<span class="char-inventory-slot-name">' + escHTML(characterEntryText(c, item.name || 'Без названия')) + '</span>' +
       (qty > 1 ? '<span class="char-inventory-slot-qty">' + qty + '</span>' : '') +
     '</button>';
   }).join('');
@@ -49619,10 +49786,10 @@ function charRenderInventoryPanel(charId) {
 
   var detail = selected
     ? '<div class="char-inventory-detail">' +
-        '<div class="char-inventory-detail-art">' + charInventoryArt(selected) + '</div>' +
+        '<div class="char-inventory-detail-art">' + charInventoryArt(selected, c) + '</div>' +
         '<div style="min-width:0">' +
-          '<div style="font-family:\'Cinzel\',serif;font-size:15px;color:var(--text);margin-bottom:5px">' + escHTML(selected.name || 'Без названия') + '</div>' +
-          '<div style="font-family:\'Lora\',serif;font-size:11px;color:var(--dim);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + escHTML(selected.description || 'Описание не заполнено.') + '</div>' +
+          '<div style="font-family:\'Cinzel\',serif;font-size:15px;color:var(--text);margin-bottom:5px">' + escHTML(characterEntryText(c, selected.name || 'Без названия')) + '</div>' +
+          '<div style="font-family:\'Lora\',serif;font-size:11px;color:var(--dim);line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">' + escHTML(characterEntryText(c, selected.description || 'Описание не заполнено.')) + '</div>' +
         '</div>' +
         '<div class="char-inventory-detail-actions" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
           '<button type="button" onclick="charInventoryChangeQty(' + charId + ',' + selectedIndex + ',-1)" title="Уменьшить количество" style="width:30px;height:30px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--muted);cursor:pointer">−</button>' +
@@ -49640,7 +49807,7 @@ function charRenderInventoryPanel(charId) {
     '<div class="char-inventory-header">' +
       '<div style="min-width:180px;flex:1">' +
         '<div style="font-family:\'Cinzel Decorative\',serif;font-size:18px;color:var(--gold)">Инвентарь</div>' +
-        '<div style="font-family:\'Lora\',serif;font-size:11px;color:var(--dim);margin-top:3px">' + escHTML(c.name || 'Персонаж') + '</div>' +
+        '<div style="font-family:\'Lora\',serif;font-size:11px;color:var(--dim);margin-top:3px">' + escHTML(characterEntryText(c, c.name || 'Персонаж')) + '</div>' +
       '</div>' +
       '<div style="flex:2;min-width:280px">' + buildCoinsWidget(c) + '</div>' +
       '<button type="button" onclick="charCloseInventoryPanel(' + charId + ')" title="Вернуться к листу" style="width:36px;height:36px;border:1px solid #3a2918;border-radius:6px;background:transparent;color:var(--muted);font-size:20px;cursor:pointer;flex-shrink:0">←</button>' +
@@ -51342,20 +51509,21 @@ var RULES_QUICK_SECTIONS = [
 ];
 
 function buildJournalSection(c) {
+  var journalUkrainian = characterEntryUsesUkrainian(c);
   return '<div class="sheet-journal">' +
     '<div class="sheet-journal-grid">' +
       '<div class="journal-card large">' +
         '<div class="journal-title">Эхо сражений <button type="button" class="btn btn-dim btn-sm" onclick="zgCharJournalTransfer(' + c.id + ',\'battleEcho\',\'note\')" title="Скопировать в Журнал сессии">↗ В журнал</button></div>' +
-        '<textarea class="journal-area" rows="10" placeholder="Последствия боёв, травмы, долги, трофеи, репутация..." oninput="autoResize(this);updateSimpleField(' + c.id + ',\'battleEcho\',this.value)">' + escHTML(c.battleEcho || '') + '</textarea>' +
+        '<textarea class="journal-area" rows="10" placeholder="' + (journalUkrainian ? 'Наслідки боїв, травми, борги, трофеї, репутація…' : 'Последствия боёв, травмы, долги, трофеи, репутация...') + '" oninput="autoResize(this);updateSimpleField(' + c.id + ',\'battleEcho\',this.value)">' + escHTML(c.battleEcho || '') + '</textarea>' +
       '</div>' +
       '<div class="journal-card large">' +
         '<div class="journal-title">Заметки <button type="button" class="btn btn-dim btn-sm" onclick="zgCharJournalTransfer(' + c.id + ',\'notes\',\'note\')" title="Скопировать в Журнал сессии">↗ В журнал</button></div>' +
-        '<textarea class="journal-area" rows="10" placeholder="Крючки, имена, фракции, обещания, подозрения, факты сцены..." oninput="autoResize(this);updateSimpleField(' + c.id + ',\'notes\',this.value)">' + escHTML(c.notes || '') + '</textarea>' +
+        '<textarea class="journal-area" rows="10" placeholder="' + (journalUkrainian ? 'Зачіпки, імена, фракції, обіцянки, підозри, факти сцени…' : 'Крючки, имена, фракции, обещания, подозрения, факты сцены...') + '" oninput="autoResize(this);updateSimpleField(' + c.id + ',\'notes\',this.value)">' + escHTML(c.notes || '') + '</textarea>' +
       '</div>' +
       '<div class="sheet-journal-stack">' +
       '<div class="journal-card small">' +
         '<div class="journal-title">Моя цель сейчас <button type="button" class="btn btn-dim btn-sm" onclick="zgCharJournalTransfer(' + c.id + ',\'currentGoal\',\'quest\')" title="Добавить как задание в Журнал сессии">↗ В журнал</button></div>' +
-        '<textarea class="journal-area" rows="10" placeholder="Чего персонаж хочет прямо сейчас..." oninput="autoResize(this);updateSimpleField(' + c.id + ',\'currentGoal\',this.value)">' + escHTML(c.currentGoal || '') + '</textarea>' +
+        '<textarea class="journal-area" rows="10" placeholder="' + (journalUkrainian ? 'Чого персонаж прагне просто зараз…' : 'Чего персонаж хочет прямо сейчас...') + '" oninput="autoResize(this);updateSimpleField(' + c.id + ',\'currentGoal\',this.value)">' + escHTML(c.currentGoal || '') + '</textarea>' +
       '</div>' +
       '</div>' +
       '<div class="journal-card" style="grid-column:1 / -1">' +
@@ -51369,7 +51537,7 @@ function buildJournalSection(c) {
       '</div>' +
       '<div class="journal-card" style="grid-column:1 / -1">' +
         '<div class="journal-title">Биография</div>' +
-        '<textarea class="journal-area" rows="14" placeholder="История, связи, важные события, мировоззрение, привычки..." oninput="autoResize(this);updateSimpleField(' + c.id + ',\'biography\',this.value)">' + escHTML(c.biography || '') + '</textarea>' +
+        '<textarea class="journal-area" rows="14" placeholder="' + (journalUkrainian ? 'Історія, зв’язки, важливі події, світогляд, звички…' : 'История, связи, важные события, мировоззрение, привычки...') + '" oninput="autoResize(this);updateSimpleField(' + c.id + ',\'biography\',this.value)">' + escHTML(c.biography || '') + '</textarea>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -52950,7 +53118,7 @@ function buildSpellRefsList(c) {
       'border-left:4px solid ' + borderColor + ';background:#0e0a06;border-radius:0 4px 4px 0;' +
       'cursor:pointer;transition:all .15s;opacity:' + rowOpacity + '" ' +
       'onclick="showSpellDetail(' + c.id + ',' + sid + ')">' +
-      '<span style="flex:1;font-family:\'Cinzel\',serif;font-size:12px;color:' + nameColor + ';letter-spacing:.3px;text-decoration:' + (onCD ? 'line-through' : 'none') + ';min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + icon + ' ' + escHTML(sp.name||'?') + '</span>' +
+      '<span' + catalogEntrySkipAttr(sp) + ' style="flex:1;font-family:\'Cinzel\',serif;font-size:12px;color:' + nameColor + ';letter-spacing:.3px;text-decoration:' + (onCD ? 'line-through' : 'none') + ';min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + icon + ' ' + escHTML(catalogEntryText(sp, sp.name||'?')) + '</span>' +
       learnBadge +
       cdBadge +
       '<span onclick="event.stopPropagation();removeSpellRef(' + c.id + ',' + sid + ')" style="color:var(--dim);font-size:11px;padding:0 4px;cursor:pointer" title="Убрать">✕</span>' +
@@ -52974,6 +53142,7 @@ function showSpellDetail(charId, spellId) {
   var isLearned = !!c.spellsLearned[spellId];
   // Parse max charges from cd string
   var cdText = sp.cd || '';
+  var cdDisplayText = catalogEntryText(sp, cdText);
   var cdMax = 1;
   var cdMatch = cdText.match(/(\d+)\s*раз/i);
   if (cdMatch) cdMax = parseInt(cdMatch[1]) || 1;
@@ -52989,10 +53158,10 @@ function showSpellDetail(charId, spellId) {
 
   // Badges
   var badgesHTML = '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:' + ta.stripe + ';padding:3px 8px;border:1px solid ' + ta.stripe + '44;border-radius:2px">' + ta.label + '</span>' +
-    (schoolLabel ? '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:2px">' + escHTML(schoolLabel) + '</span>' : '') +
+    (schoolLabel ? '<span' + catalogEntrySkipAttr(sp) + ' style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--muted);padding:3px 8px;border:1px solid var(--border);border-radius:2px">' + escHTML(catalogEntryText(sp, schoolLabel)) + '</span>' : '') +
     '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--gold);padding:3px 8px;border:1px solid #e8c06044;border-radius:2px">ур. ' + escHTML(sp.level+'') + '</span>' +
-    (sp.klasse ? '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);padding:3px 8px;border:1px solid var(--border);border-radius:2px">' + escHTML(sp.klasse) + '</span>' : '') +
-    (sp.tip ? '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);padding:3px 8px;border:1px solid var(--border);border-radius:2px">' + escHTML(sp.tip) + '</span>' : '');
+    (sp.klasse ? '<span' + catalogEntrySkipAttr(sp) + ' style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);padding:3px 8px;border:1px solid var(--border);border-radius:2px">' + escHTML(catalogEntryText(sp, sp.klasse)) + '</span>' : '') +
+    (sp.tip ? '<span' + catalogEntrySkipAttr(sp) + ' style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim);padding:3px 8px;border:1px solid var(--border);border-radius:2px">' + escHTML(catalogEntryText(sp, sp.tip)) + '</span>' : '');
 
   // Category + Damage chips
   var catsHTML = cats.map(function(cat) {
@@ -53005,14 +53174,14 @@ function showSpellDetail(charId, spellId) {
   var battleHTML = sp.hasBattle && sp.battle ? (
     '<div id="detail-battle-box">' +
       '<div style="font-size:10px;color:var(--muted);font-family:\'Cinzel\',serif;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px">⚔ БОЙ</div>' +
-      '<div style="font-size:13px;color:#b8a87a;line-height:1.75;white-space:pre-line">' + escHTML(sp.battle) + '</div>' +
+      '<div' + catalogEntrySkipAttr(sp) + ' style="font-size:13px;color:#b8a87a;line-height:1.75;white-space:pre-line">' + escHTML(catalogEntryText(sp, sp.battle)) + '</div>' +
     '</div>'
   ) : '';
 
   var optFieldsHTML = (sp.optFields || []).map(function(of) {
     return '<div class="opt-block">' +
-      '<div class="opt-block-label">' + escHTML(of.label || 'Поле') + '</div>' +
-      '<div class="opt-block-text">' + escHTML(of.text || '') + '</div>' +
+      '<div class="opt-block-label"' + catalogEntrySkipAttr(sp) + '>' + escHTML(catalogEntryText(sp, of.label || 'Поле')) + '</div>' +
+      '<div class="opt-block-text"' + catalogEntrySkipAttr(sp) + '>' + escHTML(catalogEntryText(sp, of.text || '')) + '</div>' +
     '</div>';
   }).join('');
 
@@ -53051,7 +53220,7 @@ function showSpellDetail(charId, spellId) {
     cdWidgetHTML = '<div style="background:#0a0804;border:1px solid var(--border);border-radius:4px;padding:10px 14px;margin-bottom:10px">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
         '<span style="font-family:\'Cinzel\',serif;font-size:9px;color:var(--dim);letter-spacing:1.5px">⏱ КУЛДАУН</span>' +
-        '<span style="font-family:\'Lora\',serif;font-size:11px;color:var(--muted)">' + escHTML(cdText) + '</span>' +
+        '<span' + catalogEntrySkipAttr(sp) + ' style="font-family:\'Lora\',serif;font-size:11px;color:var(--muted)">' + escHTML(cdDisplayText) + '</span>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
         '<span style="font-family:\'Cinzel\',serif;font-size:10px;color:var(--dim)">Заряды:</span>' +
@@ -53075,17 +53244,17 @@ function showSpellDetail(charId, spellId) {
       '</div>' +
       '<div id="spell-detail-content">' +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + badgesHTML + '</div>' +
-      '<div style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:var(--text);margin-bottom:8px">' + escHTML(sp.name||'') + '</div>' +
+      '<div' + catalogEntrySkipAttr(sp) + ' style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:var(--text);margin-bottom:8px">' + escHTML(catalogEntryText(sp, sp.name||'')) + '</div>' +
       (catsHTML || dmgsHTML ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">' + catsHTML + dmgsHTML + '</div>' : '') +
-      (sp.description ? detailBlock('📜','ОПИСАНИЕ ПРЕДМЕТА', sp.description) : '') +
-      (sp.manifestation ? detailBlock('✨','ПРОЯВЛЕНИЕ', sp.manifestation) : '') +
-      (sp.effect ? '<div id="detail-effect-box" style="border:1px solid ' + ta.stripe + '33;border-left:3px solid ' + ta.stripe + '66"><div class="detail-block-label">🌀 ЭФФЕКТ</div><div id="detail-effect-text">' + escHTML(sp.effect) + '</div>' + battleHTML + '</div>' : '') +
-      (!sp.effect && battleHTML ? detailBlock('⚔','БОЙ', sp.battle) : '') +
+      (sp.description ? detailBlock(sp, '📜','ОПИСАНИЕ ПРЕДМЕТА', sp.description) : '') +
+      (sp.manifestation ? detailBlock(sp, '✨','ПРОЯВЛЕНИЕ', sp.manifestation) : '') +
+      (sp.effect ? '<div id="detail-effect-box" style="border:1px solid ' + ta.stripe + '33;border-left:3px solid ' + ta.stripe + '66"><div class="detail-block-label">🌀 ЭФФЕКТ</div><div id="detail-effect-text"' + catalogEntrySkipAttr(sp) + '>' + escHTML(catalogEntryText(sp, sp.effect)) + '</div>' + battleHTML + '</div>' : '') +
+      (!sp.effect && battleHTML ? detailBlock(sp, '⚔','БОЙ', sp.battle) : '') +
       optFieldsHTML +
-      (sp.learnText ? detailBlock((learnLabels[sp.learnType] || '🧠 ОБУЧЕНИЕ').split(' ')[0], (learnLabels[sp.learnType] || '🧠 ОБУЧЕНИЕ').split(' ').slice(1).join(' ') || 'ОБУЧЕНИЕ', sp.learnText) : '') +
+      (sp.learnText ? detailBlock(sp, (learnLabels[sp.learnType] || '🧠 ОБУЧЕНИЕ').split(' ')[0], (learnLabels[sp.learnType] || '🧠 ОБУЧЕНИЕ').split(' ').slice(1).join(' ') || 'ОБУЧЕНИЕ', sp.learnText) : '') +
       learnWidgetHTML +
       cdWidgetHTML +
-      (sp.restriction ? detailBlock('🛑','ОГРАНИЧЕНИЯ', sp.restriction, '#4a2020') : '') +
+      (sp.restriction ? detailBlock(sp, '🛑','ОГРАНИЧЕНИЯ', sp.restriction, '#4a2020') : '') +
       '</div>' +
       '<div style="text-align:center;margin-top:14px">' +
         '<button onclick="document.getElementById(\'spell-detail-popup\').remove()" style="padding:7px 24px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:\'Cinzel\',serif;font-size:11px;cursor:pointer;border-radius:3px">Закрыть</button>' +
@@ -54067,6 +54236,39 @@ let editingBeastId = null;
 let viewingBeastId = null;
 let bfSearch = '', bfType = 'all', bfSize = 'all', bfLevel = 'all', bfThreat = 'all';
 
+function beastReviewPayload() {
+  var payload = window.ZargotaI18nBestiaryUk;
+  return payload && Array.isArray(payload.reviewedEntryIds)
+    ? payload
+    : { reviewedEntryIds: [], translations: {} };
+}
+
+function beastEntryIsReviewed(entry) {
+  return beastReviewPayload().reviewedEntryIds.indexOf(String(entry && entry.id)) >= 0;
+}
+
+function beastEntryText(entry, value) {
+  var source = value == null ? '' : String(value);
+  var isUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
+  if (!isUkrainian || !beastEntryIsReviewed(entry)) return source;
+  var translations = beastReviewPayload().translations || {};
+  return Object.prototype.hasOwnProperty.call(translations, source) ? translations[source] : source;
+}
+
+function beastEntrySkipAttr(entry) {
+  return beastEntryIsReviewed(entry) ? '' : ' data-zg-i18n-skip';
+}
+
+function beastAttackCountLabel(count) {
+  var value = Math.abs(parseInt(count, 10) || 0);
+  var lastTwo = value % 100;
+  var last = value % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return 'атак';
+  if (last === 1) return 'атака';
+  if (last >= 2 && last <= 4) return 'атаки';
+  return 'атак';
+}
+
 function blankBeast() {
   return {
     id: Date.now(), name:'', type:'beast', size:'medium', level:1,
@@ -54114,13 +54316,13 @@ function beastMetaPillsHTML(items, selected, field, opts) {
     '<button class="be-pill" style="border-style:dashed;color:var(--gold);' + sizeStyle + '" onclick="' + customHandler + '">＋ Кастомный</button>';
 }
 
-function beastAttackMetaBadges(a) {
+function beastAttackMetaBadges(a, entry) {
   var badges = [];
-  if (a.toHit) badges.push('🎯 +' + escHTML(a.toHit));
-  if (a.range) badges.push('📏 ' + escHTML(a.range));
-  if (a.cd) badges.push('⏳ ' + escHTML(a.cd));
+  if (a.toHit) badges.push('🎯 +' + escHTML(beastEntryText(entry, a.toHit)));
+  if (a.range) badges.push('📏 ' + escHTML(beastEntryText(entry, a.range)));
+  if (a.cd) badges.push('⏳ ' + escHTML(beastEntryText(entry, a.cd)));
   return badges.map(function(x){
-    return '<span class="b-badge" style="font-size:10px;padding:4px 8px">' + x + '</span>';
+    return '<span class="b-badge"' + beastEntrySkipAttr(entry) + ' style="font-size:10px;padding:4px 8px">' + x + '</span>';
   }).join('');
 }
 
@@ -54503,7 +54705,7 @@ function showBeastView(v) {
     if (titleEl) {
       if (v === 'detail') {
         var b = beasts.find(function(x){return x.id===viewingBeastId;});
-        titleEl.textContent = b ? b.name : 'Существо';
+        titleEl.textContent = b ? beastEntryText(b, b.name) : 'Существо';
       } else titleEl.textContent = 'Конструктор';
     }
   }
@@ -54738,7 +54940,9 @@ function renderBeastiary() {
   applyBeastThreatFilterColor();
   var filtered = beasts.filter(function(b){
     if (bfSearch) {
-      var hay = ((b.name||'')+ ' ' +(b.description||'')+' '+(b.lore||'')+' '+(b.family||'')).toLowerCase();
+      var searchParts = [b.name||'', b.description||'', b.lore||'', b.family||''];
+      searchParts.push.apply(searchParts, searchParts.map(function(value){ return beastEntryText(b, value); }));
+      var hay = searchParts.join(' ').toLowerCase();
       if (hay.indexOf(bfSearch) === -1) return false;
     }
     if (bfType !== 'all' && b.type !== bfType) return false;
@@ -54805,16 +55009,16 @@ function beastCardHTML(b) {
   var atkCount = (b.attacks||[]).length;
   var stripeColor = t.color || '#c04040';
   var metaBits = [];
-  if (b.alignment) metaBits.push('<span class="beast-card-meta-chip">☯ ' + escHTML(b.alignment) + '</span>');
-  if (b.role) metaBits.push('<span class="beast-card-meta-chip">⚑ ' + escHTML(b.role) + '</span>');
-  if (b.family) metaBits.push('<span class="beast-card-meta-chip">🜂 ' + escHTML(b.family) + '</span>');
+  if (b.alignment) metaBits.push('<span class="beast-card-meta-chip"' + beastEntrySkipAttr(b) + '>☯ ' + escHTML(beastEntryText(b, b.alignment)) + '</span>');
+  if (b.role) metaBits.push('<span class="beast-card-meta-chip"' + beastEntrySkipAttr(b) + '>⚑ ' + escHTML(beastEntryText(b, b.role)) + '</span>');
+  if (b.family) metaBits.push('<span class="beast-card-meta-chip"' + beastEntrySkipAttr(b) + '>🜂 ' + escHTML(beastEntryText(b, b.family)) + '</span>');
   var seenDamage = {};
   var attackDamageChips = [];
   (b.attacks||[]).forEach(function(a){
     (a.damageTypes||[]).forEach(function(lbl){
       if (seenDamage[lbl] || attackDamageChips.length >= 4) return;
       seenDamage[lbl] = true;
-      attackDamageChips.push('<span class="beast-card-dmg-chip">💥 ' + escHTML(lbl) + '</span>');
+      attackDamageChips.push('<span class="beast-card-dmg-chip"' + beastEntrySkipAttr(b) + '>💥 ' + escHTML(beastEntryText(b, lbl)) + '</span>');
     });
   });
   var sparkLayer = threat.key === 'region'
@@ -54835,8 +55039,8 @@ function beastCardHTML(b) {
             '<span class="b-badge b-badge-lvl">'+(b.level==='Абсолют'?'✦ Абсолют':'ур. '+b.level)+'</span>' +
             '<span class="b-badge" style="border-color:'+threat.color+'55;color:'+threat.color+';background:'+threat.color+'12">' + zgBeastThreatIcon(threat.key) + ' ' + threat.short + '</span>' +
           '</div>' +
-          '<div class="beast-card-name">'+escHTML(b.name||'Безымянное')+'</div>' +
-          (b.description ? '<div class="beast-card-desc">'+escHTML(b.description)+'</div>' : '') +
+          '<div class="beast-card-name"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.name||'Безымянное'))+'</div>' +
+          (b.description ? '<div class="beast-card-desc"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.description))+'</div>' : '') +
           (metaBits.length ? '<div class="beast-card-meta">' + metaBits.join('') + '</div>' : '') +
           (attackDamageChips.length ? '<div class="beast-card-dmg-row">' + attackDamageChips.join('') + '</div>' : '') +
         '</div>' +
@@ -54846,7 +55050,7 @@ function beastCardHTML(b) {
         '<span class="beast-card-stat">❤ <b>'+b.hp+'</b></span>' +
         '<span class="beast-card-stat">🛡 <b>'+b.ac+'</b></span>' +
         '<span class="beast-card-stat">⚡ <b>'+b.initiative+'</b></span>' +
-        (atkCount ? '<span class="beast-card-stat">⚔ <b>'+atkCount+'</b> атак</span>' : '') +
+        (atkCount ? '<span class="beast-card-stat">⚔ <b>'+atkCount+'</b> '+beastAttackCountLabel(atkCount)+'</span>' : '') +
       '</div>' +
     '</div></div>';
 }
@@ -54938,9 +55142,9 @@ function openBeastDetail(id) {
     '<span class="b-badge b-badge-size">'+s.label+'</span>' +
     '<span class="b-badge b-badge-lvl">'+(b.level==='Абсолют'?'✦ Абсолют':'ур. '+b.level)+'</span>' +
     '<span class="b-badge" style="border-color:'+threat.color+'55;color:'+threat.color+';background:'+threat.color+'12">' + zgBeastThreatIcon(threat.key) + ' ' + threat.label + '</span>' +
-    (b.alignment ? '<span class="b-badge">'+escHTML(b.alignment)+'</span>' : '') +
-    (b.role ? '<span class="b-badge">'+escHTML(b.role)+'</span>' : '') +
-    (b.family ? '<span class="b-badge" style="border-color:#a0806044;color:#a08060">'+escHTML(b.family)+'</span>' : '');
+    (b.alignment ? '<span class="b-badge"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.alignment))+'</span>' : '') +
+    (b.role ? '<span class="b-badge"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.role))+'</span>' : '') +
+    (b.family ? '<span class="b-badge"'+beastEntrySkipAttr(b)+' style="border-color:#a0806044;color:#a08060">'+escHTML(beastEntryText(b, b.family))+'</span>' : '');
 
   var stats = [
     {icon:zgStatIcon('str'),name:'СИЛ',val:b.str}, {icon:zgStatIcon('dex'),name:'ЛОВ',val:b.dex},
@@ -54954,44 +55158,44 @@ function openBeastDetail(id) {
     '<div class="beast-combat-item"><div class="bc-val" style="color:#c04040">'+b.hp+'</div><div class="bc-label">HP</div></div>' +
     '<div class="beast-combat-item"><div class="bc-val" style="color:#6090c0">'+b.ac+'</div><div class="bc-label">AC</div></div>' +
     '<div class="beast-combat-item"><div class="bc-val" style="color:#e8c060">'+b.initiative+'</div><div class="bc-label">Иниц.</div></div>' +
-    '<div class="beast-combat-item"><div class="bc-val" style="color:var(--text)">'+escHTML(b.speed||'7 м')+'</div><div class="bc-label">Скорость</div></div>' +
+    '<div class="beast-combat-item"><div class="bc-val"'+beastEntrySkipAttr(b)+' style="color:var(--text)">'+escHTML(beastEntryText(b, b.speed||'7 м'))+'</div><div class="bc-label">Скорость</div></div>' +
   '</div>';
 
   // Immunities/Resistances/Vulnerabilities
   var resHTML = '';
-  if ((b.immunities||[]).length) resHTML += '<div class="beast-res-row"><span class="beast-res-label">Иммунитет</span><div class="beast-res-chips">' + b.immunities.map(function(r){return '<span class="beast-res-chip immune">'+escHTML(r)+'</span>';}).join('') + '</div></div>';
-  if ((b.resistances||[]).length) resHTML += '<div class="beast-res-row"><span class="beast-res-label">Сопротивл.</span><div class="beast-res-chips">' + b.resistances.map(function(r){return '<span class="beast-res-chip resist">'+escHTML(r)+'</span>';}).join('') + '</div></div>';
-  if ((b.vulnerabilities||[]).length) resHTML += '<div class="beast-res-row"><span class="beast-res-label">Уязвимость</span><div class="beast-res-chips">' + b.vulnerabilities.map(function(r){return '<span class="beast-res-chip vuln">'+escHTML(r)+'</span>';}).join('') + '</div></div>';
+  if ((b.immunities||[]).length) resHTML += '<div class="beast-res-row"><span class="beast-res-label">Иммунитет</span><div class="beast-res-chips">' + b.immunities.map(function(r){return '<span class="beast-res-chip immune"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, r))+'</span>';}).join('') + '</div></div>';
+  if ((b.resistances||[]).length) resHTML += '<div class="beast-res-row"><span class="beast-res-label">Сопротивл.</span><div class="beast-res-chips">' + b.resistances.map(function(r){return '<span class="beast-res-chip resist"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, r))+'</span>';}).join('') + '</div></div>';
+  if ((b.vulnerabilities||[]).length) resHTML += '<div class="beast-res-row"><span class="beast-res-label">Уязвимость</span><div class="beast-res-chips">' + b.vulnerabilities.map(function(r){return '<span class="beast-res-chip vuln"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, r))+'</span>';}).join('') + '</div></div>';
 
   // Attacks
   var attacksHTML = (b.attacks||[]).map(function(a){
     var tags = []
-      .concat((a.damageTypes||[]).map(function(x){ return '<span class="beast-res-chip resist" style="margin-right:4px;margin-bottom:4px">' + escHTML(x) + '</span>'; }))
-      .concat((a.statuses||[]).map(function(x){ return '<span class="beast-res-chip immune" style="margin-right:4px;margin-bottom:4px">' + escHTML(x) + '</span>'; }));
+      .concat((a.damageTypes||[]).map(function(x){ return '<span class="beast-res-chip resist"' + beastEntrySkipAttr(b) + ' style="margin-right:4px;margin-bottom:4px">' + escHTML(beastEntryText(b, x)) + '</span>'; }))
+      .concat((a.statuses||[]).map(function(x){ return '<span class="beast-res-chip immune"' + beastEntrySkipAttr(b) + ' style="margin-right:4px;margin-bottom:4px">' + escHTML(beastEntryText(b, x)) + '</span>'; }));
     return '<div class="beast-attack-item">' +
-      '<div class="beast-attack-name">'+escHTML(a.name||'Атака')+'</div>' +
+      '<div class="beast-attack-name"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, a.name||'Атака'))+'</div>' +
       (a.damage || a.toHit || a.range || a.cd ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
-        (a.damage ? '<div class="beast-attack-dmg" style="margin-bottom:0">💥 ' + escHTML(a.damage) + '</div>' : '') +
-        beastAttackMetaBadges(a) +
+        (a.damage ? '<div class="beast-attack-dmg"'+beastEntrySkipAttr(b)+' style="margin-bottom:0">💥 ' + escHTML(beastEntryText(b, a.damage)) + '</div>' : '') +
+        beastAttackMetaBadges(a, b) +
       '</div>' : '') +
       (tags.length ? '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">' + tags.join('') + '</div>' : '') +
-      (a.desc ? '<div class="beast-attack-desc">'+escHTML(a.desc)+'</div>' : '') +
+      (a.desc ? '<div class="beast-attack-desc"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, a.desc))+'</div>' : '') +
     '</div>';
   }).join('');
 
   // Traits
   var traitsHTML = (b.traits||[]).map(function(tr){
     return '<div class="beast-trait-item">' +
-      '<div class="beast-trait-name">'+escHTML(tr.name||'Черта')+'</div>' +
-      '<div class="beast-trait-desc">'+escHTML(tr.desc||'')+'</div>' +
+      '<div class="beast-trait-name"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, tr.name||'Черта'))+'</div>' +
+      '<div class="beast-trait-desc"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, tr.desc||''))+'</div>' +
     '</div>';
   }).join('');
 
   // Loot
   var lootHTML = (b.loot||[]).map(function(l){
     return '<div class="beast-loot-item">' +
-      '<span class="beast-loot-name">'+escHTML(l.name||'Предмет')+'</span>' +
-      '<span class="beast-loot-desc">'+escHTML(l.desc||'')+'</span>' +
+      '<span class="beast-loot-name"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, l.name||'Предмет'))+'</span>' +
+      '<span class="beast-loot-desc"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, l.desc||''))+'</span>' +
     '</div>';
   }).join('');
 
@@ -55007,8 +55211,8 @@ function openBeastDetail(id) {
         '<div class="beast-portrait-wrap"'+portraitWrapAttr+'>'+portrait+'</div>' +
         '<div class="beast-detail-hero-info">' +
           '<div>' +
-            '<div class="beast-detail-title">'+escHTML(b.name||'Безымянное')+'</div>' +
-            (b.description ? '<div class="beast-detail-meta">'+escHTML(b.description)+'</div>' : '') +
+            '<div class="beast-detail-title"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.name||'Безымянное'))+'</div>' +
+            (b.description ? '<div class="beast-detail-meta"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.description))+'</div>' : '') +
             '<div class="beast-detail-badges">'+badges+'</div>' +
           '</div>' +
           '<div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">' +
@@ -55024,15 +55228,25 @@ function openBeastDetail(id) {
         (resHTML ? '<div class="beast-section-title">Сопротивляемость</div>' + resHTML : '') +
         (attacksHTML ? '<div class="beast-section-title">⚔ Атаки</div>' + attacksHTML : '') +
         (traitsHTML ? '<div class="beast-section-title">🧬 Черты и способности</div>' + traitsHTML : '') +
-        (b.behavior ? '<div class="beast-section-title">🎭 Поведение</div><div style="font-size:13px;color:var(--muted);line-height:1.6;padding:0 4px">'+escHTML(b.behavior)+'</div>' : '') +
+        (b.behavior ? '<div class="beast-section-title">🎭 Поведение</div><div'+beastEntrySkipAttr(b)+' style="font-size:13px;color:var(--muted);line-height:1.6;padding:0 4px">'+escHTML(beastEntryText(b, b.behavior))+'</div>' : '') +
         (lootHTML ? '<div class="beast-section-title">' + zgCoinStackHtml(16) + ' Лут</div>' + lootHTML : '') +
-        (b.lore ? '<div class="beast-section-title">📜 Лор</div><div class="beast-lore-text">'+escHTML(b.lore)+'</div>' : '') +
-        (b.variants ? '<div class="beast-section-title">🔀 Вариации / Подвиды</div><div style="font-size:13px;color:var(--muted);line-height:1.6;padding:0 4px">'+escHTML(b.variants)+'</div>' : '') +
+        (b.lore ? '<div class="beast-section-title">📜 Лор</div><div class="beast-lore-text"'+beastEntrySkipAttr(b)+'>'+escHTML(beastEntryText(b, b.lore))+'</div>' : '') +
+        (b.variants ? '<div class="beast-section-title">🔀 Вариации / Подвиды</div><div'+beastEntrySkipAttr(b)+' style="font-size:13px;color:var(--muted);line-height:1.6;padding:0 4px">'+escHTML(beastEntryText(b, b.variants))+'</div>' : '') +
       '</div>' +
     '</div></div>';
 
   document.getElementById('beast-detail-content').innerHTML = html;
 }
+
+document.addEventListener('zargota:localechange', function() {
+  var page = document.getElementById('page-bestiary');
+  if (!page) return;
+  if (beastView === 'detail' && viewingBeastId != null) {
+    openBeastDetail(viewingBeastId);
+  } else if (beastView === 'list') {
+    renderBeastiary();
+  }
+});
 
 function openBeastLightbox(src) {
   var existing = document.getElementById('beast-lightbox-el');
@@ -65322,9 +65536,38 @@ function zgShopOpenImage(src, alt, triggerEvent) {
   document.body.appendChild(lightbox);
   closeButton.focus();
 }
+function shopItemIsReviewed(item) {
+  var payload = window.ZargotaI18nShopUk;
+  return !!(item && payload && Array.isArray(payload.reviewedEntryIds) && payload.reviewedEntryIds.indexOf(String(item.id)) !== -1);
+}
+function armoryItemIsReviewed(item) {
+  var payload = window.ZargotaI18nArmoryUk;
+  return !!(item && payload && Array.isArray(payload.reviewedEntryIds) && payload.reviewedEntryIds.indexOf(String(item.id)) !== -1);
+}
+function armoryItemText(item, value) {
+  var source = value == null ? '' : String(value);
+  return window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && armoryItemIsReviewed(item) && typeof window.ZargotaI18n.translate === 'function'
+    ? window.ZargotaI18n.translate(source)
+    : source;
+}
+function shopItemUsesUkrainian(item) {
+  return !!(window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && shopItemIsReviewed(item));
+}
+function shopItemText(item, value) {
+  var source = value == null ? '' : String(value);
+  return shopItemUsesUkrainian(item) && window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
+    ? window.ZargotaI18n.translate(source)
+    : source;
+}
+function shopUiText(value) {
+  var source = value == null ? '' : String(value);
+  return window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
+    ? window.ZargotaI18n.translate(source)
+    : source;
+}
 function zgShopVisualMarkup(item, fallback, style) {
   var source = zgShopImageSource(item);
-  if (source) return '<img src="' + escHTML(source) + '" alt="' + escHTML(item && item.name || 'Товар') + '" loading="lazy" decoding="async" style="' + (style || 'width:100%;height:100%;object-fit:cover') + '">';
+  if (source) return '<img src="' + escHTML(source) + '" alt="' + escHTML(shopItemText(item, item && item.name || 'Товар')) + '" loading="lazy" decoding="async" style="' + (style || 'width:100%;height:100%;object-fit:cover') + '">';
   return zgItemIconMarkup(item && item.icon, fallback || '📦');
 }
 window.zgShopImageSource = zgShopImageSource;
@@ -65703,10 +65946,10 @@ function shopPriceHtml(p) {
 function shopStatChips(it, big) {
   var chips = [];
   var cls = big ? 'shop-stat shop-stat-big' : 'shop-stat';
-  if (it.damage) chips.push('<span class="' + cls + '" style="color:#e88888;border-color:#c8787855;background:#c8787812">💥 ' + escHTML(it.damage) + (it.damageType ? ' ' + escHTML(it.damageType) : '') + '</span>');
+  if (it.damage) chips.push('<span class="' + cls + '" style="color:#e88888;border-color:#c8787855;background:#c8787812">💥 ' + escHTML(it.damage) + (it.damageType ? ' ' + escHTML(shopItemText(it, it.damageType)) : '') + '</span>');
   if (it.defense) chips.push('<span class="' + cls + '" style="color:#8fb0f0;border-color:#7a9ae055;background:#7a9ae012">🛡 AC +' + escHTML(String(it.defense)) + '</span>');
-  if (it.range) chips.push('<span class="' + cls + '" style="color:#c8b89c">🎯 ' + escHTML(it.range) + '</span>');
-  if (it.effect) chips.push('<span class="' + cls + '" style="color:#7fdc93;border-color:#6fcb8355;background:#6fcb8312">✨ ' + escHTML(it.effect) + '</span>');
+  if (it.range) chips.push('<span class="' + cls + '" style="color:#c8b89c">🎯 ' + escHTML(shopItemText(it, it.range)) + '</span>');
+  if (it.effect) chips.push('<span class="' + cls + '" style="color:#7fdc93;border-color:#6fcb8355;background:#6fcb8312">✨ ' + escHTML(shopItemText(it, it.effect)) + '</span>');
   return chips.length ? '<div class="shop-stat-row">' + chips.join('') + '</div>' : '';
 }
 
@@ -66417,7 +66660,7 @@ function zgShopItemMatchesBrowseFilters(item) {
   var q = String(_shopState.search || '').trim().toLowerCase();
   if (q) {
     var marketNames = (item.marketIds || []).map(function(id){ var market = zgShopMarketById(id); return market ? market.name + ' ' + market.location : ''; }).join(' ');
-    var hay = [item.name,item.desc,item.effect,(item.tags || []).join(' '),zgShopRegionLabel(item),marketNames].join(' ').toLowerCase();
+    var hay = [item.name,item.desc,item.effect,shopItemText(item,item.name),shopItemText(item,item.desc),shopItemText(item,item.effect),(item.tags || []).join(' '),zgShopRegionLabel(item),marketNames].join(' ').toLowerCase();
     if (hay.indexOf(q) < 0) return false;
   }
   return true;
@@ -66682,13 +66925,13 @@ function renderShopPage() {
           // Большая картинка (фото или эмодзи) по центру
           '<div class="shop-card-hero' + (it.imgSize==='wide' ? ' shop-card-hero-wide' : '') + '">' + (zgShopImageSource(it) ? zgShopVisualMarkup(it, cat.icon, 'width:100%;height:100%;object-fit:cover;display:block') : '<span class="shop-card-hero-emoji" style="display:block;width:64px;height:64px">' + zgItemIconMarkup(it.icon, cat.icon) + '</span>') + '</div>'+
           // Название + редкость
-          '<div class="shop-card-name">' + escHTML(it.name || 'Без имени') + '</div>'+
-          '<div style="font-size:9px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;text-align:center;margin-bottom:8px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>'+
-          '<div style="font-size:9px;color:#756548;text-align:center;margin:-3px 0 8px;font-family:\'Lora\',serif">📍 Базирование: ' + escHTML(zgShopRegionLabel(it)) + '</div>'+
+          '<div class="shop-card-name">' + escHTML(shopItemText(it, it.name || 'Без имени')) + '</div>'+
+          '<div style="font-size:9px;letter-spacing:1.2px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;text-align:center;margin-bottom:8px">' + cat.icon + ' ' + escHTML(shopUiText(cat.label)) + ' · ' + escHTML(shopUiText(rar.label)) + '</div>'+
+          '<div style="font-size:9px;color:#756548;text-align:center;margin:-3px 0 8px;font-family:\'Lora\',serif">📍 ' + escHTML(shopUiText('Базирование')) + ': ' + escHTML(shopUiText(zgShopRegionLabel(it))) + '</div>'+
           // Мех.чипы (урон/защита/дальность/эффект)
           shopStatChips(it)+
           // Описание
-          (it.desc ? '<div class="shop-card-desc">' + escHTML(it.desc) + '</div>' : '')+
+          (it.desc ? '<div class="shop-card-desc">' + escHTML(shopItemText(it, it.desc)) + '</div>' : '')+
           // Цена
           '<div class="shop-card-price">' + shopPriceHtml(it.price) + '</div>'+
           // Кнопка в корзину
@@ -66731,6 +66974,8 @@ function zgShopView(itemId, collection) {
   var isMobile = window.innerWidth < 600;
   var bd = document.createElement('div');
   bd.id = 'shop-view-popup';
+  bd.dataset.shopItemId = String(itemId);
+  bd.dataset.shopCollection = isQuest ? 'quest' : 'shop';
   bd.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;display:flex;justify-content:center;box-sizing:border-box;' +
     (isMobile ? 'align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(env(safe-area-inset-top,0px) + 20px) 12px 24px' : 'align-items:center;padding:20px');
   bd.addEventListener('click', function(e){ if (e.target === bd) bd.remove(); });
@@ -66738,14 +66983,14 @@ function zgShopView(itemId, collection) {
   var detailImageSize = isMobile ? 128 : 184;
   var fullImage = zgShopFullImageSource(it);
   var imgOrEmoji = fullImage
-    ? '<button type="button" class="shop-detail-image-open" data-shop-full-image aria-label="Открыть полное изображение: ' + escHTML(it.name || 'Товар') + '"><img src="' + escHTML(fullImage) + '" alt="' + escHTML(it.name || 'Товар') + '" decoding="async" style="width:' + detailImageSize + 'px;height:' + detailImageSize + 'px;object-fit:cover;border-radius:18px;border:1px solid ' + cat.color + '55;box-shadow:0 12px 32px #0009"></button>'
+    ? '<button type="button" class="shop-detail-image-open" data-shop-full-image aria-label="' + escHTML(shopUiText('Открыть полное изображение')) + ': ' + escHTML(shopItemText(it, it.name || 'Товар')) + '"><img src="' + escHTML(fullImage) + '" alt="' + escHTML(shopItemText(it, it.name || 'Товар')) + '" decoding="async" style="width:' + detailImageSize + 'px;height:' + detailImageSize + 'px;object-fit:cover;border-radius:18px;border:1px solid ' + cat.color + '55;box-shadow:0 12px 32px #0009"></button>'
     : '<div style="width:' + detailImageSize + 'px;height:' + detailImageSize + 'px;display:flex;align-items:center;justify-content:center;font-size:64px;border-radius:18px;background:radial-gradient(circle at 50% 40%,color-mix(in srgb,' + cat.color + ' 16%,#1a130a),#100b06);border:1px solid ' + cat.color + '44;filter:drop-shadow(0 3px 6px #000a)"><span style="width:82px;height:82px;display:block">' + zgItemIconMarkup(it.icon, cat.icon) + '</span></div>';
 
   var chips = shopStatChips(it, true);
   var regionLabel = zgShopRegionLabel(it);
   var marketLinks = (it.marketIds || []).map(function(id){
     var market = zgShopMarketById(id);
-    return market ? '<button type="button" onclick="document.getElementById(\'shop-view-popup\').remove();zgShopOpenMarketGuide(\'' + escHTML(market.id) + '\')" style="padding:5px 8px;border:1px solid #5a4320;border-radius:12px;background:#120d07;color:#b89a58;font-family:\'Cinzel\',serif;font-size:8px;cursor:pointer">' + escHTML(market.name) + '</button>' : '';
+    return market ? '<button type="button" onclick="document.getElementById(\'shop-view-popup\').remove();zgShopOpenMarketGuide(\'' + escHTML(market.id) + '\')" style="padding:5px 8px;border:1px solid #5a4320;border-radius:12px;background:#120d07;color:#b89a58;font-family:\'Cinzel\',serif;font-size:8px;cursor:pointer">' + escHTML(shopUiText(market.name)) + '</button>' : '';
   }).join('');
   var panel = document.createElement('div');
   panel.style.cssText = 'position:relative;background:linear-gradient(160deg,#1a1408,#0e0a06);border:2px solid ' + cat.color + ';border-radius:14px;width:100%;max-width:740px;padding:' + (isMobile ? '20px 16px' : '28px 32px') + ';box-shadow:0 24px 80px #000d;box-sizing:border-box' + (isMobile ? '' : ';max-height:90vh;overflow-y:auto');
@@ -66756,17 +67001,17 @@ function zgShopView(itemId, collection) {
       '<button onclick="document.getElementById(\'shop-view-popup\').remove()" title="Закрыть" style="width:32px;height:32px;border:1px solid #2a1e10;background:transparent;color:#7a6a48;border-radius:8px;cursor:pointer;font-size:14px">✕</button>' +
     '</div>' +
     '<div style="text-align:center;margin-bottom:8px">' + imgOrEmoji + '</div>' +
-    '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:' + (isMobile ? '24px' : '28px') + ';color:#f6e6c0;margin-bottom:6px">' + escHTML(it.name || 'Без имени') + '</div>' +
-    '<div style="text-align:center;font-size:12px;letter-spacing:1.4px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;margin-bottom:16px">' + cat.icon + ' ' + escHTML(cat.label) + ' · ' + rar.label + '</div>' +
-    (isQuest ? '<div style="margin:-7px 0 14px;text-align:center;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:10px;letter-spacing:1px">КВЕСТОВАЯ ВЕЩЬ · ХРАНИЛИЩЕ ГМ</div>' : '<div style="margin:-7px 0 14px;text-align:center;color:#887653;font-family:\'Lora\',serif;font-size:11px">📍 Базирование: ' + escHTML(regionLabel) + '</div>') +
+    '<div style="text-align:center;font-family:\'Cinzel Decorative\',serif;font-size:' + (isMobile ? '24px' : '28px') + ';color:#f6e6c0;margin-bottom:6px">' + escHTML(shopItemText(it, it.name || 'Без имени')) + '</div>' +
+    '<div style="text-align:center;font-size:12px;letter-spacing:1.4px;color:' + rar.color + ';font-family:\'Cinzel\',serif;text-transform:uppercase;margin-bottom:16px">' + cat.icon + ' ' + escHTML(shopUiText(cat.label)) + ' · ' + escHTML(shopUiText(rar.label)) + '</div>' +
+    (isQuest ? '<div style="margin:-7px 0 14px;text-align:center;color:#6fcb83;font-family:\'Cinzel\',serif;font-size:10px;letter-spacing:1px">КВЕСТОВАЯ ВЕЩЬ · ХРАНИЛИЩЕ ГМ</div>' : '<div style="margin:-7px 0 14px;text-align:center;color:#887653;font-family:\'Lora\',serif;font-size:11px">📍 ' + escHTML(shopUiText('Базирование')) + ': ' + escHTML(shopUiText(regionLabel)) + '</div>') +
     (!isQuest && marketLinks ? '<div style="display:flex;justify-content:center;gap:5px;flex-wrap:wrap;margin:0 0 14px">' + marketLinks + '</div>' : '') +
     (chips ? '<div style="margin-bottom:16px">' + chips + '</div>' : '') +
-    (it.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:14px 16px;font-family:\'Lora\',serif;font-size:15px;color:#d8c8a8;line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' + escHTML(it.desc) + '</div>' : '') +
+    (it.desc ? '<div style="background:#241a0e;border:1px solid #3a2a14;border-radius:8px;padding:14px 16px;font-family:\'Lora\',serif;font-size:15px;color:#d8c8a8;line-height:1.7;margin-bottom:16px;white-space:pre-wrap">' + escHTML(shopItemText(it, it.desc)) + '</div>' : '') +
     (isQuest ? '<div style="text-align:center;font-family:\'Lora\',serif;color:#8fdb9f;background:#112016;border:1px solid #29452f;border-radius:8px;padding:12px">Доступно в сессии: Выдать → Предмет → Квестовые вещи</div>' : '<div style="text-align:center;font-family:\'Cinzel\',serif;font-size:18px;letter-spacing:.5px;background:#1a1309;border:1px solid #2a1e10;border-radius:8px;padding:14px;margin-bottom:14px">' + shopPriceHtml(it.price) + '</div><button onclick="zgCartAdd(\'' + it.id + '\')" style="width:100%;padding:13px;border:1px solid #e8c060;background:#e8c06018;color:#e8c060;font-family:\'Cinzel\',serif;font-size:14px;letter-spacing:.5px;cursor:pointer;border-radius:8px">🛒 Добавить в корзину</button>');
   var fullImageButton = panel.querySelector('[data-shop-full-image]');
   if (fullImageButton) {
     fullImageButton.addEventListener('click', function(event){
-      zgShopOpenImage(fullImage, it.name || 'Товар', event);
+      zgShopOpenImage(fullImage, shopItemText(it, it.name || 'Товар'), event);
     });
   }
   bd.appendChild(panel);
@@ -67156,6 +67401,15 @@ if (typeof window !== 'undefined') {
   window.zgCartEcoAdd = zgCartEcoAdd;
   window.zgCartEcoRemove = zgCartEcoRemove;
 }
+
+document.addEventListener('zargota:localechange', function() {
+  var host = document.getElementById('shop-page-inner');
+  if (host && typeof renderShopPage === 'function') renderShopPage();
+  var popup = document.getElementById('shop-view-popup');
+  if (popup && popup.dataset.shopItemId) {
+    zgShopView(popup.dataset.shopItemId, popup.dataset.shopCollection === 'quest' ? 'quest' : 'shop');
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════
 //  БЕСТИАРИЙ: Памятка по типам существ (мини-раздел)
@@ -68023,18 +68277,18 @@ global.getStatusCombatMods = function(combatant) {
     var cat = catMeta(item.category);
     var slot = slotMeta(item.slot);
     var actionMap = { long:'Долгое', short:'Короткое', passive:'Пассивное', reaction:'Реакция' };
-    lines.push('Тип: ' + cat.label + (slot.label && slot.label !== '—' ? ' · ' + slot.label : ''));
+    lines.push(shopUiText('Тип') + ': ' + shopUiText(cat.label) + (slot.label && slot.label !== '—' ? ' · ' + shopUiText(slot.label) : ''));
     if (item.category === 'weapon') {
-      lines.push('Урон: ' + (item.damageFormula || '—') + (item.damageType ? ' ' + item.damageType : ''));
-      if (item.range) lines.push('Дальность: ' + item.range);
+      lines.push(shopUiText('Урон') + ': ' + (item.damageFormula || '—') + (item.damageType ? ' ' + armoryItemText(item, item.damageType) : ''));
+      if (item.range) lines.push(shopUiText('Дальность') + ': ' + armoryItemText(item, item.range));
     }
     if (item.category === 'armor' || item.category === 'shield') {
-      lines.push('Защита: AC +' + String(item.acBonus || 0));
+      lines.push(shopUiText('Защита') + ': AC +' + String(item.acBonus || 0));
     }
-    if (item.actionType && actionMap[item.actionType]) lines.push('Действие: ' + actionMap[item.actionType]);
-    if (item.charges) lines.push('Заряды: ' + item.charges);
-    if (item.effects) lines.push('Свойства: ' + item.effects);
-    if (item.description) lines.push('Особенности: ' + item.description);
+    if (item.actionType && actionMap[item.actionType]) lines.push(shopUiText('Действие') + ': ' + shopUiText(actionMap[item.actionType]));
+    if (item.charges) lines.push(shopUiText('Заряды') + ': ' + armoryItemText(item, item.charges));
+    if (item.effects) lines.push(shopUiText('Свойства') + ': ' + armoryItemText(item, item.effects));
+    if (item.description) lines.push(shopUiText('Особенности') + ': ' + armoryItemText(item, item.description));
     return lines.join('\n');
   }
 
@@ -68076,7 +68330,7 @@ global.getStatusCombatMods = function(combatant) {
           '<div style="width:130px;height:130px;border:1px solid ' + cat.border + ';border-radius:22px;background:linear-gradient(180deg,#181008,#0c0804);display:flex;align-items:center;justify-content:center;padding:12px;box-sizing:border-box;box-shadow:inset 0 1px 0 #ffffff08">' + icon + '</div>' +
           '<div>' +
             '<div style="font-size:12px;color:#7f6c52;font-family:Cinzel,serif;letter-spacing:3px;margin-bottom:8px">НАЗВАНИЕ</div>' +
-            '<div style="padding:16px 20px;border:1px solid #3a2918;border-radius:12px;background:#0b0704;color:#f0dfbe;font-family:Cinzel,serif;font-size:24px;line-height:1.25;box-shadow:inset 0 1px 0 #ffffff05">' + esc(item.name || 'Без названия') + '</div>' +
+            '<div style="padding:16px 20px;border:1px solid #3a2918;border-radius:12px;background:#0b0704;color:#f0dfbe;font-family:Cinzel,serif;font-size:24px;line-height:1.25;box-shadow:inset 0 1px 0 #ffffff05">' + esc(armoryItemText(item, item.name || 'Без названия')) + '</div>' +
           '</div>' +
         '</div>' +
         '<div style="font-size:12px;color:#7f6c52;font-family:Cinzel,serif;letter-spacing:3px;margin-bottom:8px">ОПИСАНИЕ</div>' +
@@ -68094,10 +68348,10 @@ global.getStatusCombatMods = function(combatant) {
     var rawDamage = String(item.damageFormula || '').trim()
       .replace(/^урон(?:а)?\s*:?\s*/i, '')
       .replace(/^damage\s*:?\s*/i, '');
-    var rawDamageType = String(item.damageType || '').trim()
+    var rawDamageType = armoryItemText(item, String(item.damageType || '')).trim()
       .replace(/^тип\s+урона\s*:?\s*/i, '')
       .replace(/^damage\s+type\s*:?\s*/i, '');
-    var rawRange = String(item.range || '').trim()
+    var rawRange = armoryItemText(item, String(item.range || '')).trim()
       .replace(/^дальность\s*:?\s*/i, '');
     var damageStat = '';
     var armorStat = '';
@@ -68110,8 +68364,8 @@ global.getStatusCombatMods = function(combatant) {
     var cardGlow = 'inset 0 1px 0 rgba(255,255,255,.03)';
     var titleColor = '#e1c8b0';
     var titleGlow = 'none';
-    var cleanCharges = String(item.charges || '').trim();
-    var cleanEffects = String(item.effects || '').trim();
+    var cleanCharges = armoryItemText(item, String(item.charges || '')).trim();
+    var cleanEffects = armoryItemText(item, String(item.effects || '')).trim();
     var hasCharges = cleanCharges && cleanCharges !== '-' && cleanCharges !== '—' && cleanCharges.toLowerCase() !== 'нет';
     var hasEffects = cleanEffects && cleanEffects !== '-' && cleanEffects !== '—' && cleanEffects.toLowerCase() !== 'нет';
 
@@ -68168,7 +68422,7 @@ global.getStatusCombatMods = function(combatant) {
     html += '<div style="display:flex;align-items:center;gap:10px;padding-right:64px">';
     html += '<div style="width:48px;height:48px;line-height:1;filter:saturate(.9);flex:0 0 48px">' + displayIcon + '</div>';
     html += '<div>';
-    html += '<div style="font-size:17px;color:' + titleColor + ';font-weight:700;font-family:Cinzel,serif;letter-spacing:.2px;line-height:1.2;text-shadow:' + titleGlow + '">' + esc(item.name || 'Без названия') + '</div>';
+    html += '<div style="font-size:17px;color:' + titleColor + ';font-weight:700;font-family:Cinzel,serif;letter-spacing:.2px;line-height:1.2;text-shadow:' + titleGlow + '">' + esc(armoryItemText(item, item.name || 'Без названия')) + '</div>';
     html += '<div style="font-size:12px;color:#918271;margin-top:4px;letter-spacing:.2px;line-height:1.35">' + esc(sl.label) + ' · ' + esc(cm.label) + '</div>';
     html += '</div></div>';
     html += '</div>';
@@ -68209,7 +68463,7 @@ global.getStatusCombatMods = function(combatant) {
       html += '</div>';
     }
     if (item.description) {
-      html += '<div style="margin-top:auto;font-size:14px;color:#a69584;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;line-height:1.58;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">' + esc(item.description) + '</div>';
+      html += '<div style="margin-top:auto;font-size:14px;color:#a69584;border-top:1px solid rgba(255,255,255,.06);padding-top:10px;line-height:1.58;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden">' + esc(armoryItemText(item, item.description)) + '</div>';
     }
     var _pc = [];
     if (item.pricePl > 0) _pc.push(zgCoinAmountHtml('pl', item.pricePl));
