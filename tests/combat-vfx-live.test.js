@@ -6,7 +6,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const network = fs.readFileSync(path.join(__dirname, '..', 'zargota-network.js'), 'utf8');
 
 assert.match(network, /distanceCells:distance,rangeCells:rangeCells,actorKey:attacker\.key,targetKey:target\.key/, 'attack event carries additive scene anchors');
-assert.match(network, /damageType:damageType,critical:critical,actorKey:attacker\.key,targetKey:target\.key/, 'damage event carries the attacker and critical presentation state');
+assert.match(network, /damageType:damageType,critical:critical,[^}]*actorKey:attacker\.key,targetKey:target\.key/, 'damage event carries the attacker and critical presentation state');
 assert.match(network, /updates\.combatEvent\.actorKey=actor\.key\|\|''/, 'ability event carries the caster scene anchor without replacing its Firebase shape');
 
 const helperStart = html.indexOf('  function liveCombatCanvasPreset(event,hideResult)');
@@ -40,9 +40,10 @@ const abilityHelper = html.slice(abilityHelperStart, abilityHelperEnd);
 assert.ok(abilityHelperStart >= 0 && abilityHelperEnd > abilityHelperStart, 'ability Canvas helper remains extractable');
 assert.match(abilityHelper, /tone==='heal'\)return'heal'/, 'healing abilities use the healing preset');
 assert.match(abilityHelper, /\/огн\|fire\|плам\//, 'fire abilities use the fire preset');
+assert.match(abilityHelper, /animation==='fire-projectile-v1'\)return'fire-projectile'/, 'the reviewed fireball keeps projectile travel separate from its impact');
 assert.match(abilityHelper, /return'arcane'/, 'other abilities have a stable arcane fallback');
 assert.match(abilityHelper, /channel='ability-particles'.*claimCombatPlaybackEvent\(event,channel\)/s, 'ability particles are exactly-once');
-assert.match(abilityHelper, /var targetPoint=points\[0\]/, 'one bounded Canvas burst supplements readable multi-target DOM markers');
+assert.match(abilityHelper, /areaMode!=='manual'&&anchorPoint\?\[anchorPoint\]:points\.slice\(0,maxTargets\)/, 'large areas own one primary Canvas burst while manual multi-target effects remain bounded');
 assert.match(abilityHelper, /scope:'public',channel:'live-'/, 'ability effects share a public deterministic lane on both clients');
 assert.match(abilityHelper, /schedulePlaybackCleanup\(event,'live-canvas-ability'/, 'ability Canvas cleanup uses the playback director');
 assert.doesNotMatch(abilityHelper, /setTimeout\(|setInterval\(/, 'ability Canvas adds no private timers');
@@ -50,10 +51,13 @@ assert.doesNotMatch(abilityHelper, /setTimeout\(|setInterval\(/, 'ability Canvas
 const abilityVisualStart = html.indexOf('  function animateCombatAbilityVisual(event)');
 const abilityVisualEnd = html.indexOf('  function animateCombatVisual()', abilityVisualStart);
 const abilityVisual = html.slice(abilityVisualStart, abilityVisualEnd);
-assert.match(abilityVisual, /playLiveCombatAbilityCanvas\(event,actorPoint,targetPoints\.length\?targetPoints:\(anchor\?\[anchor\]:\[\]\),tone\)/, 'confirmed ability events enter the shared runtime');
-assert.match(abilityVisual, /schedulePlaybackCleanup\(event,'combat-ability-dom',1900/, 'spell DOM readability layer shares the director');
+assert.match(abilityVisual, /playLiveCombatAbilityCanvas\(event,actorPoint,targetPoints\.length\?targetPoints:\(anchor\?\[anchor\]:\[\]\),tone,anchor\)/, 'confirmed ability events enter the shared runtime with their shared area anchor');
+assert.match(abilityVisual, /schedulePlaybackCleanup\(event,'combat-ability-dom',1900\+projectileImpactDelay/, 'spell DOM readability layer shares the director and survives the projectile flight');
+assert.match(abilityVisual, /combat-ability-impact-labels-start',projectileImpactDelay/, 'fire damage numbers appear only at the impact cue');
 assert.match(abilityVisual, /combatAbilityPublicAnnouncement\(event\)/, 'confirmed ability events build a public caster, spell, and result announcement');
-assert.match(abilityVisual, /ensureDiceResultLayer\(layer\)/, 'the public spell announcement renders above scene tokens in the shared result layer');
+assert.match(abilityVisual, /event\.sourceDamage[\s\S]*?sourceLabel\.textContent='−'\+sourceDamage\+' HP'/, 'life transfer shows its HP price directly over the caster token');
+assert.match(abilityVisual, /ensureCombatSpellAnnouncementLayer\(\)/, 'the public spell announcement renders in its dedicated fixed layer above scene tokens and panels');
+assert.match(html, /function ensureCombatSpellAnnouncementLayer\(\)[\s\S]*?overlay\.appendChild\(layer\)/, 'the dedicated spell announcement layer is mounted on the top-level game overlay');
 assert.match(abilityVisual, /zg-combat-spell-announcement/, 'the public spell announcement has a dedicated readable presentation layer');
 assert.match(abilityVisual, /schedulePlaybackCleanup\(event,'combat-ability-announcement',2900/, 'the public announcement cleanup shares the playback director');
 assert.doesNotMatch(abilityVisual, /setTimeout\(/, 'spell cleanup has no private timer');

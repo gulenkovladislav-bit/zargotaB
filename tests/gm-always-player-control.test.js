@@ -12,6 +12,10 @@ assert.doesNotMatch(html, /zg-gm-control-inline|id="zg-gm-player-control"/, 'GM 
 assert.doesNotMatch(html, /ГМ ИГРАЕТ ЗА|УПРАВЛЕНИЕ ГЕРОЕМ|Сейчас вы играете за этого героя|▶ Играть за героя/, 'the removed top and inner control banners stay absent');
 assert.match(html, /function gmControlledPlayerUid\(\)[\s\S]*?if\(combat&&combat\.active\)return String\(turn&&turn\.uid\|\|''\)/, 'active combat turn overrides stale manual player identity');
 assert.match(html, /w\.zgPossessedPlayerUid = uid; w\.zgCombatLabPlayerUid = uid/, 'all existing player action routes receive the same selected identity');
+var possessStart=html.indexOf('w.zgPossessPlayer = function(uid)');
+var possessEnd=html.indexOf('w.zgReleasePlayerControl=',possessStart);
+var possessBlock=html.slice(possessStart,possessEnd);
+assert.ok(possessBlock.indexOf("w.dispatchEvent(new CustomEvent('zg-possession-change'") < possessBlock.indexOf('renderTokens();'), 'portrait selection is painted before the heavier token rerender');
 assert.match(html, /w\.zgReleasePlayerControl=function\(\)[\s\S]*?zgPossessedPlayerUid=''[\s\S]*?zgCombatLabPlayerUid=''/, 'release clears the identity without changing room data');
 assert.match(html, /requestApprovedAttackRoll\(request\.id,combatLabPlayerUid\(\)\)/, 'approved hit rolls use the permanently selected hero');
 assert.match(html, /requestApprovedDamageRoll\(request\.id,combatLabPlayerUid\(\)\)/, 'approved damage rolls use the permanently selected hero');

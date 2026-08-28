@@ -40,6 +40,7 @@ const checks = [
   ['Маршрутизация звуков live-боя', 'tests/live-combat-sound-routing.test.js'],
   ['Авторские текстуры удара', 'tests/authored-combat-impact.test.js'],
   ['Синхронизация листа персонажа', 'tests/session-character-sheet.test.js'],
+  ['Пятнадцать автоматизированных заклинаний режима сессии', 'tests/session-spell-playback.test.js'],
   ['Поэтапный бросок заклинания в Мастерской', 'tests/combat-spell-staged-roll.test.js'],
   ['Кнопка назначения d20 заклинания в Мастерской', 'tests/workshop-spell-roll-assignment.test.js'],
   ['Мануал без разрыва игровой сессии', 'tests/manual-session-bridge.test.js'],

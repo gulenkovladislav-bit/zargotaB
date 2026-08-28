@@ -70,13 +70,14 @@ assert.strictEqual(helperContext.result.total, 6, 'bonus damage is the sum of vi
 helperContext = deterministicContext([0, 0.1, 0.2, 0.3, 0.4, 0.5]);
 vm.runInNewContext(`${bonusHelper}; result=combatQaBonusRolls(3,6,true);`, helperContext);
 assert.strictEqual(helperContext.result.rolls.length, 6, 'a critical creates a second visible set of every bonus die');
-assert.match(html, /w\.zgQaSessionBuild=function\(\)\{w\.zgSceneBuildQaCombat\(\)/, 'QA arena builder should reuse the established fixture');
-assert.match(html, /w\.zgQaSessionStart=function\(\)\{w\.zgQaSessionMode\('combat'\)/, 'QA combat starter should use the explicit workshop mode switch');
+assert.match(html, /w\.zgQaSessionBuild=function\(\)\{if\(w\.zgWorkshopMode==='magic'\)return w\.zgSceneBuildQaMagicArena\(\);w\.zgSceneBuildQaCombat\(\)/, 'QA rebuild should preserve the selected ordinary or magic fixture');
+assert.match(html, /w\.zgQaSessionStart=function\(\)\{return w\.zgQaSessionMode\(w\.zgWorkshopMode==='magic'\?'magic':'combat'\)/, 'QA combat restart should preserve the explicit Workshop mode');
 assert.match(html, /w\.zgQaSessionFreeRoom=function\(\)/, 'QA needs a Firebase-free transition from combat to free room');
 assert.match(html, /snapshot\.room\.combat=\{active:false,phase:'ended'/, 'free-room transition must close the local combat order');
 assert.match(html, /if\(combatQaActive\(\)&&w\.zgQaSessionFreeRoom\)/, 'ending a TEST fight must not call the real-room Firebase API');
 assert.match(html, /data-qa-session-mode="combat"/, 'settings should expose combat mode');
 assert.match(html, /data-qa-session-mode="free"/, 'settings should expose free-room mode');
+assert.match(html, /data-qa-session-mode="magic"/, 'settings should expose the dedicated magic arena mode');
 assert.match(html, /token\.type==='hero';\}\)\.map\(function\(token,index\)\{return copyToken\(Object\.assign\(\{\},token,\{x:25\+\(index\*8\),y:58\+\(index%2\)\*7/, 'QA heroes should start from deterministic staggered test coordinates');
 assert.match(html, /w\.zgCombatLabPlayerUid = ''/, 'simulation identity must remain local and must not enter room data');
 assert.match(html, /localTestActive&&!incomingTest\)return/, 'real-room reconnect snapshots cannot revoke the offline QA master role');

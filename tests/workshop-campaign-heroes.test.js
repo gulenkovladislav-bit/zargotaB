@@ -16,7 +16,7 @@ assert.match(html, /status:'local-workshop-copy'/, 'workshop snapshot is identif
 assert.match(html, /online:false,workshopCopy:true/, 'campaign heroes are offline fixtures rather than fake connected clients');
 assert.match(html, /member&&member\.workshopCopy\)return\{key:'workshop'/, 'offline workshop copies have a dedicated local presence instead of looking disconnected');
 assert.match(html, /\.zg-party-card\.presence-workshop\{opacity:1;filter:none\}/, 'workshop portraits stay fully visible');
-assert.match(html, /selectedMember&&selectedMember\.workshopCopy&&w\.zgPossessPlayer/, 'clicking a workshop portrait assigns direct GM control');
+assert.match(html, /possessionChanged=!!\(selectedMember&&heroToken&&w\.zgPossessPlayer&&w\.zgPossessPlayer/, 'clicking any placed allied portrait assigns direct GM control, including workshop heroes');
 assert.match(html, /if\(token\.type==='hero'&&w\.zgPossessPlayer\)w\.zgPossessPlayer\(token\.memberUid\)/, 'clicking a hero token in run mode assigns control without dragging it');
 assert.match(html, /directWorkshopHero[\s\S]{0,260}movementApi\.requestMovementAs\(actorUid,point\.x,point\.y,origin\)\.then\(function\(\)\{return movementApi\.resolveMovement\(actorUid,true\);\}\)/, 'GM workshop movement is resolved locally instead of creating a request to oneself');
 assert.match(html, /if\(w\.zgVttEnableTestHero\)w\.zgVttEnableTestHero\(\[\]\)/, 'Workshop opens without automatically summoning campaign heroes');

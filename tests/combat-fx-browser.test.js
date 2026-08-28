@@ -22,14 +22,15 @@ const runtimeAssetVersions = [
 });
 assert.deepStrictEqual(
   Array.from(new Set(runtimeAssetVersions)),
-  ['2026-08-09.3'],
+  ['2026-08-28.3'],
   'playback and VFX modules must advance together so clients cannot mix stale runtimes'
 );
 
 const presetKeys = presets.list().map(preset => preset.key);
 assert.deepStrictEqual(presetKeys, [
-  'slash', 'critical', 'projectile', 'miss', 'block',
-  'arcane', 'fire', 'heal', 'cleanse', 'movement'
+  'slash', 'critical', 'projectile', 'fire-projectile', 'miss', 'block',
+  'arcane', 'fire', 'lightning', 'psychic', 'hypnosis', 'curse-break',
+  'blood-transfer', 'lightning-spear', 'necro', 'heal', 'cleanse', 'movement', 'mist-teleport'
 ], 'the settings catalog covers combat, spells, support, and movement');
 
 assert.match(html, /class="zg-combat-fx-open" onclick="zgCombatFxBrowserOpen\(\)"/, 'settings expose the animation browser');

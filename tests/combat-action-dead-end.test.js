@@ -57,7 +57,7 @@ assert.match(targetingUi, /w\.zgVttAbilityTargetCancelled=function\(\)\{pendingA
 assert.match(targetingUi, /catch\(function\(error\)[\s\S]*Не удалось отправить заявку/, 'targeted cast failures have visible feedback');
 assert.match(targetingUi, /then\(function\(\)\{abilityRequestBusy=false;renderDrawer\(\);\}/, 'targeted casts unlock their UI after either outcome');
 assert.match(html, /if\(profile\.effectKind==='summon'\)return'point'/, 'summon spells request an explicit scene point');
-assert.match(html, /effectKind:\['damage','heal','temp_hp','buff','summon','movement','utility'\]/, 'VTT ability profiles preserve summon semantics');
+assert.match(html, /effectKind:\['damage','heal','temp_hp','buff','control','cleanse','summon','movement','utility'\]/, 'VTT ability profiles preserve control, cleanse, and summon semantics');
 assert.match(html, /w\.zgSceneQaActiveCombat=function\(sceneParticipants,heroOptions\)/, 'local QA exposes a selectable active combat fixture without Firebase');
 assert.match(html, /reserveId='qa-linked-summon-reserve'/, 'the QA fixture provides one source-linked summon outside initiative');
 assert.match(html, /token\.id!==reserveId/, 'the reserved summon stays outside the initial QA order');
@@ -77,9 +77,9 @@ assert.match(network, /id:'combat-trigger-'\+String\(prepared\.requestId\|\|stam
 assert.match(network, /concentrationName=actor&&actor\.concentration&&actor\.concentration\.name\|\|'эффекте'/, 'concentration name is captured before state cleanup');
 assert.match(network, /text:'Прекращает концентрацию на «'\+concentrationName\+'»\.'/,
   'concentration completion keeps the original ability name');
-assert.match(network, /effectKind:\['damage','heal','temp_hp','buff','summon','movement','utility'\]/,
-  'Firebase ability requests preserve compatible summon metadata');
-assert.match(network, /name:'Призыв · '\+String\(effect\.name\|\|'Существо'\)/,
-  'an approved summon creates a visible GM-owned placeholder instead of ending silently');
+assert.match(network, /effectKind:\['damage','heal','temp_hp','buff','control','cleanse','summon','movement','utility'\]/,
+  'Firebase ability requests preserve compatible control, cleanse, and summon metadata');
+assert.match(network, /defaultName='Призыв · '\+String\(effect\.name\|\|'Существо'\)/,
+  'an approved summon still creates a visible GM-owned placeholder instead of ending silently');
 
 console.log('combat action anti-dead-end contracts passed');

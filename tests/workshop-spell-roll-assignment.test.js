@@ -18,7 +18,9 @@ function sourceBetween(startMarker, endMarker) {
 const helperSource = sourceBetween('function abilityResolutionApi()', 'function automatedAbilityRequest');
 const effectPlanSource = sourceBetween('function abilityRenderEffectPlan', 'function abilityRenderAutomated');
 const automatedVerdictSource = sourceBetween('function abilityRenderAutomated', 'w.zgAbilityPreviewOutcome');
+const actionResolveSource = sourceBetween('w.zgActionResolve=function', 'var abilityResolveUid');
 const handlerSource = sourceBetween('function abilityResolveSafeOpen', 'function openAbilityTargetEntity');
+const requestPlaySource = sourceBetween('function currentAbilityRequest', 'w.zgAbilityResolveOpen=function');
 const openHandlerSource = sourceBetween('w.zgAbilityResolveOpen=function', 'function abilityResolveCurrentRoom');
 const applyHandlerSource = sourceBetween('function abilityResolveCurrentRoom', 'w.zgMovementRequestsToggle');
 const qaDistanceSource = sourceBetween('function combatQaAbilityPoint', 'function combatQaApply');
@@ -162,6 +164,59 @@ function flush() {
   assert.match(requestCardSource, /abilityRequestStageUi\(request\)/, 'the live request card must render from the staged UI model');
   assert.match(requestCardSource, /play\.textContent=stage\.action/, 'the live request button must be updated after each synchronized state change');
 
+  function makeActionControlContext(actionError) {
+    const calls = [], toasts = [], snapshots = [];
+    const buttons = [{ disabled:false }, { disabled:false }];
+    const actions = { classList:{ add() {}, remove() {} }, querySelectorAll() { return buttons; } };
+    const context = {
+      Promise, String, Number, Array, Math,
+      isMaster:true,
+      roomSnapshot:{ room:{ members:{ 'qa-player':{ actionRequest:{ actionKind:'ability', status:'ability-damage-result' } } } } },
+      document:{ querySelector() { return actions; } },
+      clamp(value,min,max) { return Math.max(min,Math.min(max,value)); },
+      el() { return null; },
+      roomState(snapshot) { snapshots.push(snapshot); },
+      w:{
+        ZargotaCombatQa:{
+          active() { return true; },
+          resolveAction(uid,accepted,resolution) {
+            calls.push({ uid, accepted, resolution });
+            if(actionError)throw actionError;
+            return Promise.resolve({ room:{ members:{ 'qa-player':{ actionRequest:{ status:'rejected', stage:'cancelled' } } } } });
+          }
+        },
+        showToast(message) { toasts.push(message); }
+      }
+    };
+    vm.runInNewContext(actionResolveSource, context, { filename:'workshop-spell-request-controls.js' });
+    return { context, calls, toasts, snapshots, buttons };
+  }
+  const cancelControl = makeActionControlContext();
+  const cancelSnapshot = await cancelControl.context.w.zgActionResolve('qa-player', false);
+  assert.strictEqual(cancelControl.calls.length, 1, 'the stage-five cancel click must reach the selected room API exactly once');
+  assert.strictEqual(cancelControl.calls[0].accepted, false, 'the stage-five cancel click must stay a rejection, never an apply');
+  assert.strictEqual(cancelSnapshot.room.members['qa-player'].actionRequest.stage, 'cancelled');
+  assert.strictEqual(cancelControl.snapshots.length, 1, 'the cancelled snapshot must immediately replace the visible request card');
+
+  const failedCancel = makeActionControlContext(new Error('QA cancel rejected'));
+  const failedCancelResult = await failedCancel.context.w.zgActionResolve('qa-player', false);
+  assert.strictEqual(failedCancelResult, false, 'a synchronous cancellation failure must return an explicit failure result');
+  assert.ok(failedCancel.buttons.every((button) => button.disabled === false), 'both request buttons must unlock after a synchronous cancellation failure');
+  assert.ok(failedCancel.toasts.includes('QA cancel rejected'), 'the GM must see the cancellation failure instead of an inert card');
+
+  const requestPanelRemovals = [];
+  const playContext = {
+    String,
+    roomSnapshot:{ room:{ members:{ 'qa-player':{ actionRequest:{ actionKind:'ability', ability:{ name:'Жар Пальцев' }, status:'ability-damage-result' } } } } },
+    abilityResolveError:'',
+    el(id) { return id==='zg-move-requests'?{ classList:{ remove(value) { requestPanelRemovals.push(value); } } }:null; },
+    w:{ zgAbilityResolveOpen() { return true; }, showToast() {}, console:{ error() {} } }
+  };
+  vm.runInNewContext(requestPlaySource, playContext, { filename:'workshop-spell-request-play.js' });
+  const opened = playContext.w.zgAbilityRequestPlay('qa-player', { preventDefault() {}, stopPropagation() {} });
+  assert.strictEqual(opened, true, 'the stage-five review click must open the verdict');
+  assert.deepStrictEqual(requestPanelRemovals, ['open'], 'the request list must yield the foreground to the final verdict');
+
   const qaDistanceContext = { isFinite, Math, Number, String, Array };
   vm.runInNewContext(`${qaDistanceSource}\nresult=combatQaAbilityDistance({boardWidth:32,boardHeight:20,tokens:[{id:'actor-token',x:50,y:50},{id:'target-token',x:53,y:50}]},{tokenId:'actor-token'},{tokenId:'target-token'});`, qaDistanceContext, { filename: 'workshop-spell-distance.js' });
   assert.strictEqual(qaDistanceContext.result, 1, 'the Workshop API must calculate one-cell range from its own TEST-scene tokens');
@@ -289,7 +344,7 @@ function flush() {
       combat: {
         active: true,
         order: [
-          { key: 'member:qa-player', uid: 'qa-player', name: "Лин'Ин", economy: { long: 1, short: 1, reaction: 1 } },
+          { key: 'member:qa-player', uid: 'qa-player', name: "Лин'Ин", economy: { long: 1, short: 1, reaction: 1 }, statuses: ['silence'] },
           { key: 'token:qa-rat', tokenId: 'qa-rat', name: 'QA Крыса', hp: 12, hpMax: 12, tempHp: 0, statuses: [] }
         ]
       },
@@ -307,13 +362,14 @@ function flush() {
     combatQaSyncZeroHp() {}
   };
   const qaResolveMethod = qaResolveSource.trim().replace(/,$/, '');
-  vm.runInNewContext(`${qaSyncTargetSource}\n${qaNormalizeSource}\napi={${qaResolveMethod}};`, realQaContext, { filename: 'workshop-real-final-apply.js' });
+  vm.runInNewContext(`${qaDistanceSource}\n${qaSyncTargetSource}\n${qaNormalizeSource}\napi={${qaResolveMethod}};`, realQaContext, { filename: 'workshop-real-final-apply.js' });
   const realQaResult = await realQaContext.api.resolveCombatAbility('qa-player', ['token:qa-rat'], {
     approvedResults: [{ key: 'token:qa-rat', roll: 18, rolls: [18], modifier: 2, total: 20, dc: 10, success: true, damage: 6, damageRolls: [6], statuses: ['burn'] }]
   });
   const realActor = realQaResult.room.combat.order[0];
   const realTarget = realQaResult.room.combat.order[1];
   const realRequest = realQaResult.room.members['qa-player'].actionRequest;
+  assert.ok(realActor.statuses.includes('silence'), 'silence added after the staged roll remains active but cannot freeze final application');
   assert.strictEqual(realTarget.hp, 6, 'the real Workshop final apply must change target HP exactly once');
   assert.strictEqual(realActor.economy.long, 0, 'the real Workshop final apply must spend the long action');
   assert.strictEqual(realRequest.ability.resourceUsed, 1, 'the real Workshop final apply must spend the spell charge');

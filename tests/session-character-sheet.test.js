@@ -10,16 +10,15 @@ var clickStart = html.indexOf('w.zgVttPartyClick = function');
 var clickEnd = html.indexOf('function renderJournal', clickStart);
 var clickBlock = html.slice(clickStart, clickEnd);
 assert.match(clickBlock, /session&&session\.role==='master'/);
-assert.match(clickBlock, /gmPanel\.classList\.contains\('open'\).*gmPanel\.classList\.contains\('minimized'\)/, 'an open GM intervention panel gives party portraits a targeting context');
-assert.match(clickBlock, /token\.type==='hero'.*String\(token\.memberUid\|\|''\)===String\(uid\|\|''\)/, 'GM targeting resolves the hidden run-mode hero token by member uid');
-assert.match(clickBlock, /zgGmInterventionOpenToken\(heroToken\.id,'entity'\)/, 'party targeting enters the existing GM entity panel');
-assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid,\{toggle:true\}\)/);
+assert.doesNotMatch(clickBlock, /gmPanel\.classList\.contains\('open'\).*gmPanel\.classList\.contains\('minimized'\)/, 'left click never inherits the GM intervention panel as its target');
+assert.match(html, /w\.zgVttPartyContextMenu=function\(event,uid\)[\s\S]*?zgGmInterventionOpenToken\(heroToken\.id,'entity'\)/, 'right click alone opens the GM intervention panel for the matching hero token');
+assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid,\{toggle:false\}\)/);
 assert.match(clickBlock, /keepPanel.*\['character','inventory','abilities','journal'\]/, 'an open hero bag keeps its current tab when another hero is selected');
 assert.match(clickBlock, /zgVttOpenPanelForMember\(keepPanel,uid,\{toggle:false\}\)/, 'selecting another portrait replaces the open bag contents instead of closing or resetting it');
 assert.match(clickBlock, /session&&session\.role==='player'&&String\(session\.uid\)===String\(uid\)/);
 assert.match(clickBlock, /zgVttOpenPanel\('character',\{toggle:true,resetMember:true\}\)/);
 assert.ok(
-  clickBlock.indexOf("zgVttOpenPanelForMember('character',uid,{toggle:true})") >= 0,
+  clickBlock.indexOf("zgVttOpenPanelForMember('character',uid,{toggle:false})") >= 0,
   'master portrait click must choose the canonical character drawer'
 );
 assert.ok(
@@ -29,11 +28,16 @@ assert.ok(
 assert.match(clickBlock, /allowPlayerInspectAllies===false/);
 assert.match(clickBlock, /zgVttOpenPublicMember\(uid\)/);
 assert.match(clickBlock, /if\(w\.zgSheetClose\)w\.zgSheetClose\(\)/);
-assert.match(clickBlock, /selectedMember&&selectedMember\.workshopCopy&&w\.zgPossessPlayer/, 'only a local workshop copy may be selected for control from its portrait');
-assert.doesNotMatch(clickBlock, /if\(w\.zgPossessPlayer\)w\.zgPossessPlayer\(String\(uid\|\|''\)\)/, 'ordinary network portraits still open sheets without taking control');
+assert.match(clickBlock, /possessionChanged=!!\(selectedMember&&heroToken&&w\.zgPossessPlayer&&w\.zgPossessPlayer/, 'every placed allied hero may be selected for direct GM control from its portrait');
+assert.match(clickBlock, /if\(!possessionChanged\)renderParty\(\)/, 'a rejected control handoff still paints the chosen portrait immediately');
+assert.match(clickBlock, /w\.zgSelectedHeroMemberUid=String\(uid\|\|''\)/, 'selection identity is updated before the drawer is retargeted');
+assert.doesNotMatch(clickBlock, /gmPanel=.*zg-gm-intervention/, 'left-click selection no longer contains a GM-panel branch');
 assert.match(html, /w\.zgGmInterventionOpenToken=function\(tokenId,tab\)/, 'the GM panel exposes its token targeting bridge');
 assert.match(html, /gmInterventionTokenId=token\.id/, 'the targeting bridge stores the resolved scene token');
 assert.match(html, /zgVttPartyClick\('\s*\+\s*esc\(JSON\.stringify\(member\.uid\)\)/);
+assert.match(html, /oncontextmenu="return zgVttPartyContextMenu\(event,' \+ esc\(JSON\.stringify\(member\.uid\)\)/, 'portrait right-click uids are escaped inside inline attributes');
+assert.match(html, /class="zg-party-selected-mark" aria-hidden="true">✓<\/span>/, 'the current ally has a language-neutral immediate selection mark');
+assert.match(html, /\.zg-party-card\.selected img,\.zg-party-card\.selected \.zg-party-ph\{border:2px solid #8fd99b/, 'the selected portrait receives a distinct high-contrast frame');
 assert.strictEqual(
   /zgVttPartyClick\('\s*\+\s*JSON\.stringify\(member\.uid\)/.test(html),
   false,

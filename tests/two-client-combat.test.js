@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, '..');
 const networkPath = path.join(root, 'zargota-network.js');
 const indexHtml = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const syncOutbox = require(path.join(root, 'character-sync-outbox.js'));
+const spellAutomation = require(path.join(root, 'spell-automation.js'));
 const originalNetwork = fs.readFileSync(networkPath, 'utf8');
 const readyStart = originalNetwork.indexOf('  var ready = Promise.all([');
 const readyEnd = originalNetwork.indexOf('\n\n  w.ZargotaRooms = api;', readyStart);
@@ -570,10 +571,16 @@ async function expectCode(operation, code) {
   assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-damage-result');
   assert.deepStrictEqual(Array.from(snapshot.room.members[playerUid].actionRequest.abilityResolution.damage.rolls), [1]);
   assert.strictEqual(snapshot.room.combat.order[1].hp, 9, 'the damage roll must still wait for GM confirmation');
+  snapshot = await master.gmAdjustEntity({ memberUid:playerUid }, {
+    kind:'status', statusKey:'silence', label:'Немота', enable:true,
+    effect:{ durationUnit:'rounds', durationValue:1, icon:'🔇' }
+  });
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-damage-result', 'a new silence effect must not erase the already rolled spell result');
   snapshot = await master.resolveCombatAbility(playerUid, [enemyKey], { approvedResults:[{
     key:enemyKey, roll:15, rolls:[15], rollMode:'normal', modifier:0, total:15, dc:10,
     success:true, damage:1, damageRolls:[1], statuses:['spell-scar','arcane-glow','dead','spell-scar']
   }] });
+  assert.ok(snapshot.room.combat.order[0].statuses.includes('silence'), 'final application completes while the later silence remains active');
   assert.strictEqual(snapshot.room.combat.order[1].hp, 8, 'the authoritative resolver applies the exact GM-approved damage');
   assert.deepStrictEqual(Array.from(snapshot.room.combat.order[1].statuses).filter(status => status === 'spell-scar' || status === 'arcane-glow'), ['spell-scar','arcane-glow'], 'the GM can add several normalized conditions to the spell result');
   assert.ok(!snapshot.room.combat.order[1].statuses.includes('dead'), 'the spell result cannot add the reserved death state');
@@ -582,6 +589,31 @@ async function expectCode(operation, code) {
   await expectCode(() => master.resolveCombatAbility(playerUid, [enemyKey], { approvedResults:[] }), 'request-missing');
   assert.strictEqual(shared.data.rooms[roomCode].combat.order[1].hp, 8, 'a confirmed spell result cannot apply twice');
   await player.acknowledgeAction(fingerHeatRequestId);
+  snapshot = await master.gmAdjustEntity({ memberUid:playerUid }, {
+    kind:'status', statusKey:'silence', label:'Немота', enable:false
+  });
+
+  snapshot = await player.requestAction('Начинает отменяемый Жар Пальцев', 'ability', '', {
+    operationId:'two-client-finger-heat-cancelled',
+    key:'spell-finger-heat-cancelled', sourceId:'spell-finger-heat-cancelled', name:'Жар Пальцев', kind:'spell',
+    automationKey:'finger-heat-v1', actionCost:'free', resolutionMode:'attack', attackStat:'int', rangeCells:10,
+    damageFormula:'1d6', damageType:'fire', targetMode:'target',
+    targeting:{ mode:'token', tokenId:enemyTokenId, targetKey:enemyKey, targetName:'Учебный противник' }
+  });
+  const cancelledFingerHeatRequestId = snapshot.room.members[playerUid].actionRequest.id;
+  snapshot = await master.prepareCombatAbilityRoll(playerUid, enemyKey, 'attack');
+  queueDeterministicRandom(0.74);
+  snapshot = await player.rollCombatAbilityStage(cancelledFingerHeatRequestId);
+  snapshot = await master.prepareCombatAbilityRoll(playerUid, enemyKey, 'damage');
+  queueDeterministicRandom(0.2);
+  snapshot = await player.rollCombatAbilityStage(cancelledFingerHeatRequestId);
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'ability-damage-result');
+  const hpBeforeCancelledSpell = snapshot.room.combat.order[1].hp;
+  snapshot = await master.resolveAction(playerUid, false);
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.status, 'rejected', 'the GM can cancel a staged spell after the damage roll');
+  assert.strictEqual(snapshot.room.members[playerUid].actionRequest.stage, 'cancelled');
+  assert.strictEqual(snapshot.room.combat.order[1].hp, hpBeforeCancelledSpell, 'cancelling the staged spell must not apply its rolled damage');
+  await player.acknowledgeAction(cancelledFingerHeatRequestId);
 
   snapshot = await player.requestAction('Просит потратить заряд «Испытательная метка»', 'ability-resource', '', {
     resourceKey:'spell-two-client-mark', delta:1, max:3, name:'Испытательная метка'
@@ -1162,6 +1194,132 @@ async function expectCode(operation, code) {
   assert.strictEqual(intentSnapshot.room.combat.pendingReactionAction.participantKey, 'token:intent-enemy', 'the GM creature reaction remains visible until its manual effect is resolved');
   intentSnapshot = await intentMaster.finishPendingReaction(intentSnapshot.room.combat.pendingReactionAction.id, 'Защита учтена');
   assert.strictEqual(intentSnapshot.room.combat.pendingReactionAction, null, 'the GM can explicitly finish its creature reaction');
+
+  const spellRoomCode = 'SPELLS1';
+  const spellHeroKey = `member:${playerUid}`;
+  const spellEnemyAKey = 'token:spell-enemy-a';
+  const spellEnemyBKey = 'token:spell-enemy-b';
+  const spellShared = createSharedFirebase({rooms:{[spellRoomCode]:{
+    code:spellRoomCode,phase:'session',masterUid,
+    members:{
+      [masterUid]:{uid:masterUid,role:'master',name:'ГМ'},
+      [playerUid]:{uid:playerUid,role:'player',name:'Игрок',character:{id:'spell-hero',name:'Арканист',hpCur:12,hpMax:16,ac:12,stats:{str:0,dex:1,int:2,cha:1,per:0,con:1},abilityUsage:{},statuses:[],statusEffects:[]}}
+    },
+    scene:{boardWidth:32,boardHeight:20,tokens:[
+      {id:'spell-hero-token',type:'hero',memberUid:playerUid,disposition:'ally',name:'Арканист',x:20,y:50,hp:12,hpMax:16,ac:12,statuses:[],statusEffects:[]},
+      {id:'spell-enemy-a',type:'custom',disposition:'enemy',name:'Латник',x:23,y:50,hp:30,hpMax:30,ac:10,stats:{str:0,dex:0},statuses:[],statusEffects:[]},
+      {id:'spell-enemy-b',type:'custom',disposition:'enemy',name:'Ловкач',x:38,y:50,hp:30,hpMax:30,ac:12,stats:{str:1,dex:0},statuses:[],statusEffects:[]}
+    ]},
+    zones:{},
+    combat:{active:true,phase:'combat',round:1,turnIndex:0,battleStartedAt:1787904000000,order:[
+      {key:spellHeroKey,uid:playerUid,tokenId:'spell-hero-token',kind:'hero',name:'Арканист',hp:12,hpMax:16,ac:12,stats:{str:0,dex:1,int:2,cha:1,per:0,con:1},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:6,movementMax:6}},
+      {key:spellEnemyAKey,tokenId:'spell-enemy-a',kind:'enemy',name:'Латник',hp:30,hpMax:30,ac:10,stats:{str:0,dex:0},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:5,movementMax:5}},
+      {key:spellEnemyBKey,tokenId:'spell-enemy-b',kind:'enemy',name:'Ловкач',hp:30,hpMax:30,ac:12,stats:{str:1,dex:0},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:6,movementMax:6}}
+    ]},updatedAt:1
+  }}});
+  const spellMaster = createClient(spellShared, masterUid, 'master', spellRoomCode);
+  const spellPlayer = createClient(spellShared, playerUid, 'player', spellRoomCode);
+  function reviewedSpellDetails(automationKey, overrides) {
+    const profile = spellAutomation.catalog().find((item) => item.automationKey === automationKey);
+    assert.ok(profile, `reviewed profile ${automationKey} exists`);
+    return Object.assign({}, profile, {
+      key:`spell-${profile.catalogId}`,
+      sourceId:profile.catalogId,
+      resourceKey:`spell-${profile.catalogId}`,
+      resourceMax:profile.maxUses,
+      resourceUsed:0,
+      operationId:`reviewed-${profile.automationKey}`,
+      playbackMode:'instant'
+    }, overrides || {});
+  }
+  async function castReviewedSpell(automationKey, targetKeys, details, overrides, randomValues) {
+    spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long = 1;
+    queueDeterministicRandom(...(randomValues || []));
+    const ability = reviewedSpellDetails(automationKey, details);
+    let next = await spellMaster.requestAction(`Мастер разыгрывает «${ability.name}»`, 'ability', playerUid, ability);
+    const requestId = next.room.members[playerUid].actionRequest.id;
+    next = await spellMaster.resolveCombatAbility(playerUid, targetKeys, overrides || {});
+    await spellPlayer.acknowledgeAction(requestId);
+    return next;
+  }
+
+  let reviewedSnapshot = await castReviewedSpell('finger-heat-v1', [spellEnemyAKey], {
+    targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Латник',distanceCells:1}
+  }, {}, [0.75,0.5,0.5]);
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.automationKey, 'finger-heat-v1');
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.damage, 4, 'instant Жар Пальцев uses the caster INT attack and applies 1d6 fire damage');
+  assert.strictEqual(reviewedSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyAKey).hp, 26);
+
+  spellShared.data.rooms[spellRoomCode].combat.order[0].hp = 6;
+  spellShared.data.rooms[spellRoomCode].members[playerUid].character.hpCur = 6;
+  reviewedSnapshot = await castReviewedSpell('salvation-touch-v1', [spellHeroKey], {
+    targeting:{mode:'token',tokenId:'spell-hero-token',targetKey:spellHeroKey,targetName:'Арканист',distanceCells:0}
+  }, {}, [0,0.25,0.5]);
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.heal, 3, 'Касание Спасения rolls exactly 2d4 without inventing an attack');
+  assert.strictEqual(reviewedSnapshot.room.combat.order[0].hp, 9);
+  assert.strictEqual(reviewedSnapshot.room.members[playerUid].character.hpCur, 9, 'instant healing synchronizes the character sheet');
+
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 35;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyBKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').hp = 30;
+  reviewedSnapshot = await castReviewedSpell('fire-projectile-v1', [spellEnemyAKey, spellEnemyBKey], {
+    targeting:{mode:'point',x:36.5,y:50,distanceCells:6}
+  }, {areaMode:'circle',areaRadius:2,areaAnchorPoint:{x:36.5,y:50}}, [0,0,0,0,0.99]);
+  const fireResults = reviewedSnapshot.room.combatEvent.results;
+  assert.strictEqual(fireResults.length, 2, 'Огненный снаряд resolves every combatant inside the two-cell area');
+  assert.strictEqual(fireResults.find((result) => result.key === spellEnemyAKey).damage, 3, 'failed DEX save takes full 3d6 result');
+  assert.strictEqual(fireResults.find((result) => result.key === spellEnemyBKey).damage, 1, 'successful DEX save takes half rounded down');
+  assert.deepStrictEqual(fireResults[0].damageRolls, fireResults[1].damageRolls, 'every target uses the same fireball damage dice');
+  assert.deepStrictEqual(reviewedSnapshot.room.combatEvent.damageRolls, [1,1,1], 'the public event publishes the shared AOE damage roll only once');
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.areaRadius, 2);
+
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 38;
+  reviewedSnapshot = await castReviewedSpell('lightning-lasso-v1', [spellEnemyAKey], {
+    playbackVariant:'pull',pullCells:2,statuses:[],saveRollMode:'disadvantage',targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Латник',distanceCells:6}
+  }, {saveRollMode:'disadvantage'}, [0.9,0]);
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.movements.length, 1, 'Лассо Молнии publishes one synchronized pull movement');
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.results[0].rollMode, 'disadvantage', 'metal armour applies the reviewed save disadvantage');
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.results[0].rolls.length, 2);
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.movements[0].cells, 2);
+  assert.ok(reviewedSnapshot.room.scene.tokens.find((token) => token.id === 'spell-enemy-a').x < 38, 'the target token actually moves toward the caster');
+  assert.deepStrictEqual(reviewedSnapshot.room.combatEvent.results[0].statuses, [], 'the pull variant does not also apply restrained');
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.resolutionMode, 'save', 'the public lasso event identifies a save instead of reporting a hit or miss');
+
+  const orderBeforeReviewedSummon = reviewedSnapshot.room.combat.order.map((entry) => entry.key);
+  reviewedSnapshot = await castReviewedSpell('raise-undead-v1', [spellHeroKey], {
+    summonVariant:'skeleton',summonName:'Скелет',summonNameUk:'Скелет',summonCount:3,summonHp:10,summonAc:11,summonSpeed:6,summonInitiative:0,summonChargeCost:3,
+    summonRequirementsConfirmed:true,
+    targeting:{mode:'point',x:25,y:55,distanceCells:2}
+  }, {}, [0.5]);
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.summonTokens.length, 3, 'Призыв Нежити creates three real scene tokens');
+  assert.strictEqual(reviewedSnapshot.room.combat.order.length, orderBeforeReviewedSummon.length + 3, 'all three skeletons join the existing initiative order');
+  assert.deepStrictEqual(reviewedSnapshot.room.combat.order.slice(0, orderBeforeReviewedSummon.length).map((entry) => entry.key), orderBeforeReviewedSummon, 'summoning preserves all existing initiative positions');
+  assert.ok(reviewedSnapshot.room.combatEvent.summonTokens.every((token) => token.hp === 10 && token.ac === 11 && token.sourceRef.type === 'spell-summon'));
+  assert.strictEqual(reviewedSnapshot.room.members[playerUid].character.abilityUsage['spell-1775568519798'].used, 3, 'three skeletons consume all three spell charges exactly once');
+  assert.match(reviewedSnapshot.room.combatEvent.textUk, /скелети/, 'the synchronized summon result includes Ukrainian public text');
+  const summonExpiryRound = reviewedSnapshot.room.combatEvent.summonTokens[0].summonExpiresRound;
+  const creatureCaster = reviewedSnapshot.room.combat.order.find((entry) => entry && entry.summonedByUid === playerUid);
+  assert.ok(creatureCaster && creatureCaster.tokenId, 'a summoned creature has an addressable combat and scene identity');
+  spellShared.data.rooms[spellRoomCode].combat.turnIndex = spellShared.data.rooms[spellRoomCode].combat.order.findIndex((entry) => entry.key === creatureCaster.key);
+  queueDeterministicRandom(0);
+  reviewedSnapshot = await spellMaster.resolveCombatAbility('', [spellEnemyBKey], {
+    masterActorKey:creatureCaster.key,
+    masterAbility:reviewedSpellDetails('lightning-lasso-v1', {
+      playbackVariant:'restrain',statuses:['restrain'],targeting:{mode:'token',tokenId:'spell-enemy-b',targetKey:spellEnemyBKey,targetName:'Ловкач',distanceCells:5}
+    })
+  });
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.actorKey, creatureCaster.key, 'the synchronized cast is attributed to the selected creature');
+  assert.strictEqual(reviewedSnapshot.room.combatEvent.name, creatureCaster.name);
+  assert.strictEqual(reviewedSnapshot.room.combat.order.find((entry) => entry.key === creatureCaster.key).economy.long, 0, 'a creature cast spends that creature long action');
+  assert.strictEqual(reviewedSnapshot.room.members[playerUid].actionRequest, undefined, 'a GM creature cast does not create a fake player request');
+  spellShared.data.rooms[spellRoomCode].combat.round = summonExpiryRound - 1;
+  spellShared.data.rooms[spellRoomCode].combat.turnIndex = spellShared.data.rooms[spellRoomCode].combat.order.length - 1;
+  reviewedSnapshot = await spellMaster.advanceCombat({operationId:'expire-reviewed-undead'});
+  assert.ok(!reviewedSnapshot.room.combat.order.some((entry) => entry && entry.summonedByUid === playerUid), 'expired undead leave the combat order');
+  assert.ok(!reviewedSnapshot.room.scene.tokens.some((token) => token && token.summonedByUid === playerUid), 'expired undead tokens are removed from the scene');
+  assert.match(reviewedSnapshot.room.combatEvent.textUk, /нежить зникла/, 'summon expiry is announced bilingually');
 
   const customRoomCode = 'CUSTOM1';
   const customShared = createSharedFirebase({rooms:{[customRoomCode]:{

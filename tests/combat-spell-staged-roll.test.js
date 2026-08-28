@@ -36,6 +36,8 @@ assert.match(network, /prepareCombatAbilityRoll:/, 'the network API must expose 
 assert.match(network, /rollCombatAbilityStage:/, 'the network API must expose the player roll stage');
 assert.match(network, /ability-attack-ready/, 'the attack roll must have a synchronized waiting state');
 assert.match(network, /ability-damage-result/, 'the damage roll must have a synchronized result state');
+assert.match(network, /stagedAbilityCancellation=!accepted&&request&&request\.actionKind==='ability'/, 'the GM must be able to cancel a staged spell after either assigned roll');
+assert.match(network, /abilityStatusBlock=stagedAutomation\?'':/, 'silence must block a new cast, not the final application of an already rolled staged spell');
 assert.match(network, /Сначала игрок должен бросить d20/, 'final apply must reject a missing attack roll');
 assert.match(network, /После попадания игрок должен бросить кубик урона/, 'final apply must reject a missing damage roll');
 assert.match(network, /sanitizeAbilityStatusKeys/, 'additional conditions must be normalized and bounded by the resolver');
