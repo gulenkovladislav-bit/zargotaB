@@ -111,15 +111,16 @@ assert.doesNotMatch(nameResultMarkup, /onmouseenter|onmouseleave|onfocus|onblur/
 assert.doesNotMatch(html, /id="zg-irl-name-lore-button"|zgIrlNameLoreShow|zgIrlNameLoreHide/, 'the redundant lore button and hover handlers must be removed');
 assert.match(html, /\.zg-irl-name-result\{[^}]*grid-column:1\/-1[^}]*white-space:normal[^}]*overflow:visible/, 'the full name must use the complete row and remain untruncated');
 assert.match(html, /Кто назвал[\s\S]*?Родом из/, 'lore card must explain who named the NPC and where they came from');
-assert.match(html, /function buildNameLore\(meta,firstName,byname,used\)/, 'generated names must receive meaning and history data');
-assert.match(html, /version:5[\s\S]*?currentIrlName\.lore\.version!==5/, 'legacy lore must be rebuilt into the byname-aware Atlas-backed version');
+assert.match(html, /function buildNameLore\(meta,firstName,byname,used,gender\)/, 'generated names must receive natural gender-aware meaning and history data');
+assert.match(html, /version:6[\s\S]*?currentIrlName\.lore\.version!==6/, 'legacy lore must be rebuilt into the plain-language byname-aware version');
+assert.match(html, /так '\+pronoun\+' назвали в память[\s\S]*?прозвище, полученное позже/, 'name meaning must be written as a short human story rather than database labels');
 assert.match(html, /lore:currentIrlName\.lore/, 'saved NPCs must retain their name lore');
 assert.match(html, /id="zg-irl-saved-tool"[\s\S]*?id="zg-irl-saved-count"/, 'saved names must collapse into a small counted tool');
 assert.match(html, /class="zg-irl-name-close"[\s\S]*?zgIrlNamesToggle\(false\)/, 'generator needs an explicit compact collapse control');
 assert.match(html, /w\.zgIrlSavedToggle=function\(force\)/, 'saved-name drawer must be independently collapsible');
 assert.match(html, /w\.zgIrlSavedExpand=function\(id\)/, 'each saved name must expose its full information on demand');
-assert.match(html, /zg-irl-saved-lore-row[\s\S]*?Значение[\s\S]*?Кто назвал[\s\S]*?Родом из/, 'expanded saved names must show concise complete naming lore');
-assert.match(html, /saved\.forEach\(function\(item\)[\s\S]*?item\.lore\.version===5[\s\S]*?item\.lore=buildNameLore/, 'legacy saved names must receive concise Atlas-backed lore');
+assert.match(html, /zg-irl-saved-lore-row[\s\S]*?Как понимать имя[\s\S]*?Кто назвал[\s\S]*?Родом из/, 'expanded saved names must show concise complete naming lore');
+assert.match(html, /saved\.forEach\(function\(item\)[\s\S]*?item\.lore\.version===6[\s\S]*?item\.lore=buildNameLore/, 'legacy saved names must receive concise plain-language lore');
 assert.doesNotMatch(html.match(/function renderCurrent\(\)[\s\S]*?function renderSaved\(\)/)[0], /Происхождение сверено|В Зарготе форма|Место Атласа/, 'visible name lore must not expose technical wording');
 
 const generatorBlock = html.match(/var catalog=w\.ZARGOTA_IRL_NAME_CATALOG[\s\S]*?w\.zgIrlSavedDeleteConfirm=function[\s\S]*?\};/);
