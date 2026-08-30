@@ -178,6 +178,14 @@ assert.match(html, /lassoMetalArmor/, 'the lasso flow exposes its metal-armour s
 assert.match(html, /function syncDraftCombatRuntimeTokens\(scene,combat,lastMovement,combatEvent\)/, 'authoritative summon and every spell movement can enter the protected GM draft without replacing it');
 assert.match(html, /combatEvent&&Array\.isArray\(combatEvent\.movements\)/, 'multi-target gravity movement synchronizes every affected token, not only the first animation');
 assert.match(html, /sourceRef\.type==='spell-summon'/, 'summon identity survives scene-token copying');
+assert.match(network, /String\(entry\.summonedByUid\|\|''\)===uid/, 'network ownership includes creatures summoned by the player');
+assert.match(network, /combatPlayerEntry\(room, user\.uid, requestedParticipantKey\)/, 'movement resolves the exact player-controlled combat participant');
+assert.match(network, /participantKey: requestedParticipantKey/, 'movement and action requests preserve the summon participant key');
+assert.match(network, /!combatEntryControlledByUid\(activeEntry,user\.uid\)/, 'the summoning player can finish the undead turn');
+assert.match(html, /function playerCombatEntry\(order,session,preferTurn,turnIndex\)/, 'the player interface can switch its controlled actor to the active summon');
+assert.match(html, /player-summon-controlled/, 'the active player summon receives a visible map selection state');
+assert.match(html, /ТВОЙ ПРИЗЫВ','ТВІЙ ПРИКЛИК/, 'the summon control badge is bilingual');
+assert.match(html, /participantKey:String\(attacker&&attacker\.key\|\|''\)/, 'player attack requests identify the summoned attacker rather than the hero');
 assert.match(html, /id='zg-combat-spell-announcement-layer'/, 'spell announcements render in their own upper overlay layer');
 assert.match(html, /'＋'\+tempHp/, 'temporary HP publishes a numeric token label');
 assert.match(html, /resolutionMode:publicResolutionMode/, 'QA playback preserves attack, save, and utility result semantics');
@@ -214,7 +222,13 @@ assert.match(html, /projectileImpactDelay=String\(event\.animationKey\|\|''\)===
 assert.match(html, /areaMode!=='manual'&&anchorPoint\?\[anchorPoint\]/, 'large areas render one shared primary particle effect instead of one full burst per target');
 assert.match(html, /function scheduleAbilityTargetPreview\(ev\)/, 'spell targeting coalesces pointer movement into one animation frame');
 assert.match(html, /abilityTargetLayerRect=\{left:targetRect\.left/, 'spell targeting caches the stable token-layer geometry');
+assert.match(html, /if\(mode==='token'\)\(draft\.tokens\|\|\[\]\)\.forEach/, 'point, line, and area spells do not decorate every scene token as an individual target');
+assert.match(html, /\.zg-vtt-token\.zg-ability-target-valid>img,\.zg-vtt-token\.zg-ability-target-valid>\.zg-vtt-token-ph\{[^}]*outline:0!important;[^}]*box-shadow:0 0 0 2px/, 'single-target spells draw the selection ring on the circular portrait instead of the square token container');
+assert.match(html, /\.zg-ability-point-preview\.line line\{[^}]*animation:none\}/, 'line spells keep a stable non-animated direction preview while the cursor moves');
 assert.doesNotMatch(html, /zg-vtt-token\.zg-ability-target-valid\{[^}]*filter:/, 'every valid target no longer owns a continuously animated GPU filter');
+assert.match(html, /\.zg-spell-cast-config>\.zg-spell-playback-setup select\{[\s\S]*?-webkit-appearance:none!important;appearance:none!important;[\s\S]*?background-image:linear-gradient/, 'player spell choices replace the browser-native select chrome with the Zargota theme');
+assert.match(html, /\.zg-spell-cast-config>\.zg-spell-playback-setup label\.zg-spell-playback-check input\[type="checkbox"\]\{[\s\S]*?-webkit-appearance:none!important;appearance:none!important;/, 'player ritual confirmation replaces the browser-native checkbox');
+assert.match(html, /input\[type="checkbox"\]:checked\{[\s\S]*?background-image:url\("data:image\/svg\+xml/, 'the themed checkbox exposes a visible checked state without native controls');
 assert.match(html, /preset=String\(movement\.kind\|\|''\)==='teleport'.*\?'mist-teleport':'movement'/, 'mist teleport selects the dedicated smoke trail preset');
 assert.match(html, /function animateTeleportMovement\(node,token,movement,duration\)/, 'mist teleport has disappearance and reappearance timing separate from ordinary walking');
 assert.match(html, /spellPlaybackActionState/, 'the panel checks the actual short or long action cost of every spell');
@@ -253,6 +267,17 @@ assert.match(network, /collisionRollTotal/, 'gravity keeps the shared raw collis
 assert.match(network, /cappedTempHp=requestedTempHp\?Math\.min\(tempHpLimit\|\|requestedTempHp,requestedTempHp\)/, 'the synchronized resolver uses the same temporary-HP cap as its preview');
 assert.match(network, /concentrationSource[\s\S]*?entry\.concentration=null/, 'turn advancement clears concentration after its last timed effect expires');
 assert.match(network, /messageUk/, 'new network errors can expose their Ukrainian counterpart');
+assert.match(network, /function canonicalizeRequestedSpell\(member, details\)/, 'the Firebase request boundary validates real character spell state');
+assert.match(network, /spell-not-owned/, 'a spell outside the hero book has a stable terminal error');
+assert.match(network, /spell-not-learned/, 'an owned but unlearned spell has a stable terminal error');
+assert.match(network, /spell-not-prepared/, 'an unprepared spell has a stable terminal error');
+assert.match(network, /automatedSpellProfileById/, 'automated spell formulas are restored by catalog id instead of trusting player payloads');
+assert.match(network, /areaMode:\['circle','square','line','cone'\]/, 'the real player request preserves reviewed square and line geometry');
+assert.match(html, /function vttSpellNeedsConfiguration\(profile\)/, 'complex choices are available from the real hero spell card');
+assert.match(html, /id="zg-vtt-spell-requirements"/, 'real undead casting requires explicit remains and reagent confirmation');
+assert.match(html, /zgVttSpellSummonVariantChange/, 'fresh undead immediately locks the real cast count to one');
+assert.match(html, /explicitMode=\['circle','square','line','cone'\]/, 'the GM resolver opens with the reviewed area shape from the player request');
+assert.match(html, /if\(shape==='square'\)return Math\.abs/, 'square target selection uses square geometry instead of a line fallback');
 assert.match(i18n, /'Проигрывание заклинаний': 'Розігрування заклять'/);
 assert.match(i18n, /'Магическая арена': 'Магічна арена'/);
 

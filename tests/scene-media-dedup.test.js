@@ -7,9 +7,9 @@ var vm = require('vm');
 
 var root = path.resolve(__dirname, '..');
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-var helpersStart = html.indexOf('  function sceneVersionRecord(record,stamp)');
+var helpersStart = html.indexOf('  var SCENE_GM_NOTE_FIELDS =');
 var helpersEnd = html.indexOf('  function pruneSceneVersions(sceneId)', helpersStart);
-assert.ok(helpersStart >= 0 && helpersEnd > helpersStart, 'scene media helpers must exist');
+assert.ok(helpersStart >= 0 && helpersEnd > helpersStart, 'scene note normalization and media helpers must exist');
 
 var records = new Map();
 var writes = [];

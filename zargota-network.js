@@ -79,6 +79,12 @@
 
   function now() { return Date.now(); }
 
+  function boundedText(value, limit) {
+    var text = String(value == null ? '' : value);
+    if (/^(?:data|blob):/i.test(text)) return '';
+    return text.slice(0, Math.max(1, Number(limit) || 2000));
+  }
+
   function jsonBytes(value) {
     try { return new Blob([JSON.stringify(value == null ? null : value)]).size; }
     catch (error) { try { return JSON.stringify(value == null ? null : value).length; } catch (error2) { return 0; } }
@@ -224,10 +230,21 @@
     return !!(entry && entry.zeroHp && String(entry.zeroHp.state || '') === 'dead');
   }
 
+  function combatParticipantIsDefeatedCreature(entry) {
+    if (!entry || entry.uid) return false;
+    var state = String(entry.zeroHp && entry.zeroHp.state || '');
+    var hasHp = entry.hp != null || entry.hpMax != null;
+    return (hasHp && Math.max(0, Number(entry.hp == null ? entry.hpMax : entry.hp) || 0) <= 0) || ['awaiting-gm','stabilized','dead'].indexOf(state) >= 0;
+  }
+
+  function combatParticipantNeedsRoundOverride(entry) {
+    return combatParticipantIsDead(entry) || combatParticipantIsDefeatedCreature(entry);
+  }
+
   function combatParticipantSkipsRound(entry) {
     if (!entry) return true;
     if (entry.skipRounds === true) return true;
-    return combatParticipantIsDead(entry) && entry.deadRoundOverride !== true;
+    return combatParticipantNeedsRoundOverride(entry) && entry.deadRoundOverride !== true;
   }
 
   function combatNextRoundIndex(order, fromIndex) {
@@ -338,7 +355,8 @@
     return [
       'room-required','room-not-found','player-missing','member-required','master-only',
       'delivery-title-required','delivery-image-large','character-missing',
-      'ability-exhausted','combat-zero-hp','combat-status-blocked','combat-not-turn','combat-action-spent','hero-incapacitated','spell-learning-invalid','spell-already-learned'
+      'ability-exhausted','combat-zero-hp','combat-status-blocked','combat-not-turn','combat-action-spent','hero-incapacitated','spell-learning-invalid','spell-already-learned',
+      'spell-invalid','spell-not-owned','spell-not-learned','spell-not-prepared'
     ].indexOf(code) >= 0 || code.indexOf('permission-denied') >= 0;
   }
 
@@ -905,6 +923,18 @@
     return { combat:combat, order:order, index:index, entry:index >= 0 ? order[index] : null };
   }
 
+  function combatEntryControlledByUid(entry, uid) {
+    uid=String(uid||'');
+    return !!(entry&&uid&&(String(entry.uid||'')===uid||String(entry.summonedByUid||'')===uid));
+  }
+
+  function combatPlayerEntry(room, uid, participantKey) {
+    var combat=room&&room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],key=String(participantKey||'');
+    var index=key?order.findIndex(function(entry){return entry&&String(entry.key||'')===key&&combatEntryControlledByUid(entry,uid);}):-1;
+    if(index<0)index=order.findIndex(function(entry){return entry&&String(entry.uid||'')===String(uid||'');});
+    return{combat:combat,order:order,index:index,entry:index>=0?order[index]:null};
+  }
+
   function combatEntryCurrentHp(entry) {
     if (!entry) return 0;
     return Math.max(0, Number(entry.hp == null ? entry.hpMax : entry.hp) || 0);
@@ -1165,6 +1195,36 @@
     return next;
   }
 
+  // Realtime Database removes empty arrays and objects. Comparing the raw
+  // projection with JSON.stringify therefore made an idle GM write the same
+  // combat object again after every snapshot: [] was written, Firebase removed
+  // it, and the next reconciliation restored it. Canonicalize values exactly at
+  // this comparison boundary and sort object keys so key order cannot start the
+  // same feedback loop either.
+  function combatFirebaseComparable(value) {
+    if (value == null) return undefined;
+    if (Array.isArray(value)) {
+      var list = value.map(combatFirebaseComparable);
+      while (list.length && list[list.length - 1] === undefined) list.pop();
+      if (!list.some(function (item) { return item !== undefined; })) return undefined;
+      return list.map(function (item) { return item === undefined ? null : item; });
+    }
+    if (typeof value === 'object') {
+      var object = {};
+      Object.keys(value).sort().forEach(function (key) {
+        var item = combatFirebaseComparable(value[key]);
+        if (item !== undefined) object[key] = item;
+      });
+      return Object.keys(object).length ? object : undefined;
+    }
+    return value;
+  }
+
+  function combatFirebaseSignature(value) {
+    var comparable = combatFirebaseComparable(value);
+    return comparable === undefined ? '' : JSON.stringify(comparable);
+  }
+
   function reconcileCombatEquipmentOrder(room, orderOverride) {
     var combat = room && room.combat || {};
     var order = Array.isArray(orderOverride) ? orderOverride : (Array.isArray(combat.order) ? combat.order : []);
@@ -1174,7 +1234,7 @@
       var member = entry && entry.uid && members[entry.uid];
       if (!entry || entry.kind !== 'hero' || !member || !member.character) return entry;
       var next = reconcileCombatEquipmentEntry(entry, member.character, combat.phase);
-      if (JSON.stringify(next) !== JSON.stringify(entry)) changed = true;
+      if (combatFirebaseSignature(next) !== combatFirebaseSignature(entry)) changed = true;
       return next;
     });
     return { changed:changed, order:nextOrder };
@@ -1996,6 +2056,81 @@
     if (cause) err.cause = cause;
     if (messageUk) err.messageUk = String(messageUk);
     return err;
+  }
+
+  function safeSpellId(value) {
+    var spellId = String(value == null ? '' : value).slice(0, 80);
+    if (!spellId || /[.#$\[\]\/\u0000-\u001F\u007F]/.test(spellId) || ['__proto__','prototype','constructor'].indexOf(spellId) >= 0) return '';
+    return spellId;
+  }
+
+  function automatedSpellProfileById(spellId) {
+    var automation = w.ZargotaSpellAutomation;
+    if (!automation || typeof automation.catalog !== 'function') return null;
+    return automation.catalog().find(function (profile) {
+      return profile && String(profile.catalogId || '') === String(spellId || '');
+    }) || null;
+  }
+
+  function canonicalizeRequestedSpell(member, details) {
+    details = details && typeof details === 'object' ? details : {};
+    var key = String(details.key || ''), isSpell = String(details.kind || '') === 'spell' || key.indexOf('spell-') === 0;
+    if (!isSpell) return details;
+    var spellId = safeSpellId(details.sourceId || (key.indexOf('spell-') === 0 ? key.slice(6) : ''));
+    if (!spellId) throw roomError('Не удалось определить заклинание из книги героя.', 'spell-invalid', null, 'Не вдалося визначити закляття з книги героя.');
+    var character = member && member.character || {}, spellRefs = Array.isArray(character.spellRefs) ? character.spellRefs : [];
+    if (!spellRefs.some(function (id) { return String(id) === spellId; })) {
+      throw roomError('Этого заклинания нет в книге героя.', 'spell-not-owned', null, 'Цього закляття немає в книзі героя.');
+    }
+    if (!character.spellsLearned || character.spellsLearned[spellId] !== true) {
+      throw roomError('Сначала изучите это заклинание.', 'spell-not-learned', null, 'Спочатку вивчіть це закляття.');
+    }
+    var prepared = character.preparedSpells && typeof character.preparedSpells === 'object' ? character.preparedSpells : {}, preparedTypes = ['kodex','folio','obrad'];
+    if (!preparedTypes.some(function (type) {
+      return Array.isArray(prepared[type]) && prepared[type].some(function (id) { return String(id) === spellId; });
+    })) {
+      throw roomError('Сначала подготовьте это заклинание в Сумке героя.', 'spell-not-prepared', null, 'Спочатку підготуйте це закляття в Сумці героя.');
+    }
+    var canonical = automatedSpellProfileById(spellId);
+    if (!canonical) return Object.assign({}, details, { sourceId:spellId, kind:'spell' });
+    var resolved = Object.assign({}, canonical, {
+      key:'spell-' + spellId.replace(/[^a-zA-Z0-9_-]/g, ''), sourceId:spellId, kind:'spell',
+      resourceKey:'spell-' + spellId.replace(/[^a-zA-Z0-9_-]/g, ''), resourceMax:Math.max(0, Number(canonical.maxUses) || 0),
+      targeting:details.targeting && typeof details.targeting === 'object' ? details.targeting : {}, playbackMode:''
+    });
+    if (canonical.automationKey === 'lightning-lasso-v1') {
+      var lassoVariant = (canonical.playbackVariants || []).find(function (variant) { return variant && variant.key === details.playbackVariant; }) || (canonical.playbackVariants || [])[0];
+      resolved.playbackVariant = lassoVariant && lassoVariant.key || 'restrain';
+      resolved.pullCells = Math.max(0, Number(lassoVariant && lassoVariant.pullCells) || 0);
+      resolved.statuses = [].concat(lassoVariant && lassoVariant.statuses || []);
+    }
+    if (canonical.automationKey === 'pseudo-life-v1') {
+      var pseudoVariant = (canonical.playbackVariants || []).find(function (variant) { return variant && variant.key === details.playbackVariant; }) || (canonical.playbackVariants || [])[0];
+      resolved.playbackVariant = pseudoVariant && pseudoVariant.key || 'roll';
+      resolved.tempHpFormula = String(pseudoVariant && pseudoVariant.tempHpFormula || '');
+      resolved.tempHpFixed = Math.max(0, Number(pseudoVariant && pseudoVariant.tempHpFixed) || 0);
+    }
+    if (canonical.automationKey === 'energy-protection-v1') {
+      var energy = (canonical.energyOptions || []).find(function (option) { return option && option.key === details.energyResistance; }) || (canonical.energyOptions || [])[0];
+      resolved.energyResistance = String(energy && energy.key || 'fire');
+      resolved.energyLabel = String(energy && energy.label || 'Огонь');
+      resolved.energyLabelUk = String(energy && energy.labelUk || 'Вогонь');
+    }
+    if (canonical.effectKind === 'summon') {
+      var summon = (canonical.summonVariants || []).find(function (variant) { return variant && variant.key === details.summonVariant; }) || (canonical.summonVariants || [])[0];
+      var summonCount = Math.max(1, Math.min(Math.max(1, Number(summon && summon.maxCount) || 1), Number(details.summonCount) || 1));
+      resolved.summonVariant = String(summon && summon.key || 'skeleton');
+      resolved.summonName = String(summon && summon.label || 'Скелет');
+      resolved.summonNameUk = String(summon && summon.labelUk || 'Скелет');
+      resolved.summonCount = summonCount;
+      resolved.summonHp = Math.max(1, Number(summon && summon.averageHp) || 1);
+      resolved.summonAc = Math.max(0, Number(summon && summon.ac) || 10);
+      resolved.summonSpeed = Math.max(0, Number(summon && summon.speed) || 6);
+      resolved.summonInitiative = Math.max(-20, Math.min(20, Number(summon && summon.initiative) || 0));
+      resolved.summonChargeCost = Math.max(1, Number(summon && summon.chargeCost) || 1) * summonCount;
+      resolved.summonRequirementsConfirmed = details.summonRequirementsConfirmed === true;
+    }
+    return resolved;
   }
 
   function friendlyFirebaseError(error) {
@@ -3753,11 +3888,22 @@
           if (!room) throw roomError('Комната больше недоступна.', 'room-not-found');
           var member = room.members && room.members[user.uid];
           if (!member || member.role !== 'player') throw roomError('Игрок не найден в комнате.', 'player-only');
-          assertMemberCanSubmit(room,user.uid,member);
           var zoneId = String(member.zone || '');
           var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
           var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
-          var token = tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === user.uid; })[0];
+          var requestedTokenId=String(origin.tokenId||'').slice(0,128),requestedParticipantKey=String(origin.participantKey||'').slice(0,160);
+          var token = requestedTokenId?tokens.filter(function(item){return item&&String(item.id||'')===requestedTokenId&&(item.type==='hero'&&String(item.memberUid||'')===String(user.uid)||String(item.summonedByUid||'')===String(user.uid));})[0]:null;
+          if(!token&&requestedTokenId){
+            var tokenLocations=[{zoneId:'',scene:room.scene}];
+            Object.keys(room.zones||{}).forEach(function(candidateZoneId){tokenLocations.push({zoneId:candidateZoneId,scene:room.zones[candidateZoneId]});});
+            tokenLocations.some(function(location){
+              var candidateTokens=location.scene&&Array.isArray(location.scene.tokens)?location.scene.tokens:[];
+              var candidate=candidateTokens.filter(function(item){return item&&String(item.id||'')===requestedTokenId&&(item.type==='hero'&&String(item.memberUid||'')===String(user.uid)||String(item.summonedByUid||'')===String(user.uid));})[0];
+              if(!candidate)return false;
+              token=candidate;zoneId=location.zoneId;scene=location.scene;tokens=candidateTokens;return true;
+            });
+          }
+          if(!token)token=tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === user.uid; })[0];
           if (!token && (!isFinite(Number(origin.x)) || !isFinite(Number(origin.y)))) throw roomError('Мастер ещё не разместил ваш жетон на сцене.', 'token-missing');
           var request = {
             id: 'move-' + user.uid.slice(0, 10) + '-' + now(),
@@ -3766,16 +3912,21 @@
             fromX: Math.max(0, Math.min(100, Number(token ? token.x : origin.x) || 0)),
             fromY: Math.max(0, Math.min(100, Number(token ? token.y : origin.y) || 0)),
             tokenId: String(token && token.id || origin.tokenId || '').slice(0, 128),
+            participantKey: requestedParticipantKey,
             toX: targetX,
             toY: targetY,
             zoneId: zoneId,
             status: 'pending',
             createdAt: now()
           };
-          var battle = combatHeroEntry(room, user.uid);
+          var battle = combatPlayerEntry(room, user.uid, requestedParticipantKey);
+          if(battle.entry&&requestedParticipantKey)request.name=String(battle.entry.name||request.name).slice(0,120);
+          if(!battle.entry||battle.entry.uid)assertMemberCanSubmit(room,user.uid,member);
           if (battle.combat && battle.combat.active) {
             if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
-            if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP герой не может передвигаться.', 'combat-zero-hp');
+            if(!combatEntryControlledByUid(battle.entry,user.uid))throw roomError('Этим участником управляет другой игрок.','combat-not-owner',null,'Цим учасником керує інший гравець.');
+            if(battle.entry.tokenId&&String(battle.entry.tokenId)!==String(request.tokenId))throw roomError('Жетон не соответствует активному участнику.','token-invalid',null,'Жетон не відповідає активному учаснику.');
+            if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP участник не может передвигаться.', 'combat-zero-hp', null, 'З 0 HP учасник не може пересуватися.');
             var requestMovementStatus=combatMovementStatusCheck(room,combatEntryWithRoomStatuses(room,battle.entry),request.fromX,request.fromY,request.toX,request.toY);
             if(!requestMovementStatus.allowed)throw roomError(requestMovementStatus.reason,'combat-status-blocked');
             request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
@@ -3788,7 +3939,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['player-only','room-not-found','token-missing','combat-not-turn','combat-zero-hp','combat-movement-spent','combat-status-blocked','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
+        if (error && ['player-only','room-not-found','token-missing','token-invalid','combat-not-owner','combat-not-turn','combat-zero-hp','combat-movement-spent','combat-status-blocked','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -3806,23 +3957,38 @@
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
           var member = room.members && room.members[requestUid];
           if (!member || member.role !== 'player') throw roomError('Сначала выберите жетон героя.', 'player-missing');
-          assertMemberCanSubmit(room,requestUid,member);
           var zoneId = String(member.zone || '');
           var scene = zoneId && room.zones && room.zones[zoneId] ? room.zones[zoneId] : room.scene;
           var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
-          var token = tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === requestUid; })[0];
+          var requestedTokenId=String(origin.tokenId||'').slice(0,128),requestedParticipantKey=String(origin.participantKey||'').slice(0,160);
+          var token=requestedTokenId?tokens.filter(function(item){return item&&String(item.id||'')===requestedTokenId&&(item.type==='hero'&&String(item.memberUid||'')===requestUid||String(item.summonedByUid||'')===requestUid);})[0]:null;
+          if(!token&&requestedTokenId){
+            var tokenLocations=[{zoneId:'',scene:room.scene}];
+            Object.keys(room.zones||{}).forEach(function(candidateZoneId){tokenLocations.push({zoneId:candidateZoneId,scene:room.zones[candidateZoneId]});});
+            tokenLocations.some(function(location){
+              var candidateTokens=location.scene&&Array.isArray(location.scene.tokens)?location.scene.tokens:[];
+              var candidate=candidateTokens.filter(function(item){return item&&String(item.id||'')===requestedTokenId&&(item.type==='hero'&&String(item.memberUid||'')===requestUid||String(item.summonedByUid||'')===requestUid);})[0];
+              if(!candidate)return false;
+              token=candidate;zoneId=location.zoneId;scene=location.scene;tokens=candidateTokens;return true;
+            });
+          }
+          if(!token)token=tokens.filter(function (item) { return item && item.type === 'hero' && item.memberUid === requestUid; })[0];
           if (!token && (!isFinite(Number(origin.x)) || !isFinite(Number(origin.y)))) throw roomError('Жетон героя ещё не опубликован на сцене.', 'token-missing');
           var request = {
             id: 'move-' + requestUid.slice(0, 10) + '-' + now(), uid: requestUid,
             name: member.character && member.character.name || member.name || 'Герой',
             fromX: Math.max(0, Math.min(100, Number(token ? token.x : origin.x) || 0)), fromY: Math.max(0, Math.min(100, Number(token ? token.y : origin.y) || 0)),
-            tokenId: String(token && token.id || origin.tokenId || '').slice(0, 128),
+            tokenId: String(token && token.id || origin.tokenId || '').slice(0, 128), participantKey:requestedParticipantKey,
             toX: targetX, toY: targetY, zoneId: zoneId, status: 'pending', createdAt: now(), testByMaster: true
           };
-          var battle = combatHeroEntry(room, requestUid);
+          var battle = combatPlayerEntry(room, requestUid, requestedParticipantKey);
+          if(battle.entry&&requestedParticipantKey)request.name=String(battle.entry.name||request.name).slice(0,120);
+          if(!battle.entry||battle.entry.uid)assertMemberCanSubmit(room,requestUid,member);
           if (battle.combat && battle.combat.active) {
             if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Передвигаться в бою можно только в свой ход.', 'combat-not-turn');
-            if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP герой не может передвигаться.', 'combat-zero-hp');
+            if(!combatEntryControlledByUid(battle.entry,requestUid))throw roomError('Игрок не управляет этим участником.','combat-not-owner',null,'Гравець не керує цим учасником.');
+            if(battle.entry.tokenId&&String(battle.entry.tokenId)!==String(request.tokenId))throw roomError('Жетон не соответствует активному участнику.','token-invalid',null,'Жетон не відповідає активному учаснику.');
+            if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP участник не может передвигаться.', 'combat-zero-hp', null, 'З 0 HP учасник не може пересуватися.');
             var simulatedMovementStatus=combatMovementStatusCheck(room,combatEntryWithRoomStatuses(room,battle.entry),request.fromX,request.fromY,request.toX,request.toY);
             if(!simulatedMovementStatus.allowed)throw roomError(simulatedMovementStatus.reason,'combat-status-blocked');
             request.cells = movementCells(scene, request.fromX, request.fromY, request.toX, request.toY);
@@ -3835,7 +4001,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','player-missing','token-missing','combat-not-turn','combat-zero-hp','combat-movement-spent','combat-status-blocked','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','player-missing','token-missing','token-invalid','combat-not-owner','combat-not-turn','combat-zero-hp','combat-movement-spent','combat-status-blocked','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -3850,7 +4016,6 @@
           if (room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
           var request = room.members && room.members[requestUid] && room.members[requestUid].movementRequest;
           if (!request || request.status !== 'pending') throw roomError('Этот запрос уже обработан.', 'request-missing');
-          if(accepted)assertMemberCanSubmit(room,requestUid,room.members&&room.members[requestUid]);
           var requestPath = 'members/' + requestUid + '/movementRequest';
           var updates = {};
           updates[requestPath + '/status'] = accepted ? 'approved' : 'rejected';
@@ -3861,19 +4026,23 @@
             var tokens = scene && Array.isArray(scene.tokens) ? scene.tokens : [];
             var tokenIndex = -1;
             tokens.some(function (token, index) {
-              if (token && token.type === 'hero' && token.memberUid === requestUid) { tokenIndex = index; return true; }
+              if (token && String(token.id||'')===String(request.tokenId||'') && (token.type === 'hero' && token.memberUid === requestUid || String(token.summonedByUid||'')===String(requestUid))) { tokenIndex = index; return true; }
               return false;
             });
             var scenePath = zoneId ? 'zones/' + zoneId : 'scene';
-            var battle = combatHeroEntry(room, requestUid);
+            var battle = combatPlayerEntry(room, requestUid, request.participantKey);
+            if(!battle.entry||battle.entry.uid)assertMemberCanSubmit(room,requestUid,room.members&&room.members[requestUid]);
             if (battle.combat && battle.combat.active) {
-              if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Ход этого героя уже завершён.', 'combat-not-turn');
-              if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP герой не может передвигаться.', 'combat-zero-hp');
+              if (battle.index < 0 || battle.index !== Number(battle.combat.turnIndex || 0)) throw roomError('Ход этого участника уже завершён.', 'combat-not-turn', null, 'Хід цього учасника вже завершено.');
+              if(!combatEntryControlledByUid(battle.entry,requestUid))throw roomError('Игрок не управляет этим участником.','combat-not-owner',null,'Гравець не керує цим учасником.');
+              if(battle.entry.tokenId&&String(battle.entry.tokenId)!==String(request.tokenId))throw roomError('Жетон не соответствует активному участнику.','token-invalid',null,'Жетон не відповідає активному учаснику.');
+              if(tokenIndex<0&&!battle.entry.uid)throw roomError('Жетон призыва больше не найден на сцене.','token-missing',null,'Жетон приклику більше не знайдено на сцені.');
+              if (combatEntryCurrentHp(battle.entry) <= 0) throw roomError('При 0 HP участник не может передвигаться.', 'combat-zero-hp', null, 'З 0 HP учасник не може пересуватися.');
               var resolvedMovementStatus=combatMovementStatusCheck(room,combatEntryWithRoomStatuses(room,battle.entry),request.fromX,request.fromY,request.toX,request.toY);
               if(!resolvedMovementStatus.allowed)throw roomError(resolvedMovementStatus.reason,'combat-status-blocked');
               var spent = request.cells == null ? movementCells(scene, request.fromX, request.fromY, request.toX, request.toY) : Math.max(0, Number(request.cells) || 0);
               var battleEntry = Object.assign({}, battle.entry), battleEconomy = Object.assign({ movement:7, movementMax:7 }, battleEntry.economy || {});
-              if (spent > Number(battleEconomy.movement || 0)) throw roomError('У героя больше нет движения на этот путь.', 'combat-movement-spent');
+              if (spent > Number(battleEconomy.movement || 0)) throw roomError('У участника больше нет движения на этот путь.', 'combat-movement-spent', null, 'В учасника більше немає руху на цей шлях.');
               battleEconomy.movement = Math.max(0, Number(battleEconomy.movement || 0) - spent);
               battleEntry.economy = battleEconomy; battle.order[battle.index] = battleEntry;
               updates['combat/order'] = battle.order;
@@ -3890,6 +4059,7 @@
             updates.lastMovement = {
               id: request.id,
               uid: requestUid,
+              tokenId: String(request.tokenId||''),
               fromX: Number(request.fromX), fromY: Number(request.fromY),
               toX: Number(request.toX), toY: Number(request.toY),
               zoneId: zoneId,
@@ -3911,7 +4081,7 @@
           });
         });
       }).catch(function (error) {
-        if (error && ['master-only','room-not-found','request-missing','token-missing','combat-not-turn','combat-zero-hp','combat-movement-spent','combat-status-blocked','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
+        if (error && ['master-only','room-not-found','request-missing','token-missing','token-invalid','combat-not-owner','combat-not-turn','combat-zero-hp','combat-movement-spent','combat-status-blocked','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -3980,11 +4150,18 @@
           var targetUid = session.role === 'master' && speakerUid ? speakerUid : user.uid;
           var member = room.members && room.members[targetUid];
           if (!member || member.role !== 'player') throw roomError('Герой не найден в комнате.', 'player-missing');
-          assertMemberCanSubmit(room,targetUid,member);
+          var requestedParticipantKey=String(details&&details.participantKey||'').slice(0,160),requestedBattle=combatPlayerEntry(room,targetUid,requestedParticipantKey),requestedActor=requestedBattle.entry;
+          if(requestedParticipantKey&&(!requestedActor||!combatEntryControlledByUid(requestedActor,targetUid)))throw roomError('Игрок не управляет выбранным участником.','combat-not-owner',null,'Гравець не керує вибраним учасником.');
+          if(!requestedActor||requestedActor.uid)assertMemberCanSubmit(room,targetUid,member);
+          if(actionKind==='combat-attack'&&requestedBattle.combat&&requestedBattle.combat.active){
+            if(!requestedActor||requestedBattle.index!==Number(requestedBattle.combat.turnIndex||0))throw roomError('Атаковать можно только в ход выбранного участника.','combat-not-turn',null,'Атакувати можна лише в хід вибраного учасника.');
+            if(combatEntryCurrentHp(requestedActor)<=0)throw roomError('Участник с 0 HP не может атаковать.','combat-zero-hp',null,'Учасник із 0 HP не може атакувати.');
+          }
+          if (actionKind === 'ability') details = canonicalizeRequestedSpell(member, details);
           var combatIntent = null, preparedIntent = null;
           if (actionKind === 'combat-intent') {
             var intentCombat = room.combat, intentOrder = intentCombat && Array.isArray(intentCombat.order) ? intentCombat.order : [];
-            var intentIndex = intentOrder.findIndex(function (entry) { return entry && String(entry.uid || '') === String(targetUid); });
+            var intentIndex = requestedParticipantKey?intentOrder.findIndex(function(entry){return entry&&String(entry.key||'')===requestedParticipantKey&&combatEntryControlledByUid(entry,targetUid);}):intentOrder.findIndex(function (entry) { return entry && String(entry.uid || '') === String(targetUid); });
             var intentTurnIndex = Math.max(0, Math.min(Math.max(0, intentOrder.length - 1), Number(intentCombat && intentCombat.turnIndex) || 0));
             if (!intentCombat || !intentCombat.active || intentIndex < 0) throw roomError('Короткое действие доступно только участнику активного боя.', 'combat-missing');
             if (intentIndex !== intentTurnIndex) throw roomError('Короткое действие можно заявить только в свой ход.', 'combat-not-turn');
@@ -4010,7 +4187,7 @@
           }
           if (actionKind === 'combat-prepare') {
             var prepareCombat = room.combat, prepareOrder = prepareCombat && Array.isArray(prepareCombat.order) ? prepareCombat.order : [];
-            var prepareIndex = prepareOrder.findIndex(function (entry) { return entry && String(entry.uid || '') === String(targetUid); });
+            var prepareIndex = requestedParticipantKey?prepareOrder.findIndex(function(entry){return entry&&String(entry.key||'')===requestedParticipantKey&&combatEntryControlledByUid(entry,targetUid);}):prepareOrder.findIndex(function (entry) { return entry && String(entry.uid || '') === String(targetUid); });
             var prepareTurnIndex = Math.max(0, Math.min(Math.max(0, prepareOrder.length - 1), Number(prepareCombat && prepareCombat.turnIndex) || 0));
             if (!prepareCombat || !prepareCombat.active || prepareIndex < 0) throw roomError('Подготовка доступна только участнику активного боя.', 'combat-missing');
             if (prepareIndex !== prepareTurnIndex) throw roomError('Подготовить действие можно только в свой ход.', 'combat-not-turn');
@@ -4057,8 +4234,8 @@
           }
           var request = {
             id: abilityOperationId || 'action-' + targetUid.slice(0, 10) + '-' + now(), uid: targetUid,
-            name: member.character && member.character.name || member.name || 'Герой',
-            portrait: member.character && member.character.portrait || '',
+            name: requestedActor&&requestedParticipantKey?requestedActor.name:(member.character && member.character.name || member.name || 'Герой'),
+            portrait: requestedActor&&requestedParticipantKey?requestedActor.portrait:(member.character && member.character.portrait || ''),
             text: text, actionKind: actionKind, status: 'pending', createdAt: now(),
             testByMaster: session.role === 'master'
           };
@@ -4070,6 +4247,7 @@
               y: details.y == null ? null : Math.max(0, Math.min(100, Number(details.y) || 0)),
               tokenId: String(details.tokenId || '').slice(0, 120),
               targetKey: String(details.targetKey || '').slice(0, 160),
+              participantKey: requestedParticipantKey,
               weaponId: String(details.weaponId || '').slice(0, 120),
               statKey: String(details.statKey || '').slice(0, 16),
               masteryBonus: Math.max(0, Math.min(3, Number(details.masteryBonus) || 0)),
@@ -4088,6 +4266,9 @@
               saveDC:details.saveDC==null?null:Math.max(1,Math.min(40,Number(details.saveDC)||10)),
               rangeCells:Math.max(0,Math.min(100,Number(details.rangeCells)||0)),
               aoeRadius:Math.max(0,Math.min(30,Number(details.aoeRadius)||0)),
+              areaMode:['circle','square','line','cone'].indexOf(String(details.areaMode||''))>=0?String(details.areaMode):'',
+              areaSize:Math.max(0,Math.min(30,Number(details.areaSize)||0)),
+              areaLength:Math.max(0,Math.min(30,Number(details.areaLength)||0)),
               areaWidth:Math.max(.5,Math.min(12,Number(details.areaWidth)||1)),
               targetCount:Math.max(1,Math.min(30,Number(details.targetCount)||1)),
               damageFormula:String(details.damageFormula || '').slice(0,24), damageType:String(details.damageType || '').slice(0,50),
@@ -4179,7 +4360,7 @@
         if (!abilityFromOutbox && abilityQueueResult.ok && !terminalGameplayError(error)) {
           return gameplayOperationSnapshot('ability-request', abilityOperationId);
         }
-        if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted','combat-zero-hp','combat-missing','combat-not-turn','combat-status-blocked','combat-action-spent','spell-learning-invalid','spell-already-learned','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
+        if (error && ['room-required','room-not-found','player-missing','request-pending','ability-exhausted','combat-zero-hp','combat-missing','combat-not-owner','combat-not-turn','combat-status-blocked','combat-action-spent','spell-learning-invalid','spell-already-learned','spell-invalid','spell-not-owned','spell-not-learned','spell-not-prepared','hero-incapacitated'].indexOf(error.code) >= 0) throw error;
         throw friendlyFirebaseError(error);
       });
     },
@@ -4846,9 +5027,9 @@
           if (!combat || !combat.active || !order.length) throw roomError('Сейчас нет активного боя.', 'combat-missing');
           var previous = Math.max(0, Math.min(order.length - 1, Number(combat.turnIndex) || 0));
           var activeEntry = order[previous];
-          if (session.role !== 'master' && (!activeEntry || String(activeEntry.uid || '') !== String(user.uid))) throw roomError('Сейчас не ваш ход.', 'turn-owner-only');
+          if (session.role !== 'master' && !combatEntryControlledByUid(activeEntry,user.uid)) throw roomError('Сейчас не ваш ход.', 'turn-owner-only');
           if (session.role === 'master' && room.masterUid !== user.uid) throw roomError('Эта комната принадлежит другому мастеру.', 'master-only');
-          if(order.some(function(entry){return entry&&entry.zeroHp&&entry.zeroHp.state==='awaiting-gm';}))throw roomError('Сначала определите судьбу поверженного участника.','fate-decision-required');
+          if(order.some(function(entry){return entry&&entry.uid&&entry.zeroHp&&entry.zeroHp.state==='awaiting-gm';}))throw roomError('Сначала определите судьбу поверженного героя.','fate-decision-required',null,'Спочатку визначте долю переможеного героя.');
           var activeZeroHp=activeEntry&&Math.max(0,combatNumber(activeEntry.hp,0))<=0?combatZeroHpState(activeEntry.zeroHp,activeEntry.key,stamp):null;
           if(!combatParticipantSkipsRound(activeEntry)&&activeZeroHp&&activeZeroHp.pending&&activeZeroHp.lastRollRound!==Math.max(1,Number(combat.round)||1))throw roomError('Сначала выполните ручной бросок борьбы за жизнь.','death-save-required');
           var masterAdvance=session.role==='master',nextState=combatNextRoundState(order,previous,combat.round,masterAdvance),next=nextState.index;
@@ -4947,7 +5128,7 @@
           if(!combat||!combat.active){abortCode='combat-missing';return;}
           var index=order.findIndex(function(entry){return entry&&String(entry.key||'')===participantKey;});
           if(index<0){abortCode='combat-participant-missing';return;}
-          var stamp=now(),entry=Object.assign({},order[index]);entry.skipRounds=skipped;entry.deadRoundOverride=combatParticipantIsDead(entry)?!skipped:false;entry.skipRoundsUpdatedAt=stamp;entry.skipRoundsUpdatedBy=user.uid;order[index]=entry;combat.order=order;combat.updatedAt=stamp;room.updatedAt=stamp;return room;
+          var stamp=now(),entry=Object.assign({},order[index]);entry.skipRounds=skipped;entry.deadRoundOverride=combatParticipantNeedsRoundOverride(entry)?!skipped:false;entry.skipRoundsUpdatedAt=stamp;entry.skipRoundsUpdatedBy=user.uid;order[index]=entry;combat.order=order;combat.updatedAt=stamp;room.updatedAt=stamp;return room;
         }).then(function(result){
           if(!result||!result.committed){var messages={'room-not-found':'Комната больше недоступна.','master-only':'Эта комната принадлежит другому мастеру.','combat-missing':'Сейчас нет активного боя.','combat-participant-missing':'Участник больше не находится в инициативе.'};throw roomError(messages[abortCode]||'Не удалось изменить участие в раунде.',abortCode||'combat-participant-missing');}
           return refreshRoom(session.code).then(function(){return api.getSnapshot();});
@@ -5115,7 +5296,7 @@
           if (session.role === 'master') {
             index = participantKey ? order.findIndex(function (entry) { return entry && entry.key === participantKey; }) : turnIndex;
           } else {
-            index = order.findIndex(function (entry) { return entry && entry.uid === user.uid; });
+            index = participantKey?order.findIndex(function(entry){return entry&&entry.key===participantKey&&combatEntryControlledByUid(entry,user.uid);}):order.findIndex(function (entry) { return entry && entry.uid === user.uid; });
           }
           if (index < 0) throw roomError('Участник боя не найден.', 'combat-participant-missing');
           if ((actionType === 'long' || actionType === 'short') && index !== turnIndex) throw roomError('Длинное и короткое действие доступны только в свой ход.', 'combat-not-turn');
@@ -5200,7 +5381,16 @@
       var operationId = 'gm-character-section-' + stamp + '-' + Math.random().toString(36).slice(2, 9);
       if (!memberUid) return Promise.reject(roomError('Герой не выбран.', 'member-required'));
       var hasInventory = Array.isArray(changes.inventoryItems) || Array.isArray(changes.equipItems);
-      var hasMagic = changes.preparedSpells && typeof changes.preparedSpells === 'object' || Array.isArray(changes.spellRefs) || changes.spellsLearned && typeof changes.spellsLearned === 'object';
+      var rawMagicOperation = changes.magicOperation && typeof changes.magicOperation === 'object' ? changes.magicOperation : null;
+      var magicOperation = rawMagicOperation ? {
+        type:boundedText(rawMagicOperation.type, 24),
+        spellId:boundedText(rawMagicOperation.spellId, 160),
+        spellType:boundedText(rawMagicOperation.spellType, 16),
+        learned:rawMagicOperation.learned === true,
+        prepared:rawMagicOperation.prepared === true
+      } : null;
+      var hasMagicOperation = !!(magicOperation && ['add','remove','learn','prepare'].indexOf(magicOperation.type) >= 0 && magicOperation.spellId);
+      var hasMagic = hasMagicOperation || changes.preparedSpells && typeof changes.preparedSpells === 'object' || Array.isArray(changes.spellRefs) || changes.spellsLearned && typeof changes.spellsLearned === 'object';
       if (!hasInventory && !hasMagic) return Promise.reject(roomError('Нет изменений для сохранения.', 'character-section-empty'));
       return ensureReady().then(function (user) {
         var session = readSession();
@@ -5216,23 +5406,42 @@
           return firebase.runTransaction(characterRef, function (current) {
             if (!current || typeof current !== 'object') { abortCode = 'character-missing'; return; }
             var revision = Math.max(0, Number(current.revision) || 0);
-            if (Number.isFinite(expectedRevision) && revision !== expectedRevision) { abortCode = 'character-revision-conflict'; return; }
+            if (!hasMagicOperation && Number.isFinite(expectedRevision) && revision !== expectedRevision) { abortCode = 'character-revision-conflict'; return; }
             var next = Object.assign({}, current);
             if (hasInventory) {
               next.inventoryItems = sessionItems(Array.isArray(changes.inventoryItems) ? changes.inventoryItems : current.inventoryItems, 80);
               next.equipItems = sessionItems(Array.isArray(changes.equipItems) ? changes.equipItems : current.equipItems, 40);
             }
             if (hasMagic) {
-              var refs = Array.isArray(changes.spellRefs) ? changes.spellRefs : current.spellRefs;
-              refs = (Array.isArray(refs) ? refs : []).map(function (id) { return cleanText(id, 160); }).filter(Boolean).filter(function (id, index, list) { return list.indexOf(id) === index; }).slice(0, 120);
-              var learnedSource = changes.spellsLearned && typeof changes.spellsLearned === 'object' ? changes.spellsLearned : current.spellsLearned;
+              var refs = hasMagicOperation ? current.spellRefs : (Array.isArray(changes.spellRefs) ? changes.spellRefs : current.spellRefs);
+              refs = (Array.isArray(refs) ? refs : []).map(function (id) { return boundedText(id, 160); }).filter(Boolean).filter(function (id, index, list) { return list.indexOf(id) === index; }).slice(0, 120);
+              var learnedSource = hasMagicOperation ? current.spellsLearned : (changes.spellsLearned && typeof changes.spellsLearned === 'object' ? changes.spellsLearned : current.spellsLearned);
               var learned = {};
               refs.forEach(function (id) { if (learnedSource && learnedSource[id] === true) learned[id] = true; else if (learnedSource && learnedSource[id] === false) learned[id] = false; });
-              var preparedSource = changes.preparedSpells && typeof changes.preparedSpells === 'object' ? changes.preparedSpells : current.preparedSpells;
+              var preparedSource = hasMagicOperation ? current.preparedSpells : (changes.preparedSpells && typeof changes.preparedSpells === 'object' ? changes.preparedSpells : current.preparedSpells);
               var prepared = { kodex:[], folio:[], obrad:[] };
               Object.keys(prepared).forEach(function (type) {
-                prepared[type] = (Array.isArray(preparedSource && preparedSource[type]) ? preparedSource[type] : []).map(function (id) { return cleanText(id, 160); }).filter(function (id, index, list) { return refs.indexOf(id) >= 0 && learned[id] === true && list.indexOf(id) === index; }).slice(0, 24);
+                prepared[type] = (Array.isArray(preparedSource && preparedSource[type]) ? preparedSource[type] : []).map(function (id) { return boundedText(id, 160); }).filter(function (id, index, list) { return refs.indexOf(id) >= 0 && learned[id] === true && list.indexOf(id) === index; }).slice(0, 24);
               });
+              if (hasMagicOperation) {
+                var spellId = magicOperation.spellId;
+                if (magicOperation.type === 'add') {
+                  if (refs.indexOf(spellId) < 0 && refs.length < 120) refs.push(spellId);
+                  if (!Object.prototype.hasOwnProperty.call(learned, spellId)) learned[spellId] = false;
+                } else if (magicOperation.type === 'remove') {
+                  refs = refs.filter(function (id) { return id !== spellId; });
+                  delete learned[spellId];
+                  Object.keys(prepared).forEach(function (type) { prepared[type] = prepared[type].filter(function (id) { return id !== spellId; }); });
+                } else if (magicOperation.type === 'learn') {
+                  if (refs.indexOf(spellId) < 0 && refs.length < 120) refs.push(spellId);
+                  learned[spellId] = magicOperation.learned;
+                  if (!magicOperation.learned) Object.keys(prepared).forEach(function (type) { prepared[type] = prepared[type].filter(function (id) { return id !== spellId; }); });
+                } else if (magicOperation.type === 'prepare') {
+                  var spellType = ['kodex','folio','obrad'].indexOf(magicOperation.spellType) >= 0 ? magicOperation.spellType : 'kodex';
+                  Object.keys(prepared).forEach(function (type) { prepared[type] = prepared[type].filter(function (id) { return id !== spellId; }); });
+                  if (magicOperation.prepared && refs.indexOf(spellId) >= 0 && learned[spellId] === true && prepared[spellType].length < 24) prepared[spellType].push(spellId);
+                }
+              }
               next.spellRefs = refs;
               next.spellsLearned = learned;
               next.preparedSpells = prepared;
@@ -6235,7 +6444,7 @@
       var title=String(value.title||name||'Оповещение мастера').trim().slice(0,180);
       var body=String(value.body||'').trim().slice(0,4000);
       var imageSrc=String(value.imageSrc||'').trim();
-      var audioSrc=String(value.audioSrc||'').trim();
+      var audioSrc=String(value.audioSrc||'').trim().replace(/^data:video\/mp4(?=;base64,)/i,'data:audio/mp4');
       var durationMs=[0,5000,8000,15000,30000].indexOf(Number(value.durationMs))>=0?Number(value.durationMs):8000;
       if(!name)name=title;
       if(!title&&!body&&!imageSrc&&!audioSrc)return Promise.reject(roomError('Добавьте текст, изображение или звук.','cue-empty'));
@@ -6338,20 +6547,20 @@
           var consumedAttackStatuses=(Array.isArray(attacker.statusEffects)?attacker.statusEffects:[]).filter(function(effect){return effect&&effect.consumeOnAttack===true;}).map(function(effect){return normalizeCombatStatusKey(effect);}).filter(Boolean);if(consumedAttackStatuses.length){attacker.statusEffects=(Array.isArray(attacker.statusEffects)?attacker.statusEffects:[]).filter(function(effect){return !effect||effect.consumeOnAttack!==true;});var remainingAttackStatusKeys=attacker.statusEffects.map(normalizeCombatStatusKey);attacker.statuses=combatStatusKeys(attacker).filter(function(key){return consumedAttackStatuses.indexOf(key)<0||remainingAttackStatusKeys.indexOf(key)>=0;});}
           if(!preparedAttack){economy.long=0;if(restrictions.slowed)economy.short=0;}attacker.economy=economy;order[attackerIndex]=attacker;
           var stamp=operationStamp,updates={},statLabels={str:'Сила',dex:'Ловкость',int:'Интеллект',cha:'Харизма',per:'Восприятие',con:'Выносливость'};
-          var creatureRoll=!attacker.uid,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
+          var attackerRequestUid=String(attacker.uid||attacker.summonedByUid||''),playerControlledSummon=!!(!attacker.uid&&attackerRequestUid&&room.members&&room.members[attackerRequestUid]&&room.members[attackerRequestUid].role==='player'),creatureRoll=!attacker.uid&&!playerControlledSummon,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
           updates['combat/order']=order;updates['combat/updatedAt']=stamp;updates['combat/appliedActionOperationIds']=combat.appliedActionOperationIds;if(preparedAttack)updates['combat/pendingPreparedAction']=null;if(consumedAttackStatuses.length&&attacker.uid){updates['members/'+attacker.uid+'/character/statuses']=attacker.statuses||[];updates['members/'+attacker.uid+'/character/statusEffects']=attacker.statusEffects||[];}
           var rollText=second==null?String(natural):(first+' / '+second+' → '+natural),resultText=failed?'автопромах':(critical?'КРИТ':(hit?'попадание':'промах'));
           var attackEventId='combat-hit-result-'+attackOperationId,damageOperationId=String(options.damageOperationId||('combat-damage-'+attackOperationId)).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,180);
           updates['combat/lastActionOperation']=Object.assign({},combat.lastActionOperation,{resultEventId:attackEventId,targetKey:String(target.key||''),hit:hit});
-          var attackRequest=attacker.uid&&room.members&&room.members[attacker.uid]&&room.members[attacker.uid].actionRequest;
+          var attackRequest=attackerRequestUid&&room.members&&room.members[attackerRequestUid]&&room.members[attackerRequestUid].actionRequest;
           if(attackRequest&&attackRequest.actionKind==='combat-attack'&&attackRequest.status==='roll-requested'){
-            updates['members/'+attacker.uid+'/actionRequest/stage']='hit-result';
-            updates['members/'+attacker.uid+'/actionRequest/stageTimes/hit-result']=stamp;
-            updates['members/'+attacker.uid+'/actionRequest/hitResultEventId']=attackEventId;
-            updates['members/'+attacker.uid+'/actionRequest/hitResultAt']=stamp;
+            updates['members/'+attackerRequestUid+'/actionRequest/stage']='hit-result';
+            updates['members/'+attackerRequestUid+'/actionRequest/stageTimes/hit-result']=stamp;
+            updates['members/'+attackerRequestUid+'/actionRequest/hitResultEventId']=attackEventId;
+            updates['members/'+attackerRequestUid+'/actionRequest/hitResultAt']=stamp;
           }
           updates.combatEvent={id:attackEventId,operationId:attackOperationId,resultPhase:'hit',kind:critical?'combat-critical':'combat-attack',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:(preparedAttack?'Исполняет подготовленную реакцию. ':'')+(confusion.triggered?'Замешательство меняет цель на «'+(target.name||confusion.targetName)+'». ':'')+'Атакует «'+(weapon.name||'оружием')+'» цель '+(target.name||'цель')+'. d20 '+rollText+' + '+statLabels[statKey]+' '+statBonus+(masteryBonus?' + мастерство '+masteryBonus:'')+(attackerModifiers.attackMod?' + состояния '+attackerModifiers.attackMod:'')+' = '+attackTotal+' против AC '+targetAc+' — '+resultText+(rangeOverride&&distance>rangeCells?' · мастер разрешил атаку вне дистанции':'')+(hit?'. Ожидание урона.':''),hiddenText:'Существо атакует цель '+(target.name||'цель')+'. Результат броска скрыт мастером.',creatureRoll:creatureRoll,revealResult:revealResult,preparedExecutionId:preparedAttack?preparedExecutionId:'',attackRoll:natural,attackRolls:second==null?[first]:[first,second],attackKeptIndex:attackKeptIndex,rollMode:mode,attackTotal:attackTotal,statusAttackMod:attackerModifiers.attackMod,consumedStatusEffects:consumedAttackStatuses,targetAc:targetAc,targetStatusAcMod:targetModifiers.acMod,hit:hit,critical:critical,confusionRedirected:!!confusion.triggered,damageFormula:String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,damageType:String(weapon.damageType||''),distanceCells:distance,rangeCells:rangeCells,actorKey:attacker.key,targetKey:target.key,attackerKey:attacker.key,rangeOverride:rangeOverride,weapon:weapon.name||'Оружие',ts:stamp,revealAt:stamp+3200};
-          updates['combat/pendingDamage']=hit?{id:'pending-damage-'+attackOperationId,sourceEventId:attackEventId,hitResultAt:stamp,operationId:damageOperationId,damageOperationId:damageOperationId,attackerKey:String(attacker.key||''),attackerUid:String(attacker.uid||''),targetKey:String(target.key||''),weaponId:String(weapon.id||weaponId||''),statKey:statKey,masteryBonus:masteryBonus,mode:mode,bonusDiceCount:Math.max(0,Math.min(8,Math.floor(Number(options.bonusDiceCount)||0))),bonusDieSides:[4,6,8,10,12,20].indexOf(Number(options.bonusDieSides))>=0?Number(options.bonusDieSides):0,critical:critical,createdAt:stamp}:null;
+          updates['combat/pendingDamage']=hit?{id:'pending-damage-'+attackOperationId,sourceEventId:attackEventId,hitResultAt:stamp,operationId:damageOperationId,damageOperationId:damageOperationId,attackerKey:String(attacker.key||''),attackerUid:attackerRequestUid,targetKey:String(target.key||''),weaponId:String(weapon.id||weaponId||''),statKey:statKey,masteryBonus:masteryBonus,mode:mode,bonusDiceCount:Math.max(0,Math.min(8,Math.floor(Number(options.bonusDiceCount)||0))),bonusDieSides:[4,6,8,10,12,20].indexOf(Number(options.bonusDieSides))>=0?Number(options.bonusDieSides):0,critical:critical,createdAt:stamp}:null;
           updates.updatedAt=stamp;
           return firebase.update(roomRef(session.code),updates).then(function(){return refreshRoom(session.code).then(function(){return api.getSnapshot();});});
         });
@@ -6402,7 +6611,7 @@
           var rawDamage=Math.max(0,damageResult.total+bonusDamage+statBonus+attackerModifiers.damageMod+(Number(attackerOverride.damageMod)||0)),damage=rawDamage,damageType=String(weapon.damageType||''),statusDamageTraits=combatStatusDamageTraits(target,damageType),resisted=combatHasDamageTrait(target.resistances,damageType)||statusDamageTraits.resisted,vulnerable=combatHasDamageTrait(target.vulnerabilities,damageType)||statusDamageTraits.vulnerable,immune=combatHasDamageTrait(target.immunities,damageType);
           if(immune)damage=0;else if(resisted&&!vulnerable)damage=Math.floor(damage/2);else if(vulnerable&&!resisted)damage*=2;
           var vitalsResult=applyVitalsDomainOperation(target,{damage:damage}),before=vitalsResult.beforeHp,absorbed=vitalsResult.absorbed,hpDamage=vitalsResult.hpDamage,after=vitalsResult.hp,tempAfter=vitalsResult.tempHp,reachedZero=vitalsResult.reachedZero;
-          var stamp=operationStamp,creatureRoll=!attacker.uid,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
+          var stamp=operationStamp,attackerRequestUid=String(attacker.uid||attacker.summonedByUid||''),playerControlledSummon=!!(!attacker.uid&&attackerRequestUid&&room.members&&room.members[attackerRequestUid]&&room.members[attackerRequestUid].role==='player'),creatureRoll=!attacker.uid&&!playerControlledSummon,revealResult=!creatureRoll||!(room.scene&&room.scene.view&&room.scene.view.showCreatureRollTotals===false);
           target.hp=after;target.tempHp=tempAfter;var brokenDamageStatuses=damage>0?(Array.isArray(target.statusEffects)?target.statusEffects:[]).filter(function(effect){return effect&&effect.breakOnDamage===true;}).map(normalizeCombatStatusKey).filter(Boolean):[];if(brokenDamageStatuses.length){target.statusEffects=(Array.isArray(target.statusEffects)?target.statusEffects:[]).filter(function(effect){return !effect||effect.breakOnDamage!==true;});var remainingDamageStatusKeys=target.statusEffects.map(normalizeCombatStatusKey);target.statuses=combatStatusKeys(target).filter(function(key){return brokenDamageStatuses.indexOf(key)<0||remainingDamageStatusKeys.indexOf(key)>=0;});}syncCombatZeroHp(target,before,attacker.key,stamp);order[targetIndex]=target;
           var updates={};
           updates['combat/order']=order;updates['combat/pendingDamage']=null;updates['combat/updatedAt']=stamp;updates['combat/appliedActionOperationIds']=combat.appliedActionOperationIds;
@@ -6424,14 +6633,14 @@
           var damageNote=immune?' · иммунитет':(resisted&&!vulnerable?' · сопротивление':(vulnerable&&!resisted?' · уязвимость':(resisted&&vulnerable?' · сопротивление и уязвимость нейтрализованы':'')));
           var damageEventId='combat-damage-result-'+damageOperationId;
           updates['combat/lastActionOperation']=Object.assign({},combat.lastActionOperation,{resultEventId:damageEventId,targetKey:String(target.key||''),damage:damage});
-          var damageRequest=attacker.uid&&room.members&&room.members[attacker.uid]&&room.members[attacker.uid].actionRequest;
+          var damageRequest=attackerRequestUid&&room.members&&room.members[attackerRequestUid]&&room.members[attackerRequestUid].actionRequest;
           if(damageRequest&&damageRequest.actionKind==='combat-attack'&&damageRequest.status==='damage-roll-requested'){
-            updates['members/'+attacker.uid+'/actionRequest/stage']='applied';
-            updates['members/'+attacker.uid+'/actionRequest/stageTimes/damage-result']=stamp;
-            updates['members/'+attacker.uid+'/actionRequest/stageTimes/applied']=stamp;
-            updates['members/'+attacker.uid+'/actionRequest/damageResultEventId']=damageEventId;
-            updates['members/'+attacker.uid+'/actionRequest/damageResultAt']=stamp;
-            updates['members/'+attacker.uid+'/actionRequest/appliedAt']=stamp;
+            updates['members/'+attackerRequestUid+'/actionRequest/stage']='applied';
+            updates['members/'+attackerRequestUid+'/actionRequest/stageTimes/damage-result']=stamp;
+            updates['members/'+attackerRequestUid+'/actionRequest/stageTimes/applied']=stamp;
+            updates['members/'+attackerRequestUid+'/actionRequest/damageResultEventId']=damageEventId;
+            updates['members/'+attackerRequestUid+'/actionRequest/damageResultAt']=stamp;
+            updates['members/'+attackerRequestUid+'/actionRequest/appliedAt']=stamp;
           }
           updates.combatEvent={id:damageEventId,operationId:damageOperationId,resultPhase:'damage',sourceEventId:String(pendingDamage.sourceEventId||''),kind:'combat-damage',name:attacker.name||'Участник',portrait:attacker.portrait||'',text:'Наносит урон оружием «'+(weapon.name||'оружие')+'» цели '+(target.name||'цель')+'. Урон '+damage+' ('+damageResult.formula+(critical?' ×2 кубы':'')+(bonusDiceCount?' + '+bonusDiceCount+'d'+bonusDieSides+(critical?' ×2':''):'')+(attackerModifiers.damageMod?' · состояния '+attackerModifiers.damageMod:'')+damageNote+').'+(absorbed?' Временные HP поглощают '+absorbed+(hpDamage?' — в здоровье проходит '+hpDamage+'.':'.'):'')+(brokenDamageStatuses.length?' Гипнотический транс рассеян.':'')+(reachedZero?' Цель достигает 0 HP — на её ходу потребуется ручной бросок борьбы за жизнь.':''),hiddenText:'Существо наносит урон цели '+(target.name||'цель')+'. Значение броска скрыто мастером.',creatureRoll:creatureRoll,revealResult:revealResult,beforeHp:before,beforeTempHp:vitalsResult.beforeTempHp,damage:damage,damageRolls:(damageResult.rolls||[]).concat(bonusRolls),baseDamageRollCount:(damageResult.rolls||[]).length,bonusDieSides:bonusDieSides,bonusDiceCount:bonusDiceCount,damageFormula:damageResult.formula||String(weapon.damageFormula||'1d4'),damageStatBonus:statBonus,damageStatusBonus:attackerModifiers.damageMod,hpDamage:hpDamage,tempHpAbsorbed:absorbed,tempHpRemaining:tempAfter,rawDamage:rawDamage,damageType:damageType,critical:critical,brokenStatusEffects:brokenDamageStatuses,actorKey:attacker.key,targetKey:target.key,attackerKey:attacker.key,distanceCells:damageDistance,rangeCells:damageRangeCells,weapon:weapon.name||'Оружие',zeroHp:reachedZero,ts:stamp,revealAt:stamp+3200};
           updates.updatedAt=stamp;
@@ -6833,8 +7042,8 @@
           updates.combatEvent.abilityUk=String(effect.nameUk||effect.name||'');
           updates.combatEvent.sourceDamage=sourceDamage;updates.combatEvent.sourceRawDamage=sourceRawDamage;updates.combatEvent.sourceDamageRolls=sourceDamageRoll&&sourceDamageRoll.rolls||[];updates.combatEvent.sourceBeforeHp=sourceBeforeHp;updates.combatEvent.sourceAfterHp=sourceDamageRoll?Math.max(0,sourceBeforeHp-sourceDamage):sourceBeforeHp;updates.combatEvent.martyr=martyr;
           if(effect.successDamageFormula||effect.failDamageFormula){updates.combatEvent.damageFormula=effect.successDamageFormula+' / '+effect.failDamageFormula;updates.combatEvent.damageRolls=results.reduce(function(list,result){return list.concat(result.damageRolls||[]);},[]);updates.combatEvent.sharedDamageRoll=null;}if(effect.areaMode==='square'){updates.combatEvent.areaWidth=effect.areaWidth;updates.combatEvent.text+=' Область: квадрат '+effect.areaWidth+'×'+effect.areaWidth+' кл.';}if(sourceDamageRoll){updates.combatEvent.text+=' Заклинатель теряет '+sourceDamage+' HP; передано лечения '+updates.combatEvent.heal+'.';updates.combatEvent.textUk=(updates.combatEvent.textUk||'')+' Заклинач втрачає '+sourceDamage+' HP; передано лікування '+updates.combatEvent.heal+'.';}var removedByAbility=results.reduce(function(list,result){return list.concat(result.removedStatuses||[]);},[]);if(removedByAbility.length){updates.combatEvent.removedStatuses=removedByAbility;updates.combatEvent.text+=' Проклятие снято.';updates.combatEvent.textUk=(updates.combatEvent.textUk||'')+' Прокляття знято.';}var severeResults=results.filter(function(result){return result.secondarySave;});if(severeResults.length){updates.combatEvent.secondarySaves=severeResults.map(function(result){return{key:result.key,save:result.secondarySave};});updates.combatEvent.text+=' Тяжёлый пробой: '+severeResults.map(function(result){return result.name+' — CON '+result.secondarySave.total+' против DC '+result.secondarySave.dc+(result.secondarySave.success?' успешно':result.secondarySave.consequence==='concentration-lost'?' провал, концентрация потеряна':' провал, предмет нужно уронить');}).join('; ')+'.';}
-          if(effect.playbackMode==='instant'){var summariesUk=results.map(function(result){var outcome=mode==='save'?(result.success?'успішний ряткидок':'провалений ряткидок'):mode==='attack'?(result.success?'влучання':'промах'):'ефект застосовано';return (result.nameUk||result.name)+': '+outcome+(result.damage?' · шкода '+result.damage:'')+(result.heal?' · лікування '+result.heal:'')+(result.tempHpGain?' · тимчасові HP +'+result.tempHpGain:'')+(result.statuses.length?' · '+result.statuses.map(function(status){return abilityResultStatusLabel(status,true);}).join(', '):'');});updates.combatEvent.textUk=(actor.nameUk||actor.name||request.name||'Учасник')+' застосовує «'+(effect.nameUk||effect.name||'здібність')+'»'+areaTextUk+'. '+summariesUk.join('; ')+'.'+(effect.durationRounds?' Тривалість: '+effect.durationRounds+' р.':'')+(effect.concentration?' Потребує зосередження.':'');}
-          if(effect.playbackMode==='instant'){if(sourceDamageRoll)updates.combatEvent.textUk+=' Заклинач втрачає '+sourceDamage+' HP; передано лікування '+updates.combatEvent.heal+'.';if(removedByAbility.length)updates.combatEvent.textUk+=' Прокляття знято.';if(effect.areaMode==='square')updates.combatEvent.textUk+=' Область: квадрат '+effect.areaWidth+'×'+effect.areaWidth+' кл.';if(severeResults.length)updates.combatEvent.textUk+=' Тяжкий пробій: '+severeResults.map(function(result){return (result.nameUk||result.name)+' — CON '+result.secondarySave.total+' проти СК '+result.secondarySave.dc+(result.secondarySave.success?' успішно':result.secondarySave.consequence==='concentration-lost'?' провал, зосередження втрачено':' провал, предмет треба впустити');}).join('; ')+'.';}
+          var summariesUk=results.map(function(result){var outcome=mode==='save'?(result.success?'успішний ряткидок':'провалений ряткидок'):mode==='attack'?(result.success?'влучання':'промах'):'ефект застосовано';return (result.nameUk||result.name)+': '+outcome+(result.damage?' · шкода '+result.damage:'')+(result.heal?' · лікування '+result.heal:'')+(result.tempHpGain?' · тимчасові HP +'+result.tempHpGain:'')+(result.statuses.length?' · '+result.statuses.map(function(status){return abilityResultStatusLabel(status,true);}).join(', '):'');});updates.combatEvent.textUk=(actor.nameUk||actor.name||request.name||'Учасник')+' застосовує «'+(effect.nameUk||effect.name||'здібність')+'»'+areaTextUk+'. '+summariesUk.join('; ')+'.'+(effect.durationRounds?' Тривалість: '+effect.durationRounds+' р.':'')+(effect.concentration?' Потребує зосередження.':'');
+          if(sourceDamageRoll)updates.combatEvent.textUk+=' Заклинач втрачає '+sourceDamage+' HP; передано лікування '+updates.combatEvent.heal+'.';if(removedByAbility.length)updates.combatEvent.textUk+=' Прокляття знято.';if(effect.areaMode==='square')updates.combatEvent.textUk+=' Область: квадрат '+effect.areaWidth+'×'+effect.areaWidth+' кл.';if(severeResults.length)updates.combatEvent.textUk+=' Тяжкий пробій: '+severeResults.map(function(result){return (result.nameUk||result.name)+' — CON '+result.secondarySave.total+' проти СК '+result.secondarySave.dc+(result.secondarySave.success?' успішно':result.secondarySave.consequence==='concentration-lost'?' провал, зосередження втрачено':' провал, предмет треба впустити');}).join('; ')+'.';
           if(effect.zoneKind&&effect.areaAnchorPoint){var currentRound=Math.max(1,Number(combat.round)||1),spellZones=(Array.isArray(combat.spellZones)?combat.spellZones:[]).filter(function(zone){return zone&&Number(zone.expiresRound||0)>currentRound;}).slice(-11),spellZone={id:'spell-zone-'+stamp+'-'+Math.random(),kind:effect.zoneKind,shape:'circle',name:effect.name||'Магическая зона',nameUk:effect.nameUk||effect.name||'Магічна зона',point:{x:effect.areaAnchorPoint.x,y:effect.areaAnchorPoint.y},radius:effect.areaRadius,createdRound:currentRound,expiresRound:currentRound+Math.max(1,effect.durationRounds||1),sourceActorKey:String(actor.key||''),sourceId:effectSource};spellZones.push(spellZone);updates['combat/spellZones']=spellZones;updates.combatEvent.spellZone=spellZone;}
           if(abilityPullMovements.length){updates.combatEvent.movements=abilityPullMovements;var movementRu=effect.automationKey==='misty-transition-v1'?abilityPullMovements.map(function(movement){return movement.name+' телепортируется на '+movement.cells+' кл.';}):abilityPullMovements.map(function(movement){return movement.name+' притянута на '+movement.cells+' кл.';}),movementUk=effect.automationKey==='misty-transition-v1'?abilityPullMovements.map(function(movement){return movement.name+' телепортується на '+movement.cells+' кл.';}):abilityPullMovements.map(function(movement){return movement.name+' притягнуто на '+movement.cells+' кл.';});updates.combatEvent.text+=' '+movementRu.join(' ');updates.combatEvent.textUk=(updates.combatEvent.textUk||updates.combatEvent.text)+' '+movementUk.join(' ');var pulled=abilityPullMovements[0],mistTeleport=effect.automationKey==='misty-transition-v1';updates.lastMovement={id:'spell-move-'+stamp+'-'+pulled.tokenId,uid:'',tokenId:pulled.tokenId,name:pulled.name,kind:mistTeleport?'teleport':String(pulled.kind||'pull'),animationKey:mistTeleport?'misty-transition-v1':'',fromX:pulled.fromX,fromY:pulled.fromY,toX:pulled.toX,toY:pulled.toY,duration:mistTeleport?920:1100,startedAt:stamp};}
           var summonPoint=null;

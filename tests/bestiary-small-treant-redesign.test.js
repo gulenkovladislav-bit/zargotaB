@@ -46,9 +46,11 @@ assert.deepStrictEqual(Array.from(treant.vulnerabilities), ['Огонь']);
 assert.strictEqual(treant.attacks.length, 1, 'the GM needs one clear default long action');
 assert.strictEqual(treant.traits.length, 2, 'the Small Treant loop must not become an ability checklist');
 assert.strictEqual(treant.attacks[0].damage, '1d4 дробящий');
+assert.strictEqual(treant.attacks[0].range, '2 клетки', 'the pull attack must reach beyond an already adjacent target');
 assert.deepStrictEqual(Array.from(treant.attacks[0].statuses), []);
-assert(treant.attacks[0].desc.includes('притянуть цель на 1 клетку'));
-assert(treant.attacks[0].desc.includes('не сталкивает цель с опасностью'));
+assert(treant.attacks[0].desc.includes('по цели на дистанции 2'));
+assert(treant.attacks[0].desc.includes('притянуть её на 1 клетку'));
+assert(treant.attacks[0].desc.includes('промежуточная клетка свободна и безопасна'));
 
 const rooting = treant.traits.find((trait) => trait.name === 'Врасти в тропу');
 assert(rooting, 'the Small Treant needs one explicit rooting action');
@@ -94,6 +96,8 @@ const missingUk = [...new Set(patchStrings.filter((source) => russianText.test(s
 assert.deepStrictEqual(missingUk, [], 'every new Russian Small Treant string must ship with a Ukrainian variant');
 
 assert(indexSource.includes("'zargota_beast_backup_' + id + '_before_' + patch.designRevision"), 'the previous Small Treant record must be backed up before migration');
+assert(indexSource.includes("{ v: '2026-08-29.3', notes: 'Исправлена логическая ошибка атаки Малого Трента"));
+assert(indexSource.includes("notesUk: 'Виправлено логічну помилку атаки Малого трента"), 'the Small Treant range fix changelog must be bilingual');
 assert(indexSource.includes("{ v: '2026-08-28.21', notes: 'Поштучно переработан Малый Трент"));
 assert(indexSource.includes("notesUk: 'Поштучно перероблено Малого трента"), 'the Small Treant changelog must remain bilingual');
 

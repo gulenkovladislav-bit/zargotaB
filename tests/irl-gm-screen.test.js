@@ -47,6 +47,19 @@ assert.match(html, /data-irl-window-key="attention-due-'\+esc\(key\)\+'"[\s\S]*?
 assert.match(html, /STORAGE_KEY='zg_irl_window_positions_v2'[\s\S]*?document\.addEventListener\('pointerdown',down,true\)/, 'drag positions must persist for the current browser tab and support pointer input');
 assert.match(html, /function origin\(node\)[\s\S]*?closest\('\.zg-irl-character-dock'\)[\s\S]*?point\.x-base\.x/, 'nested attention windows must translate viewport coordinates through the centred portrait dock');
 assert.match(html, /function reset\(node\)[\s\S]*?node\.style\.removeProperty/, 'windows without a saved position must return to the safe default layout');
+assert.match(html, /\.zg-irl-pinned-card\.npc \.zg-irl-pinned-head \.zg-irl-npc-avatar\{width:84px;height:84px\}/, 'the pinned NPC card must use a larger portrait without enlarging event icons');
+assert.match(html, /function ensureGrip\(node\)[\s\S]*?data-irl-resize-handle/, 'every draggable IRL window must receive a resize grip');
+assert.match(html, /function size\(node,width,height,persist\)[\s\S]*?Math\.max\(96[\s\S]*?Math\.max\(64[\s\S]*?maxWidth='none'[\s\S]*?maxHeight='none'/, 'window resizing must have no upper cap while retaining a recoverable minimum');
+assert.match(html, /function resizeDown\(event\)[\s\S]*?function resizeMove\(event\)[\s\S]*?function resizeUp\(event\)/, 'IRL windows must resize continuously through pointer input');
+assert.match(html, /stored\.w=Math\.round\(nextWidth\);stored\.h=Math\.round\(nextHeight\);save\(\)/, 'resized dimensions must persist alongside window positions');
+assert.match(html, /visibleWindows=new WeakSet\(\)[\s\S]*?if\(newlyVisible\)focus\(node\)/, 'a newly opened IRL window must rise above an already open character card');
+assert.match(html, /function focusDown\(event\)[\s\S]*?closest\('\[data-irl-draggable\]'\)[\s\S]*?document\.addEventListener\('pointerdown',focusDown,true\)/, 'pressing any visible IRL window must bring it to the front');
+assert.match(workspaceBlock[0], /function syncPanels\(\)[\s\S]*?zgIrlWindowsFocus\(panel\)/, 'an explicitly opened workspace drawer must stay above cards recreated during the same render');
+assert.match(html, /w\.zgIrlWindowsFocus=focus/, 'the workspace controller must be able to focus its newly opened drawer');
+assert.match(html, /\.zg-irl-pin-layer\{z-index:auto/, 'pinned cards must not be trapped below the character-window stacking context');
+assert.match(html, /function focus\(node\)[\s\S]*?closest&&node\.closest\('\.zg-irl-character-dock'\)[\s\S]*?dock\.style\.zIndex=layer/, 'attention popovers must bring their portrait dock stacking context to the front');
+assert.match(html, /function positionKey\(node\)[\s\S]*?innerWidth<=760\?'@compact':'@wide'/, 'mobile and desktop window sizes must use separate responsive layouts');
+assert.match(html, /@media\(max-width:760px\)\{[^}]*\.zg-irl-drawer\{[^}]*left:88px[\s\S]*?\.zg-irl-character-card,[^}]*\{left:88px;top:64px;width:calc\(100vw - 98px\)/, 'the mobile character card must leave the permanent GM tool rail tappable');
 
 [
   "'События': 'Події'",
@@ -57,6 +70,6 @@ assert.match(html, /function reset\(node\)[\s\S]*?node\.style\.removeProperty/, 
   "'Фон сцены сохранён на этом устройстве.': 'Тло сцени збережене на цьому пристрої.'"
 ].forEach((entry) => assert.ok(i18n.includes(entry), `missing bilingual GM screen copy: ${entry}`));
 
-assert.match(html, /v: '2026-08-29\.34'[\s\S]*?notesUk:/, 'the current update log must include Russian and Ukrainian notes');
+assert.match(html, /v: '2026-08-30\.3'[\s\S]*?notesUk:/, 'the current update log must include Russian and Ukrainian notes');
 
 console.log('IRL GM screen: ok');

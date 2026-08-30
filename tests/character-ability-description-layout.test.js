@@ -91,7 +91,9 @@ const breadHtml = context.characterAbilityRulesHtml(bread.item.description, brea
 assert.match(breadHtml, /tone-check[\s\S]*outcome-benefit[\s\S]*outcome-danger/, 'a check and both outcomes must stay in one readable semantic section');
 
 assert.ok(largestSectionCount <= 8, `no authored ability should explode into more than 8 semantic cards (got ${largestSectionCount})`);
-assert.match(html, /var ZG_APP_VERSION = '2026-08-27\.1'/, 'the interface refinement must have a visible app version');
-assert.match(html, /v: '2026-08-27\.1'[\s\S]*?notes:[\s\S]*?notesUk:/, 'the current changelog entry must contain Russian and Ukrainian variants');
+const visibleVersion = html.match(/var ZG_APP_VERSION = '([^']+)'/);
+assert.ok(visibleVersion, 'the interface refinement must have a visible app version');
+const escapedVersion = visibleVersion[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+assert.match(html, new RegExp("v: '" + escapedVersion + "'[\\s\\S]*?notes:[\\s\\S]*?notesUk:"), 'the current changelog entry must contain Russian and Ukrainian variants');
 
 console.log(`Character ability description layout: OK (${entries.length} entries, ${renderedVariants} RU/UA variants, max ${largestSectionCount} sections)`);

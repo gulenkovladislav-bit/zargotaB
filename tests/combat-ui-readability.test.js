@@ -33,7 +33,7 @@ assert.match(html, /\.zg-combat-economy\.long-action-menu,\.zg-combat-economy\.a
 assert.match(html, /\.zg-move-requests\{[\s\S]*?width:min\(430px/, 'the requests panel must widen for 130 percent copy');
 assert.match(html, /\.zg-move-request-actions button\{[\s\S]*?min-height:41px/, 'request decisions must keep readable touch targets');
 assert.match(html, /\.zg-action-request-detail>article\{width:min\(920px/, 'the full request dialog must reflow into a wider card');
-assert.match(html, /\.zg-combat-save\{width:min\(920px/, 'saving throw assignment must have room for larger controls');
+assert.match(html, /\.zg-combat-save\{z-index:10056;width:min\(920px/, 'saving throw assignment must have room for larger controls');
 assert.match(html, /\.zg-combat-save-stat\{min-height:72px/, 'saving throw stat cards must grow with their text');
 assert.match(html, /\.zg-combat-bar\{width:300px/, 'the compact combat clock must widen before its labels are enlarged');
 assert.match(html, /\.zg-combat-own-turn\{\s*box-sizing:border-box;width:224px;height:224px;min-width:224px;min-height:224px;/, 'the active-turn notice must remain a true circle after readability scaling');

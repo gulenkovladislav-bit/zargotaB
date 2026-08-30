@@ -156,6 +156,12 @@ assert.strictEqual(
   i18n.translate('В имени «Марен» — память о дороге. Пожелание: ясный разум. «Серебряная Фляжка» — прозвище, закрепившееся за человеком.', 'uk'),
   'В імені «Марен» — пам’ять про дорогу. Побажання: ясний розум. «Срібна Фляга» — прізвисько, що закріпилося за цією людиною.'
 );
+assert.strictEqual(i18n.translate('Как понимать имя', 'uk'), 'Як розуміти ім’я');
+assert.strictEqual(i18n.translate('Зелёная — потратить, красная — вернуть. Только для этой сессии.', 'uk'), 'Зелена — витратити, червона — повернути. Лише для цієї сесії.');
+assert.strictEqual(
+  i18n.translate('«Марен» — так её назвали в память о дороге и пожелали ясный разум. «Серебряная Фляжка» — прозвище, полученное позже.', 'uk'),
+  '«Марен» — так її назвали на пам’ять про дорогу і побажали ясний розум. «Срібна Фляга» — прізвисько, отримане згодом.'
+);
 
 assert.match(html, /<script src="js\/irl-name-catalog\.js"><\/script>\s*<script src="zargota-i18n-session-uk\.js\?v=/, 'Session content sidecar must load after the source NPC catalog');
 assert.match(html, /function irlNameDisplay\(item\)/, 'generated and saved NPC names must have a locale-aware display path');

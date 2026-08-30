@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-21\.1/, 'network cache key must change with the staged delivery sound contract');
+assert.match(html, /zargota-network\.js\?v=2026-08-29\.8/, 'network cache key must load the current scoped Firebase spell, character and cue transport');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -421,7 +421,8 @@ assert.doesNotMatch(tokenDragBlock, /classList\.add\('open'\)/, 'selecting a tok
 var tokenSelectStart = html.indexOf('function selectGmToken');
 var tokenSelectEnd = html.indexOf('function deleteTokenContextTargets', tokenSelectStart);
 var tokenSelectBlock = html.slice(tokenSelectStart, tokenSelectEnd);
-assert.match(tokenSelectBlock, /classList\.contains\('open'\)\|\|intervention\.classList\.contains\('minimized'\)/, 'selecting a token only refreshes a GM panel that is already visible');
+assert.match(tokenSelectBlock, /drawer&&drawer\.classList\.contains\('open'\)&&typeof w\.zgVttRetargetOpenDrawer==='function'/, 'selecting a hero retargets only an already-open hero bag');
+assert.doesNotMatch(tokenSelectBlock, /zgGmInterventionOpen/, 'left-click token selection must not open or retarget the GM control panel');
 assert.match(network, /increment:\s*databaseModule\.increment/);
 assert.match(html, /class="zg-gm-target-card"/);
 assert.match(html, /zgGmInterventionAmount\(10\)/);
@@ -538,7 +539,7 @@ assert.match(html, /finishApprovedAttackRoll\(uid,request\.id,true,event&&event\
 var advanceCombatStart = network.indexOf('advanceCombat: function');
 var advanceCombatEnd = network.indexOf('useCombatAction: function', advanceCombatStart);
 var advanceCombatBlock = network.slice(advanceCombatStart, advanceCombatEnd);
-assert.match(advanceCombatBlock, /session\.role !== 'master' && \(!activeEntry \|\| String\(activeEntry\.uid \|\| ''\) !== String\(user\.uid\)\)/);
+assert.match(advanceCombatBlock, /session\.role !== 'master' && !combatEntryControlledByUid\(activeEntry,user\.uid\)/, 'players may advance their hero or their own summoned creature, but no other turn');
 assert.match(advanceCombatBlock, /beginCombatTurnOperation\(combat,operationId,stamp,user\.uid\)/);
 assert.match(advanceCombatBlock, /if\(turnOperation\.duplicate\)/);
 assert.match(advanceCombatBlock, /combat\/appliedTurnOperationIds/);
@@ -556,7 +557,7 @@ assert.match(syncCharacterBlock, /setCharacterSync\('synced', liveSnapshot, 'loc
 assert.match(syncCharacterBlock, /return refreshRoom\(session\.code\)\.then\(function \(\) \{ return api\.getSnapshot\(\); \}\)/);
 var combatAbilityStart = network.indexOf('resolveCombatAbility: function');
 var combatAbilityEnd = network.indexOf('prepareCombatReaction: function', combatAbilityStart);
-assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyVitalsDomainOperation\(target,\{damage:damage,heal:heal,preserveOverMax:true\}\)/);
+assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyVitalsDomainOperation\(vitalsState,vitalsOperation\)/, 'spell resolution applies damage, healing, and temporary HP through the shared vitals domain');
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyStatusDomainOperation\(target,/);
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /applyAbilityUsageDomainOperation\(member\.character&&member\.character\.abilityUsage[^;]+preserveExistingMax:false/);
 assert.match(network.slice(combatAbilityStart, combatAbilityEnd), /actor\.hp==null\?actor\.hpMax:actor\.hp\)<=0/);
@@ -801,10 +802,13 @@ assert.match(html, /class="zg-vital-emblem armor"/);
 assert.match(html, /class="zg-state-hp-bar"/);
 assert.match(html, /class="zg-state-combat-values"><div><small>Скорость<\/small>[\s\S]*?<div><small>Инициатива<\/small>/);
 assert.doesNotMatch(html, /class="zg-state-combat-values"><div><small>Броня<\/small>/);
-assert.match(html, /--zg-vitals-divider:64%/);
+assert.match(html, /--zg-vitals-divider:56%/, 'the shared divider must leave enough room for armor, equipment bonus and initiative');
+assert.match(html, /\.zg-state-armor\{[\s\S]*?grid-template-columns:36px minmax\(2ch,1fr\) auto/, 'armor must reserve visible width for its base value before the equipment badge');
+assert.match(html, /\.zg-state-combat-values>div\{[\s\S]*?grid-template-columns:36px minmax\(2ch,1fr\) auto/, 'initiative must reserve visible width for its signed value');
 assert.match(html, /grid-template-rows:var\(--zg-vitals-top-row\) var\(--zg-vitals-bottom-row\)/);
 assert.match(html, /\.zg-state-vitals-top,\s*\.zg-vtt-drawer[\s\S]*?\.zg-state-combat-values\{[\s\S]*?grid-template-columns:var\(--zg-vitals-divider\) minmax\(0,1fr\)/);
 assert.match(html, /\.zg-state-vitals::after\{[\s\S]*?left:var\(--zg-vitals-divider\);[\s\S]*?top:var\(--zg-vitals-top-row\)/);
+assert.match(html, /@media\(min-width:561px\) and \(max-height:800px\)[\s\S]*?\.zg-state-vitals-top\{[\s\S]*?grid-template-columns:var\(--zg-vitals-divider\) minmax\(0,1fr\)/, 'short desktop screens must keep the roomier armor column');
 assert.match(html, /\.zg-state-combat-values\{[\s\S]*?border-top:1px solid #684526/);
 assert.match(html, /\.zg-state-combat-values>div\+div\{[\s\S]*?border-left:1px solid #5d3d22/);
 assert.match(html, /\.zg-state-hp-bar\{[\s\S]*?position:absolute;[\s\S]*?left:11px;[\s\S]*?right:11px;[\s\S]*?bottom:7px/);
@@ -853,6 +857,7 @@ function resolveMasterDrawerMember(selectedUid) {
   var context = {
     result:null,
     state:{session:{role:'master',uid:'gm'}},
+    activePanel:'inventory',
     drawerMemberUid:'',
     selectedMemberUid:'',
     w:{zgSelectedHeroMemberUid:selectedUid||''},
@@ -1369,20 +1374,23 @@ assert.strictEqual(abilityMergeContext.result['101'].max, 3);
 assert.strictEqual(abilityMergeContext.result['101'].note, 'keep');
 assert.strictEqual(abilityMergeContext.result['202'].used, 1);
 assert.strictEqual(abilityMergeContext.result['202'].max, 2);
-assert.match(html, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage\)/);
-assert.match(html, /spellsLearned:zgMergeSessionSpellsLearned\(localCharacter,roomCharacter\.spellsLearned\)/);
-assert.match(html, /preparedSpells:zgMergeSessionPreparedSpells\(localCharacter,roomCharacter\.preparedSpells,roomCharacter\.spellsLearned\)/);
-var learnedMergeStart = html.indexOf('function zgMergeSessionSpellsLearned');
+assert.match(html, /var spellRefs=zgMergeSessionSpellRefs\(localCharacter\.spellRefs,roomCharacter\.spellRefs\)/);
+assert.match(html, /spellRefs:spellRefs/);
+assert.match(html, /spellCD:zgMergeSessionAbilityUsage\(localCharacter,roomCharacter\.abilityUsage,spellRefs\)/);
+assert.match(html, /spellsLearned:zgMergeSessionSpellsLearned\(localCharacter,roomCharacter\.spellsLearned,spellRefs\)/);
+assert.match(html, /preparedSpells:zgMergeSessionPreparedSpells\(localCharacter,roomCharacter\.preparedSpells,roomCharacter\.spellsLearned,spellRefs\)/);
+var learnedMergeStart = html.indexOf('function zgMergeSessionSpellRefs');
 var learnedMergeEnd = html.indexOf('function zgApplySessionCharacterToLocal', learnedMergeStart);
 var learnedMergeContext = { result:null };
 vm.runInNewContext(
   html.slice(learnedMergeStart, learnedMergeEnd) +
-    '; result=zgMergeSessionSpellsLearned({spellRefs:[101,202],spellsLearned:{101:true,202:false}},{"101":false,"202":true,"999":true});',
+    '; var refs=zgMergeSessionSpellRefs([101,202],["202","999"]); result={refs:refs,learned:zgMergeSessionSpellsLearned({spellRefs:[101,202],spellsLearned:{101:true,202:false}},{"101":false,"202":true,"999":false},refs)};',
   learnedMergeContext
 );
-assert.strictEqual(learnedMergeContext.result['101'], true, 'stale room false must not forget a locally learned spell');
-assert.strictEqual(learnedMergeContext.result['202'], true, 'approved room learning must merge into the local sheet');
-assert.strictEqual(learnedMergeContext.result['999'], undefined, 'room learning outside local spellRefs must be ignored');
+assert.deepStrictEqual(Array.from(learnedMergeContext.result.refs), ['202','999'], 'Firebase spellRefs must add and remove spells authoritatively');
+assert.strictEqual(learnedMergeContext.result.learned['101'], undefined, 'a spell removed by the master must disappear locally');
+assert.strictEqual(learnedMergeContext.result.learned['202'], true, 'approved room learning must merge into the local sheet');
+assert.strictEqual(learnedMergeContext.result.learned['999'], false, 'a newly granted unlearned spell must appear locally');
 var runtimeHelpersStart = html.indexOf('function zgMergeSessionInventoryItems');
 var runtimeHelpersEnd = html.indexOf('function zgNormalizeSkillUpdateValue', runtimeHelpersStart);
 var runtimeContext = { result:null, Math:Math, Number:Number, String:String, JSON:JSON, Array:Array, Object:Object };
@@ -1390,7 +1398,7 @@ vm.runInNewContext(
   html.slice(runtimeHelpersStart, runtimeHelpersEnd) +
     '; result=zgBuildSessionCharacterRuntime(' +
       '{spellRefs:[101],spellsLearned:{101:true},preparedSpells:{kodex:[],folio:[],obrad:[]},spellCD:{101:{used:0,max:3}},_gmDeliveryIds:["delivery-local"],journalEntries:[{journalId:"same",title:"Локальная",updatedAt:10}],inventoryItems:[{itemId:"keep-image",image:"data:image/png;base64,local"}]},' +
-      '{level:2,hpCur:8,hpMax:14,tempHp:2,ac:12,initiative:3,speed:8,stats:{str:{base:2}},statuses:["burn"],abilityUsage:{"spell-101":{used:2,max:3}},spellsLearned:{"101":true},preparedSpells:{kodex:["101"],folio:[],obrad:[]},inventoryItems:[{itemId:"keep-image",name:"Ключ",image:""}],equipItems:[],arenaEquipSlots:{weapon:"sword"},journalEntries:[{journalId:"same",title:"Firebase",updatedAt:20}],currentGoal:"Вернуть печать",progressionPlan:{version:1},appliedDeliveryIds:["delivery-room"],revision:9}' +
+      '{level:2,hpCur:8,hpMax:14,tempHp:2,ac:12,initiative:3,speed:8,stats:{str:{base:2}},statuses:["burn"],spellRefs:["101","999"],abilityUsage:{"spell-101":{used:2,max:3}},spellsLearned:{"101":true,"999":false},preparedSpells:{kodex:["101"],folio:[],obrad:[]},inventoryItems:[{itemId:"keep-image",name:"Ключ",image:""}],equipItems:[],arenaEquipSlots:{weapon:"sword"},journalEntries:[{journalId:"same",title:"Firebase",updatedAt:20}],currentGoal:"Вернуть печать",progressionPlan:{version:1},appliedDeliveryIds:["delivery-room"],revision:9}' +
     ');',
   runtimeContext
 );
@@ -1404,6 +1412,8 @@ assert.strictEqual(runtimeContext.result.inventoryItems[0].image,'data:image/png
 assert.deepStrictEqual(Array.from(runtimeContext.result._gmDeliveryIds),['delivery-local','delivery-room']);
 assert.strictEqual(runtimeContext.result.currentGoal,'Вернуть печать');
 assert.strictEqual(runtimeContext.result.progressionPlan.version,1);
+assert.deepStrictEqual(Array.from(runtimeContext.result.spellRefs),['101','999']);
+assert.strictEqual(runtimeContext.result.spellsLearned['999'],false);
 assert.deepStrictEqual(Array.from(runtimeContext.result.preparedSpells.kodex),['101']);
 assert.strictEqual(runtimeContext.result.revision,9);
 assert.match(network, /appliedDeliveryIds:\s*mergeAppliedDeliveryIds\(character\._gmDeliveryIds/);

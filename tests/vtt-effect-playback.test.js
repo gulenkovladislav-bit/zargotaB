@@ -13,8 +13,10 @@ const movementCancelEnd = html.indexOf('  function animateLastMovement(', moveme
 const movementCancel = html.slice(movementCancelStart, movementCancelEnd);
 assert.ok(movementStart >= 0 && movementEnd > movementStart, 'movement playback must remain extractable');
 const movementCanvasStart = html.indexOf('  function playLiveMovementCanvas(movement,duration)');
-const movementCanvas = html.slice(movementCanvasStart, movementStart);
+const movementCanvasEnd = html.indexOf('  function coalescedMovementStart(', movementCanvasStart);
+const movementCanvas = html.slice(movementCanvasStart, movementCanvasEnd);
 assert.ok(movementCanvasStart >= 0 && movementCanvasStart < movementStart, 'movement Canvas helper remains extractable');
+assert.ok(movementCanvasEnd > movementCanvasStart, 'movement Canvas helper has a stable end boundary');
 assert.match(movementCanvas, /channel:'live-movement',durationMs:duration/, 'movement trail shares an exactly-once runtime command and event duration');
 assert.match(movementCanvas, /scope:'public'/, 'GM and player derive the movement trail from the same public event');
 assert.match(movementCanvas, /zgSchedulePlaybackCleanup\(event,'live-canvas-movement'/, 'movement Canvas cleanup uses the shared scheduler');

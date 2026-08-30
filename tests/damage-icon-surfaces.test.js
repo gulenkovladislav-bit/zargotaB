@@ -19,5 +19,7 @@ keys.forEach((key) => assert.match(html, new RegExp(`DAMAGE_TAG\\('${key}'`), `m
 assert.match(html, /found\.map\(function\(key\)\{ return zgDamageIconMarkup\(key,'btype-damage-icon'\); \}\)/, 'bestiary guide weakness icons use the same project set');
 assert.doesNotMatch(html, /id:'damage', icon:'💥'/, 'manual damage header no longer uses an emoji');
 assert.match(html, /#page-detail \.detail-meta \.catalog-filter-art,[\s\S]*?#page-detail \.dmg-chip \.catalog-pill-icon \{[\s\S]*?width: 20px; height: 20px; flex: 0 0 20px;/, 'catalog detail artwork must stay icon-sized instead of using intrinsic PNG dimensions');
+assert.match(html, /#spell-detail-popup \.cat-chip \.catalog-pill-icon,[\s\S]*?#spell-detail-popup \.dmg-chip \.catalog-pill-icon \{[\s\S]*?width: 20px;[\s\S]*?height: 20px;[\s\S]*?flex: 0 0 20px;/, 'character spell popup artwork must stay icon-sized instead of using intrinsic PNG dimensions');
+assert.match(html, /@media \(max-width: 700px\) \{[\s\S]*?#spell-detail-popup \.cat-chip \.catalog-pill-icon,[\s\S]*?#spell-detail-popup \.dmg-chip \.catalog-pill-icon \{[\s\S]*?width: 18px;[\s\S]*?height: 18px;[\s\S]*?flex-basis: 18px;/, 'character spell popup artwork must remain compact on phones');
 
 console.log('damage icon surfaces contract passed');

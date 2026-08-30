@@ -14,6 +14,8 @@ assert.match(html, /zgPortraitSavingThrow\(event,/, 'the portrait action presele
 assert.match(html, /var portraitMenuKey='member:'\+String\(member\.uid\|\|''\)/, 'non-combat hero portraits receive stable saving-throw keys');
 assert.match(html, /function combatSaveTargets\(\)/, 'saving-throw targets are available outside initiative');
 assert.match(html, /function combatSaveEntryKey\(entry\)/, 'combat heroes receive a stable saving-throw key even when initiative data omitted one');
+assert.match(html, /function combatSaveEntryUid\(entry,members\)/, 'saving throws recover a player uid from legacy initiative entries');
+assert.match(html, /if\(!uid&&key\.indexOf\('member:'\)===0\)uid=key\.slice\(7\)/, 'a persistent member key still assigns the save to the real player');
 assert.match(html, /w\.zgGmStatusCatalog=gmStatusCatalog/, 'the status catalog is explicitly shared with the saving-throw module');
 assert.match(html, /typeof w\.zgGmStatusCatalog==='function'\?w\.zgGmStatusCatalog\(\):\[\]/, 'saving throws do not reach into another module closure');
 assert.match(html, /key:combatSaveEntryKey\(entry\)/, 'active combat saving throws normalize missing initiative keys');
@@ -25,7 +27,9 @@ assert.match(html, /Назначение спасброска недоступн
 assert.match(html, /Спасбросок назначен · '[+]\(combatQaActive\(\)\?'перетащите D20':'игрок должен перетащить D20'\)/, 'local Workshop saves instruct the GM to drag, while live saves instruct the player');
 assert.match(html, /actionKind==='saving-throw'/, 'assigned saving throws use their own player prompt');
 assert.match(html, /rollMethod=isSavingThrow\?'rollCombatSavingThrow':'rollCombatIntent'/, 'dragging the assigned die selects the saving-throw roller');
+assert.match(html, /onpointerdown="zgCombatIntentDragStart\(event\)" onclick="zgCombatIntentRoll\(\)"/, 'the assigned d20 supports both drag and direct click without a dead control');
 assert.match(html, /МАСТЕР НАЗНАЧИЛ СПАСБРОСОК/, 'the player sees an explicit saving-throw drag prompt');
+assert.match(html, /function combatLabIsPlayer\(\)\{\s*return !!combatLabPlayerUid\(\);\s*\}/, 'Workshop follows an assigned off-turn saving throw instead of remaining locked to the current NPC turn');
 
 assert.match(network, /requestCombatSavingThrow: function \(targetKey, options\)/, 'the network API stores a GM saving-throw request');
 assert.match(network, /actionKind:'saving-throw',status:'roll-requested',stage:'waiting-roll'/, 'the request waits for the player roll');

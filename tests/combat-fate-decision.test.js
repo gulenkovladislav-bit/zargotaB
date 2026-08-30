@@ -19,7 +19,9 @@ assert.match(network, /zeroHp\.unconscious=outcome==='injury-unconscious'/, 'inj
 assert.match(network, /unconscious:outcome==='injury-unconscious'/, 'the live event exposes the same unconscious state to both clients');
 assert.match(network, /injuries\.push\(injuryResult\);entry\.injuries=injuries/, 'injury fate is stored on the selected combat entry');
 assert.match(network, /members\/'\+entry\.uid\+'\/character\/injuries/, 'injury fate is mirrored into the hero sheet');
-assert.match(network, /fate-decision-required/, 'turn advancement is blocked while a fate decision is unresolved');
+assert.match(network, /entry&&entry\.uid&&entry\.zeroHp&&entry\.zeroHp\.state==='awaiting-gm'/, 'only an unresolved hero fate blocks turn advancement');
+assert.match(network, /fate-decision-required/, 'the unresolved hero fate still owns an explicit server error');
+assert.match(html, /fateResolutionRequired=order\.some\(function\(entry\)\{return entry&&entry\.uid&&entry\.zeroHp&&entry\.zeroHp\.state==='awaiting-gm';\}\)/, 'the visible turn control follows the same hero-only gate');
 
 assert.match(html, /СУДЬБА СУЩЕСТВА/);
 assert.match(html, /Оставить сражённым/);

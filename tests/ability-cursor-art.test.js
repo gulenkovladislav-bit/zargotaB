@@ -13,7 +13,7 @@ assert.ok(fs.statSync(cursorPath).size > 10_000, 'spell cursor is a real product
 assert.match(html, /ability:'images\/vtt-actions\/cursors\/spell-triad\.png'/, 'ability action and targeting cursor use the selected triad artwork');
 assert.match(html, /tool:'ability',targetHovered:!!targetHovered/, 'spell targeting still drives the range endpoint and hover expansion');
 assert.match(html, /limit:range/, 'spell targeting still displays and enforces its range');
-assert.match(html, /\.zg-tool-range-vector\[data-tool="ability"\] \.range-vortex\{width:54px;height:54px/, 'spell cursor has a compact map state');
-assert.match(html, /\.zg-tool-range-vector\[data-tool="ability"\]\.on-token \.range-vortex\{width:68px;height:68px/, 'spell cursor expands over a target token');
+assert.match(html, /\.zg-tool-range-vector\[data-tool="ability"\] \.range-vortex\{display:none\}/, 'the duplicate spell endpoint stays hidden during high-frequency targeting');
+assert.match(html, /\.zg-action-cursor\[data-tool="ability"\]\.range-active \.zg-action-cursor-glyph\{opacity:1\}/, 'the lightweight spell cursor remains visible while the range line is active');
 
 console.log('Ability cursor artwork contract passed');

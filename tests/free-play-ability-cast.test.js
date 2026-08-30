@@ -28,14 +28,19 @@ var request = html.slice(requestStart, requestEnd);
 assert(requestStart >= 0 && requestEnd > requestStart, 'ability request handler must exist');
 assert.match(request, /Сначала подготовьте это заклинание в Сумке героя/);
 assert.match(request, /requestAction\('Хочет применить «'\+label\+'»','ability'/);
-assert.match(request, /pendingAbilityCast=/);
+assert.match(request, /return beginVttSpellCast\(key,label,profile\)/, 'configured and ready spells enter the shared targeting flow');
 assert.doesNotMatch(request, /startCombat|combat\.active\s*=\s*true/);
+
+var beginCastStart = html.indexOf('function beginVttSpellCast(key,label,profile)');
+var beginCastEnd = html.indexOf('w.zgVttSpellCastConfigure=', beginCastStart);
+assert.ok(beginCastStart >= 0 && beginCastEnd > beginCastStart, 'shared targeting initializer must remain extractable');
+assert.match(html.slice(beginCastStart, beginCastEnd), /pendingAbilityCast=\{key:key,label:label,profile:profile\}/, 'targeted free-play casts retain their pending request until a target is selected');
 
 var gmStart = html.indexOf('w.zgAbilityResolveOpen=function(uid,preserve)');
 var gmEnd = html.indexOf('w.zgAbilityResolveClose=', gmStart);
 var gmResolution = html.slice(gmStart, gmEnd);
 assert(gmStart >= 0 && gmEnd > gmStart, 'GM ability decision handler must exist');
-assert.match(gmResolution, /if\(!combat\|\|!combat\.active\)\{w\.zgActionResolve\(uid,true\);return;\}/);
+assert.match(gmResolution, /if\(!combat\|\|!combat\.active\)\{w\.zgActionResolve\(uid,true\);return true;\}/, 'outside combat the GM approves the existing request without opening the combat resolver');
 
 assert.match(network, /abilityOperationId/);
 assert.match(network, /actionKind === 'ability'/);

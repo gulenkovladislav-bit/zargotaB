@@ -10,7 +10,7 @@ assert.doesNotMatch(html, /Боевая лаборатория/, 'the old blocki
 assert.doesNotMatch(html, /id="zg-combat-lab-toggle"/, 'the old Test toolbar button is removed');
 assert.doesNotMatch(html, /zg-gm-control-inline|id="zg-gm-player-control"/, 'GM player control does not inject duplicate panels around the character sheet');
 assert.doesNotMatch(html, /ГМ ИГРАЕТ ЗА|УПРАВЛЕНИЕ ГЕРОЕМ|Сейчас вы играете за этого героя|▶ Играть за героя/, 'the removed top and inner control banners stay absent');
-assert.match(html, /function gmControlledPlayerUid\(\)[\s\S]*?if\(combat&&combat\.active\)return String\(turn&&turn\.uid\|\|''\)/, 'active combat turn overrides stale manual player identity');
+assert.match(html, /function gmControlledPlayerUid\(\)[\s\S]*?if\(combat&&combat\.active\)\{[\s\S]*?return String\(turn&&turn\.uid\|\|\(summonUid&&members\[summonUid\]/, 'active combat turn, including a player summon, overrides stale manual player identity');
 assert.match(html, /w\.zgPossessedPlayerUid = uid; w\.zgCombatLabPlayerUid = uid/, 'all existing player action routes receive the same selected identity');
 var possessStart=html.indexOf('w.zgPossessPlayer = function(uid)');
 var possessEnd=html.indexOf('w.zgReleasePlayerControl=',possessStart);

@@ -33,7 +33,7 @@ Object.keys(expectedCounts).forEach(function(campaignKey) {
 assert.match(html, /function applyCharacterCustomItemImages\(character\)[\s\S]*?CHARACTER_CUSTOM_ITEM_ICONS\[String\(character && character\.campaignKey[\s\S]*?item\.icon = 'art:' \+ iconKey[\s\S]*?item\.image = image[\s\S]*?item\.imageThumb = image/, 'saved character sheets must receive one shared icon source for every surface');
 assert.match(html, /function applyCharsMigrations\(arr, options\)[\s\S]*?applyCharacterCustomItemImages\(c\)/, 'saved campaign characters must receive custom art during migration');
 assert.doesNotMatch(html.match(/function charInventoryImage\(item\) \{[\s\S]*?\n\}/)[0], /characterCustomItemImage/, 'inventory rendering must not use a global cross-character name map');
-assert.match(html, /function charInventoryArt\(item\) \{[\s\S]*?charInventoryImage\(item\)[\s\S]*?zgItemVisualMarkup/, 'character sheets must resolve campaign art before generic icon markup');
+assert.match(html, /function charInventoryArt\(item, character\) \{[\s\S]*?charInventoryImage\(item\)[\s\S]*?zgItemVisualMarkup/, 'character sheets must resolve campaign art before generic icon markup');
 assert.match(html, /id="ic-emoji-btn"[\s\S]*?zgItemVisualMarkup\(item/, 'the item detail modal must show the same item art as the grid');
 assert.match(html, /if \(iconChanged\) \{[\s\S]*?item\.image = zgItemIconPath\(currentEmoji\)[\s\S]*?item\.imageThumb = item\.image/, 'choosing another icon must update every stored image source');
 assert.match(html, /function openItemConstructorByName\(charId, type, encodedName, fallbackIdx\)[\s\S]*?items\.findIndex[\s\S]*?openItemConstructor\(charId, type, currentIdx >= 0 \? currentIdx : fallbackIdx\)/, 'inventory clicks must survive async storage reordering');

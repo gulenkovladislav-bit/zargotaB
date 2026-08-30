@@ -633,6 +633,39 @@ assert.strictEqual(reconciledEntry.statusEffects[0].sourceId, 'sheet:stun');
 equipmentRoom.combat.order = equipmentReconcile.order;
 assert.strictEqual(context.reconcileCombatEquipmentOrder(equipmentRoom).changed, false, 'equal equipment snapshot must not cause a write loop');
 
+var emptyProjectionRoom = {
+  combat:{phase:'active',order:[{
+    key:'member:empty-player',kind:'hero',uid:'empty-player',hp:10,hpMax:10,ac:10,bonus:0,
+    economy:{long:1,short:1,reaction:1,movement:7,movementMax:7}
+  }]},
+  members:{
+    'empty-player':{character:{
+      hpMax:10,ac:10,initiative:0,speed:7,
+      stats:{},mastery:[],weaponProfiles:[],equipmentBonuses:{},statuses:[],statusEffects:[]
+    }}
+  }
+};
+assert.strictEqual(
+  context.reconcileCombatEquipmentOrder(emptyProjectionRoom).changed,
+  false,
+  'Firebase-removed empty collections must not start an idle equipment write loop'
+);
+emptyProjectionRoom.combat.order[0].statuses=['burn'];
+var clearedEmptyProjection=context.reconcileCombatEquipmentOrder(emptyProjectionRoom);
+assert.strictEqual(clearedEmptyProjection.changed,true,'a real removal of a stale combat status must still be published once');
+emptyProjectionRoom.combat.order=[Object.assign({},clearedEmptyProjection.order[0])];
+delete emptyProjectionRoom.combat.order[0].stats;
+delete emptyProjectionRoom.combat.order[0].mastery;
+delete emptyProjectionRoom.combat.order[0].weaponProfiles;
+delete emptyProjectionRoom.combat.order[0].equipmentBonuses;
+delete emptyProjectionRoom.combat.order[0].statuses;
+delete emptyProjectionRoom.combat.order[0].statusEffects;
+assert.strictEqual(
+  context.reconcileCombatEquipmentOrder(emptyProjectionRoom).changed,
+  false,
+  'the snapshot after Firebase removes cleared empty collections must remain stable'
+);
+
 var racialEquipmentStatusConflict = {
   ac:13,
   speed:9,

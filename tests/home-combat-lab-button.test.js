@@ -13,7 +13,7 @@ assert.match(html, /zgWorkshopModeChoose\('combat'\)/, 'the chooser should offer
 assert.match(html, /zgWorkshopModeChoose\('free'\)/, 'the chooser should offer a free-room test');
 assert.match(html, /w\.zgLocalCombatQaEnabled = false/, 'combat QA must start disabled in ordinary sessions');
 assert.match(html, /w\.zgOpenDiceTestScene = function\(mode\)\{[\s\S]*?w\.zgLocalCombatQaEnabled = true;/, 'the selected workshop mode must enable local QA without a URL flag');
-assert.match(html, /if\(settings&&!settings\.classList\.contains\('open'\)&&w\.zgGameSettings\)w\.zgGameSettings\(\)/, 'the home button should expose the combat lab controls immediately');
+assert.match(html, /if\(mode!=='magic'&&settings&&!settings\.classList\.contains\('open'\)&&w\.zgGameSettings\)w\.zgGameSettings\(\)/, 'combat and free-room workshop modes should expose their controls immediately without covering the magic palette');
 assert.match(html, /if\(mode==='combat'&&w\.zgCombatToggle\)w\.zgCombatToggle\(\)/, 'combat mode should open the common participant picker');
 assert.match(html, /if\(mode==='free'&&w\.zgQaSessionFreeRoom\)w\.zgQaSessionFreeRoom\(\)/, 'free-room mode should explicitly clear combat state');
 assert.match(html, /host\.hidden=!isMaster\|\|!inWorkshop\|\|!\(w\.zgLocalCombatQaActive&&w\.zgLocalCombatQaActive\(\)\)/, 'QA controls should require both the isolated TEST room and local QA state, and remain unavailable to players');

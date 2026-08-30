@@ -43,6 +43,9 @@ var context = {
   String:String,
   Object:Object,
   Array:Array,
+  combatEntryControlledBySession:function(entry,session){
+    return !!(entry&&session&&(String(entry.uid||'')===String(session.uid||'')||String(entry.summonedByUid||'')===String(session.uid||'')));
+  },
   sessionSoundState:{roomCode:'',ready:false,combatActive:false,round:0,turnKey:'',ownAction:'',ownMovement:'',masterRequests:{}},
   w:{ZargotaSound:{
     combatStart:function(){calls.push('combat-start');},

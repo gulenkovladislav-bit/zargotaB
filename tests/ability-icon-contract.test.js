@@ -20,7 +20,9 @@ assert.match(helper, /return asset\|\|fallback\|\|''/);
 var panelEnd = html.indexOf('function drawerRenderSignature()', panelStart);
 var builder = html.slice(builderStart, panelStart);
 var panel = html.slice(panelStart, panelEnd);
-assert.match(builder, /abilityAssetForItem\(item,'images\/ui\/combat-generated\/innate\.png'\)/);
+assert.match(builder, /abilityAssetForItem\(item,'images\/ui\/combat-generated\/prepare\.png'\)/, 'positions use their dedicated preparation artwork');
+assert.match(builder, /actionAsset=\{short:'short-action',reaction:'free-action',free:'free-action',long:'long-action',passive:'innate'\}/, 'active skills resolve an action-specific fallback instead of one universal innate icon');
+assert.match(builder, /abilityAssetForItem\(item,'images\/ui\/combat-generated\/'\+actionAsset\+'\.png'\)/);
 assert.match(builder, /abilityAssetForItem\(spell,'images\/ui\/combat-generated\/'/);
 assert.doesNotMatch(builder, /iconAsset:'images\/ui\/combat-generated\/innate\.png'/);
 
