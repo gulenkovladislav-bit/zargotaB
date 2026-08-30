@@ -115,13 +115,90 @@ const preciseHomeTap = html.match(/function bindHomeCardPreciseTap\(card, go\)\s
 assert.ok(preciseHomeTap, 'home cards must use a dedicated precise-tap guard');
 assert.match(
   preciseHomeTap[0],
-  /moveThreshold\s*=\s*10[\s\S]*?pointermove[\s\S]*?pointercancel[\s\S]*?suppressClickUntil/,
-  'a moved or cancelled pointer gesture must suppress the following synthetic click'
+  /moveThreshold\s*=\s*10[\s\S]*?pointermove[\s\S]*?deliberateTap\s*=\s*!cancelled\s*&&\s*!moved\s*&&\s*!endedAway[\s\S]*?pointercancel[\s\S]*?suppressClickUntil/,
+  'only a short stationary pointer gesture may be treated as a deliberate tap'
 );
 assert.doesNotMatch(
   preciseHomeTap[0],
   /touchend[\s\S]*?go\(\)/,
   'home card touchend must not navigate unconditionally after a scroll gesture'
 );
+assert.match(
+  preciseHomeTap[0],
+  /pointerup[\s\S]*?deliberateTap\s*&&\s*e\.pointerType\s*===\s*'touch'[\s\S]*?handledTouchUntil\s*=\s*Date\.now\(\)\s*\+\s*700[\s\S]*?go\(\)/,
+  'a deliberate touch pointerup must navigate without relying on Safari to synthesize click'
+);
+assert.match(
+  preciseHomeTap[0],
+  /click[\s\S]*?Date\.now\(\)\s*<\s*handledTouchUntil[\s\S]*?preventDefault\(\)[\s\S]*?stopPropagation\(\)/,
+  'the synthetic click following a handled touch must be suppressed to avoid double navigation'
+);
+
+assert.match(
+  html,
+  /v: '2026-08-30\.1'[^\n]*Короткое осознанное касание[^\n]*Короткий свідомий дотик/,
+  'the mobile tap fix must be recorded in both changelog languages'
+);
+
+function extractFunction(source, signature) {
+  const start = source.indexOf(signature);
+  assert.notStrictEqual(start, -1, `missing ${signature}`);
+  const bodyStart = source.indexOf('{', start);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, index + 1);
+    }
+  }
+  throw new Error(`unterminated ${signature}`);
+}
+
+const bindPreciseTap = Function(`return (${extractFunction(html, 'function bindHomeCardPreciseTap(card, go)')})`)();
+function makeCard() {
+  const listeners = Object.create(null);
+  return {
+    listeners,
+    addEventListener(type, listener) { listeners[type] = listener; }
+  };
+}
+function pointer(type, x, y) {
+  return { pointerId: 1, pointerType: type, isPrimary: true, clientX: x, clientY: y };
+}
+function clickEvent() {
+  return {
+    prevented: false,
+    stopped: false,
+    preventDefault() { this.prevented = true; },
+    stopPropagation() { this.stopped = true; }
+  };
+}
+
+{
+  const card = makeCard();
+  let opens = 0;
+  bindPreciseTap(card, () => { opens += 1; });
+  card.listeners.pointerdown(pointer('touch', 30, 40));
+  card.listeners.pointerup(pointer('touch', 32, 41));
+  assert.strictEqual(opens, 1, 'a short touch must open the mobile home card on pointerup');
+  const syntheticClick = clickEvent();
+  card.listeners.click(syntheticClick);
+  assert.strictEqual(opens, 1, 'the synthetic click after touch must not open the card twice');
+  assert.ok(syntheticClick.prevented && syntheticClick.stopped, 'the duplicate synthetic click must be consumed');
+}
+
+{
+  const card = makeCard();
+  let opens = 0;
+  bindPreciseTap(card, () => { opens += 1; });
+  card.listeners.pointerdown(pointer('touch', 30, 40));
+  card.listeners.pointermove(pointer('touch', 30, 70));
+  card.listeners.pointerup(pointer('touch', 30, 70));
+  const scrollClick = clickEvent();
+  card.listeners.click(scrollClick);
+  assert.strictEqual(opens, 0, 'a touch that turns into vertical scrolling must not open a home card');
+  assert.ok(scrollClick.prevented && scrollClick.stopped, 'the click following a scroll gesture must be consumed');
+}
 
 console.log('Mobile UI layout: OK');
