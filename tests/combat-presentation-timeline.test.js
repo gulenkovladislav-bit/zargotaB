@@ -75,6 +75,6 @@ const sessionIifeStart = html.indexOf('//   КАРКАС VTT');
 const sessionIifeEnd = html.indexOf('})(window);', sessionIifeStart);
 const sessionIife = html.slice(sessionIifeStart, sessionIifeEnd);
 assert.match(sessionIife, /function clamp\(value,min,max\)/, 'session combat and area FX must own their numeric clamp helper');
-assert.strictEqual((sessionIife.match(/\bclamp\(/g)||[]).length, 6, 'combat, free-room menu and area FX clamp calls stay inside the session scope');
+assert.strictEqual((sessionIife.match(/\bclamp\(/g)||[]).length, 8, 'combat, free-room menu, prepared-action pages and area FX clamp calls stay inside the session scope');
 
 console.log('combat presentation timeline passed');

@@ -11,6 +11,8 @@ var network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 
 assert.match(network, /if\(!entry\.uid\)\{entry\.zeroHp\.state='awaiting-gm';entry\.zeroHp\.pending=true;entry\.zeroHp\.gmOutcome='pending-creature';\}/, 'creatures at zero HP wait for the GM instead of rolling death saves');
 assert.match(network, /if\(!entry\.uid\)throw roomError\('Судьбу существа при 0 HP определяет мастер без бросков борьбы за жизнь\.'/);
+assert.match(network, /target\.uid\?' Цель достигает 0 HP — на её ходу потребуется ручной бросок борьбы за жизнь\.':' Цель достигает 0 HP — мастер решает, оставить существо сражённым или подтвердить его смерть\.'/, 'zero-HP combat log distinguishes a hero death save from the GM creature fate decision');
+assert.match(network, /target\.uid\?' Ціль досягає 0 HP — у свій хід вона має вручну виконати кидок боротьби за життя\.':' Ціль досягає 0 HP — Майстер вирішує, залишити істоту переможеною чи підтвердити її смерть\.'/, 'the same zero-HP distinction remains available in Ukrainian');
 assert.match(network, /\['death','instant-death','injury-unconscious','creature-spared','creature-death'\]/, 'network accepts the additive hero and creature fate outcomes');
 assert.match(network, /outcome==='instant-death'\?'Истинная смерть: нить души оборвана, воскрешение невозможно\.'/);
 assert.match(network, /fateOutcome:outcome/);

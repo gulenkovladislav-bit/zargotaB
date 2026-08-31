@@ -7,6 +7,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const network = fs.readFileSync(path.join(root, 'zargota-network.js'), 'utf8');
 
 function sourceBetween(startMarker, endMarker) {
   const start = index.indexOf(startMarker);
@@ -15,9 +16,17 @@ function sourceBetween(startMarker, endMarker) {
   return index.slice(start, end);
 }
 
+function networkSourceBetween(startMarker, endMarker) {
+  const start = network.indexOf(startMarker);
+  const end = network.indexOf(endMarker, start);
+  assert.ok(start >= 0 && end > start, `missing network source block: ${startMarker}`);
+  return network.slice(start, end);
+}
+
 const helperSource = sourceBetween('function abilityResolutionApi()', 'function automatedAbilityRequest');
 const effectPlanSource = sourceBetween('function abilityRenderEffectPlan', 'function abilityRenderAutomated');
 const automatedVerdictSource = sourceBetween('function abilityRenderAutomated', 'w.zgAbilityPreviewOutcome');
+const workflowVerdictSource = sourceBetween('function abilityRenderWorkflow', 'function abilityStatusModifiers');
 const actionResolveSource = sourceBetween('w.zgActionResolve=function', 'var abilityResolveUid');
 const handlerSource = sourceBetween('function abilityResolveSafeOpen', 'function openAbilityTargetEntity');
 const requestPlaySource = sourceBetween('function currentAbilityRequest', 'w.zgAbilityResolveOpen=function');
@@ -30,6 +39,15 @@ const qaNormalizeSource = sourceBetween('function combatQaNormalizeStatusKey', '
 const qaResolveSource = sourceBetween('resolveCombatAbility:function', 'requestCombatSavingThrow:function');
 const stageUiSource = sourceBetween('function abilityRequestStageUi', 'function renderMovementOverlays');
 const requestCardSource = sourceBetween('function renderMovementOverlays', 'function movementFeedback');
+const actionFeedbackSource = sourceBetween('function actionFeedback()', 'function playLiveMovementCanvas');
+const abilityTargetPolicySource = sourceBetween('function abilityTokenAllowed', 'function abilityTargetAvailability');
+const ownMemberSource = sourceBetween('function ownMember()', 'function fullLocalCharacter');
+const assignedAbilityRollSource = sourceBetween('function assignedAbilityRoll()', 'function fullLocalCharacter');
+const liveAbilityRollSource = sourceBetween('w.zgCombatAbilityDragStart=function', 'w.zgSpellLearningRoll=function');
+const liveRenderSource = sourceBetween('function render(snapshot){', 'w.zgVttApplyTestSnapshot=function');
+const requestLifecycleSource = networkSourceBetween('function actionRequestAwaitsResolution', 'function activateCombatAbilityWorkflow');
+const acknowledgeActionSource = networkSourceBetween('acknowledgeAction: function', 'requestApprovedAttackRoll: function');
+const networkAbilityRollSource = networkSourceBetween('rollCombatAbilityStage: function', 'resolveCombatAbility: function');
 
 function makeContext(options) {
   options = options || {};
@@ -216,6 +234,40 @@ function flush() {
   const opened = playContext.w.zgAbilityRequestPlay('qa-player', { preventDefault() {}, stopPropagation() {} });
   assert.strictEqual(opened, true, 'the stage-five review click must open the verdict');
   assert.deepStrictEqual(requestPanelRemovals, ['open'], 'the request list must yield the foreground to the final verdict');
+  assert.match(openHandlerSource, /function ownAbilityForeground\(\)/, 'every staged resolver refresh must reclaim the foreground from the request list');
+  assert.match(openHandlerSource, /if\(requests\)requests\.classList\.remove\('open'\)/, 'the staged resolver refresh must close the request list after synchronized updates');
+  assert.match(requestCardSource, /abilityResolveOpen=!!\(abilityResolvePanel&&abilityResolvePanel\.classList\.contains\('open'\)\)/, 'room updates must detect an open spell verdict before rendering the request list');
+  assert.match(requestCardSource, /!!isMaster&&!abilityResolveOpen&&\(totalPending>0\|\|movementPanelPinned\)/, 'the request list must stay closed while the spell verdict owns the foreground');
+  assert.match(requestCardSource, /refreshOpenAbilityResolve\(\);\s*if\(panel&&abilityResolvePanel&&abilityResolvePanel\.classList\.contains\('open'\)\)panel\.classList\.remove\('open'\)/, 'an asynchronously restored spell verdict must close a request list opened earlier in the same room refresh');
+  assert.match(requestCardSource, /ownRollReady&&!combatRollPromptRefreshFrame/, 'a freshly synchronized player spell roll must schedule the combat HUD after the VTT snapshot arrives');
+  assert.match(requestCardSource, /typeof w\.zgCombatToolbarRefresh==='function'/, 'the scene subscriber must refresh the separate combat HUD through its public bridge instead of an out-of-scope function');
+  assert.doesNotMatch(requestCardSource, /combatRollPromptRefreshFrame=0;renderCombat\(\)/, 'the scene subscriber must not call the private combat renderer from another module');
+  assert.match(actionFeedbackSource, /abilityWorkflowInProgress/, 'the player must keep a staged spell request until its assigned roll and GM resolution finish');
+  assert.match(actionFeedbackSource, /ability-workflow-result/, 'the player must not acknowledge the final workflow preview before the GM applies it');
+  assert.match(actionFeedbackSource, /spellLearningInProgress/, 'spell-learning rolls must remain available until the GM resolves them');
+  assert.match(abilityTargetPolicySource, /playerVersusPlayer/, 'an enemy-target spell must support GM-approved player-versus-player targeting');
+  assert.match(index, /w\.zgSceneAbilityTarget=function[\s\S]*?w\.zgVttToggleJournal\)w\.zgVttToggleJournal\(false\)/, 'target selection must collapse the journal so an overlapped combat token remains clickable');
+  assert.match(index, /w\.zgConcentrationRoll=function\(\)[\s\S]*?Нет связи с игровой комнатой[\s\S]*?Немає зв’язку з ігровою кімнатою/, 'concentration roll must explain a missing live-room API in both locales');
+  assert.match(ownMemberSource, /state && state\.session \|\| roomSnapshot && roomSnapshot\.session/, 'the player roll prompt must restore its session from the live VTT snapshot after reconnecting mid-spell');
+  assert.match(ownMemberSource, /roomSnapshot&&roomSnapshot\.room&&roomSnapshot\.room\.members/, 'the player roll prompt must read the freshest Firebase member request from the VTT snapshot');
+  assert.match(assignedAbilityRollSource, /active\.ownerUid[\s\S]*viewSession&&viewSession\.uid/, 'a target-owned spell stage must be discovered by its assigned player presentation rather than only by the caster member');
+  assert.match(assignedAbilityRollSource, /session\.role==='master'&&!gmPlayerPreviewActive\(session\)[\s\S]*combatQaActive\(\)[\s\S]*return null/, 'the live GM combat HUD must not impersonate a player who owns an assigned spell die outside explicit player preview or QA');
+  assert.match(liveAbilityRollSource, /assignedAbilityRoll\(\)/, 'both clicking and dragging an assigned spell die must use the cross-member assignment lookup');
+  assert.match(liveAbilityRollSource, /rollOwnerUid/, 'the synchronized dice playback must be attributed to the player who actually owns the active stage');
+  assert.match(networkAbilityRollSource, /assignedRequestUid=Object\.keys\(room\.members\|\|\{\}\)\.find/, 'the Firebase roller must locate a target-owned stage inside the caster request');
+  assert.match(networkAbilityRollSource, /if\(assignedRequestUid\)requestUid=assignedRequestUid/, 'the Firebase transaction must keep mutating the caster request after authorizing the assigned target player');
+  assert.match(networkAbilityRollSource, /if\(session\.role==='master'&&active\.ownerRole!=='master'\)throw roomError/, 'the live Firebase API must reject a GM roll for every player-owned workflow stage');
+  assert.doesNotMatch(networkAbilityRollSource, /active\.ownerRole!=='master'&&String\(active\.ownerUid\|\|''\)!==String\(requestUid\)/, 'the caster uid must not let the GM bypass a player-owned workflow roll');
+  assert.match(workflowVerdictSource, /active&&active\.ownerRole==='master'\?'<button[^']+zgAbilityWorkflowRoll/, 'the GM resolver may expose a roll button only for a master-owned NPC stage');
+  assert.match(workflowVerdictSource, /Ожидаем бросок игрока/, 'a player-owned stage must remain visibly waiting instead of offering the GM an automatic roll');
+  assert.match(liveRenderSource, /acceptLiveRoomSnapshot\(snapshot\)/, 'every Firebase room render must refresh both the combat HUD state and the shared VTT snapshot after reconnecting');
+  assert.match(index, /w\.zgAbilityWorkflowKindLabel=abilityWorkflowKindLabel;/, 'the staged spell resolver must expose its workflow labels to the separate combat HUD module');
+  assert.match(index, /w\.zgSpellPlaybackText=spellPlaybackText;/, 'the spell resolver must expose its localized runtime copy to the separate combat HUD module');
+  assert.match(index, /var state = null;[\s\S]*?function spellPlaybackText\(ru,uk\)\{return typeof w\.zgSpellPlaybackText/, 'the combat HUD must own a safe in-scope localization bridge before rendering a workflow prompt');
+  assert.match(index, /function abilityWorkflowKindLabel\(kind\)\{return typeof w\.zgAbilityWorkflowKindLabel/, 'the combat HUD must own a safe in-scope workflow-label bridge before rendering an assigned roll');
+  assert.match(requestLifecycleSource, /ability-workflow-roll-ready/, 'the network must classify an assigned spell roll as unresolved');
+  assert.match(requestLifecycleSource, /learning-roll-ready/, 'the network must classify an assigned learning roll as unresolved');
+  assert.match(acknowledgeActionSource, /actionRequestAwaitsResolution\(request\)/, 'acknowledgement must refuse to erase unresolved action workflows');
 
   const qaDistanceContext = { isFinite, Math, Number, String, Array };
   vm.runInNewContext(`${qaDistanceSource}\nresult=combatQaAbilityDistance({boardWidth:32,boardHeight:20,tokens:[{id:'actor-token',x:50,y:50},{id:'target-token',x:53,y:50}]},{tokenId:'actor-token'},{tokenId:'target-token'});`, qaDistanceContext, { filename: 'workshop-spell-distance.js' });

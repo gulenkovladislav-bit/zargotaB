@@ -17,6 +17,11 @@ assert.match(
   /\.zg-journal3-manual:active\{transform:translate3d\(0,-50%,0\);/,
   'Нажатие не должно сдвигать или масштабировать кнопку книги'
 );
+assert.match(
+  html,
+  /\.zg-journal3-manual:hover,[\s\S]*?\.zg-journal3-manual:focus-visible\{[\s\S]*?transform:translate3d\(0,-50%,0\);/,
+  'Наведение и фокус не должны сдвигать кнопку книги из-под курсора'
+);
 
 const journalHandlerStart = html.indexOf('w.zgVttJournalOpenManual=function(event)');
 const journalHandlerEnd = html.indexOf('w.zgVttJournalOpen=function(journalId)', journalHandlerStart);

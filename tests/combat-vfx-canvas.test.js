@@ -33,6 +33,7 @@ const fire = runtime.begin({id:'fire-1',family:'spell',ts:0},'fire',{quality:'ba
 assert.strictEqual(engine.play(arrow,host),true);
 assert.strictEqual(engine.play(fire,host),true);
 assert.match(require('fs').readFileSync(require('path').join(__dirname,'..','combat-vfx-canvas.js'),'utf8'), /key==='slash'\|\|key==='critical'\|\|key==='miss'[\s\S]*quadraticCurveTo[\s\S]*key==='block'/, 'weapon misses, criticals and blocks retain distinct Canvas silhouettes');
+assert.match(require('fs').readFileSync(require('path').join(__dirname,'..','combat-vfx-canvas.js'),'utf8'), /key==='rot-ray'\?6[\s\S]*key==='rot-ray'\?1\.2[\s\S]*key==='blood-transfer'\|\|key==='lightning-spear'\|\|key==='rot-ray'/, 'rot ray keeps a thin readable path before its poison impact burst');
 assert.strictEqual(frames.length,1,'all effects share one pending RAF');
 assert.strictEqual(engine.snapshot().activeEffects,2);
 assert.strictEqual(engine.snapshot().createdEffects,2);

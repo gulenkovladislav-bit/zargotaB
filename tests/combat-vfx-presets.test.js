@@ -2,7 +2,7 @@ const assert = require('assert');
 const presets = require('../combat-vfx-presets.js');
 
 const catalog = presets.list();
-assert.strictEqual(catalog.length, 19);
+assert.strictEqual(catalog.length, 20);
 assert.deepStrictEqual(catalog.filter(preset => preset.key === 'lightning' || preset.key === 'necro').map(preset => preset.key), ['lightning','necro']);
 assert.deepStrictEqual(catalog.filter(preset => ['psychic','hypnosis','curse-break','blood-transfer','lightning-spear'].includes(preset.key)).map(preset => preset.key), ['psychic','hypnosis','curse-break','blood-transfer','lightning-spear']);
 assert.strictEqual(new Set(catalog.map(preset => preset.id)).size, catalog.length, 'preset IDs are unique');
@@ -37,5 +37,10 @@ assert.strictEqual(fallback.fallback, true);
 assert.strictEqual(presets.resolve('projectile', 'ranged').fallback, false);
 assert.strictEqual(presets.resolve('fire-projectile', 'spell').durationMs, 1120, 'the fire projectile owns a readable travel-before-impact window');
 assert.strictEqual(presets.resolve('mist-teleport', 'movement').durationMs, 920, 'mist teleport owns one bounded disappearance/trail/reappearance pass');
+assert.deepStrictEqual(
+  [presets.resolve('rot-ray', 'spell').id, presets.resolve('rot-ray', 'spell').audioCue],
+  ['spell.rot.ray.v1','damage'],
+  'rot ray owns one bounded authored beam and the normal exactly-once damage cue'
+);
 
 console.log('combat VFX presets passed');

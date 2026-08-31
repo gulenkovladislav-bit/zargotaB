@@ -6,6 +6,28 @@ var path = require('path');
 var vm = require('vm');
 
 var html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
+var statusIconAtlas = path.resolve(__dirname, '..', 'images', 'vtt-ui', 'status-icons-atlas-v1.png');
+assert.ok(fs.existsSync(statusIconAtlas), 'generated status icon atlas must ship with the token UI');
+assert.match(html, /TOKEN_STATUS_ICON_CELLS=\{stun:\[0,0\][\s\S]*dead:\[5,3\]\}/, 'all 23 manual statuses plus death must have stable atlas cells');
+assert.match(html, /background-image:url\('images\/vtt-ui\/status-icons-atlas-v1\.png\?v=20260831-1'\)/, 'token status glyphs must use the generated atlas');
+assert.match(html, /function gmStatusIconMarkup\(def,key,className\)[\s\S]*?statusGlyphMarkup\(source,label,className\|\|'gm-status-icon'\)/, 'GM status controls must reuse the generated status atlas');
+assert.match(html, /var statuses=statusCatalog\.map\(function\(def\)[\s\S]*?<i>'\+gmStatusIconMarkup\(def,key\)\+'<\/i>/, 'GM status catalog must render drawn icons instead of emoji');
+assert.match(html, /gmStatusIconMarkup\(def,def\.key,'gm-status-icon dialog'\)/, 'GM status duration dialog must render the same drawn icon');
+assert.match(html, /function appendTokenStatusGlyph\(node,key,label\)[\s\S]*?resolved=statusGlyphKey\(key,label\)/, 'official and custom token statuses must resolve to the drawn atlas');
+assert.match(html, /statusGlyph=statusGlyphMarkup\(status,statusLabel,'large'\)/, 'the status details dialog reuses the same generated pictogram');
+assert.match(html, /\[\/отрав\|токс\|яд\|крыс\|щур\|poison\|toxin\|\\brat\\b\/,'poison'\]/, 'rat and poison custom effects must resolve to the poison pictogram');
+assert.match(html, /\[\/прокля\|гряз\|бруд\|curse\/,'curse'\]/, 'dirty and curse custom effects must resolve to the curse pictogram');
+assert.match(html, /w\.zgStatusGlyphMarkup=statusGlyphMarkup/, 'all status surfaces must share one public glyph renderer');
+assert.match(html, /class="zg-state-effect-row"[\s\S]*?w\.zgStatusGlyphMarkup\(status,label,'state-status-icon'\)/, 'the character state sheet must not render stored emoji directly');
+assert.match(html, /statusGlyphPresets = \['stun','burn','poison'[\s\S]*?'dead'\]/, 'custom status creation must offer the drawn status atlas instead of an emoji picker');
+assert.doesNotMatch(html, /function csSelectEmoji\(/, 'the legacy custom-status emoji picker must be removed');
+assert.match(html, /item\.type==='status'\?statusGlyphMarkup\(item\.status\|\|\{key:item\.value,color:'#9b875c'\},item\.label,'effects-browser-status-icon'\)/, 'the live effects library must render status atlas art instead of stored emoji');
+assert.match(html, /entry\.type === 'status_applied'[\s\S]*?window\.zgStatusGlyphMarkup\(st, plainStatusLabel, 'arena-status-icon'\)/, 'combat log status events must render the shared atlas instead of stored emoji');
+assert.doesNotMatch(html, /return \(st\.icon\|\|'\u26a1'\)/, 'combat log must not expose a stored status emoji');
+assert.match(html, /effs\.map\(function\(e\)\{ return characterStatusGlyph\(e,e\.label\|\|e\.statusKey,'arena-status-icon'\); \}\)/, 'compact arena combatants must render status art');
+assert.match(html, /ev\.type === 'status'[\s\S]*?window\.zgStatusGlyphMarkup\(ev,statusLabel,'arena-status-icon'\)/, 'spell result status cards must render status art');
+assert.match(html, /var STATUS_TAG = function\(key, txt, col\)[\s\S]*?manual-status-icon/, 'manual status references must reuse status art');
+assert.doesNotMatch(html, /TAG\('[^']*(?:Оглуш|Паралич|Обездвиж|Отравлен|Кровотечение|Проклят)/, 'manual status tags must not fall back to emoji labels');
 var start = html.indexOf('  var STATUS_DISPLAY_ALIASES=');
 var end = html.indexOf('  w.zgTokenStatusInfo=function', start);
 assert.ok(start >= 0 && end > start, 'status display helper block must remain extractable');
@@ -57,6 +79,11 @@ var context = {
   gmStatusCatalog:function(){ return mechanics; }
 };
 vm.runInNewContext(html.slice(start, end), context);
+var glyphStart = html.indexOf('  var TOKEN_STATUS_ICON_CELLS=');
+var glyphEnd = html.indexOf('  var ZG_INJURY_TABLE=', glyphStart);
+assert.ok(glyphStart >= 0 && glyphEnd > glyphStart, 'shared status glyph helper must remain extractable');
+context.esc = function(value){ return String(value == null ? '' : value); };
+vm.runInNewContext(html.slice(glyphStart, glyphEnd), context);
 
 assert.ok(html.includes('w.zgTokenStatusGmAdjust=function'), 'GM status popup must expose stack and duration adjustment');
 assert.ok(html.includes('w.zgTokenStatusGmTrigger=function'), 'GM status popup must expose immediate effect activation');
@@ -68,6 +95,11 @@ assert.strictEqual(context.normalizeStatusDisplayKey('STUN'), 'stun');
 assert.strictEqual(context.normalizeStatusDisplayKey('Оглушён'), 'stun');
 assert.strictEqual(context.normalizeStatusDisplayKey('Горит'), 'burn');
 assert.strictEqual(context.normalizeStatusDisplayKey('Мёртв'), 'dead');
+assert.strictEqual(context.w.zgStatusGlyphKey({statusKey:'custom_dirty',label:'😓 Грязный (-1 к харизме)'}), 'curse');
+assert.strictEqual(context.w.zgStatusGlyphKey({statusKey:'custom_rat',label:'☠ Крысиный Бульк'}), 'poison');
+assert.strictEqual(context.w.zgStatusPlainLabel({label:'😓 Грязный (-1 к харизме)'}), 'Грязный (-1 к харизме)');
+assert.strictEqual(context.w.zgStatusPlainLabel({label:'☠ ☠️Крысиный Бульк'}), 'Крысиный Бульк');
+assert.match(context.w.zgStatusGlyphMarkup({statusKey:'custom_rat',label:'☠ Крысиный Бульк'},'Крысиный Бульк','state-status-icon'), /data-status-glyph="poison"/);
 
 var deadDisplay = context.collectDisplayStatuses({
   deathSaves:{state:'dead',gmOutcome:'death'}
@@ -264,6 +296,7 @@ assert.match(html, /activeStatuses=w\.zgCollectDisplayStatuses\(/);
 assert.doesNotMatch(html, /activeStatuses=collectDisplayStatuses\(/);
 assert.match(html, /class="zg-state-effect-row"[^>]*onclick="zgVttStatusInfo/);
 assert.match(html, /w\.zgVttStatusInfo=function\(index\)/);
+assert.match(html, /var statusInfo = el\('zg-vtt-status-info'\);[\s\S]*?if \(statusInfo\)\{[\s\S]*?zgVttStatusInfoClose[\s\S]*?stopPropagation\(\)/, 'Escape closes an open status card before the session-level handler can open the leave confirmation');
 assert.match(html, /className='zg-vtt-status-info'/);
 assert.match(html, /activeStatusList\.forEach\(function\(status\)\{[\s\S]*?statusCatalog\.push/, 'custom active statuses must receive GM controls instead of only increasing the counter');
 assert.match(html, /activeStatusList\.forEach\(function\(status\)\{var key=normalizeStatusDisplayKey/, 'GM active-state lookup must normalize legacy aliases before rendering controls');
@@ -276,12 +309,17 @@ assert.match(html, /\.zg-token-status-info p\{[\s\S]*?font:16\.9px/, 'token stat
 assert.match(html, /badge=document\.createElement\('span'\)/, 'map status controls must not nest a button inside the token button');
 assert.match(html, /badge\.setAttribute\('aria-haspopup','dialog'\)/, 'map status controls must expose their details dialog');
 assert.match(html, /badge\.addEventListener\('pointerdown',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);\}\)/, 'status interaction must not start token movement');
-assert.match(html, /badge\.addEventListener\('pointerup',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);openStatus\(ev\);\}\)/, 'status interaction must open reliably for the owning player before the token click handler');
+assert.match(html, /badge\.addEventListener\('pointerup',function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);if\(ev\.button!==0\)return;openStatus\(ev\);\}\)/, 'left-click status interaction must open reliably before the token click handler');
+assert.match(html, /function openStatus\(ev\)\{[\s\S]*?Date\.now\(\)<tokenClickSuppressedUntil/, 'status badges must ignore the pointer-up that follows a combat target reflow');
 assert.match(html, /node\.style\.zIndex = String\(ownToken\?100000:token\.z\)/, 'the owning player token must stay above neighboring scene tokens');
 assert.match(html, /isMaster&&gmVision==='gm'\?el\('zg-vtt-token-layer'\):null/, 'GM status badges must leave the token stacking context');
 assert.match(html, /className='zg-vtt-token-status-portal'/, 'GM status badges must use a dedicated scene portal');
 assert.match(html, /if\(visuals\)portal\.appendChild\(visuals\)/, 'GM status artwork must share the portal above neighboring tokens');
 assert.match(html, /\.zg-vtt-token-status-portal\{position:absolute;z-index:200000/, 'GM status portals must stay above every scene token');
+assert.match(html, /\.zg-game-overlay\.combat-targeting \.zg-vtt-token-status-portal,[^}]*\.zg-game-overlay\.combat-targeting \.zg-vtt-token-status,[^}]*pointer-events:none!important/, 'status portals and their explicitly interactive badges cannot intercept an attack target click');
+assert.match(html, /html\.zg-combat-target-click-lock \.zg-vtt-token-status\{pointer-events:none!important\}/, 'status badges remain disabled through the target-selection pointer-up');
+assert.match(html, /badge\.addEventListener\('pointerup',[\s\S]*?if\(ev\.button!==0\)return;openStatus\(ev\)/, 'right-click must not open the status card before the token context menu');
+assert.match(html, /badge\.addEventListener\('contextmenu',[\s\S]*?document\.elementFromPoint\(ev\.clientX,ev\.clientY\)[\s\S]*?openGmTokenContextMenu\(ev,targetToken\)/, 'a status badge must route GM right-click to the token physically underneath it');
 assert.match(html, /function syncTokenStatusPortal\(node\)/, 'status portals must remain attached to moving and resized tokens');
 assert.match(html, /String\(token\.memberUid\|\|''\)===String\(ownSession\.uid\|\|''\)/, 'own-token elevation must survive numeric or string identity snapshots');
 assert.match(html, /ev\.key==='Enter'\|\|ev\.key===' '/, 'map status controls must open from the keyboard');

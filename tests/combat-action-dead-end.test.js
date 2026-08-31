@@ -33,8 +33,16 @@ assert.match(qaAdapter, /return Promise\.resolve\(\)\.then\(function\(\)\{/, 'lo
 assert.match(qaAdapter, /var current=combatQaActive\(\)&&combatQaSnapshot\(\)/, 'local mutations use the recovered TEST snapshot instead of a stale session snapshot');
 assert.match(qaAdapter, /catch\(renderError\)\{w\.zgLocalCombatQaPresentationError=renderError;\}/, 'a local presentation exception cannot strand an already-applied request transition');
 assert.match(html, /function combatRequestAction\(api,text,kind,uid,details,resolution\)/, 'represented hero actions use one guarded request helper');
-assert.match(html, /if\(!snapshot\|\|!snapshot\.room\|\|snapshot\.room\.code!=='TEST'\)return snapshot;/, 'Workshop GM orders bypass the self-approval dead end only when the request returns the reserved TEST room');
-assert.match(html, /return combatQaApi\.resolveAction\(uid,true,resolution\|\|null\)/, 'the guarded helper auto-approves the local represented hero action');
+assert.match(html, /return api\.requestAction\(text,kind,uid,details\);/, 'represented-player requests return their pending snapshot to the GM request panel');
+assert.doesNotMatch(html, /function combatRequestAction[\s\S]*?combatQaApi\.resolveAction\(uid,true,resolution\|\|null\)/, 'the guarded helper leaves the represented hero action pending for the GM');
+assert.doesNotMatch(html, /combatQaActive\(\)\?'Атака разрешена · перетащите d20'/, 'local represented players are not falsely told that the GM already approved their attack');
+assert.match(html, /План вне дистанции отправлен мастеру/, 'out-of-range player attacks confirm only that the request was sent');
+assert.match(html, /rangeOverride:combatAttack\.outOfRange===true/, 'approving an out-of-range request carries the GM exception into the eventual attack roll');
+assert.match(network, /actionRequest\/details\/rangeOverride'[\s\S]*request\.details && request\.details\.outOfRange === true && resolution\.rangeOverride === true/, 'Firebase persists the explicit GM range exception for the player roll');
+assert.match(network, /outOfRange: details\.outOfRange === true,[\s\S]*distanceCells:[\s\S]*rangeCells:/, 'Firebase request sanitization preserves the measured out-of-range context for GM approval');
+assert.match(html, /approvedAttackDetails=Object\.assign\(\{\},request\.details,\{rangeOverride:request\.details\.rangeOverride===true\|\|request\.details\.outOfRange===true\}\)/, 'the GM execution path preserves the approved range exception even if the nested Firebase field arrives one render late');
+assert.match(html, /onclick="'\+clickHandler\+'" aria-label="Перетащить кубик для броска"/, 'attack, damage, spell, and creature dice keep a click fallback when pointer drag is unavailable');
+assert.match(html, /else\{drag\.node\.classList\.add\('returning'\);drag\.node\.click\(\);\}/, 'a tap or short drag activates the same guarded roll path instead of returning silently');
 
 const saveUi = block(html, '  var combatSaveTargetKey=', '  function renderCombatPrepare');
 assert.match(saveUi, /combatStartDeadline\(Promise\.resolve\(\)\.then\(function\(\)\{return assignToPlayer\?saveApi\.requestCombatSavingThrow/, 'saving throw assignment catches synchronous failures and has a timeout');

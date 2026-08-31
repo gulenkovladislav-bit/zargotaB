@@ -57,6 +57,12 @@ const seedRoom = {
       character: { id: 'hero-2', name: 'Герой 2', hpCur: 12, hpMax: 12 }
     }
   },
+  scene: {
+    tokens: [
+      { id:'hero-player-1', type:'hero', memberUid:playerUid, name:'Герой 1', x:10, y:10, hp:10, hpMax:10, statuses:[], statusEffects:[] },
+      { id:'hero-player-2', type:'hero', memberUid:otherUid, name:'Герой 2', x:20, y:20, hp:12, hpMax:12, statuses:[], statusEffects:[] }
+    ]
+  },
   combat: {
     active: true,
     turnIndex: 0,
@@ -84,6 +90,14 @@ try {
   await assertSucceeds(get(ref(master, roomPath)));
   await assertSucceeds(get(ref(player, roomPath)));
   await assertSucceeds(get(ref(outsider, roomPath)));
+
+  await assertSucceeds(update(ref(player, `${roomPath}/scene/tokens/0`), {
+    hp:9,
+    statuses:['poison'],
+    statusEffects:[{ statusKey:'poison', duration:1, remainingRounds:1 }]
+  }));
+  await assertFails(set(ref(player, `${roomPath}/scene/tokens/0/x`), 99));
+  await assertFails(set(ref(player, `${roomPath}/scene/tokens/1/hp`), 1));
 
   const privateDeliveryPath = `privateDeliveries/${roomCode}/${playerUid}/private-1`;
   await assertSucceeds(set(ref(master, privateDeliveryPath), {

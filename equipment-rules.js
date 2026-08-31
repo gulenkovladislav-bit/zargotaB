@@ -265,6 +265,96 @@
     return result;
   }
 
+  function inventoryWeaponProfiles(items) {
+    return (Array.isArray(items) ? items : []).filter(function (item) {
+      return item && item.equipped === true && equipmentKind(item) === 'weapon';
+    }).map(function (item, index) {
+      return {
+        id:String(item.itemId || item.id || ('inventory-weapon-' + index)),
+        name:item.name || 'Оружие',
+        damageFormula:item.damageFormula || item.damage || '1d4',
+        damageType:item.damageType || '',
+        range:item.range || '1 клетка',
+        stat:item.attackStat || item.stat || '',
+        slot:normalizedEquipmentSlot(item),
+        handsRequired:itemHandsRequired(item),
+        sourceItemId:String(item.itemId || item.id || ''),
+        description:item.description || item.effectText || ''
+      };
+    }).slice(0, 12);
+  }
+
+  function cloneList(value) {
+    try { return JSON.parse(JSON.stringify(Array.isArray(value) ? value : [])); }
+    catch (e) { return []; }
+  }
+
+  function applyCreatureInventory(source, operation) {
+    source = source && typeof source === 'object' ? source : {};
+    operation = operation && typeof operation === 'object' ? operation : {};
+    var items = cloneList(source.inventoryItems).slice(0, 40);
+    var action = String(operation.action || ''), requestedId = String(operation.itemId || ''), index = items.findIndex(function (item) {
+      return item && requestedId && String(item.itemId || item.id || '') === requestedId;
+    });
+    if (index < 0 && Number.isInteger(Number(operation.index))) index = Number(operation.index);
+    var usedItem = null;
+    if (action === 'add') {
+      if (items.length >= 40 || !operation.item || typeof operation.item !== 'object') return { ok:false, error:items.length >= 40 ? 'inventory-limit' : 'item-missing' };
+      items.push(Object.assign({}, operation.item, { qty:Math.max(1, Number(operation.item.qty) || 1), equipped:false }));
+      usedItem = items[items.length - 1];
+    } else {
+      if (index < 0 || index >= items.length || !items[index]) return { ok:false, error:'item-missing' };
+      usedItem = items[index];
+      if (action === 'remove') items.splice(index, 1);
+      else if (action === 'equip') {
+        if (usedItem.equipped === true) usedItem.equipped = false;
+        else {
+          var slot = preferredEquipmentSlot(usedItem), kind = equipmentKind(usedItem);
+          if ((kind === 'weapon' || kind === 'shield')) {
+            var planned = planHandEquip(items, index, slot);
+            if (!planned.ok) return { ok:false, error:planned.error || 'slot-incompatible' };
+            items = planned.items;usedItem = items[index];
+          } else {
+            items.forEach(function (other, otherIndex) { if (otherIndex !== index && other && other.equipped === true && slot && String(other.slot || '') === slot) other.equipped = false; });
+            usedItem.equipped = true;if (slot) usedItem.slot = slot;
+          }
+        }
+      } else if (action === 'use') {
+        if (usedItem.charges != null) {
+          if (Number(usedItem.charges) <= 0) return { ok:false, error:'charges-empty' };
+          usedItem.charges = Math.max(0, Number(usedItem.charges) - 1);
+        } else {
+          var hay = [usedItem.category,usedItem.cat,usedItem.type,usedItem.name].join(' ').toLowerCase();
+          var consumable = !!(usedItem.consumption || /consum|расход|зель|эликсир|свиток|еда|напит|боеприпас|стрел/.test(hay));
+          if (consumable) { usedItem.qty = Math.max(0, Number(usedItem.qty || 1) - 1);if (!usedItem.qty) items.splice(index, 1); }
+          else usedItem.lastUsedAt = Math.max(0, Number(operation.usedAt) || Date.now());
+        }
+      } else return { ok:false, error:'action-invalid' };
+    }
+    var before = calculate({ inventoryItems:source.inventoryItems || [], equipItems:[] }, []), after = calculate({ inventoryItems:items, equipItems:[] }, []);
+    var next = Object.assign({}, source), previousBonuses = source.equipmentBonuses && typeof source.equipmentBonuses === 'object' ? source.equipmentBonuses : before;
+    function delta(key) { return (Number(after[key]) || 0) - (Number(previousBonuses[key]) || 0); }
+    var oldHpMax = Math.max(1, Number(next.hpMax) || 1), hpDelta = delta('hpBonus');
+    next.hpMax = Math.max(1, oldHpMax + hpDelta);
+    if (next.hp != null) next.hp = Math.max(0, Math.min(next.hpMax, (Number(next.hp) || 0) + hpDelta));
+    if (next.hpCur != null) next.hpCur = Math.max(0, Math.min(next.hpMax, (Number(next.hpCur) || 0) + hpDelta));
+    next.ac = Math.max(0, (Number(next.ac) || 0) + delta('acBonus'));
+    next.initiative = (Number(next.initiative) || 0) + delta('initiativeBonus');
+    next.speed = Math.max(0, (Number(next.speed) || 0) + delta('speedBonus'));
+    var stats = Object.assign({}, next.stats || {}), previousStats = previousBonuses.statBonuses || {}, afterStats = after.statBonuses || {};
+    STAT_KEYS.forEach(function (key) { stats[key] = (Number(stats[key]) || 0) + (Number(afterStats[key]) || 0) - (Number(previousStats[key]) || 0); });
+    next.stats = stats;
+    var authoredWeapons = (Array.isArray(next.weaponProfiles) ? next.weaponProfiles : []).filter(function (profile) { return profile && !profile.sourceItemId; });
+    next.weaponProfiles = authoredWeapons.concat(inventoryWeaponProfiles(items)).slice(0, 12);
+    next.inventoryItems = items;
+    next.equipmentBonuses = after;
+    if (next.economy && typeof next.economy === 'object') {
+      var movementMax = Math.max(0, Number(next.economy.movementMax) || 0) + delta('speedBonus');
+      next.economy = Object.assign({}, next.economy, { movementMax:movementMax, movement:Math.min(movementMax, Math.max(0, Number(next.economy.movement) || 0)) });
+    }
+    return { ok:true, source:next, item:usedItem, action:action };
+  }
+
   return {
     STAT_KEYS:STAT_KEYS.slice(),
     equipmentKind:equipmentKind,
@@ -275,6 +365,8 @@
     planHandEquip:planHandEquip,
     resolveHandSlots:resolveHandSlots,
     collectEquippedItems:collectEquippedItems,
-    calculate:calculate
+    calculate:calculate,
+    inventoryWeaponProfiles:inventoryWeaponProfiles,
+    applyCreatureInventory:applyCreatureInventory
   };
 });

@@ -11,7 +11,7 @@ var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 var outbox = require(path.join(root, 'character-sync-outbox.js'));
 var equipmentRules = require(path.join(root, 'equipment-rules.js'));
 
-assert.match(html, /zargota-network\.js\?v=2026-08-29\.8/, 'network cache key must load the current scoped Firebase spell, character and cue transport');
+assert.match(html, /zargota-network\.js\?v=2026-08-31\.2/, 'network cache key must load the current scoped Firebase spell, character and cue transport');
 assert.strictEqual(
   network.indexOf("'campaigns/") >= 0 || network.indexOf('"campaigns/') >= 0,
   false,
@@ -421,7 +421,7 @@ assert.doesNotMatch(tokenDragBlock, /classList\.add\('open'\)/, 'selecting a tok
 var tokenSelectStart = html.indexOf('function selectGmToken');
 var tokenSelectEnd = html.indexOf('function deleteTokenContextTargets', tokenSelectStart);
 var tokenSelectBlock = html.slice(tokenSelectStart, tokenSelectEnd);
-assert.match(tokenSelectBlock, /drawer&&drawer\.classList\.contains\('open'\)&&typeof w\.zgVttRetargetOpenDrawer==='function'/, 'selecting a hero retargets only an already-open hero bag');
+assert.match(tokenSelectBlock, /if\(typeof w\.zgVttRetargetOpenDrawer==='function'\)w\.zgVttRetargetOpenDrawer\(heroUid\)/, 'selecting a hero delegates bag retargeting to the shared open-drawer guard');
 assert.doesNotMatch(tokenSelectBlock, /zgGmInterventionOpen/, 'left-click token selection must not open or retarget the GM control panel');
 assert.match(network, /increment:\s*databaseModule\.increment/);
 assert.match(html, /class="zg-gm-target-card"/);
@@ -432,7 +432,7 @@ assert.match(html, /@media\(max-width:700px\)\{\.zg-gm-intervention/);
 assert.match(html, /function animateGmAdjustmentVisual/);
 assert.match(html, /state&&state\.room&&state\.room\.manualEvent/);
 assert.match(html, /event\.statusEnabled\?'gm-status-add':'gm-status-remove'/);
-assert.match(html, /event\.visibility===\'gm\'.*adjustmentSession\.role!==\'master\'/, 'player clients skip hidden status labels, FX and sounds');
+assert.match(html, /event\.visibility==='gm'&&!presentationIsMaster\(adjustmentSession\)/, 'player clients and GM player-preview skip hidden status labels, FX and sounds');
 assert.match(html, /className='zg-gm-particles '/);
 assert.match(html, /@keyframes zgGmDamageAvatar/);
 assert.match(html, /@keyframes zgGmHealAvatar/);
@@ -696,7 +696,7 @@ assert.ok(
   drawerRenderBlock.lastIndexOf('bagCalApply()') > drawerRenderBlock.indexOf("nextBodyHtml = inventoryPanel()"),
   'saved backpack calibration must be applied after inventory markup is rendered'
 );
-assert.match(html, /function bagCalCanEdit\(\)\{\s*var session=state&&state\.session;\s*return !session\|\|session\.role==='master';\s*\}/);
+assert.match(html, /function bagCalCanEdit\(\)\{\s*var session=state&&state\.session;\s*return \(!session\|\|session\.role==='master'\)&&w\.zgGmVisionMode!=='players';\s*\}/);
 assert.match(html, /function bagCalSyncAccess\(\)[\s\S]*?panel\.hidden=!allowed;[\s\S]*?button\.hidden=!allowed;[\s\S]*?drawer\.classList\.remove\('calibrating'\)/);
 assert.match(html, /w\.zgBagCalToggle=function\(ev,force\)\{[\s\S]*?if\(!bagCalSyncAccess\(\)\)return false;/);
 assert.ok(
@@ -777,8 +777,8 @@ assert.match(html, /drawer\.classList\.remove\('open','closing'\)/);
 assert.match(html, /playerDockAction==='inventory'\|\|playerDockAction==='abilities'/);
 assert.match(html, /function combatToolbarSheetToken\(controlled,session\)/);
 assert.match(html, /var contextSheetButton=creatureSheet\?/);
-assert.match(html, /<b>Лист существа<\/b><small>HP, состояние, статусы<\/small>/);
-assert.match(html, /<b>Сумка героя<\/b><small>'\+\(session&&session\.role==='master'\?'выбранный герой':'ваши вещи'\)/);
+assert.match(html, /vttLocaleText\('Лист существа','Лист істоти'\)[\s\S]*vttLocaleText\('HP, предметы, статусы','HP, предмети, стани'\)/);
+assert.match(html, /<b>Сумка героя<\/b><small>'\+\(masterSurface\?'выбранный герой':'ваши вещи'\)/);
 assert.match(html, /'\+contextSheetButton\+\(controlled&&controlled\.concentration\?/,
   'combat exposes one context-sensitive creature sheet or hero bag control');
 assert.doesNotMatch(html, /creatureSheetButton\+inventoryButton/,
@@ -859,12 +859,16 @@ function resolveMasterDrawerMember(selectedUid) {
     state:{session:{role:'master',uid:'gm'}},
     activePanel:'inventory',
     drawerMemberUid:'',
+    drawerTokenId:'',
     selectedMemberUid:'',
     w:{zgSelectedHeroMemberUid:selectedUid||''},
     draft:{view:{}},
     roomMembers:function(){ return [{uid:'gm',role:'master'}].concat(roomHeroes); },
     heroMembers:function(){ return roomHeroes; },
     ownMember:function(){ return {uid:'gm',role:'master'}; },
+    drawerSceneEntity:function(){ return null; },
+    presentationSession:function(session){ return session; },
+    presentationIsMaster:function(session){ return !!(session&&session.role==='master'); },
     String:String
   };
   vm.runInNewContext(drawerMemberSource + '; result=drawerMember();', context);
@@ -889,6 +893,7 @@ function renderCharacterStats(member, localCharacter, displayStatuses) {
       zgInjuryIconMarkup:function(injury){ return '<img class="zg-injury-icon" src="'+injury.iconPath+'" alt="">'; }
     },
     fullLocalCharacter:function(){ return localCharacter || null; },
+    presentationIsMaster:function(session){ return !!(session&&session.role==='master'); },
     drawerPublicViewer:function(){ return false; },
     currentVttSceneView:function(){ return {}; },
     combatBloodVariant:function(){ return 'blood-variant-a'; },
@@ -978,9 +983,9 @@ assert.match(abilitiesBlock, /<header><h3>Врождённые навыки<\/h3
 assert.match(abilitiesBlock, /<h3>Полученные заклинания<\/h3>/);
 assert.match(abilitiesBlock, /aria-label="Поиск полученных заклинаний"/);
 assert.match(abilitiesBlock, /aria-label="Фильтры полученных заклинаний"/);
-assert.match(abilitiesBlock, /title="Боевые кодексы" aria-label="Боевые кодексы"/);
-assert.match(abilitiesBlock, /title="Фолианты" aria-label="Фолианты"/);
-assert.match(abilitiesBlock, /title="Обрядники" aria-label="Обрядники"/);
+assert.match(abilitiesBlock, /title="Боевые кодексы" aria-label="Боевые кодексы: '\+spellTypeCounts\.kodex/);
+assert.match(abilitiesBlock, /title="Фолианты" aria-label="Фолианты: '\+spellTypeCounts\.folio/);
+assert.match(abilitiesBlock, /title="Обрядники" aria-label="Обрядники: '\+spellTypeCounts\.obrad/);
 assert.doesNotMatch(abilitiesBlock, /<small>ПОЗИЦИИ И НАВЫКИ<\/small>|<small>ЛИМИТЫ ИЗ МАНУАЛА<\/small>/);
 assert.match(abilitiesBlock, /function compactInnateName\(card\)/);
 assert.match(abilitiesBlock, /function compactInnateType\(card\)/);
@@ -1152,6 +1157,8 @@ var journalPanelContext = {
   journalPage: 0,
   journalSelectedId: '',
   state: { session:{ uid:'player-1', role:'player' } },
+  presentationSession:function(session){ return session; },
+  presentationIsMaster:function(session){ return !!(session&&session.role==='master'); },
   drawerMember:function(){ return {uid:'player-1',character:{
     currentGoal:'Найти руины',
     goals:[{title:'Вернуть печать',status:'Новая'}],

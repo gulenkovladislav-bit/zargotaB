@@ -41,6 +41,7 @@ assert.ok(abilityHelperStart >= 0 && abilityHelperEnd > abilityHelperStart, 'abi
 assert.match(abilityHelper, /tone==='heal'\)return'heal'/, 'healing abilities use the healing preset');
 assert.match(abilityHelper, /\/огн\|fire\|плам\//, 'fire abilities use the fire preset');
 assert.match(abilityHelper, /animation==='fire-projectile-v1'\)return'fire-projectile'/, 'the reviewed fireball keeps projectile travel separate from its impact');
+assert.match(abilityHelper, /animation==='rot-ray-v1'\)return'rot-ray'/, 'the reviewed rot ray keeps its own synchronized beam preset');
 assert.match(abilityHelper, /return'arcane'/, 'other abilities have a stable arcane fallback');
 assert.match(abilityHelper, /channel='ability-particles'.*claimCombatPlaybackEvent\(event,channel\)/s, 'ability particles are exactly-once');
 assert.match(abilityHelper, /areaMode!=='manual'&&anchorPoint\?\[anchorPoint\]:points\.slice\(0,maxTargets\)/, 'large areas own one primary Canvas burst while manual multi-target effects remain bounded');

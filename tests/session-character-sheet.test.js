@@ -9,13 +9,14 @@ var html = fs.readFileSync(path.resolve(__dirname, '..', 'index.html'), 'utf8');
 var clickStart = html.indexOf('w.zgVttPartyClick = function');
 var clickEnd = html.indexOf('function renderJournal', clickStart);
 var clickBlock = html.slice(clickStart, clickEnd);
-assert.match(clickBlock, /session&&session\.role==='master'/);
+assert.match(clickBlock, /presentationIsMaster\(session\)/);
+assert.doesNotMatch(clickBlock, /viewSession&&viewSession\.role==='master'/, 'player preview must not enter the master portrait branch');
 assert.doesNotMatch(clickBlock, /gmPanel\.classList\.contains\('open'\).*gmPanel\.classList\.contains\('minimized'\)/, 'left click never inherits the GM intervention panel as its target');
 assert.match(html, /w\.zgVttPartyContextMenu=function\(event,uid\)[\s\S]*?zgGmInterventionOpenToken\(heroToken\.id,'entity'\)/, 'right click alone opens the GM intervention panel for the matching hero token');
 assert.match(clickBlock, /zgVttOpenPanelForMember\('character',uid,\{toggle:false\}\)/);
 assert.match(clickBlock, /keepPanel.*\['character','inventory','abilities','journal'\]/, 'an open hero bag keeps its current tab when another hero is selected');
 assert.match(clickBlock, /zgVttOpenPanelForMember\(keepPanel,uid,\{toggle:false\}\)/, 'selecting another portrait replaces the open bag contents instead of closing or resetting it');
-assert.match(clickBlock, /session&&session\.role==='player'&&String\(session\.uid\)===String\(uid\)/);
+assert.match(clickBlock, /viewSession&&viewSession\.role==='player'&&String\(viewSession\.uid\)===String\(uid\)/);
 assert.match(clickBlock, /zgVttOpenPanel\('character',\{toggle:true,resetMember:true\}\)/);
 assert.ok(
   clickBlock.indexOf("zgVttOpenPanelForMember('character',uid,{toggle:false})") >= 0,
@@ -50,7 +51,7 @@ var journalBlock = html.slice(journalStart, journalEnd);
 assert.match(journalBlock, /seenJournalEventIds/, 'journal keeps an exactly-once registry for replicated room messages');
 assert.match(journalBlock, /if\(seenJournalEventIds\[eventId\]\)return false/, 'the same Firebase event id renders only once even when copied to every member inbox');
 assert.match(journalBlock, /room\.manualEvent && room\.manualEvent\.ts/, 'manual events remain available to the GM journal without player inbox replication');
-assert.match(journalBlock, /event\.visibility==='gm'.*session\.role!=='master'/, 'GM-only journal events never render for a player client');
+assert.match(journalBlock, /event\.visibility==='gm'.*!presentationIsMaster\(session\)/, 'GM-only journal events never render for a player presentation');
 
 var sheetStart = html.indexOf('//   ЛИСТ ПЕРСОНАЖА');
 var sheetEnd = html.indexOf('//   КУБИК СНИЗУ', sheetStart);
@@ -141,6 +142,16 @@ assert.strictEqual(
   /var activeStatuses=collectDisplayStatuses\(/.test(html),
   false,
   'character drawer must not call a status helper hidden inside another IIFE'
+);
+assert.match(
+  html,
+  /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] \.zg-state-left h3\{[\s\S]*?flex:0 0 auto;[\s\S]*?line-height:1\.34;[\s\S]*?-webkit-line-clamp:2;/,
+  'a two-line hero name must keep its own height instead of collapsing into the metadata row'
+);
+assert.match(
+  html,
+  /\.zg-vtt-drawer\.backpack-skin\[data-backpack-skin="hero"\] \.zg-state-left>p\{[\s\S]*?flex:0 0 auto;[\s\S]*?line-height:1\.38;/,
+  'race, class and level metadata must keep a separate readable line box'
 );
 
 assert.match(html, /id="chars-btn-back" onclick="zgCharBack\(\)"/);

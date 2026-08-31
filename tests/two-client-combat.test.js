@@ -30,6 +30,18 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function findUndefinedPath(value, prefix) {
+  if (value === undefined) return prefix || '<root>';
+  if (typeof value === 'number' && !Number.isFinite(value)) return prefix || '<root>';
+  if (!value || typeof value !== 'object') return '';
+  for (const key of Object.keys(value)) {
+    if (!key || /[.#$\[\]\/]/.test(key)) return prefix ? `${prefix}.${key}` : key;
+    const found = findUndefinedPath(value[key], prefix ? `${prefix}.${key}` : key);
+    if (found) return found;
+  }
+  return '';
+}
+
 function splitPath(value) {
   return String(value || '').split('/').filter(Boolean);
 }
@@ -83,6 +95,16 @@ function createSharedFirebase(seed) {
       return Promise.resolve();
     }
     function update(target, values) {
+      const updatePaths = Object.keys(values || {}).sort();
+      const invalidUpdatePath = updatePaths.find((relativePath) => relativePath.split('/').some((key) => !key || /[.#$\[\]]/.test(key)));
+      if (invalidUpdatePath) return Promise.reject(new Error(`Firebase update contains invalid path ${invalidUpdatePath}`));
+      const undefinedPath = updatePaths.map((relativePath) => findUndefinedPath(values[relativePath], `update.${relativePath}`)).find(Boolean);
+      if (undefinedPath) return Promise.reject(new Error(`Firebase update contains invalid data at ${undefinedPath}`));
+      for (let index = 1; index < updatePaths.length; index += 1) {
+        if (updatePaths[index].startsWith(`${updatePaths[index - 1]}/`)) {
+          return Promise.reject(new Error(`Firebase update path overlap: ${updatePaths[index - 1]} and ${updatePaths[index]}`));
+        }
+      }
       Object.keys(values || {}).forEach((relativePath) => {
         writeAt(data, [target.path, relativePath].filter(Boolean).join('/'), values[relativePath]);
       });
@@ -160,7 +182,8 @@ function createClient(shared, uid, role, roomCode) {
     __testDb:{},
     __testFirebase:shared.client(uid),
     ZargotaSyncOutbox:syncOutbox,
-    ZargotaSpellAutomation:spellAutomation
+    ZargotaSpellAutomation:spellAutomation,
+    getStatusMechanics:() => [{key:'poison',label:'Отравлен',labelUk:'Отруєний',icon:'☠',color:'#7ea34b',durationUnit:'manual',attackDisadvantage:true,abilityCheckDisadvantage:true,autoRemove:'save_dc',saveDC:14,saveStat:'con'}]
   };
   context.window = context;
   context.globalThis = context;
@@ -467,11 +490,11 @@ async function expectCode(operation, code) {
     hpMax:12,
     tempHp:0,
     ac:0,
-    stats:{ str:0, dex:0 },
+    stats:{ str:2, dex:0 },
     weaponProfiles:[{
       id:'enemy-claw',
       name:'Коготь',
-      damageFormula:'1d4',
+      damageFormula:'1d4+1',
       damageType:'Рубящий',
       range:'1 клетка',
       stat:'str'
@@ -795,9 +818,9 @@ async function expectCode(operation, code) {
     weaponId:'enemy-claw',
     statKey:'str'
   }, `token:${enemyTokenId}`);
-  assert.strictEqual(snapshot.room.combatEvent.damage, 3, '1d4 creature damage must remain non-zero');
+  assert.strictEqual(snapshot.room.combatEvent.damage, 4, 'an explicit +1 in a creature formula must not add Strength a second time');
   assert.strictEqual(snapshot.room.combat.order[0].tempHp, 0, 'temporary HP absorbs creature damage first');
-  assert.strictEqual(snapshot.room.combat.order[0].hp, 13, 'remaining creature damage reaches hero HP');
+  assert.strictEqual(snapshot.room.combat.order[0].hp, 12, 'remaining creature damage reaches hero HP');
   assert.strictEqual(
     snapshot.room.members[playerUid].character.hpCur,
     snapshot.room.combat.order[0].hp,
@@ -863,9 +886,9 @@ async function expectCode(operation, code) {
   assert.strictEqual(snapshot.room.combatEvent.statusTicks.length, 1, 'authoritative turn event exposes one structured status impact');
   assert.strictEqual(snapshot.room.combatEvent.statusTicks[0].statusKey, 'poison');
   assert.strictEqual(snapshot.room.combatEvent.targetKey, `member:${playerUid}`);
-  assert.strictEqual(snapshot.room.combatEvent.beforeHp, 13, 'presentation event preserves HP until its reveal boundary');
+  assert.strictEqual(snapshot.room.combatEvent.beforeHp, 12, 'presentation event preserves HP until its reveal boundary');
   assert.ok(snapshot.room.combatEvent.revealAt > snapshot.room.combatEvent.ts);
-  assert.strictEqual(snapshot.room.combat.order[0].hp, 12, 'status damage is committed once in authoritative combat state');
+  assert.strictEqual(snapshot.room.combat.order[0].hp, 11, 'status damage is committed once in authoritative combat state');
   assert.strictEqual(snapshot.room.combat.order[1].statusEffects[0].remainingRounds, 1, 'round status duration must decrease at the end of the affected turn');
 
   snapshot = await master.gmAdjustEntity({ memberUid:playerUid }, {
@@ -1243,6 +1266,10 @@ async function expectCode(operation, code) {
       [masterUid]:{uid:masterUid,role:'master',name:'ГМ'},
       [playerUid]:{uid:playerUid,role:'player',name:'Игрок',characterId:'spell-hero',character:{
         id:'spell-hero',name:'Арканист',hpCur:12,hpMax:16,ac:12,stats:{str:0,dex:1,int:2,cha:1,per:0,con:1},
+        weaponProfiles:[
+          {id:'spell-hero-blade',name:'Учебный двуручный меч',damageFormula:'1d6',damageType:'Рубящий',range:'1 клетка',stat:'str',slot:'mainHand',handsRequired:2},
+          {id:'spell-hero-crossbow',name:'Учебный арбалет',nameUk:'Навчальний арбалет',damageFormula:'1d8',damageType:'Колющий',range:'8 клеток',stat:'dex',slot:'ranged',handsRequired:2,family:'crossbow'}
+        ],
         spellRefs:reviewedSpellIds,spellsLearned:reviewedLearnedSpells,preparedSpells:{kodex:[],folio:[],obrad:[]},
         abilityUsage:{},statuses:[],statusEffects:[]
       }}
@@ -1255,7 +1282,10 @@ async function expectCode(operation, code) {
     ]},
     zones:{},
     combat:{active:true,phase:'combat',round:1,turnIndex:0,battleStartedAt:1787904000000,order:[
-      {key:spellHeroKey,uid:playerUid,tokenId:'spell-hero-token',kind:'hero',name:'Арканист',hp:12,hpMax:16,ac:12,stats:{str:0,dex:1,int:2,cha:1,per:0,con:1},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:6,movementMax:6}},
+      {key:spellHeroKey,uid:playerUid,tokenId:'spell-hero-token',kind:'hero',name:'Арканист',hp:12,hpMax:16,ac:12,stats:{str:0,dex:1,int:2,cha:1,per:0,con:1},weaponProfiles:[
+        {id:'spell-hero-blade',name:'Учебный двуручный меч',damageFormula:'1d6',damageType:'Рубящий',range:'1 клетка',stat:'str',slot:'mainHand',handsRequired:2},
+        {id:'spell-hero-crossbow',name:'Учебный арбалет',nameUk:'Навчальний арбалет',damageFormula:'1d8',damageType:'Колющий',range:'8 клеток',stat:'dex',slot:'ranged',handsRequired:2,family:'crossbow'}
+      ],statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:6,movementMax:6}},
       {key:'token:spell-ally',tokenId:'spell-ally',kind:'ally',name:'Союзный разведчик',nameUk:'Союзний розвідник',hp:4,hpMax:20,ac:11,stats:{str:1,dex:2,con:1},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:6,movementMax:6}},
       {key:spellEnemyAKey,tokenId:'spell-enemy-a',kind:'enemy',name:'Латник',hp:30,hpMax:30,ac:10,stats:{str:0,dex:0},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:5,movementMax:5}},
       {key:spellEnemyBKey,tokenId:'spell-enemy-b',kind:'enemy',name:'Ловкач',hp:30,hpMax:30,ac:12,stats:{str:1,dex:0},statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:6,movementMax:6}}
@@ -1286,24 +1316,54 @@ async function expectCode(operation, code) {
     assert.ok(catalogEntry, `${profile.automationKey} has a real catalog learning record`);
     const currentCharacter = spellShared.data.rooms[spellRoomCode].members[playerUid].character;
     if (currentCharacter.spellsLearned && currentCharacter.spellsLearned[spellId] === true) return;
-    let next = await spellPlayer.requestAction(`Хочет изучить «${profile.name}»`, 'spell-learning', '', {
-      spellId,
-      name:profile.name,
-      learnType:catalogEntry.learnType,
-      learnText:catalogEntry.learnText
-    });
-    const request = next.room.members[playerUid].actionRequest;
-    assert.strictEqual(request.actionKind, 'spell-learning', `${profile.automationKey} uses the legacy player learning request`);
-    assert.strictEqual(request.status, 'pending', `${profile.automationKey} waits for the GM decision`);
-    assert.strictEqual(request.learning.spellId, spellId, `${profile.automationKey} keeps the selected catalog spell id`);
-    assert.strictEqual(request.testByMaster, false, `${profile.automationKey} learning is submitted by the player rather than forged by the GM`);
-    next = await spellMaster.resolveAction(playerUid, true);
-    assert.strictEqual(next.room.members[playerUid].actionRequest.status, 'approved', `${profile.automationKey} receives the GM approval`);
-    assert.strictEqual(next.room.members[playerUid].character.spellsLearned[spellId], true, `${profile.automationKey} becomes learned only after approval`);
-    const approvalMessages = Object.values(next.room.members[playerUid].messages || {}).filter((message) => message && message.kind === 'action-approved' && String(message.text || '').includes(profile.name));
+    const successesRequired = Math.max(1, Number(profile.learningPlan && profile.learningPlan.checks && profile.learningPlan.checks[0] && profile.learningPlan.checks[0].successesRequired) || 1);
+    let next;
+    for (let attempt = 1; attempt <= successesRequired; attempt += 1) {
+      next = await spellPlayer.requestAction(`Хочет изучить «${profile.name}»`, 'spell-learning', '', {
+        spellId,
+        name:profile.name,
+        nameUk:profile.nameUk,
+        learnType:catalogEntry.learnType,
+        learnText:catalogEntry.learnText
+      });
+      const request = next.room.members[playerUid].actionRequest;
+      assert.strictEqual(request.actionKind, 'spell-learning', `${profile.automationKey} uses the legacy player learning request`);
+      assert.strictEqual(request.status, 'pending', `${profile.automationKey} waits for the GM decision`);
+      assert.strictEqual(request.learning.spellId, spellId, `${profile.automationKey} keeps the selected catalog spell id`);
+      assert.strictEqual(request.testByMaster, false, `${profile.automationKey} learning is submitted by the player rather than forged by the GM`);
+      next = await spellMaster.resolveAction(playerUid, true);
+      assert.strictEqual(next.room.members[playerUid].actionRequest.status, 'learning-roll-ready', `${profile.automationKey} receives a real learning check after GM approval`);
+      if (attempt > 1 && profile.learningPlan.retry && profile.learningPlan.retry.kind === 'break') {
+        assert.ok(next.room.members[playerUid].actionRequest.learning.breakConfirmedAt, `${profile.automationKey} records the GM-confirmed break between checks`);
+      }
+      next = await spellPlayer.rollSpellLearning(request.id);
+      let learningRequest = next.room.members[playerUid].actionRequest;
+      if (learningRequest.status === 'learning-failure-choice') {
+        const failure = learningRequest.learning.plan.failure || {};
+        const selected = (failure.damageFormulaChoices || [])[0] || ((failure.consequenceChoices || [])[0] || {}).key;
+        next = await spellMaster.prepareSpellLearningFailure(playerUid, selected);
+        learningRequest = next.room.members[playerUid].actionRequest;
+      }
+      if (learningRequest.status === 'learning-failure-roll-ready') {
+        next = await spellPlayer.rollSpellLearning(request.id);
+        learningRequest = next.room.members[playerUid].actionRequest;
+      }
+      assert.ok(['learning-roll-result','learning-failure-result'].includes(learningRequest.status), `${profile.automationKey} records the learning roll before applying it`);
+      next = await spellMaster.resolveSpellLearning(playerUid, {success:true});
+      if (attempt < successesRequired) {
+        assert.strictEqual(next.room.members[playerUid].actionRequest.status, 'learning-progress', `${profile.automationKey} keeps the first success as progress rather than learning early`);
+        assert.strictEqual(next.room.members[playerUid].character.spellsLearned[spellId], false, `${profile.automationKey} still needs the remaining successful check`);
+        assert.strictEqual(next.room.members[playerUid].character.spellLearningProgress[spellId].successCount, attempt);
+        next = await spellPlayer.acknowledgeAction(request.id);
+      } else {
+        assert.strictEqual(next.room.members[playerUid].actionRequest.status, 'approved', `${profile.automationKey} receives the reviewed learning outcome`);
+        await spellPlayer.acknowledgeAction(request.id);
+      }
+    }
+    assert.strictEqual(next.room.members[playerUid].character.spellsLearned[spellId], true, `${profile.automationKey} becomes learned only after the staged check`);
+    const approvalMessages = Object.values(next.room.members[playerUid].messages || {}).filter((message) => message && message.kind === 'action-approved' && String(message.text || '').includes('Заклинание изучено:') && String(message.text || '').includes(profile.name));
     assert.strictEqual(approvalMessages.length, 1, `${profile.automationKey} publishes one learning approval`);
-    next = await spellPlayer.acknowledgeAction(request.id);
-    assert.strictEqual(next.room.members[playerUid].actionRequest, undefined, `${profile.automationKey} learning request clears after player acknowledgement`);
+    assert.strictEqual(spellShared.data.rooms[spellRoomCode].members[playerUid].actionRequest, undefined, `${profile.automationKey} learning request clears after player acknowledgement`);
     reviewedLearningApprovals.add(profile.automationKey);
   }
   async function prepareReviewedSpell(profile) {
@@ -1376,6 +1436,400 @@ async function expectCode(operation, code) {
   assert.strictEqual(canonicalRequest.ability.rangeCells, 1, 'the network restores the reviewed catalog range');
   await spellMaster.resolveAction(playerUid, false);
   await spellPlayer.acknowledgeAction(canonicalRequest.id);
+
+  const retaliationProfile = spellAutomation.catalog().find((profile) => profile.automationKey === 'retaliation-spike-v1');
+  const retaliationCatalogEntry = reviewedCatalogEntries.get(String(retaliationProfile.catalogId));
+  let retaliationLearning = await spellPlayer.requestAction('Пробует изучить «Ответный Шип»', 'spell-learning', '', {
+    spellId:String(retaliationProfile.catalogId),name:retaliationProfile.name,nameUk:retaliationProfile.nameUk,learnType:retaliationCatalogEntry.learnType,learnText:retaliationCatalogEntry.learnText
+  });
+  const failedRetaliationLearningId = retaliationLearning.room.members[playerUid].actionRequest.id;
+  retaliationLearning = await spellMaster.resolveAction(playerUid, true);
+  queueDeterministicRandom(0);
+  retaliationLearning = await spellPlayer.rollSpellLearning(failedRetaliationLearningId);
+  assert.strictEqual(retaliationLearning.room.members[playerUid].actionRequest.status, 'learning-failure-choice', 'a failed Retaliation Spike check waits for the catalog consequence choice');
+  retaliationLearning = await spellMaster.prepareSpellLearningFailure(playerUid, 'fatigue-next-check');
+  assert.strictEqual(retaliationLearning.room.members[playerUid].actionRequest.status, 'learning-roll-result', 'the non-damage consequence does not invent an extra die');
+  retaliationLearning = await spellMaster.resolveSpellLearning(playerUid, {success:false});
+  assert.strictEqual(retaliationLearning.room.members[playerUid].character.hpCur, 12, 'choosing fatigue does not also apply the alternative HP loss');
+  assert.strictEqual(retaliationLearning.room.members[playerUid].character.spellLearningEffects[0].amount, -1, 'fatigue applies -1 to the next learning check');
+  await spellPlayer.acknowledgeAction(failedRetaliationLearningId);
+  retaliationLearning = await spellPlayer.requestAction('Повторяет обучение после перерыва', 'spell-learning', '', {
+    spellId:String(retaliationProfile.catalogId),name:retaliationProfile.name,nameUk:retaliationProfile.nameUk,learnType:retaliationCatalogEntry.learnType,learnText:retaliationCatalogEntry.learnText
+  });
+  const overstrainLearningId = retaliationLearning.room.members[playerUid].actionRequest.id;
+  retaliationLearning = await spellMaster.resolveAction(playerUid, true);
+  queueDeterministicRandom(0);
+  retaliationLearning = await spellPlayer.rollSpellLearning(overstrainLearningId);
+  assert.strictEqual(retaliationLearning.room.members[playerUid].actionRequest.learningResult.modifier, 0, 'the next CON learning check includes the one-shot -1 fatigue penalty');
+  assert.ok(!retaliationLearning.room.members[playerUid].character.spellLearningEffects.some((effect) => effect && effect.until === 'next-learning-check'), 'the one-shot learning penalty is consumed after that check');
+  retaliationLearning = await spellMaster.prepareSpellLearningFailure(playerUid, 'overstrain-hp');
+  retaliationLearning = await spellMaster.resolveSpellLearning(playerUid, {success:false});
+  assert.strictEqual(retaliationLearning.room.members[playerUid].character.hpCur, 11, 'choosing overstrain applies exactly the alternative 1 HP loss');
+  assert.strictEqual(retaliationLearning.room.members[playerUid].character.spellLearningEffects.length, 0, 'the HP consequence does not also apply fatigue');
+  await spellPlayer.acknowledgeAction(overstrainLearningId);
+  await readyReviewedSpell(retaliationProfile);
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningProgress[String(retaliationProfile.catalogId)].successCount, 2, 'two separate CON successes are required');
+  assert.ok(!spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningEffects.some((effect) => effect && effect.until === 'next-learning-check'), 'the fatigue penalty is consumed exactly by the next learning check');
+  await expectCode(() => spellPlayer.requestAction('Пытается вручную применить «Ответный Шип»', 'ability', '', reviewedSpellDetails('retaliation-spike-v1')), 'spell-trigger-only');
+
+  spellShared.data.rooms[spellRoomCode].combat.order[0].hp = 16;
+  spellShared.data.rooms[spellRoomCode].members[playerUid].character.hpCur = 16;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-hero-token').hp = 16;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 23;
+  async function enemyHitsRetaliationHero(operationSuffix) {
+    spellShared.data.rooms[spellRoomCode].combat.turnIndex = 2;
+    const enemy = spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey);
+    const hero = spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellHeroKey);
+    enemy.economy.long = 1;
+    hero.economy.reaction = 1;
+    queueDeterministicRandom(0.75);
+    let next = await spellMaster.resolveCombatAttack(spellHeroKey, {operationId:`retaliation-enemy-hit-${operationSuffix}`,weaponId:'unarmed',statKey:'str'}, spellEnemyAKey);
+    assert.strictEqual(next.room.combatEvent.hit, true, 'the incoming hit reaches the damage trigger');
+    queueDeterministicRandom(0.25);
+    return spellMaster.resolveCombatDamage(spellHeroKey, {operationId:`retaliation-enemy-damage-${operationSuffix}`,weaponId:'unarmed',statKey:'str'}, spellEnemyAKey);
+  }
+  let retaliationSnapshot = await enemyHitsRetaliationHero('first');
+  const firstRetaliationRequest = retaliationSnapshot.room.members[playerUid].reactionRequest;
+  assert.strictEqual(firstRetaliationRequest.automationKey, 'retaliation-spike-v1', 'actual post-mitigation damage opens the automatic player choice');
+  assert.strictEqual(firstRetaliationRequest.weaponId, 'spell-hero-blade', 'the reaction selects the main-hand weapon rather than the unarmed fallback');
+  assert.strictEqual(firstRetaliationRequest.targetKey, spellEnemyAKey, 'the counterattack points back to the damage source');
+  assert.ok(!retaliationSnapshot.room.members[playerUid].character.abilityUsage['spell-1773672381766'], 'the prompt does not spend a use before player consent');
+  await expectCode(() => spellMaster.advanceCombat({operationId:'retaliation-blocked-turn'}), 'reaction-decision-required');
+  const firstPromptId = firstRetaliationRequest.id;
+  retaliationSnapshot = await spellMaster.resolveCombatDamage(spellHeroKey, {operationId:'retaliation-enemy-damage-first',weaponId:'unarmed',statKey:'str'}, spellEnemyAKey);
+  assert.strictEqual(retaliationSnapshot.room.members[playerUid].reactionRequest.id, firstPromptId, 'replaying the same damage operation does not create a second prompt');
+  retaliationSnapshot = await spellPlayer.answerCombatReaction(firstPromptId, true);
+  const firstExecutionId = retaliationSnapshot.room.combat.pendingPreparedAction.id;
+  assert.strictEqual(retaliationSnapshot.room.members[playerUid].character.abilityUsage['spell-1773672381766'].used, 1, 'accepting atomically spends one battle use');
+  assert.strictEqual(retaliationSnapshot.room.combat.order[0].economy.reaction, 0, 'accepting atomically spends the round reaction');
+  assert.strictEqual(retaliationSnapshot.room.combat.order[0].longActionDebt.count, 1, 'accepting records the next-turn action debt without a fake status');
+  retaliationSnapshot = await spellPlayer.answerCombatReaction(firstPromptId, true);
+  assert.strictEqual(retaliationSnapshot.room.members[playerUid].character.abilityUsage['spell-1773672381766'].used, 1, 'a duplicate accepted answer cannot spend another use');
+  assert.strictEqual(retaliationSnapshot.room.combat.pendingPreparedAction.id, firstExecutionId, 'a duplicate answer preserves one counterattack execution');
+  queueDeterministicRandom(0.75);
+  retaliationSnapshot = await spellMaster.resolveCombatAttack(spellEnemyAKey, {operationId:'retaliation-counter-hit',preparedExecutionId:firstExecutionId,weaponId:'unarmed',statKey:'str'}, spellHeroKey);
+  assert.strictEqual(retaliationSnapshot.room.combatEvent.weapon, 'Учебный двуручный меч', 'the resolver keeps the canonical main weapon even if another weapon is submitted');
+  assert.strictEqual(retaliationSnapshot.room.combat.order[0].economy.long, 1, 'the off-turn counterattack does not spend the current long-action pool');
+  queueDeterministicRandom(0.5);
+  const enemyHpBeforeCounter = retaliationSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyAKey).hp;
+  retaliationSnapshot = await spellMaster.resolveCombatDamage(spellEnemyAKey, {operationId:'retaliation-counter-damage',weaponId:'unarmed',statKey:'str'}, spellHeroKey);
+  assert.ok(retaliationSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyAKey).hp < enemyHpBeforeCounter, 'the accepted reaction completes the ordinary weapon damage path');
+  await spellPlayer.acknowledgeCombatReaction(firstPromptId);
+  retaliationSnapshot = await spellMaster.advanceCombat({operationId:'retaliation-to-enemy-b'});
+  retaliationSnapshot = await spellMaster.advanceCombat({operationId:'retaliation-to-hero'});
+  assert.strictEqual(retaliationSnapshot.room.combat.order[0].economy.long, 0, 'the next own turn loses its main action');
+  assert.strictEqual(retaliationSnapshot.room.combat.order[0].longActionDebt, null, 'the action debt is consumed once and is not stored as a lasting condition');
+
+  retaliationSnapshot = await enemyHitsRetaliationHero('second');
+  const secondRetaliationRequest = retaliationSnapshot.room.members[playerUid].reactionRequest;
+  retaliationSnapshot = await spellPlayer.answerCombatReaction(secondRetaliationRequest.id, true);
+  assert.strictEqual(retaliationSnapshot.room.members[playerUid].character.abilityUsage['spell-1773672381766'].used, 2, 'the second accepted trigger reaches the 2-per-battle limit');
+  await spellMaster.cancelPendingPreparedAction(retaliationSnapshot.room.combat.pendingPreparedAction.id);
+  await spellPlayer.acknowledgeCombatReaction(secondRetaliationRequest.id);
+  retaliationSnapshot = await enemyHitsRetaliationHero('exhausted');
+  assert.ok(!retaliationSnapshot.room.members[playerUid].reactionRequest, 'a third damage event in the same battle does not offer an exhausted reaction');
+  reviewedPlayerCasts.add('retaliation-spike-v1');
+  spellShared.data.rooms[spellRoomCode].combat.turnIndex = 0;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').hp = 30;
+
+  const sweepingProfile = spellAutomation.catalog().find((profile) => profile.automationKey === 'sweeping-strike-v1');
+  const sweepingCatalogEntry = reviewedCatalogEntries.get(String(sweepingProfile.catalogId));
+  let sweepingSnapshot = await spellPlayer.requestAction('Пробует изучить «Размашистый удар»', 'spell-learning', '', {
+    spellId:String(sweepingProfile.catalogId),name:sweepingProfile.name,nameUk:sweepingProfile.nameUk,learnType:sweepingCatalogEntry.learnType,learnText:sweepingCatalogEntry.learnText
+  });
+  const failedSweepingLearningId = sweepingSnapshot.room.members[playerUid].actionRequest.id;
+  sweepingSnapshot = await spellMaster.resolveAction(playerUid, true);
+  queueDeterministicRandom(0);
+  sweepingSnapshot = await spellPlayer.rollSpellLearning(failedSweepingLearningId);
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].actionRequest.status, 'learning-roll-result', 'the failed STR check has no invented consequence choice');
+  sweepingSnapshot = await spellMaster.resolveSpellLearning(playerUid, {success:false});
+  const sweepingFailureEffects = sweepingSnapshot.room.members[playerUid].character.spellLearningEffects;
+  assert.deepStrictEqual(Array.from(sweepingFailureEffects).map((effect) => [effect.kind,effect.amount,effect.until]), [
+    ['attack-penalty',-1,'next-attack'],['initiative-penalty',-1,'rest']
+  ], 'the catalog learning failure applies its two narrow temporary effects');
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].character.spellLearningProgress[String(sweepingProfile.catalogId)].retryBlocked, false, 'the next learning check is immediately available as written');
+  assert.ok(!sweepingSnapshot.room.members[playerUid].character.statuses.includes('exhausted'), 'the narrow initiative penalty does not become canonical Exhaustion');
+  assert.ok(!sweepingSnapshot.room.combat.order[0].statuses.includes('exhausted'), 'combat status synchronization also remains free of invented Exhaustion');
+  assert.match(sweepingSnapshot.room.combatEvent.text, /−1 к следующей атаке.*Следующую проверку можно выполнить сразу/, 'the Russian public result explains both penalties and the immediate retry');
+  assert.match(sweepingSnapshot.room.combatEvent.textUk, /−1 до наступної атаки.*Наступну перевірку можна виконати одразу/, 'the Ukrainian public result explains both penalties and the immediate retry');
+  assert.strictEqual(sweepingSnapshot.room.combatEvent.temporaryEffects.length, 2);
+  await spellPlayer.acknowledgeAction(failedSweepingLearningId);
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0.75, 0.75);
+  await readyReviewedSpell(sweepingProfile);
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningProgress[String(sweepingProfile.catalogId)].successCount, 2, 'two successful STR checks are required after the failed attempt');
+
+  const spellCharacter = spellShared.data.rooms[spellRoomCode].members[playerUid].character;
+  spellCharacter.equipItems = [{instanceId:'sweep-charm',id:'sweep-charm',name:'Балансир клинка',equipped:true,effects:[
+    {id:'balance',operation:'add-attack-bonus',value:1,frequency:'passive'},
+    {id:'heavy-edge',operation:'add-damage-dice',dice:'1d4',frequency:'combat',charges:1}
+  ]}];
+  spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long = 1;
+  const forgedSweepingDetails = reviewedSpellDetails('sweeping-strike-v1', {
+    weaponId:'spell-hero-blade',weaponName:'Поддельное оружие',attackStat:'int',damageFormula:'99d100',damageType:'void',
+    targeting:{mode:'token',tokenIds:['spell-enemy-a','spell-enemy-b'],targetKeys:[spellEnemyAKey,spellEnemyBKey],targetNames:['Латник','Ловкач']}
+  });
+  sweepingSnapshot = await spellPlayer.requestAction('Проверяет дальние цели «Размашистого удара»', 'ability', '', forgedSweepingDetails);
+  const invalidSweepingRequestId = sweepingSnapshot.room.members[playerUid].actionRequest.id;
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].actionRequest.ability.weaponName, 'Учебный двуручный меч', 'Firebase restores the equipped weapon instead of trusting submitted labels');
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].actionRequest.ability.attackStat, 'str');
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].actionRequest.ability.damageFormula, '1d6');
+  await expectCode(() => spellMaster.prepareCombatAbilityWorkflow(playerUid, [spellEnemyAKey, spellEnemyBKey], {}), 'combat-target-invalid');
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long, 1, 'invalid target geometry does not spend the long action');
+  assert.ok(!spellShared.data.rooms[spellRoomCode].members[playerUid].character.abilityUsage['spell-1773672646696'], 'invalid target geometry does not spend the battle use');
+  await spellMaster.resolveAction(playerUid, false);
+  await spellPlayer.acknowledgeAction(invalidSweepingRequestId);
+
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 23;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').x = 21;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyBKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').hp = 30;
+  spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long = 1;
+  forgedSweepingDetails.operationId = 'reviewed-sweeping-strike-valid';
+  sweepingSnapshot = await spellPlayer.requestAction('Применяет «Размашистый удар»', 'ability', '', forgedSweepingDetails);
+  const sweepingRequestId = sweepingSnapshot.room.members[playerUid].actionRequest.id;
+  sweepingSnapshot = await spellMaster.prepareCombatAbilityWorkflow(playerUid, [spellEnemyAKey, spellEnemyBKey], {
+    formulaOverrides:{damage:'2d6'},itemModifierIds:['item-effect-sweep-charm-heavy-edge']
+  });
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].actionRequest.status, 'ability-workflow-roll-ready');
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0.5);
+  sweepingSnapshot = await spellPlayer.rollCombatAbilityStage(sweepingRequestId);
+  const sharedAttack = sweepingSnapshot.room.members[playerUid].actionRequest.abilityResolution.workflow.assignments.find((assignment) => assignment.stepKey === 'attack').result;
+  assert.strictEqual(sharedAttack.roll, 11);
+  assert.strictEqual(sharedAttack.learningAttackPenalty, -1, 'the failed-learning attack penalty is included in the first real attack');
+  assert.strictEqual(sharedAttack.itemBonus, 1, 'the equipped passive weapon accuracy bonus is included exactly once');
+  assert.strictEqual(sharedAttack.total, 11, 'the visible attack total includes both the penalty and item bonus');
+  assert.ok(!sweepingSnapshot.room.members[playerUid].character.spellLearningEffects.some((effect) => effect.until === 'next-attack'), 'the one-shot attack penalty is consumed by the shared attack roll');
+  assert.ok(sweepingSnapshot.room.members[playerUid].character.spellLearningEffects.some((effect) => effect.kind === 'initiative-penalty' && effect.until === 'rest'), 'the initiative penalty remains until a real rest');
+  sweepingSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0.34, 0.5, 0.25);
+  sweepingSnapshot = await spellPlayer.rollCombatAbilityStage(sweepingRequestId);
+  const sharedDamage = sweepingSnapshot.room.members[playerUid].actionRequest.abilityResolution.workflow.assignments.find((assignment) => assignment.stepKey === 'damage').result;
+  assert.strictEqual(sharedDamage.formula, '2d6', 'the GM can explicitly increase the weapon damage dice before rolling');
+  assert.deepStrictEqual(Array.from(sharedDamage.baseRolls), [3,4]);
+  assert.deepStrictEqual(Array.from(sharedDamage.rolls), [3,4,2], 'the synchronized roll list includes both base and item dice');
+  assert.deepStrictEqual(Array.from(sharedDamage.bonusRolls), [2], 'the selected once-per-battle item die is auditable separately');
+  assert.strictEqual(sharedDamage.total, 9);
+  sweepingSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].actionRequest.status, 'ability-workflow-result');
+  sweepingSnapshot = await spellMaster.resolveCombatAbility(playerUid, [spellEnemyAKey, spellEnemyBKey], {});
+  const sweepingResults = sweepingSnapshot.room.combatEvent.results;
+  assert.strictEqual(sweepingSnapshot.room.combatEvent.automationKey, 'sweeping-strike-v1');
+  assert.strictEqual(sweepingSnapshot.room.combatEvent.weapon, 'Учебный двуручный меч');
+  assert.deepStrictEqual(Array.from(sweepingSnapshot.room.combatEvent.targetKeys), [spellEnemyAKey,spellEnemyBKey]);
+  assert.strictEqual(sweepingSnapshot.room.combatEvent.sharedDamageRoll.total, 9);
+  assert.deepStrictEqual(Array.from(sweepingSnapshot.room.combatEvent.sharedDamageRoll.rolls), [3,4,2]);
+  assert.strictEqual(sweepingResults.find((result) => result.key === spellEnemyAKey).success, true, 'the shared total hits AC 10');
+  assert.strictEqual(sweepingResults.find((result) => result.key === spellEnemyAKey).damage, 5, 'odd shared damage is halved and rounded up for the hit target');
+  assert.strictEqual(sweepingResults.find((result) => result.key === spellEnemyBKey).success, false, 'the same shared total separately misses AC 12');
+  assert.strictEqual(sweepingResults.find((result) => result.key === spellEnemyBKey).damage, 0);
+  assert.strictEqual(sweepingSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyAKey).hp, 25);
+  assert.strictEqual(sweepingSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyBKey).hp, 30);
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].character.abilityUsage['spell-1773672646696'].used, 1);
+  assert.strictEqual(sweepingSnapshot.room.combat.order[0].economy.long, 0);
+  assert.strictEqual(sweepingSnapshot.room.members[playerUid].character.abilityUsage['item-effect-sweep-charm-heavy-edge'].used, 1, 'the selected item die is consumed exactly once in the same Firebase transaction');
+  assert.deepStrictEqual(Array.from(sweepingSnapshot.room.combatEvent.itemModifiers).map((item) => item.id).sort(), ['item-effect-sweep-charm-balance','item-effect-sweep-charm-heavy-edge']);
+  assert.deepStrictEqual(Array.from(sweepingSnapshot.room.combatEvent.results).flatMap((result) => result.statuses), [], 'the strike applies no invented statuses');
+  assert.strictEqual(sweepingSnapshot.room.combatEvent.animationKey, 'sweeping-strike-v1');
+  assert.strictEqual(sweepingSnapshot.room.combatEvent.soundProfile, 'weapon-impact');
+  assert.match(sweepingSnapshot.room.combatEvent.textUk, /спільну шкоду/, 'the synchronized result carries Ukrainian playback text');
+  reviewedPlayerCasts.add('sweeping-strike-v1');
+  await spellPlayer.acknowledgeAction(sweepingRequestId);
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').x = 38;
+
+  const stormProfile = spellAutomation.catalog().find((profile) => profile.automationKey === 'storm-arrow-v1');
+  const stormCatalogEntry = reviewedCatalogEntries.get(String(stormProfile.catalogId));
+  let stormSnapshot = await spellPlayer.requestAction('Пробует изучить «Стрелу-бурю»', 'spell-learning', '', {
+    spellId:String(stormProfile.catalogId),name:stormProfile.name,nameUk:stormProfile.nameUk,learnType:stormCatalogEntry.learnType,learnText:stormCatalogEntry.learnText
+  });
+  const failedStormLearningId = stormSnapshot.room.members[playerUid].actionRequest.id;
+  stormSnapshot = await spellMaster.resolveAction(playerUid, true);
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0);
+  stormSnapshot = await spellPlayer.rollSpellLearning(failedStormLearningId);
+  assert.strictEqual(stormSnapshot.room.members[playerUid].actionRequest.learningResult.stat, 'dex', 'storm learning chooses the better DEX/PER modifier');
+  stormSnapshot = await spellMaster.resolveSpellLearning(playerUid, {success:false});
+  const stormFailureEffects = stormSnapshot.room.members[playerUid].character.spellLearningEffects.filter((effect) => String(effect.spellId) === String(stormProfile.catalogId));
+  assert.deepStrictEqual(Array.from(stormFailureEffects).map((effect) => [effect.kind,effect.stat,effect.amount,effect.until]), [
+    ['learning-check-penalty','dex',-1,'next-learning-check'],
+    ['learning-check-penalty','per',-1,'next-learning-check'],
+    ['range-penalty','',-1,'next-battle']
+  ], 'the failed lesson records narrow check and next-battle range penalties without inventing a status');
+  assert.deepStrictEqual(Array.from(stormSnapshot.room.combat.order[0].statuses), [], 'storm learning consequences do not enter the official condition list');
+  const stormRangeEffect = stormFailureEffects.find((effect) => effect.kind === 'range-penalty');
+  await spellPlayer.acknowledgeAction(failedStormLearningId);
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0.75,0.75);
+  await readyReviewedSpell(stormProfile);
+  assert.ok(!spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningEffects.some((effect) => effect && effect.until === 'next-learning-check'), 'both one-shot learning penalties are consumed by the next DEX/PER check');
+  assert.ok(spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningEffects.some((effect) => effect && effect.kind === 'range-penalty'), 'the range penalty waits for the next battle rather than the next lesson');
+  spellShared.data.rooms[spellRoomCode].combat.battleStartedAt = Number(stormRangeEffect.createdAt) + 1;
+  spellShared.data.rooms[spellRoomCode].combat.turnIndex = 0;
+  const stormHero = spellShared.data.rooms[spellRoomCode].combat.order[0];
+  stormHero.economy = {long:1,short:1,reaction:1,movement:6,movementMax:6};
+  const stormEnemyAToken = spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a');
+  const stormEnemyBToken = spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b');
+  stormEnemyAToken.x = 44;stormEnemyAToken.y = 50;stormEnemyBToken.x = 44;stormEnemyBToken.y = 55;
+  const forgedStormDetails = reviewedSpellDetails('storm-arrow-v1', {
+    operationId:'reviewed-storm-arrow-range-check',weaponId:'spell-hero-crossbow',weaponName:'Поддельный лук',attackStat:'int',damageFormula:'99d100',damageType:'void',rangeCells:100,
+    targeting:{mode:'token',tokenIds:['spell-enemy-a','spell-enemy-b'],targetKeys:[spellEnemyAKey,spellEnemyBKey],targetNames:['Латник','Ловкач']}
+  });
+  stormSnapshot = await spellPlayer.requestAction('Проверяет штраф дальности «Стрелы-бури»', 'ability', '', forgedStormDetails);
+  const invalidStormRequestId = stormSnapshot.room.members[playerUid].actionRequest.id;
+  assert.strictEqual(stormSnapshot.room.members[playerUid].actionRequest.ability.weaponName, 'Учебный арбалет', 'Firebase restores the equipped ranged weapon rather than trusting a forged bow label');
+  assert.strictEqual(stormSnapshot.room.members[playerUid].actionRequest.ability.damageFormula, '1d8');
+  assert.strictEqual(stormSnapshot.room.members[playerUid].actionRequest.ability.attackStat, 'dex');
+  assert.strictEqual(stormSnapshot.room.members[playerUid].actionRequest.ability.rangeCells, 8, 'the canonical request keeps the weapon base range before combat context');
+  await expectCode(() => spellMaster.prepareCombatAbilityWorkflow(playerUid, [spellEnemyAKey,spellEnemyBKey], {}), 'combat-target-invalid');
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long, 1, 'the next-battle range rejection does not spend the long action');
+  await spellMaster.resolveAction(playerUid, false);
+  await spellPlayer.acknowledgeAction(invalidStormRequestId);
+
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 41;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').y = 50;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').x = 41;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').y = 55;
+  spellShared.data.rooms[spellRoomCode].combat.order[0].economy = {long:1,short:1,reaction:1,movement:6,movementMax:6};
+  forgedStormDetails.operationId = 'reviewed-storm-arrow-valid';
+  stormSnapshot = await spellPlayer.requestAction('Применяет «Стрелу-бурю» из арбалета', 'ability', '', forgedStormDetails);
+  const stormRequestId = stormSnapshot.room.members[playerUid].actionRequest.id;
+  stormSnapshot = await spellMaster.prepareCombatAbilityWorkflow(playerUid, [spellEnemyAKey,spellEnemyBKey], {formulaOverrides:{damage:'2d8'}});
+  assert.strictEqual(stormSnapshot.room.members[playerUid].actionRequest.ability.rangeCells, 7, 'the -1 range consequence applies only after the next battle begins');
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0.4,0.8);
+  stormSnapshot = await spellPlayer.rollCombatAbilityStage(stormRequestId);
+  const stormAttack = stormSnapshot.room.members[playerUid].actionRequest.abilityResolution.workflow.assignments.find((assignment) => assignment.stepKey === 'attack').result;
+  assert.deepStrictEqual(Array.from(stormAttack.rolls), [9,17], 'the shared storm attack rolls two d20');
+  assert.strictEqual(stormAttack.roll, 9, 'disadvantage keeps the lower d20');
+  assert.strictEqual(stormAttack.rollMode, 'disadvantage');
+  assert.strictEqual(stormAttack.itemBonus, 1, 'the equipped passive accuracy bonus is included once in the shared attack');
+  assert.strictEqual(stormAttack.total, 11);
+  stormSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  deterministicRandomValues.length = 0;
+  queueDeterministicRandom(0,0.125,0.75,0.875);
+  stormSnapshot = await spellPlayer.rollCombatAbilityStage(stormRequestId);
+  const stormDamage = stormSnapshot.room.members[playerUid].actionRequest.abilityResolution.workflow.assignments.find((assignment) => assignment.stepKey === 'damage').result;
+  assert.strictEqual(stormDamage.formula, '2d8', 'the GM can increase the storm weapon damage dice before the player rolls');
+  assert.deepStrictEqual(Array.from(stormDamage.baseRolls), [1,2]);
+  assert.deepStrictEqual(Array.from(stormDamage.discardedRolls), [7,8], 'the larger damage pool stays visible as discarded');
+  assert.strictEqual(stormDamage.rollMode, 'disadvantage');
+  assert.strictEqual(stormDamage.total, 4, 'DEX is added once after choosing the lower damage pool');
+  stormSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  stormSnapshot = await spellMaster.resolveCombatAbility(playerUid, [spellEnemyAKey,spellEnemyBKey], {});
+  const stormResults = stormSnapshot.room.combatEvent.results;
+  assert.strictEqual(stormSnapshot.room.combatEvent.weapon, 'Учебный арбалет');
+  assert.strictEqual(stormSnapshot.room.combatEvent.attackRollMode, 'disadvantage');
+  assert.strictEqual(stormSnapshot.room.combatEvent.damageRollMode, 'disadvantage');
+  assert.deepStrictEqual(Array.from(stormSnapshot.room.combatEvent.sharedDamageRoll.rolls), [1,2]);
+  assert.deepStrictEqual(Array.from(stormSnapshot.room.combatEvent.sharedDamageRoll.discardedRolls), [7,8]);
+  assert.strictEqual(stormResults.find((result) => result.key === spellEnemyAKey).success, true, 'the shared attack independently hits AC 10');
+  assert.strictEqual(stormResults.find((result) => result.key === spellEnemyAKey).damage, 4, 'the hit target receives the full lower pool, not half');
+  assert.strictEqual(stormResults.find((result) => result.key === spellEnemyBKey).success, false, 'the same shared attack independently misses AC 12');
+  assert.strictEqual(stormResults.find((result) => result.key === spellEnemyBKey).damage, 0);
+  assert.deepStrictEqual(Array.from(stormResults).flatMap((result) => result.statuses), [], 'storm arrow applies no custom or legacy condition');
+  assert.deepStrictEqual(stormSnapshot.room.combat.order[0].economy, {long:0,short:0,reaction:1,movement:0,movementMax:6}, 'absolute focus spends the long action and locks every remaining non-reaction option');
+  assert.strictEqual(stormSnapshot.room.combatEvent.turnLocked, true);
+  assert.strictEqual(stormSnapshot.room.combatEvent.animationKey, 'storm-arrow-v1');
+  assert.strictEqual(stormSnapshot.room.combatEvent.soundProfile, 'arrow');
+  assert.match(stormSnapshot.room.combatEvent.textUk, /Решту ходу заблоковано/, 'the synchronized result explains the turn lock in Ukrainian');
+  reviewedPlayerCasts.add('storm-arrow-v1');
+  await spellPlayer.acknowledgeAction(stormRequestId);
+
+  const rotProfile = spellAutomation.catalog().find((profile) => profile.automationKey === 'rot-ray-v1');
+  const rotCatalogEntry = reviewedCatalogEntries.get(String(rotProfile.catalogId));
+  const rotCharacter = spellShared.data.rooms[spellRoomCode].members[playerUid].character;
+  rotCharacter.stats.int = 1;rotCharacter.stats.cha = 1;
+  await expectCode(() => spellPlayer.requestAction('Пытается изучить «Луч Гнили» без нужной характеристики', 'spell-learning', '', {
+    spellId:String(rotProfile.catalogId),name:rotProfile.name,nameUk:rotProfile.nameUk,learnType:rotCatalogEntry.learnType,learnText:rotCatalogEntry.learnText
+  }), 'spell-learning-prerequisite');
+  rotCharacter.stats.int = 2;
+  let rotSnapshot = await spellPlayer.requestAction('Проводит первый ритуал «Луча Гнили»', 'spell-learning', '', {
+    spellId:String(rotProfile.catalogId),name:rotProfile.name,nameUk:rotProfile.nameUk,learnType:rotCatalogEntry.learnType,learnText:rotCatalogEntry.learnText
+  });
+  const failedRotLearningId = rotSnapshot.room.members[playerUid].actionRequest.id;
+  rotSnapshot = await spellMaster.resolveAction(playerUid, true);
+  deterministicRandomValues.length = 0;queueDeterministicRandom(0);
+  rotSnapshot = await spellPlayer.rollSpellLearning(failedRotLearningId);
+  assert.strictEqual(rotSnapshot.room.members[playerUid].actionRequest.learningResult.success, false, 'the failed CHA ritual is recorded before consequences');
+  rotSnapshot = await spellMaster.resolveSpellLearning(playerUid, {success:false});
+  const rotFailureEffects = rotSnapshot.room.members[playerUid].character.spellLearningEffects.filter((effect) => String(effect.spellId) === String(rotProfile.catalogId));
+  assert.deepStrictEqual(Array.from(rotFailureEffects).map((effect) => [effect.kind,effect.until]), [['one-eye-blind','rest'],['spell-disabled','rest']], 'the ritual failure records narrow rest-scoped consequences');
+  assert.ok(!rotSnapshot.room.combat.order[0].statuses.includes('blind'), 'one blind eye does not silently become the full official Blinded status');
+  await spellPlayer.acknowledgeAction(failedRotLearningId);
+  deterministicRandomValues.length = 0;queueDeterministicRandom(0.75);
+  await readyReviewedSpell(rotProfile);
+  await expectCode(() => spellPlayer.requestAction('Пытается применить «Луч Гнили» до отдыха', 'ability', '', reviewedSpellDetails('rot-ray-v1')), 'spell-disabled-until-rest');
+  spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningEffects = spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningEffects.filter((effect) => !effect || String(effect.spellId) !== String(rotProfile.catalogId) || String(effect.until) !== 'rest');
+  spellShared.data.rooms[spellRoomCode].combat.order[0].spellLearningEffects = spellShared.data.rooms[spellRoomCode].members[playerUid].character.spellLearningEffects.slice();
+  const rotEnemy = spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey);
+  const rotEnemyToken = spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a');
+  rotEnemy.hp = 30;rotEnemy.statuses = [];rotEnemy.statusEffects = [];rotEnemyToken.hp = 30;rotEnemyToken.x = 28;rotEnemyToken.y = 50;
+  spellShared.data.rooms[spellRoomCode].combat.order[0].economy = {long:1,short:1,reaction:1,movement:6,movementMax:6};
+  const forgedRotDetails = reviewedSpellDetails('rot-ray-v1', {
+    operationId:'reviewed-rot-ray-valid',attackStat:'int',saveStat:'dex',saveDC:99,damageFormula:'99d100',damageType:'void',rangeCells:100,maxUsesPerBattle:99,statuses:['blind'],
+    targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Латник',distanceCells:3}
+  });
+  rotSnapshot = await spellPlayer.requestAction('Применяет «Луч Гнили»', 'ability', '', forgedRotDetails);
+  const rotRequestId = rotSnapshot.room.members[playerUid].actionRequest.id;
+  const canonicalRot = rotSnapshot.room.members[playerUid].actionRequest.ability;
+  assert.deepStrictEqual([canonicalRot.attackStat,canonicalRot.saveStat,canonicalRot.saveDC,canonicalRot.damageFormula,canonicalRot.damageType,canonicalRot.maxUsesPerBattle], ['cha','con',13,'1d6','poison',1], 'Firebase restores every security-sensitive Rot Ray rule');
+  assert.deepStrictEqual(Array.from(canonicalRot.statuses), ['poison'], 'a forged legacy status is replaced by official Poisoned');
+  rotSnapshot = await spellMaster.prepareCombatAbilityWorkflow(playerUid, [spellEnemyAKey], {formulaOverrides:{damage:'2d6'}});
+  deterministicRandomValues.length = 0;queueDeterministicRandom(0.7);
+  rotSnapshot = await spellPlayer.rollCombatAbilityStage(rotRequestId);
+  rotSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  deterministicRandomValues.length = 0;queueDeterministicRandom(0.2,0.75);
+  rotSnapshot = await spellPlayer.rollCombatAbilityStage(rotRequestId);
+  const rotDamageRoll = rotSnapshot.room.members[playerUid].actionRequest.abilityResolution.workflow.assignments.find((assignment) => assignment.stepKey === 'damage').result;
+  assert.strictEqual(rotDamageRoll.formula, '2d6', 'the GM can increase the poison damage pool before the caster rolls');
+  assert.deepStrictEqual(Array.from(rotDamageRoll.rolls), [2,5]);
+  rotSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  deterministicRandomValues.length = 0;queueDeterministicRandom(0);
+  rotSnapshot = await spellMaster.rollCombatAbilityStage(rotRequestId, playerUid);
+  const rotSaveRoll = rotSnapshot.room.members[playerUid].actionRequest.abilityResolution.workflow.assignments.find((assignment) => assignment.stepKey === 'save').result;
+  assert.strictEqual(rotSaveRoll.success, false, 'the GM rolls the post-hit CON save for its creature');
+  rotSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  deterministicRandomValues.length = 0;queueDeterministicRandom(0.99);
+  rotSnapshot = await spellMaster.rollCombatAbilityStage(rotRequestId, playerUid);
+  rotSnapshot = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {accepted:true});
+  assert.strictEqual(rotSnapshot.room.members[playerUid].actionRequest.status, 'ability-workflow-result');
+  rotSnapshot = await spellMaster.resolveCombatAbility(playerUid, [spellEnemyAKey], {});
+  const rotResult = rotSnapshot.room.combatEvent.results[0];
+  const appliedPoison = rotSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyAKey).statusEffects.find((effect) => effect.statusKey === 'poison');
+  assert.strictEqual(rotResult.damage, 7, 'the conditional save does not erase damage already dealt by the hit');
+  assert.strictEqual(rotResult.conditionalSave.success, false);
+  assert.strictEqual(rotResult.statusDuration, 3, 'd6 6 becomes a visible three-round poison duration');
+  assert.deepStrictEqual(Array.from(rotResult.statuses), ['poison']);
+  assert.deepStrictEqual([appliedPoison.duration,appliedPoison.remainingRounds,appliedPoison.tickValue,appliedPoison.attackDisadvantage,appliedPoison.abilityCheckDisadvantage,appliedPoison.saveDC], [3,3,1,true,true,14], 'the spell instance uses the official Poisoned mechanics and its rolled maximum duration');
+  assert.strictEqual(rotSnapshot.room.members[playerUid].character.abilityUsage['spell-1773702048611'].used, 1);
+  assert.strictEqual(rotSnapshot.room.members[playerUid].character.abilityUsage['spell-1773702048611'].battleUsed, 1);
+  assert.strictEqual(rotSnapshot.room.combatEvent.animationKey, 'rot-ray-v1');
+  assert.strictEqual(rotSnapshot.room.combatEvent.soundProfile, 'magic-poison');
+  assert.match(rotSnapshot.room.combatEvent.textUk, /CON 1 проти СК 13.*Отруєний на 3 р\./, 'the synchronized Ukrainian result contains the save and duration');
+  reviewedPlayerCasts.add('rot-ray-v1');
+  await spellPlayer.acknowledgeAction(rotRequestId);
+  const rotUsageBeforeLimit = clone(spellShared.data.rooms[spellRoomCode].members[playerUid].character.abilityUsage['spell-1773702048611']);
+  spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long = 1;
+  await expectCode(() => spellPlayer.requestAction('Пытается второй раз применить «Луч Гнили» в том же бою', 'ability', '', Object.assign({},forgedRotDetails,{operationId:'reviewed-rot-ray-same-battle'})), 'ability-battle-limit');
+  assert.deepStrictEqual(spellShared.data.rooms[spellRoomCode].members[playerUid].character.abilityUsage['spell-1773702048611'], rotUsageBeforeLimit, 'same-battle rejection spends neither the second daily charge nor another battle use');
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].combat.order[0].economy.long, 1, 'same-battle rejection does not spend the long action');
+
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 23;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').y = 50;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').x = 38;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').y = 50;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyBKey).hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').hp = 30;
+  spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').hp = 30;
+  spellShared.data.rooms[spellRoomCode].combat.order[0].economy = {long:1,short:1,reaction:1,movement:6,movementMax:6};
 
   let reviewedSnapshot = await castReviewedSpell('finger-heat-v1', [spellEnemyAKey], {
     targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Латник',distanceCells:1}
@@ -1469,6 +1923,8 @@ async function expectCode(operation, code) {
   const psychicResult = reviewedSnapshot.room.combatEvent.results.find((result) => result.key === spellEnemyAKey);
   assert.ok(psychicResult.statuses.includes('psychic-screech'), 'Психический Визг synchronizes its reviewed next-attack penalty status');
   assert.ok(psychicResult.attackPenalty > 0, 'the psychic penalty is rolled and recorded once');
+  const psychicEffect = reviewedSnapshot.room.combat.order.find((entry) => entry.key === spellEnemyAKey).statusEffects.find((effect) => effect.statusKey === 'psychic-screech');
+  assert.strictEqual(psychicEffect.consumeOnAttack, true, 'the synchronized psychic penalty survives normalization as a one-attack effect');
 
   spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-a').x = 40;
   spellShared.data.rooms[spellRoomCode].scene.tokens.find((token) => token.id === 'spell-enemy-b').x = 42;
@@ -1478,6 +1934,7 @@ async function expectCode(operation, code) {
   assert.strictEqual(reviewedSnapshot.room.combatEvent.areaMode, 'square', 'Гипнотический Узор keeps its reviewed square geometry');
   assert.ok(reviewedSnapshot.room.combatEvent.results.length >= 2, 'the square resolves every token inside it');
   assert.ok(reviewedSnapshot.room.combatEvent.results.every((result) => result.statuses.includes('hypnotic-trance')));
+  assert.ok(reviewedSnapshot.room.combat.order.filter((entry) => reviewedSnapshot.room.combatEvent.results.some((result) => result.key === entry.key)).every((entry) => entry.statusEffects.some((effect) => effect.statusKey === 'hypnotic-trance' && effect.breakOnDamage === true && effect.grantMeleeAdvantageToAttackers === true)), 'hypnotic trance keeps its damage-break and melee-advantage mechanics after synchronization');
   spellShared.data.rooms[spellRoomCode].combat.order[0].statuses = [];
   spellShared.data.rooms[spellRoomCode].combat.order[0].statusEffects = [];
   spellShared.data.rooms[spellRoomCode].members[playerUid].character.statuses = [];
@@ -1544,6 +2001,7 @@ async function expectCode(operation, code) {
     targeting:{mode:'point',x:25,y:55,distanceCells:2}
   }, {}, [0.5]);
   assert.strictEqual(reviewedSnapshot.room.combatEvent.summonTokens.length, 3, 'Призыв Нежити creates three real scene tokens');
+  assert.doesNotMatch(reviewedSnapshot.room.combatEvent.text, /Арканист: эффект применён/, 'the public summon result never exposes the workflow placeholder target');
   assert.strictEqual(reviewedSnapshot.room.combat.order.length, orderBeforeReviewedSummon.length + 3, 'all three skeletons join the existing initiative order');
   assert.deepStrictEqual(reviewedSnapshot.room.combat.order.slice(0, orderBeforeReviewedSummon.length).map((entry) => entry.key), orderBeforeReviewedSummon, 'summoning preserves all existing initiative positions');
   assert.ok(reviewedSnapshot.room.combatEvent.summonTokens.every((token) => token.hp === 10 && token.ac === 11 && token.sourceRef.type === 'spell-summon'));
@@ -1616,9 +2074,283 @@ async function expectCode(operation, code) {
   assert.ok(!reviewedSnapshot.room.combat.order.some((entry) => entry && entry.summonedByUid === playerUid), 'expired undead leave the combat order');
   assert.ok(!reviewedSnapshot.room.scene.tokens.some((token) => token && token.summonedByUid === playerUid), 'expired undead tokens are removed from the scene');
   assert.match(reviewedSnapshot.room.combatEvent.textUk, /нежить зникла/, 'summon expiry is announced bilingually');
-  assert.strictEqual(reviewedLearningApprovals.size, spellAutomation.catalog().length, 'all fifteen spells complete the legacy player learning request and GM approval');
-  assert.strictEqual(reviewedPlayerPreparations.size, spellAutomation.catalog().length, 'all fifteen spells are prepared through the real player character sync');
-  assert.strictEqual(reviewedPlayerCasts.size, spellAutomation.catalog().length, 'all fifteen reviewed spells complete the real player → Firebase → GM flow');
+
+  const originalAutomatedSpells = spellAutomation.catalog().slice(4);
+  assert.strictEqual(originalAutomatedSpells.length, 15, 'the condition matrix covers the fifteen original automated spells separately from the four newer level-one profiles');
+  const conditionCharacter = spellShared.data.rooms[spellRoomCode].members[playerUid].character;
+  const conditionActor = spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellHeroKey);
+  function prepareOnlyConditionSpell(profile) {
+    const catalogEntry = reviewedCatalogEntries.get(String(profile.catalogId));
+    assert.ok(catalogEntry && ['kodex','folio','obrad'].includes(catalogEntry.spellType), `${profile.automationKey} has a preparation family for the condition matrix`);
+    conditionCharacter.preparedSpells = {kodex:[],folio:[],obrad:[]};
+    conditionCharacter.preparedSpells[catalogEntry.spellType] = [String(profile.catalogId)];
+  }
+  function conditionSpellDetails(profile, suffix) {
+    return reviewedSpellDetails(profile.automationKey, {
+      operationId:`condition-${profile.automationKey}-${suffix}`,
+      targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Латник',distanceCells:1},
+      summonRequirementsConfirmed:true
+    });
+  }
+  async function expectDetailedSpellCode(operation, code, profile, reason) {
+    let thrown = null;
+    try { await operation(); } catch (error) { thrown = error; }
+    assert.ok(thrown, `${profile.automationKey} must reject ${reason}`);
+    assert.strictEqual(thrown.code, code, `${profile.automationKey} returns the stable ${reason} code`);
+    assert.ok(String(thrown.message || '').trim().length >= 8, `${profile.automationKey} explains ${reason} to the acting client`);
+  }
+  for (const profile of originalAutomatedSpells) {
+    const spellId = String(profile.catalogId);
+    const resourceKey = `spell-${spellId}`;
+    const savedRefs = conditionCharacter.spellRefs.slice();
+    const savedLearned = conditionCharacter.spellsLearned[spellId];
+    const savedPrepared = clone(conditionCharacter.preparedSpells);
+    const savedUsage = clone(conditionCharacter.abilityUsage[resourceKey]);
+    delete conditionCharacter.abilityUsage[resourceKey];
+
+    conditionCharacter.spellRefs = conditionCharacter.spellRefs.filter((id) => String(id) !== spellId);
+    await expectDetailedSpellCode(() => spellPlayer.requestAction('Проверка отсутствующего заклинания', 'ability', '', conditionSpellDetails(profile, 'not-owned')), 'spell-not-owned', profile, 'not-owned');
+    assert.strictEqual(conditionCharacter.actionRequest, undefined, `${profile.automationKey} does not notify the GM about a request rejected before submission`);
+    conditionCharacter.spellRefs = savedRefs;
+
+    conditionCharacter.spellsLearned[spellId] = false;
+    await expectDetailedSpellCode(() => spellPlayer.requestAction('Проверка неизученного заклинания', 'ability', '', conditionSpellDetails(profile, 'not-learned')), 'spell-not-learned', profile, 'not-learned');
+    conditionCharacter.spellsLearned[spellId] = true;
+
+    conditionCharacter.preparedSpells = {kodex:[],folio:[],obrad:[]};
+    await expectDetailedSpellCode(() => spellPlayer.requestAction('Проверка неподготовленного заклинания', 'ability', '', conditionSpellDetails(profile, 'not-prepared')), 'spell-not-prepared', profile, 'not-prepared');
+    prepareOnlyConditionSpell(profile);
+
+    conditionActor.statuses = ['silence'];
+    conditionActor.statusEffects = [{statusKey:'silence',label:'Магическая немота'}];
+    conditionCharacter.statuses = ['silence'];
+    conditionCharacter.statusEffects = [{statusKey:'silence',label:'Магическая немота'}];
+    await expectDetailedSpellCode(() => spellPlayer.requestAction('Проверка немоты', 'ability', '', conditionSpellDetails(profile, 'silenced')), 'combat-status-blocked', profile, 'silenced');
+    conditionActor.statuses = [];
+    conditionActor.statusEffects = [];
+    conditionCharacter.statuses = [];
+    conditionCharacter.statusEffects = [];
+
+    const battleScopeKey = `battle-${spellShared.data.rooms[spellRoomCode].combat.battleStartedAt}`;
+    conditionCharacter.abilityUsage[resourceKey] = {
+      used:Math.max(1, Number(profile.maxUses) || 1),
+      max:Math.max(1, Number(profile.maxUses) || 1),
+      scopeKey:profile.resourceScopeKind === 'battle' ? battleScopeKey : '',
+      scopeKind:profile.resourceScopeKind,
+      availableAt:profile.resourceScopeKind === 'two-days' ? Date.now() + 86400000 : 0
+    };
+    await expectDetailedSpellCode(() => spellPlayer.requestAction('Проверка исчерпанного ресурса', 'ability', '', conditionSpellDetails(profile, 'exhausted')), 'ability-exhausted', profile, 'exhausted');
+
+    conditionCharacter.spellRefs = savedRefs;
+    conditionCharacter.spellsLearned[spellId] = savedLearned;
+    conditionCharacter.preparedSpells = savedPrepared;
+    if (savedUsage === undefined) delete conditionCharacter.abilityUsage[resourceKey];
+    else conditionCharacter.abilityUsage[resourceKey] = savedUsage;
+  }
+
+  const staleStatusProfile = originalAutomatedSpells.find((profile) => profile.automationKey === 'salvation-touch-v1');
+  prepareOnlyConditionSpell(staleStatusProfile);
+  delete conditionCharacter.abilityUsage[`spell-${staleStatusProfile.catalogId}`];
+  conditionActor.economy = {long:1,short:1,reaction:1,movement:6,movementMax:6};
+  spellShared.data.rooms[spellRoomCode].combat.turnIndex = spellShared.data.rooms[spellRoomCode].combat.order.findIndex((entry) => entry.key === spellHeroKey);
+  const staleStatusDetails = conditionSpellDetails(staleStatusProfile, 'status-changed-after-request');
+  staleStatusDetails.targeting = {mode:'token',tokenId:'spell-ally',targetKey:'token:spell-ally',targetName:'Союзный разведчик',distanceCells:1};
+  let staleStatusSnapshot = await spellPlayer.requestAction('Проверяет состояние перед финальным применением', 'ability', '', staleStatusDetails);
+  const staleStatusRequestId = staleStatusSnapshot.room.members[playerUid].actionRequest.id;
+  const staleStatusCharacter = spellShared.data.rooms[spellRoomCode].members[playerUid].character;
+  const staleStatusActor = spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellHeroKey);
+  staleStatusActor.statuses = ['silence'];
+  staleStatusActor.statusEffects = [{statusKey:'silence',label:'Магическая немота'}];
+  staleStatusCharacter.statuses = ['silence'];
+  staleStatusCharacter.statusEffects = [{statusKey:'silence',label:'Магическая немота'}];
+  await expectDetailedSpellCode(() => spellMaster.prepareCombatAbilityWorkflow(playerUid, ['token:spell-ally'], {}), 'combat-status-blocked', staleStatusProfile, 'status-changed-before-first-roll');
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellEnemyAKey).hp, 30, 'a newly silenced caster applies no spell damage');
+  assert.strictEqual(spellShared.data.rooms[spellRoomCode].members[playerUid].character.abilityUsage[`spell-${staleStatusProfile.catalogId}`], undefined, 'a newly silenced caster spends no charge');
+  staleStatusActor.statuses = [];
+  staleStatusActor.statusEffects = [];
+  staleStatusCharacter.statuses = [];
+  staleStatusCharacter.statusEffects = [];
+  await spellMaster.resolveAction(playerUid, false);
+  await spellPlayer.acknowledgeAction(staleStatusRequestId);
+
+  async function expectSpellResolveRestriction(automationKey, targetKeys, detailOverrides, resolveOverrides, expectedCode, mutateRoom) {
+    const profile = originalAutomatedSpells.find((candidate) => candidate.automationKey === automationKey);
+    assert.ok(profile, `${automationKey} belongs to the original fifteen-spell restriction matrix`);
+    const room = spellShared.data.rooms[spellRoomCode];
+    const character = room.members[playerUid].character;
+    const actor = room.combat.order.find((entry) => entry.key === spellHeroKey);
+    const catalogEntry = reviewedCatalogEntries.get(String(profile.catalogId));
+    character.spellRefs = Array.from(new Set([].concat(character.spellRefs || [], String(profile.catalogId))));
+    character.spellsLearned[String(profile.catalogId)] = true;
+    character.preparedSpells = {kodex:[],folio:[],obrad:[]};
+    character.preparedSpells[catalogEntry.spellType] = [String(profile.catalogId)];
+    delete character.abilityUsage[`spell-${profile.catalogId}`];
+    character.statuses = [];
+    character.statusEffects = [];
+    actor.statuses = [];
+    actor.statusEffects = [];
+    actor.hp = Math.max(1, Number(actor.hp) || Number(actor.hpMax) || 1);
+    actor.economy = {long:1,short:1,reaction:1,movement:6,movementMax:6};
+    room.combat.turnIndex = room.combat.order.findIndex((entry) => entry.key === spellHeroKey);
+    const restore = typeof mutateRoom === 'function' ? mutateRoom(room) : null;
+    const details = Object.assign(conditionSpellDetails(profile, `restriction-${expectedCode}`), detailOverrides || {});
+    const requested = await spellPlayer.requestAction(`Проверяет ограничение «${profile.name}»`, 'ability', '', details);
+    const requestId = requested.room.members[playerUid].actionRequest.id;
+    const beforeEconomy = clone(spellShared.data.rooms[spellRoomCode].combat.order.find((entry) => entry.key === spellHeroKey).economy);
+    await expectDetailedSpellCode(() => spellMaster.resolveCombatAbility(playerUid, targetKeys, resolveOverrides || {}), expectedCode, profile, expectedCode);
+    const rejectedRoom = spellShared.data.rooms[spellRoomCode];
+    assert.deepStrictEqual(rejectedRoom.combat.order.find((entry) => entry.key === spellHeroKey).economy, beforeEconomy, `${automationKey} rejection spends no action`);
+    assert.strictEqual(rejectedRoom.members[playerUid].character.abilityUsage[`spell-${profile.catalogId}`], undefined, `${automationKey} rejection spends no charge`);
+    if (typeof restore === 'function') restore(rejectedRoom);
+    await spellMaster.resolveAction(playerUid, false);
+    await spellPlayer.acknowledgeAction(requestId);
+  }
+
+  const fingerRestrictionProfile = originalAutomatedSpells.find((profile) => profile.automationKey === 'finger-heat-v1');
+  {
+    const room = spellShared.data.rooms[spellRoomCode];
+    const character = room.members[playerUid].character;
+    const actor = room.combat.order.find((entry) => entry.key === spellHeroKey);
+    const catalogEntry = reviewedCatalogEntries.get(String(fingerRestrictionProfile.catalogId));
+    character.preparedSpells = {kodex:[],folio:[],obrad:[]};
+    character.preparedSpells[catalogEntry.spellType] = [String(fingerRestrictionProfile.catalogId)];
+    delete character.abilityUsage[`spell-${fingerRestrictionProfile.catalogId}`];
+    actor.economy.long = 1;
+    const farToken = room.scene.tokens.find((token) => token.id === 'spell-enemy-a');
+    const previousPoint = {x:farToken.x,y:farToken.y};
+    farToken.x = 90;
+    farToken.y = 50;
+    const details = conditionSpellDetails(fingerRestrictionProfile, 'restriction-range');
+    details.targeting = {mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Латник',distanceCells:20};
+    const requested = await spellPlayer.requestAction('Проверяет дальность «Жара Пальцев»', 'ability', '', details);
+    const requestId = requested.room.members[playerUid].actionRequest.id;
+    await expectDetailedSpellCode(() => spellMaster.prepareCombatAbilityRoll(playerUid, spellEnemyAKey, 'attack'), 'combat-target-range', fingerRestrictionProfile, 'one-cell-range');
+    const currentRoom = spellShared.data.rooms[spellRoomCode];
+    currentRoom.scene.tokens.find((token) => token.id === 'spell-enemy-a').x = previousPoint.x;
+    currentRoom.scene.tokens.find((token) => token.id === 'spell-enemy-a').y = previousPoint.y;
+    await spellMaster.resolveAction(playerUid, false);
+    await spellPlayer.acknowledgeAction(requestId);
+  }
+
+  await expectSpellResolveRestriction('salvation-touch-v1', [spellEnemyAKey], {
+    targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Нежить',distanceCells:1}
+  }, {}, 'combat-target-invalid', (room) => {
+    const target = room.combat.order.find((entry) => entry.key === spellEnemyAKey);
+    const previous = target.name;
+    target.name = 'Нежить-страж';
+    return (latestRoom) => { latestRoom.combat.order.find((entry) => entry.key === spellEnemyAKey).name = previous; };
+  });
+  await expectSpellResolveRestriction('fire-projectile-v1', [], {
+    targeting:{mode:'point',x:90,y:50,distanceCells:20}
+  }, {areaMode:'circle',areaRadius:2,areaAnchorPoint:{x:90,y:50}}, 'combat-target-range', (room) => {
+    const token = room.scene.tokens.find((item) => item.id === 'spell-enemy-a');
+    const previous = {x:token.x,y:token.y};
+    token.x = 90;
+    token.y = 50;
+    return (latestRoom) => { const latest = latestRoom.scene.tokens.find((item) => item.id === 'spell-enemy-a'); latest.x = previous.x; latest.y = previous.y; };
+  });
+  await expectSpellResolveRestriction('lightning-lasso-v1', [spellEnemyAKey], {
+    playbackVariant:'restrain',targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Призрак',distanceCells:1}
+  }, {}, 'combat-target-invalid', (room) => {
+    const target = room.combat.order.find((entry) => entry.key === spellEnemyAKey);
+    const previous = target.name;
+    target.name = 'Призрак дозорного';
+    return (latestRoom) => { latestRoom.combat.order.find((entry) => entry.key === spellEnemyAKey).name = previous; };
+  });
+  await expectSpellResolveRestriction('raise-undead-v1', [spellHeroKey], {
+    summonRequirementsConfirmed:false,targeting:{mode:'point',x:22,y:52,distanceCells:1}
+  }, {}, 'summon-requirements');
+  await expectSpellResolveRestriction('pseudo-life-v1', [spellEnemyAKey], {
+    playbackVariant:'stable',targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Враг',distanceCells:1}
+  }, {}, 'combat-target-invalid');
+  await expectSpellResolveRestriction('energy-protection-v1', [spellEnemyAKey], {
+    energyResistance:'fire',targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Враг',distanceCells:1}
+  }, {}, 'combat-target-invalid');
+  await expectSpellResolveRestriction('silence-seal-v1', [], {
+    targeting:{mode:'point',x:90,y:50,distanceCells:20}
+  }, {areaMode:'circle',areaRadius:5,areaAnchorPoint:{x:90,y:50}}, 'combat-target-range');
+  await expectSpellResolveRestriction('misty-transition-v1', [spellHeroKey], {
+    targeting:{mode:'point',x:90,y:50,distanceCells:20}
+  }, {}, 'combat-target-range');
+  await expectSpellResolveRestriction('gravity-center-v1', [], {
+    targeting:{mode:'point',x:23,y:50,distanceCells:1}
+  }, {areaMode:'circle',areaRadius:5,areaAnchorPoint:{x:23,y:50},pullTowardPoint:true,pullCells:5}, 'combat-target-invalid', (room) => {
+    const target = room.combat.order.find((entry) => entry.key === spellEnemyAKey);
+    const token = room.scene.tokens.find((entry) => entry.id === 'spell-enemy-a');
+    const previous = {sizeCategory:target.sizeCategory,creatureSize:target.creatureSize,sourceRef:clone(target.sourceRef),x:token.x,y:token.y};
+    target.sizeCategory = 'huge';
+    target.creatureSize = 'huge';
+    target.sourceRef = Object.assign({}, target.sourceRef || {}, {size:'huge'});
+    token.x = 23;
+    token.y = 50;
+    return (latestRoom) => { const latest = latestRoom.combat.order.find((entry) => entry.key === spellEnemyAKey); latest.sizeCategory = previous.sizeCategory; latest.creatureSize = previous.creatureSize; latest.sourceRef = previous.sourceRef; const latestToken = latestRoom.scene.tokens.find((entry) => entry.id === 'spell-enemy-a'); latestToken.x = previous.x; latestToken.y = previous.y; };
+  });
+  await expectSpellResolveRestriction('psychic-screech-v1', [spellEnemyAKey], {
+    targeting:{mode:'token',tokenId:'spell-enemy-a',targetKey:spellEnemyAKey,targetName:'Конструкт',distanceCells:1}
+  }, {}, 'combat-target-invalid', (room) => {
+    const target = room.combat.order.find((entry) => entry.key === spellEnemyAKey);
+    const previous = target.name;
+    target.name = 'Безразумный конструкт';
+    return (latestRoom) => { latestRoom.combat.order.find((entry) => entry.key === spellEnemyAKey).name = previous; };
+  });
+  await expectSpellResolveRestriction('hypnotic-pattern-v1', [], {
+    targeting:{mode:'point',x:23,y:50,distanceCells:1}
+  }, {areaMode:'square',areaRadius:2,areaWidth:4,areaAnchorPoint:{x:23,y:50}}, 'combat-target-invalid', (room) => {
+    const touched = room.combat.order.map((entry) => ({key:entry.key,statuses:clone(entry.statuses),statusEffects:clone(entry.statusEffects)}));
+    room.combat.order.forEach((entry) => { entry.statuses = ['blind']; entry.statusEffects = [{statusKey:'blind'}]; });
+    room.members[playerUid].character.statuses = ['blind'];
+    room.members[playerUid].character.statusEffects = [{statusKey:'blind'}];
+    return (latestRoom) => {
+      touched.forEach((saved) => { const entry = latestRoom.combat.order.find((item) => item.key === saved.key); if (entry) { entry.statuses = saved.statuses; entry.statusEffects = saved.statusEffects; } });
+      latestRoom.members[playerUid].character.statuses = [];
+      latestRoom.members[playerUid].character.statusEffects = [];
+    };
+  });
+  await expectSpellResolveRestriction('remove-curse-v1', ['token:spell-ally'], {
+    targeting:{mode:'token',tokenId:'spell-ally',targetKey:'token:spell-ally',targetName:'Союзный разведчик',distanceCells:1}
+  }, {}, 'combat-target-invalid', (room) => {
+    const target = room.combat.order.find((entry) => entry.key === 'token:spell-ally');
+    const previous = {statuses:clone(target.statuses),statusEffects:clone(target.statusEffects)};
+    target.statuses = [];
+    target.statusEffects = [];
+    return (latestRoom) => { const latest = latestRoom.combat.order.find((entry) => entry.key === 'token:spell-ally'); latest.statuses = previous.statuses; latest.statusEffects = previous.statusEffects; };
+  });
+  await expectSpellResolveRestriction('life-transfer-v1', ['token:spell-ally'], {
+    targeting:{mode:'token',tokenId:'spell-ally',targetKey:'token:spell-ally',targetName:'Конструкт-союзник',distanceCells:1}
+  }, {}, 'combat-target-invalid', (room) => {
+    const target = room.combat.order.find((entry) => entry.key === 'token:spell-ally');
+    const previous = target.name;
+    target.name = 'Конструкт-союзник';
+    return (latestRoom) => { latestRoom.combat.order.find((entry) => entry.key === 'token:spell-ally').name = previous; };
+  });
+
+  {
+    const profile = originalAutomatedSpells.find((candidate) => candidate.automationKey === 'heaven-piercing-spear-v1');
+    const room = spellShared.data.rooms[spellRoomCode];
+    const character = room.members[playerUid].character;
+    const catalogEntry = reviewedCatalogEntries.get(String(profile.catalogId));
+    character.preparedSpells = {kodex:[],folio:[],obrad:[]};
+    character.preparedSpells[catalogEntry.spellType] = [String(profile.catalogId)];
+    delete character.abilityUsage[`spell-${profile.catalogId}`];
+    room.combat.order.find((entry) => entry.key === spellHeroKey).economy.long = 1;
+    const details = conditionSpellDetails(profile, 'restriction-line-gate');
+    details.targeting = {mode:'point',x:65,y:50,distanceCells:11};
+    const requested = await spellPlayer.requestAction('Проверяет преграду «Копья Небесного Прорыва»', 'ability', '', details);
+    const requestId = requested.room.members[playerUid].actionRequest.id;
+    const gated = await spellMaster.prepareCombatAbilityWorkflow(playerUid, [spellEnemyAKey], {});
+    assert.strictEqual(gated.room.members[playerUid].actionRequest.status, 'ability-workflow-gate-ready', 'the spear cannot start saves before the GM confirms the line barrier gate');
+    assert.strictEqual(gated.room.members[playerUid].actionRequest.abilityResolution.workflow.activeAssignmentId, 'line-clear');
+    assert.strictEqual(gated.room.members[playerUid].character.abilityUsage[`spell-${profile.catalogId}`], undefined, 'the line gate spends no charge before confirmation');
+    const cancelled = await spellMaster.advanceCombatAbilityWorkflow(playerUid, {cancel:true});
+    assert.strictEqual(cancelled.room.members[playerUid].actionRequest.status, 'rejected');
+    await spellPlayer.acknowledgeAction(requestId);
+  }
+
+  reviewedSnapshot = await spellMaster.endCombat();
+  assert.ok(!reviewedSnapshot.room.members[playerUid].character.spellLearningEffects.some((effect) => effect && effect.kind === 'range-penalty' && effect.until === 'next-battle'), 'the range penalty is consumed when that next battle ends');
+  assert.strictEqual(reviewedLearningApprovals.size, spellAutomation.catalog().length, 'all nineteen spells and abilities complete the player learning request and GM approval');
+  assert.strictEqual(reviewedPlayerPreparations.size, spellAutomation.catalog().length, 'all nineteen spells and abilities are prepared through the real player character sync');
+  assert.strictEqual(reviewedPlayerCasts.size, spellAutomation.catalog().length, 'all nineteen reviewed profiles complete their real player → Firebase → GM flow');
 
   const customRoomCode = 'CUSTOM1';
   const customShared = createSharedFirebase({rooms:{[customRoomCode]:{

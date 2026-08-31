@@ -15,12 +15,15 @@ assert.match(html, /if\(combatQaActive\(\)\)[\s\S]{0,400}?combatQaApply\(functio
 assert.match(html, /updatedBy:'workshop-master'/, 'Workshop inventory edits keep an explicit local GM audit marker');
 assert.match(html, /w\.zgVttInventoryDeleteItem=function\(\)/, 'GM and owner can explicitly delete an inventory item');
 assert.match(html, /class="danger" onclick="zgVttInventoryDeleteItem\(\)"/, 'the item detail exposes a visible destructive action');
-var addInventoryStart = html.indexOf('w.zgVttAddInventoryItem=function()');
+var addInventoryStart = html.indexOf('w.zgVttInventoryGrantSubmit=function(event)');
 var addInventoryEnd = html.indexOf('w.zgVttInventoryFilter=function', addInventoryStart);
-assert.ok(addInventoryStart >= 0 && addInventoryEnd > addInventoryStart, 'the drawer add-item implementation is present');
+assert.ok(addInventoryStart >= 0 && addInventoryEnd > addInventoryStart, 'the drawer item-grant implementation is present');
 var addInventoryBlock = html.slice(addInventoryStart, addInventoryEnd);
-assert.match(addInventoryBlock, /commitInventoryMutation\(member,remoteCharacter,before,'gm-inventory-add'/, 'GM add-item uses the same local-or-network persistence path');
+assert.match(addInventoryBlock, /commitInventoryMutation\(member,character,before,editable\.remote\?'gm-inventory-add':'inventory-add'/, 'GM and owner add-item use the same local-or-network persistence path');
 assert.doesNotMatch(addInventoryBlock, /gmAddInventoryItem/, 'Workshop add-item must not unconditionally call Firebase');
+assert.doesNotMatch(addInventoryBlock, /w\.prompt\(/, 'the inventory plus must open an in-game form instead of native browser prompts');
+assert.match(addInventoryBlock, /zg-vtt-inventory-grant/, 'the inventory plus opens the item grant dialog');
+assert.match(addInventoryBlock, /vttLocaleText\('Выдать предмет','Видати предмет'\)/, 'the item grant dialog has matching Russian and Ukrainian labels');
 assert.match(html, /w\.zgVttGmSpellLibraryOpen=function\(\)/, 'GM can open the spell catalog from a player bag');
 assert.match(html, /function gmMagicOperationFromDiff\(member,character,reason\)/, 'GM spell edits are reduced to one atomic domain operation');
 assert.match(html, /sections\.magicOperation=magicOperation/, 'the scoped character request carries the atomic spell operation');
@@ -41,7 +44,7 @@ assert.match(html, /zgVttSpellCardAction\([^\n]+event\)/, 'custom spell menu act
 assert.match(html, /if\(action==='learn'\|\|action==='unlearn'\)return w\.zgVttGmSpellLearn\(spellId,action==='learn',event\)/, 'the custom menu routes learn actions with the real click event');
 assert.match(html, /var shouldLearn=learned===true/, 'learn and unlearn use an explicit boolean state');
 assert.match(html, /Заклинание разучено/, 'the GM receives explicit unlearn feedback');
-assert.match(html, /'Разучить'/, 'a learned spell exposes the unlearn action');
+assert.match(html, /vttSpellPlaybackText\('Отметить забытым','Позначити забутим'\)/, 'a learned spell exposes the bilingual unlearn action');
 assert.match(html, /Не изучено/, 'an unlearned spell has a visible state marker');
 assert.match(html, /w\.zgVttSpellPreparation=function\(spellId,shouldPrepare,event\)/, 'GM and owner share the canonical preparation control');
 assert.match(html, /function vttSpellPlaybackText\(ru,uk\)/, 'the hero bag owns a locale helper for configurable spell labels');
@@ -51,7 +54,7 @@ assert.ok(spellConfigStart >= 0 && spellConfigEnd > spellConfigStart, 'the confi
 var spellConfigBlock = html.slice(spellConfigStart, spellConfigEnd);
 assert.match(spellConfigBlock, /vttSpellPlaybackText\('Настроить заклинание'/, 'configurable spells use the in-scope bilingual helper');
 assert.doesNotMatch(spellConfigBlock, /(^|[^A-Za-z])spellPlaybackText\(/, 'the hero bag must not call the spell-playback module private helper');
-assert.match(html, /zargota-network\.js\?v=2026-08-29\.8/, 'the page loads the current scoped Firebase character editor instead of a cached network client');
+assert.match(html, /zargota-network\.js\?v=2026-08-31\.2/, 'the page loads the current scoped Firebase character editor instead of a cached network client');
 
 var start = network.indexOf('gmUpdateCharacterSections: function');
 var end = network.indexOf('gmAddJournalEntry: function', start);

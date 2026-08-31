@@ -11,6 +11,7 @@ const startedAt = Date.now();
 const checks = [
   ['Очередь действий игрока', 'tests/gameplay-operation-outbox.test.js'],
   ['Экипировка и оружие', 'tests/equipment-rules.test.js'],
+  ['Инвентарь NPC и боевой режим Стрелы-бури', 'tests/npc-inventory-combat.test.js'],
   ['Статусы, броски и ограничения боя', 'tests/status-combat-sync.test.js'],
   ['Завершение действий без пустых состояний', 'tests/combat-action-dead-end.test.js'],
   ['Ручные спасброски при 0 HP', 'tests/death-save-ui.test.js'],
@@ -40,7 +41,7 @@ const checks = [
   ['Маршрутизация звуков live-боя', 'tests/live-combat-sound-routing.test.js'],
   ['Авторские текстуры удара', 'tests/authored-combat-impact.test.js'],
   ['Синхронизация листа персонажа', 'tests/session-character-sheet.test.js'],
-  ['Пятнадцать автоматизированных заклинаний режима сессии', 'tests/session-spell-playback.test.js'],
+  ['Девятнадцать автоматизированных заклинаний режима сессии', 'tests/session-spell-playback.test.js'],
   ['Поэтапный бросок заклинания в Мастерской', 'tests/combat-spell-staged-roll.test.js'],
   ['Кнопка назначения d20 заклинания в Мастерской', 'tests/workshop-spell-roll-assignment.test.js'],
   ['Мануал без разрыва игровой сессии', 'tests/manual-session-bridge.test.js'],

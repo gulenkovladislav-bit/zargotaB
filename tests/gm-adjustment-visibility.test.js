@@ -23,7 +23,7 @@ assert.match(adjustmentNetwork, /else if\(event\.visibility!=='gm'\)/, 'hidden o
 const visualStart = html.indexOf('  function animateGmAdjustmentVisual()');
 const visualEnd = html.indexOf('  function gmVisualTarget(', visualStart);
 const adjustmentVisual = html.slice(visualStart, visualEnd);
-assert.match(adjustmentVisual, /event\.visibility==='gm'&&\(!adjustmentSession\|\|adjustmentSession\.role!=='master'\)/, 'player clients reject hidden adjustments before finding the token');
+assert.match(adjustmentVisual, /event\.visibility==='gm'&&!presentationIsMaster\(adjustmentSession\)/, 'player clients and the GM player-preview reject hidden adjustments before finding the token');
 const audienceGate = adjustmentVisual.indexOf("event.visibility==='gm'");
 ['claimCombatPlaybackEvent(event,\'label\')', "claimCombatPlaybackEvent(event,'hitFx')", "claimCombatPlaybackEvent(event,'particles')", "claimCombatPlaybackEvent(event,'sound')"].forEach(function(channel){
   assert.ok(adjustmentVisual.indexOf(channel) > audienceGate, channel + ' must remain behind the player audience gate');

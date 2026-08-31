@@ -111,6 +111,8 @@ initiativeContext.renderInitiativeStage();
 assert.strictEqual(initiativeWrites,2,'a real initiative result must still update the stage');
 assert.match(initiativeBlock,/draggable="false"/,'initiative d20 image must not start native browser drag');
 assert.match(html,/zgInitiativeDragStart=function\(ev\)\{[^}]*ev\.preventDefault\(\)/,'initiative pointer drag must suppress native image selection');
+assert.match(html,/onclick="zgInitiativeClick\(event\)"/,'initiative d20 exposes a click fallback in addition to physical dragging');
+assert.match(html,/zgInitiativeClick=function\(ev\)\{[^}]*initiativeAnimating\|\|initiativeDrag[^}]*animateInitiativeRoll\(''\)/,'initiative click fallback rolls once and cannot duplicate an active drag');
 
 var combatRenderStart=html.indexOf('  function renderCombat()');
 var combatRenderEnd=html.indexOf('  var deathSaveRolling=',combatRenderStart);

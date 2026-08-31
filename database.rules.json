@@ -37,6 +37,15 @@
         "updatedAt": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()"
         },
+        "scene": {
+          "tokens": {
+            "$index": {
+              "$field": {
+                ".write": "auth != null && data.parent().child('type').val() === 'hero' && data.parent().child('memberUid').val() === auth.uid && newData.parent().child('memberUid').val() === auth.uid && ($field === 'hp' || $field === 'tempHp' || $field === 'hpMax' || $field === 'statusBaseHpMax' || $field === 'statuses' || $field === 'statusEffects' || $field === 'zeroHp')"
+              }
+            }
+          }
+        },
         "combatEvent": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()"
         },

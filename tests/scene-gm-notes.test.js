@@ -40,9 +40,17 @@ assert.match(html, /sceneGmNotePending=\{sceneId:String\(sceneId\|\|''\),notes:n
 assert.match(html, /onclick="zgSceneGmAiCopyPrompt\(event\)"[\s\S]*Скопировать промпт/, 'the GM can copy a ready AI prompt without a native dialog');
 assert.match(html, /id="zg-scene-gm-note-ai-toggle"[\s\S]*Вставить ответ ИИ/, 'the GM can open a styled AI response importer');
 assert.match(html, /Верни ТОЛЬКО один корректный JSON-объект[\s\S]*"description"[\s\S]*"temperature"[\s\S]*"environment"[\s\S]*"scent"[\s\S]*"important"/, 'the copied prompt defines the exact five-field interchange format');
+const promptStart = html.indexOf('function buildSceneGmAiPrompt(record)');
+const promptEnd = html.indexOf('function sceneGmAiFieldKey(value)', promptStart);
+const promptBlock = html.slice(promptStart, promptEnd);
+assert.match(promptBlock, /ЭТО ЖЕ СООБЩЕНИЕ голосовым описанием/, 'the copied prompt must explain the same-message voice workflow');
+assert.match(promptBlock, /ОБЯЗАТЕЛЬНО заполни все пять полей/, 'the prompt must require a complete five-section note');
+assert.match(promptBlock, /=== НАЧАЛО ГОЛОСОВОГО ОПИСАНИЯ ===/, 'the voice transcript must have an unambiguous final boundary');
+assert.strictEqual(promptBlock.includes('[Вставь сюда'), false, 'a placeholder must not merge with the dictated material');
 assert.match(html, /function copySceneGmText\(value\)[\s\S]*navigator\.clipboard\.writeText[\s\S]*document\.execCommand\('copy'\)/, 'copying uses the clipboard with a non-native fallback');
 assert.match(html, /function parseSceneGmAiResponse\(value\)[\s\S]*JSON\.parse[\s\S]*fromHeadings/, 'the importer accepts both strict JSON and readable headed text');
 assert.match(html, /record\.gmNotes=notes[\s\S]*scheduleSceneGmNoteSave\(activeSceneId,notes\)/, 'accepted AI fields reuse the existing bounded scene-note autosave path');
+assert.match(html, /Object\.keys\(SCENE_GM_NOTE_FIELDS\)\.some[\s\S]*?ИИ заполнил не все пять разделов/, 'an incomplete AI response must not erase the existing online note');
 assert.match(html, /\.zg-scene-gm-note>\.zg-scene-gm-note-ai\[hidden\]\{display:none\}/, 'the custom importer remains compact while closed');
 
 const parserStart = html.indexOf('function sceneGmAiFieldKey(value)');

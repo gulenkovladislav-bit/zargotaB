@@ -45,8 +45,8 @@ var requestStart = html.indexOf('  function combatRequestAction(', applyStart);
 var requestEnd = html.indexOf('  function combatQaRollFormula', requestStart);
 var requestBlock = html.slice(requestStart, requestEnd);
 assert.ok(requestStart >= 0 && requestEnd > requestStart, 'the Workshop action bridge remains locally auditable');
-assert.match(requestBlock, /if\(kind==='combat-attack'\)return combatQaApi\.resolveAction/, 'only the locally automated attack may resolve immediately');
+assert.doesNotMatch(requestBlock, /combatQaApi\.resolveAction/, 'a represented player attack must remain pending until the GM resolves it');
 assert.doesNotMatch(requestBlock, /request\.status==='approved'/, 'ordinary Workshop actions must remain pending for the GM instead of silently auto-approving');
-assert.match(requestBlock, /return snapshot;/, 'the pending Workshop request is returned for the GM request panel');
+assert.match(requestBlock, /return api\.requestAction\(text,kind,uid,details\);/, 'the pending Workshop request snapshot is returned for the GM request panel');
 
 console.log('workshop summoned hero actions contract passed');
