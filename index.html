@@ -9,6 +9,7 @@
 <title>⚔ Заргота — Панель Мастера</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="zargota-i18n.css?v=2026-08-26.1">
+<link rel="stylesheet" href="arena-v2-workspace.css?v=2026-09-01.18">
   <script src="zargota-i18n.js?v=2026-08-30.21"></script>
   <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
 <script src="zargota-i18n-characters-uk.js?v=2026-08-27.3"></script>
@@ -32,6 +33,7 @@
 <script src="combat-vfx-canvas.js?v=2026-08-30.4"></script>
 <script src="spell-automation.js?v=2026-08-30.5"></script>
 <script src="zargota-network.js?v=2026-08-31.2"></script>
+<script defer src="arena-v2-workspace.js?v=2026-09-01.18"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-08-21.1">
 <script src="gm-delivery.js?v=2026-08-21.1"></script>
 <link rel="stylesheet" href="gm-cues.css?v=2026-08-21.1">
@@ -5508,6 +5510,44 @@ window.addEventListener('load', function(){
     background: #241a0e; border: 1px solid #3a2a1466; border-radius: 5px; padding: 4px 9px;
   }
   .arena-hub-tag-icon { width:22px; height:22px; display:block; object-fit:contain; filter:brightness(1.35) contrast(1.08) saturate(1.1); }
+  /* Arena v2 is a player-facing loadout screen. It deliberately reuses the
+     live VTT runtime, but none of the Workshop-only panels. */
+  .arena-v2-shell{max-width:1240px;margin:0 auto;padding:28px 22px 70px;color:#cbb98d}
+  .arena-v2-hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr);gap:18px;margin-bottom:20px}
+  .arena-v2-panel{border:1px solid #4c3519;border-radius:14px;background:radial-gradient(circle at 12% 0,#6e3d171c,transparent 44%),linear-gradient(155deg,#171006,#090604);box-shadow:0 18px 46px #0008,inset 0 1px #e2b95d12;overflow:hidden}
+  .arena-v2-panel>header{padding:18px 20px;border-bottom:1px solid #3d2a15}.arena-v2-panel>header small{display:block;color:#9d7840;font:700 9px 'Cinzel',serif;letter-spacing:1.6px}.arena-v2-panel>header h2,.arena-v2-panel>header h3{margin:4px 0 0;color:#efd18b;font-family:'Cinzel Decorative',serif}.arena-v2-panel>header h2{font-size:25px}.arena-v2-panel>header h3{font-size:17px}
+  .arena-v2-intro{padding:20px}.arena-v2-intro p{margin:0 0 15px;font:14px/1.6 'Lora',serif;color:#b6a27b}.arena-v2-rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.arena-v2-rule{padding:10px;border:1px solid #3d2b17;border-radius:9px;background:#0d0906}.arena-v2-rule b,.arena-v2-rule span{display:block}.arena-v2-rule b{color:#ddbd76;font:700 11px 'Cinzel',serif}.arena-v2-rule span{margin-top:4px;color:#827151;font-size:11px;line-height:1.35}
+  .arena-v2-actions{display:grid;gap:9px;padding:20px}.arena-v2-actions button{min-height:48px;border:1px solid #72501f;border-radius:9px;background:#1a1108;color:#d9b86d;font:700 11px 'Cinzel',serif;letter-spacing:.5px;cursor:pointer}.arena-v2-actions button.primary{border-color:#bf8730;background:linear-gradient(180deg,#3a240d,#211207);color:#ffe09a}.arena-v2-actions button:disabled{opacity:.38;cursor:not-allowed}.arena-v2-summary{padding:11px 13px;border:1px solid #3d2a15;border-radius:9px;background:#0b0704;color:#8f7d5e;font-size:12px;line-height:1.5}
+  .arena-v2-builder{display:grid;grid-template-columns:minmax(300px,.78fr) minmax(390px,1.22fr);gap:18px}.arena-v2-library,.arena-v2-roster{min-height:520px}.arena-v2-tabs{display:flex;gap:7px;padding:12px 14px;border-bottom:1px solid #332312}.arena-v2-tabs button{flex:1;min-height:38px;border:1px solid #3e2b16;border-radius:8px;background:#0e0906;color:#817052;font:700 10px 'Cinzel',serif;cursor:pointer}.arena-v2-tabs button.active{border-color:#a8752b;color:#e5c477;background:#211407}
+  .arena-v2-source-list{display:grid;gap:8px;max-height:550px;overflow:auto;padding:14px}.arena-v2-source{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center;padding:9px;border:1px solid #352512;border-radius:10px;background:#0c0805}.arena-v2-source img,.arena-v2-avatar{width:54px;height:54px;border:1px solid #65451e;border-radius:9px;object-fit:cover;background:#050403}.arena-v2-source .arena-v2-avatar{display:grid;place-items:center;color:#b48842;font:700 22px 'Cinzel',serif}.arena-v2-source b,.arena-v2-source small{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.arena-v2-source b{color:#dac083;font:700 12px 'Cinzel',serif}.arena-v2-source small{margin-top:3px;color:#756649;font-size:10px}.arena-v2-source-actions{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:6px}.arena-v2-source-actions button{min-height:32px;border:1px solid #4b351a;border-radius:7px;background:#120c07;color:#a99163;font:700 9px 'Cinzel',serif;cursor:pointer}.arena-v2-source-actions button.enemy{border-color:#653127;color:#c98778}
+  .arena-v2-roster-list{display:grid;gap:10px;padding:14px}.arena-v2-empty{padding:38px 18px;text-align:center;color:#726246;font:italic 13px/1.5 'Lora',serif}.arena-v2-fighter{--side:#708e62;display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:11px;padding:11px;border:1px solid color-mix(in srgb,var(--side) 60%,#302113);border-left:4px solid var(--side);border-radius:10px;background:linear-gradient(100deg,color-mix(in srgb,var(--side) 9%,#0d0906),#0b0705)}.arena-v2-fighter.enemy{--side:#a54f43}.arena-v2-fighter-copy{min-width:0}.arena-v2-fighter-copy>b{display:block;color:#ead092;font:700 13px 'Cinzel',serif}.arena-v2-fighter-copy>small{display:block;margin-top:3px;color:#877655;font-size:10px}.arena-v2-fighter-copy label{display:block;margin-top:9px;color:#927b51;font:700 9px 'Cinzel',serif}.arena-v2-fighter select{width:100%;height:34px;margin-top:4px;border:1px solid #4a341a;border-radius:7px;background:#090604;color:#c2aa75;padding:0 8px}.arena-v2-remove{width:32px;height:32px;border:1px solid #5c2d28;border-radius:8px;background:#170908;color:#bd746a;font-size:18px;cursor:pointer}.arena-v2-status-row{display:flex;gap:6px;margin-top:8px}.arena-v2-status-row select{margin:0;min-width:0}.arena-v2-status-row button{width:34px;border:1px solid #5a421f;border-radius:7px;background:#171006;color:#d0a74f;cursor:pointer}.arena-v2-status-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}.arena-v2-status-chips button{border:1px solid var(--status,#6e5830);border-radius:999px;background:color-mix(in srgb,var(--status,#6e5830) 12%,#090604);color:#c9b589;padding:4px 8px;font-size:9px;cursor:pointer}.arena-v2-primary{display:inline-block;margin-top:5px;padding:3px 7px;border:1px solid #477347;border-radius:999px;color:#86bc7e;font:700 8px 'Cinzel',serif}
+  #zg-game-overlay.arena-v2-mode #zg-qa-session-tools,
+  #zg-game-overlay.arena-v2-mode #zg-workshop-local,
+  #zg-game-overlay.arena-v2-mode [data-workshop-only],
+  #zg-game-overlay.arena-v2-mode .zg-gm-actions,
+  #zg-game-overlay.arena-v2-mode .zg-scene-gear,
+  #zg-game-overlay.arena-v2-mode .zg-scene-quick,
+  #zg-game-overlay.arena-v2-mode .zg-scene-quick-save,
+  #zg-game-overlay.arena-v2-mode .zg-move-requests-toggle,
+  #zg-game-overlay.arena-v2-mode .zg-move-requests,
+  #zg-game-overlay.arena-v2-mode .zg-spell-playback-toggle,
+  #zg-game-overlay.arena-v2-mode .zg-spell-playback,
+  #zg-game-overlay.arena-v2-mode .zg-scene-gm-note,
+  #zg-game-overlay.arena-v2-mode .zg-cue-panel,
+  #zg-game-overlay.arena-v2-mode .zg-scene-drawer,
+  #zg-game-overlay.arena-v2-mode .zg-gm-intervention,
+  #zg-game-overlay.arena-v2-mode .zg-bag-calibrator,
+  #zg-game-overlay.arena-v2-mode .zg-bag-cal-floating,
+  #zg-game-overlay.arena-v2-mode [data-game-panel-tab="workshop"],
+  #zg-game-overlay.arena-v2-mode [data-game-panel-pane="workshop"]{display:none!important}
+  body.zg-arena-v2 #zg-scene-gm-note,
+  body.zg-arena-v2 #zg-cue-panel,
+  body.zg-arena-v2 #zg-scene-drawer,
+  body.zg-arena-v2 #zg-gm-intervention,
+  body.zg-arena-v2 #zg-bag-calibrator,
+  body.zg-arena-v2 #zg-bag-cal-floating{display:none!important}
+  #zg-game-overlay.arena-v2-mode.gm::before{display:none}
+  @media(max-width:880px){.arena-v2-hero,.arena-v2-builder{grid-template-columns:1fr}.arena-v2-rules{grid-template-columns:1fr}.arena-v2-library,.arena-v2-roster{min-height:0}}
   .zg-shop-tab-icon { width:23px; height:23px; display:inline-block; object-fit:contain; vertical-align:-6px; margin-right:6px; filter:brightness(1.35) contrast(1.08) saturate(1.1); }
   .zg-shop-heading-icon { width:55px; height:55px; display:block; object-fit:contain; margin:0 auto 4px; filter:brightness(1.32) contrast(1.1) saturate(1.08); }
   @media(max-width:600px){
@@ -10198,8 +10238,12 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-08-31.2';
+var ZG_APP_VERSION = '2026-09-01.18';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-09-01.18', notes: 'Закрыта финальная перепроверка Арены: расход заклинания теперь привязан к текущему бою, сразу показывает 0 зарядов и не допускает повторного применения. На настольных экранах сумка участника полностью остаётся в пределах окна рядом с каталогом Арены.', notesUk: 'Завершено фінальну переперевірку Арени: витрата закляття тепер прив’язана до поточного бою, одразу показує 0 зарядів і не дозволяє повторного застосування. На настільних екранах сумка учасника повністю залишається в межах вікна поруч із каталогом Арени.' },
+  { v: '2026-09-01.17', notes: 'Перепроверена локальная Арена целиком. Дополнительные герои и противники теперь сохраняют изменения магии так же надёжно, как предметы: каталог, изучение и подготовка заклинаний обновляют только копию участника на поле и его запись в очереди, не меняя исходный лист и Firebase. Подготовленное заклинание можно применить прямо из сумки участника в его ход; эффект, экономика действий и заряды обновляются в локальном бою. Полный пресет берёт актуальный состав, позиции, сумки, магию и заряды из текущего боевого снимка. Совпавшие позиции участников при загрузке пресета автоматически разводятся, чтобы жетоны и их сумки не перекрывали друг друга. Исправление распространяется на существ из Бестиария, кастомных противников и временных героев.', notesUk: 'Локальну Арену повністю переперевірено. Додаткові герої та противники тепер зберігають зміни магії так само надійно, як предмети: каталог, вивчення й підготовка заклять оновлюють лише копію учасника на полі та його запис у черзі, не змінюючи початковий аркуш і Firebase. Підготовлене закляття можна застосувати прямо із сумки учасника в його хід; ефект, економіка дій і заряди оновлюються в локальному бою. Повний пресет бере актуальний склад, позиції, сумки, магію та заряди з поточного бойового знімка. Позиції учасників, що збіглися, під час завантаження пресету автоматично розводяться, щоб жетони та їхні сумки не перекривали одне одного. Виправлення поширюється на істот із Бестіарію, власних противників і тимчасових героїв.' },
+  { v: '2026-09-01.4', notes: 'Каталог предметов Арены подключён напрямую к существующей сумке участника. Предмет можно перетащить в открытый инвентарь или добавить кнопкой «＋» на карточке; в обоих случаях он попадает в сумку неснаряжённым, а надеть его можно только привычными средствами самой сумки. Отдельного экрана экипировки в Арене нет.', notesUk: 'Каталог предметів Арени підключено безпосередньо до наявної сумки учасника. Предмет можна перетягнути до відкритого інвентарю або додати кнопкою «＋» на картці; в обох випадках він потрапляє до сумки неспорядженим, а вдягнути його можна лише звичними засобами самої сумки. Окремого екрана спорядження в Арені немає.' },
+  { v: '2026-09-01.3', notes: 'Арена открывается сразу на современном локальном поле боя. Слева доступны сохранённые и временные герои, Бестиарий, создание противника, каталог предметов и полноценные пресеты боя. Участники размещаются прямо на карте, их существующая сумка всегда открывается отдельно справа, а предметы из каталога перетаскиваются только в неё — отдельная система экипировки в Арене не дублируется. Пресеты сохраняют состав, позиции, здоровье, состояния и содержимое сумок, не изменяя исходные листы и Firebase.', notesUk: 'Арена відкривається одразу на сучасному локальному полі бою. Ліворуч доступні збережені й тимчасові герої, Бестіарій, створення противника, каталог предметів і повноцінні пресети бою. Учасники розміщуються безпосередньо на мапі, їхня наявна сумка завжди відкривається окремо праворуч, а предмети з каталогу перетягуються лише до неї — окрема система спорядження в Арені не дублюється. Пресети зберігають склад, позиції, здоров’я, стани та вміст сумок, не змінюючи початкові аркуші й Firebase.' },
   { v: '2026-08-31.2', notes: 'Карточки магии в Сумке героя больше не выглядят как строки редактора. Меню встроено в правый нижний угол плашки и не перекрывает название или состояние заклинания; вместо «•••» используется понятный знак книги, а игроку доступно прямое действие «Изучить». Полученные заклинания больше не разделены одновременно между скроллом и страницами: фильтр показывает весь подходящий список в одной прокрутке, количества видны на категориях и в итоговой строке. Неизученные заклинания получили спокойное оформление без технической штриховки. Карточки врождённых навыков также очищены от диагональных линий: тип действия обозначается собственной минималистичной пиктограммой и цветом, а короткое действие переведено из случайного бирюзового в травяной зелёный.', notesUk: 'Картки магії в Сумці героя більше не виглядають як рядки редактора. Меню вбудовано в правий нижній кут плашки й воно не перекриває назву або стан закляття; замість «•••» використано зрозумілий знак книги, а гравцеві доступна пряма дія «Вивчити». Отримані закляття більше не поділено одночасно між прокручуванням і сторінками: фільтр показує весь відповідний список в одному прокручуванні, а кількість видно на категоріях і в підсумковому рядку. Невивчені закляття отримали спокійне оформлення без технічного штрихування. Картки вроджених навичок також очищено від діагональних ліній: тип дії позначається власною мінімалістичною піктограмою та кольором, а коротку дію переведено з випадкового бірюзового у трав’яний зелений.' },
   { v: '2026-08-31.1', notes: 'Изучение заклинания перенесено в компактное меню «•••» его карточки в Сумке героя. Игрок отправляет прежнюю поэтапную заявку мастеру без отдельной панели и без дублирования автоматизации. В настройке «Призыва Нежити» выбор цели теперь явно заблокирован до подтверждения останков и расходников; мастер видит уже выбранную точку вместо лишнего выбора существа. Escape из карточки состояния больше не открывает выход из сессии. Официальные состояния рядом с жетонами получили единый набор минималистичных пиктограмм с цветокодом мануала вместо эмодзи. Промпт памятки сцены теперь рассчитан на продолжение того же сообщения голосом, обязательно заполняет все пять разделов и не приклеивает расшифровку к шаблонной заглушке; неполный ответ ИИ больше не затирает существующую памятку. События Стола мастера получили такой же голосовой AI-обмен: ИИ сам определяет один из десяти типов, а готовая карточка сохраняет завязку, развитие и закрытую заметку мастеру; типы различаются цветом и собственными SVG-пиктограммами вместо эмодзи. Компактная памятка активной сцены больше не сваливает все пять разделов в один длинный текст: сверху появились цветокодированные вкладки, а листовка показывает полный текст только выбранной категории.', notesUk: 'Вивчення закляття перенесено до компактного меню «•••» його картки в Сумці героя. Гравець надсилає попередню поетапну заявку Майстру без окремої панелі та без дублювання автоматизації. У налаштуванні «Заклику Нежиті» вибір цілі тепер явно заблоковано до підтвердження останків і витратних матеріалів; Майстер бачить уже обрану точку замість зайвого вибору істоти. Escape з картки стану більше не відкриває вихід із сесії. Офіційні стани поруч із жетонами отримали єдиний набір мінімалістичних піктограм із кольоровим кодуванням мануалу замість емодзі. Промпт пам’ятки сцени тепер розрахований на продовження того самого повідомлення голосом, обов’язково заповнює всі п’ять розділів і не приклеює розшифрування до шаблонної заглушки; неповна відповідь ШІ більше не затирає наявну пам’ятку. Події Столу Майстра отримали такий самий голосовий AI-обмін: ШІ сам визначає один із десяти типів, а готова картка зберігає зав’язку, розвиток і закриту нотатку Майстру; типи відрізняються кольором і власними SVG-піктограмами замість емодзі. Компактна пам’ятка активної сцени більше не звалює всі п’ять розділів в один довгий текст: зверху з’явилися вкладки з кольоровим кодуванням, а листівка показує повний текст лише вибраної категорії.' },
   { v: '2026-08-30.32', notes: 'При выборе цели заклинания несовместимые жетоны теперь сразу затемняются, а точная причина отказа остаётся видимой в подсказке выбора, пока мастер не выберет другую цель или не отменит действие.', notesUk: 'Під час вибору цілі закляття несумісні жетони тепер одразу затемнюються, а точна причина відмови лишається видимою в підказці вибору, доки Майстер не обере іншу ціль або не скасує дію.' },
@@ -12267,11 +12311,13 @@ document.addEventListener('DOMContentLoaded', function(){
     var liveSnapshot=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;
     if(liveSnapshot&&liveSnapshot.room&&liveSnapshot.room.code!=='TEST')w.zgWorkshopReturnSnapshot=liveSnapshot;
     w.zgLocalCombatQaEnabled = true;
+    w.zgLocalArenaV2Active = false;
+    if(document.body)document.body.classList.remove('zg-arena-v2');
     w.zgWorkshopMode=mode;
     w.zgGameOpen(false);
     setTimeout(function(){
       var go=el('zg-game-overlay'),dice=el('zg-dice-pop'),settings=el('zg-game-settings');
-      if(go)go.classList.add('gm','gm-vision','dice-test-mode');
+      if(go){go.classList.remove('arena-v2-mode');go.classList.add('gm','gm-vision','dice-test-mode');}
       // Мастерская открывается пустой. Копии героев призываются только явно
       // из настроек, иначе локальный TEST-снимок маскирует живую комнату.
       if(w.zgVttEnableTestHero)w.zgVttEnableTestHero([]);
@@ -12293,15 +12339,17 @@ document.addEventListener('DOMContentLoaded', function(){
       // Мастерская может быть открыта прямо с главной, без живой комнаты.
       // В таком случае верхняя кнопка должна закрыть локальный TEST, а не
       // оставлять мастера в экране без работающего выхода/запуска игроков.
-      w.zgLocalCombatQaEnabled=false;w.zgWorkshopMode='';
-      var localOverlay=el('zg-game-overlay');if(localOverlay)localOverlay.classList.remove('dice-test-mode');
+      w.zgLocalCombatQaEnabled=false;w.zgLocalArenaV2Active=false;w.zgWorkshopMode='';
+      if(document.body)document.body.classList.remove('zg-arena-v2');
+      var localOverlay=el('zg-game-overlay');if(localOverlay)localOverlay.classList.remove('dice-test-mode','arena-v2-mode');
       if(w.zgGameClose)w.zgGameClose(true);
       if(typeof w.showPage==='function')w.showPage('home');
       if(w.showToast)w.showToast('Мастерская закрыта');
       return true;
     }
-    w.zgLocalCombatQaEnabled=false;w.zgWorkshopMode='';
-    var go=el('zg-game-overlay');if(go)go.classList.remove('dice-test-mode');
+    w.zgLocalCombatQaEnabled=false;w.zgLocalArenaV2Active=false;w.zgWorkshopMode='';
+    if(document.body)document.body.classList.remove('zg-arena-v2');
+    var go=el('zg-game-overlay');if(go)go.classList.remove('dice-test-mode','arena-v2-mode');
     if(w.zgVttSetLiveRoomSnapshot)w.zgVttSetLiveRoomSnapshot(snapshot);
     if(w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);
     var settings=el('zg-game-settings');if(settings)settings.classList.remove('open');
@@ -12655,6 +12703,12 @@ document.addEventListener('DOMContentLoaded', function(){
     var sp = el('zg-game-settings'); if (sp) sp.classList.remove('open');
     var scenePanel = el('zg-scene-settings'); if (scenePanel) scenePanel.classList.remove('open');
     var go = el('zg-game-overlay'); if (go) go.classList.remove('open');
+    if(w.zgLocalArenaV2Active){
+      w.zgLocalArenaV2Active=false;w.zgLocalCombatQaEnabled=false;
+      if(go)go.classList.remove('arena-v2-mode','dice-test-mode');
+      if(document.body)document.body.classList.remove('zg-arena-v2');
+      if(typeof w.zgArenaWorkspaceUnmount==='function')w.zgArenaWorkspaceUnmount();
+    }
     try { if (w.ZargotaSound && w.ZargotaSound.ambientStop) w.ZargotaSound.ambientStop(); } catch(e) {}
   };
   // Клик мимо панели настроек — закрыть её
@@ -14423,15 +14477,22 @@ document.addEventListener('DOMContentLoaded', function(){
       tempHp: Math.min(Math.floor(Math.max(0, Number(token.hpMax) || 0) * 0.5), Math.max(0, Number(token.tempHp) || 0)),
       level: clamp(token.level || 1,1,99),
       ac: clamp(token.ac == null ? 10 : token.ac,0,99), initiative:clamp(token.initiative || 0,-20,20), speed:clamp(token.speed || 7,0,80),
-      sourceRef: token.sourceRef && ['npc','beast','spell-summon','construct'].indexOf(token.sourceRef.type) >= 0 ? {
+      sourceRef: token.sourceRef && ['character','npc','beast','spell-summon','construct'].indexOf(token.sourceRef.type) >= 0 ? {
         type:String(token.sourceRef.type), id:String(token.sourceRef.id || '').slice(0,120),
         name:String(token.sourceRef.name || '').slice(0,80), nameUk:String(token.sourceRef.nameUk || token.sourceRef.name || '').slice(0,80), revision:Number(token.sourceRef.revision)||0
       } : null,
       stats: token.stats && typeof token.stats === 'object' ? JSON.parse(JSON.stringify(token.stats)) : {},
       mastery: Array.isArray(token.mastery) ? token.mastery.slice(0,40) : [],
+      skills: Array.isArray(token.skills) ? JSON.parse(JSON.stringify(token.skills.slice(0,80))) : [],
       weaponProfiles: Array.isArray(token.weaponProfiles) ? token.weaponProfiles.slice(0,12) : [],
       inventoryItems: Array.isArray(token.inventoryItems) ? JSON.parse(JSON.stringify(token.inventoryItems.slice(0,40))) : [],
+      equipItems: Array.isArray(token.equipItems) ? JSON.parse(JSON.stringify(token.equipItems.slice(0,40))) : [],
       equipmentBonuses: token.equipmentBonuses && typeof token.equipmentBonuses === 'object' ? JSON.parse(JSON.stringify(token.equipmentBonuses)) : {},
+      abilityUsage: token.abilityUsage && typeof token.abilityUsage === 'object' ? JSON.parse(JSON.stringify(token.abilityUsage)) : {},
+      spellCD: token.spellCD && typeof token.spellCD === 'object' ? JSON.parse(JSON.stringify(token.spellCD)) : {},
+      spellRefs: Array.isArray(token.spellRefs) ? token.spellRefs.slice(0,180).map(String) : [],
+      spellsLearned: token.spellsLearned && typeof token.spellsLearned === 'object' ? JSON.parse(JSON.stringify(token.spellsLearned)) : {},
+      preparedSpells: token.preparedSpells && typeof token.preparedSpells === 'object' ? JSON.parse(JSON.stringify(token.preparedSpells)) : {kodex:[],folio:[],obrad:[]},
       resistances: Array.isArray(token.resistances) ? token.resistances.slice(0,24) : [],
       vulnerabilities: Array.isArray(token.vulnerabilities) ? token.vulnerabilities.slice(0,24) : [],
       immunities: Array.isArray(token.immunities) ? token.immunities.slice(0,24) : [],
@@ -17921,7 +17982,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var id=String(source.id),summon=isSpellSummonToken(source),local=draftById[id];
       if(!local&&summon){local=copyToken(source,draft.tokens.length+index);draft.tokens.push(local);draftById[id]=local;changed=true;}
       if(!local||(!summon&&!combatTokenIds[id]))return;
-      var runtimeFields=['name','nameUk','image','disposition','visible','hidden','locked','snap','size','hp','hpMax','tempHp','ac','speed','initiative','sourceRef','stats','mastery','weaponProfiles','resistances','vulnerabilities','immunities','statuses','statusEffects','zeroHp','summonedByUid','summonedByKey','summonSourceKey','summonVariant','summonExpiresRound'];
+      var runtimeFields=['name','nameUk','image','disposition','visible','hidden','locked','snap','size','hp','hpMax','tempHp','ac','speed','initiative','sourceRef','stats','mastery','skills','weaponProfiles','inventoryItems','equipItems','equipmentBonuses','spellRefs','spellsLearned','preparedSpells','resistances','vulnerabilities','immunities','statuses','statusEffects','zeroHp','summonedByUid','summonedByKey','summonSourceKey','summonVariant','summonExpiresRound'];
       // Ordinary GM token placement remains a private draft. Only a newly
       // summoned token or the exact token named by an authoritative movement
       // event may copy live coordinates back into that draft.
@@ -18391,6 +18452,76 @@ document.addEventListener('DOMContentLoaded', function(){
     selectedLayerId='qa-map';selectedTokenId='';markDirty('QA-сцена боя готова');syncControls();
     saveQaWorkshopScene('Мастерская · тестовая арена');
   };
+  function arenaV2Clone(value,fallback){try{return JSON.parse(JSON.stringify(value));}catch(ignore){return fallback;}}
+  function arenaV2Locale(ru,uk){return w.ZargotaI18n&&typeof w.ZargotaI18n.getLocale==='function'&&w.ZargotaI18n.getLocale()==='uk'?(uk||ru):ru;}
+  function arenaV2Stat(source,key){var raw=source&&source.stats&&source.stats[key];if(raw&&typeof raw==='object'){if(raw.cur!=null&&Number(raw.cur)!==0)return Number(raw.cur)||0;return Number(raw.base)||0;}if(raw!=null)return Number(raw)||0;var aliases={per:'wis'};return Number(source&&source[aliases[key]||key])||0;}
+  function arenaV2Speed(value){var match=String(value==null?'':value).match(/-?\d+(?:[.,]\d+)?/);var number=match?Number(match[0].replace(',','.')):7;if(number>12)number=Math.round(number/5);return Math.max(0,Math.min(30,number||7));}
+  function arenaV2Loadout(source,items){
+    source=arenaV2Clone(source,{})||{};items=(Array.isArray(items)?items:[]).filter(Boolean).map(function(item){return arenaV2Clone(item,{})||{};});
+    var existing=Array.isArray(source.inventoryItems)?arenaV2Clone(source.inventoryItems,[]):[],seen={};existing.forEach(function(item){if(item)seen[String(item.itemId||item.id||item.name||'')]=true;});
+    items.forEach(function(item){var key=String(item.id||item.itemId||item.name||'');if(!key||seen[key])return;seen[key]=true;existing.push(Object.assign({},item,{itemId:item.itemId||item.id,qty:Math.max(1,Number(item.qty)||1),equipped:true}));});source.inventoryItems=existing;
+    var weapons=(Array.isArray(source.weaponProfiles)?arenaV2Clone(source.weaponProfiles,[]):[]),weaponSeen={};weapons.forEach(function(profile){weaponSeen[String(profile&&profile.id||profile&&profile.name||'')]=true;});
+    items.filter(function(item){return item&&item.category==='weapon';}).forEach(function(item,index){var key=String(item.id||item.name||('arena-weapon-'+index));if(weaponSeen[key])return;weaponSeen[key]=true;weapons.push({id:key,name:item.name||'Оружие',damageFormula:item.damageFormula||item.damage||'1d6',damageType:item.damageType||'',range:item.range||'1 клетка',toHit:Number(item.toHit)||0,description:item.description||item.effects||''});});source.weaponProfiles=weapons.slice(0,12);
+    var acBonus=items.reduce(function(sum,item){return sum+(item.category==='armor'?Number(item.acBonus)||0:item.category==='shield'?(Number(item.acBonus)||2):0);},0);if(acBonus){source.ac=Math.max(0,Number(source.ac)||10)+acBonus;source.equipmentBonuses=Object.assign({},source.equipmentBonuses||{},{acBonus:acBonus});}
+    return source;
+  }
+  function arenaV2Statuses(source,keys){
+    var catalog=typeof w.zgGmStatusCatalog==='function'?w.zgGmStatusCatalog():[],byKey={};catalog.forEach(function(status){if(status&&status.key)byKey[String(status.key)]=status;});keys=(Array.isArray(keys)?keys:[]).filter(Boolean);source.statuses=keys.slice();source.statusEffects=keys.map(function(key){var definition=byKey[String(key)]||{key:key,label:key,labelUk:key,icon:'✦',color:'#8c7445'};return typeof gmStatusEffectPayload==='function'?gmStatusEffectPayload(definition,{durationUnit:'manual'}):Object.assign({},definition,{statusKey:key,sourceId:'arena-v2:'+key,durationUnit:'manual',unit:'manual'});});return source;
+  }
+  function arenaV2Token(participant,index,side){
+    var raw=arenaV2Statuses(arenaV2Loadout(participant.source,participant.items),participant.statusKeys),isCharacter=participant.sourceType==='character',stats={str:arenaV2Stat(raw,'str'),dex:arenaV2Stat(raw,'dex'),con:arenaV2Stat(raw,'con'),int:arenaV2Stat(raw,'int'),per:arenaV2Stat(raw,'per'),cha:arenaV2Stat(raw,'cha')};
+    var attacks=Array.isArray(raw.weaponProfiles)?raw.weaponProfiles:sourceWeaponProfiles(raw.attacks),enemy=side==='enemy',column=index%3,row=Math.floor(index/3),x=participant.position&&Number.isFinite(Number(participant.position.x))?Number(participant.position.x):(enemy?72-column*8:28+column*8),y=participant.position&&Number.isFinite(Number(participant.position.y))?Number(participant.position.y):(38+row*13);
+    return copyToken({id:'arena-v2-'+String(participant.id||index).replace(/[^a-z0-9_-]/gi,'-'),type:'custom',disposition:enemy?'enemy':'ally',name:raw.name||(isCharacter?'Герой':'Существо'),nameUk:raw.nameUk||'',image:raw.portraitThumb||raw.portrait||raw.image||'',x:x,y:y,size:58,visible:true,snap:false,hp:Math.max(0,Number(raw.hpCur==null?raw.hp:raw.hpCur)||10),hpMax:Math.max(1,Number(raw.hpMax==null?raw.hp:raw.hpMax)||10),tempHp:Math.max(0,Number(raw.tempHp)||0),ac:Math.max(0,Number(raw.ac)||10),initiative:Number(raw.initiative)||0,speed:arenaV2Speed(raw.speed),level:Math.max(1,Number(raw.level)||1),race:raw.race||'',klasse:raw.klasse||raw.className||'',stats:stats,mastery:Array.isArray(raw.mastery)?raw.mastery:[],skills:raw.skills||[],weaponProfiles:attacks,inventoryItems:raw.inventoryItems||[],equipItems:raw.equipItems||[],equipmentBonuses:raw.equipmentBonuses||{},abilityUsage:raw.abilityUsage||{},spellCD:raw.spellCD||{},resistances:raw.resistances||[],vulnerabilities:raw.vulnerabilities||[],immunities:raw.immunities||[],statuses:raw.statuses||[],statusEffects:raw.statusEffects||[],spellRefs:raw.spellRefs||[],spellsLearned:raw.spellsLearned||{},preparedSpells:raw.preparedSpells||{kodex:[],folio:[],obrad:[]},sourceRef:{type:participant.sourceType,id:String(raw.id||participant.sourceId||''),name:raw.name||''},z:20+index},index);
+  }
+  var arenaV2SyncedSnapshot=null,arenaV2ActorPatches={};
+  w.zgArenaV2ApplyActorPatch=function(tokenId,patch){
+    tokenId=String(tokenId||'');if(!w.zgLocalArenaV2Active||!tokenId||!patch||typeof patch!=='object')return false;
+    arenaV2ActorPatches[tokenId]=Object.assign({},arenaV2ActorPatches[tokenId]||{},arenaV2Clone(patch,{}));return true;
+  };
+  w.zgArenaV2GetActorPatch=function(tokenId){
+    tokenId=String(tokenId||'');return tokenId&&arenaV2ActorPatches[tokenId]?arenaV2Clone(arenaV2ActorPatches[tokenId],{}):{};
+  };
+  w.zgArenaV2SyncSnapshot=function(snapshot){
+    if(!w.zgLocalArenaV2Active||!snapshot||!snapshot.room)return false;
+    arenaV2SyncedSnapshot=arenaV2Clone(snapshot,null);
+    if(snapshot.room.scene)draft=copyScene(snapshot.room.scene);
+    return true;
+  };
+  w.zgArenaV2Launch=function(config){
+    arenaV2SyncedSnapshot=null;arenaV2ActorPatches={};config=config&&typeof config==='object'?config:{};var participants=(Array.isArray(config.participants)?config.participants:[]).filter(function(item){return item&&item.source;});var primary=participants.find(function(item){return String(item.id)===String(config.primaryId)&&item.sourceType==='character'&&item.side!=='enemy';})||participants.find(function(item){return item.sourceType==='character'&&item.side!=='enemy';});
+    if(!primary){if(w.showToast)w.showToast(arenaV2Locale('Добавьте героя в свой отряд.','Додайте героя до свого загону.'));return false;}
+    var liveSnapshot=w.ZargotaRooms&&w.ZargotaRooms.getSnapshot?w.ZargotaRooms.getSnapshot():null;if(liveSnapshot&&liveSnapshot.room&&liveSnapshot.room.code!=='TEST')w.zgWorkshopReturnSnapshot=liveSnapshot;
+    w.zgLocalCombatQaEnabled=true;w.zgLocalArenaV2Active=true;w.zgWorkshopMode='';if(document.body)document.body.classList.add('zg-arena-v2');w.zgGameOpen(false);
+    setTimeout(function(){
+      var overlay=el('zg-game-overlay');if(overlay)overlay.classList.add('gm','gm-vision','dice-test-mode','arena-v2-mode');
+      ['zg-game-settings','zg-scene-settings','zg-overview-panel','zg-fog-panel','zg-zones-panel','zg-scene-drawer','zg-scene-gm-note','zg-cue-panel','zg-spell-playback','zg-move-requests'].forEach(function(id){var panel=el(id);if(panel)panel.classList.remove('open');});
+      if(w.zgGmInterventionToggle)w.zgGmInterventionToggle(null,false);if(w.zgBagCalToggle)w.zgBagCalToggle(null,false);if(w.zgSpellPlaybackToggle)w.zgSpellPlaybackToggle(false);if(w.zgMovementRequestsToggle)w.zgMovementRequestsToggle(false);if(typeof applyGmWorkspaceMode==='function')applyGmWorkspaceMode('run',false);
+      var primarySource=arenaV2Statuses(arenaV2Loadout(primary.source,primary.items),primary.statusKeys);primarySource.workshopCopy=true;primarySource.arenaV2Copy=true;
+      if(w.zgSceneEnableTestHeroes)w.zgSceneEnableTestHeroes([primarySource]);
+      var primaryKey=String(primarySource.campaignKey||primarySource.id||'hero').replace(/[^a-z0-9_-]/gi,'-'),primaryUid='workshop-hero-'+primaryKey,primaryPosition=primary.position||{},heroToken=copyToken({id:'arena-v2-primary',type:'hero',memberUid:primaryUid,name:primarySource.name||'Герой',nameUk:primarySource.nameUk||'',disposition:'hero',x:Number.isFinite(Number(primaryPosition.x))?Number(primaryPosition.x):20,y:Number.isFinite(Number(primaryPosition.y))?Number(primaryPosition.y):51,size:62,visible:true,snap:false,hp:Math.max(0,Number(primarySource.hpCur)||Number(primarySource.hpMax)||10),hpMax:Math.max(1,Number(primarySource.hpMax)||10),tempHp:Math.max(0,Number(primarySource.tempHp)||0),ac:Math.max(0,Number(primarySource.ac)||10),initiative:Number(primarySource.initiative)||0,speed:arenaV2Speed(primarySource.speed),level:Math.max(1,Number(primarySource.level)||1),race:primarySource.race||'',klasse:primarySource.klasse||'',stats:{str:arenaV2Stat(primarySource,'str'),dex:arenaV2Stat(primarySource,'dex'),con:arenaV2Stat(primarySource,'con'),int:arenaV2Stat(primarySource,'int'),per:arenaV2Stat(primarySource,'per'),cha:arenaV2Stat(primarySource,'cha')},mastery:primarySource.mastery||[],skills:primarySource.skills||[],weaponProfiles:primarySource.weaponProfiles||[],inventoryItems:primarySource.inventoryItems||[],equipItems:primarySource.equipItems||[],equipmentBonuses:primarySource.equipmentBonuses||{},abilityUsage:primarySource.abilityUsage||{},spellCD:primarySource.spellCD||{},spellRefs:primarySource.spellRefs||[],spellsLearned:primarySource.spellsLearned||{},preparedSpells:primarySource.preparedSpells||{kodex:[],folio:[],obrad:[]},statuses:primarySource.statuses||[],statusEffects:primarySource.statusEffects||[],sourceRef:{type:'character',id:String(primarySource.id||primary.sourceId||''),name:primarySource.name||''},z:35},0);
+      var others=participants.filter(function(item){return item!==primary;}),tokens=others.map(function(item,index){return arenaV2Token(item,index,item.side==='enemy'?'enemy':'ally');});
+      draft.layers=[copyLayer({id:'arena-v2-map',name:arenaV2Locale('Арена · тренировочная площадка','Арена · тренувальний майданчик'),image:'images/vtt-test/combat-workshop.webp',locked:true},0)];draft.tokens=[heroToken].concat(tokens);draft.regions=[];draft.boardWidth=20;draft.boardHeight=14;draft.gridSize=64;draft.grid=true;draft.gridAboveTokens=true;draft.gridOpacity=.26;draft.snap=false;draft.x=0;draft.y=0;draft.zoom=1;draft.view=Object.assign({},copyScene(DEFAULT_SCENE).view,{fog:false,cinematic:false,showPublicInjuries:true,showCreatureRollTotals:true,worldClockWidget:'hidden'});
+      var snapshot=arenaV2Clone(roomSnapshot,null);if(!snapshot||!snapshot.room)return;var stamp=Date.now(),order=[],primaryEntry={key:'member:'+primaryUid,uid:primaryUid,kind:'hero',name:primarySource.name||'Герой',nameUk:primarySource.nameUk||'',portrait:primarySource.portraitThumb||primarySource.portrait||'',sourceRef:heroToken.sourceRef,level:primarySource.level||1,roll:10,rolls:[10],rollMode:'normal',bonus:Number(primarySource.initiative)||0,total:10+(Number(primarySource.initiative)||0),hp:heroToken.hp,hpMax:heroToken.hpMax,tempHp:heroToken.tempHp||0,ac:heroToken.ac,stats:heroToken.stats,mastery:heroToken.mastery,skills:heroToken.skills||[],weaponProfiles:heroToken.weaponProfiles,inventoryItems:primarySource.inventoryItems||[],equipItems:primarySource.equipItems||[],equipmentBonuses:primarySource.equipmentBonuses||{},abilityUsage:primarySource.abilityUsage||{},spellCD:primarySource.spellCD||{},spellRefs:primarySource.spellRefs||[],spellsLearned:primarySource.spellsLearned||{},preparedSpells:primarySource.preparedSpells||{kodex:[],folio:[],obrad:[]},statuses:heroToken.statuses,statusEffects:heroToken.statusEffects,economy:{long:1,short:1,reaction:1,movement:heroToken.speed,movementMax:heroToken.speed},orderHint:0};order.push(primaryEntry);
+      tokens.forEach(function(token,index){order.push({key:'token:'+token.id,tokenId:token.id,uid:'',kind:token.disposition==='enemy'?'enemy':'ally',name:token.name,nameUk:token.nameUk||'',portrait:token.image||'',sourceRef:token.sourceRef,level:token.level||1,roll:9-index,rolls:[9-index],rollMode:'normal',bonus:Number(token.initiative)||0,total:9-index+(Number(token.initiative)||0),hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp||0,ac:token.ac,stats:token.stats,mastery:token.mastery,skills:token.skills||[],weaponProfiles:token.weaponProfiles,inventoryItems:token.inventoryItems,equipItems:token.equipItems||[],equipmentBonuses:token.equipmentBonuses,abilityUsage:token.abilityUsage||{},spellCD:token.spellCD||{},resistances:token.resistances,vulnerabilities:token.vulnerabilities,immunities:token.immunities,spellRefs:token.spellRefs||[],spellsLearned:token.spellsLearned||{},preparedSpells:token.preparedSpells||{kodex:[],folio:[],obrad:[]},statuses:token.statuses,statusEffects:token.statusEffects,economy:{long:1,short:1,reaction:1,movement:token.speed,movementMax:token.speed},orderHint:index+1});});order.sort(function(a,b){return Number(b.total)-Number(a.total)||Number(a.orderHint)-Number(b.orderHint);});
+      snapshot.room.scene=copyScene(draft);snapshot.room.arenaV2={active:true,setupId:String(config.id||''),primaryUid:primaryUid};snapshot.room.combat={active:true,phase:'active',round:1,turnIndex:0,order:order,startedAt:stamp,battleStartedAt:stamp,updatedAt:stamp};snapshot.room.combatEvent={id:'arena-v2-start-'+stamp,kind:'combat',name:arenaV2Locale('Тренировочный бой','Тренувальний бій'),nameUk:'Тренувальний бій',text:'Локальная Арена запущена. Данные героев и Firebase не изменяются.',textUk:'Локальну Арену запущено. Дані героїв і Firebase не змінюються.',ts:stamp};w.zgCombatLabPlayerUid=primaryUid;selectedLayerId='arena-v2-map';selectedTokenId='';roomState(snapshot);if(typeof w.zgArenaV2SyncSnapshot==='function')w.zgArenaV2SyncSnapshot(snapshot);applyScene();syncControls();if(w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);if(w.zgQaSessionToolsRender)w.zgQaSessionToolsRender();if(w.showToast)w.showToast(arenaV2Locale('Арена началась · управление всеми бойцами ручное','Арена почалася · керування всіма бійцями ручне'));
+    },80);return true;
+  };
+  function arenaV2ActorState(token,index,sourceSnapshot){
+    sourceSnapshot=sourceSnapshot&&sourceSnapshot.room?sourceSnapshot:roomSnapshot;var combat=sourceSnapshot&&sourceSnapshot.room&&sourceSnapshot.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],entry=token.type==='hero'&&token.memberUid?order.find(function(item){return item&&String(item.uid||'')===String(token.memberUid);}):order.find(function(item){return item&&String(item.tokenId||'')===String(token.id);})||{},member=token.memberUid&&sourceSnapshot&&sourceSnapshot.room&&sourceSnapshot.room.members&&sourceSnapshot.room.members[token.memberUid],memberCharacter=member&&member.character||{},sourceRef=token.sourceRef||entry.sourceRef||{type:token.type==='hero'?'character':'beast',id:String(memberCharacter.id||token.id)},source=Object.assign({},arenaV2Clone(token,{}),arenaV2Clone(entry,{}),arenaV2Clone(memberCharacter,{}));
+    source.id=String(sourceRef.id||source.id||token.id);source.name=entry.name||token.name||source.name;source.nameUk=entry.nameUk||token.nameUk||source.nameUk;source.portrait=entry.portrait||token.image||source.portrait;source.hpCur=entry.hp==null?token.hp:entry.hp;source.hpMax=entry.hpMax==null?token.hpMax:entry.hpMax;source.inventoryItems=arenaV2Clone(entry.inventoryItems==null?token.inventoryItems:entry.inventoryItems,[]);source.equipItems=arenaV2Clone(entry.equipItems==null?token.equipItems:entry.equipItems,[]);source.statuses=arenaV2Clone(entry.statuses==null?token.statuses:entry.statuses,[]);source.statusEffects=arenaV2Clone(entry.statusEffects==null?token.statusEffects:entry.statusEffects,[]);
+    return{id:String(token.id),tokenId:token.type==='hero'?'':String(token.id),memberUid:String(token.memberUid||''),name:source.name||arenaV2Locale('Участник','Учасник'),nameUk:source.nameUk||'',portrait:source.portrait||'',sourceType:String(sourceRef.type||'beast'),sourceId:String(sourceRef.id||token.id),sourceRef:arenaV2Clone(sourceRef,{}),source:source,side:token.disposition==='enemy'?'enemy':'ally',x:Number(token.x)||50,y:Number(token.y)||50,statuses:source.statuses||[],index:index};
+  }
+  w.zgArenaV2GetState=function(){
+    if(!w.zgLocalArenaV2Active)return null;
+    var activeSnapshot=arenaV2SyncedSnapshot;if((!activeSnapshot||!activeSnapshot.room)&&typeof w.zgVttArenaSnapshot==='function')activeSnapshot=w.zgVttArenaSnapshot();if((!activeSnapshot||!activeSnapshot.room)&&typeof w.zgVttGetTestRoomSnapshot==='function')activeSnapshot=w.zgVttGetTestRoomSnapshot();if(!activeSnapshot||!activeSnapshot.room)activeSnapshot=roomSnapshot;var activeScene=activeSnapshot&&activeSnapshot.room&&activeSnapshot.room.scene,activeTokens=activeScene&&Array.isArray(activeScene.tokens)?activeScene.tokens:draft&&Array.isArray(draft.tokens)?draft.tokens:[],actors=activeTokens.filter(function(token){return token&&token.type!=='note'&&token.type!=='spawn';}).map(function(token,index){var actor=arenaV2ActorState(token,index,activeSnapshot),patch=arenaV2ActorPatches[String(token.id||'')];if(patch){actor.source=Object.assign({},actor.source||{},arenaV2Clone(patch,{}));}return actor;});
+    return{id:activeSnapshot&&activeSnapshot.room&&activeSnapshot.room.arenaV2&&activeSnapshot.room.arenaV2.setupId||'',actors:arenaV2Clone(actors,[])};
+  };
+  w.zgArenaV2AddParticipant=function(participant,position){
+    if(!w.zgLocalArenaV2Active||!roomSnapshot||!roomSnapshot.room||!participant||!participant.source)return null;
+    participant=arenaV2Clone(participant,{});participant.position={x:clamp(Number(position&&position.x)||50,2,98),y:clamp(Number(position&&position.y)||50,2,98)};
+    var token=arenaV2Token(participant,(draft.tokens||[]).length,participant.side==='enemy'?'enemy':'ally');token.x=participant.position.x;token.y=participant.position.y;draft.tokens.push(token);
+    var snapshot=arenaV2Clone(roomSnapshot,null);if(!snapshot||!snapshot.room)return null;snapshot.room.scene=copyScene(draft);var combat=snapshot.room.combat=snapshot.room.combat||{active:true,phase:'active',round:1,turnIndex:0,order:[]},order=Array.isArray(combat.order)?combat.order:(combat.order=[]),entry={key:'token:'+token.id,tokenId:token.id,uid:'',kind:token.disposition==='enemy'?'enemy':'ally',name:token.name,nameUk:token.nameUk||'',portrait:token.image||'',sourceRef:token.sourceRef,level:token.level||1,roll:8-order.length,rolls:[8-order.length],rollMode:'normal',bonus:Number(token.initiative)||0,total:8-order.length+(Number(token.initiative)||0),hp:token.hp,hpMax:token.hpMax,tempHp:token.tempHp||0,ac:token.ac,stats:token.stats,mastery:token.mastery||[],skills:token.skills||[],weaponProfiles:token.weaponProfiles||[],inventoryItems:token.inventoryItems||[],equipItems:token.equipItems||[],equipmentBonuses:token.equipmentBonuses||{},abilityUsage:token.abilityUsage||{},spellCD:token.spellCD||{},resistances:token.resistances||[],vulnerabilities:token.vulnerabilities||[],immunities:token.immunities||[],statuses:token.statuses||[],statusEffects:token.statusEffects||[],spellRefs:token.spellRefs||[],spellsLearned:token.spellsLearned||{},preparedSpells:token.preparedSpells||{kodex:[],folio:[],obrad:[]},economy:{long:1,short:1,reaction:1,movement:token.speed,movementMax:token.speed},orderHint:order.length};order.push(entry);combat.updatedAt=Date.now();snapshot.room.scene=copyScene(draft);roomState(snapshot);if(typeof w.zgArenaV2SyncSnapshot==='function')w.zgArenaV2SyncSnapshot(snapshot);applyScene();syncControls();if(w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);var actor=arenaV2ActorState(token,draft.tokens.length-1,snapshot);try{w.dispatchEvent(new CustomEvent('zg-arena-v2-change',{detail:{kind:'add',actor:actor}}));}catch(ignore){}return actor;
+  };
   function qaMagicSilenceEffect(){return{statusKey:'silence',label:'Магическая немота',labelUk:'Магічна німота',icon:'🔇',color:'#7186a0',unit:'manual',durationUnit:'manual',sourceId:'qa-magic-arena-silence'};}
   function qaMagicArenaReady(scene){var ids=(scene&&scene.tokens||[]).map(function(token){return token&&String(token.id||'');});return ids.indexOf('qa-magic-hero')>=0&&ids.indexOf('qa-magic-normal')>=0&&ids.indexOf('qa-magic-wounded-ally')>=0;}
   w.zgSceneBuildQaMagicArena=function(){
@@ -18445,7 +18576,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return qaWorkshopFixtureReady(draft);
   };
 
-  w.zgQaSessionToolsRender=function(){var host=el('zg-qa-session-tools'),inWorkshop=!!(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.code==='TEST'),magic=qaMagicArenaReady(draft);if(host){host.hidden=!isMaster||!inWorkshop||!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());var roster=host.querySelector('.zg-qa-campaign-roster');if(roster)roster.hidden=magic;var silenceButton=el('zg-qa-magic-silence-toggle');if(silenceButton){silenceButton.hidden=!magic;if(magic)silenceButton.textContent=w.zgQaMagicSilenceEnabled()?spellPlaybackText('Снять немоту','Зняти німоту'):spellPlaybackText('Включить немоту','Увімкнути німоту');}if(!host.hidden&&w.zgQaSessionModeRender)w.zgQaSessionModeRender();if(!host.hidden&&!magic&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();}if(w.zgGamePanelTabsRender)w.zgGamePanelTabsRender();};
+  w.zgQaSessionToolsRender=function(){var host=el('zg-qa-session-tools'),inWorkshop=!!(roomSnapshot&&roomSnapshot.room&&roomSnapshot.room.code==='TEST'&&!w.zgLocalArenaV2Active),magic=qaMagicArenaReady(draft);if(host){host.hidden=!isMaster||!inWorkshop||!(w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());var roster=host.querySelector('.zg-qa-campaign-roster');if(roster)roster.hidden=magic;var silenceButton=el('zg-qa-magic-silence-toggle');if(silenceButton){silenceButton.hidden=!magic;if(magic)silenceButton.textContent=w.zgQaMagicSilenceEnabled()?spellPlaybackText('Снять немоту','Зняти німоту'):spellPlaybackText('Включить немоту','Увімкнути німоту');}if(!host.hidden&&w.zgQaSessionModeRender)w.zgQaSessionModeRender();if(!host.hidden&&!magic&&w.zgQaCampaignHeroesRender)w.zgQaCampaignHeroesRender();}if(w.zgGamePanelTabsRender)w.zgGamePanelTabsRender();};
   w.zgQaSessionBuild=function(){if(w.zgWorkshopMode==='magic')return w.zgSceneBuildQaMagicArena();w.zgSceneBuildQaCombat();if(w.showToast)w.showToast('Мастерская собрана · теперь запустите активный бой');};
   w.zgQaSessionStart=function(){return w.zgQaSessionMode(w.zgWorkshopMode==='magic'?'magic':'combat');};
   w.zgQaSessionFreeRoom=function(){
@@ -19166,7 +19297,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var scene=currentVttScene(),token=scene&&Array.isArray(scene.tokens)?scene.tokens.find(function(item){return item&&String(item.id||'')===String(drawerTokenId);}):null;
     if(!token){drawerTokenId='';return null;}
     if(token.type==='hero'&&token.memberUid){drawerTokenId='';return null;}
-    var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],entry=order.find(function(item){return item&&String(item.tokenId||'')===String(token.id);})||{};
+    var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],entry=order.find(function(item){return item&&String(item.tokenId||'')===String(token.id);})||{},arenaPatch=w.zgLocalArenaV2Active&&typeof w.zgArenaV2GetActorPatch==='function'?w.zgArenaV2GetActorPatch(token.id):{};
     var hpMax=Math.max(1,Number(entry.hpMax==null?token.hpMax:entry.hpMax)||1),hpCur=Math.max(0,Math.min(hpMax,Number(entry.hp==null?(token.hp==null?hpMax:token.hp):entry.hp)||0));
     var character={
       id:'scene-token:'+String(token.id),name:String(entry.name||token.name||vttLocaleText('Существо','Істота')),portrait:String(entry.portrait||token.image||''),
@@ -19181,7 +19312,7 @@ document.addEventListener('DOMContentLoaded', function(){
       inventoryItems:Array.isArray(entry.inventoryItems)?entry.inventoryItems:Array.isArray(token.inventoryItems)?token.inventoryItems:[],equipItems:Array.isArray(entry.equipItems)?entry.equipItems:Array.isArray(token.equipItems)?token.equipItems:[],
       spellRefs:Array.isArray(entry.spellRefs)?entry.spellRefs:Array.isArray(token.spellRefs)?token.spellRefs:[],spellsLearned:entry.spellsLearned&&typeof entry.spellsLearned==='object'?entry.spellsLearned:token.spellsLearned&&typeof token.spellsLearned==='object'?token.spellsLearned:{},
       preparedSpells:entry.preparedSpells&&typeof entry.preparedSpells==='object'?entry.preparedSpells:token.preparedSpells&&typeof token.preparedSpells==='object'?token.preparedSpells:{kodex:[],folio:[],obrad:[]},
-      spellCD:entry.spellCD&&typeof entry.spellCD==='object'?entry.spellCD:token.spellCD&&typeof token.spellCD==='object'?token.spellCD:{},abilityUsage:entry.abilityUsage&&typeof entry.abilityUsage==='object'?entry.abilityUsage:token.abilityUsage&&typeof token.abilityUsage==='object'?token.abilityUsage:{},
+      spellCD:arenaPatch.spellCD&&typeof arenaPatch.spellCD==='object'?arenaPatch.spellCD:entry.spellCD&&typeof entry.spellCD==='object'?entry.spellCD:token.spellCD&&typeof token.spellCD==='object'?token.spellCD:{},abilityUsage:arenaPatch.abilityUsage&&typeof arenaPatch.abilityUsage==='object'?arenaPatch.abilityUsage:entry.abilityUsage&&typeof entry.abilityUsage==='object'?entry.abilityUsage:token.abilityUsage&&typeof token.abilityUsage==='object'?token.abilityUsage:{},
       journalEntries:Array.isArray(entry.journalEntries)?entry.journalEntries:Array.isArray(token.journalEntries)?token.journalEntries:[],notes:entry.notes==null?token.notes:entry.notes,currentGoal:entry.currentGoal==null?token.currentGoal:entry.currentGoal,
       mainGoals:entry.mainGoals==null?token.mainGoals:entry.mainGoals,goals:entry.goals==null?token.goals:entry.goals,quests:entry.quests==null?token.quests:entry.quests
     };
@@ -19827,15 +19958,17 @@ document.addEventListener('DOMContentLoaded', function(){
   function drawerReadOnly(member){
     var session=state&&state.session,viewSession=presentationSession(session);
     if(!viewSession||!member)return false;
+    if(presentationIsMaster(session)&&w.zgLocalArenaV2Active&&member.role==='scene-token'&&member.sceneTokenId)return false;
     if(viewSession.role==='player')return String(member.uid)!==String(viewSession.uid);
     return !!(session.role==='master'&&String(member.uid)!==String(gmControlledPlayerUid()));
   }
   function drawerMasterCanEdit(member){
     var session=state&&state.session;
+    var arenaToken=!!(presentationIsMaster(session)&&member&&member.role==='scene-token'&&member.character&&w.zgLocalArenaV2Active);
     var common=!!(presentationIsMaster(session)&&member&&member.role==='player'&&member.character);
     var workshop=common&&state&&state.room&&state.room.code==='TEST'&&w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive();
     var network=common&&w.ZargotaRooms&&typeof w.ZargotaRooms.gmUpdateCharacterSections==='function';
-    return !!(workshop||network);
+    return !!(arenaToken||workshop||network);
   }
   function editableDrawerCharacter(member){
     var local=fullLocalCharacter(member);
@@ -19864,6 +19997,10 @@ document.addEventListener('DOMContentLoaded', function(){
       revision:Math.max(0,Number(character&&character.revision)||0)
     }));}catch(ignore){return{inventoryItems:[],equipItems:[]};}
   }
+  function inventoryClone(value,fallback){
+    try{return JSON.parse(JSON.stringify(value));}catch(ignore){return fallback;}
+  }
+  w.zgVttArenaSnapshot=function(){return w.zgLocalArenaV2Active?inventoryClone(state,null):null;};
   function restoreInventoryMutation(character,before){
     if(!character||!before)return;
     character.inventoryItems=Array.isArray(before.inventoryItems)?before.inventoryItems:[];
@@ -19874,6 +20011,17 @@ document.addEventListener('DOMContentLoaded', function(){
     inventoryMutationBusy=true;
     var syncAttempted=false;
     w.zgVttSetInventoryNotice(member&&member.uid,'loading','Сохраняем…');
+    if(member&&member.role==='scene-token'&&member.sceneTokenId&&w.zgLocalArenaV2Active){
+      var arenaSections=inventoryMutationSnapshot(character),arenaTokenId=String(member.sceneTokenId);
+      return combatQaApply(function(snapshot){
+        var scene=snapshot&&snapshot.room&&snapshot.room.scene,token=scene&&Array.isArray(scene.tokens)?scene.tokens.find(function(item){return item&&String(item.id||'')===arenaTokenId;}):null,combat=snapshot&&snapshot.room&&snapshot.room.combat,entry=combat&&Array.isArray(combat.order)?combat.order.find(function(item){return item&&String(item.tokenId||'')===arenaTokenId;}):null;
+        if(!token)throw new Error(vttLocaleText('Участник Арены не найден.','Учасника Арени не знайдено.'));
+        token.inventoryItems=inventoryClone(arenaSections.inventoryItems,[]);token.equipItems=inventoryClone(arenaSections.equipItems,[]);
+        if(entry){entry.inventoryItems=inventoryClone(arenaSections.inventoryItems,[]);entry.equipItems=inventoryClone(arenaSections.equipItems,[]);}
+      }).then(function(snapshot){
+        roomSnapshot=snapshot;renderDrawer(true);w.zgVttSetInventoryNotice(member.uid,'success',successText||vttLocaleText('Сумка участника Арены обновлена.','Сумку учасника Арени оновлено.'));try{w.dispatchEvent(new CustomEvent('zg-arena-v2-change',{detail:{kind:'inventory',tokenId:arenaTokenId}}));}catch(ignore){}return true;
+      }).catch(function(error){restoreInventoryMutation(character,before);renderDrawer(true);w.zgVttSetInventoryNotice(member.uid,'error',error&&error.message||vttLocaleText('Изменение отменено.','Зміну скасовано.'));return false;}).then(function(result){inventoryMutationBusy=false;return result;});
+    }
     if(drawerMasterCanEdit(member)&&!fullLocalCharacter(member)){
       var sections=inventoryMutationSnapshot(character);
       sections.expectedRevision=before&&before.revision;
@@ -20917,7 +21065,7 @@ document.addEventListener('DOMContentLoaded', function(){
     return notice+'<div class="zg-inv2">'+
       '<section class="zg-inv2-equipped"><header><h4>Экипировано</h4></header><div class="zg-inv2-equip-list">'+equipmentHtml+'</div></section>'+
       '<section class="zg-inv2-quick"><h4>Быстрые предметы</h4><div>'+quickHtml+'</div></section>'+
-      '<section class="zg-inv2-storage"><header><h4>Инвентарь</h4><span>'+totalWeight.toFixed(1).replace(/\.0$/,'')+' / 40</span>'+addControl+'</header>'+
+      '<section class="zg-inv2-storage" ondragover="zgVttInventoryCatalogDragOver(event)" ondragleave="zgVttInventoryCatalogDragLeave(event)" ondrop="zgVttInventoryCatalogDrop(event)"><header><h4>Инвентарь</h4><span>'+totalWeight.toFixed(1).replace(/\.0$/,'')+' / 40</span>'+addControl+'</header>'+
         '<nav class="zg-inv2-filters" aria-label="Фильтры инвентаря">'+filterHtml+'</nav>'+
         '<div class="zg-inv2-list">'+listHtml+'</div>'+
         '<footer class="zg-inv2-pages"><button type="button" onclick="zgVttInventoryPage(-1)" '+(inventoryPage<=0?'disabled':'')+' aria-label="Предыдущая страница">‹</button><span>'+(inventoryPage+1)+' / '+pageCount+'</span><button type="button" onclick="zgVttInventoryPage(1)" '+(inventoryPage>=pageCount-1?'disabled':'')+' aria-label="Следующая страница">›</button></footer>'+
@@ -21439,7 +21587,7 @@ document.addEventListener('DOMContentLoaded', function(){
     syncSessionSounds(snapshot);
     var localWorkshop=!!(snapshot&&snapshot.room&&snapshot.room.code==='TEST'&&w.zgLocalCombatQaActive&&w.zgLocalCombatQaActive());
     var connection=el('zg-session-connection');if(connection){var reconnecting=!!(snapshot&&snapshot.session&&!snapshot.online&&!localWorkshop);connection.classList.toggle('show',reconnecting);connection.textContent=reconnecting?'Связь потеряна · переподключаемся…':'';}
-    var workshopLocal=el('zg-workshop-local');if(workshopLocal)workshopLocal.hidden=!localWorkshop;
+    var workshopLocal=el('zg-workshop-local');if(workshopLocal)workshopLocal.hidden=!localWorkshop||!!w.zgLocalArenaV2Active;
     renderParty();
     renderJournal();
     renderDrawer(false);
@@ -21852,6 +22000,9 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function raiseCombatLabelTarget(target){if(target&&target.classList)target.classList.add('combat-label-active');}
   function releaseCombatLabelTarget(target){if(!target||!target.classList)return;if(!target.querySelector('.zg-combat-impact,.zg-gm-adjustment'))target.classList.remove('combat-label-active');}
+  function syncTokenEffectSize(node){
+    if(!node||!node.style)return 0;var rect=node.getBoundingClientRect?node.getBoundingClientRect():null,size=Math.max(24,Math.min(180,Number(rect&&Math.min(rect.width,rect.height))||Number(node.offsetWidth)||64));node.style.setProperty('--zg-token-size',size+'px');return size;
+  }
   function animateCombatStatusTickVisual(event){
     var target=combatNodeForKey(event&&event.targetKey),layer=el('zg-move-layer'),targetPoint=combatNodeScenePoint(target);if(!target||!layer||!targetPoint)return false;
     var impacts=Array.isArray(event.statusTicks)?event.statusTicks:[],removed=Array.isArray(event.statusRemoved)?event.statusRemoved:[],damage=impacts.filter(function(tick){return tick&&tick.type==='damage';}).reduce(function(sum,tick){return sum+Math.max(0,Number(tick.amount)||0);},0),heal=impacts.filter(function(tick){return tick&&tick.type==='heal';}).reduce(function(sum,tick){return sum+Math.max(0,Number(tick.amount)||0);},0),presetKey=liveStatusTickPreset(event);
@@ -22913,6 +23064,10 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgCombatAttackRangeOverride=function(checked){combatAttackRangeOverride=checked===true;combatAttackError='';renderCombatAttack(true);};
   var combatQaOutcome='hit',combatQaOutcomeForced=false;
   function combatQaSnapshot(){
+    if(w.zgLocalArenaV2Active&&typeof w.zgVttArenaSnapshot==='function'){
+      var arenaSnapshot=w.zgVttArenaSnapshot();
+      if(arenaSnapshot&&arenaSnapshot.room&&arenaSnapshot.room.code==='TEST')return arenaSnapshot;
+    }
     if(state&&state.room&&state.room.code==='TEST')return state;
     var vttSnapshot=w.zgVttGetTestRoomSnapshot&&w.zgVttGetTestRoomSnapshot();
     if(vttSnapshot&&vttSnapshot.room&&vttSnapshot.room.code==='TEST')return vttSnapshot;
@@ -22951,6 +23106,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if(visibleScene)snapshot.room.scene=visibleScene;
       }
       change(snapshot);snapshot.room.updatedAt=Date.now();state=snapshot;roomSnapshot=snapshot;
+      if(w.zgLocalArenaV2Active&&typeof w.zgArenaV2SyncSnapshot==='function')w.zgArenaV2SyncSnapshot(snapshot);
       try{if(w.zgVttSetTestRoomSnapshot)w.zgVttSetTestRoomSnapshot(snapshot);}catch(syncError){w.zgLocalCombatQaPresentationError=syncError;}
       try{if(w.zgVttApplyTestSnapshot)w.zgVttApplyTestSnapshot(snapshot);else render(snapshot);}catch(renderError){w.zgLocalCombatQaPresentationError=renderError;}
       return snapshot;
@@ -22993,8 +23149,8 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function combatQaSyncTarget(snapshot,target){
     if(!target)return;var tokens=snapshot.room.scene&&Array.isArray(snapshot.room.scene.tokens)?snapshot.room.scene.tokens:[],statuses=Array.isArray(target.statuses)?target.statuses.slice():[],statusEffects=Array.isArray(target.statusEffects)?target.statusEffects.map(function(effect){return effect&&typeof effect==='object'?Object.assign({},effect):effect;}):[];
-    tokens.forEach(function(token){if(token&&target.tokenId&&String(token.id)===String(target.tokenId)){token.hp=target.hp;token.tempHp=target.tempHp||0;token.zeroHp=target.zeroHp||null;token.statuses=statuses.slice();token.statusEffects=statusEffects.map(function(effect){return effect&&typeof effect==='object'?Object.assign({},effect):effect;});if(target.hpMax!=null)token.hpMax=target.hpMax;if(target.baseHpMax!=null)token.baseHpMax=target.baseHpMax;if(Array.isArray(target.injuries))token.injuries=target.injuries.slice();}});
-    if(target.uid&&snapshot.room.members&&snapshot.room.members[target.uid]&&snapshot.room.members[target.uid].character){var character=snapshot.room.members[target.uid].character;character.hpCur=target.hp;character.tempHp=target.tempHp||0;character.deathSaves=target.zeroHp||null;character.statuses=statuses.slice();character.statusEffects=statusEffects.map(function(effect){return effect&&typeof effect==='object'?Object.assign({},effect):effect;});if(target.hpMax!=null)character.hpMax=target.hpMax;if(target.baseHpMax!=null)character.baseHpMax=target.baseHpMax;if(Array.isArray(target.injuries))character.injuries=target.injuries.slice();}
+    tokens.forEach(function(token){if(token&&target.tokenId&&String(token.id)===String(target.tokenId)){token.hp=target.hp;token.tempHp=target.tempHp||0;token.zeroHp=target.zeroHp||null;token.statuses=statuses.slice();token.statusEffects=statusEffects.map(function(effect){return effect&&typeof effect==='object'?Object.assign({},effect):effect;});if(target.hpMax!=null)token.hpMax=target.hpMax;if(target.baseHpMax!=null)token.baseHpMax=target.baseHpMax;if(Array.isArray(target.injuries))token.injuries=target.injuries.slice();if(target.abilityUsage&&typeof target.abilityUsage==='object')token.abilityUsage=inventoryClone(target.abilityUsage,{});}});
+    if(target.uid&&snapshot.room.members&&snapshot.room.members[target.uid]&&snapshot.room.members[target.uid].character){var character=snapshot.room.members[target.uid].character;character.hpCur=target.hp;character.tempHp=target.tempHp||0;character.deathSaves=target.zeroHp||null;character.statuses=statuses.slice();character.statusEffects=statusEffects.map(function(effect){return effect&&typeof effect==='object'?Object.assign({},effect):effect;});if(target.hpMax!=null)character.hpMax=target.hpMax;if(target.baseHpMax!=null)character.baseHpMax=target.baseHpMax;if(Array.isArray(target.injuries))character.injuries=target.injuries.slice();if(target.abilityUsage&&typeof target.abilityUsage==='object')character.abilityUsage=inventoryClone(target.abilityUsage,{});}
   }
   function combatQaSyncZeroHp(entry,beforeHp,stamp){
     if(!entry)return;if(Number(entry.hp)>0){entry.zeroHp=null;return;}if(Number(beforeHp)>0||!entry.zeroHp)entry.zeroHp={successes:0,failures:0,state:entry.uid?'death-saves':'awaiting-gm',pending:true,lastRollRound:0,lastCoin:'',lastOutcome:'',gmOutcome:entry.uid?'':'pending-creature',reachedAt:stamp,updatedAt:stamp};
@@ -23053,7 +23209,7 @@ document.addEventListener('DOMContentLoaded', function(){
       var instantPlayback=!!(request&&request.ability&&request.ability.playbackMode==='instant'),stagedFinger=!!(request&&request.ability&&request.ability.automationKey==='finger-heat-v1'&&!instantPlayback),stagedWorkflow=!!(request&&request.abilityResolution&&request.abilityResolution.workflow),stagedAutomation=stagedFinger||stagedWorkflow;
       if(!request||request.actionKind!=='ability'||(stagedWorkflow?request.status!=='ability-workflow-result':stagedFinger?['ability-attack-result','ability-damage-result'].indexOf(request.status)<0:request.status!=='pending'))throw new Error('Сначала выполните назначенные броски способности QA');
       var actor=order.find(function(entry){return entry&&(masterControlled?String(entry.key||'')===masterActorKey:String(entry.uid||'')===String(uid));}),ability=Object.assign({},request.ability||request.details||{},overrides),keys=(Array.isArray(targetKeys)?targetKeys:[targetKeys]).map(String),targets=order.filter(function(entry){return entry&&keys.indexOf(String(entry.key))>=0;}),actionCost=['long','short','reaction','free'].indexOf(ability.actionCost)>=0?ability.actionCost:'long',stamp=Date.now(),results=[],approved={},instantPreview=null,abilityOwnerKey=String(uid||masterActorKey),qaEffectSource='qa-ability-'+String(uid||masterActorKey||'caster')+'-'+stamp,qaScene=room.scene||{},qaTokens=Array.isArray(qaScene.tokens)?qaScene.tokens:[],qaSweeping=String(ability.automationKey||'')==='sweeping-strike-v1',qaSweepingSharedAttack=null,qaSweepingSharedDamage=null,qaStorm=String(ability.automationKey||'')==='storm-arrow-v1',qaStormSharedAttack=null,qaStormSharedDamage=null;
-      if(!actor)throw new Error('Участник способности QA не найден');if(masterControlled&&String(order[Math.max(0,Math.min(order.length-1,Number(combat&&combat.turnIndex)||0))]&&order[Math.max(0,Math.min(order.length-1,Number(combat&&combat.turnIndex)||0))].key||'')!==masterActorKey)throw new Error('Заклинание существа можно разыграть только в его ход');
+      if(!actor)throw new Error('Участник способности QA не найден');if(masterControlled&&!w.zgLocalArenaV2Active&&String(order[Math.max(0,Math.min(order.length-1,Number(combat&&combat.turnIndex)||0))]&&order[Math.max(0,Math.min(order.length-1,Number(combat&&combat.turnIndex)||0))].key||'')!==masterActorKey)throw new Error('Заклинание существа можно разыграть только в его ход');
       var qaActorStatuses=[].concat(actor.statuses||[],actor.statusEffects||[]).map(combatQaNormalizeStatusKey),qaActorPoint=combatQaAbilityPoint(qaScene,actor),qaBoardWidth=Math.max(1,Number(qaScene.boardWidth)||32),qaBoardHeight=Math.max(1,Number(qaScene.boardHeight)||20),qaRound=Math.max(1,Number(combat.round)||1),qaInsideSilence=(Array.isArray(combat.spellZones)?combat.spellZones:[]).some(function(zone){if(!zone||zone.kind!=='silence'||Number(zone.expiresRound||0)<=qaRound||!zone.point||!qaActorPoint)return false;var dx=(Number(qaActorPoint.x)-Number(zone.point.x))*qaBoardWidth/100,dy=(Number(qaActorPoint.y)-Number(zone.point.y))*qaBoardHeight/100;return Math.sqrt(dx*dx+dy*dy)<=Math.max(.5,Number(zone.radius)||.5)+.001;}),qaIsSpell=String(ability.kind||'')==='spell'||String(ability.automationKey||'').indexOf('-v1')>=0;if(!stagedAutomation&&qaIsSpell&&(qaActorStatuses.indexOf('silence')>=0||qaInsideSilence))throw new Error('Магическая тишина запрещает произносить заклинания');
       if(ability.automationKey==='misty-transition-v1'&&Number(ability.smokeRadius)>0){var actorEnemy=String(actor.kind||'')==='enemy';targets=order.filter(function(entry){if(!entry)return false;if(String(entry.key)===String(actor.key))return true;var targetEnemy=String(entry.kind||'')==='enemy',distance=combatQaAbilityDistance(qaScene,actor,entry);return actorEnemy!==targetEnemy&&distance!=null&&distance<=Number(ability.smokeRadius);});keys=targets.map(function(entry){return String(entry.key);});}
       if(stagedFinger&&Array.isArray(overrides.approvedResults))overrides.approvedResults.forEach(function(result){if(result&&result.key)approved[String(result.key)]=result;});
@@ -23124,12 +23280,13 @@ document.addEventListener('DOMContentLoaded', function(){
         var point=request.ability&&request.ability.targeting||request.target||{},variant=ability.summonVariant==='fresh-undead'?'fresh-undead':'skeleton',count=Math.max(1,Math.min(variant==='fresh-undead'?1:3,Number(ability.summonCount)||1)),sourceKey=String(ability.automationKey||ability.key||'summon'),existing=qaTokens.filter(function(token){return token&&String(token.summonedByUid||'')===abilityOwnerKey&&String(token.summonSourceKey||'')===sourceKey&&Number(token.hp==null?token.hpMax:token.hp)>0&&String(token.zeroHp&&token.zeroHp.state||'')!=='dead'&&(!Number(token.summonExpiresRound)||Number(token.summonExpiresRound)>Math.max(1,Number(combat.round)||1));});if(existing.some(function(token){return String(token.summonVariant||'skeleton')!==variant;})||existing.length+count>(variant==='fresh-undead'?1:3))throw new Error('Достигнут предел одновременно призванной нежити');
         var qbw=Math.max(1,Number(qaScene.boardWidth)||32),offsets=[0,100/qbw,-100/qbw],hp=Math.max(1,Number(ability.summonHp)||(variant==='fresh-undead'?18:10)),ac=Math.max(0,Number(ability.summonAc)||10),speed=Math.max(0,Number(ability.summonSpeed)||6);for(var summonIndex=0;summonIndex<count;summonIndex++){var tokenId='qa-summon-'+String(request.id||stamp).replace(/[^a-zA-Z0-9_-]/g,'')+(count>1?'-'+(summonIndex+1):''),name=String(ability.summonName||(variant==='fresh-undead'?'Свежая нежить':'Скелет'))+(count>1?' '+(summonIndex+1):''),nameUk=String(ability.summonNameUk||(variant==='fresh-undead'?'Свіжа нежить':'Скелет'))+(count>1?' '+(summonIndex+1):''),token={id:tokenId,type:'custom',disposition:'ally',name:name,nameUk:nameUk,image:String(ability.iconAsset||''),x:Math.max(1,Math.min(99,(Number(point.x)||50)+offsets[summonIndex])),y:Math.max(1,Math.min(99,Number(point.y)||50)),size:64,visible:true,hidden:false,locked:false,snap:true,color:'#8665a0',sourceRef:{type:'spell-summon',id:sourceKey,name:name,nameUk:nameUk,revision:1},hp:hp,hpMax:hp,tempHp:0,ac:ac,speed:speed,initiative:Number(ability.summonInitiative)||0,stats:variant==='fresh-undead'?{str:2,dex:-1,int:-3,cha:-2,per:0,con:2}:{str:1,dex:1,int:-3,cha:-2,per:0,con:1},weaponProfiles:[{id:'undead-strike',name:variant==='fresh-undead'?'Тяжёлый удар':'Ржавый клинок',nameUk:variant==='fresh-undead'?'Важкий удар':'Іржавий клинок',damageFormula:variant==='fresh-undead'?'1d8':'1d6',damageType:variant==='fresh-undead'?'Дробящий':'Рубящий'}],summonedByUid:abilityOwnerKey,summonedByKey:String(actor&&actor.key||''),summonSourceKey:sourceKey,summonVariant:variant,summonExpiresRound:Math.max(1,Number(combat.round)||1)+Math.max(1,Number(ability.durationRounds)||10)};qaTokens.push(token);var entry={key:'token:'+tokenId,tokenId:tokenId,uid:'',kind:'ally',name:name,nameUk:nameUk,portrait:token.image,sourceRef:token.sourceRef,level:1,roll:null,rolls:[],rollMode:'normal',bonus:token.initiative,total:null,initiativeGroup:'spell-summon:'+sourceKey,orderHint:order.length,hp:hp,hpMax:hp,tempHp:0,ac:ac,stats:token.stats,mastery:[],weaponProfiles:token.weaponProfiles,resistances:[],vulnerabilities:variant==='skeleton'?['blunt']:[],immunities:['poison'],statuses:[],statusEffects:[],economy:{long:1,short:1,reaction:1,movement:speed,movementMax:speed},joinedRound:Math.max(1,Number(combat.round)||1),joinedAt:stamp,summonedByUid:abilityOwnerKey,summonExpiresRound:token.summonExpiresRound};order.push(entry);qaSummonTokens.push(token);qaSummonEntries.push(entry);}}
       request.status='resolved';request.resolvedAt=stamp;request.resultEventId='qa-combat-ability-'+stamp;
-      if(!masterControlled&&request.ability&&Number(request.ability.resourceMax)>0){
+      if(request.ability&&Number(request.ability.resourceMax)>0){
         var resourceDelta=ability.effectKind==='summon'?Math.max(1,Number(ability.summonChargeCost)||1):1,used=Math.max(0,Number(request.ability.resourceUsed)||0),resourceMax=Math.max(0,Number(request.ability.resourceMax)||0),resourceKey=String(request.ability.resourceKey||'').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,100),resourceBattleMax=Math.max(0,Number(request.ability.maxUsesPerBattle)||0),resourceBattleScopeKey='battle-'+Number(combat.battleStartedAt||combat.startedAt||0),resourceBattleUsed=resourceBattleScopeKey!=='battle-0'&&String(request.ability.resourceBattleScopeKey||'')===resourceBattleScopeKey?Math.max(0,Number(request.ability.resourceBattleUsed)||0):0;
         if(used+resourceDelta>resourceMax)throw new Error('Для этого розыгрыша не хватает зарядов способности');
         if(resourceBattleMax&&resourceBattleUsed+resourceDelta>resourceBattleMax)throw new Error(spellPlaybackText('В этом бою заклинание уже применялось','У цьому бою закляття вже застосовувалося'));
         request.ability.resourceUsed=used+resourceDelta;request.ability.resourceBattleScopeKey=resourceBattleScopeKey;request.ability.resourceBattleUsed=resourceBattleUsed+(resourceBattleMax?resourceDelta:0);
-        if(member&&member.character&&resourceKey){member.character.abilityUsage=member.character.abilityUsage&&typeof member.character.abilityUsage==='object'?member.character.abilityUsage:{};var previousResource=member.character.abilityUsage[resourceKey]||{};member.character.abilityUsage[resourceKey]=Object.assign({},previousResource,{used:request.ability.resourceUsed,max:resourceMax,battleScopeKey:request.ability.resourceBattleScopeKey,battleUsed:request.ability.resourceBattleUsed,updatedAt:stamp,updatedBy:'qa-master'});}
+        if(masterControlled&&resourceKey){actor.abilityUsage=actor.abilityUsage&&typeof actor.abilityUsage==='object'?actor.abilityUsage:{};var previousActorResource=actor.abilityUsage[resourceKey]||{};actor.abilityUsage[resourceKey]=Object.assign({},previousActorResource,{used:request.ability.resourceUsed,max:resourceMax,battleScopeKey:request.ability.resourceBattleScopeKey,battleUsed:request.ability.resourceBattleUsed,updatedAt:stamp,updatedBy:'arena-master'});combatQaSyncTarget(snapshot,actor);}
+        else if(member&&member.character&&resourceKey){member.character.abilityUsage=member.character.abilityUsage&&typeof member.character.abilityUsage==='object'?member.character.abilityUsage:{};var previousResource=member.character.abilityUsage[resourceKey]||{};member.character.abilityUsage[resourceKey]=Object.assign({},previousResource,{used:request.ability.resourceUsed,max:resourceMax,battleScopeKey:request.ability.resourceBattleScopeKey,battleUsed:request.ability.resourceBattleUsed,updatedAt:stamp,updatedBy:'qa-master'});}
       }
       combat.updatedAt=stamp;
       var casterName=String(request.name||actor&&actor.name||'Герой'),casterNameUk=String(actor&&actor.nameUk||casterName),abilityName=String(ability.name||request.text||'эффект'),publicResolutionMode=['attack','save','utility'].indexOf(ability.resolutionMode)>=0?ability.resolutionMode:(ability.saveStat||ability.halfOnSave?'save':ability.attackStat||stagedFinger?'attack':'utility'),publicResults=results.map(function(result){var outcome=publicResolutionMode==='save'?(result.success?'спасбросок успешен':'спасбросок провален'):publicResolutionMode==='attack'?(result.success?'попадание':'промах'):'эффект применён',trait=result.immune?'иммунитет':result.resisted?(result.energyResisted?'сопротивление энергии':'сопротивление'):result.vulnerable?'уязвимость':'';return String(result.name||'Цель')+': '+outcome+(result.damage?' · '+result.damage+' урона':'')+(trait?' · '+trait:'')+(result.heal?' · '+result.heal+' лечения':'')+(result.tempHpGain?' · временные HP +'+result.tempHpGain:'')+(result.statuses.length?' · '+result.statuses.map(function(status){return combatQaStatusLabel(status,false,ability);}).join(', '):'');}),publicResultsUk=results.map(function(result){var outcome=publicResolutionMode==='save'?(result.success?'ряткидок успішний':'ряткидок провалено'):publicResolutionMode==='attack'?(result.success?'влучання':'промах'):'ефект застосовано',trait=result.immune?'імунітет':result.resisted?(result.energyResisted?'опір енергії':'опір'):result.vulnerable?'вразливість':'';return String(result.nameUk||result.name||'Ціль')+': '+outcome+(result.damage?' · шкода '+result.damage:'')+(trait?' · '+trait:'')+(result.heal?' · лікування '+result.heal:'')+(result.tempHpGain?' · тимчасові HP +'+result.tempHpGain:'')+(result.statuses.length?' · '+result.statuses.map(function(status){return combatQaStatusLabel(status,true,ability);}).join(', '):'');});
@@ -23966,6 +24123,24 @@ document.addEventListener('DOMContentLoaded', function(){
     Array.prototype.forEach.call(document.querySelectorAll('.zg-inv2-equip-slot.can-drop,.zg-inv2-equip-slot.cannot-drop'),function(slot){slot.classList.remove('can-drop','cannot-drop','dragover');});
     var ghost=el('zg-inventory-drag-ghost');if(ghost)ghost.remove();
   }
+  w.zgVttInventoryCatalogDragOver=function(event){
+    if(!event||!event.dataTransfer||Array.prototype.indexOf.call(event.dataTransfer.types||[],'text/zargota-arena-item')<0)return;
+    event.preventDefault();event.dataTransfer.dropEffect='copy';if(event.currentTarget)event.currentTarget.classList.add('arena-catalog-drop');
+  };
+  w.zgVttInventoryCatalogDragLeave=function(event){if(event&&event.currentTarget&&!event.currentTarget.contains(event.relatedTarget))event.currentTarget.classList.remove('arena-catalog-drop');};
+  w.zgVttInventoryCatalogAdd=function(catalogId){
+    catalogId=String(catalogId||'');if(!catalogId)return false;
+    if(inventoryMutationBusy){if(w.showToast)w.showToast(vttLocaleText('Дождитесь завершения сохранения','Дочекайтеся завершення збереження'));return false;}
+    var member=drawerMember(),editable=editableDrawerCharacter(member),character=editable.character,catalog=typeof w.loadArmoryItems==='function'?w.loadArmoryItems():typeof loadArmoryItems==='function'?loadArmoryItems():[],source=(catalog||[]).find(function(item){return item&&String(item.id||item.itemId||item.name)===catalogId;});
+    if(!character||!source){if(w.showToast)w.showToast(vttLocaleText('Откройте редактируемую сумку участника Арены.','Відкрийте редаговану сумку учасника Арени.'));return false;}
+    var before=inventoryMutationSnapshot(character),item=inventoryClone(source,{});item.catalogItemId=String(source.id||source.itemId||'');item.itemId='arena-item-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);item.qty=1;item.equipped=false;delete item.slot;if(!Array.isArray(character.inventoryItems))character.inventoryItems=[];character.inventoryItems.push(item);renderDrawer(true);
+    commitInventoryMutation(member,character,before,editable.remote?'arena-catalog-add':'inventory-add',vttLocaleText('Предмет добавлен в сумку. Экипируйте его внутри сумки.','Предмет додано до сумки. Спорядіть його всередині сумки.'));return false;
+  };
+  w.zgVttInventoryCatalogDrop=function(event){
+    if(!event||!event.dataTransfer)return false;var catalogId=String(event.dataTransfer.getData('text/zargota-arena-item')||'');if(!catalogId)return false;
+    event.preventDefault();if(event.currentTarget)event.currentTarget.classList.remove('arena-catalog-drop');
+    return w.zgVttInventoryCatalogAdd(catalogId);
+  };
   w.zgVttInventoryDragEnd=clearInventoryDragFeedback;
   w.zgVttInventoryDrag=function(event,index){
     if(!event||!event.dataTransfer)return;
@@ -24356,6 +24531,25 @@ document.addEventListener('DOMContentLoaded', function(){
     };
     var magicOperation=gmMagicOperationFromDiff(member,character,reason);if(magicOperation)sections.magicOperation=magicOperation;
     abilityRequestBusy=true;renderDrawer(true);
+    if(member&&member.role==='scene-token'&&member.sceneTokenId&&w.zgLocalArenaV2Active){
+      var arenaTokenId=String(member.sceneTokenId);
+      return combatQaApply(function(snapshot){
+        var scene=snapshot&&snapshot.room&&snapshot.room.scene,token=scene&&Array.isArray(scene.tokens)?scene.tokens.find(function(item){return item&&String(item.id||'')===arenaTokenId;}):null,combat=snapshot&&snapshot.room&&snapshot.room.combat,entry=combat&&Array.isArray(combat.order)?combat.order.find(function(item){return item&&String(item.tokenId||'')===arenaTokenId;}):null;
+        if(!token)throw new Error(vttLocaleText('Участник Арены не найден.','Учасника Арени не знайдено.'));
+        token.spellRefs=inventoryClone(sections.spellRefs,[]);token.spellsLearned=inventoryClone(sections.spellsLearned,{});token.preparedSpells=inventoryClone(sections.preparedSpells,{kodex:[],folio:[],obrad:[]});
+        if(entry){entry.spellRefs=inventoryClone(sections.spellRefs,[]);entry.spellsLearned=inventoryClone(sections.spellsLearned,{});entry.preparedSpells=inventoryClone(sections.preparedSpells,{kodex:[],folio:[],obrad:[]});}
+        if(typeof w.zgArenaV2ApplyActorPatch==='function')w.zgArenaV2ApplyActorPatch(arenaTokenId,{spellRefs:inventoryClone(sections.spellRefs,[]),spellsLearned:inventoryClone(sections.spellsLearned,{}),preparedSpells:inventoryClone(sections.preparedSpells,{kodex:[],folio:[],obrad:[]})});
+      }).then(function(snapshot){
+        abilityRequestBusy=false;roomSnapshot=snapshot;if(typeof w.zgArenaV2SyncSnapshot==='function')w.zgArenaV2SyncSnapshot(snapshot);renderDrawer(true);
+        if(w.showToast)w.showToast(successMessage||vttLocaleText('Магия участника Арены обновлена.','Магію учасника Арени оновлено.'));
+        try{w.dispatchEvent(new CustomEvent('zg-arena-v2-change',{detail:{kind:'magic',tokenId:arenaTokenId}}));}catch(ignore){}
+        return true;
+      }).catch(function(error){
+        abilityRequestBusy=false;renderDrawer(true);
+        if(w.showToast)w.showToast(error&&error.message||vttLocaleText('Не удалось обновить магию участника Арены.','Не вдалося оновити магію учасника Арени.'));
+        return false;
+      });
+    }
     if(combatQaActive()){
       return combatQaApply(function(snapshot){
         var target=snapshot&&snapshot.room&&snapshot.room.members&&snapshot.room.members[member.uid];
@@ -24785,10 +24979,25 @@ document.addEventListener('DOMContentLoaded', function(){
     var locale=w.ZargotaI18n&&typeof w.ZargotaI18n.getLocale==='function'?w.ZargotaI18n.getLocale():'ru';
     return locale==='uk'&&uk?uk:ru;
   }
+  function arenaVttAbilityTargetKeys(profile,selection,casterKey){
+    var combat=state&&state.room&&state.room.combat,order=combat&&Array.isArray(combat.order)?combat.order:[],scene=state&&state.room&&state.room.scene||{},tokens=Array.isArray(scene.tokens)?scene.tokens:[];
+    if(profile&&(profile.effectKind==='summon'||profile.effectKind==='movement'||profile.selfOnly))return[casterKey];
+    if(selection&&Array.isArray(selection.targetKeys)&&selection.targetKeys.length)return selection.targetKeys.map(String);
+    if(selection&&selection.targetKey)return[String(selection.targetKey)];
+    if(!selection||selection.mode!=='point')return[];
+    var point={x:Number(selection.x)||0,y:Number(selection.y)||0},width=Math.max(1,Number(scene.boardWidth)||32),height=Math.max(1,Number(scene.boardHeight)||20),radius=Math.max(.5,Number(profile&&profile.aoeRadius)||.5),area=String(profile&&profile.areaMode||'circle'),lineLength=Math.max(.5,Number(profile&&profile.areaLength)||Number(profile&&profile.rangeCells)||1),lineWidth=Math.max(.5,Number(profile&&profile.areaWidth)||.5),squareHalf=Math.max(.25,Number(profile&&profile.areaSize)||4)/2;
+    function entryToken(entry){return tokens.find(function(token){return token&&entry&&((entry.tokenId&&String(token.id)===String(entry.tokenId))||(entry.uid&&token.type==='hero'&&String(token.memberUid||'')===String(entry.uid)));})||null;}
+    var caster=order.find(function(entry){return entry&&String(entry.key||'')===String(casterKey);}),origin=entryToken(caster);
+    return order.filter(function(entry){var token=entryToken(entry);if(!token)return false;var tx=Number(token.x)*width/100,ty=Number(token.y)*height/100,px=point.x*width/100,py=point.y*height/100;if(area==='square')return Math.abs(tx-px)<=squareHalf+.001&&Math.abs(ty-py)<=squareHalf+.001;if(area==='line'){if(!origin||String(entry.key)===String(casterKey))return false;var ox=Number(origin.x)*width/100,oy=Number(origin.y)*height/100,dx=px-ox,dy=py-oy,mag=Math.sqrt(dx*dx+dy*dy)||1;dx/=mag;dy/=mag;var rx=tx-ox,ry=ty-oy,along=rx*dx+ry*dy,side=Math.abs(rx*(-dy)+ry*dx);return along>=-.001&&along<=lineLength+.001&&side<=lineWidth/2+.35;}var cx=tx-px,cy=ty-py;return Math.sqrt(cx*cx+cy*cy)<=radius+.001;}).map(function(entry){return String(entry.key);});
+  }
   function beginVttSpellCast(key,label,profile){
     if(!profile||!w.zgSceneAbilityTarget)return false;
+    var viewedMember=drawerMember(),arenaCaster=!!(w.zgLocalArenaV2Active&&presentationIsMaster(state&&state.session)&&viewedMember&&viewedMember.role==='scene-token'&&viewedMember.sceneTokenId),targetOptions={key:key,label:label},arenaCombat=state&&state.room&&state.room.combat,arenaOrder=arenaCombat&&Array.isArray(arenaCombat.order)?arenaCombat.order:[],arenaEntry=arenaCaster?arenaOrder.find(function(entry){return entry&&String(entry.tokenId||'')===String(viewedMember.sceneTokenId);}):null,arenaTurn=arenaOrder[Math.max(0,Math.min(arenaOrder.length-1,Number(arenaCombat&&arenaCombat.turnIndex)||0))];
+    if(arenaCaster&&(!arenaEntry||!arenaTurn||String(arenaEntry.key||'')!==String(arenaTurn.key||''))){if(w.showToast)w.showToast(vttSpellPlaybackText('Заклинание можно применить только в ход этого участника','Закляття можна застосувати лише в хід цього учасника'));return false;}
     pendingAbilityCast={key:key,label:label,profile:profile};
-    if(w.zgSceneAbilityTarget(profile,{key:key,label:label})){if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();return true;}
+    pendingAbilityCast.casterTokenId=arenaCaster?String(viewedMember.sceneTokenId):'';pendingAbilityCast.masterActorKey=arenaCaster?String(arenaEntry&&arenaEntry.key||'token:'+String(viewedMember.sceneTokenId)):'';
+    if(arenaCaster){targetOptions.source='arena-bag';targetOptions.actorTokenId=String(viewedMember.sceneTokenId);}
+    if(w.zgSceneAbilityTarget(profile,targetOptions)){if(w.zgVttCloseDrawer)w.zgVttCloseDrawer();return true;}
     pendingAbilityCast=null;return false;
   }
   function vttSpellNeedsConfiguration(profile){
@@ -24824,12 +25033,21 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttRequestAbility=function(key){
     if(abilityRequestBusy)return;
     if(drawerReadOnly(drawerMember())){if(w.showToast)w.showToast('Чужой герой открыт только для просмотра');return;}
-    var member=ownMember(),c=fullLocalCharacter(member)||member&&member.character||{};
+    var viewedMember=drawerMember(),arenaCaster=!!(w.zgLocalArenaV2Active&&presentationIsMaster(state&&state.session)&&viewedMember&&viewedMember.role==='scene-token'),member=arenaCaster?viewedMember:ownMember(),c=fullLocalCharacter(member)||member&&member.character||{};
     var label='приём',source={},profile=null;
     if(/^mastery-/.test(key)){var mastery=(c.mastery||c.masteries||[])[Number(key.split('-')[1])];source=typeof mastery==='string'?{name:mastery}:mastery||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
     if(/^skill-/.test(key)){var skill=(c.skills||c.abilities||[])[Number(key.split('-')[1])];source=typeof skill==='string'?{name:skill}:skill||{};label=source.name||label;profile=vttAbilityProfile(key,source,false);}
     if(/^spell-/.test(key)){var id=key.slice(6),spell=(typeof entries!=='undefined'&&Array.isArray(entries))?entries.find(function(item){return String(item.id)===String(id);}):null;source=spell||{};label=spell&&spell.name||'заклинание';profile=vttAbilityProfile(key,source,true);if(profile&&profile.automationKey==='sweeping-strike-v1'){profile.weaponOptions=(Array.isArray(c.weaponProfiles)?c.weaponProfiles:[]).filter(function(weapon){return weapon&&Number(weapon.handsRequired)===2&&combatClientRangeCells(weapon.range||'1 клетка')<=1;});if(!profile.weaponOptions.length){if(w.showToast)w.showToast(vttSpellPlaybackText('Для «Размашистого удара» экипируйте двуручное оружие ближнего боя','Для «Розмашистого удару» спорядіть дворучну зброю ближнього бою'));return false;}}if(profile&&profile.automationKey==='storm-arrow-v1'){profile.weaponOptions=(Array.isArray(c.weaponProfiles)?c.weaponProfiles:[]).filter(combatClientWeaponIsRanged);if(!profile.weaponOptions.length){if(w.showToast)w.showToast(vttSpellPlaybackText('Для «Стрелы-бури» экипируйте дальнобойное оружие','Для «Стріли-бурі» спорядіть далекобійну зброю'));return false;}}}
     var selectedCard=abilityCardsByKey[String(key||'')];
+    if(/^spell-/.test(key)&&profile&&selectedCard){
+      var selectedProfile=selectedCard.profile||{};
+      ['resourceScopeKey','resourceBattleScopeKey','resourceBattleUsed','maxUsesPerBattle'].forEach(function(field){profile[field]=selectedProfile[field];});
+      profile.resourceKey=String(selectedProfile.resourceKey||selectedCard.key||key);profile.resourceMax=Math.max(0,Number(selectedProfile.resourceMax)||Number(selectedCard.limit)||0);profile.resourceUsed=Math.max(0,Number(selectedProfile.resourceUsed)||Number(selectedCard.used)||0);
+    }
+    if(/^spell-/.test(key)&&profile){
+      var cooldownMatch=String(source&&source.cd||'').match(/(\d+)\s*раз/i),canonicalLimit=cooldownMatch?Math.max(1,Number(cooldownMatch[1])||1):(String(source&&source.cd||'').trim()?1:0),storedUsage=c&&c.abilityUsage&&c.abilityUsage[key];
+      profile.resourceKey=String(profile.resourceKey||key);profile.resourceMax=Math.max(0,Number(profile.resourceMax)||canonicalLimit,Number(storedUsage&&storedUsage.max)||0);profile.resourceUsed=Math.max(0,Number(profile.resourceUsed)||Number(storedUsage&&storedUsage.used)||0);
+    }
     if(/^spell-/.test(key)&&selectedCard&&selectedCard.learned===true&&!selectedCard.prepared){if(w.showToast)w.showToast('Сначала подготовьте это заклинание в Сумке героя');return false;}
     if(profile&&profile.maxUsesPerBattle&&profile.resourceBattleUsed>=profile.maxUsesPerBattle){if(w.showToast)w.showToast(vttSpellPlaybackText('В этом бою заклинание уже применялось','У цьому бою закляття вже застосовувалося'));return false;}
     var abilityApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;
@@ -24846,9 +25064,27 @@ document.addEventListener('DOMContentLoaded', function(){
   w.zgVttSendAbilityTarget=function(selection){
     var pending=pendingAbilityCast;
     var abilityApi=typeof combatQaActive==='function'&&combatQaActive()?combatQaApi:w.ZargotaRooms;
-    if(abilityRequestBusy||!pending||!pending.profile||!abilityApi||!abilityApi.requestAction)return false;
+    if(abilityRequestBusy||!pending||!pending.profile||!abilityApi||(!pending.masterActorKey&&!abilityApi.requestAction)||pending.masterActorKey&&!abilityApi.resolveCombatAbility)return false;
     pendingAbilityCast=null;abilityRequestBusy=true;
     var payload=Object.assign({},pending.profile,{targeting:selection&&typeof selection==='object'?selection:{}});
+    if(pending.masterActorKey){
+      payload.playbackMode='instant';
+      var arenaCombat=state&&state.room&&state.room.combat,arenaOrder=arenaCombat&&Array.isArray(arenaCombat.order)?arenaCombat.order:[],arenaTurn=arenaOrder[Math.max(0,Math.min(arenaOrder.length-1,Number(arenaCombat&&arenaCombat.turnIndex)||0))],arenaCasterKey=arenaTurn&&String(arenaTurn.tokenId||'')===String(pending.casterTokenId||'')?String(arenaTurn.key||''):pending.masterActorKey,arenaTargetKeys=arenaVttAbilityTargetKeys(payload,selection,arenaCasterKey);
+      if(!arenaTargetKeys.length&&!payload.zoneKind){abilityRequestBusy=false;if(w.showToast)w.showToast(vttSpellPlaybackText('Для заклинания не выбрана подходящая цель','Для закляття не обрано відповідну ціль'));renderDrawer();return false;}
+      if(w.showToast)w.showToast(vttSpellPlaybackText('Цель выбрана · разыгрываем заклинание…','Ціль обрано · розігруємо закляття…'));
+      return Promise.resolve(abilityApi.resolveCombatAbility('',arenaTargetKeys,Object.assign({},payload,{masterActorKey:arenaCasterKey,masterAbility:payload}))).then(function(snapshot){
+        if(snapshot){
+          var resolvedCombat=snapshot.room&&snapshot.room.combat,resolvedOrder=resolvedCombat&&Array.isArray(resolvedCombat.order)?resolvedCombat.order:[],resolvedActor=resolvedOrder.find(function(entry){return entry&&String(entry.key||'')===String(arenaCasterKey);}),resolvedScene=snapshot.room&&snapshot.room.scene,resolvedToken=resolvedScene&&Array.isArray(resolvedScene.tokens)?resolvedScene.tokens.find(function(token){return token&&String(token.id||'')===String(pending.casterTokenId||'');}):null,resolvedCard=abilityCardsByKey[String(pending.key||'')]||{},resolvedResourceKey=String(payload.resourceKey||resolvedCard.key||pending.key||'').replace(/[^a-zA-Z0-9_-]/g,''),resolvedResourceMax=Math.max(0,Number(payload.resourceMax)||0,Number(resolvedCard.limit)||0,Number(resolvedCard.profile&&resolvedCard.profile.resourceMax)||0),resolvedUsed=Math.min(resolvedResourceMax,Math.max(0,Number(payload.resourceUsed)||0,Number(resolvedCard.used)||0)+1);
+          if(resolvedResourceKey&&resolvedResourceMax){
+            var resolvedSpellId=/^spell-/.test(pending.key||'')?String(pending.key).slice(6):'',resolvedScopeKey=String(payload.resourceScopeKey||payload.resourceBattleScopeKey||''),resolvedBattleUsed=Math.max(0,Number(payload.resourceBattleUsed)||0)+1;
+            [resolvedActor,resolvedToken].forEach(function(holder){if(!holder)return;holder.abilityUsage=holder.abilityUsage&&typeof holder.abilityUsage==='object'?holder.abilityUsage:{};var previous=holder.abilityUsage[resolvedResourceKey]||{};holder.abilityUsage[resolvedResourceKey]=Object.assign({},previous,{used:Math.max(resolvedUsed,Number(previous.used)||0),max:resolvedResourceMax,scopeKey:resolvedScopeKey||String(previous.scopeKey||''),battleScopeKey:String(payload.resourceBattleScopeKey||previous.battleScopeKey||''),battleUsed:Math.max(resolvedBattleUsed,Number(previous.battleUsed)||0),updatedAt:Date.now(),updatedBy:'arena-master'});if(resolvedSpellId){holder.spellCD=holder.spellCD&&typeof holder.spellCD==='object'?holder.spellCD:{};holder.spellCD[resolvedSpellId]={used:Math.max(resolvedUsed,Number(holder.spellCD[resolvedSpellId]&&holder.spellCD[resolvedSpellId].used)||0),max:resolvedResourceMax};}});
+            if(typeof w.zgArenaV2ApplyActorPatch==='function')w.zgArenaV2ApplyActorPatch(pending.casterTokenId,{abilityUsage:inventoryClone(resolvedActor&&resolvedActor.abilityUsage||resolvedToken&&resolvedToken.abilityUsage||{},{}),spellCD:inventoryClone(resolvedActor&&resolvedActor.spellCD||resolvedToken&&resolvedToken.spellCD||{},{} )});
+          }
+          state=snapshot;roomSnapshot=snapshot;if(typeof w.zgArenaV2SyncSnapshot==='function')w.zgArenaV2SyncSnapshot(snapshot);if(typeof w.zgVttApplyTestSnapshot==='function')w.zgVttApplyTestSnapshot(snapshot);
+        }
+        if(w.showToast)w.showToast(vttSpellPlaybackText('Заклинание разыграно и применено','Закляття розіграно й застосовано'));return true;
+      }).catch(function(error){if(w.showToast)w.showToast(error&&error.message||vttSpellPlaybackText('Не удалось разыграть заклинание','Не вдалося розіграти закляття'));return false;}).then(function(result){abilityRequestBusy=false;renderDrawer();return result;});
+    }
     var targetLabel=selection&&Array.isArray(selection.targetNames)&&selection.targetNames.length>1?' по целям «'+selection.targetNames.join('», «')+'»':selection&&selection.targetName?' по цели «'+selection.targetName+'»':selection&&selection.mode==='point'?' в выбранной точке':'';
     if(w.showToast)w.showToast(selection&&Array.isArray(selection.targetKeys)&&selection.targetKeys.length>1?vttSpellPlaybackText('2/2 цели выбраны · отправляем заявку мастеру…','2/2 цілі обрано · надсилаємо заявку Майстру…'):vttSpellPlaybackText('Цель выбрана · отправляем заявку мастеру…','Ціль обрано · надсилаємо заявку Майстру…'));
     Promise.resolve(abilityApi.requestAction('Хочет применить «'+pending.label+'»'+targetLabel,'ability',combatLabPlayerUid()||w.zgPossessedPlayerUid||'',payload)).then(function(snapshot){
@@ -25047,8 +25283,17 @@ document.addEventListener('DOMContentLoaded', function(){
     if(!session||session.role!=='master'||!token||token.type==='hero')return false;
     drawerTokenId=tokenId;drawerMemberUid='';
     var drawer=el('zg-vtt-drawer'),bagPanels=['character','inventory','abilities','journal'];
+    if(w.zgLocalArenaV2Active&&(!drawer||!drawer.classList.contains('open'))){w.zgVttOpenPanel('character',{forceOpen:true,resetMember:false});drawerTokenId=tokenId;drawerMemberUid='';lastDrawerRenderSignature='';renderDrawer(true);schedulePlayerDockBagLayout();return true;}
     if(drawer&&drawer.classList.contains('open')&&bagPanels.indexOf(activePanel)>=0){lastDrawerRenderSignature='';renderDrawer(true);schedulePlayerDockBagLayout();}
     return true;
+  };
+  w.zgArenaV2OpenTokenBag=function(tokenId,panel){
+    tokenId=String(tokenId||'');panel=['character','inventory','abilities','journal'].indexOf(panel)>=0?panel:'inventory';
+    if(!w.zgLocalArenaV2Active||!w.zgVttRetargetOpenDrawerToken(tokenId))return false;
+    w.zgVttOpenPanel(panel,{forceOpen:true,resetMember:false});
+    // The dock and drawer share selection state. Retarget once more after the
+    // drawer opens so its content always follows the requested creature.
+    return w.zgVttRetargetOpenDrawerToken(tokenId);
   };
   w.zgVttOpenPublicMember=function(uid){
     var session=state&&state.session;
@@ -66551,6 +66796,29 @@ function importBeasts(e) {
     document.body.appendChild(ov);
   };
 
+  var ARENA_V2_SETUP_KEY='zargota_arena_v2_setup_v1',arenaV2SourceTab='characters',arenaV2State=null;
+  function arenaV2Text(ru,uk){return global.ZargotaI18n&&typeof global.ZargotaI18n.getLocale==='function'&&global.ZargotaI18n.getLocale()==='uk'?(uk||ru):ru;}
+  function arenaV2Read(){if(arenaV2State)return arenaV2State;var saved=null;try{saved=JSON.parse(localStorage.getItem(ARENA_V2_SETUP_KEY)||'null');}catch(ignore){}arenaV2State=saved&&Array.isArray(saved.participants)?saved:{version:1,primaryId:'',participants:[]};return arenaV2State;}
+  function arenaV2Write(){try{localStorage.setItem(ARENA_V2_SETUP_KEY,JSON.stringify(arenaV2Read()));}catch(ignore){}}
+  function arenaV2Sources(kind){return(kind==='beasts'?(Array.isArray(global.beasts)?global.beasts:[]):(Array.isArray(global.characters)?global.characters:[])).filter(function(item){return item&&item.id!=null;});}
+  function arenaV2Source(kind,id){return arenaV2Sources(kind).find(function(item){return String(item.id)===String(id);})||null;}
+  function arenaV2Encode(value){return encodeURIComponent(String(value==null?'':value));}
+  function arenaV2ResolveParticipant(item){var kind=item.sourceType==='beast'?'beasts':'characters',source=arenaV2Source(kind,item.sourceId),sets=typeof global.loadArmorySets==='function'?global.loadArmorySets():[],items=typeof global.loadArmoryItems==='function'?global.loadArmoryItems():[],set=sets.find(function(entry){return String(entry.id)===String(item.setId||'');}),ids=set?(Array.isArray(set.itemIds)&&set.itemIds.length?set.itemIds:Object.keys(set.slots||{}).map(function(key){return set.slots[key];}).filter(Boolean)):[];return source?Object.assign({},item,{source:source,items:ids.map(function(id){return items.find(function(entry){return String(entry.id)===String(id);});}).filter(Boolean)}):null;}
+  function arenaV2StatusOptions(){var catalog=typeof global.zgGmStatusCatalog==='function'?global.zgGmStatusCatalog():[];return catalog.filter(function(status){return status&&status.key&&status.key!=='dead';});}
+  function arenaV2SourceCard(source,kind){var id=arenaV2Encode(source.id),portrait=source.portraitThumb||source.portrait||source.image||'',isBeast=kind==='beasts',meta=isBeast?[source.family||source.type,source.level?arenaV2Text('ур. ','рів. ')+source.level:'',source.hp?'HP '+source.hp:''].filter(Boolean).join(' · '):[source.race,source.klasse,source.level?arenaV2Text('ур. ','рів. ')+source.level:''].filter(Boolean).join(' · ');return'<article class="arena-v2-source">'+(portrait?'<img src="'+escHTML(portrait)+'" alt="">':'<span class="arena-v2-avatar">'+escHTML(String(source.name||'?').charAt(0).toUpperCase())+'</span>')+'<span><b>'+escHTML(source.name||arenaV2Text('Без имени','Без імені'))+'</b><small>'+escHTML(meta||arenaV2Text('Готов к тренировке','Готовий до тренування'))+'</small></span><div class="arena-v2-source-actions"><button type="button" onclick="arenaV2Add(\''+kind+'\',\''+id+'\',\'ally\')">＋ '+arenaV2Text('В свой отряд','До свого загону')+'</button><button type="button" class="enemy" onclick="arenaV2Add(\''+kind+'\',\''+id+'\',\'enemy\')">＋ '+arenaV2Text('В противники','У противники')+'</button></div></article>';}
+  function arenaV2FighterCard(item,index){var resolved=arenaV2ResolveParticipant(item),source=resolved&&resolved.source;if(!source)return'';var sets=typeof global.loadArmorySets==='function'?global.loadArmorySets():[],statuses=arenaV2StatusOptions(),portrait=source.portraitThumb||source.portrait||source.image||'',isPrimary=String(item.id)===String(arenaV2Read().primaryId),setOptions='<option value="">'+arenaV2Text('Без отдельного комплекта','Без окремого комплекту')+'</option>'+sets.map(function(set){return'<option value="'+escHTML(String(set.id))+'" '+(String(set.id)===String(item.setId||'')?'selected':'')+'>'+escHTML(set.name||arenaV2Text('Комплект','Комплект'))+'</option>';}).join(''),statusOptions='<option value="">'+arenaV2Text('Выбрать состояние','Обрати стан')+'</option>'+statuses.filter(function(status){return(item.statusKeys||[]).indexOf(String(status.key))<0;}).map(function(status){return'<option value="'+escHTML(String(status.key))+'">'+escHTML((global.ZargotaI18n&&global.ZargotaI18n.getLocale&&global.ZargotaI18n.getLocale()==='uk'&&status.labelUk)||status.label||status.key)+'</option>';}).join(''),chips=(item.statusKeys||[]).map(function(key){var status=statuses.find(function(entry){return String(entry.key)===String(key);})||{key:key,label:key,color:'#806b42'},label=(global.ZargotaI18n&&global.ZargotaI18n.getLocale&&global.ZargotaI18n.getLocale()==='uk'&&status.labelUk)||status.label||key;return'<button type="button" style="--status:'+escHTML(status.color||'#806b42')+'" onclick="arenaV2RemoveStatus(\''+arenaV2Encode(item.id)+'\',\''+arenaV2Encode(key)+'\')" title="'+arenaV2Text('Снять состояние','Зняти стан')+'">'+escHTML(label)+' ×</button>';}).join('');return'<article class="arena-v2-fighter '+(item.side==='enemy'?'enemy':'')+'">'+(portrait?'<img class="arena-v2-avatar" src="'+escHTML(portrait)+'" alt="">':'<span class="arena-v2-avatar">'+escHTML(String(source.name||'?').charAt(0).toUpperCase())+'</span>')+'<div class="arena-v2-fighter-copy"><b>'+escHTML(source.name||arenaV2Text('Участник','Учасник'))+'</b><small>'+(item.side==='enemy'?arenaV2Text('Противник','Противник'):arenaV2Text('Ваш отряд','Ваш загін'))+' · '+(item.sourceType==='character'?arenaV2Text('герой','герой'):arenaV2Text('существо','істота'))+'</small>'+(isPrimary?'<span class="arena-v2-primary">'+arenaV2Text('ОСНОВНОЙ ГЕРОЙ','ОСНОВНИЙ ГЕРОЙ')+'</span>':item.side!=='enemy'&&item.sourceType==='character'?'<button type="button" class="arena-v2-primary" onclick="arenaV2MakePrimary(\''+arenaV2Encode(item.id)+'\')">'+arenaV2Text('Сделать основным','Зробити основним')+'</button>':'')+'<label>'+arenaV2Text('Комплект снаряжения','Комплект спорядження')+'<select onchange="arenaV2SetLoadout(\''+arenaV2Encode(item.id)+'\',this.value)">'+setOptions+'</select></label><div class="arena-v2-status-row"><select id="arena-v2-status-'+index+'">'+statusOptions+'</select><button type="button" onclick="arenaV2AddStatus(\''+arenaV2Encode(item.id)+'\','+index+')" title="'+arenaV2Text('Добавить состояние','Додати стан')+'">＋</button></div><div class="arena-v2-status-chips">'+chips+'</div></div><button type="button" class="arena-v2-remove" onclick="arenaV2Remove(\''+arenaV2Encode(item.id)+'\')" aria-label="'+arenaV2Text('Убрать участника','Прибрати учасника')+'">×</button></article>';}
+  global.renderArenaV2=function(){var host=document.getElementById('arena-page-inner');if(!host)return;var setup=arenaV2Read(),sources=arenaV2Sources(arenaV2SourceTab),valid=setup.participants.filter(function(item){return!!arenaV2ResolveParticipant(item);});if(valid.length!==setup.participants.length){setup.participants=valid;if(!valid.some(function(item){return String(item.id)===String(setup.primaryId);}))setup.primaryId='';arenaV2Write();}var allies=valid.filter(function(item){return item.side!=='enemy';}).length,enemies=valid.length-allies,hasPrimary=valid.some(function(item){return String(item.id)===String(setup.primaryId)&&item.sourceType==='character'&&item.side!=='enemy';});host.innerHTML='<div class="arena-v2-shell"><section class="arena-v2-hero"><article class="arena-v2-panel"><header><small>'+arenaV2Text('ЛИЧНАЯ ТРЕНИРОВОЧНАЯ ПЛОЩАДКА','ОСОБИСТИЙ ТРЕНУВАЛЬНИЙ МАЙДАНЧИК')+'</small><h2>'+arenaV2Text('Арена','Арена')+'</h2></header><div class="arena-v2-intro"><p>'+arenaV2Text('Соберите бой из сохранённых героев и существ. Снаряжение и состояния применяются к локальным копиям — листы кампании и Firebase не меняются.','Зберіть бій зі збережених героїв та істот. Спорядження й стани застосовуються до локальних копій — листи кампанії та Firebase не змінюються.')+'</p><div class="arena-v2-rules"><div class="arena-v2-rule"><b>'+arenaV2Text('РУЧНОЕ УПРАВЛЕНИЕ','РУЧНЕ КЕРУВАННЯ')+'</b><span>'+arenaV2Text('Вы управляете обеими сторонами.','Ви керуєте обома сторонами.')+'</span></div><div class="arena-v2-rule"><b>'+arenaV2Text('ПОШАГОВЫЙ БОЙ','ПОКРОКОВИЙ БІЙ')+'</b><span>'+arenaV2Text('Очередь, действия, движение и проверки.','Черга, дії, рух і перевірки.')+'</span></div><div class="arena-v2-rule"><b>'+arenaV2Text('БЕЗ РИСКА','БЕЗ РИЗИКУ')+'</b><span>'+arenaV2Text('Результат не записывается герою.','Результат не записується герою.')+'</span></div></div></div></article><aside class="arena-v2-panel"><header><small>'+arenaV2Text('ГОТОВНОСТЬ','ГОТОВНІСТЬ')+'</small><h3>'+arenaV2Text('Состав боя','Склад бою')+'</h3></header><div class="arena-v2-actions"><div class="arena-v2-summary">'+arenaV2Text('Ваш отряд','Ваш загін')+': <b>'+allies+'</b><br>'+arenaV2Text('Противники','Противники')+': <b>'+enemies+'</b><br>'+arenaV2Text('Основной герой','Основний герой')+': <b>'+(hasPrimary?arenaV2Text('выбран','обраний'):arenaV2Text('не выбран','не обраний'))+'</b></div><button type="button" class="primary" onclick="arenaV2Launch()" '+(!hasPrimary||!enemies?'disabled':'')+'>'+arenaV2Text('Начать тренировочный бой','Почати тренувальний бій')+'</button><button type="button" onclick="arenaV2Clear()" '+(!valid.length?'disabled':'')+'>'+arenaV2Text('Очистить состав','Очистити склад')+'</button></div></aside></section><section class="arena-v2-builder"><article class="arena-v2-panel arena-v2-library"><header><small>'+arenaV2Text('БИБЛИОТЕКА','БІБЛІОТЕКА')+'</small><h3>'+arenaV2Text('Добавить участника','Додати учасника')+'</h3></header><div class="arena-v2-tabs"><button type="button" class="'+(arenaV2SourceTab==='characters'?'active':'')+'" onclick="arenaV2SourceTab(\'characters\')">'+arenaV2Text('Герои','Герої')+' · '+arenaV2Sources('characters').length+'</button><button type="button" class="'+(arenaV2SourceTab==='beasts'?'active':'')+'" onclick="arenaV2SourceTab(\'beasts\')">'+arenaV2Text('Существа','Істоти')+' · '+arenaV2Sources('beasts').length+'</button></div><div class="arena-v2-source-list">'+(sources.map(function(source){return arenaV2SourceCard(source,arenaV2SourceTab);}).join('')||'<div class="arena-v2-empty">'+arenaV2Text('В этом разделе пока нет сохранённых записей.','У цьому розділі ще немає збережених записів.')+'</div>')+'</div></article><article class="arena-v2-panel arena-v2-roster"><header><small>'+arenaV2Text('СБОРКА БОЯ','СКЛАДАННЯ БОЮ')+'</small><h3>'+arenaV2Text('Участники и условия','Учасники та умови')+'</h3></header><div class="arena-v2-roster-list">'+(valid.map(arenaV2FighterCard).join('')||'<div class="arena-v2-empty">'+arenaV2Text('Добавьте героя, союзников и хотя бы одного противника.','Додайте героя, союзників і хоча б одного противника.')+'</div>')+'</div></article></section></div>';};
+  global.arenaV2SourceTab=function(tab){arenaV2SourceTab=tab==='beasts'?'beasts':'characters';global.renderArenaV2();};
+  global.arenaV2Add=function(kind,encodedId,side){var sourceType=kind==='beasts'?'beast':'character',sourceId=decodeURIComponent(encodedId),setup=arenaV2Read(),id='av2-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);setup.participants.push({id:id,sourceType:sourceType,sourceId:sourceId,side:side==='enemy'?'enemy':'ally',setId:'',statusKeys:[]});if(!setup.primaryId&&sourceType==='character'&&side!=='enemy')setup.primaryId=id;arenaV2Write();global.renderArenaV2();};
+  global.arenaV2Remove=function(encodedId){var id=decodeURIComponent(encodedId),setup=arenaV2Read();setup.participants=setup.participants.filter(function(item){return String(item.id)!==String(id);});if(String(setup.primaryId)===String(id)){var next=setup.participants.find(function(item){return item.sourceType==='character'&&item.side!=='enemy';});setup.primaryId=next?next.id:'';}arenaV2Write();global.renderArenaV2();};
+  global.arenaV2MakePrimary=function(encodedId){arenaV2Read().primaryId=decodeURIComponent(encodedId);arenaV2Write();global.renderArenaV2();};
+  global.arenaV2SetLoadout=function(encodedId,setId){var id=decodeURIComponent(encodedId),item=arenaV2Read().participants.find(function(entry){return String(entry.id)===String(id);});if(item)item.setId=String(setId||'');arenaV2Write();};
+  global.arenaV2AddStatus=function(encodedId,index){var id=decodeURIComponent(encodedId),select=document.getElementById('arena-v2-status-'+index),key=String(select&&select.value||''),item=arenaV2Read().participants.find(function(entry){return String(entry.id)===String(id);});if(item&&key){item.statusKeys=Array.isArray(item.statusKeys)?item.statusKeys:[];if(item.statusKeys.indexOf(key)<0)item.statusKeys.push(key);arenaV2Write();global.renderArenaV2();}};
+  global.arenaV2RemoveStatus=function(encodedId,encodedKey){var id=decodeURIComponent(encodedId),key=decodeURIComponent(encodedKey),item=arenaV2Read().participants.find(function(entry){return String(entry.id)===String(id);});if(item){item.statusKeys=(item.statusKeys||[]).filter(function(value){return String(value)!==String(key);});arenaV2Write();global.renderArenaV2();}};
+  global.arenaV2Clear=function(){arenaV2State={version:1,primaryId:'',participants:[]};arenaV2Write();global.renderArenaV2();};
+  global.arenaV2Launch=function(){var setup=arenaV2Read(),participants=setup.participants.map(arenaV2ResolveParticipant).filter(Boolean);if(typeof global.zgArenaV2Launch!=='function'){if(global.showToast)global.showToast(arenaV2Text('Современный боевой экран не найден.','Сучасний бойовий екран не знайдено.'));return;}global.zgArenaV2Launch({id:'local-'+Date.now(),primaryId:setup.primaryId,participants:participants});};
+  global.arenaShowLegacy=function(){renderArenaPage();};
+
   function zgSetArenaTabGroup(group) {
     // group: 'none' (hub) | 'arena' | 'shop'
     var map = {
@@ -66579,16 +66847,16 @@ function importBeasts(e) {
     hub.style.display = 'block';
     hub.innerHTML =
       '<div style="text-align:center;margin-bottom:32px">'+
-        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:26px;color:#e8c060;letter-spacing:1.5px">Арена и Товары</div>'+
-        '<div style="font-size:12px;color:#7a6a48;margin-top:8px;font-family:\'Lora\',serif;font-style:italic">Выбери, куда войти</div>'+
+        '<div style="font-family:\'Cinzel Decorative\',serif;font-size:26px;color:#e8c060;letter-spacing:1.5px">'+arenaV2Text('Арена и Товары','Арена й Товари')+'</div>'+
+        '<div style="font-size:12px;color:#7a6a48;margin-top:8px;font-family:\'Lora\',serif;font-style:italic">'+arenaV2Text('Выбери, куда войти','Обери, куди увійти')+'</div>'+
       '</div>'+
       '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">'+
         // Квадрат Арена
         '<button onclick="arenaShowTab(\'battle\')" class="arena-hub-card" style="--hub:#c87878">'+
           '<div class="arena-hub-icon"><img src="images/ui/arena-shop/arena.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="192" height="192" decoding="async"></div>'+
-          '<div class="arena-hub-title">Арена</div>'+
-          '<div class="arena-hub-desc">Пошаговый бой, инициатива, состояния бойцов.</div>'+
-          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Бой</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">Состояния</span></div>'+
+          '<div class="arena-hub-title">'+arenaV2Text('Арена','Арена')+'</div>'+
+          '<div class="arena-hub-desc">'+arenaV2Text('Соберите героя, союзников и противников для локального пошагового боя.','Зберіть героя, союзників і противників для локального покрокового бою.')+'</div>'+
+          '<div class="arena-hub-tags"><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/battle.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">'+arenaV2Text('Бой','Бій')+'</span><span><img class="arena-hub-tag-icon" src="images/ui/arena-shop/statuses.webp?v=2026-08-02.2" alt="" aria-hidden="true" width="72" height="72" decoding="async">'+arenaV2Text('Состояния','Стани')+'</span></div>'+
         '</button>'+
         // Квадрат Товары
         '<button onclick="arenaShowTab(\'shop\')" class="arena-hub-card" style="--hub:#6fcb83">'+
@@ -66631,7 +66899,8 @@ function importBeasts(e) {
     } else {
       if (battleInner) battleInner.style.display = '';
       if (tabBattle) { tabBattle.style.borderBottom = '2px solid var(--gold)'; tabBattle.style.color = 'var(--gold)'; }
-      renderArenaPage();
+      if(typeof global.zgArenaWorkspaceOpen==='function')global.zgArenaWorkspaceOpen();
+      else global.renderArenaV2();
     }
   };
   global.arenaToggleCombatantStatus = function(combatantId, statusKey) {
