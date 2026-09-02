@@ -98,6 +98,8 @@ var initiativeContext={
   el:function(id){return id==='zg-initiative-stage'?initiativeHost:null;},
   initiativeSorted:function(order){return order.slice();},
   combatEntryPortrait:function(){return'';},
+  arenaRacePortraitKey:function(value){return String(value||'');},
+  vttLocaleText:function(ru){return ru;},
   esc:function(value){return String(value==null?'':value);},
   JSON:JSON,Number:Number,String:String,Math:Math
 };

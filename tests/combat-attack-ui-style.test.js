@@ -16,6 +16,7 @@ function block(source, startNeedle, endNeedle) {
 const render = block(html, '  function renderCombatAttack(force){', '  w.zgCombatAttackToggle=');
 const styles = block(html, '  .zg-combat-prepared-item{', '  .zg-combat-save-open{');
 const weaponVisual = block(html, '  function combatAttackWeaponVisual(attacker,weapon){', '  function clearCombatTargetCandidates()');
+const weaponChoices = block(html, '  function combatAttackWeapons(attacker){', '  function combatAttackWeaponVisual(attacker,weapon){');
 
 assert.match(render, /class="zg-combat-attack-main"/, 'attack weapon and attacker summary keep their layout wrapper');
 assert.match(render, /details class="zg-combat-attack-advanced"/, 'roll modifiers remain a deliberate expandable panel');
@@ -25,6 +26,7 @@ assert.match(render, /class="zg-combat-confirm-actions '\+\(selectedTarget\?'has
 assert.match(weaponVisual, /character\.equipItems/, 'attack art resolves the equipped source item');
 assert.match(weaponVisual, /character\.inventoryItems/, 'attack art can resolve a source item mirrored in the inventory');
 assert.match(weaponVisual, /w\.charInventoryImage/, 'attack art reuses the optimized inventory image resolver');
+assert.match(weaponChoices, /inventoryWeaponProjection\(source,attacker\.weaponProfiles\)/, 'attack choices recover equipped bag weapons from the current character or token');
 assert.match(render, /weaponVisual\.image\?'<img src=/, 'a weapon sourced from an item displays its actual item art');
 assert.match(render, /ЭКИПИРОВАННЫЙ ПРЕДМЕТ/, 'the attack card identifies an equipped item source');
 

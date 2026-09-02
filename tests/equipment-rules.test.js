@@ -6,6 +6,9 @@ var path = require('path');
 var vm = require('vm');
 var rules = require('../equipment-rules.js');
 
+assert.strictEqual(rules.equipmentKind({ name:'Затвердевший Батон (повреждено)', description:'Тип: Рукопашное (одноручное)\nУрон: 1d4 дробящий' }), 'weapon', 'legacy melee descriptions must be recognized as weapons');
+assert.strictEqual(rules.equipmentKind({ name:'Навчальна палиця', description:'Тип: Рукопашне (одноручне)' }), 'weapon', 'Ukrainian melee descriptions must be recognized as weapons');
+
 var mixedCharacter = {
   inventoryItems:[
     {

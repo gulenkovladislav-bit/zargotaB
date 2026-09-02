@@ -50,10 +50,13 @@
       item && item.category,
       item && item.cat,
       item && item.type,
-      item && item.name
+      item && item.name,
+      item && item.description,
+      item && item.effect,
+      item && item.effects
     ].filter(Boolean).join(' ').toLowerCase();
     if (/shield|щит/.test(hay)) return 'shield';
-    if (/weapon|оруж|меч|кинжал|рапир|топор|лук|арбалет|молот|булав|дубин|копь|алебард|посох/.test(hay)) return 'weapon';
+    if (/weapon|melee|ranged|оруж|збро|рукопаш|ближн(?:ий|его) бой|дальнобой|меч|кинжал|рапир|топор|сокир|лук|цибул|арбалет|молот|булав|дубин|копь|спис|алебард|посох/.test(hay)) return 'weapon';
     return 'other';
   }
 
@@ -279,7 +282,12 @@
         slot:normalizedEquipmentSlot(item),
         handsRequired:itemHandsRequired(item),
         sourceItemId:String(item.itemId || item.id || ''),
-        description:item.description || item.effectText || ''
+        description:item.description || item.effectText || '',
+        nameUk:item.nameUk || '',
+        damageTypeUk:item.damageTypeUk || '',
+        image:item.image || '',
+        imageThumb:item.imageThumb || '',
+        icon:item.icon || ''
       };
     }).slice(0, 12);
   }

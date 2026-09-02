@@ -455,7 +455,10 @@ window.__zgpScriptStarted = true;
       '#zgp-preview-overlay{position:fixed;inset:0;z-index:100200;background:#000b;display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}.zgp-preview-card{width:min(680px,100%);max-height:88vh;overflow:auto;border:2px solid #8b6b30;border-radius:12px;background:linear-gradient(155deg,#1b1409,#0b0805);box-shadow:0 28px 90px #000;padding:22px;box-sizing:border-box}.zgp-preview-top{display:flex;gap:8px;align-items:flex-start}.zgp-preview-top h3{margin:0;color:#f1ddaa;font:700 21px Cinzel,serif}.zgp-preview-top button{margin-left:auto;border:1px solid #3a2c16;background:transparent;color:#8b795b;border-radius:7px;width:32px;height:32px;cursor:pointer}.zgp-preview-badges{display:flex;gap:6px;flex-wrap:wrap;margin:9px 0 15px}.zgp-preview-badges span{padding:4px 8px;border:1px solid #49371a;border-radius:10px;color:#a9956d;font:9px Cinzel,serif}.zgp-preview-block{padding:12px 0;border-top:1px solid #2b2011;color:#c5b394;font:12px/1.6 Lora,serif;white-space:pre-wrap}.zgp-preview-block b{display:block;margin-bottom:5px;color:#8d7b59;font:9px Cinzel,serif;letter-spacing:1px}.zgp-choice-info{width:25px;height:25px;border:1px solid #4b391c;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#b99b58;flex:0 0 auto}' +
       '.zgp-spell-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 10px}.zgp-spell-slot{display:flex;align-items:center;gap:6px;padding:7px 8px;border:1px solid #302514;border-radius:7px;background:#0a0805;color:#8e7d60;font:9px Cinzel,serif}.zgp-spell-slot b{margin-left:auto;color:#d2b875;font-size:11px}.zgp-spell-slot.full{border-color:#713d35;color:#bc756d}.zgp-spell-slot.full b{color:#d77a70}' +
       '@media(max-width:1050px){.zgp-workspace{grid-template-columns:190px minmax(0,1fr)}.zgp-workspace:not(.builder) .zgp-plan-side{grid-column:1/-1;max-height:170px}.zgp-race-card{grid-template-columns:1fr}.zgp-builder-levels{grid-template-columns:repeat(6,1fr)}}' +
-      '@media(max-width:720px){.zgp-workspace,.zgp-workspace.builder{grid-template-columns:1fr}.zgp-forecast{max-height:none}.zgp-portrait{height:180px}.zgp-builder-head{align-items:stretch;flex-direction:column}.zgp-builder-levels{grid-template-columns:repeat(4,1fr)}.zgp-builder-metrics{grid-template-columns:repeat(2,1fr)}.zgp-builder-stat-grid{grid-template-columns:1fr}.zgp-modebtn{flex:1;padding:10px 5px;font-size:8px}.zgp-road{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 4px}.zgp-rail{display:none}.zgp-node-wrap{min-width:0}.zgp-tag:before{position:fixed;left:12px;right:12px;bottom:80px;transform:none;width:auto;max-width:none}}';
+      '@media(min-width:721px){#zg-progression{zoom:1.35;width:min(1260px,calc(100% / 1.35));height:min(820px,calc(94vh / 1.35))}}' +
+      '#zg-progression *{scrollbar-width:thin;scrollbar-color:#765324 #0b0805}#zg-progression *::-webkit-scrollbar{width:8px;height:8px}#zg-progression *::-webkit-scrollbar-track{background:#0b0805;border-radius:8px}#zg-progression *::-webkit-scrollbar-thumb{background:linear-gradient(#9a7130,#5d421f);border:2px solid #0b0805;border-radius:8px}' +
+      '.zgp-race-picker{position:relative;min-width:220px}.zgp-race-picker summary{height:48px;display:flex;align-items:center;gap:10px;padding:0 11px;border:1px solid #654b20;border-radius:9px;background:linear-gradient(180deg,#171107,#090704);color:#dec47e;font:700 12px Cinzel,serif;cursor:pointer;list-style:none}.zgp-race-picker summary::-webkit-details-marker{display:none}.zgp-race-picker summary span:nth-child(2){min-width:0;flex:1}.zgp-race-picker[open] summary{border-color:#c19842;box-shadow:0 0 0 2px #bd923225}.zgp-race-menu{position:absolute;z-index:40;right:0;top:calc(100% + 6px);width:290px;max-height:360px;overflow:auto;padding:7px;border:1px solid #8a662b;border-radius:10px;background:#100b06;box-shadow:0 20px 60px #000}.zgp-race-option{width:100%;min-height:54px;display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid transparent;border-radius:8px;background:transparent;color:#bda97d;font:11px Cinzel,serif;text-align:left;cursor:pointer}.zgp-race-option:hover,.zgp-race-option.on{border-color:#674b20;background:#241707;color:#f0d08b}.zgp-race-option span:nth-child(2){flex:1}.zgp-race-option b{color:#79bf85}.zgp-race-art{display:block;flex:0 0 auto;background-image:url("images/ui/races/race-portraits-atlas-v1.png");background-repeat:no-repeat;background-size:300% 300%;background-color:#080604}.zgp-race-art.mini{width:38px;height:38px;border:1px solid #745323;border-radius:8px}.zgp-race-art.hero{width:100%;height:100%}.zgp-race-art.race-human{background-position:0 0}.zgp-race-art.race-elf{background-position:50% 0}.zgp-race-art.race-dwarf{background-position:100% 0}.zgp-race-art.race-goblin{background-position:0 50%}.zgp-race-art.race-halfling{background-position:50% 50%}.zgp-race-art.race-orc{background-position:100% 50%}.zgp-race-art.race-firbolg{background-position:0 100%}.zgp-race-art.race-kenku{background-position:50% 100%}.zgp-race-art.race-outcast{background-position:100% 100%}.zgp-builder-stat .zg-stat-icon{width:24px;height:24px}.zgp-builder-stat .ico{display:grid;place-items:center}' +
+      '@media(max-width:720px){.zgp-workspace,.zgp-workspace.builder{grid-template-columns:1fr}.zgp-forecast{max-height:none}.zgp-portrait{height:180px}.zgp-builder-head{align-items:stretch;flex-direction:column}.zgp-builder-levels{grid-template-columns:repeat(4,1fr)}.zgp-builder-metrics{grid-template-columns:repeat(2,1fr)}.zgp-builder-stat-grid{grid-template-columns:1fr}.zgp-modebtn{flex:1;padding:10px 5px;font-size:8px}.zgp-road{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 4px}.zgp-rail{display:none}.zgp-node-wrap{min-width:0}.zgp-tag:before{position:fixed;left:12px;right:12px;bottom:80px;transform:none;width:auto;max-width:none}.zgp-race-picker{min-width:0}.zgp-race-menu{left:0;right:auto;width:min(320px,calc(100vw - 48px))}}';
     document.head.appendChild(style);
   }
 
@@ -711,6 +714,20 @@ window.__zgpScriptStarted = true;
     return names.length ? names : ['Человек','Эльф','Дворф','Гоблин','Полурослик','Орк','Уродец'];
   }
 
+  var RACE_ART = { Человек:'human', Эльф:'elf', Дворф:'dwarf', Гоблин:'goblin', Полурослик:'halfling', Орк:'orc', Фирболг:'firbolg', Кенку:'kenku', Уродец:'outcast' };
+
+  function raceArtHtml(name, extraClass) {
+    return '<span class="zgp-race-art race-' + esc(RACE_ART[name] || 'human') + ' ' + (extraClass || '') + '" aria-hidden="true"></span>';
+  }
+
+  function racePickerHtml() {
+    return '<details class="zgp-race-picker"><summary>' + raceArtHtml(ui.builderRace, 'mini') + '<span>' + esc(ui.builderRace) + '</span><b>⌄</b></summary>' +
+      '<div class="zgp-race-menu">' + raceNames().map(function(name) {
+        return '<button type="button" class="zgp-race-option ' + (name === ui.builderRace ? 'on' : '') + '" onclick="zgProgressionBuilderRace(\'' + esc(name) + '\')">' +
+          raceArtHtml(name, 'mini') + '<span>' + esc(name) + '</span>' + (name === ui.builderRace ? '<b>✓</b>' : '') + '</button>';
+      }).join('') + '</div></details>';
+  }
+
   function builderRaceData(name) {
     return typeof global.getRaceData === 'function'
       ? global.getRaceData({ race:name })
@@ -809,7 +826,7 @@ window.__zgpScriptStarted = true;
     var level = ui.builderLevel;
     var now = builderProjection(ui.builderRace, Math.max(1, level - 1));
     var future = builderProjection(ui.builderRace, level, ui.builderStats);
-    return '<aside class="zgp-forecast"><div class="zgp-portrait"><div class="zgp-portrait-fallback">🧬</div></div>' +
+    return '<aside class="zgp-forecast"><div class="zgp-portrait">' + raceArtHtml(ui.builderRace, 'hero') + '</div>' +
       '<div class="zgp-forecast-head"><strong>' + esc(ui.builderRace) + '</strong><span>быстрый прогноз · ур. ' + level + '</span></div>' +
       '<div class="zgp-change-kpis">' +
         '<div class="zgp-change-kpi"><small>HP</small>' + changeValue(now.hp, future.hp) + '</div>' +
@@ -861,10 +878,7 @@ window.__zgpScriptStarted = true;
     }
     return '<section class="zgp-builder-main"><div class="zgp-builder-head"><div><h3>Быстрый конструктор</h3>' +
       '<p>Выберите расу и уровень — расчёт обновится мгновенно.</p></div>' +
-      '<select class="zgp-race-select" onchange="zgProgressionBuilderRace(this.value)">' +
-      raceNames().map(function(name) {
-        return '<option value="' + esc(name) + '"' + (name === ui.builderRace ? ' selected' : '') + '>' + esc(name) + '</option>';
-      }).join('') + '</select></div>' +
+      racePickerHtml() + '</div>' +
       '<div class="zgp-builder-levels">' + Array.from({length:11}, function(_, index) {
         var level = index + 1;
         return '<button class="zgp-builder-lvl ' + (level === ui.builderLevel ? 'on' : '') +

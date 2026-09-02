@@ -17,6 +17,9 @@ assert.match(html, /w\.zgVttSpellDragStart=function/);
 assert.match(html, /w\.zgVttPreparedSpellDrop=function/);
 assert.match(html, /data-spell-drop-type=/);
 assert.match(html, /var prepared=w\.zgVttSpellPreparation\(spellId,true,null\)/);
+assert.match(html, /class="zg-spellbook-catalog" ondragover="zgVttArenaSpellCatalogDragOver\(event\)"[\s\S]*?ondrop="zgVttArenaSpellCatalogDrop\(event\)"/, 'Arena catalog spells must drop directly into received spells');
+assert.match(html, /application\/x-zargota-arena-spell-'\+String\(type\|\|''\)/, 'prepared groups must recognize the Arena catalog spell family during dragover');
+assert.match(html, /if\(arenaSpellId\)return w\.zgVttArenaSpellCatalogDrop\(event,type\)/, 'dropping an Arena catalog spell on preparation must route through the shared Arena grant');
 assert.match(html, /Сначала изучите это заклинание/);
 assert.match(html, /Можно подготовить только изученное заклинание/);
 assert.match(html, /Перетащите сюда изученное заклинание/);
@@ -92,6 +95,32 @@ var invalid = context.normalizePreparedSpellsForCharacter({
 }, {bootstrapLegacy:false});
 assert.deepStrictEqual(Array.from(invalid.kodex), ['k1']);
 assert.deepStrictEqual(Array.from(invalid.folio), []);
+
+var grantStart = html.indexOf('  w.zgArenaV2GrantSpell=function(tokenId,spellId,prepareType){');
+var grantEnd = html.indexOf('\n  w.zgArenaV2AddParticipant=function', grantStart);
+assert.ok(grantStart >= 0 && grantEnd > grantStart, 'Arena spell grant helper must remain extractable for mutation checks');
+var grantTarget = {spellRefs:[],spellsLearned:{},preparedSpells:{kodex:[],folio:[],obrad:[]}};
+var grantSpell = {id:'arena-k1',spellType:'kodex'};
+var grantContext = {
+  w:{
+    findCharacterCatalogSpell:function(id){return String(id)==='arena-k1'?grantSpell:null;},
+    getPreparedSpellTypeLimitForCharacter:function(){return 3;},
+    zgArenaV2GetState:function(){return{actors:[{id:'arena-token',source:grantTarget}]};}
+  },
+  arenaV2Clone:function(value){return JSON.parse(JSON.stringify(value));},
+  arenaV2MutateActor:function(tokenId,mutator,kind){assert.strictEqual(tokenId,'arena-token');mutator(grantTarget);grantTarget.lastKind=kind;return true;}
+};
+vm.runInNewContext(html.slice(grantStart, grantEnd), grantContext);
+assert.strictEqual(grantContext.w.zgArenaV2GrantSpell('arena-token','arena-k1'), true, 'drop into received must succeed');
+assert.deepStrictEqual(Array.from(grantTarget.spellRefs), ['arena-k1']);
+assert.strictEqual(grantTarget.spellsLearned['arena-k1'], true);
+assert.deepStrictEqual(Array.from(grantTarget.preparedSpells.kodex), [], 'received drop must not prepare implicitly');
+assert.strictEqual(grantContext.w.zgArenaV2GrantSpell('arena-token','arena-k1','kodex'), true, 'drop into matching preparation slots must succeed');
+assert.deepStrictEqual(Array.from(grantTarget.preparedSpells.kodex), ['arena-k1']);
+assert.strictEqual(grantTarget.lastKind, 'spell-prepare');
+assert.strictEqual(grantContext.w.zgArenaV2GrantSpell('arena-token','arena-k1','folio'), false, 'drop into a different spell family must be rejected');
+grantTarget.preparedSpells.kodex=['a','b','c'];
+assert.strictEqual(grantContext.w.zgArenaV2GrantSpell('arena-token','arena-k1','kodex'), false, 'drop into a full preparation family must be rejected');
 
 assert.match(network, /preparedSpells:\s*clean\(preparedSpells/);
 assert.match(network, /spellsLearned\[id\]!==true/);
