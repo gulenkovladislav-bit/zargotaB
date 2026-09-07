@@ -10240,8 +10240,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-09-01.35';
+var ZG_APP_VERSION = '2026-09-07.1';
 var ZG_APP_CHANGELOG = [
+  { v: '2026-09-07.1', notes: 'Исправлены быстрое экипирование и пересчёт бонусов снаряжения в Арене. Снятое оружие больше не остаётся в выборе атаки, а упоминание оружия или щита в описании не меняет тип предмета.', notesUk: 'Виправлено швидке спорядження та перерахунок бонусів спорядження на Арені. Знята зброя більше не залишається у виборі атаки, а згадка зброї або щита в описі не змінює тип предмета.' },
   { v: '2026-09-01.35', notes: 'Исправлена экипировка оружия в локальной Арене: оружие из сумки сразу синхронизируется с героем, жетоном и участником боя, появляется в выборе атаки и показывает свою иконку. Выбор атаки также восстанавливает экипированное оружие из сумки, если старый боевой снимок ещё не успел обновиться.', notesUk: 'Виправлено спорядження зброї в локальній Арені: зброя із сумки одразу синхронізується з героєм, жетоном і учасником бою, з’являється у виборі атаки та показує свою іконку. Вибір атаки також відновлює споряджену зброю із сумки, якщо старий бойовий знімок ще не встиг оновитися.' },
   { v: '2026-09-01.34', notes: 'Заклинания из каталога Арены теперь можно перетаскивать прямо в две области магии выбранного участника. Перенос в «Полученные заклинания» добавляет заклинание в книгу героя, а перенос в свободные слоты подготовки сразу добавляет и подготавливает его в правильной категории. Несовместимый тип и заполненные слоты получают понятное предупреждение.', notesUk: 'Закляття з каталогу Арени тепер можна перетягувати безпосередньо у дві області магії вибраного учасника. Перенесення до «Отриманих заклять» додає закляття до книги героя, а перенесення у вільні слоти підготовки одразу додає й готує його у правильній категорії. Несумісний тип і заповнені слоти отримують зрозуміле попередження.' },
   { v: '2026-09-01.33', notes: 'Стартовая загрузка стала немного крупнее и лучше читается: увеличены название, статус и шкала. Непонятная подпись о локальной версии полностью убрана, а движение прогресса стало более равномерным благодаря мягкой кривой и ограничению резких скачков скорости.', notesUk: 'Стартове завантаження стало трохи більшим і краще читається: збільшено назву, статус і шкалу. Незрозумілий підпис про локальну версію повністю прибрано, а рух прогресу став рівномірнішим завдяки м’якій кривій та обмеженню різких стрибків швидкості.' },
@@ -20060,12 +20061,16 @@ document.addEventListener('DOMContentLoaded', function(){
     (Array.isArray(character.equipItems)?character.equipItems:[]).forEach(function(item){if(item&&item.equipped!==false)items.push(Object.assign({},item,{equipped:true}));});
     var generated=typeof rules.inventoryWeaponProfiles==='function'?rules.inventoryWeaponProfiles(items):[];
     generated=generated.map(function(profile){var source=items.find(function(item){return item&&String(item.itemId||item.id||'')===String(profile&&profile.sourceItemId||profile&&profile.id||'');})||{};return Object.assign({},profile,{nameUk:profile.nameUk||source.nameUk||'',damageTypeUk:profile.damageTypeUk||source.damageTypeUk||'',image:profile.image||source.image||'',imageThumb:profile.imageThumb||source.imageThumb||'',icon:profile.icon||source.icon||''});});
-    var authored=(Array.isArray(baseProfiles)?baseProfiles:Array.isArray(character.weaponProfiles)?character.weaponProfiles:[]).filter(function(profile){return profile&&!profile.sourceItemId;}),seen={};
-    return authored.concat(generated).filter(function(profile){var key=String(profile&&profile.id||profile&&profile.name||'');if(!key||seen[key])return false;seen[key]=true;return true;}).slice(0,12);
+    var inventoryIds={};(character.inventoryItems||[]).concat(character.equipItems||[]).forEach(function(item){if(!item||!rules.equipmentKind||rules.equipmentKind(item)!=='weapon')return;[item.itemId,item.id,item.name].filter(Boolean).forEach(function(key){inventoryIds[String(key)]=true;});});
+    var authored=(Array.isArray(baseProfiles)?baseProfiles:Array.isArray(character.weaponProfiles)?character.weaponProfiles:[]).filter(function(profile){return profile&&!inventoryIds[String(profile.id||'')]&&!(rules.isInventoryWeaponProfile?rules.isInventoryWeaponProfile(profile):profile.sourceItemId);}),seen={};
+    return generated.concat(authored).filter(function(profile){var key=String(profile&&profile.id||profile&&profile.name||'');if(!key||seen[key])return false;seen[key]=true;return true;}).slice(0,12);
   }
   function applyInventoryCombatProjection(target,character,baseProfiles){
     if(!target||!character)return target;
-    target.inventoryItems=inventoryClone(character.inventoryItems,[]);target.equipItems=inventoryClone(character.equipItems,[]);target.weaponProfiles=inventoryClone(inventoryWeaponProjection(character,baseProfiles==null?target.weaponProfiles:baseProfiles),[]);
+    var rules=w.ZargotaEquipmentRules||{};
+    var previousProfiles=inventoryWeaponProjection(target,baseProfiles==null?target.weaponProfiles:baseProfiles);
+    if(typeof rules.applyEquipmentDelta==='function')rules.applyEquipmentDelta(target,target,character);
+    target.weaponProfiles=inventoryClone(inventoryWeaponProjection(character,previousProfiles),[]);target.inventoryItems=inventoryClone(character.inventoryItems,[]);target.equipItems=inventoryClone(character.equipItems,[]);
     return target;
   }
   w.zgVttArenaSnapshot=function(){return w.zgLocalArenaV2Active?inventoryClone(state,null):null;};
@@ -20104,7 +20109,7 @@ document.addEventListener('DOMContentLoaded', function(){
             revision:Math.max(0,Number(current.revision)||0)+1,
             updatedAt:Date.now(),updatedBy:'workshop-master',source:sections.reason
           });
-          projected.weaponProfiles=inventoryWeaponProjection(projected,current.weaponProfiles);target.character=projected;
+          applyInventoryCombatProjection(current,projected,current.weaponProfiles);target.character=Object.assign({},projected,current,{revision:projected.revision,updatedAt:projected.updatedAt,updatedBy:projected.updatedBy,source:projected.source});
           var scene=snapshot.room.scene,heroToken=scene&&Array.isArray(scene.tokens)?scene.tokens.find(function(item){return item&&String(item.memberUid||'')===String(member.uid||'');}):null,combat=snapshot.room.combat,heroEntry=combat&&Array.isArray(combat.order)?combat.order.find(function(item){return item&&String(item.uid||'')===String(member.uid||'');}):null;
           if(heroToken)applyInventoryCombatProjection(heroToken,projected,heroToken.weaponProfiles);if(heroEntry)applyInventoryCombatProjection(heroEntry,projected,heroEntry.weaponProfiles);
         }).then(function(snapshot){
@@ -24351,7 +24356,7 @@ document.addEventListener('DOMContentLoaded', function(){
       if(!twoHanded&&hands.mainHand&&hands.offHand&&w.showToast)w.showToast('Обе руки заняты — заменяем предмет в основной руке');
     }else slot=typeof equipmentRules.preferredEquipmentSlot==='function'?equipmentRules.preferredEquipmentSlot(item):/голов|шлем|капюш/.test(hay)?'head':/плащ|накид/.test(hay)?'cloak':/перчат|наруч|рукав/.test(hay)?'hands':/сапог|ботин|обув|понож/.test(hay)?'legs':/брон|доспех|одеж|ряса/.test(hay)?'armor':/талис|кольц|амул|ожерел/.test(hay)?'accessory1':'';
     if(!slot){if(w.showToast)w.showToast('Для этого предмета нет подходящего слота');return;}
-    var transfer={getData:function(){return String(index);}};
+    var transfer={getData:function(type){return type==='text/zargota-item'||type==='text/plain'?String(index):'';}};
     w.zgVttInventoryDrop({preventDefault:function(){},dataTransfer:transfer},slot);
     w.zgVttInventoryCloseItem();
   };

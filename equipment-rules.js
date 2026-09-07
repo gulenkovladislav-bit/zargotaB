@@ -51,12 +51,11 @@
       item && item.cat,
       item && item.type,
       item && item.name,
-      item && item.description,
-      item && item.effect,
-      item && item.effects
+      // Legacy sheets store the actual type on a labeled line, not in prose.
+      (String(item && item.description || '').match(/(?:^|\n)\s*(?:тип|type)\s*:\s*([^\n]+)/i) || [])[1]
     ].filter(Boolean).join(' ').toLowerCase();
     if (/shield|щит/.test(hay)) return 'shield';
-    if (/weapon|melee|ranged|оруж|збро|рукопаш|ближн(?:ий|его) бой|дальнобой|меч|кинжал|рапир|топор|сокир|лук|цибул|арбалет|молот|булав|дубин|копь|спис|алебард|посох/.test(hay)) return 'weapon';
+    if (/weapon|melee|ranged|оруж|збро|рукопаш|ближн(?:ий|его) бой|дальнобой|меч|кинжал|рапир|топор|сокир|лук|цибул|арбалет|молот|булав|дубин|копь|(?:^|\s)спис(?:\s|$)|алебард|посох/.test(hay)) return 'weapon';
     return 'other';
   }
 
@@ -282,6 +281,7 @@
         slot:normalizedEquipmentSlot(item),
         handsRequired:itemHandsRequired(item),
         sourceItemId:String(item.itemId || item.id || ''),
+        source:'inventory',
         description:item.description || item.effectText || '',
         nameUk:item.nameUk || '',
         damageTypeUk:item.damageTypeUk || '',
@@ -295,6 +295,43 @@
   function cloneList(value) {
     try { return JSON.parse(JSON.stringify(Array.isArray(value) ? value : [])); }
     catch (e) { return []; }
+  }
+
+  function isInventoryWeaponProfile(profile) {
+    return !!(profile && (profile.sourceItemId || profile.source === 'inventory' || /^inventory-weapon-\d+$/.test(String(profile.id || ''))));
+  }
+
+  // Apply only the equipment difference; preserve combat damage and spent actions.
+  // Explicit before-items also support legacy snapshots with no bonus cache.
+  function applyEquipmentDelta(target, before, after) {
+    var previous = calculate(before), next = calculate(after);
+    function delta(key) { return next[key] - previous[key]; }
+    var hpDelta = delta('hpBonus');
+    if (target.hpMax != null) target.hpMax = Math.max(1, Number(target.hpMax) + hpDelta);
+    ['hp', 'hpCur'].forEach(function (key) {
+      if (target[key] != null) target[key] = Math.max(0, Math.min(target.hpMax == null ? Infinity : target.hpMax, Number(target[key]) + hpDelta));
+    });
+    [['ac','acBonus'], ['initiative','initiativeBonus'], ['speed','speedBonus']].forEach(function (pair) {
+      if (target[pair[0]] != null) target[pair[0]] = pair[0] === 'initiative'
+        ? Number(target[pair[0]]) + delta(pair[1]) : Math.max(0, Number(target[pair[0]]) + delta(pair[1]));
+    });
+    var stats = Object.assign({}, target.stats || {});
+    STAT_KEYS.forEach(function (key) {
+      var diff = next.statBonuses[key] - previous.statBonuses[key], value = stats[key];
+      if (!diff) return;
+      stats[key] = value && typeof value === 'object'
+        ? Object.assign({}, value, { cur:(Number(value.cur != null ? value.cur : value.base) || 0) + diff })
+        : (Number(value) || 0) + diff;
+    });
+    target.stats = stats;
+    if (target.economy && typeof target.economy === 'object') {
+      var economy = Object.assign({}, target.economy), movementDelta = delta('speedBonus');
+      if (economy.movementMax != null) economy.movementMax = Math.max(0, Number(economy.movementMax) + movementDelta);
+      if (economy.movement != null) economy.movement = Math.max(0, Math.min(economy.movementMax == null ? Infinity : economy.movementMax, Number(economy.movement) + movementDelta));
+      target.economy = economy;
+    }
+    target.equipmentBonuses = next;
+    return target;
   }
 
   function applyCreatureInventory(source, operation) {
@@ -352,7 +389,7 @@
     var stats = Object.assign({}, next.stats || {}), previousStats = previousBonuses.statBonuses || {}, afterStats = after.statBonuses || {};
     STAT_KEYS.forEach(function (key) { stats[key] = (Number(stats[key]) || 0) + (Number(afterStats[key]) || 0) - (Number(previousStats[key]) || 0); });
     next.stats = stats;
-    var authoredWeapons = (Array.isArray(next.weaponProfiles) ? next.weaponProfiles : []).filter(function (profile) { return profile && !profile.sourceItemId; });
+    var authoredWeapons = (Array.isArray(next.weaponProfiles) ? next.weaponProfiles : []).filter(function (profile) { return profile && !isInventoryWeaponProfile(profile); });
     next.weaponProfiles = authoredWeapons.concat(inventoryWeaponProfiles(items)).slice(0, 12);
     next.inventoryItems = items;
     next.equipmentBonuses = after;
@@ -375,6 +412,8 @@
     collectEquippedItems:collectEquippedItems,
     calculate:calculate,
     inventoryWeaponProfiles:inventoryWeaponProfiles,
+    isInventoryWeaponProfile:isInventoryWeaponProfile,
+    applyEquipmentDelta:applyEquipmentDelta,
     applyCreatureInventory:applyCreatureInventory
   };
 });
