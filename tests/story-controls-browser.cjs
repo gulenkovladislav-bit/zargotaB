@@ -1,0 +1,24 @@
+const {chromium}=require('playwright');const assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});try{
+const page=await browser.newPage({viewport:{width:1600,height:950},reducedMotion:'reduce'});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:5176/index.html?lookout-demo=1');await page.getByRole('button',{name:/Редактор/}).click();await page.locator('[data-workspace-tab=scene]').click();
+const zoom=page.getByRole('slider',{name:'Масштаб камеры',exact:true});const speed=page.getByRole('slider',{name:'Скорость передвижения',exact:true});
+await zoom.fill('1.55');await zoom.dispatchEvent('change');await speed.fill('0.75');await speed.dispatchEvent('change');
+assert.equal(await zoom.inputValue(),'1.55');assert.equal(await speed.inputValue(),'0.75');
+await page.locator('[data-workspace-tab=dialogues]').click();await page.locator('[data-workspace-tab=scene]').click();
+assert.equal(await zoom.inputValue(),'1.55');assert.equal(await speed.inputValue(),'0.75');
+await page.screenshot({path:'/private/tmp/zargota-controls-layout.png'});
+await page.locator('.zg-stage-tabs [data-mode=object]').click();await page.locator('.zg-stage-minimap [data-stage-id=story-brother]').click();
+await page.getByLabel('Токен игрока',{exact:true}).check();assert.equal(await page.evaluate(()=>zgStoryEditorProject().heroTokenId),'story-brother');
+await page.locator('.zg-stage-minimap [data-stage-id=story-vrotik]').click();await page.getByLabel('Токен игрока',{exact:true}).check();
+await page.getByRole('button',{name:'▶ Пройти эпизод',exact:true}).click();
+const before=await page.evaluate(()=>ZargotaStoryPlayer.getState().position);const world=page.locator('[data-play-world]');const box=await world.boundingBox();
+await page.mouse.click(box.x+box.width*(before.x+2)/100,box.y+box.height*before.y/100);
+await page.waitForFunction(x=>ZargotaStoryPlayer.getState().position.x>x+1,before.x);
+const transform=await world.evaluate(e=>e.style.transform);const wrap=page.locator('.zg-story-world-wrap');const rect=await wrap.boundingBox();
+await page.mouse.move(rect.x+500,rect.y+400);await page.mouse.down({button:'middle'});await page.mouse.move(rect.x+560,rect.y+400,{steps:5});await page.mouse.up({button:'middle'});
+assert.notEqual(await world.evaluate(e=>e.style.transform),transform);
+await page.reload();await page.getByRole('button',{name:/Редактор/}).click();await page.locator('[data-workspace-tab=scene]').click();
+assert.equal(await zoom.inputValue(),'1.55');assert.equal(await speed.inputValue(),'0.75');
+assert.deepEqual(errors,[]);console.log('Fractional sliders persist across reload; player assignment, zoomed click movement and middle-button camera verified');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

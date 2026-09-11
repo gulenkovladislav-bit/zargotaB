@@ -1,0 +1,75 @@
+.zg-story-editor{position:fixed;z-index:10020;left:18px;right:18px;bottom:18px;height:min(610px,calc(100vh - 78px));display:none;grid-template-rows:auto minmax(0,1fr);overflow:hidden;border:1px solid #4f897d;border-radius:15px;background:linear-gradient(160deg,#111c19f7,#070a09f8 60%);box-shadow:0 28px 90px #000e,0 0 28px #4fb49c20;color:#c9b98c;font-family:'Lora',serif}
+.zg-story-editor.open{display:grid;grid-template-rows:auto auto minmax(0,1fr)}
+.zg-story-editor{height:min(820px,calc(100vh - 40px))}
+.zg-story-body{grid-template-columns:minmax(0,1fr) minmax(360px,30%)}
+.zg-story-extra{border:1px solid #385d52;border-radius:9px;margin:18px 0;padding:12px}
+.zg-story-extra legend{color:#d9c28d;font-size:13px}
+.zg-story-extra p{font-size:12px;line-height:1.5;color:#98aea5}
+.zg-story-media-preview{display:block;width:100%;max-height:180px;object-fit:contain;margin-bottom:10px}
+.zg-story-inspector .zg-story-link-row{display:grid;grid-template-columns:1fr;padding:12px;margin:12px 0;border:1px solid #3c6458;border-radius:9px;background:#14201b}
+.zg-story-link-row .zg-story-field{font-size:11px;color:#a7c2b6;margin:0 0 7px}
+.zg-story-edge-title{color:#e9c37d;padding-bottom:8px}
+.zg-story-campaign-controls{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #31564e;background:#0e1613;flex-wrap:wrap}
+.zg-story-campaign-controls select{background:#09110f;color:#e2c887;border:1px solid #537b6d;border-radius:6px;padding:7px}
+.zg-story-campaign-controls span{font-size:10px;color:#839a8a}
+.zg-story-reopen{position:fixed;z-index:10019;left:18px;top:55px;display:none;padding:8px 12px;border:1px solid #4f897d;border-radius:8px;background:#101b18e8;color:#b8eadc;font:700 10px 'Cinzel',serif;cursor:pointer;box-shadow:0 8px 24px #000b}
+.zg-story-reopen.open{display:block}
+.zg-story-head{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid #31564e;background:#0a100edb}
+.zg-story-head strong{display:block;color:#b8eadc;font:700 13px 'Cinzel',serif;letter-spacing:.7px}
+.zg-story-head small{display:block;margin-top:2px;color:#668c83;font:10px 'Lora',serif}
+.zg-story-head-actions{display:flex;gap:7px;margin-left:auto}
+.zg-story-editor button,.zg-story-editor input,.zg-story-editor textarea,.zg-story-editor select{font:11px 'Lora',serif}
+.zg-story-editor button{border:1px solid #426d64;border-radius:7px;background:#101b18;color:#a8d7ca;padding:7px 10px;cursor:pointer}
+.zg-story-editor button:hover{border-color:#73b6a6;color:#ddfff5}
+.zg-story-editor button.danger{border-color:#653d39;color:#d89b91}
+.zg-story-editor button:disabled{opacity:.4;cursor:default}
+.zg-story-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;min-height:0}
+.zg-story-canvas{position:relative;min-width:0;overflow:auto;background-image:linear-gradient(#27443d26 1px,transparent 1px),linear-gradient(90deg,#27443d26 1px,transparent 1px);background-size:32px 32px}
+.zg-story-stage{position:relative;width:1200px;height:760px}
+.zg-story-links{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.zg-story-link{fill:none;stroke:#6a9f91;stroke-width:2;marker-end:url(#zg-story-arrow);cursor:pointer;pointer-events:stroke}
+.zg-story-link:hover,.zg-story-link.selected{stroke:#f0c86d;stroke-width:4}
+.zg-story-link-label{fill:#9bc8bc;font:10px 'Cinzel',serif;paint-order:stroke;stroke:#08100e;stroke-width:4;stroke-linejoin:round;pointer-events:none}
+.zg-story-node{position:absolute;width:220px;min-height:104px;padding:10px;border:1px solid #416e64;border-radius:10px;background:linear-gradient(145deg,#14231f,#0b100e);box-shadow:0 10px 25px #0008;box-sizing:border-box;cursor:grab;touch-action:none}
+.zg-story-node.selected{border-color:#e1bd63;box-shadow:0 0 0 2px #d9ae4730,0 14px 30px #000b}
+.zg-story-node:active{cursor:grabbing}
+.zg-story-node b,.zg-story-node span,.zg-story-node small{display:block;pointer-events:none}
+.zg-story-node b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dceee7;font:700 12px 'Cinzel',serif}
+.zg-story-node span{margin-top:6px;color:#948a6f;font:11px/1.35 'Lora',serif}
+.zg-story-node small{margin-top:7px;color:#5f8f84;font:9px 'Cinzel',serif}
+.zg-story-inspector{min-width:0;overflow-y:auto;padding:14px;border-left:1px solid #31564e;background:#090d0c}
+.zg-story-inspector h3{margin:0 0 12px;color:#b8eadc;font:700 12px 'Cinzel',serif}
+.zg-story-field{display:grid;gap:5px;margin-bottom:11px}
+.zg-story-field>span{color:#789d94;font:9px 'Cinzel',serif;letter-spacing:.5px}
+.zg-story-field input,.zg-story-field textarea,.zg-story-field select{width:100%;box-sizing:border-box;border:1px solid #314f48;border-radius:6px;background:#080c0b;color:#d8d0b8;padding:8px}
+.zg-story-field textarea{min-height:92px;resize:vertical;line-height:1.45}
+.zg-story-link-row{display:grid;grid-template-columns:minmax(0,1fr) 78px 31px;gap:5px;margin-bottom:6px}
+.zg-story-link-row input,.zg-story-link-row select{min-width:0;border:1px solid #314f48;border-radius:5px;background:#080c0b;color:#cfc5a6;padding:6px}
+.zg-story-link-row button{padding:4px}
+.zg-story-empty{padding:30px;color:#668078;text-align:center}
+.zg-story-note{margin:0 0 12px;color:#6d817c;font:10px/1.45 'Lora',serif}
+@media(max-width:800px){.zg-story-editor{left:6px;right:6px;bottom:6px;height:calc(100vh - 58px)}
+.zg-story-reopen{left:7px;top:48px}
+.zg-story-body{grid-template-columns:1fr}
+.zg-story-canvas{min-height:44vh}
+.zg-story-inspector{position:absolute;right:0;top:53px;bottom:0;width:min(330px,88vw);box-sizing:border-box;box-shadow:-16px 0 40px #000c}
+}
+
+.zg-story-scene-controls{display:flex;align-items:center;gap:6px;margin-left:auto}
+.zg-story-scene-controls select{width:min(220px,20vw);height:31px;border:1px solid #426d64;border-radius:7px;background:#09110f;color:#b8d8cf;padding:0 8px}
+.zg-story-scene-controls button.active{border-color:#d0a84e;color:#f0d188;background:#2b2110}
+.zg-game-overlay.story-mode::before,.zg-game-overlay.story-mode.gm-vision::after{display:none!important}
+.zg-game-overlay.story-mode .zg-gm-actions,.zg-game-overlay.story-mode .zg-game-gear,.zg-game-overlay.story-mode .zg-scene-quick,.zg-game-overlay.story-mode .zg-scene-drawer,.zg-game-overlay.story-mode .zg-scene-gm-note,.zg-game-overlay.story-mode .zg-gm-intervention,.zg-game-overlay.story-mode .zg-cue-panel,.zg-game-overlay.story-mode .zg-vtt-party,.zg-game-overlay.story-mode .zg-vtt-journal-toggle,.zg-game-overlay.story-mode .zg-vtt-journal,.zg-game-overlay.story-mode .zg-player-dock,.zg-game-overlay.story-mode .zg-combat-bar,.zg-game-overlay.story-mode .zg-combat-economy,.zg-game-overlay.story-mode [id^="zg-combat-"],.zg-game-overlay.story-mode .zg-dice-test,.zg-game-overlay.story-mode #zg-dice-pop,.zg-game-overlay.story-mode .zg-move-requests,.zg-game-overlay.story-mode .zg-move-requests-toggle,.zg-game-overlay.story-mode .zg-spell-playback,.zg-game-overlay.story-mode .zg-spell-playback-toggle,.zg-game-overlay.story-mode .zg-group-bar,.zg-game-overlay.story-mode #zg-ping-toggle,.zg-game-overlay.story-mode .zg-session-connection,.zg-game-overlay.story-mode .zg-workshop-local{display:none!important}
+.zg-game-overlay.story-mode .zg-scene-gear{display:flex!important;top:12px;right:14px}
+.zg-game-overlay.story-mode #zg-world-clock{display:none!important}
+.zg-game-overlay.story-mode.story-clock-visible #zg-world-clock{display:flex!important}
+.zg-game-overlay.story-mode #zg-scene-settings [data-workshop-only],.zg-game-overlay.story-mode #zg-scene-settings .zg-scene-library-section{display:none!important}
+@media(max-width:1050px){.zg-story-head{align-items:flex-start;flex-wrap:wrap}
+.zg-story-scene-controls{order:3;width:100%;margin-left:0}
+.zg-story-scene-controls select{flex:1;width:auto}
+.zg-story-head-actions{margin-left:auto}
+}
+@media(max-width:620px){.zg-story-scene-controls{overflow-x:auto}
+.zg-story-scene-controls button{white-space:nowrap}
+}
+@media(min-width:801px){.zg-story-body{grid-template-columns:minmax(0,1fr) minmax(360px,30%)}}

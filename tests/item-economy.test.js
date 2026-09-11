@@ -60,7 +60,7 @@ assert.ok(consumables.every(function (item) { return item.category === 'consumab
 assert.ok(consumables.every(function (item) { return item.charges === 1; }));
 assert.ok(consumables.every(function (item) { return item.tags.indexOf('consumable') >= 0; }));
 assert.ok(consumables.every(function (item) { return item.effects.length >= 1; }));
-assert.strictEqual(economy.getShopSeedItems().length, 436);
+assert.strictEqual(economy.getShopSeedItems().length, 438);
 var consumableAudit = economy.auditItemDefinitions(consumables);
 assert.strictEqual(consumableAudit.length, 20);
 assert.ok(consumableAudit.every(function (row) { return row.confidence === 'structured'; }));
@@ -421,6 +421,19 @@ assert.ok(adornments.every(function(item){return /^images\/shop\/(ring|amulet|ch
 assert.strictEqual(new Set(adornments.map(function(item){return item.image;})).size,15);
 ['ring','amulet','charm'].forEach(function(kind){assert.strictEqual(adornments.filter(function(item){return item.kind===kind;}).length,5);});
 
+var healingAmplifiers = economy.getHealingAmplifierItems();
+assert.strictEqual(healingAmplifiers.length,2);
+assert.deepStrictEqual(economy.validateHealingAmplifierItems(),[]);
+var healingRing = healingAmplifiers.filter(function(item){return item.slot==='ring';})[0];
+var healerGloves = healingAmplifiers.filter(function(item){return item.slot==='hands';})[0];
+assert.strictEqual(healingRing.effects[0].operation,'add-flat-to-consumable-healing');
+assert.strictEqual(healingRing.effects[0].value,2);
+assert.strictEqual(healerGloves.effects[0].operation,'add-die-to-any-healing');
+assert.strictEqual(healerGloves.effects[0].dice,'1d4');
+assert.strictEqual(healerGloves.effects[0].trigger,'wearer-restores-hp');
+assert.strictEqual(healerGloves.effects[0].condition,'restore-hp-only;once-per-healing-resolution');
+assert.ok(healingAmplifiers.every(function(item){return fs.existsSync(path.resolve(__dirname,'..',item.image))&&fs.existsSync(path.resolve(__dirname,'..',item.imageThumb));}));
+
 var spellFormItems = economy.getSpellFormItems();
 assert.strictEqual(spellFormItems.length,4);
 assert.deepStrictEqual(economy.validateSpellFormItems(),[]);
@@ -695,7 +708,7 @@ currencyItems.forEach(function(item){
   assert.ok(fs.existsSync(path.resolve(__dirname,'..',item.imageThumb)));
 });
 
-[alcohol,tavernFood,movementGear,artifacts,potions,adornments,blackMarket,forbiddenGoods,thiefGear,arcaneFocuses,prostheses,transports,trainedAnimals,shields,cuirasses,services,poisons,loreGoods,necromancyItems].forEach(function(group){
+[alcohol,tavernFood,movementGear,artifacts,potions,healingAmplifiers,adornments,blackMarket,forbiddenGoods,thiefGear,arcaneFocuses,prostheses,transports,trainedAnimals,shields,cuirasses,services,poisons,loreGoods,necromancyItems].forEach(function(group){
   var rows=economy.auditItemDefinitions(group);
   assert.ok(rows.every(function(row){return row.confidence==='structured';}));
   assert.ok(rows.every(function(row){return row.status==='within-tier';}),JSON.stringify(rows,null,2));

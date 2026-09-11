@@ -1,0 +1,13 @@
+const {chromium}=require('playwright');const assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});try{const page=await browser.newPage({viewport:{width:1440,height:950}});await page.goto('http://127.0.0.1:5176/index.html');await page.getByRole('button',{name:'⚒ Мастерская',exact:true}).click();await page.getByRole('button',{name:/Создание сюжета Сцена/}).click();
+await page.getByRole('button',{name:'▤ Эпизоды',exact:true}).click();await page.locator('.zg-episode-row').filter({has:page.locator('input[value]')}).count();
+await page.locator('.zg-episode-row').nth(1).getByRole('button',{name:'Открыть',exact:true}).click();
+assert.equal(await page.locator('[data-story-project-select]').count(),0);
+assert.equal(await page.getByRole('button',{name:'Переименовать эпизод',exact:true}).count(),0);
+const slider=page.locator('#zg-story-stage-settings input[type=range]');await slider.fill('2');await slider.dispatchEvent('change');
+assert.equal(await page.evaluate(()=>zgStoryEditorProject().scene.story.cameraZoom),2);
+await page.screenshot({path:'/private/tmp/zargota-workspace-scene.png'});
+await page.getByRole('button',{name:'♙ Персонажи',exact:true}).click();assert.equal(await page.locator('#zg-story-actors').isVisible(),true);await page.screenshot({path:'/private/tmp/zargota-workspace-actors.png'});
+await page.getByRole('button',{name:'◇ Диалоги',exact:true}).click();assert.equal(await page.locator('.zg-story-body').isVisible(),true);
+await page.getByRole('button',{name:'▶ Пройти эпизод',exact:true}).click();await page.locator('#zg-story-player.open').waitFor();const before=await page.locator('[data-play-world]').boundingBox();await page.mouse.move(300,350);await page.mouse.down();await page.mouse.move(420,350,{steps:10});await page.mouse.up();const after=await page.locator('[data-play-world]').boundingBox();assert.ok(after.x>before.x);console.log('Single workspace tabs, project library, persisted camera zoom and player panning passed');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

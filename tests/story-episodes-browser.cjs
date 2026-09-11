@@ -1,0 +1,20 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'});try{
+ const page=await browser.newPage({viewport:{width:1440,height:950}});
+ await page.goto('http://127.0.0.1:5176/index.html');
+ await page.waitForFunction(()=>window.zgStoryEditorOpen);
+ await page.getByRole('button',{name:'⚒ Мастерская',exact:true}).click();
+ await page.getByRole('button',{name:/Создание сюжета Сцена/}).click();
+ await page.getByRole('combobox',{name:'Сюжет кампании',exact:true}).selectOption('vrotik-episode-1');
+ await page.getByRole('button',{name:'▤ Эпизоды',exact:true}).click();
+ await page.getByLabel('Название нового эпизода',{exact:true}).fill('Test episode');
+ await page.getByRole('button',{name:'Создать эпизод',exact:true}).click();
+ assert.equal(await page.evaluate(()=>zgStoryEditorProject().title),'Test episode');
+ assert.equal(await page.evaluate(()=>zgStoryEditorProject().scene.tokens.length),0);
+ await page.getByRole('combobox',{name:'Сюжет кампании',exact:true}).selectOption('vrotik-episode-1');
+ assert.ok(await page.evaluate(()=>zgStoryEditorProject().scene.tokens.length)>0);
+ await page.getByRole('combobox',{name:'Сюжет кампании',exact:true}).selectOption({label:'Test episode'});
+ assert.equal(await page.evaluate(()=>zgStoryEditorProject().scene.tokens.length),0);
+ console.log('Episode creation and scene isolation across project switches passed');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

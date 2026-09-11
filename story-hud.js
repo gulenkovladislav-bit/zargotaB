@@ -1,0 +1,18 @@
+(function(w){
+'use strict';
+function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
+function el(tag,text){var e=document.createElement(tag);if(text!=null)e.textContent=text;return e;}
+function settings(project){var s=project.hud||{};return{x:Math.max(0,Math.min(100,s.x==null?0:Number(s.x)||0)),y:Math.max(0,Math.min(100,s.y==null?100:Number(s.y)||0))};}
+function position(hud,cfg,width,height){var pad=16,left=pad+Math.max(0,width-hud.offsetWidth-pad*2)*cfg.x/100,top=pad+Math.max(0,height-hud.offsetHeight-pad*2)*cfg.y/100;hud.style.setProperty('left',left+'px');hud.style.setProperty('top',top+'px');hud.style.bottom='auto';}
+function render(hud,c){hud.replaceChildren();if(c.portrait){var art=el('img');art.className='zg-story-health-portrait';art.src=c.portrait;art.alt='';hud.appendChild(art);}var info=el('div');info.className='zg-story-health-info';info.append(el('span',t(c.name,c.nameUk||c.name)),el('strong',c.hp+' / '+c.hpMax));var meter=el('meter');meter.min=0;meter.max=Math.max(1,c.hpMax);meter.value=c.hp;meter.setAttribute('aria-label',t('Здоровье','Здоров’я'));info.appendChild(meter);hud.appendChild(info);}
+function apply(root,project){var hud=root.querySelector('.zg-story-health');if(!hud)return;var cfg=settings(project);if(root.classList.contains('in-dialogue')&&cfg.y>55)cfg.y=15;position(hud,cfg,innerWidth,innerHeight);}
+function edit(project,save){var screen=el('section');screen.className='zg-hud-layout-editor';screen.setAttribute('role','dialog');screen.setAttribute('aria-label',t('Расположение панели героя','Розташування панелі героя'));var background=((project.scene||{}).layers||[]).find(function(l){return l.image;});if(background)screen.style.backgroundImage='url("'+encodeURI(background.image).replace(/"/g,'%22')+'")';var hud=el('div');hud.className='zg-story-health';render(hud,w.ZargotaStoryActors.character(project));screen.appendChild(hud);var controls=el('div');controls.className='zg-hud-layout-controls';controls.appendChild(el('h2',t('Панель героя','Панель героя')));controls.appendChild(el('p',t('Предпросмотр в размере игры. Положение сохраняется для эпизода.','Перегляд у розмірі гри. Розташування зберігається для епізоду.')));screen.appendChild(controls);document.body.appendChild(screen);var cfg=settings(project),inputs=[];
+ function draw(){position(hud,cfg,innerWidth,innerHeight);inputs.forEach(function(i){i.input.value=cfg[i.key];i.out.textContent=Math.round(cfg[i.key])+'%';});}
+ [['x','По горизонтали','По горизонталі'],['y','По вертикали','По вертикалі']].forEach(function(p){var label=el('label',t(p[1],p[2])),input=el('input'),out=el('output');input.type='range';input.min=0;input.max=100;input.step=1;input.oninput=function(){cfg[p[0]]=Number(input.value);draw();};label.append(input,out);controls.appendChild(label);inputs.push({input:input,out:out,key:p[0]});});
+ function button(text,fn){var b=el('button',text);b.type='button';b.onclick=fn;controls.appendChild(b);return b;}
+ [['↙',0,100],['↘',100,100],['↖',0,0],['↗',100,0]].forEach(function(p){var b=button(p[0],function(){cfg={x:p[1],y:p[2]};draw();});b.setAttribute('aria-label',t('Угол панели: ','Кут панелі: ')+p[0]);});
+ function close(){w.removeEventListener('resize',draw);screen.remove();}
+ button(t('Сохранить','Зберегти'),function(){save(function(p){p.hud=cfg;});close();});button(t('Отмена','Скасувати'),close);screen.tabIndex=-1;screen.onkeydown=function(e){if(e.key==='Escape'){e.stopPropagation();close();}};w.addEventListener('resize',draw);draw();screen.focus();
+}
+w.ZargotaStoryHud={settings:settings,position:position,render:render,apply:apply,edit:edit};
+})(window);

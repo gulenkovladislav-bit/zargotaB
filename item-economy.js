@@ -1482,6 +1482,13 @@
     return finishBatchItem(item,{cat:'potion',category:'consumable',slot:'consumable',tags:['potion','consumable',item.role],access:{markets:['city','guild'],legality:'open'}});
   });
 
+  var HEALING_AMPLIFIER_ITEMS = [
+    {id:'shp_healing_amp_01',name:'Кольцо аптекарской меры',icon:'💍',image:'images/shop/healing-amplifier-apothecary-ring.png',imageThumb:'images/shop/thumbs/healing-amplifier-apothecary-ring.jpg',healingAmplifierKind:'consumable-flat',slot:'ring',powerTier:2,rarity:'uncommon',price:{pl:3,zl:5,sr:0,md:0},effect:'Пока надето · лечение расходниками восстанавливает дополнительно 2 HP',desc:'Тонкая серебряная риска на оправе вспыхивает, когда владелец выпивает зелье или применяет другой лечебный расходник. Кольцо усиливает только восстановление HP и срабатывает один раз на использованный предмет.',effects:[{id:'apothecary-measure-consumable-healing',type:'support',trigger:'wearer-restores-hp-with-consumable',operation:'add-flat-to-consumable-healing',balanceOperation:'restore-hp-dice',value:2,condition:'restore-hp-only;once-per-consumable-use;not-spell-healing',frequency:'passive',stacking:'unique-source'}]},
+    {id:'shp_healing_amp_02',name:'Лекарские перчатки',icon:'🧤',image:'images/shop/healing-amplifier-healer-gloves.png',imageThumb:'images/shop/thumbs/healing-amplifier-healer-gloves.jpg',healingAmplifierKind:'universal-die',slot:'hands',powerTier:2,rarity:'rare',price:{pl:5,zl:0,sr:0,md:0},effect:'Пока надеты · добавь 1d4 к любому восстановлению HP',desc:'Мягкая кожа прошита серебряной и красной нитью. Когда владелец восстанавливает HP себе или другой цели расходником, заклинанием, способностью либо иным лечебным эффектом, перчатки добавляют к итоговому лечению 1d4.',effects:[{id:'healer-gloves-universal-healing-die',type:'support',trigger:'wearer-restores-hp',operation:'add-die-to-any-healing',balanceOperation:'restore-hp-dice',dice:'1d4',value:0,condition:'restore-hp-only;once-per-healing-resolution',frequency:'passive',stacking:'unique-source'}]}
+  ].map(function(item){
+    return finishBatchItem(item,{cat:'magic',category:'accessory',slot:item.slot,tags:['magic','healing','consumable-healing-amplifier'],access:{markets:['guild','licensed'],legality:'open'}});
+  });
+
   var MAGIC_ADORNMENT_ITEMS = [
     {id:'shp_adornment_01',name:'Кольцо сухой ладони',icon:'💍',kind:'ring',tier:1,effect:'Мелкие предметы не выскальзывают из мокрой ладони',desc:'Шероховатое медное кольцо всегда остаётся сухим.'},
     {id:'shp_adornment_02',name:'Кольцо тихого ключа',icon:'🔑',kind:'ring',tier:1,effect:'+1 к бесшумной работе с замками',desc:'Тонкое железное кольцо глушит звон малого инструмента.'},
@@ -2379,6 +2386,16 @@
     return errors;
   }
 
+  function validateHealingAmplifierItems() {
+    var errors = validateItemCollection(HEALING_AMPLIFIER_ITEMS);
+    var flat = HEALING_AMPLIFIER_ITEMS.filter(function(item){return item.healingAmplifierKind==='consumable-flat';})[0];
+    var universal = HEALING_AMPLIFIER_ITEMS.filter(function(item){return item.healingAmplifierKind==='universal-die';})[0];
+    if (HEALING_AMPLIFIER_ITEMS.length !== 2) errors.push('healing amplifiers: expected ring and gloves');
+    if (!flat || flat.slot !== 'ring' || !flat.effects.some(function(effect){return effect.operation==='add-flat-to-consumable-healing'&&effect.value===2;})) errors.push('healing amplifiers: invalid flat ring');
+    if (!universal || universal.slot !== 'hands' || !universal.effects.some(function(effect){return effect.operation==='add-die-to-any-healing'&&effect.dice==='1d4';})) errors.push('healing amplifiers: invalid healer gloves');
+    return errors;
+  }
+
   function validateSpellFormItems() {
     var errors = validateItemCollection(SPELL_FORM_ITEMS);
     var expectedForms = ['directed','concentration','touch','area'];
@@ -2690,6 +2707,7 @@
     validateMovementGearItems:validateMovementGearItems,
     validateMinorArtifactItems:validateMinorArtifactItems,
     validatePotionItems:validatePotionItems,
+    validateHealingAmplifierItems:validateHealingAmplifierItems,
     validateMagicAdornmentItems:validateMagicAdornmentItems,
     validateSpellFormItems:validateSpellFormItems,
     validateSpellCategoryItems:validateSpellCategoryItems,
@@ -2725,6 +2743,7 @@
     getMovementGearItems:function () { return clone(MOVEMENT_GEAR_ITEMS); },
     getMinorArtifactItems:function () { return clone(MINOR_ARTIFACT_ITEMS); },
     getPotionItems:function () { return clone(POTION_ITEMS); },
+    getHealingAmplifierItems:function () { return clone(HEALING_AMPLIFIER_ITEMS); },
     getMagicAdornmentItems:function () { return clone(MAGIC_ADORNMENT_ITEMS); },
     getSpellFormItems:function () { return clone(SPELL_FORM_ITEMS); },
     getSpellCategoryItems:function () { return clone(SPELL_CATEGORY_ITEMS); },
@@ -2747,7 +2766,7 @@
     getShopMarkets:function () { return clone(SHOP_MARKET_DEFINITIONS); },
     enrichShopItem:enrichShopItem,
     enrichShopItems:enrichShopItems,
-    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, TAVERN_FOOD_ITEMS, MEDICAL_REMEDY_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, SPELL_CATEGORY_ITEMS, SPELL_DAMAGE_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
+    getShopSeedItems:function () { return enrichShopItems(FOUNDATION_ITEMS.concat(CONSUMABLE_ITEMS, WEAPON_ITEMS, CREATURE_COUNTER_ITEMS, ARMOR_AND_CLOTHING_ITEMS, SHIELD_ITEMS, CUIRASS_ITEMS, CREATURE_HUNT_CONSUMABLE_ITEMS, EXPEDITION_GEAR_ITEMS, SPELL_SCROLL_ITEMS, MAGICAL_CONSUMABLE_ITEMS, CRAFTING_COMPONENT_ITEMS, ALCOHOL_ITEMS, TAVERN_FOOD_ITEMS, MEDICAL_REMEDY_ITEMS, MOVEMENT_GEAR_ITEMS, MINOR_ARTIFACT_ITEMS, POTION_ITEMS, HEALING_AMPLIFIER_ITEMS, MAGIC_ADORNMENT_ITEMS, SPELL_FORM_ITEMS, SPELL_CATEGORY_ITEMS, SPELL_DAMAGE_ITEMS, BLACK_MARKET_ITEMS, FORBIDDEN_GOODS_ITEMS, THIEF_GEAR_ITEMS, ARCANE_FOCUS_ITEMS, PROSTHESIS_ITEMS, TRANSPORT_ITEMS, SADDLE_ITEMS, TRAINED_ANIMAL_ITEMS, AMMUNITION_AND_SIEGE_ITEMS, SERVICE_ITEMS, POISON_ITEMS, LORE_GOODS_ITEMS, NECROMANCY_ITEMS, CURRENCY_ITEMS)); },
     definitionToInventorySnapshot:definitionToInventorySnapshot
   };
 });

@@ -18,6 +18,8 @@ assert.match(html, /function irlSpellById\(id\)[\s\S]*?findCharacterCatalogSpell
 assert.match(html, /function irlAbilities\(character,consoleState,heroKey\)[\s\S]*?description:irlLongText\(raw\.description/, 'ability cards must retain the full sheet description');
 assert.doesNotMatch(html.match(/function irlAbilities\(character,consoleState,heroKey\)[\s\S]*?\n  \}/)[0], /\.slice\(0,4\)/, 'the IRL card must not silently hide later abilities');
 assert.match(html, /w\.zgIrlCharacterToggle=function\(key\)[\s\S]*?state\.selectedKey===key\?'':key/, 'portrait click must explicitly open and close the selected card');
+assert.match(html, /w\.zgIrlCharacterManage=function\(key\)[\s\S]*?w\.showPage\('characters'\)[\s\S]*?w\.openCharSheet\(entry\.character\.id\)/, 'the live GM card must route into the canonical full character sheet');
+assert.match(html, /zgIrlCharacterManage\(\\''\+selected\.key[\s\S]*?Управлять всем листом/, 'the live GM card must expose full-sheet management as a direct action');
 assert.match(html, /w\.zgIrlCharacterEntryToggle=function\(kind,index\)[\s\S]*?if\(kind!=='ability'\)return[\s\S]*?state\.expandedEntry===entryKey\?'':entryKey/, 'ability rows must explicitly expand and collapse on click');
 assert.match(html, /class="zg-irl-entry-toggle"[\s\S]*?aria-expanded=/, 'expandable rows must be real accessible buttons');
 assert.match(html, /function irlAbilityVisual\(raw,sourceKind\)[\s\S]*?kind='spell'[\s\S]*?kind='passive'[\s\S]*?kind='trait'[\s\S]*?kind='short'[\s\S]*?kind='long'/, 'ability cards must distinguish spells, passive traits, styles, short and long actions');
@@ -51,6 +53,8 @@ assert.ok(hpBlock, 'session HP handler must exist');
 assert.doesNotMatch(hpBlock[0], /saveChars|persistCollection|ZargotaRooms/, 'IRL HP must not silently overwrite the canonical sheet or Firebase');
 assert.match(html, /abilityUsageByKey=stored\.abilityUsageByKey[\s\S]*?sessionKey=String\(heroKey[\s\S]*?hasSession/, 'session cooldown overrides must be read separately from the canonical sheet');
 assert.match(html, /function irlAbilityCooldownHtml\(item,heroKey\)[\s\S]*?zg-irl-charge-cell[\s\S]*?spent[\s\S]*?targetUsed/, 'expanded abilities must expose one direct clickable cell per charge');
+assert.match(html, /\.zg-irl-charge-pips\{[^}]*display:inline-flex[^}]*width:max-content/, 'compact spent-charge pips must keep their intrinsic width instead of stretching across the row');
+assert.match(html, /\.zg-irl-charge-pips i\{[^}]*flex:0 0 11px/, 'each compact charge pip must keep a fixed square size');
 assert.match(html, /\.zg-irl-entry\.ability-card \.zg-irl-cooldown-note\{[^}]*font-size:9\.5px/, 'secondary cooldown instructions must stay visually compact');
 assert.match(html, /Зелёная — потратить, красная — вернуть\. Только для этой сессии\./, 'the cooldown hint must remain short enough to leave room for authored ability text');
 assert.match(html, /zg-irl-cooldown-console'\+\(exhausted\?' exhausted'/, 'the whole cooldown console must enter the red exhausted state');

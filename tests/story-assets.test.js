@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const w={};vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../story-assets.js'),'utf8'),{window:w});
+const data={title:'Episode',activeSceneId:'a',scene:{layers:[{image:'assets/stories/backgrounds/map.webp'}]},nodes:[{id:'n',links:[{sceneId:'b'}]}]};
+const records=[{id:'a',scene:{old:true}},{id:'b',scene:{tokens:[]}}];
+const out=JSON.parse(w.ZargotaStoryAssets.exportEpisode(data,records));
+assert.equal(out.episode.scenes.length,2);
+assert.equal(out.episode.scenes[0].scene.layers[0].image,'assets/stories/backgrounds/map.webp');
+assert.equal(out.episode.nodes[0].links[0].sceneId,'b');
+assert.equal(records[0].scene.old,true);
+assert.throws(()=>w.ZargotaStoryAssets.exportEpisode({scene:{image:'data:image/png;base64,x'}},[]),/embedded-media/);
+assert.throws(()=>w.ZargotaStoryAssets.exportEpisode({scene:{image:'blob:tmp'}},[]),/embedded-media/);
+assert.equal(JSON.parse(w.ZargotaStoryAssets.exportEpisode({scene:{}},[])).episode.activeSceneId,'scene-draft');
+console.log('Story JSON export preserves scene links, current draft and reference-only assets');

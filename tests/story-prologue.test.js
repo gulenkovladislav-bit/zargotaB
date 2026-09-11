@@ -1,0 +1,9 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');const context={window:{addEventListener(){}}};vm.createContext(context);for(const file of ['story-campaign.js','story-lookout.js','story-prologue.js','story-player.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
+const p=context.window.ZargotaStoryPrologue,rules=context.window.ZargotaStoryRules,ids=new Set(p.nodes.map(n=>n.id));
+for(const node of p.nodes){assert(node.text&&node.textUk);assert(p.speakers[node.speaker]);for(const edge of node.links){assert(ids.has(edge.to));if(edge.label)assert(edge.labelUk);}if(node.emotion)assert(p.speakers[node.speaker].emotions[node.emotion]);}
+for(const scene of p.scenes){for(const layer of scene.scene.layers)assert(fs.existsSync(decodeURIComponent(layer.image)));for(const zone of scene.scene.story.zones||[]){if(zone.sceneId)assert(p.scenes.some(s=>s.id===zone.sceneId));if(zone.entryId)assert(ids.has(zone.entryId));}}
+assert.equal(p.scenes.length,2);assert.equal(p.nodes.find(n=>n.id==='cliff-home').afterActions[0].hide,true);
+assert(rules.pathAllowed({x:32,y:57},{x:71,y:29},p.walkable),'Initial approach stays on the path');
+const returnPoints=[[71,29],[54,39],[34,57],[16,78],[11,84]];for(let i=1;i<returnPoints.length;i++)assert(rules.pathAllowed({x:returnPoints[i-1][0],y:returnPoints[i-1][1]},{x:returnPoints[i][0],y:returnPoints[i][1]},p.walkable),'Return path '+i);
+let seen=new Set();function visit(id){if(seen.has(id))return;seen.add(id);for(const link of p.nodes.find(n=>n.id===id).links)visit(link.to);}visit(p.entryId);assert(seen.has('cliff-home'));visit('ambush');assert(seen.has('ending'));assert.equal(p.nodes.filter(n=>n.damage).reduce((v,n)=>v+n.damage,0),6);assert.equal(p.player.hp,12);console.log('Prologue: bilingual graph, portrait emotions, assets, transitions and walkable route passed');
