@@ -1,0 +1,31 @@
+#zg-portrait-kit {
+  color-scheme: dark;
+  box-sizing: border-box;
+  margin: auto;
+  inset: 0;
+  font: 16px/1.45 system-ui, sans-serif;
+}
+#zg-portrait-kit::backdrop {background: #020a07bc; backdrop-filter: blur(4px)}
+#zg-portrait-kit h2 {font-size: 26px; margin: 0 0 18px; color: #ead498}
+#zg-portrait-kit p {color: #aec2b8; font-size: 14px; margin: 12px 0}
+#zg-portrait-kit :is(input, textarea, button) {
+  box-sizing: border-box;
+  font: 15px/1.4 system-ui, sans-serif !important;
+  color: #eee3cc;
+  background: #172a23;
+  border: 1px solid #486357;
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+#zg-portrait-kit :is(input, textarea)::placeholder {color: #92a69b}
+#zg-portrait-kit textarea {min-height: 88px; resize: vertical}
+#zg-portrait-kit button {cursor: pointer; min-height: 42px; margin: 6px 6px 6px 0}
+#zg-portrait-kit button:hover {background: #2a4336; border-color: #cfb773}
+#zg-portrait-kit :focus-visible {outline: 2px solid #dfbc66; outline-offset: 2px}
+#zg-portrait-kit details {margin: 12px 0}
+#zg-portrait-kit summary {cursor: pointer; color: #d5c48e}
+#zg-portrait-kit [data-portrait-slot] {min-width: 0; padding: 12px; border: 1px solid #3d5749; background: #102019; border-radius: 12px}
+#zg-portrait-kit [data-portrait-slot] strong {display: block; font-size: 14px; margin-bottom: 10px}
+#zg-portrait-kit [data-portrait-slot] :is(input,button) {width: 100% !important; font-size: 13px !important}
+#zg-portrait-kit [data-portrait-slot] img {border-radius: 8px; margin-bottom: 8px}
+@media(max-width:600px) {#zg-portrait-kit {padding: 16px !important} #zg-portrait-kit h2 {font-size: 22px}}

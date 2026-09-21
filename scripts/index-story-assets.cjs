@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../assets/stories');
 const types = { backgrounds: 'image', portraits: 'image', objects: 'image', animations: 'image', audio: 'audio' };
-const files = [];
+let files = [];
 function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (entry.isSymbolicLink()) continue;
@@ -16,8 +16,15 @@ function walk(dir) {
     files.push({ path: 'assets/stories/' + relative.split('/').map(encodeURIComponent).join('/'), name: relative, type, category });
   }
 }
+function refresh() {
+files = [];
 walk(root);
 files.sort((a,b) => a.path.localeCompare(b.path));
-fs.writeFileSync(path.join(root, 'catalog.json'), JSON.stringify({ version: 1, files }, null, 2) + '\n');
-fs.writeFileSync(path.join(root, 'catalog.js'), 'window.ZargotaStoryAssetCatalog=' + JSON.stringify({version:1,files}) + ';\n');
+let changed = false;
+for (const [name, content] of [['catalog.json', JSON.stringify({ version: 1, files }, null, 2) + '\n'], ['catalog.js', 'window.ZargotaStoryAssetCatalog=' + JSON.stringify({version:1,files}) + ';\n']]) {
+  const target = path.join(root, name);
+  if (!fs.existsSync(target) || fs.readFileSync(target, 'utf8') !== content) { fs.writeFileSync(target, content); changed = true; }
+}
 console.log(`Story assets indexed: ${files.length}`);
+}
+refresh();

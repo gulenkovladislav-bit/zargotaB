@@ -1,0 +1,11 @@
+const fs=require('fs'),assert=require('node:assert/strict');
+const css=fs.readFileSync('story-timeline.css','utf8'),js=fs.readFileSync('story-timeline.js','utf8');
+assert(!css.includes('height:310px'));
+assert(css.includes('height:auto!important;min-height:0!important;max-height:none!important'));
+assert(css.includes('grid-template-columns:max-content minmax(0,1fr)!important;align-items:center'));
+assert(css.includes('position:relative;left:auto;bottom:auto;width:calc(210px * var(--portrait-size,1))'));
+assert(css.includes('[hidden]{display:none!important}'));
+assert(css.includes('[data-narrator=true] .zg-story-dialogue-body{grid-column:1}'));
+assert(js.includes("rest.style.visibility='hidden'"));
+assert(js.includes('rest.textContent=tx.rest'));
+console.log('PASS: intrinsic timeline panel, centered portrait/text, narrator collapse and reserved full-text layout (source contracts)');

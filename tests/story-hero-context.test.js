@@ -1,0 +1,6 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),ctx={window:{}};
+for(const f of ['story-hero-context.js','story-cast-library.js','story-ai-dialogues.js'])vm.runInNewContext(fs.readFileSync(f,'utf8'),ctx);
+const api=ctx.window.ZargotaStoryHeroContext;assert.equal(api.profile({title:'Евангелие'}),'evan');const prompt=ctx.window.ZargotaStoryAIDialogues.prompt({aiHeroProfile:'evan',aiEpisodeNumber:1});assert(prompt.includes('человек'));assert(prompt.includes('1–2 года'));assert(!prompt.includes('Вротик и Скиф'));assert(prompt.includes('не установлены'));
+assert(api.context({aiHeroProfile:'evan',aiEpisodeNumber:2}).includes('Аграви'));assert(!api.context({aiHeroProfile:'custom'}).includes('кенку'));
+const cast=ctx.window.ZargotaStoryCastLibrary,data={speakers:{a:{name:'Local'}},nodes:[]},all={other:{speakers:{a:{name:'Foreign'}}}};cast.toggle(data,all,'here',true);const id=Object.keys(data.speakers).find(k=>k!=='a');assert.equal(data.speakers.a.name,'Local');cast.toggle(data,all,'here',false);assert(data.speakers[id].archived);data.nodes=[{speaker:id}];cast.toggle(data,all,'here',false);assert(!data.speakers[id].archived);assert.equal(all.other.speakers.a.originEpisode,undefined);
+console.log('PASS: per-hero context, episode spoiler separation, foreign cast isolation and referenced actor retention');

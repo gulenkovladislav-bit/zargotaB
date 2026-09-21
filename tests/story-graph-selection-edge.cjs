@@ -1,0 +1,22 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'});try{
+ const p=await browser.newPage({viewport:{width:1200,height:800}});
+ await p.setContent('<section id="root"><div class="zg-story-canvas" style="position:relative;width:1000px;height:700px"><div id="zg-story-nodes" style="position:relative;zoom:.5"></div></div></section>');
+ await p.addScriptTag({path:'story-graph-selection.js'});
+ await p.evaluate(()=>{window.data={nodes:[{id:'a',x:100,y:100},{id:'b',x:400,y:100},{id:'c',x:1000,y:500}]};window.ZargotaStoryGraph={scale:.5};window.draw=()=>{document.querySelector('#zg-story-nodes').innerHTML=data.nodes.map(n=>`<article class="zg-story-node" data-node-id="${n.id}" style="position:absolute;left:${n.x}px;top:${n.y}px;width:200px;height:100px;background:green">${n.id}</article>`).join('');};draw();ZargotaStoryGraphSelection.install(document.querySelector('#root'),{get:()=>structuredClone(data),update:fn=>{fn(data);draw();}});});
+ await p.mouse.move(25,25);await p.mouse.down();await p.mouse.move(330,150,{steps:8});await p.mouse.up();
+ assert.equal(await p.locator('.zg-story-node').evaluateAll(cs=>cs.filter(c=>c.style.outline).length),2);
+ await p.mouse.move(80,80);await p.mouse.down();await p.mouse.move(180,130,{steps:8});await p.mouse.up();
+ assert.deepEqual(await p.evaluate(()=>data.nodes.map(n=>[n.x,n.y])),[[300,200],[600,200],[1000,500]]);
+ await p.mouse.move(180,130);await p.mouse.down();await p.mouse.move(210,160);await p.keyboard.press('Escape');await p.mouse.up();
+ assert.deepEqual(await p.evaluate(()=>data.nodes.map(n=>[n.x,n.y])),[[300,200],[600,200],[1000,500]]);
+ await p.evaluate(()=>{document.querySelector('#root').className='open';document.querySelector('#root').dataset.workspace='dialogues';data.nodes[2].links=[{id:'to-a',to:'a'}];});
+ await p.keyboard.down('Shift');await p.locator('[data-node-id="a"]').click();await p.locator('[data-node-id="b"]').click();await p.keyboard.up('Shift');
+ assert.equal(await p.getByRole('button',{name:'Удалить выбранные (2)',exact:true}).count(),1);
+ p.once('dialog',d=>d.dismiss());await p.getByRole('button',{name:'Удалить выбранные (2)',exact:true}).click();assert.equal(await p.evaluate(()=>data.nodes.length),3);
+ p.once('dialog',d=>d.accept());await p.getByRole('button',{name:'Удалить выбранные (2)',exact:true}).click();assert.equal(await p.evaluate(()=>data.nodes.length),1);assert.equal(await p.evaluate(()=>data.nodes[0].links.length),0);
+ await p.getByRole('button',{name:'↶ Отменить удаление',exact:true}).click();assert.equal(await p.evaluate(()=>data.nodes.length),3);assert.equal(await p.evaluate(()=>data.nodes[2].links[0].to),'a');
+ await p.keyboard.down('Shift');await p.locator('[data-node-id="a"]').click();await p.locator('[data-node-id="b"]').click();await p.keyboard.up('Shift');await p.evaluate(()=>data.entryId='a');
+ await p.getByRole('button',{name:'Удалить выбранные (2)',exact:true}).click();assert.equal(await p.evaluate(()=>data.nodes.length),3);assert.match(await p.getByRole('status').innerText(),/отключите/);
+ console.log('PASS Edge: marquee, scaled group drag, Shift selection, delete/cancel, links, undo and entry protection');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const context={window:{}};vm.runInNewContext(fs.readFileSync('story-timeline.js','utf8'),context);
+const api=context.window.ZargotaStoryTimeline,c={kind:'dialogue',at:2,duration:4,blockFade:1};
+assert.equal(api.dialogueOpacity(c,2),0);
+assert.equal(api.dialogueOpacity(c,2.5),.5);
+assert.equal(api.dialogueOpacity(c,3),1);
+assert.equal(api.dialogueOpacity(c,5.5),.5);
+assert.equal(api.dialogueOpacity(c,6),0);
+assert.equal(api.dialogueOpacity({...c,blockFade:0},2),1);
+assert(Math.abs(api.dialogueOpacity({...c,duration:.1},2.05)-1)<1e-10);
+assert.equal(api.dialogueOpacity({...c,blockFade:undefined},2),0);
+const target={kind:'dialogue',at:10,duration:8,revealDuration:5};
+api.applyTextStyle({cues:[c,target]},c,{});assert.equal(target.blockFade,1);assert.equal(target.revealDuration,5);assert.equal(target.at,10);
+console.log('PASS: whole-dialogue fade, instant mode, short clips, default fade, seeking and style propagation');

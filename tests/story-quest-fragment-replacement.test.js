@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const c={window:{}};vm.createContext(c);vm.runInContext(fs.readFileSync('story-fragments.js','utf8'),c);
+const before={id:'side',kind:'side',title:'Совет',titleUk:'Порада',steps:[{id:'a',label:'Спойлер',labelUk:'Спойлер'}]};
+const after=JSON.parse(JSON.stringify(before));after.steps[0].label='Поговорить';after.steps[0].labelUk='Поговорити';
+const data={nodes:[],quests:[{...before,custom:'preserve'}],scenes:[]};
+const raw=JSON.stringify({format:'zargota-fragment',version:1,replaceQuests:[{before,after}]});
+const p=c.window.ZargotaStoryFragments.compile(data,raw);
+assert.equal(p.next.quests[0].custom,'preserve');assert.equal(p.next.quests[0].steps[0].label,'Поговорить');assert.equal(data.quests[0].steps[0].label,'Спойлер');assert.equal(p.counts[4],1);
+data.quests[0].steps=[{id:'a',label:'User edit'}];assert.throws(()=>c.window.ZargotaStoryFragments.compile(data,raw),/Конфликт/);
+assert(fs.readFileSync('story-player.css','utf8').includes('.zg-story-quest>.zg-story-side-quests{position:relative;z-index:1}'));
+console.log('PASS: quest replacement preserves unrelated fields, rejects conflicts; side HUD above backdrop');

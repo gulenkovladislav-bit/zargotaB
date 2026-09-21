@@ -1,0 +1,9 @@
+(function(w){
+ 'use strict';
+ function list(data){return(data.quests||[]).filter(function(q){return q.kind==='side';});}
+ function status(state,id){var all=state.sideQuests||{};return all[id]||{active:false,done:false,steps:[]};}
+ function complete(data,state,nodeId){list(data).forEach(function(q){var s=status(state,q.id);if(nodeId===q.startNodeId&&!s.done)s.active=true;if(!s.active)return;state.sideQuests=state.sideQuests||{};state.sideQuests[q.id]=s;(q.steps||[]).forEach(function(step){if(step.nodeId===nodeId&&!s.steps.includes(step.id))s.steps.push(step.id);});if((q.endNodeIds||[]).includes(nodeId)&&(q.steps||[]).every(function(step){return s.steps.includes(step.id);})){s.active=false;s.done=true;s.outcome=nodeId;s.consumed=true;}});}
+ function route(data,state,id){for(var q of list(data)){var s=status(state,q.id);if((q.entryIds||[]).includes(id)){if(s.done)return q.repeatNodeId||id;if(s.active){var missing=(q.steps||[]).find(function(step){return !s.steps.includes(step.id);});return missing?missing.reminderNodeId:q.readyNodeId;}}if(s.active)for(var step of q.steps||[])if(!s.steps.includes(step.id)&&(step.entryIds||[]).includes(id))return step.nodeId;}return id;}
+ function render(data,state,host){host.replaceChildren();list(data).forEach(function(q){var s=status(state,q.id);if(!s.active||s.done)return;var uk=w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk',name=document.createElement('strong');name.textContent='◇ '+(uk?q.titleUk||q.title:q.title);host.appendChild(name);(q.steps||[]).forEach(function(step){var row=document.createElement('div');row.textContent=(s.steps.includes(step.id)?'✓ ':'□ ')+(uk?step.labelUk||step.label:step.label);host.appendChild(row);});});host.hidden=!host.childNodes.length;}
+ w.ZargotaStorySideQuests={list:list,status:status,complete:complete,route:route,render:render};
+})(window);

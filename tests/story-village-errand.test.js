@@ -1,0 +1,33 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const c={window:{}};vm.createContext(c);
+for(const file of ['story-fragments.js','story-quests.js','story-quest-actions.js'])vm.runInContext(fs.readFileSync(file,'utf8'),c);
+const before=JSON.parse(fs.readFileSync('output/elder-tisha-backup/episode-before.json')).episode;
+const fragment=JSON.parse(fs.readFileSync('output/fragment-import/elder-tisha.json'));
+const data=c.window.ZargotaStoryFragments.compile(before,JSON.stringify(fragment)).next;
+const api=c.window.ZargotaStoryQuests,V='scene-mtw2qvbm-1f4b';
+const s={active:'',done:['quest-bran-arrive']};
+assert.equal(api.enter(data,s,'other'),null);
+assert.equal(api.enter(data,{active:'',done:[]},V),null);
+assert.equal(api.enter(data,s,V).id,'quest-visit-sil');
+assert.equal(api.enter(data,s,V),null);
+assert.equal(api.complete(data,s,'elder-goodbye'),null);
+assert.equal(api.complete(data,s,'elder-errand'),null);
+const q=api.complete(data,s,'elder-bye');assert.equal(s.active,'quest-sil-message');
+assert.deepEqual(Array.from(q.actions,a=>a.type),['disable','enable','spawn','disable']);
+let applied=false;c.window.ZargotaStoryQuestActions.run(q.actions,{state:s,redraw(){}},()=>{applied=true;});assert(applied);
+const motherScene=data.scenes.find(r=>r.id==='scene-mtw2r0i3-m8y2').scene;
+assert.equal(api.gatedScene(data,motherScene,'scene-mtw2r0i3-m8y2',s).tokens.find(t=>t.id==='token-mu29d4cf').entryId,'mother-elder-message');
+assert.equal(api.gatedScene(data,data.scene,V,s).story.zones.find(z=>z.id==='elder-exit-call-zone').enabled,false);
+assert.equal(api.gatedScene(data,data.scene,V,s).story.zones.find(z=>z.id==='village-mother-exit').enabled,true);
+assert.equal(api.complete(data,s,'mother-elder-message').id,'quest-sil-message');
+assert.equal(api.enter(data,s,V),null);
+assert.equal(api.complete(data,s,'mother-elder-message'),null);
+for(const n of [...fragment.nodes,...fragment.replaceNodes.map(r=>r.after)])for(const p of [n,...n.slides]){
+ assert(p.text&&p.textUk);assert(p.text.length<240&&p.textUk.length<240,n.id+' long page');
+ assert(data.speakers[p.speaker].emotions[p.emotion],n.id+' emotion');
+}
+for(const n of before.nodes)if(!fragment.replaceNodes.some(r=>r.before.id===n.id))assert.equal(JSON.stringify(data.nodes.find(x=>x.id===n.id)),JSON.stringify(n));
+assert.equal(JSON.stringify(data.quests.find(q=>q.id==='silver-question')),JSON.stringify(before.quests.find(q=>q.id==='silver-question')));
+assert(fragment.zones.every(z=>z.zone.markerVisible===false));
+assert(fragment.zones.find(z=>z.zone.id==='mother-message-zone').zone.hideAfterInteraction);
+console.log('PASS: scene-gated quest, prerequisite, no early completion/repetition, bilingual short pages, real emotions, preserved unrelated nodes and divination');

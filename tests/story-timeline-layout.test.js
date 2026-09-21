@@ -1,0 +1,12 @@
+const fs=require('fs'),assert=require('node:assert/strict');
+const css=fs.readFileSync('story-timeline.css','utf8'),runtime=fs.readFileSync('story-timeline.js','utf8'),editor=fs.readFileSync('story-timeline-editor.js','utf8');
+assert(runtime.includes("viewport.className='zg-timeline-viewport'"));
+assert(css.includes('width:min(100cqw,177.777778cqh);height:auto;aspect-ratio:16/9;max-height:none'));
+assert(css.includes('.zg-timeline-play>.zg-timeline-viewport{flex:1;height:auto}'));
+assert(css.includes('font-size:1.3cqw'));
+assert(css.includes('flex:1;min-height:0;overflow:auto;align-items:start'));
+assert(!css.includes('max-height:27vh'));
+assert(editor.includes("stage(preview,data)"));
+assert(editor.includes("el('details',null,left)"));
+assert(editor.includes("'Показать целиком','Показати повністю'"));
+console.log('PASS: shared 16:9 viewport, proportional caption, independent scrolling, optional waveform and image fit controls (source contracts)');

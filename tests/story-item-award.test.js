@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const c={window:{}};vm.createContext(c);
+for(const file of ['equipment-rules.js','story-items.js','story-quest-actions.js'])vm.runInContext(fs.readFileSync(file,'utf8'),c);
+const api=c.window.ZargotaStoryItems,cloak={itemId:'kenku-cloak-test',name:'Плащ',qty:1},hero={inventoryItems:[]};
+let r=api.award(hero,cloak,1,false);assert(r.received);assert(!r.equipped);
+r=api.award(hero,cloak,1,true);assert(!r.received);assert(r.equipped);assert.equal(r.character.inventoryItems.length,1);
+r=api.award(r.character,cloak,1,true);assert(r.equipped,'Must not toggle equipped item off');
+r=api.award(r.character,{itemId:'dust'},3,false);assert(r.received);assert.equal(r.character.inventoryItems[1].qty,3);
+r=api.award(r.character,{itemId:'dust'},2,false);assert.equal(r.character.inventoryItems[1].qty,5);
+assert(!api.award(hero,null,1,true).received);
+const full={inventoryItems:Array.from({length:41},(_,i)=>({itemId:'item'+i}))};r=api.award(full,cloak,1,true);assert.equal(r.character.inventoryItems.length,42);assert(!r.equipped);
+let call,finished=false;c.window.ZargotaStoryQuestActions.run([{type:'giveItem',itemId:cloak.itemId,qty:1,equip:true,actionId:'gift'}],{giveItem(...args){call=args;}},()=>{finished=true;});assert(finished);assert.deepEqual(call,[cloak.itemId,1,true,'gift']);
+const player=fs.readFileSync('story-player.js','utf8');assert(player.includes('if(actionId&&state.receivedItemActions[actionId])return'));assert(player.includes("classList.add('has-new-items')"));assert(player.includes("classList.remove('has-new-items')"));
+console.log('PASS: grant, unique cloak, auto-equip, no unequip toggle, stacking, missing item, oversized inventory preservation, action forwarding and badge hooks');

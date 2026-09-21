@@ -1,0 +1,42 @@
+#zg-ai-dialogues{color-scheme:dark;box-sizing:border-box;width:min(1140px,94vw);max-height:92dvh;padding:0;border:1px solid #776544;border-radius:18px;background:#10201c;color:#eee4cf;box-shadow:0 24px 100px #0009;font:15px/1.5 system-ui,sans-serif;overflow:auto}
+#zg-ai-dialogues::backdrop{background:#050c0bc9;backdrop-filter:blur(5px)}
+#zg-ai-dialogues{margin:auto;inset:0}
+#zg-ai-dialogues textarea,#zg-ai-dialogues select,#zg-ai-dialogues button{font-family:system-ui,sans-serif!important}
+#zg-ai-dialogues .zg-ai-json,#zg-ai-dialogues textarea[readonly]{font-family:ui-monospace,SFMono-Regular,Consolas,monospace!important}
+#zg-ai-dialogues *{box-sizing:border-box}
+#zg-ai-dialogues header{display:flex;gap:16px;align-items:center;padding:22px 28px;border-bottom:1px solid #31463c;background:linear-gradient(115deg,#1e332a,#10201c)}
+#zg-ai-dialogues .zg-ai-emblem{display:grid;place-items:center;width:48px;height:48px;flex-shrink:0;border:1px solid #806d46;border-radius:14px;color:#e5c27d;font-size:27px;background:#d5b6770a}
+#zg-ai-dialogues h2{font:600 25px/1.25 system-ui,sans-serif;margin:0 0 5px;color:#f0d59c}
+#zg-ai-dialogues header p{margin:0;color:#a7b7ab}
+#zg-ai-dialogues h3{font:600 15px/1.4 system-ui,sans-serif;margin:0 0 12px;color:#dbc394}
+#zg-ai-dialogues .zg-ai-body{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
+#zg-ai-dialogues .zg-ai-compose,#zg-ai-dialogues .zg-ai-review{min-width:0;padding:24px 28px}
+#zg-ai-dialogues .zg-ai-review{border-left:1px solid #31463c;background:#0c1916}
+#zg-ai-dialogues textarea,#zg-ai-dialogues select{display:block;width:100%;padding:12px 14px;border:1px solid #41584b;border-radius:10px;background:#091611;color:#e5e8df;font:14px/1.55 system-ui,sans-serif;transition:border-color .15s;min-width:0}
+#zg-ai-dialogues textarea{resize:vertical;min-height:96px;max-height:360px}
+#zg-ai-dialogues textarea::placeholder{color:#8c9f91}
+#zg-ai-dialogues .zg-ai-json,#zg-ai-dialogues textarea[readonly]{font:13px/1.55 ui-monospace,monospace;tab-size:2}
+#zg-ai-dialogues select{margin-top:6px;min-height:44px}
+#zg-ai-dialogues button{min-height:42px;padding:9px 16px;border:1px solid #50674e;border-radius:9px;background:#20372b;color:#e9e5d5;font:600 14px/1.4 system-ui,sans-serif;cursor:pointer;transition:background .15s,border-color .15s}
+#zg-ai-dialogues button:hover:not(:disabled){background:#304b39;border-color:#b89b63}
+#zg-ai-dialogues button.zg-ai-primary{background:#ddc38d;color:#192219;border-color:#ddc38d}
+#zg-ai-dialogues button.zg-ai-primary:hover:not(:disabled){background:#f1dba7}
+#zg-ai-dialogues button:disabled{opacity:.4;cursor:not-allowed}
+#zg-ai-dialogues :is(button,textarea,select,summary):focus-visible{outline:2px solid #eac77d;outline-offset:3px}
+#zg-ai-dialogues .zg-ai-help{font-size:12px;color:#9eafa1;margin:10px 0 20px}
+#zg-ai-dialogues details{margin:12px 0}
+#zg-ai-dialogues summary{cursor:pointer;font-size:13px;color:#bfd1bf;padding:7px 0}
+#zg-ai-dialogues .zg-ai-status{padding:14px;border:1px dashed #43574b;border-radius:10px;color:#adbdb0;margin:0 0 16px;overflow-wrap:anywhere}
+#zg-ai-dialogues .zg-ai-status[data-state=error]{border-style:solid;border-color:#ae665c;color:#ffc1ac;background:#622b2426}
+#zg-ai-dialogues .zg-ai-status[data-state=success]{border-style:solid;border-color:#628970;color:#bedfc7}
+#zg-ai-dialogues .zg-ai-status[data-state=warning]{border-color:#b39355;color:#edd197}
+#zg-ai-dialogues .zg-ai-counts{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+#zg-ai-dialogues .zg-ai-counts span{padding:5px 9px;border-radius:6px;background:#24372c;color:#dbcfac;font-size:12px}
+#zg-ai-dialogues .zg-ai-node-preview{padding:8px 12px;border:1px solid #344b3d;border-radius:10px;background:#14271e;overflow-wrap:anywhere}
+#zg-ai-dialogues .zg-ai-node-preview p{white-space:pre-wrap;margin:6px 0 14px;font-size:14px}
+#zg-ai-dialogues .zg-ai-node-preview strong{font-size:12px;color:#e0c38c}
+#zg-ai-dialogues .zg-ai-node-preview small,#zg-ai-dialogues .zg-ai-link{font-size:12px;color:#9fb3a1}
+#zg-ai-dialogues footer{position:sticky;bottom:0;display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;padding:18px 28px;border-top:1px solid #415345;background:#14231ff5;backdrop-filter:blur(12px)}
+#zg-ai-dialogues footer>label{flex:1 1 270px;font-size:12px;color:#b9c6b9}
+#zg-ai-dialogues .zg-ai-actions{display:flex;flex-wrap:wrap;gap:8px}
+@media(max-width:760px){#zg-ai-dialogues .zg-ai-body{grid-template-columns:1fr}#zg-ai-dialogues .zg-ai-review{border-left:0;border-top:1px solid #31463c}#zg-ai-dialogues header,#zg-ai-dialogues footer,#zg-ai-dialogues .zg-ai-compose,#zg-ai-dialogues .zg-ai-review{padding:18px}#zg-ai-dialogues h2{font-size:21px}#zg-ai-dialogues footer{position:static}#zg-ai-dialogues .zg-ai-actions{width:100%}#zg-ai-dialogues .zg-ai-actions button{flex:1}}

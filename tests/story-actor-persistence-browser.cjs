@@ -6,8 +6,8 @@ const assert=require('node:assert/strict');
     const page=await browser.newPage({viewport:{width:1600,height:1000}}),errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(()=>localStorage.setItem('zargota_ui_locale_v1','uk'));
-    await page.goto('http://127.0.0.1:5176/index.html?lookout-demo=1');
-    async function actors(){await page.getByRole('button',{name:/Редактор/}).click();await page.locator('[data-workspace-tab=actors]').click();}
+    await page.goto((process.env.STORY_TEST_URL||'http://127.0.0.1:5176')+'/index.html?lookout-demo=1');
+    async function actors(){await page.locator('#zg-story-player .zg-play-settings summary').click();await page.getByRole('button',{name:/Редактор/}).click();await page.locator('[data-workspace-tab=actors]').click();}
     await actors();
     await page.getByRole('button',{name:'Портрети й емоції',exact:true}).click();
     const tokens=await page.evaluate(()=>JSON.stringify(zgStoryEditorProject().scene.tokens));

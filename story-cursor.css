@@ -1,0 +1,10 @@
+.zg-gold-cursor{position:fixed;left:0;top:0;width:42px;height:42px;pointer-events:none;z-index:2147483646;will-change:transform;contain:layout style;filter:drop-shadow(0 1px 1px #000a)}
+.zg-gold-cursor[hidden]{display:none}
+.zg-story-player.zg-has-cursor,.zg-story-player.zg-has-cursor *{cursor:none!important}
+.zg-story-player.zg-has-cursor input,.zg-story-player.zg-has-cursor textarea{cursor:text!important}
+.zg-cursor-badge,.zg-cursor-glass,.zg-cursor-question,.zg-cursor-cross{display:none}
+[data-mode=unknown] .zg-cursor-badge,[data-mode=blocked] .zg-cursor-badge,[data-mode=unknown] .zg-cursor-question,[data-mode=blocked] .zg-cursor-cross,[data-mode=inspect] .zg-cursor-glass{display:block}
+[data-mode=inspect] .zg-cursor-arrow{display:none}
+.zg-gold-cursor[data-mode=unknown] .zg-cursor-badge,.zg-gold-cursor[data-mode=blocked] .zg-cursor-cross,.zg-gold-cursor[data-mode=inspect] .zg-cursor-glass{animation:zg-cursor-in .16s ease-out;transform-origin:center}
+@keyframes zg-cursor-in{from{opacity:.2;scale:.8}to{opacity:1;scale:1}}
+@media(prefers-reduced-motion:reduce){.zg-gold-cursor *{animation:none!important}}

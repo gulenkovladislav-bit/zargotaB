@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const src = fs.readFileSync('story-player.js', 'utf8');
+const condition = src.match(/if\((interaction&&interaction\.markerVisible[^\n]+?)\)\{el.appendChild/)[1];
+const show = new Function('interaction', 'token', 'return !!(' + condition + ')');
+assert.equal(show({marker:'?'},{type:'note',image:'question.png'}),false);
+assert.equal(show({marker:'?'},{type:'npc',image:'portrait.png'}),true);
+assert.equal(show({marker:'?'},{type:'note'}),true);
+assert.equal(show({markerVisible:false},{type:'npc'}),false);
+console.log('PASS: illustrated hotspots have no extra badge; NPC badges preserved');

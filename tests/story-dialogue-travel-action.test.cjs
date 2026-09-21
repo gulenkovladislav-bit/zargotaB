@@ -1,0 +1,11 @@
+const fs=require('node:fs'),assert=require('node:assert/strict');
+const editor=fs.readFileSync('story-quest-actions-editor.js','utf8');
+const player=fs.readFileSync('story-player.js','utf8');
+assert.match(editor,/\['travel',t\('Перейти в локацию','Перейти до локації'\)\]/);
+assert.match(editor,/t\('Куда перейти','Куди перейти'\)/);
+assert.match(editor,/t\('Выберите локацию','Оберіть локацію'\)/);
+assert.match(editor,/records\.map\(function\(r\)\{return\[r\.id,name\(r\)\];\}\)/);
+assert.match(player,/function changeScene\(id,entryId,done,preserveSequence\)/);
+assert.match(player,/if\(!preserveSequence\)current=null/);
+assert.match(player,/travel:function\(id,next\)\{return changeScene\(id,'',next,true\);\}/);
+console.log('PASS: dialogue events expose bilingual location travel and preserve the active dialogue sequence.');
