@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(require.resolve('../story-card-game.js'),'utf8');
+let next,sounds=0,jobs=[],collected=0;
+const ctx={awardAnnounced:false,payoutCollected:false,payoutCollecting:false,closed:false,roundNumber:1,w:{},collectBank(){collected++;},setTimeout(fn,delay){jobs.push({fn,delay});return jobs.length;},coinSounds:{play(){sounds++;}},requestAnimationFrame(fn){next=fn;return 1;}};
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('    var awardCount=null;'),source.indexOf('    function collectBank(')),ctx);
+let node={isConnected:true};ctx.countAward(node,100);assert.equal(node.textContent,0);next(0);next(600);const partial=node.textContent;assert(partial>0&&partial<100);
+node.isConnected=false;node={isConnected:true};ctx.countAward(node,100);assert.equal(node.textContent,partial);assert.equal(sounds,1);
+next(1200);assert(node.textContent>partial&&node.textContent<100);next(1800);assert.equal(node.textContent,100);
+ctx.countAward(node,100);assert.equal(sounds,1);assert.equal(node.textContent,100);
+assert.equal(jobs.length,1);assert.equal(jobs[0].delay,2000);jobs[0].fn();assert.equal(collected,1);
+ctx.closed=true;jobs[0].fn();assert.equal(collected,1,'exit suppresses transfer');ctx.closed=false;
+ctx.awardAnnounced=false;ctx.countAward(node,50);assert.equal(node.textContent,0);assert.equal(sounds,2);
+console.log('Award counter: visible progression, preserved redraw state, exact total, one sound per deal and reset passed. No browser test.');

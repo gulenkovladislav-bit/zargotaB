@@ -1,0 +1,22 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(require.resolve('../story-card-game.js'),'utf8');
+const css=fs.readFileSync(require.resolve('../story-card-game.css'),'utf8');
+let starts=0;
+const ctx={game:{done:true,paid:20,players:[{stack:10},{stack:30},{stack:0},{stack:0}]},closed:false,revealComplete:true,payoutCollected:false,roundNumber:1,start(){starts++;}};
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('    function canContinue('),source.indexOf('    function drawCombinationLinks(')),ctx);
+ctx.storyBusy=false;ctx.guestPending=0;
+ctx.continueSession();assert.equal(starts,0,'must collect first');
+ctx.payoutCollected=true;ctx.continueSession();assert.equal(starts,1);assert.equal(ctx.roundNumber,2);
+ctx.game.players[0].stack=0;assert.equal(ctx.canContinue(),false);
+ctx.game.players[0].stack=40;ctx.game.players[1].stack=0;assert.equal(ctx.canContinue(),false);
+ctx.game.players[1].stack=10;ctx.closed=true;ctx.continueSession();assert.equal(starts,1,'exit cancels continuation');
+function view(id,x){return {dataset:{cardId:id},getBoundingClientRect:()=>({left:x,top:80,width:30,height:60})};}
+const cards=[view('a',20),view('b',60)],hand=view('a',0);let svg;
+Object.assign(ctx,{closed:false,resultFocus:1,table:{getBoundingClientRect:()=>({left:0,top:0,width:400,height:300}),querySelectorAll(selector){return selector.includes('board')?cards:[hand];},appendChild(node){svg=node;}},document:{createElementNS(ns,tag){return {tag,style:{},children:[],setAttribute(k,v){this[k]=v;},appendChild(node){this.children.push(node);}};}}});
+vm.runInContext(source.slice(source.indexOf('    function drawCombinationLinks('),source.indexOf('    var coinSounds=')),ctx);
+ctx.drawCombinationLinks();assert.equal(svg.children.length,2,'one pair link and one hand-to-board link');
+assert(svg.children.every(p=>!p.d.includes('NaN')));assert.equal(svg['aria-hidden'],'true');
+assert(css.includes('clamp(42.5px,4.375vw,72.5px)'));
+assert(css.includes('clamp(67.5px,9.375vw,150px)'));
+assert(source.includes('clearTimeout(nextDealTimer)'));assert(source.includes('clearTimeout(linkTimer)'));
+console.log('Showdown: +25% sizes, links, payout-gated continuation, elimination and exit guards passed. No browser test.');

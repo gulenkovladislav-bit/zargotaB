@@ -1,0 +1,21 @@
+{
+  "base": "episode-1-courtyard-v9.json",
+  "rule": "Change only cameraEvent on the matching node; require previous value to match before. Preserve all other fields.",
+  "changes": [
+    {
+      "id": "evan-shop-open",
+      "field": "cameraEvent",
+      "before": null,
+      "after": {
+        "enabled": true,
+        "target": "point",
+        "x": 50,
+        "y": 46,
+        "durationMs": 1100,
+        "move": true,
+        "ping": false,
+        "returnToHero": true
+      }
+    }
+  ]
+}

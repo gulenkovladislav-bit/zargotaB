@@ -1,0 +1,21 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><base href="../"><title>Мини-игра / Мінігра · isolated preview</title>
+<link rel="stylesheet" href="story-card-game.css?v=2026-09-22.7"><script src="story-card-game-core.js?v=2026-09-22.7"></script><script src="story-card-game.js?v=2026-09-22.7"></script>
+<body style="background:#111d19;color:#dfcfac;font-family:Georgia;padding:30px"><h1>Тест мини-игры / Тест мінігри</h1><p>Без сохранения эпизода / Без збереження епізоду</p><button id="launch">Играть / Грати</button><button id="locale">RU / UK</button><pre id="result"></pre><section id="editor"></section>
+<script>
+var locale='uk';window.ZargotaI18n={getLocale:function(){return locale;}};
+var project={playerSpeakerId:'evan',nodes:[{id:'test',title:'Тест',titleUk:'Тест'}],speakers:{evan:{name:'Еван',nameUk:'Еван',portrait:'assets/stories/Evan/portraits/image-gen-6(2).png'},feltser:{name:'Фельцер',nameUk:'Фельцер',portrait:'assets/stories/Evan/portraits/feltser-neutral-v1.png'},pen:{name:'Пен',nameUk:'Пен',portrait:'assets/stories/Evan/portraits/pen-neutral-v1.png'},milo:{name:'Мило',nameUk:'Міло',portrait:'assets/stories/Evan/portraits/milo-neutral-v2.png'}},minigames:{towerClaw:{enabled:false,opponents:['feltser','pen','milo'],stack:20}}};
+function edit(){ZargotaCardGame.edit(project,function(fn){fn(project);},document.getElementById('editor'));}
+var fixture=document.createElement('button');fixture.textContent='Раздача со скриншота / Роздача зі скриншота';document.getElementById('launch').after(fixture);
+fixture.onclick=function(){
+  var original=ZargotaCardRules.create;
+  ZargotaCardRules.create=function(options){
+    var g=original(options),pool=ZargotaCardRules.deck(),take=function(rank,color){var i=pool.findIndex(function(c){return c.rank===rank&&c.color===color;});return pool.splice(i,1)[0];};
+    g.players[0].hand=[take(7,1),take(10,0)];g.players[1].hand=[take(7,1),take(8,0)];g.players[2].hand=[take(4,0),take(5,1)];g.players[3].hand=[take(3,0),take(1,1)];
+    var board=[take(1,0),take(9,0),take(4,1),take(7,0),take(7,0),take(5,0)];g.deck=pool.concat(board.slice().reverse());
+    while(g.round<3)ZargotaCardRules.act(g,'call');
+    return g;
+  };
+  try{ZargotaCardGame.open(project,null);}finally{ZargotaCardRules.create=original;}
+};
+document.getElementById('launch').onclick=function(){ZargotaCardGame.open(project,null,function(r){document.getElementById('result').textContent=JSON.stringify(r);});};document.getElementById('locale').onclick=function(){locale=locale==='uk'?'ru':'uk';edit();};edit();
+</script></body></html>

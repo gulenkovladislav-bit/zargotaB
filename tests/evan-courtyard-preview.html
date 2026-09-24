@@ -1,0 +1,23 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><base href="../"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Дворик v16 / Дворик v16</title>
+<style>body{background:#17201a;color:#eedab1;font:18px Georgia;padding:30px}button,select{font:inherit;padding:12px;margin:8px}button:disabled{opacity:.4}</style>
+<h1>Дворик v16 / Дворик v16</h1><p>Изолированный тест: сохранения не меняются. / Ізольований тест: збереження не змінюються.</p>
+<label>Язык / Мова <select id="lang"><option value="ru">RU</option><option value="uk">UK</option></select></label>
+<label>Тестовые монеты / Тестові монети <select id="coins"><option>0</option><option>1</option><option selected>2</option></select></label>
+<button disabled id="play">С начала сцены / Від початку сцени</button><button disabled id="cards">Перед раздачей / Перед роздачею</button><p id="state">Загрузка / Завантаження…</p>
+<script>
+// Load actual production story modules, never index inline app/storage/network code.
+window.ZargotaI18n={getLocale:()=>document.getElementById('lang').value};
+(async()=>{
+ const html=await (await fetch('index.html')).text(),doc=new DOMParser().parseFromString(html,'text/html');
+ for(const link of doc.querySelectorAll('link[rel=stylesheet]'))if(/^story-/.test(link.getAttribute('href'))){const copy=document.createElement('link');copy.rel='stylesheet';copy.href=link.getAttribute('href');document.head.append(copy);}
+ for(const tag of doc.querySelectorAll('script[src]'))if(/^story-/.test(tag.getAttribute('src'))&&!/story-editor|story-stage-editor/.test(tag.getAttribute('src'))){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=tag.getAttribute('src');s.onload=resolve;s.onerror=reject;document.head.append(s);});}
+ const original=(await (await fetch('story-content/evan/episode-1-courtyard-v16.json')).json()).episode;
+ function play(entry){const e=structuredClone(original),yard=e.scenes.find(s=>s.id==='scene-evan-green-courtyard');e.scene=structuredClone(yard.scene);e.startSceneId=e.activeSceneId=yard.id;e.intro={enabled:false};e.testLocation=true;e.testDialogueId=entry;e.initialQuestId='evan-yard-meet-quest';
+ const clothes=e.storyItems.find(i=>i.equipPortraitBase);if(clothes)e.player.inventoryItems.push({...clothes,equipped:true});
+ const coin=e.storyItems.find(i=>i.itemId==='evan-silver-coin');if(coin&&+document.getElementById('coins').value)e.player.inventoryItems.push({...coin,qty:+document.getElementById('coins').value});
+ ZargotaStoryPlayer.start(e,()=>document.getElementById('state').textContent='Тест завершён / Тест завершено');}
+ document.getElementById('play').onclick=()=>play('evan-yard-greet');document.getElementById('cards').onclick=()=>play('evan-port-at-circle');
+ document.querySelectorAll('button').forEach(b=>b.disabled=false);document.getElementById('state').textContent='Готово / Готово';
+})().catch(e=>document.getElementById('state').textContent=String(e));
+</script></html>

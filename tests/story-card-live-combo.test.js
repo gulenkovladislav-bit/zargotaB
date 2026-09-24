@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),rules=require('../story-card-game-core');
+const hand=(ranks,color)=>ranks.map((rank,i)=>({id:'c'+i,rank,color:color==null?i%2:color}));
+for(const [ranks,type]of [[[2,2,4,7,9],1],[[2,2,4,4,9],2],[[2,2,2,7,9],4],[[2,2,2,7,7],6],[[2,3,4,5,6],11],[[2,3,4,5,9],0]])assert.equal(rules.visibleBest(hand(ranks)).type,type);
+assert.equal(rules.visibleBest(hand([1,3,5,7,9],0)).type,0,'five same-color cards are not a six-card flush');
+assert.equal(rules.visibleBest(hand([2,3,4,5,6],0)).type,13);
+const source=fs.readFileSync(require.resolve('../story-card-game.js'),'utf8');
+let label,lit=[];const nodes=()=>Array.from({length:3},(_,i)=>({classList:{add(){lit.push(i);},remove(){}}}));
+const cards=hand([2,2,4,7,9]);
+const ctx={rules,dealing:false,game:{done:false,players:[{folded:false,hand:cards.slice(0,2)},Object.defineProperty({},'hand',{get(){throw Error('Hidden hand accessed');}})],board:cards.slice(2)},combos:Array.from({length:15},(_,i)=>['combo'+i]),uk:()=>false,t:a=>a,el:(_,cls,text)=>({text,setAttribute(){}}),table:{querySelectorAll(selector){return selector.includes('seat-0')||selector.includes('board >')?nodes():[];},appendChild(node){label=node;}}};
+Object.defineProperty(ctx.game,'deck',{get(){throw Error('Future cards accessed');}});
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('    function clearLiveCombo('),source.indexOf('    var ids=')),ctx);
+ctx.showLiveCombo();assert.equal(label.text,'combo1');assert.equal(lit.length,2);
+lit=[];ctx.dealing=true;ctx.showLiveCombo();assert.equal(lit.length,0);
+assert(!source.includes('Карта «Герой» — VI ранг, без особого эффекта.'));
+console.log('Live combo: partial hands, highlights, dealing guard and no opponent/deck access passed. No browser test.');

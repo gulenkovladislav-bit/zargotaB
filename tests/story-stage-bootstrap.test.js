@@ -1,0 +1,11 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const source = fs.readFileSync(path.join(__dirname, '..', 'story-stage-editor.js'), 'utf8');
+const window = {};
+vm.runInNewContext(source, {window}, {filename:'story-stage-editor.js'});
+assert.equal(typeof window.ZargotaStoryStageEditor.open, 'function');
+assert.equal(typeof window.ZargotaStoryStageEditor.close, 'function');
+console.log('Story stage editor registers without eager access to inspector state');

@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const window={},ctx={window,w:window,localStorage:{},STORAGE_KEY:'test',t:x=>x};vm.createContext(ctx);vm.runInContext(fs.readFileSync('story-storage-codec.js','utf8'),ctx);
+const codec=window.ZargotaStoryStorageCodec,episode=JSON.parse(fs.readFileSync('story-content/evan/episode-1-courtyard-v19.json')).episode,all={};
+for(let i=0;i<15;i++)all['episode-'+i]={...episode,_deleted:i!==14};
+const raw=JSON.stringify(all),packed=codec.pack(all),decoded=codec.unpack(JSON.parse(packed));assert.equal(JSON.stringify(decoded),raw);assert.ok(packed.length<raw.length/2);decoded['episode-0'].nodes[0].text='changed';assert.notEqual(decoded['episode-1'].nodes[0].text,'changed');
+assert.equal(codec.unpack(all),all);assert.throws(()=>codec.unpack({zgStoryPacked:1,root:['r',0],entries:[['a',[['r',0]]]]}));
+let stored='previous',limit=packed.length+10;ctx.localStorage.setItem=(key,value)=>{if(value.length>limit)throw Error('QuotaExceededError');stored=value;};
+const source=fs.readFileSync('story-editor.js','utf8');vm.runInContext(source.slice(source.indexOf('  function saveAll('),source.indexOf('  function addTabaxiHunter(')),ctx);
+assert.equal(ctx.saveAll(all),true);assert.equal(JSON.stringify(codec.unpack(JSON.parse(stored))),raw);
+limit=1;const previous=stored;assert.equal(ctx.saveAll(all),false);assert.equal(stored,previous);
+console.log('Storage: lossless round-trip, independent copies, archived episodes, quota fallback and failed-write preservation passed. '+raw.length+' → '+packed.length+' characters.');

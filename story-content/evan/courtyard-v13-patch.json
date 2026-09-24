@@ -1,0 +1,1496 @@
+{
+  "format": "zargota-guarded-content-patch",
+  "base": "episode-1-courtyard-v12.json",
+  "target": "episode-1-courtyard-v13.json",
+  "operations": [
+    {
+      "collection": "nodes",
+      "id": "evan-yard-ready",
+      "before": {
+        "id": "evan-yard-ready",
+        "kind": "dialogue",
+        "title": "Твой ход",
+        "titleUk": "Твій хід",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 2080,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-friend-tarin",
+        "text": "Я пока побуду здесь. Если хочешь ещё о поездке поговорить — Лида рядом.",
+        "textUk": "Я поки побуду тут. Якщо хочеш іще про поїздку поговорити — Ліда поруч.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "link-evan-yard-lida",
+            "to": "evan-yard-lida",
+            "label": "Поговорить с Лидой",
+            "labelUk": "Поговорити з Лідою"
+          }
+        ]
+      },
+      "after": {
+        "id": "evan-yard-ready",
+        "kind": "dialogue",
+        "title": "Перед игрой",
+        "titleUk": "Перед грою",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 2080,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Все собрались. Осталось выбрать правила — и можно начинать.",
+        "textUk": "Усі зібралися. Залишилося обрати правила — і можна починати.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v13-15-evan-yard-lida",
+            "to": "evan-yard-lida",
+            "label": "Поговорить с Лидой о поездке",
+            "labelUk": "Поговорити з Лідою про поїздку"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-green-rules",
+      "before": {
+        "id": "evan-green-rules",
+        "title": "Договориться о партии",
+        "titleUk": "Домовитися про партію",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 2900,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Давайте одну партию. По три броска, ближе к середине — лучше. До повозки успею.",
+        "textUk": "Давайте одну партію. По три кидки, ближче до середини — краще. До повозки встигну.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Только ты не начинаешь первым просто потому, что предложил.",
+            "textUk": "Тільки ти не починаєш першим просто тому, що запропонував.",
+            "emotion": "smiling",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Ладно. Зато я выбираю камень.",
+            "textUk": "Гаразд. Зате я вибираю камінець.",
+            "emotion": "emotion-1789852957946",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Бери. Только если укатится в траву — сам ищешь.",
+            "textUk": "Бери. Тільки якщо покотиться в траву — сам шукаєш.",
+            "emotion": "smiling",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [],
+        "kind": "dialogue",
+        "afterEffect": "evan-green-game-agreed",
+        "image": "assets/stories/Evan/inspections/stones-v1.png",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-green-rules",
+        "kind": "dialogue",
+        "title": "Ещё двое",
+        "titleUk": "Ще двоє",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 2900,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Давайте одну партию. Только без вчерашнего спора до самого вечера.",
+        "textUk": "Давайте одну партію. Тільки без учорашньої суперечки до самого вечора.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Так я вчера был прав.",
+            "textUk": "Та я вчора мав рацію.",
+            "emotion": "smiling",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "А сегодня опять будешь? Подвинься, мы тоже пришли.",
+            "textUk": "А сьогодні знову матимеш? Посунься, ми теж прийшли.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Это Фельцер. А длинный — Пен. Иногда таскают у причала, иногда мешают мне выигрывать.",
+            "textUk": "Це Фельцер. А довгий — Пен. Іноді тягають біля причалу, іноді заважають мені вигравати.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Эван. Я тут живу, у хлебной лавки.",
+            "textUk": "Еван. Я тут живу, біля хлібної крамниці.",
+            "emotion": "emotion-1789852957946",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-courtyard-narrator",
+            "text": "Пен выше остальных на полголовы. Он отвечает с раскатистым горловым «р», сперва оглядев лавку за оградой.",
+            "textUk": "Пен вищий за решту на пів голови. Він відповідає з розкотистим горловим «р», спершу оглянувши крамницю за огорожею.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "А. Где пахнет, когда жрать хочется. Знаю.",
+            "textUk": "А. Де пахне, коли жерти хочеться. Знаю.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Он все лавки так запоминает.",
+            "textUk": "Він усі крамниці так запам’ятовує.",
+            "emotion": "laughing",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-1-evan-port-findings",
+            "to": "evan-port-findings",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "beforeWorldActions": [
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-port-feltser-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                36,
+                54
+              ]
+            ],
+            "durationMs": 1500
+          },
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-port-pen-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                57,
+                57
+              ]
+            ],
+            "durationMs": 1500
+          }
+        ],
+        "repeatWhen": "evan-green-game-agreed",
+        "repeatId": "evan-yard-ready"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-findings",
+      "before": null,
+      "after": {
+        "id": "evan-port-findings",
+        "kind": "dialogue",
+        "title": "Находки с причала",
+        "titleUk": "Знахідки з причалу",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Что у тебя щёлкает в кармане?",
+        "textUk": "Що в тебе клацає в кишені?",
+        "emotion": "emotion-1789852949259",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Счётчик. Был на ручной лебёдке. За уборку хлама отдали — вместо нормальной платы, суки.",
+            "textUk": "Лічильник. Стояв на ручній лебідці. За прибирання мотлоху віддали — замість нормальної плати, суки.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Он обороты считает? Дай повернуть.",
+            "textUk": "Він оберти рахує? Дай повернути.",
+            "emotion": "emotion-1789853039972",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Один считает. Потом клинит. Не говори только, что починишь за минуту.",
+            "textUk": "Один рахує. Потім клинить. Тільки не кажи, що полагодиш за хвилину.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Не починю. Пока даже не понимаю, где заедает. Но для моей тележки такая штука…",
+            "textUk": "Не полагоджу. Поки навіть не розумію, де заїдає. Але для мого візочка така штука…",
+            "emotion": "emotion-1789852949259",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "А у меня камень. Смотри на гвоздь.",
+            "textUk": "А в мене камінь. Дивись на цвях.",
+            "emotion": "pointing",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-courtyard-narrator",
+            "text": "Гвоздь прилипает к тёмному обломку. Пен переворачивает его, придерживая ладонью снизу.",
+            "textUk": "Цвях прилипає до темного уламка. Пен перевертає його, притримуючи долонею знизу.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Магнитный? А через дощечку держит?",
+            "textUk": "Магнітний? А крізь дощечку тримає?",
+            "emotion": "emotion-1789853039972",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Не пробовал. Дощечки нет.",
+            "textUk": "Не пробував. Дощечки немає.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Скамья есть. Только не разбирайте её.",
+            "textUk": "Лава є. Тільки не розбирайте її.",
+            "emotion": "smiling",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-2-evan-milo-arrives",
+            "to": "evan-milo-arrives",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-milo-arrives",
+      "before": null,
+      "after": {
+        "id": "evan-milo-arrives",
+        "kind": "choice",
+        "title": "Можно с вами?",
+        "titleUk": "Можна з вами?",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3920,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": false,
+        "speaker": "evan-yard-milo",
+        "text": "Лида! Я тоже хочу. Можно с вами?",
+        "textUk": "Лідо! Я теж хочу. Можна з вами?",
+        "emotion": "",
+        "showPortrait": false,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Привет, Мило. Можно. Мы ещё не начали.",
+            "textUk": "Привіт, Мило. Можна. Ми ще не почали.",
+            "emotion": "smiling",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-yard-milo",
+            "text": "Я принёс плоский. Вот.",
+            "textUk": "Я приніс плаский. Ось.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-courtyard-narrator",
+            "text": "Мило раскрывает ладонь: маленький гладкий камень, тщательно завёрнутый в тряпицу.",
+            "textUk": "Мило розкриває долоню: маленький гладенький камінець, старанно загорнутий у ганчірку.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Мы тут уже собрались, а правил всё нет. Совет капитанов, блядь.",
+            "textUk": "Ми тут уже зібралися, а правил досі немає. Рада капітанів, бля.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Тогда сначала решим: просто играем или на что-нибудь?",
+            "textUk": "Тоді спершу вирішимо: просто граємо чи на щось?",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-3-evan-port-stake",
+            "to": "evan-port-stake",
+            "label": "Предложить серебро против обеих находок",
+            "labelUk": "Запропонувати срібло проти обох знахідок",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v13-4-evan-port-free",
+            "to": "evan-port-free",
+            "label": "Играть без ставки",
+            "labelUk": "Грати без ставки"
+          }
+        ],
+        "beforeWorldActions": [
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-milo-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                64,
+                37
+              ]
+            ],
+            "durationMs": 1500
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-stake",
+      "before": null,
+      "after": {
+        "id": "evan-port-stake",
+        "kind": "choice",
+        "title": "Цена интереса",
+        "titleUk": "Ціна інтересу",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4280,
+        "y": 200,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Могу поставить серебро. Вы — счётчик и камень.",
+        "textUk": "Можу поставити срібло. Ви — лічильник і камінь.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Серебро? Настоящий серебряк? Тебе его просто дали?",
+            "textUk": "Срібло? Справжній срібняк? Тобі його просто дали?",
+            "emotion": "shocked",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "На сегодня. Мы едем смотреть факультеты. Обычно мне столько не дают.",
+            "textUk": "На сьогодні. Ми їдемо дивитися факультети. Зазвичай мені стільки не дають.",
+            "emotion": "emotion-1789853064627",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Нихуя себе поездочка. Нам вообще не дают. Что натаскал — то твоё.",
+            "textUk": "Ніхуя собі поїздочка. Нам узагалі не дають. Що натягав — те твоє.",
+            "emotion": "surprised",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "За оба — два серебряных. Нас двое.",
+            "textUk": "За обидва — два срібняки. Нас двоє.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Я не покупаю. Выиграете — деньги ваши. Выиграю я — обе вещи мои.",
+            "textUk": "Я не купую. Виграєте — гроші ваші. Виграю я — обидві речі мої.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Вот и договорились. Только сначала правила. Чтоб потом никто не крутил.",
+            "textUk": "От і домовилися. Тільки спочатку правила. Щоб потім ніхто не крутив.",
+            "emotion": "pointing",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-5-evan-port-two",
+            "to": "evan-port-two",
+            "label": "Два серебряных против обоих предметов",
+            "labelUk": "Два срібняки проти обох предметів",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 2
+          },
+          {
+            "id": "v13-6-evan-port-bargain",
+            "to": "evan-port-bargain",
+            "label": "Попробовать сбить ставку до одного",
+            "labelUk": "Спробувати збити ставку до одного",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v13-7-evan-port-free",
+            "to": "evan-port-free",
+            "label": "Нет, лучше без денег",
+            "labelUk": "Ні, краще без грошей"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-bargain",
+      "before": null,
+      "after": {
+        "id": "evan-port-bargain",
+        "kind": "choice",
+        "title": "Один за риск",
+        "titleUk": "Один за ризик",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Счётчик сломан. Камень — обломок. Серебряный зато целый. Один против обоих.",
+        "textUk": "Лічильник зламаний. Камінь — уламок. Срібняк зате цілий. Один проти обох.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Когда гвоздь прилип, ты на него совсем не как на обломок смотрел.",
+            "textUk": "Коли цвях прилип, ти на нього зовсім не як на уламок дивився.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Мне интересно. Но два я не поставлю. Один — и решим правила до игры.",
+            "textUk": "Мені цікаво. Але два я не поставлю. Один — і визначимо правила до гри.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Один на двоих?..",
+            "textUk": "Один на двох?..",
+            "emotion": "surprised",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Поделим, если выиграем. Ладно, Эван. Один. Но забрать только камень, если передумаешь, не выйдет.",
+            "textUk": "Поділимо, якщо виграємо. Гаразд, Еване. Один. Але забрати лише камінь, якщо передумаєш, не вийде.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Оба предмета. Я помню.",
+            "textUk": "Обидва предмети. Я пам’ятаю.",
+            "emotion": "emotion-1789852957946",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-8-evan-port-one",
+            "to": "evan-port-one",
+            "label": "Договориться на один серебряный",
+            "labelUk": "Домовитися на один срібняк",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v13-9-evan-port-free",
+            "to": "evan-port-free",
+            "label": "Всё-таки играть без ставки",
+            "labelUk": "Усе-таки грати без ставки"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-one",
+      "before": null,
+      "after": {
+        "id": "evan-port-one",
+        "kind": "dialogue",
+        "title": "Уговор",
+        "titleUk": "Угода",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Один серебряный против счётчика и камня.",
+        "textUk": "Один срібняк проти лічильника й каменя.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Мило и я ничего не ставим. И Тарин за вами в долги не записывается.",
+            "textUk": "Мило і я нічого не ставимо. І Тарін за вами в борги не записується.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Да никто вас не записывает. Ставка наша с Эваном.",
+            "textUk": "Та ніхто вас не записує. Ставка наша з Еваном.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-yard-milo",
+            "text": "А я всё равно играю?",
+            "textUk": "А я все одно граю?",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Конечно. Мы все играем.",
+            "textUk": "Звісно. Ми всі граємо.",
+            "emotion": "emotion-1789852957946",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-10-evan-port-ready-paid",
+            "to": "evan-port-ready-paid",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-stake-one"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-two",
+      "before": null,
+      "after": {
+        "id": "evan-port-two",
+        "kind": "dialogue",
+        "title": "Уговор",
+        "titleUk": "Угода",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3920,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Два серебряных против счётчика и камня.",
+        "textUk": "Два срібняки проти лічильника й каменя.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Мило и я ничего не ставим. И Тарин за вами в долги не записывается.",
+            "textUk": "Мило і я нічого не ставимо. І Тарін за вами в борги не записується.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Да никто вас не записывает. Ставка наша с Эваном.",
+            "textUk": "Та ніхто вас не записує. Ставка наша з Еваном.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-yard-milo",
+            "text": "А я всё равно играю?",
+            "textUk": "А я все одно граю?",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Конечно. Мы все играем.",
+            "textUk": "Звісно. Ми всі граємо.",
+            "emotion": "emotion-1789852957946",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-11-evan-port-ready-paid",
+            "to": "evan-port-ready-paid",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-stake-two"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-free",
+      "before": null,
+      "after": {
+        "id": "evan-port-free",
+        "kind": "dialogue",
+        "title": "Без денег",
+        "titleUk": "Без грошей",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4280,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Давайте без ставки. Мне ещё ехать сегодня, не хочу потом объясняться.",
+        "textUk": "Давайте без ставки. Мені ще їхати сьогодні, не хочу потім пояснювати.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Да играй. Я сюда не долги собирать пришёл.",
+            "textUk": "Та грай. Я сюди не борги збирати прийшов.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Тогда камень мой.",
+            "textUk": "Тоді камінь мій.",
+            "emotion": "pointing",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Он и сейчас твой, Пен.",
+            "textUk": "Він і зараз твій, Пене.",
+            "emotion": "smiling",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-yard-milo",
+            "text": "Я рядом с Лидой буду.",
+            "textUk": "Я поруч із Лідою буду.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Хорошо. Играем все, никто ничего не должен.",
+            "textUk": "Добре. Граємо всі, ніхто нічого не винен.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-12-evan-port-ready-free",
+            "to": "evan-port-ready-free",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-stake-none"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-ready-paid",
+      "before": null,
+      "after": {
+        "id": "evan-port-ready-paid",
+        "kind": "dialogue",
+        "title": "До первого броска",
+        "titleUk": "До першого кидка",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-friend-lida",
+        "text": "А если выиграет кто-то из нас? Или будет ничья?",
+        "textUk": "А якщо виграє хтось із нас? Або буде нічия?",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Тогда ничего не отдаём. Но это ещё до бросков нормально обсудим.",
+            "textUk": "Тоді нічого не віддаємо. Але це ще до кидків нормально обговоримо.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Вот теперь дело. Пока каждый своё держит.",
+            "textUk": "От тепер діло. Поки кожен своє тримає.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-13-evan-port-at-circle",
+            "to": "evan-port-at-circle",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-ready-free",
+      "before": null,
+      "after": {
+        "id": "evan-port-ready-free",
+        "kind": "dialogue",
+        "title": "Собраться у круга",
+        "titleUk": "Зібратися біля кола",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-friend-tarin",
+        "text": "Ну наконец-то. Я успел бы проиграть и отыграться.",
+        "textUk": "Ну нарешті. Я встиг би програти й відігратися.",
+        "emotion": "smiling",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Ты пока только языком выиграл.",
+            "textUk": "Ти поки тільки язиком виграв.",
+            "emotion": "laughing",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Пошли к кругу. Сначала договоримся, во что именно играем.",
+            "textUk": "Ходімо до кола. Спершу домовимося, у що саме граємо.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          }
+        ],
+        "links": [
+          {
+            "id": "v13-14-evan-port-at-circle",
+            "to": "evan-port-at-circle",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-at-circle",
+      "before": null,
+      "after": {
+        "id": "evan-port-at-circle",
+        "kind": "dialogue",
+        "title": "Все в сборе",
+        "titleUk": "Усі зібралися",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3920,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": false,
+        "speaker": "evan-yard-milo",
+        "text": "Отсюда бросать? Покажи, где встать.",
+        "textUk": "Звідси кидати? Покажи, де стати.",
+        "emotion": "",
+        "showPortrait": false,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Сейчас разберёмся вместе. Камень пока придержи.",
+            "textUk": "Зараз розберемося разом. Камінець поки притримай.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true,
+            "portrait": ""
+          },
+          {
+            "speaker": "evan-courtyard-narrator",
+            "text": "Ребята собираются у мелового круга. Первый камень ещё ни у кого не покинул ладонь.",
+            "textUk": "Хлопці й дівчина збираються біля крейдяного кола. Перший камінець ще ні в кого не залишив долоні.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": ""
+          }
+        ],
+        "links": [],
+        "afterEffect": "evan-green-game-agreed"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-wait",
+      "before": null,
+      "after": {
+        "id": "evan-port-wait",
+        "kind": "dialogue",
+        "title": "Камешки приготовлены",
+        "titleUk": "Камінці підготовлені",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 1220,
+        "portraitOverride": false,
+        "firstShowPortrait": false,
+        "speaker": "evan-courtyard-narrator",
+        "text": "Продолжение игры будет в следующей версии эпизода. Уговор сохранён; деньги и находки остаются у владельцев.",
+        "textUk": "Продовження гри буде в наступній версії епізоду. Домовленість збережена; гроші й знахідки залишаються у власників.",
+        "emotion": "",
+        "showPortrait": false,
+        "portrait": "",
+        "slides": [],
+        "links": []
+      }
+    },
+    {
+      "collection": "quests",
+      "id": "evan-yard-meet-quest",
+      "before": {
+        "id": "evan-yard-meet-quest",
+        "title": "Свои во дворе",
+        "titleUk": "Свої у дворі",
+        "objective": "Зайти в зелёный дворик и решить с друзьями, чем заняться.",
+        "objectiveUk": "Зайти до зеленого дворика й вирішити з друзями, чим зайнятися.",
+        "dialogueId": "evan-green-rules",
+        "nextId": "evan-yard-game-quest",
+        "actions": [
+          {
+            "actionId": "reveal-evan-yard-stones",
+            "type": "reveal",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-yard-stones"
+          }
+        ]
+      },
+      "after": {
+        "id": "evan-yard-meet-quest",
+        "title": "Свои во дворе",
+        "titleUk": "Свої у дворі",
+        "objective": "Познакомиться с ребятами и договориться: со ставкой или без.",
+        "objectiveUk": "Познайомитися з хлопцями й домовитися: зі ставкою чи без.",
+        "dialogueId": "evan-port-at-circle",
+        "nextId": "evan-yard-game-quest",
+        "actions": [
+          {
+            "actionId": "reveal-evan-yard-stones",
+            "type": "reveal",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-yard-stones"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "quests",
+      "id": "evan-yard-game-quest",
+      "before": {
+        "id": "evan-yard-game-quest",
+        "title": "Одна партия",
+        "titleUk": "Одна партія",
+        "objective": "Подойти к кругу и сыграть с друзьями.",
+        "objectiveUk": "Підійти до кола й зіграти з друзями.",
+        "dialogueId": "evan-yard-finish",
+        "nextId": "evan-yard-papers-quest",
+        "actions": [
+          {
+            "actionId": "reveal-evan-yard-door-marker",
+            "type": "reveal",
+            "sceneId": "scene-mu7f8tk1-6m4a",
+            "kind": "tokens",
+            "id": "evan-yard-door-marker"
+          }
+        ]
+      },
+      "after": {
+        "id": "evan-yard-game-quest",
+        "title": "Перед первой партией",
+        "titleUk": "Перед першою партією",
+        "objective": "Ребята готовы. Продолжение игры — в следующей версии.",
+        "objectiveUk": "Компанія готова. Продовження гри — у наступній версії.",
+        "dialogueId": "evan-yard-finish",
+        "nextId": "evan-yard-papers-quest",
+        "actions": [
+          {
+            "actionId": "reveal-evan-yard-door-marker",
+            "type": "reveal",
+            "sceneId": "scene-mu7f8tk1-6m4a",
+            "kind": "tokens",
+            "id": "evan-yard-door-marker"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "scenes",
+      "id": "scene-evan-green-courtyard",
+      "before": {
+        "id": "scene-evan-green-courtyard",
+        "name": "Зелёный дворик",
+        "nameUk": "Зелений дворик",
+        "scene": {
+          "name": "Зелёный дворик",
+          "nameUk": "Зелений дворик",
+          "boardWidth": 24,
+          "boardHeight": 13.5,
+          "gridSize": 64,
+          "layers": [
+            {
+              "id": "story-background",
+              "image": "assets/stories/Evan/backgrounds/green-courtyard-expanded-v1.png",
+              "visible": true,
+              "opacity": 1,
+              "fit": "contain",
+              "scale": 1
+            }
+          ],
+          "tokens": [
+            {
+              "id": "evan-yard-tarin",
+              "name": "Тарин",
+              "nameUk": "Тарін",
+              "speaker": "evan-friend-tarin",
+              "image": "assets/stories/Evan/portraits/tarin-neutral-v1.png",
+              "x": 43,
+              "y": 38,
+              "size": 128,
+              "visible": true
+            },
+            {
+              "id": "evan-yard-lida",
+              "name": "Лида",
+              "nameUk": "Ліда",
+              "speaker": "evan-friend-lida",
+              "image": "assets/stories/Evan/portraits/lida-neutral-v1.png",
+              "x": 55,
+              "y": 36,
+              "size": 128,
+              "visible": true
+            },
+            {
+              "id": "evan-yard-stones",
+              "type": "note",
+              "name": "Игра в камешки",
+              "nameUk": "Гра в камінці",
+              "x": 65,
+              "y": 48,
+              "size": 38,
+              "visible": true,
+              "interactionRadiusScale": 2
+            },
+            {
+              "id": "evan-green-exit",
+              "type": "note",
+              "name": "На улицу, к лавке",
+              "nameUk": "На вулицю, до крамниці",
+              "x": 47,
+              "y": 82,
+              "size": 38,
+              "visible": true,
+              "interactionRadiusScale": 2,
+              "sceneId": "scene-mu7f8tk1-6m4a"
+            },
+            {
+              "id": "evan-green-bench",
+              "type": "note",
+              "name": "Скамья под деревьями",
+              "nameUk": "Лава під деревами",
+              "x": 26,
+              "y": 17,
+              "size": 38,
+              "visible": true,
+              "interactionRadiusScale": 2,
+              "entryId": "evan-green-bench-look"
+            },
+            {
+              "id": "story-hero-1789769101882",
+              "type": "custom",
+              "name": "Евангеліє",
+              "image": "assets/stories/Evan/portraits/pajamas-neutral-v1.png",
+              "x": 47,
+              "y": 75,
+              "size": 64,
+              "visible": true
+            }
+          ],
+          "story": {
+            "spawnX": 47,
+            "spawnY": 75,
+            "cameraZoom": 1,
+            "cameraOffsetX": 0,
+            "cameraOffsetY": 0,
+            "movementSpeed": 0.75,
+            "zones": []
+          }
+        }
+      },
+      "after": {
+        "id": "scene-evan-green-courtyard",
+        "name": "Зелёный дворик",
+        "nameUk": "Зелений дворик",
+        "scene": {
+          "name": "Зелёный дворик",
+          "nameUk": "Зелений дворик",
+          "boardWidth": 24,
+          "boardHeight": 13.5,
+          "gridSize": 64,
+          "layers": [
+            {
+              "id": "story-background",
+              "image": "assets/stories/Evan/backgrounds/green-courtyard-expanded-v1.png",
+              "visible": true,
+              "opacity": 1,
+              "fit": "contain",
+              "scale": 1
+            }
+          ],
+          "tokens": [
+            {
+              "id": "evan-yard-tarin",
+              "name": "Тарин",
+              "nameUk": "Тарін",
+              "speaker": "evan-friend-tarin",
+              "image": "assets/stories/Evan/portraits/tarin-neutral-v1.png",
+              "x": 43,
+              "y": 38,
+              "size": 128,
+              "visible": true
+            },
+            {
+              "id": "evan-yard-lida",
+              "name": "Лида",
+              "nameUk": "Ліда",
+              "speaker": "evan-friend-lida",
+              "image": "assets/stories/Evan/portraits/lida-neutral-v1.png",
+              "x": 55,
+              "y": 36,
+              "size": 128,
+              "visible": true
+            },
+            {
+              "id": "evan-yard-stones",
+              "type": "note",
+              "name": "Игра в камешки",
+              "nameUk": "Гра в камінці",
+              "x": 65,
+              "y": 48,
+              "size": 38,
+              "visible": true,
+              "interactionRadiusScale": 2
+            },
+            {
+              "id": "evan-green-exit",
+              "type": "note",
+              "name": "На улицу, к лавке",
+              "nameUk": "На вулицю, до крамниці",
+              "x": 47,
+              "y": 82,
+              "size": 38,
+              "visible": true,
+              "interactionRadiusScale": 2,
+              "sceneId": "scene-mu7f8tk1-6m4a"
+            },
+            {
+              "id": "evan-green-bench",
+              "type": "note",
+              "name": "Скамья под деревьями",
+              "nameUk": "Лава під деревами",
+              "x": 26,
+              "y": 17,
+              "size": 38,
+              "visible": true,
+              "interactionRadiusScale": 2,
+              "entryId": "evan-green-bench-look"
+            },
+            {
+              "id": "story-hero-1789769101882",
+              "type": "custom",
+              "name": "Евангеліє",
+              "image": "assets/stories/Evan/portraits/pajamas-neutral-v1.png",
+              "x": 47,
+              "y": 75,
+              "size": 64,
+              "visible": true
+            },
+            {
+              "id": "evan-port-feltser-token",
+              "speaker": "evan-port-feltser",
+              "name": "Фельцер",
+              "nameUk": "Фельцер",
+              "image": "assets/stories/Evan/portraits/feltser-neutral-v1.png",
+              "x": 47,
+              "y": 82,
+              "size": 128,
+              "visible": false
+            },
+            {
+              "id": "evan-port-pen-token",
+              "speaker": "evan-port-pen",
+              "name": "Пен",
+              "nameUk": "Пен",
+              "image": "assets/stories/Evan/portraits/pen-neutral-v1.png",
+              "x": 47,
+              "y": 82,
+              "size": 128,
+              "visible": false
+            },
+            {
+              "id": "evan-milo-token",
+              "speaker": "evan-yard-milo",
+              "name": "Мило · портрет позже",
+              "nameUk": "Мило · портрет згодом",
+              "image": "",
+              "x": 47,
+              "y": 82,
+              "size": 48,
+              "visible": false,
+              "type": "note"
+            }
+          ],
+          "story": {
+            "spawnX": 47,
+            "spawnY": 75,
+            "cameraZoom": 1,
+            "cameraOffsetX": 0,
+            "cameraOffsetY": 0,
+            "movementSpeed": 0.75,
+            "zones": []
+          }
+        }
+      }
+    },
+    {
+      "collection": "speakers",
+      "id": "evan-port-feltser",
+      "before": null,
+      "after": {
+        "name": "Фельцер",
+        "nameUk": "Фельцер",
+        "portrait": "assets/stories/Evan/portraits/feltser-neutral-v1.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "normal": {
+            "name": "Спокойно",
+            "nameUk": "Спокійно",
+            "portrait": "assets/stories/Evan/portraits/feltser-neutral-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "laughing": {
+            "name": "Смеётся",
+            "nameUk": "Сміється",
+            "portrait": "assets/stories/Evan/portraits/feltser-laughing-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/Evan/portraits/feltser-speaking-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "surprised": {
+            "name": "Удивлён",
+            "nameUk": "Здивований",
+            "portrait": "assets/stories/Evan/portraits/feltser-surprised-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "shocked": {
+            "name": "Потрясён",
+            "nameUk": "Приголомшений",
+            "portrait": "assets/stories/Evan/portraits/feltser-shocked-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злится",
+            "nameUk": "Злиться",
+            "portrait": "assets/stories/Evan/portraits/feltser-angry-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "pointing": {
+            "name": "Указывает пальцем",
+            "nameUk": "Показує пальцем",
+            "portrait": "assets/stories/Evan/portraits/feltser-pointing-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      }
+    },
+    {
+      "collection": "speakers",
+      "id": "evan-port-pen",
+      "before": null,
+      "after": {
+        "name": "Пен",
+        "nameUk": "Пен",
+        "portrait": "assets/stories/Evan/portraits/pen-neutral-v1.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "normal": {
+            "name": "Спокойно",
+            "nameUk": "Спокійно",
+            "portrait": "assets/stories/Evan/portraits/pen-neutral-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "laughing": {
+            "name": "Смеётся",
+            "nameUk": "Сміється",
+            "portrait": "assets/stories/Evan/portraits/pen-laughing-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/Evan/portraits/pen-speaking-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "surprised": {
+            "name": "Удивлён",
+            "nameUk": "Здивований",
+            "portrait": "assets/stories/Evan/portraits/pen-surprised-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "shocked": {
+            "name": "Потрясён",
+            "nameUk": "Приголомшений",
+            "portrait": "assets/stories/Evan/portraits/pen-shocked-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злится",
+            "nameUk": "Злиться",
+            "portrait": "assets/stories/Evan/portraits/pen-angry-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "pointing": {
+            "name": "Указывает пальцем",
+            "nameUk": "Показує пальцем",
+            "portrait": "assets/stories/Evan/portraits/pen-pointing-v1.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      }
+    },
+    {
+      "collection": "speakers",
+      "id": "evan-yard-milo",
+      "before": null,
+      "after": {
+        "name": "Мило",
+        "nameUk": "Мило",
+        "portrait": "",
+        "emotions": {}
+      }
+    },
+    {
+      "collection": "speakers",
+      "id": "evan-courtyard-narrator",
+      "before": null,
+      "after": {
+        "name": "Рассказчик",
+        "nameUk": "Оповідач",
+        "portrait": "",
+        "emotions": {}
+      }
+    },
+    {
+      "collection": "interactions",
+      "id": "evan-yard-stones",
+      "before": {
+        "marker": "!",
+        "entryId": "evan-yard-game"
+      },
+      "after": {
+        "marker": "!",
+        "entryId": "evan-port-wait"
+      }
+    },
+    {
+      "collection": "interactions",
+      "id": "evan-port-feltser-token",
+      "before": null,
+      "after": {
+        "marker": "?",
+        "entryId": "evan-yard-greet"
+      }
+    },
+    {
+      "collection": "interactions",
+      "id": "evan-port-pen-token",
+      "before": null,
+      "after": {
+        "marker": "?",
+        "entryId": "evan-yard-greet"
+      }
+    },
+    {
+      "collection": "interactions",
+      "id": "evan-milo-token",
+      "before": null,
+      "after": {
+        "marker": "?",
+        "entryId": "evan-yard-greet"
+      }
+    }
+  ]
+}

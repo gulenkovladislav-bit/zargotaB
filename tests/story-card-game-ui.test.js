@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync(require.resolve('../story-card-game.js'),'utf8');
+const css=fs.readFileSync(require.resolve('../story-card-game.css'),'utf8');
+function el(tag,cls,text){return {tag,className:cls,textContent:text,children:[],style:{setProperty(k,v){this[k]=v;}},classList:{removed:[],remove(k){this.removed.push(k);}},listeners:{},appendChild(e){this.children.push(e);},addEventListener(k,fn){this.listeners[k]=fn;}};}
+const ctx={el,base:'assets/',cardPath:()=> 'card.png',cardName:c=>c.name,t:a=>a,Math};
+vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('  function card(c,'),source.indexOf('  function exampleCards(')),ctx);
+const card=ctx.card({name:'Ополченець'},true,true),surface=card.children[0];
+assert.equal(surface.className,'zg-card-art');assert.equal(surface.children[0].draggable,false);
+assert.equal(surface.children[1].style['--name-size'],'10.4cqw');
+surface.listeners.animationend({animationName:'unrelated'});assert.equal(card.classList.removed.length,0);
+surface.listeners.animationend({animationName:'zg-card-deal'});assert.deepEqual(card.classList.removed,['is-dealt']);
+assert(css.includes('.zg-card.is-dealt>.zg-card-art{animation:zg-card-deal'));
+assert(!/\.zg-card\.is-inspectable[^{}]*\{[^{}]*animation:none/.test(css),'hover/focus must not cancel and restart deal');
+assert(css.includes('user-select:none'));assert(css.includes('clip-path:inset'));
+assert(css.includes('.seat-0 .zg-card-hand:hover{transform:scale(2.4)'),'hover zooms the whole hand');
+assert(!/\.zg-card\.is-inspectable[^{}]*\{[^{}]*transform:scale/.test(css),'individual cards must not double-scale');
+assert(css.includes('.seat-0 .zg-card-hand:has(.is-expanded)'),'touch expansion also zooms both cards');
+for(const seat of [1,2,3])assert(css.includes('.seat-'+seat+' .zg-card-hand .zg-card:first-child{rotate:'),'each opponent has a tilted hand');
+assert(css.includes('.zg-card-help{left:0;right:auto;'));
+assert(source.includes("settings=el('details','zg-card-settings')"));
+assert(!source.includes("t('Башня и коготь · ','Вежа та кіготь · ')+roundNumber"));
+assert(css.includes('.seat-0 .zg-card-person{max-width:100%;text-align:center;'));
+assert(css.includes('.seat-2 .zg-money-pile{position:absolute;'),'upper purse no longer extends seat into community board');
+assert(css.includes('.seat-1 .zg-money-pile,.seat-3 .zg-money-pile{position:absolute;top:clamp(60px,8.5vw,124px);'),'side purses are anchored to portraits instead of below hands');
+assert(css.includes('.seat-2 .zg-card-hand{left:calc(50% + clamp(39px,5.5vw,80px) + 14px);'),'upper hand follows portrait edge, not whole seat width');
+console.log('Card UI: separate animation surface, completion cleanup, card-sized labels, no hover animation reset, selection/crop and left help guards passed.');

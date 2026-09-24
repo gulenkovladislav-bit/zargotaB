@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('story-card-game.js','utf8');
+const start=source.indexOf('    var pendingHeroReply=null;'),end=source.indexOf('      clearTimeout(timeout);',start);
+let event={id:'authored-event'},calls=0;
+const c={social:null,storyBusy:false,dealing:false,initialDeal:false,suppressStory:false,eventContext(){return {};},director:{next(){const n=event;event=null;return n;},reaction(){calls++;return {text:'Реплика',textUk:'Репліка'};}},game:{done:true,winners:[0]},revealComplete:true,outcomeRound:0,roundNumber:1,ids:['hero','npc'],reactions:{},local:(r,k)=>r[k]};
+c.payoutCollecting=false;vm.createContext(c);vm.runInContext(source.slice(start,end)+'return eventNode;}',c);
+assert.equal(c.render().id,'authored-event');
+const reply=c.render();assert.equal(reply.speaker,'hero');assert.equal(reply.textUk,'Репліка');assert(reply.showPortrait);assert(!c.reactions[0]);assert(c.reactions[1]);assert.equal(calls,2);assert.equal(c.render(),null);
+const css=fs.readFileSync('story-card-game.css','utf8');assert(css.includes('.zg-card-seat.is-folded{opacity:1}'));assert(!css.includes('.is-folded{opacity:.5}'));
+assert(css.includes('.zg-card-seat.is-folded .zg-card-token{filter:grayscale(.85) brightness(.92)}'),'strong desaturation without darker or transparent faces');
+assert(source.includes('options.firstRoundThinkMs:options.npcThinkMs'));
+console.log('Hero reply: queues behind authored events, once per round, bilingual full dialogue, no hero bubble; folded portrait and pacing checks passed.');

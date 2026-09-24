@@ -1,5 +1,14 @@
 # Zargota workspace rules
 
+## Global lore gate
+
+Before authoring or changing world lore, dialogue or quests, read relevant entries in
+`GLOBAL_LORE.md` and follow their source links. Record newly agreed lore in that file
+in the same change, with stable IDs, RU/UK wording, source, status and spoiler boundary.
+Separate confirmed canon, existing project-source facts, episode drafts and unresolved
+conflicts. Never silently promote an AI invention or an ambiguous spoken name to canon.
+The ledger is the retrieval entry point; it does not replace runnable episode data.
+
 ## Worktree handoff gate
 
 Before changing files for a task that continues or combines another Zargota task:

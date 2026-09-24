@@ -1,0 +1,4 @@
+Generated with built-in imagegen. Reference: ../inspections/draft-folder-v1.png. Output: draft-folder-icon-v1.png (1254×1254, alpha).
+
+Prompt:
+Use case: stylized-concept. Create a single square fantasy RPG inventory item icon of this child's simple worn brown leather folio folder holding loose cream parchment mechanical sketches. Reference is only for material/palette/content; NOT the composition. Show one closed or slightly ajar thin leather document folder, cord tie, a few parchment corners visible with tiny ink wheel diagrams. Isolated object on genuine transparent alpha background, no hands, no people, no room, no rectangular photograph background, no UI frame, no text. Three-quarter top view, centered, object fills 85% of square, crisp readable silhouette at 64px, warm painterly realistic fantasy item rendering, restrained details. Not an open book: a loose-sheet leather folder. Output PNG with transparent background.

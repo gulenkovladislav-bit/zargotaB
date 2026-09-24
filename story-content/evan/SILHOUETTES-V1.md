@@ -1,0 +1,27 @@
+# Silhouette token set v1
+
+RU: Пять отдельных токенов и по две последовательные бытовые реплики. Подготовлено, не подключено к эпизоду. Выбранная повозка остаётся овальной; её отрисовка в игре здесь не менялась. Реплики короткие и без сюжетных подсказок по навыку zargota-dialogue-review.
+
+UK: П’ять окремих токенів і по дві послідовні побутові репліки. Підготовлено, не підключено до епізоду. Обраний віз залишається овальним; його відображення у грі тут не змінювалося. Репліки короткі й без сюжетних підказок за навичкою zargota-dialogue-review.
+
+Generation: built-in image_gen. Approved user silhouette used as style reference. Originals retained.
+
+## woman
+
+Use case: stylized-concept. Create ONE square production game token, not a sheet. Reference attached image is the approved STYLE reference. Match its thin antique golden circular rim, warm dark chocolate silhouette, subtly textured amber-brown interior and soft golden rim light. Subject: ordinary adult townswoman, hair in a practical bun, simple shawl, no hood. Head and shoulders silhouette centered, face COMPLETELY featureless in shadow, no eyes nose mouth, distinctive silhouette but minimal interior details. Chest terminates at bottom of circular frame. Full circular frame fits square with 4 percent margin on each edge; transparent background OUTSIDE circle, opaque textured background inside. Neutral everyday person, not mysterious fantasy hero. Same framing and scale as reference. Warm brown and muted gold only. No gray, no olive, no letters, no text, no extra icons, no inset previews. Painterly refined handmade RPG interface.
+
+## man
+
+Use case: stylized-concept. Create ONE square production game token, not a sheet. Reference attached image is the approved STYLE reference. Match its thin antique golden circular rim, warm dark chocolate silhouette, subtly textured amber-brown interior and soft golden rim light. Subject: ordinary adult townsman, short untidy hair, plain tunic collar, no heroic cloak. Head and shoulders silhouette centered, face COMPLETELY featureless in shadow, no eyes nose mouth, distinctive silhouette but minimal interior details. Chest terminates at bottom of circular frame. Full circular frame fits square with 4 percent margin on each edge; transparent background OUTSIDE circle, opaque textured background inside. Neutral everyday person, not mysterious fantasy hero. Same framing and scale as reference. Warm brown and muted gold only. No gray, no olive, no letters, no text, no extra icons, no inset previews. Painterly refined handmade RPG interface.
+
+## merchant
+
+Use case: stylized-concept. Create ONE square production game token, not a sheet. Reference attached image is the approved STYLE reference. Match its thin antique golden circular rim, warm dark chocolate silhouette, subtly textured amber-brown interior and soft golden rim light. Subject: middle-aged merchant, rounded soft cap and broad fur-free folded collar, stocky shoulders. Head and shoulders silhouette centered, face COMPLETELY featureless in shadow, no eyes nose mouth, distinctive silhouette but minimal interior details. Chest terminates at bottom of circular frame. Full circular frame fits square with 4 percent margin on each edge; transparent background OUTSIDE circle, opaque textured background inside. Neutral everyday person, not mysterious fantasy hero. Same framing and scale as reference. Warm brown and muted gold only. No gray, no olive, no letters, no text, no extra icons, no inset previews. Painterly refined handmade RPG interface.
+
+## noble
+
+Use case: stylized-concept. Create ONE square production game token, not a sheet. Reference attached image is the approved STYLE reference. Match its thin antique golden circular rim, warm dark chocolate silhouette, subtly textured amber-brown interior and soft golden rim light. Subject: aristocratic adult, neatly tied-back hair and tall refined structured collar, erect posture, NO crown. Head and shoulders silhouette centered, face COMPLETELY featureless in shadow, no eyes nose mouth, distinctive silhouette but minimal interior details. Chest terminates at bottom of circular frame. Full circular frame fits square with 4 percent margin on each edge; transparent background OUTSIDE circle, opaque textured background inside. Neutral everyday person, not mysterious fantasy hero. Same framing and scale as reference. Warm brown and muted gold only. No gray, no olive, no letters, no text, no extra icons, no inset previews. Painterly refined handmade RPG interface.
+
+## guard
+
+Use case: stylized-concept. Create ONE square production game token, not a sheet. Reference attached image is the approved STYLE reference. Match its thin antique golden circular rim, warm dark chocolate silhouette, subtly textured amber-brown interior and soft golden rim light. Subject: town guard, simple brimmed medieval kettle helmet and broad armored shoulders, no weapon crossing face. Head and shoulders silhouette centered, face COMPLETELY featureless in shadow, no eyes nose mouth, distinctive silhouette but minimal interior details. Chest terminates at bottom of circular frame. Full circular frame fits square with 4 percent margin on each edge; transparent background OUTSIDE circle, opaque textured background inside. Neutral everyday person, not mysterious fantasy hero. Same framing and scale as reference. Warm brown and muted gold only. No gray, no olive, no letters, no text, no extra icons, no inset previews. Painterly refined handmade RPG interface.

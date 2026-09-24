@@ -16,16 +16,19 @@
  }
  function resolve(data,node,character,result){
   const key=node.speaker==='@player'?data.playerSpeakerId:node.speaker;
-  const set=data.speakers?.[key]?.equipmentPortraits;
+  const actor=data.speakers?.[key],set=actor?.equipmentPortraits;
   if(set&&(character?.inventoryItems||data.player?.inventoryItems||[]).some(i=>i.itemId===set.itemId&&i.equipped&&i.qty!==0)){
    return Object.assign({},result,{portrait:set.emotions?.[node.emotion]||set.portrait||result.portrait});
   }
+  // Opt-in: outfit selection takes precedence over a page-specific portrait.
+  if(set?.lockBase)return Object.assign({},result,{portrait:actor.emotions?.[node.emotion]?.portrait||actor.portrait||''});
   return result;
  }
  function tokenPortrait(data,character,fallback){
   const items=character?.inventoryItems||data.player?.inventoryItems||[];
   const equipped=id=>items.some(i=>i.itemId===id&&i.equipped&&i.qty!==0);
   const preferred=data.speakers?.[data.playerSpeakerId]?.equipmentPortraits;
+  if(preferred?.lockBase)return equipped(preferred.itemId)?preferred.portrait||'':data.speakers[data.playerSpeakerId].portrait||'';
   const set=preferred&&equipped(preferred.itemId)?preferred:Object.values(data.speakers||{}).map(s=>s.equipmentPortraits).find(s=>s&&equipped(s.itemId));
   if(set)return set.portrait||fallback||'';
   return fallback||'';
@@ -36,7 +39,14 @@
   const set=data.speakers[key].equipmentPortraits;
   if(!set){const button=document.createElement('button');button.type='button';button.textContent=t('＋ Добавить комплект «В плаще»','＋ Додати комплект «У плащі»');button.onclick=()=>save(d=>install(d,key));details.appendChild(button);}
   else {
-   const note=document.createElement('p');note.textContent=t('Плащ в инвентаре: надеть — этот комплект, снять — обычный.','Плащ в інвентарі: спорядити — цей комплект, зняти — звичайний.');details.appendChild(note);
+   const note=document.createElement('p');note.textContent=t('Предмет надет — пути ниже. Снят — обычные портреты персонажа выше. Менять каждую реплику не нужно.','Предмет споряджено — шляхи нижче. Знято — звичайні портрети персонажа вище. Змінювати кожну репліку не потрібно.');details.appendChild(note);
+   const itemLabel=document.createElement('label');itemLabel.textContent=t('Предмет, переключающий портреты','Предмет, що перемикає портрети');
+   const itemSelect=document.createElement('select'),items=w.ZargotaStoryItems?.list(data)||data.player?.inventoryItems||[];
+   const choices=items.some(i=>i.itemId===set.itemId)?items:[{itemId:set.itemId,name:set.itemId},...items];
+   choices.forEach(i=>{const o=document.createElement('option');o.value=i.itemId;o.textContent=t(i.name||i.itemId,i.nameUk||i.name||i.itemId);itemSelect.appendChild(o);});
+   itemSelect.value=set.itemId;itemSelect.onchange=()=>save(d=>{d.speakers[key].equipmentPortraits.itemId=itemSelect.value;});itemLabel.appendChild(itemSelect);details.appendChild(itemLabel);
+   const lockLabel=document.createElement('label'),lock=document.createElement('input');lock.type='checkbox';lock.checked=!!set.lockBase;
+   lock.onchange=()=>save(d=>{d.speakers[key].equipmentPortraits.lockBase=lock.checked;});lockLabel.append(lock,document.createTextNode(t('Комплект важнее портрета отдельной реплики','Комплект має пріоритет над портретом окремої репліки')));details.appendChild(lockLabel);
    const fields=[['',t('Обычный','Звичайний')],...Object.entries(data.speakers[key].emotions||{}).map(([id,e])=>[id,e.nameUk||e.name||id])];
    fields.forEach(([id,name])=>{const label=document.createElement('label');label.textContent=name;const input=document.createElement('input');input.value=id?set.emotions[id]||'':set.portrait||'';input.onchange=()=>save(d=>{const s=d.speakers[key].equipmentPortraits;if(id)s.emotions[id]=input.value;else s.portrait=input.value;});label.appendChild(input);details.appendChild(label);w.ZargotaStoryAssets?.attach(input,'image');});
   }

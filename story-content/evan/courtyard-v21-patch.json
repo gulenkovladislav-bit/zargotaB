@@ -1,0 +1,3514 @@
+{
+  "format": "zargota-guarded-content-patch",
+  "base": "episode-1-courtyard-v20.json",
+  "operations": [
+    {
+      "collection": "nodes",
+      "id": "evan-yard-finish",
+      "before": {
+        "id": "evan-yard-finish",
+        "kind": "choice",
+        "title": "После пробной",
+        "titleUk": "Після пробної",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 1400,
+        "y": 680,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-friend-tarin",
+        "text": "Ну что, разобрались? Или ещё раз разложите?",
+        "textUk": "Ну що, розібралися? Чи ще раз розкладете?",
+        "emotion": "smiling",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v16-25",
+            "to": "evan-port-at-circle",
+            "label": "Ещё одна пробная",
+            "labelUk": "Ще одна пробна"
+          },
+          {
+            "id": "v16-26",
+            "to": "evan-yard-after",
+            "label": "Вернуться во двор",
+            "labelUk": "Повернутися у двір"
+          },
+          {
+            "id": "exchange-v17-8",
+            "to": "evan-exchange-leave",
+            "label": "Сначала разменяю серебро",
+            "labelUk": "Спершу розміняю срібло",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          }
+        ],
+        "afterEffect": "evan-yard-played",
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-yard-finish",
+        "kind": "choice",
+        "title": "Отойти от игры",
+        "titleUk": "Відійти від гри",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 1400,
+        "y": 680,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Пока хватит. Пересчитаю, что осталось.",
+        "textUk": "Поки досить. Перелічу, що лишилося.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-18",
+            "to": "evan-port-at-circle",
+            "label": "Вернуться к картам",
+            "labelUk": "Повернутися до карт",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v21-19",
+            "to": "evan-yard-after",
+            "label": "Вернуться во двор",
+            "labelUk": "Повернутися у двір"
+          },
+          {
+            "id": "v21-20",
+            "to": "evan-exchange-leave",
+            "label": "Разменять ещё серебра",
+            "labelUk": "Розміняти ще срібла",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          }
+        ],
+        "afterEffect": "evan-yard-played",
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-findings",
+      "before": {
+        "id": "evan-port-findings",
+        "kind": "dialogue",
+        "title": "Вещи вместо ставки?",
+        "titleUk": "Речі замість ставки?",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4830,
+        "y": 1325,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Есть счётчик. Сломанный, зато мелкий. Если до вещей дойдём — отдельно договоримся.",
+        "textUk": "Є лічильник. Зламаний, зате дрібний. Якщо до речей дійдемо — окремо домовимося.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-pen",
+            "text": "И магнитный камень. Только не за один гжавый медяк.",
+            "textUk": "І магнітний камінь. Тільки не за один ігжавий мідяк.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Сначала правила. Потом решу, что ставить.",
+            "textUk": "Спершу правила. Потім вирішу, що ставити.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v18-5",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "assets/stories/Evan/inspections/broken-counter-v2.png",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-findings",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4830,
+        "y": 1325,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-27",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "assets/stories/Evan/inspections/broken-counter-v2.png",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-stake",
+      "before": {
+        "id": "evan-port-stake",
+        "kind": "choice",
+        "title": "Сколько у кого?",
+        "titleUk": "Скільки в кого?",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4500,
+        "y": 1260,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Давайте на медь. У меня семь. Пен, у тебя?",
+        "textUk": "Давайте на мідь. У мене сім. Пене, у тебе?",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-pen",
+            "text": "Шесть. И не пгосги свои сразу.",
+            "textUk": "Шість. І не пгосги свої одразу.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Четыре. Только сначала объясни. Я их не для того копил, чтобы вслепую отдать.",
+            "textUk": "Чотири. Тільки спершу поясни. Я їх не для того збирав, щоб наосліп віддати.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "А у меня денег нет. Я посмотрю. Это вообще точно можно?",
+            "textUk": "А в мене грошей немає. Я подивлюся. Це взагалі точно можна?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Да не ной ты, бля. Сначала без ставки покажу. Никто твоих денег не трогает.",
+            "textUk": "Та не ний ти, бля. Спершу без ставки покажу. Ніхто твоїх грошей не чіпає.",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v18-2",
+            "to": "evan-exchange-leave",
+            "label": "Сначала разменяю серебро",
+            "labelUk": "Спершу розміняю срібло",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v18-3",
+            "to": "evan-port-free",
+            "label": "Показывай. Начнём без ставки",
+            "labelUk": "Показуй. Почнімо без ставки"
+          },
+          {
+            "id": "v18-4",
+            "to": "evan-port-findings",
+            "label": "А если медь кончится?",
+            "labelUk": "А якщо мідь скінчиться?"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-stake",
+        "kind": "choice",
+        "title": "Теперь о ставке",
+        "titleUk": "Тепер про ставку",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4500,
+        "y": 1260,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Только играем на деньги. А то опять полдня шуметь за просто так.",
+        "textUk": "Тільки граємо на гроші. Бо знову пів дня галасувати за просто так.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Тарин, не надо. Ты потом весь день злиться будешь.",
+            "textUk": "Таріне, не треба. Ти потім увесь день злитимешся.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "У меня четыре медных. Свои. Я сам решу.",
+            "textUk": "У мене чотири мідні. Свої. Я сам вирішу.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "У меня шесть. У Фельцега семь. Ты что поставишь, Еван?",
+            "textUk": "У мене шість. У Фельцега сім. Ти що поставиш, Еване?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Я ещё правил не знаю.",
+            "textUk": "Я ще правил не знаю.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Объясню до первой ставки. Не понравится — встанешь. Ну, играем?",
+            "textUk": "Поясню до першої ставки. Не сподобається — встанеш. Ну, граємо?",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v21-2",
+            "to": "evan-v21-silver",
+            "label": "У меня серебро",
+            "labelUk": "У мене срібло",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v21-3",
+            "to": "evan-v21-lida",
+            "label": "У меня есть медь. Играю",
+            "labelUk": "У мене є мідь. Граю",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "evan-lida-agreed"
+          },
+          {
+            "id": "v21-4",
+            "to": "evan-v21-decline",
+            "label": "Не хочу играть на деньги",
+            "labelUk": "Не хочу грати на гроші"
+          },
+          {
+            "id": "v21-32",
+            "to": "evan-port-at-circle",
+            "label": "У меня есть медь. Играю",
+            "labelUk": "У мене є мідь. Граю",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "",
+            "requires": "evan-lida-agreed"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-bargain",
+      "before": {
+        "id": "evan-port-bargain",
+        "kind": "choice",
+        "title": "Один за оба",
+        "titleUk": "Один за обидва",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Один за оба. Счётчик сломан, камень — обломок. Монета хотя бы целая.",
+        "textUk": "Один за обидва. Лічильник зламаний, камінь — уламок. Монета хоча б ціла.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Хитрожопый. Ладно, один. Только потом не ной.",
+            "textUk": "Хитросракий. Гаразд, один. Тільки потім не ний.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Сегебгяный пополам разменяем. Давай уже.",
+            "textUk": "Сгібняк навпіл розміняємо. Давай вже.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          }
+        ],
+        "links": [
+          {
+            "id": "v16-17",
+            "to": "evan-port-one",
+            "label": "Договорились",
+            "labelUk": "Домовилися",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v16-18",
+            "to": "evan-port-free",
+            "label": "Лучше без ставки",
+            "labelUk": "Краще без ставки"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-bargain",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-26",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-one",
+      "before": {
+        "id": "evan-port-one",
+        "kind": "dialogue",
+        "title": "Уговор",
+        "titleUk": "Угода",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Один серебряный. И ты тоже без нытья.",
+        "textUk": "Один срібняк. І ти теж без ниття.",
+        "emotion": "emotion-1789852957946",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v16-19",
+            "to": "evan-port-ready-paid",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-stake-one",
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-one",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-24",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-two",
+      "before": {
+        "id": "evan-port-two",
+        "kind": "dialogue",
+        "title": "Две монеты",
+        "titleUk": "Дві монети",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3920,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Два. Мама на сегодняшнюю поездку дала — обычно столько не даёт.",
+        "textUk": "Два. Мама на сьогоднішню поїздку дала — зазвичай стільки не дає.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Нихуя себе у тебя поездки… Ладно. Уговор.",
+            "textUk": "Ніхуя собі в тебе поїздки… Гаразд. Угода.",
+            "emotion": "shocked",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          }
+        ],
+        "links": [
+          {
+            "id": "v16-20",
+            "to": "evan-port-ready-paid",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-stake-two",
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-two",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3920,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-25",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-free",
+      "before": {
+        "id": "evan-port-free",
+        "kind": "dialogue",
+        "title": "Пробная партия",
+        "titleUk": "Пробна партія",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4280,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "speaker-1789852672609",
+        "text": "Сначала без денег. Я ещё ваши правила не видел.",
+        "textUk": "Спершу без грошей. Я ще ваших правил не бачив.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Ладно. Только карты держи к себе, а не всему двору показывай.",
+            "textUk": "Гаразд. Тільки карти тримай до себе, а не всьому двору показуй.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          }
+        ],
+        "links": [
+          {
+            "id": "v16-21",
+            "to": "evan-port-ready-free",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-stake-none",
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-free",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4280,
+        "y": 540,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-21",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-ready-paid",
+      "before": {
+        "id": "evan-port-ready-paid",
+        "kind": "dialogue",
+        "title": "Сначала пробуем",
+        "titleUk": "Спершу пробуємо",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-friend-lida",
+        "text": "Уговор запомнили. Сначала одна пробная — никто ничего не отдаёт.",
+        "textUk": "Угоду запам’ятали. Спершу одна пробна — ніхто нічого не віддає.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v16-22",
+            "to": "evan-port-at-circle",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-ready-paid",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-23",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-ready-free",
+      "before": {
+        "id": "evan-port-ready-free",
+        "kind": "dialogue",
+        "title": "Сдавай",
+        "titleUk": "Здавай",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-pen",
+        "text": "Иггаем уже. Фельцер, сдавай.",
+        "textUk": "Ггаємо вже. Фельцере, здавай.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v16-23",
+            "to": "evan-port-at-circle",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-ready-free",
+        "kind": "dialogue",
+        "title": "Перед картами",
+        "titleUk": "Перед картами",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3560,
+        "y": 880,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Сначала реши, играешь или нет. Вещи обсудим, если мелочь кончится.",
+        "textUk": "Спершу виріши, граєш чи ні. Речі обговоримо, якщо дрібні гроші скінчаться.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-22",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-at-circle",
+      "before": {
+        "id": "evan-port-at-circle",
+        "kind": "dialogue",
+        "title": "За мешковиной",
+        "titleUk": "За мішковиною",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 5160,
+        "y": 1390,
+        "portraitOverride": false,
+        "firstShowPortrait": false,
+        "speaker": "evan-courtyard-narrator",
+        "text": "На траве расстилают мешковину. Еван, Фельцер, Пен и Тарин садятся вокруг. Лида остаётся рядом.",
+        "textUk": "На траві розстеляють мішковину. Еван, Фельцер, Пен і Тарін сідають навколо. Ліда залишається поруч.",
+        "emotion": "",
+        "showPortrait": false,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v18-6",
+            "to": "evan-yard-finish",
+            "label": "Послушать правила",
+            "labelUk": "Послухати правила"
+          }
+        ],
+        "afterEffect": "evan-green-game-agreed",
+        "image": "",
+        "imageFit": "contain"
+      },
+      "after": {
+        "id": "evan-port-at-circle",
+        "kind": "dialogue",
+        "title": "Вокруг мешковины",
+        "titleUk": "Навколо мішковини",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 5160,
+        "y": 1390,
+        "portraitOverride": false,
+        "firstShowPortrait": false,
+        "speaker": "evan-courtyard-narrator",
+        "text": "Фельцер разглаживает мешковину и кладёт колоду у края. Тарин садится рядом с Лидой. Еван выкладывает медь перед собой.",
+        "textUk": "Фельцер розгладжує мішковину й кладе колоду біля краю. Тарін сідає поруч із Лідою. Еван викладає мідь перед собою.",
+        "emotion": "",
+        "showPortrait": false,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-14",
+            "to": "evan-yard-finish",
+            "label": "Продолжить",
+            "labelUk": "Продовжити"
+          }
+        ],
+        "afterEffect": "evan-green-game-agreed",
+        "image": "",
+        "imageFit": "contain"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-wait",
+      "before": {
+        "id": "evan-port-wait",
+        "kind": "dialogue",
+        "title": "Колода на мешковине",
+        "titleUk": "Колода на мішковині",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 1220,
+        "portraitOverride": false,
+        "firstShowPortrait": false,
+        "speaker": "evan-courtyard-narrator",
+        "text": "Карты уже разложены. Можно сыграть пробную партию.",
+        "textUk": "Карти вже розкладені. Можна зіграти пробну партію.",
+        "emotion": "",
+        "showPortrait": false,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v16-29",
+            "to": "evan-port-at-circle",
+            "label": "Сесть за карты",
+            "labelUk": "Сісти за карти"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain",
+        "repeatWhen": "evan-exchange-errand",
+        "repeatId": "evan-exchange-back"
+      },
+      "after": {
+        "id": "evan-port-wait",
+        "kind": "choice",
+        "title": "Колода на месте",
+        "titleUk": "Колода на місці",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 1220,
+        "portraitOverride": false,
+        "firstShowPortrait": true,
+        "speaker": "evan-port-feltser",
+        "text": "Садишься? Только с медью.",
+        "textUk": "Сідаєш? Тільки з міддю.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "portrait": "",
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-15",
+            "to": "evan-v21-lida",
+            "label": "У меня есть медь. Играю",
+            "labelUk": "У мене є мідь. Граю",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "evan-lida-agreed"
+          },
+          {
+            "id": "v21-16",
+            "to": "evan-v21-silver",
+            "label": "У меня серебро",
+            "labelUk": "У мене срібло",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v21-17",
+            "to": "evan-v21-decline",
+            "label": "Позже",
+            "labelUk": "Пізніше"
+          },
+          {
+            "id": "v21-33",
+            "to": "evan-port-at-circle",
+            "label": "У меня есть медь. Играю",
+            "labelUk": "У мене є мідь. Граю",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "",
+            "requires": "evan-lida-agreed"
+          }
+        ],
+        "image": "",
+        "imageFit": "contain",
+        "repeatWhen": "evan-exchange-errand",
+        "repeatId": "evan-exchange-back"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-port-arrival",
+      "before": {
+        "id": "evan-port-arrival",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 1550,
+        "title": "С причала",
+        "titleUk": "З причалу",
+        "speaker": "evan-port-feltser",
+        "text": "Вы серьёзно? Опять камушки? Чё за хернёй вы тут занимаетесь?",
+        "textUk": "Ви серйозно? Знову камінці? Що за хернею ви тут займаєтеся?",
+        "emotion": "pointing",
+        "showPortrait": true,
+        "portrait": "",
+        "image": "",
+        "imageFit": "contain",
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "А ты опять пришёл всем объяснять, как веселиться?",
+            "textUk": "А ти знову прийшов усім пояснювати, як веселитися?",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "В кагты давайте. На что-нибудь. А то бросил, поднял — охуеть занятие.",
+            "textUk": "У кагти давайте. На щось. А то кинув, підняв — охуїти заняття.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          },
+          {
+            "speaker": "evan-courtyard-narrator",
+            "text": "Пен плюхается на траву. Его горловое «р» царапает слова; Фельцер уже достаёт потрёпанную колоду.",
+            "textUk": "Пен гепається на траву. Його горлове «р» дряпає слова; Фельцер уже дістає пошарпану колоду.",
+            "emotion": "",
+            "showPortrait": false,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "А тебя не знаю. Как звать?",
+            "textUk": "А тебе не знаю. Як звати?",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Еван. А ты всегда сначала орёшь, потом знакомишься?",
+            "textUk": "Еван. А ти завжди спочатку горлаєш, потім знайомишся?",
+            "emotion": "emotion-1789852957946",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Фельцер. Это Пен. Ну что, Еван, покажешь, как надо?",
+            "textUk": "Фельцер. Це Пен. Ну що, Еване, покажеш, як треба?",
+            "emotion": "laughing",
+            "showPortrait": true,
+            "portrait": "",
+            "image": "",
+            "imageFit": "contain"
+          }
+        ],
+        "links": [
+          {
+            "id": "v18-1",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "kind": "dialogue",
+        "beforeWorldActions": [
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-port-feltser-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                36,
+                54
+              ]
+            ],
+            "durationMs": 1500
+          },
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-port-pen-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                57,
+                57
+              ]
+            ],
+            "durationMs": 1500
+          }
+        ]
+      },
+      "after": {
+        "id": "evan-port-arrival",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 3200,
+        "y": 1550,
+        "title": "Колода вместо камешков",
+        "titleUk": "Колода замість камінців",
+        "speaker": "evan-port-feltser",
+        "text": "Опять камушки? Вы ещё канаву палкой помешайте.",
+        "textUk": "Знову камінці? Ви ще канаву палицею помішайте.",
+        "emotion": "pointing",
+        "showPortrait": true,
+        "portrait": "",
+        "image": "",
+        "imageFit": "contain",
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "А ты нам занятие принёс или опять только рот?",
+            "textUk": "А ти нам заняття приніс чи знову лише рота?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-courtyard-narrator",
+            "text": "Фельцер вытаскивает потрёпанную колоду. На рубашке — башня, стиснутая когтями.",
+            "textUk": "Фельцер витягає пошарпану колоду. На сорочці — вежа, стиснута пазурами.",
+            "emotion": "",
+            "showPortrait": false
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Вот. «Башня и коготь». Смотри, только не замасли.",
+            "textUk": "Ось. «Вежа та кіготь». Дивись, тільки не замасти.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "А ты чей будешь? Раньше тебя тут не видел.",
+            "textUk": "А ти чий будеш? Раніше тебе тут не бачив.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Еван. А ты всегда так знакомишься?",
+            "textUk": "Еван. А ти завжди так знайомишся?",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Фельцер. Это Пен. Ладно, садись ближе.",
+            "textUk": "Фельцер. Це Пен. Гаразд, сідай ближче.",
+            "emotion": "laughing",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v21-1",
+            "to": "evan-port-stake",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "kind": "dialogue",
+        "beforeWorldActions": [
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-port-feltser-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                36,
+                54
+              ]
+            ],
+            "durationMs": 1500
+          },
+          {
+            "type": "move",
+            "sceneId": "scene-evan-green-courtyard",
+            "kind": "tokens",
+            "id": "evan-port-pen-token",
+            "points": [
+              [
+                47,
+                76
+              ],
+              [
+                48,
+                62
+              ],
+              [
+                57,
+                57
+              ]
+            ],
+            "durationMs": 1500
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-exchange-leave",
+      "before": {
+        "id": "evan-exchange-leave",
+        "title": "Нужна мелочь",
+        "titleUk": "Потрібні дрібні",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4400,
+        "y": 1870,
+        "kind": "choice",
+        "speaker": "speaker-1789852672609",
+        "text": "У меня серебро. Медь разменяете?",
+        "textUk": "У мене срібло. На мідь розміняєте?",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Да откуда у нас столько мелочи, бля? На улице поспрашивай. Мы пока колоду разложим.",
+            "textUk": "Та звідки в нас стільки дрібних, бля? На вулиці порозпитуй. Ми поки колоду розкладемо.",
+            "emotion": "speaking",
+            "showPortrait": true,
+            "firstShowPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "exchange-v17-1",
+            "to": "evan-exchange-street",
+            "label": "Выйти на улицу за разменом",
+            "labelUk": "Вийти на вулицю по розмін",
+            "sceneId": "scene-mu7f8tk1-6m4a",
+            "effect": "evan-exchange-errand"
+          },
+          {
+            "id": "exchange-v17-2",
+            "to": "evan-port-free",
+            "label": "Пока сыграем без денег",
+            "labelUk": "Поки зіграємо без грошей"
+          }
+        ]
+      },
+      "after": {
+        "id": "evan-exchange-leave",
+        "title": "За мелочью",
+        "titleUk": "По дрібні гроші",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4400,
+        "y": 1870,
+        "kind": "choice",
+        "speaker": "evan-port-feltser",
+        "text": "У прохожих спроси. Мы здесь, никуда твой будущий проигрыш не денется.",
+        "textUk": "У перехожих спитай. Ми тут, нікуди твій майбутній програш не дінеться.",
+        "emotion": "laughing",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-8",
+            "to": "evan-exchange-street",
+            "label": "Выйти на улицу",
+            "labelUk": "Вийти на вулицю",
+            "sceneId": "scene-mu7f8tk1-6m4a",
+            "effect": "evan-exchange-errand"
+          },
+          {
+            "id": "v21-9",
+            "to": "evan-v21-decline",
+            "label": "Пока не буду",
+            "labelUk": "Поки не буду"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-exchange-back",
+      "before": {
+        "id": "evan-exchange-back",
+        "title": "Снова у ребят",
+        "titleUk": "Знову в хлопців",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4100,
+        "y": 1975,
+        "kind": "choice",
+        "speaker": "evan-port-feltser",
+        "text": "Ну что, нашёл мелочь? Или пока без денег учимся?",
+        "textUk": "Ну що, знайшов дрібні? Чи поки без грошей вчимося?",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [
+          {
+            "id": "exchange-v17-3",
+            "to": "evan-port-free",
+            "label": "Медь есть. Сначала покажите правила",
+            "labelUk": "Мідь є. Спершу покажіть правила",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "exchange-v17-4",
+            "to": "evan-exchange-leave",
+            "label": "Ещё поищу размен",
+            "labelUk": "Ще пошукаю розмін"
+          },
+          {
+            "id": "exchange-v17-5",
+            "to": "evan-port-free",
+            "label": "Сыграем пробную без ставки",
+            "labelUk": "Зіграємо пробну без ставки"
+          }
+        ]
+      },
+      "after": {
+        "id": "evan-exchange-back",
+        "title": "Вернулся к колоде",
+        "titleUk": "Повернувся до колоди",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 4100,
+        "y": 1975,
+        "kind": "choice",
+        "speaker": "evan-port-feltser",
+        "text": "Ну что, мелочь нашлась?",
+        "textUk": "Ну що, дрібні гроші знайшлися?",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [
+          {
+            "id": "v21-10",
+            "to": "evan-v21-lida",
+            "label": "У меня есть медь. Играю",
+            "labelUk": "У мене є мідь. Граю",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "evan-lida-agreed"
+          },
+          {
+            "id": "v21-11",
+            "to": "evan-exchange-leave",
+            "label": "Ещё поищу размен",
+            "labelUk": "Ще пошукаю розмін",
+            "requiresItemId": "evan-silver-coin",
+            "requiresItemQty": 1
+          },
+          {
+            "id": "v21-12",
+            "to": "evan-v21-decline",
+            "label": "Сегодня без меня",
+            "labelUk": "Сьогодні без мене"
+          },
+          {
+            "id": "v21-34",
+            "to": "evan-port-at-circle",
+            "label": "У меня есть медь. Играю",
+            "labelUk": "У мене є мідь. Граю",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "",
+            "requires": "evan-lida-agreed"
+          }
+        ]
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-story-intro",
+      "before": {
+        "id": "card-story-intro",
+        "title": "Карты · до раздачи · правила",
+        "titleUk": "Карти · до роздачі · правила",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 5160,
+        "y": 1390,
+        "kind": "dialogue",
+        "speaker": "evan-port-feltser",
+        "text": "Глаза сюда. Две карты тебе, шесть — на стол. Собираешь лучшие шесть.",
+        "textUk": "Очі сюди. Дві карти тобі, шість — на стіл. Збираєш найкращі шість.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Цифры одинаковые — значит, пара?",
+            "textUk": "Цифри однакові — отже, пара?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Дуэт. Цвет не важен. Забудешь — справка слева.",
+            "textUk": "Дует. Колір неважливий. Забудеш — довідка ліворуч.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Сдавай уже. Я так состагюсь.",
+            "textUk": "Здавай уже. Я так постагію.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Сначала учебная медь. Сумки не трогаем. Поехали, бля.",
+            "textUk": "Спершу навчальна мідь. Торбинки не чіпаємо. Поїхали, бля.",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [],
+        "cardEvent": {
+          "enabled": true,
+          "phase": "intro",
+          "round": 1,
+          "once": true,
+          "maxVisit": 1
+        },
+        "cardAction": {
+          "kind": "example"
+        }
+      },
+      "after": {
+        "id": "card-story-intro",
+        "title": "Фельцер объясняет карты",
+        "titleUk": "Фельцер пояснює карти",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 5160,
+        "y": 1390,
+        "kind": "dialogue",
+        "speaker": "evan-port-feltser",
+        "text": "Так, деньги пока не двигай. Вот две карты. Видишь цифры?",
+        "textUk": "Так, гроші поки не рухай. Ось дві карти. Бачиш цифри?",
+        "emotion": "pointing",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Одинаковые. Хотя рисунки разные.",
+            "textUk": "Однакові. Хоча малюнки різні.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Это дуэт. Считаешь ранг, не морду на картинке. Красная и чёрная вместе тоже годятся.",
+            "textUk": "Це дует. Рахуєш ранг, а не пику на малюнку. Червона й чорна разом теж годяться.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "А мои карты вы не видите?",
+            "textUk": "А мої карти ви не бачите?",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Если сам не покажешь. Две твои — держишь к себе. Ещё шесть лягут сюда, общие.",
+            "textUk": "Якщо сам не покажеш. Дві твої — тримаєш до себе. Ще шість ляжуть сюди, спільні.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "То есть одну и ту же карту со стола могут взять все?",
+            "textUk": "Тобто одну й ту саму карту зі столу можуть узяти всі?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Для счёта — да. Руками не хватать. Из своих и общих выбираешь лучшие шесть.",
+            "textUk": "Для підрахунку — так. Руками не хапати. Зі своїх і спільних обираєш найкращі шість.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Тги одинаковых — отгяд. Две пагы — два дуэта. Шесть кагт не обязаны все быть полезными.",
+            "textUk": "Тги однакові — загін. Дві паги — два дуети. Шість кагт не мусять усі бути когисними.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Пять рангов подряд — тоже дело. Цвета мешать можно. Соберёшь ещё лучше — сравним.",
+            "textUk": "П’ять рангів поспіль — теж діло. Кольори мішати можна. Збереш ще краще — порівняємо.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Когда деньги ставить?",
+            "textUk": "Коли гроші ставити?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "По очереди. Если никто не поднял — можешь пропустить ставку и остаться.",
+            "textUk": "По черзі. Якщо ніхто не підняв — можеш пропустити ставку й лишитися.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Подняли — либо докладываешь столько же, либо пас. То, что уже поставил, назад не тянешь.",
+            "textUk": "Підняли — або докладаєш стільки ж, або пас. Те, що вже поставив, назад не тягнеш.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "А если не хватает?",
+            "textUk": "А якщо не вистачає?",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Ставишь остаток. Но на чужую лишнюю медь не претендуешь. Сначала считаем общий банк, потом добавку.",
+            "textUk": "Ставиш залишок. Але на чужу зайву мідь не претендуєш. Спершу рахуємо спільний банк, потім додаток.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "И не надо каждый раз ставить всё, Тарин.",
+            "textUk": "І не треба щоразу ставити все, Таріне.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Я услышал с первого раза.",
+            "textUk": "Я почув з першого разу.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Сначала открою три общие. Потом ещё две. Потом последнюю. Между ними успеешь и подумать, и передумать.",
+            "textUk": "Спершу відкрию три спільні. Потім ще дві. Потім останню. Між ними встигнеш і подумати, і передумати.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "А если все спасуют — последний забегаёт банк. Даже если у него полная хгень.",
+            "textUk": "А якщо всі спасують — останній забегає банк. Навіть якщо в нього повна хгінь.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Теперь понятно. Сдавай.",
+            "textUk": "Тепер зрозуміло. Здавай.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          }
+        ],
+        "links": [],
+        "cardEvent": {
+          "enabled": true,
+          "phase": "intro",
+          "round": 1,
+          "once": true,
+          "maxVisit": 1
+        },
+        "cardAction": {
+          "kind": "example"
+        }
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-story-milo-noticed",
+      "before": {
+        "id": "card-story-milo-noticed",
+        "title": "Карты · раунд 2 · три общие карты",
+        "titleUk": "Карти · раунд 2 · три спільні карти",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 5490,
+        "y": 1455,
+        "kind": "dialogue",
+        "speaker": "evan-port-feltser",
+        "text": "Блять! Кто это?.. Ты откуда взялся?",
+        "textUk": "Блять! Хто це?.. Ти звідки взявся?",
+        "emotion": "shocked",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-pen",
+            "text": "Да он тут уже стоит. Ты кагты-то от носа отодвинь.",
+            "textUk": "Та він тут уже стоїть. Ти кагти від носа відсунь.",
+            "emotion": "laughing",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Это Мило. Не ори на него.",
+            "textUk": "Це Мило. Не горлай на нього.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-yard-milo",
+            "text": "Я смотрел. Можно с вами?",
+            "textUk": "Я дивився. Можна з вами?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Мы только разбираемся. Ты во что раньше играл?",
+            "textUk": "Ми тільки розбираємося. Ти в що раніше грав?",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v18-7",
+            "to": "card-story-stones",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "cardEvent": {
+          "enabled": true,
+          "phase": "board",
+          "boardCount": 3,
+          "round": 2,
+          "once": true
+        }
+      },
+      "after": {
+        "id": "card-story-milo-noticed",
+        "title": "Карты · раунд 2 · три общие карты",
+        "titleUk": "Карти · раунд 2 · три спільні карти",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 5490,
+        "y": 1455,
+        "kind": "dialogue",
+        "speaker": "evan-port-feltser",
+        "text": "Блять! Кто это?.. Ты откуда взялся?",
+        "textUk": "Блять! Хто це?.. Ти звідки взявся?",
+        "emotion": "shocked",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-pen",
+            "text": "Да он тут уже стоит. Ты кагты-то от носа отодвинь.",
+            "textUk": "Та він тут уже стоїть. Ти кагти від носа відсунь.",
+            "emotion": "laughing",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Это Мило. Не ори на него.",
+            "textUk": "Це Мило. Не горлай на нього.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-yard-milo",
+            "text": "Я смотрел. Можно с вами?",
+            "textUk": "Я дивився. Можна з вами?",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Садись рядом. Сейчас эту раздачу закончим.",
+            "textUk": "Сідай поруч. Зараз цю роздачу закінчимо.",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v18-7",
+            "to": "card-story-stones",
+            "label": "Далее",
+            "labelUk": "Далі"
+          }
+        ],
+        "cardEvent": {
+          "enabled": true,
+          "phase": "guestAppeared",
+          "delaySeconds": 3,
+          "round": 0,
+          "once": true
+        }
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-social-stone",
+      "before": {
+        "id": "card-social-stone",
+        "title": "Карты · камушек Фельцера",
+        "titleUk": "Карти · камінчик Фельцера",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6540,
+        "y": 1810,
+        "kind": "choice",
+        "speaker": "evan-yard-milo",
+        "text": "Ай. Не кидай.",
+        "textUk": "Ай. Не кидай.",
+        "emotion": "sad",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Ха! Попал. Ты чего дёргаешься?",
+            "textUk": "Ха! Влучив. Ти чого смикаєшся?",
+            "emotion": "laughing",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Фельцер, ты играть сел или камнями швыряться?",
+            "textUk": "Фельцере, ти грати сів чи камінням жбурляти?",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v19-link-7",
+            "to": "card-social-stop-stone",
+            "label": "Фельцер, ещё раз — закончим игру",
+            "labelUk": "Фельцере, ще раз — закінчимо гру",
+            "effect": "noStones",
+            "rememberEffect": true
+          },
+          {
+            "id": "v19-link-8",
+            "to": "card-social-stone-grumble",
+            "label": "Убери камни. Играй",
+            "labelUk": "Прибери каміння. Грай",
+            "effect": "noStones",
+            "rememberEffect": true
+          }
+        ],
+        "cardEvent": {
+          "enabled": true,
+          "phase": "board",
+          "boardCount": 3,
+          "minRound": 5,
+          "everyRounds": 4,
+          "once": false,
+          "maxTimes": 1,
+          "requires": "guestJoined",
+          "group": "table-incident",
+          "participants": [
+            "speaker-1789852672609",
+            "evan-yard-milo",
+            "evan-port-feltser",
+            "evan-friend-tarin"
+          ],
+          "unless": "noStones"
+        },
+        "cardAction": {
+          "kind": "stone",
+          "from": "evan-port-feltser",
+          "to": "evan-yard-milo"
+        }
+      },
+      "after": {
+        "id": "card-social-stone",
+        "title": "Карты · камушек Фельцера",
+        "titleUk": "Карти · камінчик Фельцера",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6540,
+        "y": 1810,
+        "kind": "choice",
+        "speaker": "evan-yard-milo",
+        "text": "Ай. Не кидай.",
+        "textUk": "Ай. Не кидай.",
+        "emotion": "sad",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Ха! Попал. Ты чего дёргаешься?",
+            "textUk": "Ха! Влучив. Ти чого смикаєшся?",
+            "emotion": "laughing",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Фельцер, ты играть сел или камнями швыряться?",
+            "textUk": "Фельцере, ти грати сів чи камінням жбурляти?",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v19-link-7",
+            "to": "card-social-stop-stone",
+            "label": "Фельцер, ещё раз — закончим игру",
+            "labelUk": "Фельцере, ще раз — закінчимо гру",
+            "effect": "noStones",
+            "rememberEffect": true
+          },
+          {
+            "id": "v19-link-8",
+            "to": "card-social-stone-grumble",
+            "label": "Убери камни. Играй",
+            "labelUk": "Прибери каміння. Грай",
+            "effect": "noStones",
+            "rememberEffect": true
+          }
+        ],
+        "cardEvent": {
+          "enabled": true,
+          "phase": "afterEvent",
+          "afterEventId": "card-story-milo-noticed",
+          "delaySeconds": 2,
+          "round": 0,
+          "once": true,
+          "unless": "noStones",
+          "participants": [
+            "evan-port-feltser"
+          ]
+        },
+        "cardAction": {
+          "kind": "stone",
+          "from": "evan-port-feltser",
+          "to": "evan-yard-milo"
+        }
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-v21-silver",
+      "before": null,
+      "after": {
+        "id": "evan-v21-silver",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 1700,
+        "title": "Серебро в кошельке",
+        "titleUk": "Срібло в гаманці",
+        "speaker": "speaker-1789852672609",
+        "text": "Серебряных у меня — {{silver}}. Мама на поездку дала.",
+        "textUk": "Срібних у мене — {{silver}}. Мама на поїздку дала.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Ого. Нихуя себе у тебя поездка. Только сдачи у нас нет.",
+            "textUk": "Ого. Ніхуя собі в тебе поїздка. Тільки решти в нас немає.",
+            "emotion": "surprised",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Сегебго сначала газменяй. Мы тут лавку не откгываем.",
+            "textUk": "Срібло спегшу гозміняй. Ми тут кгамницю не відкгиваємо.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Ладно. Спрошу на улице. Всё на стол сразу выкладывать я не обещал.",
+            "textUk": "Гаразд. Спитаю на вулиці. Усе на стіл одразу викладати я не обіцяв.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v21-5",
+            "to": "evan-exchange-leave",
+            "label": "Пойду разменяю",
+            "labelUk": "Піду розміняю"
+          },
+          {
+            "id": "v21-6",
+            "to": "evan-v21-lida",
+            "label": "Медь тоже есть. Серебро оставлю",
+            "labelUk": "Мідь теж є. Срібло залишу",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "evan-lida-agreed"
+          },
+          {
+            "id": "v21-7",
+            "to": "evan-v21-decline",
+            "label": "Передумал",
+            "labelUk": "Передумав"
+          },
+          {
+            "id": "v21-35",
+            "to": "evan-port-at-circle",
+            "label": "Медь тоже есть. Серебро оставлю",
+            "labelUk": "Мідь теж є. Срібло залишу",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1,
+            "unless": "",
+            "requires": "evan-lida-agreed"
+          }
+        ],
+        "kind": "choice"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-v21-decline",
+      "before": null,
+      "after": {
+        "id": "evan-v21-decline",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 2200,
+        "title": "Не садиться за карты",
+        "titleUk": "Не сідати за карти",
+        "speaker": "speaker-1789852672609",
+        "text": "Нет, пока без меня.",
+        "textUk": "Ні, поки без мене.",
+        "emotion": "emotion-1789852989293",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Как знаешь. Мы не уходим.",
+            "textUk": "Як знаєш. Ми не йдемо.",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [],
+        "kind": "dialogue",
+        "afterEffect": "evan-exchange-errand"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "evan-v21-lida",
+      "before": null,
+      "after": {
+        "id": "evan-v21-lida",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 2300,
+        "title": "Лида меняет решение",
+        "titleUk": "Ліда змінює рішення",
+        "speaker": "evan-friend-lida",
+        "text": "Тарин, подожди. Ты ведь всё равно сядешь?",
+        "textUk": "Таріне, зачекай. Ти ж однаково сядеш?",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Сяду. Но в долг не полезу. Четыре — и всё.",
+            "textUk": "Сяду. Але в борг не полізу. Чотири — і все.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "Давай добавлю {{lidaContribution}} своих. Если выиграешь — поделимся. Только не швыряй всё сразу.",
+            "textUk": "Давай додам {{lidaContribution}} своїх. Якщо виграєш — поділимося. Тільки не кидай усе одразу.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Ты же только что меня отговаривала.",
+            "textUk": "Ти ж щойно мене відмовляла.",
+            "emotion": "smiling",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-lida",
+            "text": "И всё ещё считаю, что ты дурак. Поэтому сяду рядом.",
+            "textUk": "І досі вважаю, що ти дурень. Тому сяду поруч.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-friend-tarin",
+            "text": "Ладно. Договорились.",
+            "textUk": "Гаразд. Домовилися.",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v21-13",
+            "to": "evan-port-at-circle",
+            "label": "Сесть и послушать правила",
+            "labelUk": "Сісти й послухати правила",
+            "requiresItemId": "evan-copper-coin",
+            "requiresItemQty": 1
+          }
+        ],
+        "kind": "dialogue",
+        "repeatWhen": "evan-lida-agreed",
+        "repeatId": "evan-port-at-circle",
+        "afterEffect": "evan-lida-agreed"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-v21-offer-feltser",
+      "before": null,
+      "after": {
+        "id": "card-v21-offer-feltser",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 3900,
+        "title": "Нет меди · счётчик",
+        "titleUk": "Немає міді · лічильник",
+        "speaker": "evan-port-feltser",
+        "text": "Бля. Пусто. Погоди, у меня ещё счётчик есть.",
+        "textUk": "Бля. Порожньо. Стривай, у мене ще лічильник є.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Возьмёшь счётчик за {{stake:evan-port-feltser}} медных? Я на них ещё сыграю.",
+            "textUk": "Візьмеш лічильник за {{stake:evan-port-feltser}} мідних? Я на них ще зіграю.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Значит, вещь сразу моя. И потом обратно не требуешь.",
+            "textUk": "Отже, річ одразу моя. І потім назад не вимагаєш.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-feltser",
+            "text": "Договорились. Или не берёшь?",
+            "textUk": "Домовилися. Чи не береш?",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v21-28",
+            "to": "card-v21-offer-feltser-yes",
+            "label": "Договорились. Отдать медь за предмет",
+            "labelUk": "Домовилися. Віддати мідь за річ",
+            "cardPurchase": "evan-port-feltser",
+            "effect": "offerResolved:evan-port-feltser",
+            "rememberEffect": true
+          },
+          {
+            "id": "v21-29",
+            "to": "card-v21-offer-feltser-no",
+            "label": "Нет. Сегодня хватит",
+            "labelUk": "Ні. На сьогодні досить",
+            "effect": "offerResolved:evan-port-feltser",
+            "rememberEffect": true
+          }
+        ],
+        "kind": "choice",
+        "cardEvent": {
+          "enabled": true,
+          "phase": "roundEnd",
+          "round": 0,
+          "once": true,
+          "requires": "broke:evan-port-feltser",
+          "unless": "offerResolved:evan-port-feltser",
+          "participants": [
+            "evan-port-feltser",
+            "speaker-1789852672609"
+          ]
+        }
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-v21-offer-feltser-yes",
+      "before": null,
+      "after": {
+        "id": "card-v21-offer-feltser-yes",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 3900,
+        "title": "Вещь меняет владельца",
+        "titleUk": "Річ змінює власника",
+        "speaker": "evan-port-feltser",
+        "text": "Держи. С новой раздачи я опять в игре.",
+        "textUk": "Тримай. З нової роздачі я знову в грі.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [],
+        "kind": "dialogue"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-v21-offer-feltser-no",
+      "before": null,
+      "after": {
+        "id": "card-v21-offer-feltser-no",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 3900,
+        "title": "Без добавки",
+        "titleUk": "Без додатку",
+        "speaker": "evan-port-feltser",
+        "text": "Ладно, бля. Посмотрю, как остальные утонут.",
+        "textUk": "Гаразд, бля. Подивлюся, як інші потонуть.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [],
+        "kind": "dialogue"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-v21-offer-pen",
+      "before": null,
+      "after": {
+        "id": "card-v21-offer-pen",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 4100,
+        "title": "Нет меди · магнитный камень",
+        "titleUk": "Немає міді · магнітний камінь",
+        "speaker": "evan-port-pen",
+        "text": "Медь кончилась. А камень — нет.",
+        "textUk": "Мідь скінчилася. А камінь — ні.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [
+          {
+            "speaker": "evan-port-pen",
+            "text": "Возьмёшь магнитный камень за {{stake:evan-port-pen}} медных? Я на них ещё сыграю.",
+            "textUk": "Візьмеш магнітний камінь за {{stake:evan-port-pen}} мідних? Я на них ще зіграю.",
+            "emotion": "speaking",
+            "showPortrait": true
+          },
+          {
+            "speaker": "speaker-1789852672609",
+            "text": "Значит, вещь сразу моя. И потом обратно не требуешь.",
+            "textUk": "Отже, річ одразу моя. І потім назад не вимагаєш.",
+            "emotion": "emotion-1789852989293",
+            "showPortrait": true
+          },
+          {
+            "speaker": "evan-port-pen",
+            "text": "Договорились. Или не берёшь?",
+            "textUk": "Домовилися. Чи не береш?",
+            "emotion": "speaking",
+            "showPortrait": true
+          }
+        ],
+        "links": [
+          {
+            "id": "v21-30",
+            "to": "card-v21-offer-pen-yes",
+            "label": "Договорились. Отдать медь за предмет",
+            "labelUk": "Домовилися. Віддати мідь за річ",
+            "cardPurchase": "evan-port-pen",
+            "effect": "offerResolved:evan-port-pen",
+            "rememberEffect": true
+          },
+          {
+            "id": "v21-31",
+            "to": "card-v21-offer-pen-no",
+            "label": "Нет. Сегодня хватит",
+            "labelUk": "Ні. На сьогодні досить",
+            "effect": "offerResolved:evan-port-pen",
+            "rememberEffect": true
+          }
+        ],
+        "kind": "choice",
+        "cardEvent": {
+          "enabled": true,
+          "phase": "roundEnd",
+          "round": 0,
+          "once": true,
+          "requires": "broke:evan-port-pen",
+          "unless": "offerResolved:evan-port-pen",
+          "participants": [
+            "evan-port-pen",
+            "speaker-1789852672609"
+          ]
+        }
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-v21-offer-pen-yes",
+      "before": null,
+      "after": {
+        "id": "card-v21-offer-pen-yes",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 4100,
+        "title": "Вещь меняет владельца",
+        "titleUk": "Річ змінює власника",
+        "speaker": "evan-port-pen",
+        "text": "Держи. С новой раздачи я опять в игре.",
+        "textUk": "Тримай. З нової роздачі я знову в грі.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [],
+        "kind": "dialogue"
+      }
+    },
+    {
+      "collection": "nodes",
+      "id": "card-v21-offer-pen-no",
+      "before": null,
+      "after": {
+        "id": "card-v21-offer-pen-no",
+        "editorSceneId": "scene-evan-green-courtyard",
+        "x": 6200,
+        "y": 4100,
+        "title": "Без добавки",
+        "titleUk": "Без додатку",
+        "speaker": "evan-port-pen",
+        "text": "Ладно. Кагты убгал, глаза оставил.",
+        "textUk": "Гагазд. Кагти пгибгав, очі залишив.",
+        "emotion": "speaking",
+        "showPortrait": true,
+        "firstShowPortrait": true,
+        "slides": [],
+        "links": [],
+        "kind": "dialogue"
+      }
+    },
+    {
+      "property": "minigames",
+      "before": {
+        "towerClaw": {
+          "enabled": true,
+          "afterNodeId": "evan-port-at-circle",
+          "opponents": [
+            "evan-friend-tarin",
+            "evan-port-pen",
+            "evan-port-feltser"
+          ],
+          "styles": [
+            "cautious",
+            "balanced",
+            "bold"
+          ],
+          "stack": 20,
+          "stacks": [
+            20,
+            4,
+            6,
+            7
+          ],
+          "guestSpeakerId": "evan-yard-milo",
+          "guestStyle": "cautious",
+          "replies": {
+            "evan-port-feltser": {
+              "win": [
+                {
+                  "text": "Не плачь. Монеты попали в хорошую семью. Тебя не берём.",
+                  "textUk": "Не плач. Монети потрапили в добру родину. Тебе не беремо.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Спасибо за пожертвование. На лечение моей бедности.",
+                  "textUk": "Дякую за пожертву. На лікування моєї бідності.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вот это уже игра, бля.",
+                  "textUk": "Оце вже гра, бля.",
+                  "emotion": "laughing"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Бля. Хоть бы помолчали, пока я хороню свой ужин.",
+                  "textUk": "Бля. Хоч би помовчали, поки я ховаю свою вечерю.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Радуйся. На поминках моего кошеля сегодня ты угощаешь.",
+                  "textUk": "Радій. На поминках мого гаманця сьогодні ти пригощаєш.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Бля. Ладно, твои. Руки убери, я сам отдам.",
+                  "textUk": "Бля. Гаразд, твої. Руки прибери, я сам віддам.",
+                  "emotion": "angry"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Всё ставлю. Если сдохну с голоду — на похороны не жрите.",
+                  "textUk": "Усе ставлю. Якщо здохну з голоду — на похороні не жеріть.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Весь кошель. Бля, хоть могилу потом вскладчину копайте.",
+                  "textUk": "Увесь гаманець. Бля, хоч могилу потім гуртом копайте.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Весь кошель. Теперь смотрим друг другу в глаза.",
+                  "textUk": "Увесь гаманець. Тепер дивимося одне одному в очі.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Ещё сверху. Нищета должна подкрадываться с музыкой.",
+                  "textUk": "Ще зверху. Злидні мають підкрадатися з музикою.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Плати. Смотреть, как я тебя разоряю, бесплатно нельзя.",
+                  "textUk": "Плати. Дивитися, як я тебе розоряю, безкоштовно не можна.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Подниму. А то как в луже сидим.",
+                  "textUk": "Підніму. Бо наче в калюжі сидимо.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Бля, вот это сбор! Кого хороним? Ваши кошельки?",
+                  "textUk": "Бля, оце збір! Кого ховаємо? Ваші гаманці?",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я вас почти люблю. Пустыми не приходите.",
+                  "textUk": "Я вас майже люблю. З порожніми руками не приходьте.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вы так и на сапоги мне скинетесь.",
+                  "textUk": "Ви так і на чоботи мені скинетеся.",
+                  "emotion": "laughing"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Теперь меня хоть грабить не стыдно. Руки убрал, Пен.",
+                  "textUk": "Тепер мене хоч грабувати не соромно. Руки прибрав, Пене.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Куплю себе совесть. Подержанную — всё равно редко нужна.",
+                  "textUk": "Куплю собі совість. Уживану — все одно рідко потрібна.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вот теперь можно и проиграть. Шучу, хрен вам.",
+                  "textUk": "От тепер можна й програти. Жартую, хрін вам.",
+                  "emotion": "laughing"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Кошель лёгкий. Самое время бросить его в кого-нибудь.",
+                  "textUk": "Гаманець легкий. Саме час кинути ним у когось.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Бля. Ещё чуть-чуть — и грабить меня будет благотворительностью.",
+                  "textUk": "Бля. Ще трохи — і грабувати мене буде благодійністю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Последние — самые злые.",
+                  "textUk": "Останні — найлютіші.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "evan-port-pen": {
+              "win": [
+                {
+                  "text": "Не геви. У твоей меди тепегь есть будущее.",
+                  "textUk": "Не геви. У твоєї міді тепег є майбутнє.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Спасибо. На хлеб. Если Фельцег не сожгёт с кошелём.",
+                  "textUk": "Дякую. На хліб. Якщо Фельцег не зжеге з гаманцем.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Ага. Вот так и надо было.",
+                  "textUk": "Ага. Отак і треба було.",
+                  "emotion": "laughing"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Не сгебай так быстго. Покойникам дают пгоститься.",
+                  "textUk": "Не зггібай так швидко. З небіжчиками дають попгощатися.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Всё. Мой ужин тепегь у тебя. Подавись мысленно.",
+                  "textUk": "Усе. Моя вечегя тепег у тебе. Вдавися подумки.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Не сгебай так быстго. Я пгощаюсь.",
+                  "textUk": "Не зггібай так швидко. Я пгощаюся.",
+                  "emotion": "angry"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Всё ставлю. Если пгоиггаю — я вас не знаю. Особенно к ужину.",
+                  "textUk": "Усе ставлю. Якщо пгоггаю — я вас не знаю. Особливо до вечегі.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ва-банк. Кто скажет «не в деньгах счастье» — получит кошелём.",
+                  "textUk": "Ва-банк. Хто скаже «не в ггошах щастя» — дістане гаманцем.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ставлю всё. Сейчас либо богато, либо домой.",
+                  "textUk": "Ставлю все. Зараз або багато, або додому.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Ещё медь. Ггобовщик тоже бесплатно не габотает.",
+                  "textUk": "Ще мідь. Тгунаг теж безкоштовно не пгацює.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Догоже. У твоего кошеля последние минуты, не тогопи.",
+                  "textUk": "Догожче. У твого гаманця останні хвилини, не квап.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Догоже будет.",
+                  "textUk": "Догожче буде.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Фельцег, гот закгой. Наследство туда не поместится.",
+                  "textUk": "Фельцег, гот закгий. Спадок туди не влізе.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вот это куча. Даже стгашно домой идти. С вами.",
+                  "textUk": "Оце купа. Навіть стгашно додому йти. З вами.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Фельцег, гот закгой. Монета залетит.",
+                  "textUk": "Фельцег, гот закгий. Монета залетить.",
+                  "emotion": "laughing"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Тепегь у меня есть что оставить после смегти. Вам — ничего.",
+                  "textUk": "Тепег у мене є що лишити після смегті. Вам — нічого.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Кошель ггемит. Отлично. Вогам даже искать не надо.",
+                  "textUk": "Гаманець ггимить. Чудово. Злодіям навіть шукати не тгеба.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я бы убгал часть. От ваших глаз.",
+                  "textUk": "Я б пгибгав частину. Від ваших очей.",
+                  "emotion": "laughing"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Две монеты. Одна мне, дгугая тому, кто меня докопает.",
+                  "textUk": "Дві монети. Одна мені, дгуга тому, хто мене докопає.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Не хогоните. На лопату у вас тоже нет.",
+                  "textUk": "Не ховайте. На лопату у вас теж немає.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ещё есть. Не хогоните.",
+                  "textUk": "Ще є. Не ховайте.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "evan-friend-tarin": {
+              "win": [
+                {
+                  "text": "Фух. Это обратно в кошель.",
+                  "textUk": "Фух. Це назад у гаманець.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Вот теперь можно дышать.",
+                  "textUk": "От тепер можна дихати.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Не зря досидел.",
+                  "textUk": "Не дарма досидів.",
+                  "emotion": "smiling"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Я же хотел пропустить.",
+                  "textUk": "Я ж хотів пропустити.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Так. Без глупостей дальше.",
+                  "textUk": "Так. Без дурниць далі.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Не трогай, сам отсчитаю.",
+                  "textUk": "Не чіпай, сам відрахую.",
+                  "emotion": "speaking"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Всё. Только не торопите.",
+                  "textUk": "Усе. Тільки не квапте.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ладно. Ставлю всё, что осталось.",
+                  "textUk": "Гаразд. Ставлю все, що лишилося.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Я решил. Все монеты.",
+                  "textUk": "Я вирішив. Усі монети.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Добавлю. Немного.",
+                  "textUk": "Додам. Трохи.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Один раз рискну.",
+                  "textUk": "Один раз ризикну.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Поднимаю. Да, я уверен.",
+                  "textUk": "Піднімаю. Так, я впевнений.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Столько у меня с утра не было.",
+                  "textUk": "Стільки в мене зранку не було.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Погоди. Надо пересчитать.",
+                  "textUk": "Зачекай. Треба перелічити.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Вот это лучше сразу отложить.",
+                  "textUk": "Оце краще одразу відкласти.",
+                  "emotion": "smiling"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Столько уже набралось. Страшно рисковать всем.",
+                  "textUk": "Стільки вже набралося. Страшно ризикувати всім.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Не думал, что столько соберётся.",
+                  "textUk": "Не думав, що стільки збереться.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Теперь бы не отдать обратно.",
+                  "textUk": "Тепер би не віддати назад.",
+                  "emotion": "smiling"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Это последние. Я помню.",
+                  "textUk": "Це останні. Я пам’ятаю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Нет, разгоняться уже не буду.",
+                  "textUk": "Ні, розганятися вже не буду.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Каждую теперь жалко.",
+                  "textUk": "Кожної тепер шкода.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "evan-yard-milo": {
+              "win": [
+                {
+                  "text": "Мне? Я сам собрал?",
+                  "textUk": "Мені? Я сам зібрав?",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Эти ко мне. Теперь понял.",
+                  "textUk": "Ці до мене. Тепер зрозумів.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я выиграл. Еван, ты видел?",
+                  "textUk": "Я виграв. Еване, ти бачив?",
+                  "emotion": "laughing"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "А, твои. Я уберу руки.",
+                  "textUk": "А, твої. Я приберу руки.",
+                  "emotion": "sad"
+                },
+                {
+                  "text": "Я думал, хватит.",
+                  "textUk": "Я думав, вистачить.",
+                  "emotion": "sad"
+                },
+                {
+                  "text": "Покажешь потом, где я не так?",
+                  "textUk": "Покажеш потім, де я не так?",
+                  "emotion": "sad"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Все сюда? Я все поставлю.",
+                  "textUk": "Усі сюди? Я всі поставлю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Вот. Больше нет.",
+                  "textUk": "Ось. Більше немає.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Я тоже всё. Карты пока оставлю.",
+                  "textUk": "Я теж усе. Карти поки залишу.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Ещё одну. Эту.",
+                  "textUk": "Ще одну. Цю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Я добавлю. Можно так.",
+                  "textUk": "Я додам. Можна так.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Теперь больше. Я посчитал.",
+                  "textUk": "Тепер більше. Я порахував.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Ой. Не рассыпьте.",
+                  "textUk": "Ой. Не розсипте.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "А можно двумя руками?",
+                  "textUk": "А можна двома руками?",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Большая кучка. Моя большая кучка.",
+                  "textUk": "Велика купка. Моя велика купка.",
+                  "emotion": "laughing"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Смотри. Тут уже горка.",
+                  "textUk": "Дивись. Тут уже гірка.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я их ровно сложу.",
+                  "textUk": "Я їх рівно складу.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Теперь звенят громко.",
+                  "textUk": "Тепер дзвенять голосно.",
+                  "emotion": "laughing"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Не теряйтесь. Вас мало.",
+                  "textUk": "Не губіться. Вас мало.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Мало стало.",
+                  "textUk": "Мало стало.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Эту пока подержу.",
+                  "textUk": "Цю поки потримаю.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "speaker-1789852672609": {
+              "win": [
+                {
+                  "text": "Сошлось. Забираю.",
+                  "textUk": "Зійшлося. Забираю.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Вот теперь понял.",
+                  "textUk": "От тепер зрозумів.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Не зря подождал.",
+                  "textUk": "Не дарма почекав.",
+                  "emotion": "emotion-1789852957946"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Поторопился.",
+                  "textUk": "Поквапився.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Ладно. Запомню.",
+                  "textUk": "Гаразд. Запам’ятаю.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Красиво. Но я ещё здесь.",
+                  "textUk": "Гарно. Але я ще тут.",
+                  "emotion": "emotion-1789852989293"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Все на стол. Смотрим.",
+                  "textUk": "Усі на стіл. Дивимося.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Всё, что осталось.",
+                  "textUk": "Усе, що лишилося.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Ва-банк. Решайте.",
+                  "textUk": "Ва-банк. Вирішуйте.",
+                  "emotion": "emotion-1789852989293"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Добавлю.",
+                  "textUk": "Додам.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "За следующую карту — дороже.",
+                  "textUk": "За наступну карту — дорожче.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Поднимаю. Твой ответ?",
+                  "textUk": "Піднімаю. Твоя відповідь?",
+                  "emotion": "emotion-1789852989293"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Ничего себе.",
+                  "textUk": "Нічого собі.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Теперь бы не раздать обратно.",
+                  "textUk": "Тепер би не роздати назад.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Вот это уже ощутимо.",
+                  "textUk": "Оце вже відчутно.",
+                  "emotion": "emotion-1789852957946"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Кошель потяжелел.",
+                  "textUk": "Гаманець поважчав.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Хватит на ещё один круг.",
+                  "textUk": "Вистачить на ще одне коло.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Эти пересчитаю сам.",
+                  "textUk": "Ці перелічу сам.",
+                  "emotion": "emotion-1789852957946"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Почти пусто. Осторожнее.",
+                  "textUk": "Майже порожньо. Обережніше.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Последнюю просто так не отдам.",
+                  "textUk": "Останню просто так не віддам.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Теперь каждый медяк считается.",
+                  "textUk": "Тепер кожен мідяк рахується.",
+                  "emotion": "emotion-1789852989293"
+                }
+              ]
+            }
+          },
+          "socialReplies": true,
+          "actionRepliesPerRound": 2,
+          "firstRoundThinkMs": 2400,
+          "npcThinkMs": 1700
+        }
+      },
+      "after": {
+        "towerClaw": {
+          "enabled": true,
+          "afterNodeId": "evan-port-at-circle",
+          "opponents": [
+            "evan-friend-tarin",
+            "evan-port-pen",
+            "evan-port-feltser"
+          ],
+          "styles": [
+            "cautious",
+            "balanced",
+            "bold"
+          ],
+          "stack": 20,
+          "stacks": [
+            20,
+            4,
+            6,
+            7
+          ],
+          "guestSpeakerId": "evan-yard-milo",
+          "guestStyle": "cautious",
+          "replies": {
+            "evan-port-feltser": {
+              "win": [
+                {
+                  "text": "Не плачь. Монеты попали в хорошую семью. Тебя не берём.",
+                  "textUk": "Не плач. Монети потрапили в добру родину. Тебе не беремо.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Спасибо за пожертвование. На лечение моей бедности.",
+                  "textUk": "Дякую за пожертву. На лікування моєї бідності.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вот это уже игра, бля.",
+                  "textUk": "Оце вже гра, бля.",
+                  "emotion": "laughing"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Бля. Хоть бы помолчали, пока я хороню свой ужин.",
+                  "textUk": "Бля. Хоч би помовчали, поки я ховаю свою вечерю.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Радуйся. На поминках моего кошеля сегодня ты угощаешь.",
+                  "textUk": "Радій. На поминках мого гаманця сьогодні ти пригощаєш.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Бля. Ладно, твои. Руки убери, я сам отдам.",
+                  "textUk": "Бля. Гаразд, твої. Руки прибери, я сам віддам.",
+                  "emotion": "angry"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Всё ставлю. Если сдохну с голоду — на похороны не жрите.",
+                  "textUk": "Усе ставлю. Якщо здохну з голоду — на похороні не жеріть.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Весь кошель. Бля, хоть могилу потом вскладчину копайте.",
+                  "textUk": "Увесь гаманець. Бля, хоч могилу потім гуртом копайте.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Весь кошель. Теперь смотрим друг другу в глаза.",
+                  "textUk": "Увесь гаманець. Тепер дивимося одне одному в очі.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Ещё сверху. Нищета должна подкрадываться с музыкой.",
+                  "textUk": "Ще зверху. Злидні мають підкрадатися з музикою.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Плати. Смотреть, как я тебя разоряю, бесплатно нельзя.",
+                  "textUk": "Плати. Дивитися, як я тебе розоряю, безкоштовно не можна.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Подниму. А то как в луже сидим.",
+                  "textUk": "Підніму. Бо наче в калюжі сидимо.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Бля, вот это сбор! Кого хороним? Ваши кошельки?",
+                  "textUk": "Бля, оце збір! Кого ховаємо? Ваші гаманці?",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я вас почти люблю. Пустыми не приходите.",
+                  "textUk": "Я вас майже люблю. З порожніми руками не приходьте.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вы так и на сапоги мне скинетесь.",
+                  "textUk": "Ви так і на чоботи мені скинетеся.",
+                  "emotion": "laughing"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Теперь меня хоть грабить не стыдно. Руки убрал, Пен.",
+                  "textUk": "Тепер мене хоч грабувати не соромно. Руки прибрав, Пене.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Куплю себе совесть. Подержанную — всё равно редко нужна.",
+                  "textUk": "Куплю собі совість. Уживану — все одно рідко потрібна.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вот теперь можно и проиграть. Шучу, хрен вам.",
+                  "textUk": "От тепер можна й програти. Жартую, хрін вам.",
+                  "emotion": "laughing"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Кошель лёгкий. Самое время бросить его в кого-нибудь.",
+                  "textUk": "Гаманець легкий. Саме час кинути ним у когось.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Бля. Ещё чуть-чуть — и грабить меня будет благотворительностью.",
+                  "textUk": "Бля. Ще трохи — і грабувати мене буде благодійністю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Последние — самые злые.",
+                  "textUk": "Останні — найлютіші.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "evan-port-pen": {
+              "win": [
+                {
+                  "text": "Не геви. У твоей меди тепегь есть будущее.",
+                  "textUk": "Не геви. У твоєї міді тепег є майбутнє.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Спасибо. На хлеб. Если Фельцег не сожгёт с кошелём.",
+                  "textUk": "Дякую. На хліб. Якщо Фельцег не зжеге з гаманцем.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Ага. Вот так и надо было.",
+                  "textUk": "Ага. Отак і треба було.",
+                  "emotion": "laughing"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Не сгебай так быстго. Покойникам дают пгоститься.",
+                  "textUk": "Не зггібай так швидко. З небіжчиками дають попгощатися.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Всё. Мой ужин тепегь у тебя. Подавись мысленно.",
+                  "textUk": "Усе. Моя вечегя тепег у тебе. Вдавися подумки.",
+                  "emotion": "angry"
+                },
+                {
+                  "text": "Не сгебай так быстго. Я пгощаюсь.",
+                  "textUk": "Не зггібай так швидко. Я пгощаюся.",
+                  "emotion": "angry"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Всё ставлю. Если пгоиггаю — я вас не знаю. Особенно к ужину.",
+                  "textUk": "Усе ставлю. Якщо пгоггаю — я вас не знаю. Особливо до вечегі.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ва-банк. Кто скажет «не в деньгах счастье» — получит кошелём.",
+                  "textUk": "Ва-банк. Хто скаже «не в ггошах щастя» — дістане гаманцем.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ставлю всё. Сейчас либо богато, либо домой.",
+                  "textUk": "Ставлю все. Зараз або багато, або додому.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Ещё медь. Ггобовщик тоже бесплатно не габотает.",
+                  "textUk": "Ще мідь. Тгунаг теж безкоштовно не пгацює.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Догоже. У твоего кошеля последние минуты, не тогопи.",
+                  "textUk": "Догожче. У твого гаманця останні хвилини, не квап.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Догоже будет.",
+                  "textUk": "Догожче буде.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Фельцег, гот закгой. Наследство туда не поместится.",
+                  "textUk": "Фельцег, гот закгий. Спадок туди не влізе.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Вот это куча. Даже стгашно домой идти. С вами.",
+                  "textUk": "Оце купа. Навіть стгашно додому йти. З вами.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Фельцег, гот закгой. Монета залетит.",
+                  "textUk": "Фельцег, гот закгий. Монета залетить.",
+                  "emotion": "laughing"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Тепегь у меня есть что оставить после смегти. Вам — ничего.",
+                  "textUk": "Тепег у мене є що лишити після смегті. Вам — нічого.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Кошель ггемит. Отлично. Вогам даже искать не надо.",
+                  "textUk": "Гаманець ггимить. Чудово. Злодіям навіть шукати не тгеба.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я бы убгал часть. От ваших глаз.",
+                  "textUk": "Я б пгибгав частину. Від ваших очей.",
+                  "emotion": "laughing"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Две монеты. Одна мне, дгугая тому, кто меня докопает.",
+                  "textUk": "Дві монети. Одна мені, дгуга тому, хто мене докопає.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Не хогоните. На лопату у вас тоже нет.",
+                  "textUk": "Не ховайте. На лопату у вас теж немає.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ещё есть. Не хогоните.",
+                  "textUk": "Ще є. Не ховайте.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "evan-friend-tarin": {
+              "win": [
+                {
+                  "text": "Фух. Это обратно в кошель.",
+                  "textUk": "Фух. Це назад у гаманець.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Вот теперь можно дышать.",
+                  "textUk": "От тепер можна дихати.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Не зря досидел.",
+                  "textUk": "Не дарма досидів.",
+                  "emotion": "smiling"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Я же хотел пропустить.",
+                  "textUk": "Я ж хотів пропустити.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Так. Без глупостей дальше.",
+                  "textUk": "Так. Без дурниць далі.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Не трогай, сам отсчитаю.",
+                  "textUk": "Не чіпай, сам відрахую.",
+                  "emotion": "speaking"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Всё. Только не торопите.",
+                  "textUk": "Усе. Тільки не квапте.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Ладно. Ставлю всё, что осталось.",
+                  "textUk": "Гаразд. Ставлю все, що лишилося.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Я решил. Все монеты.",
+                  "textUk": "Я вирішив. Усі монети.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Добавлю. Немного.",
+                  "textUk": "Додам. Трохи.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Один раз рискну.",
+                  "textUk": "Один раз ризикну.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Поднимаю. Да, я уверен.",
+                  "textUk": "Піднімаю. Так, я впевнений.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Столько у меня с утра не было.",
+                  "textUk": "Стільки в мене зранку не було.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Погоди. Надо пересчитать.",
+                  "textUk": "Зачекай. Треба перелічити.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Вот это лучше сразу отложить.",
+                  "textUk": "Оце краще одразу відкласти.",
+                  "emotion": "smiling"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Столько уже набралось. Страшно рисковать всем.",
+                  "textUk": "Стільки вже набралося. Страшно ризикувати всім.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Не думал, что столько соберётся.",
+                  "textUk": "Не думав, що стільки збереться.",
+                  "emotion": "smiling"
+                },
+                {
+                  "text": "Теперь бы не отдать обратно.",
+                  "textUk": "Тепер би не віддати назад.",
+                  "emotion": "smiling"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Это последние. Я помню.",
+                  "textUk": "Це останні. Я пам’ятаю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Нет, разгоняться уже не буду.",
+                  "textUk": "Ні, розганятися вже не буду.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Каждую теперь жалко.",
+                  "textUk": "Кожної тепер шкода.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "evan-yard-milo": {
+              "win": [
+                {
+                  "text": "Мне? Я сам собрал?",
+                  "textUk": "Мені? Я сам зібрав?",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Эти ко мне. Теперь понял.",
+                  "textUk": "Ці до мене. Тепер зрозумів.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я выиграл. Еван, ты видел?",
+                  "textUk": "Я виграв. Еване, ти бачив?",
+                  "emotion": "laughing"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "А, твои. Я уберу руки.",
+                  "textUk": "А, твої. Я приберу руки.",
+                  "emotion": "sad"
+                },
+                {
+                  "text": "Я думал, хватит.",
+                  "textUk": "Я думав, вистачить.",
+                  "emotion": "sad"
+                },
+                {
+                  "text": "Покажешь потом, где я не так?",
+                  "textUk": "Покажеш потім, де я не так?",
+                  "emotion": "sad"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Все сюда? Я все поставлю.",
+                  "textUk": "Усі сюди? Я всі поставлю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Вот. Больше нет.",
+                  "textUk": "Ось. Більше немає.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Я тоже всё. Карты пока оставлю.",
+                  "textUk": "Я теж усе. Карти поки залишу.",
+                  "emotion": "speaking"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Ещё одну. Эту.",
+                  "textUk": "Ще одну. Цю.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Я добавлю. Можно так.",
+                  "textUk": "Я додам. Можна так.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Теперь больше. Я посчитал.",
+                  "textUk": "Тепер більше. Я порахував.",
+                  "emotion": "speaking"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Ой. Не рассыпьте.",
+                  "textUk": "Ой. Не розсипте.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "А можно двумя руками?",
+                  "textUk": "А можна двома руками?",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Большая кучка. Моя большая кучка.",
+                  "textUk": "Велика купка. Моя велика купка.",
+                  "emotion": "laughing"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Смотри. Тут уже горка.",
+                  "textUk": "Дивись. Тут уже гірка.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Я их ровно сложу.",
+                  "textUk": "Я їх рівно складу.",
+                  "emotion": "laughing"
+                },
+                {
+                  "text": "Теперь звенят громко.",
+                  "textUk": "Тепер дзвенять голосно.",
+                  "emotion": "laughing"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Не теряйтесь. Вас мало.",
+                  "textUk": "Не губіться. Вас мало.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Мало стало.",
+                  "textUk": "Мало стало.",
+                  "emotion": "speaking"
+                },
+                {
+                  "text": "Эту пока подержу.",
+                  "textUk": "Цю поки потримаю.",
+                  "emotion": "speaking"
+                }
+              ]
+            },
+            "speaker-1789852672609": {
+              "win": [
+                {
+                  "text": "Сошлось. Забираю.",
+                  "textUk": "Зійшлося. Забираю.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Вот теперь понял.",
+                  "textUk": "От тепер зрозумів.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Не зря подождал.",
+                  "textUk": "Не дарма почекав.",
+                  "emotion": "emotion-1789852957946"
+                }
+              ],
+              "loss": [
+                {
+                  "text": "Поторопился.",
+                  "textUk": "Поквапився.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Ладно. Запомню.",
+                  "textUk": "Гаразд. Запам’ятаю.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Красиво. Но я ещё здесь.",
+                  "textUk": "Гарно. Але я ще тут.",
+                  "emotion": "emotion-1789852989293"
+                }
+              ],
+              "allin": [
+                {
+                  "text": "Все на стол. Смотрим.",
+                  "textUk": "Усі на стіл. Дивимося.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Всё, что осталось.",
+                  "textUk": "Усе, що лишилося.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Ва-банк. Решайте.",
+                  "textUk": "Ва-банк. Вирішуйте.",
+                  "emotion": "emotion-1789852989293"
+                }
+              ],
+              "raise": [
+                {
+                  "text": "Добавлю.",
+                  "textUk": "Додам.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "За следующую карту — дороже.",
+                  "textUk": "За наступну карту — дорожче.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Поднимаю. Твой ответ?",
+                  "textUk": "Піднімаю. Твоя відповідь?",
+                  "emotion": "emotion-1789852989293"
+                }
+              ],
+              "bigWin": [
+                {
+                  "text": "Ничего себе.",
+                  "textUk": "Нічого собі.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Теперь бы не раздать обратно.",
+                  "textUk": "Тепер би не роздати назад.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Вот это уже ощутимо.",
+                  "textUk": "Оце вже відчутно.",
+                  "emotion": "emotion-1789852957946"
+                }
+              ],
+              "rich": [
+                {
+                  "text": "Кошель потяжелел.",
+                  "textUk": "Гаманець поважчав.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Хватит на ещё один круг.",
+                  "textUk": "Вистачить на ще одне коло.",
+                  "emotion": "emotion-1789852957946"
+                },
+                {
+                  "text": "Эти пересчитаю сам.",
+                  "textUk": "Ці перелічу сам.",
+                  "emotion": "emotion-1789852957946"
+                }
+              ],
+              "lowMoney": [
+                {
+                  "text": "Почти пусто. Осторожнее.",
+                  "textUk": "Майже порожньо. Обережніше.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Последнюю просто так не отдам.",
+                  "textUk": "Останню просто так не віддам.",
+                  "emotion": "emotion-1789852989293"
+                },
+                {
+                  "text": "Теперь каждый медяк считается.",
+                  "textUk": "Тепер кожен мідяк рахується.",
+                  "emotion": "emotion-1789852989293"
+                }
+              ]
+            }
+          },
+          "socialReplies": true,
+          "actionRepliesPerRound": 2,
+          "firstRoundThinkMs": 2400,
+          "npcThinkMs": 1700,
+          "realMoney": true,
+          "currencyItemId": "evan-copper-coin",
+          "sponsor": {
+            "playerId": "evan-friend-tarin",
+            "speakerId": "evan-friend-lida",
+            "amount": 6,
+            "profitShare": 0.5
+          },
+          "itemStakes": [
+            {
+              "speakerId": "evan-port-feltser",
+              "itemId": "evan-broken-counter",
+              "value": 5
+            },
+            {
+              "speakerId": "evan-port-pen",
+              "itemId": "evan-lodestone-fragment",
+              "value": 3
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
