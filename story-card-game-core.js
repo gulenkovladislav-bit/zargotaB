@@ -44,9 +44,12 @@
   }
   function create(options,random){
     options=options||{};var count=Math.max(2,Math.min(5,Math.floor(Number(options.players)||4))),stack=Math.max(5,Math.min(1000,Math.floor(Number(options.stack)||20)));
-    var game={deck:deck(random),players:[],board:[],round:0,pot:0,target:0,pending:[],turn:0,raised:false,done:false,winners:[],paid:0};
-    for(var i=0;i<count;i++){var supplied=options.stacks&&options.stacks[i],money=Number.isFinite(supplied)?Math.max(0,Math.min(100000,Math.floor(supplied))):stack;game.players.push({hand:[game.deck.pop(),game.deck.pop()],stack:money,bet:0,contributed:0,folded:money===0});}
-    game.pending=active(game);game.turn=game.pending[0];if(game.pending.length<2){game.done=true;game.winners=game.pending.slice();game.turn=-1;}return game;
+    var ante=Math.max(0,Math.min(1000,Math.floor(Number(options.ante)||0)));
+    var game={ante:ante,deck:deck(random),players:[],board:[],round:0,pot:0,target:0,pending:[],turn:0,raised:false,done:false,winners:[],paid:0};
+    for(var i=0;i<count;i++){var supplied=options.stacks&&options.stacks[i],money=Number.isFinite(supplied)?Math.max(0,Math.min(100000,Math.floor(supplied))):stack;game.players.push({hand:[game.deck.pop(),game.deck.pop()],stack:money,bet:0,contributed:0,folded:money===0||money<ante});}
+    game.pending=active(game);game.turn=game.pending[0];if(game.pending.length<2||options.requireHero&&game.players[0].folded){game.done=true;game.winners=[];game.turn=-1;return game;}
+    game.pending.forEach(function(i){var p=game.players[i];p.stack-=ante;p.contributed=ante;game.pot+=ante;});
+    game.pending=funded(game);if(game.pending.length<2)game.pending=[];advance(game);return game;
   }
   function active(game){return game.players.map(function(p,i){return p.folded?-1:i;}).filter(function(i){return i>=0;});}
   function funded(game){return active(game).filter(function(i){return game.players[i].stack>0;});}
@@ -81,20 +84,55 @@
     game.pending=game.pending.filter(function(i){return i!==index&&!game.players[i].folded&&game.players[i].stack>0;});
     if(active(game).length===1){settle(game);return true;}
     var remaining=funded(game);if(remaining.length===1&&game.players[remaining[0]].bet>=game.target)game.pending=[];
+    advance(game);return true;
+  }
+  function advance(game){
     while(!game.pending.length){
       if(game.round===3){settle(game);return true;}
       var draw=[3,2,1][game.round++];while(draw--)game.board.push(game.deck.pop());
       game.target=0;game.raised=false;game.players.forEach(function(p){p.bet=0;});game.pending=funded(game);if(game.pending.length<2)game.pending=[];
     }
-    game.turn=game.pending[0];return true;
+    game.turn=game.pending[0];
+  }
+  // Leaving a paid hand forfeits it; settle the remaining bank without new wagers.
+  function leave(game,index){
+    if(game.done)return;var p=game.players[index];if(p&&!p.folded){game.turn=index;act(game,'fold');}
+    while(!game.done)act(game,'call');
+  }
+  function openingMove(game,action,amount,cap){
+    var p=game.players[game.turn],spent=Math.max(0,p.contributed-(game.ante||0));
+    var budget=Math.max(0,Math.min(Math.max(0,Math.floor(Number(cap)||0))-spent,p.stack-1));
+    var call=Math.max(0,game.target-p.bet);
+    if(action==='fold'||call>budget)return {action:'fold'};
+    if(action==='raise'||action==='allin'){
+      var raise=Math.min(1,budget-call,raiseLimit(game));
+      if(raise>0)return {action:'raise',amount:raise};
+    }
+    return {action:'call'};
   }
   function npc(game,random,style){
     random=random||Math.random;var p=game.players[game.turn],visible=p.hand.concat(game.board),counts={};visible.forEach(function(c){counts[c.rank]=(counts[c.rank]||0)+1;});
+    if(style==='expert'){
+      // Sample unseen cards, never game.deck or opponents' hands. Equal shares for ties.
+      var rivals=game.players.filter(function(other){return other!==p&&!other.folded;}).length,equity=0,samples=48;
+      if(!rivals)return 'call';
+      for(var trial=0;trial<samples;trial++){
+        var unseen=deck(random).filter(function(c){return !visible.some(function(v){return v.id===c.id;});}),board=game.board.slice();
+        while(board.length<6)board.push(unseen.pop());
+        var score=best(p.hand.concat(board)).score,ties=1,beaten=false;
+        for(var rival=0;rival<rivals;rival++){var cmp=compare(best([unseen.pop(),unseen.pop()].concat(board)).score,score);if(cmp>0)beaten=true;if(cmp===0)ties++;}
+        if(!beaten)equity+=1/ties;
+      }
+      equity/=samples;var cost=Math.min(p.stack,Math.max(0,game.target-p.bet)),odds=cost/Math.max(1,game.pot+cost),roll=random();
+      if(cost&&equity+.035<odds&&roll>.06)return 'fold';
+      if(legal(game).includes('raise')&&(equity>Math.max(.48,1/(rivals+1)+.15)||cost===0&&roll<.06))return 'raise';
+      return 'call';
+    }
     var strong=Object.keys(counts).some(function(r){return counts[r]>=2;}),r=random();
     // Only own hand + revealed board; no knowledge of hidden cards or future draws.
     if(game.target>p.bet&&!strong&&r<(style==='cautious'?.4:.14))return 'fold';
     if(legal(game).includes('raise')&&(strong||style==='bold')&&r<.35)return 'raise';return 'call';
   }
-  var api={visibleBest:visibleBest,order:order,strength:strength,deck:deck,compare:compare,six:six,best:best,combinationCards:combinationCards,combinationGroups:combinationGroups,showdown:showdown,create:create,legal:legal,act:act,npc:npc,raiseLimit:raiseLimit};
+  var api={visibleBest:visibleBest,order:order,strength:strength,deck:deck,compare:compare,six:six,best:best,combinationCards:combinationCards,combinationGroups:combinationGroups,showdown:showdown,create:create,leave:leave,legal:legal,act:act,openingMove:openingMove,npc:npc,raiseLimit:raiseLimit};
   root.ZargotaCardRules=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

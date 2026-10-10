@@ -18,7 +18,7 @@
   const key=node.speaker==='@player'?data.playerSpeakerId:node.speaker;
   const actor=data.speakers?.[key],set=actor?.equipmentPortraits;
   if(set&&(character?.inventoryItems||data.player?.inventoryItems||[]).some(i=>i.itemId===set.itemId&&i.equipped&&i.qty!==0)){
-   return Object.assign({},result,{portrait:set.emotions?.[node.emotion]||set.portrait||result.portrait});
+   return Object.assign({},result,{portrait:set.emotions?.[node.emotion]||actor.emotions?.[node.emotion]?.portrait||set.portrait||result.portrait});
   }
   // Opt-in: outfit selection takes precedence over a page-specific portrait.
   if(set?.lockBase)return Object.assign({},result,{portrait:actor.emotions?.[node.emotion]?.portrait||actor.portrait||''});
@@ -48,7 +48,7 @@
    const lockLabel=document.createElement('label'),lock=document.createElement('input');lock.type='checkbox';lock.checked=!!set.lockBase;
    lock.onchange=()=>save(d=>{d.speakers[key].equipmentPortraits.lockBase=lock.checked;});lockLabel.append(lock,document.createTextNode(t('Комплект важнее портрета отдельной реплики','Комплект має пріоритет над портретом окремої репліки')));details.appendChild(lockLabel);
    const fields=[['',t('Обычный','Звичайний')],...Object.entries(data.speakers[key].emotions||{}).map(([id,e])=>[id,e.nameUk||e.name||id])];
-   fields.forEach(([id,name])=>{const label=document.createElement('label');label.textContent=name;const input=document.createElement('input');input.value=id?set.emotions[id]||'':set.portrait||'';input.onchange=()=>save(d=>{const s=d.speakers[key].equipmentPortraits;if(id)s.emotions[id]=input.value;else s.portrait=input.value;});label.appendChild(input);details.appendChild(label);w.ZargotaStoryAssets?.attach(input,'image');});
+   fields.forEach(([id,name])=>{const label=document.createElement('label');label.textContent=name;const input=document.createElement('input');input.value=id?set.emotions?.[id]||'':set.portrait||'';input.onchange=()=>save(d=>{const s=d.speakers[key].equipmentPortraits;if(id){s.emotions=s.emotions||{};s.emotions[id]=input.value;}else s.portrait=input.value;});label.appendChild(input);details.appendChild(label);w.ZargotaStoryAssets?.attach(input,'image');});
   }
   host.appendChild(details);
  }

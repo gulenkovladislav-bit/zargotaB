@@ -1,0 +1,22 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+function element(){return {style:{},dataset:{},children:[],setAttribute(){},appendChild(e){this.children.push(e);},remove(){this.removed=true;},querySelectorAll(){return this.children.filter(e=>e.className==='zg-story-occlusion'&&!e.removed);}};}
+const ctx={window:{},document:{createElement:element},encodeURIComponent};vm.createContext(ctx);
+for(const f of ['story-occlusion.js','story-environment.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+const api=ctx.window.ZargotaStoryOcclusion,env=ctx.window.ZargotaStoryEnvironment;
+const zone={id:'tree',occlusion:true,blocked:true,entryId:'ignored',points:[[40,20],[60,20],[60,80],[40,80]],occlusionFeather:3};
+const scene={boardWidth:20,boardHeight:10,gridSize:50,layers:[{image:'tree.png',x:2,scale:1.2,fit:'contain',opacity:.8},{image:'hidden.png',visible:false}],tokens:[{z:12}],story:{zones:[zone]}};
+const before=JSON.stringify(scene),world=element();api.render(world,scene,{});
+assert.equal(world.children.length,1);const overlay=world.children[0];assert.equal(overlay.style.zIndex,'23');assert.equal(overlay.style.pointerEvents,'none');assert.equal(overlay.children.length,1);assert.equal(overlay.children[0].style.objectFit,'contain');assert.equal(overlay.children[0].style.transform,'translate(2%,0%) scale(1.2)');
+const decoded=decodeURIComponent(api.mask(zone,scene));assert.match(decoded,/viewBox="0 0 1000 500"/);assert.match(decoded,/stdDeviation="3"/);assert.match(decoded,/400,100 600,100 600,400 400,400/);
+assert.equal(env.blockedZone([zone],{x:0,y:50},{x:100,y:50},{}),null);
+assert.equal(env.entered([zone],{x:50,y:50},{inside:{},fired:{}},{},'tree').length,0);
+assert.equal(JSON.stringify(scene),before);
+api.render(world,{...scene,story:{zones:[{...zone,enabled:false}]}},{});assert.equal(world.querySelectorAll().length,0);
+api.render(world,{...scene,story:{zones:[{...zone,requires:'open'}]}},{});assert.equal(world.querySelectorAll().length,0);
+api.render(world,{...scene,story:{zones:[{...zone,requires:'open'}]}},{open:true});assert.equal(world.querySelectorAll().length,1);
+assert.equal(api.mask({points:[[NaN,4],[3,4]]},scene),'');assert.doesNotMatch(decodeURIComponent(api.mask({...zone,occlusionFeather:0},scene)),/filter="url/);
+console.log('PASS occlusion: layer alignment, feather mask, draw order, flags, disabled cleanup, no collision/events, source isolation.');
+const painted={id:'brush',occlusion:true,occlusionBitmap:{format:'png',width:100,height:50,data:'aGVsbG8='}};
+const mixed={...scene,story:{zones:[zone,{...zone,id:'other'},painted]}};const mixedWorld=element();api.render(mixedWorld,mixed,{});assert.equal(mixedWorld.children.length,1);assert.equal(mixedWorld.children[0].children.length,1);const combined=decodeURIComponent(api.combined(mixed.story.zones,mixed));assert.equal((combined.match(/<polygon/g)||[]).length,2);assert.match(combined,/<image width="1000" height="500"/);assert.match(combined,/data:image\/png;base64,aGVsbG8=/);assert.equal(api.combined(mixed.story.zones,mixed),api.combined(mixed.story.zones,mixed));assert.deepEqual(JSON.parse(JSON.stringify(painted)),painted);
+assert.equal(env.blockedZone([painted],{x:0,y:50},{x:100,y:50},{}),null);
+console.log('PASS brush mask: PNG survives JSON roundtrip, mixed zones share one background, cache reuse and no collision.');

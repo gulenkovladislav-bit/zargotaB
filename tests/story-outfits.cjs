@@ -22,3 +22,12 @@ assert.match(playerSource,/tokenPortrait\(data,state\.character,token\.image\)/,
 assert.match(playerSource,/function refreshHeroTokenPortrait\(\)/,'runtime equipment changes refresh the existing hero token');
 assert.match(playerSource,/w\.ZargotaStoryHud\.apply\(root,data\);refreshHeroTokenPortrait\(\);/,'equipment refresh is tied to character state refresh');
 console.log('PASS: preset, no duplicate item, dialogue and token runtime equip/unequip, fallback, other actor unaffected');
+data.speakers.hero.emotions.shock={name:'Шок',portrait:'facing-viewer.png'};
+data.speakers.hero.equipmentPortraits.lockBase=true;
+live.inventoryItems[0].equipped=true;
+assert.equal(api.resolve(data,{speaker:'@player',emotion:'shock'},live,result).portrait,'facing-viewer.png','new emotion without an outfit override stays visible');
+data.speakers.hero.equipmentPortraits.emotions.shock='dressed-shock.png';
+assert.equal(api.resolve(data,{speaker:'hero',emotion:'shock'},live,result).portrait,'dressed-shock.png','explicit outfit emotion has priority');
+live.inventoryItems[0].equipped=false;
+assert.equal(api.resolve(data,{speaker:'hero',emotion:'shock'},live,result).portrait,'facing-viewer.png','base remains intact when unequipped');
+console.log('PASS new emotion fallback, explicit outfit override and independent base portrait.');

@@ -13,3 +13,9 @@ assert.throws(()=>w.ZargotaStoryAssets.exportEpisode({scene:{image:'data:image/p
 assert.throws(()=>w.ZargotaStoryAssets.exportEpisode({scene:{image:'blob:tmp'}},[]),/embedded-media/);
 assert.equal(JSON.parse(w.ZargotaStoryAssets.exportEpisode({scene:{}},[])).episode.activeSceneId,'scene-draft');
 console.log('Story JSON export preserves scene links, current draft and reference-only assets');
+for(const action of ['pickup','unfold']){
+  const tags=w.ZargotaStoryAssets.tags({name:'audio/paper-map-'+action+'-test.mp3'});
+  for(const word of ['карта','бумага','папір',action])assert.ok(tags.includes(word));
+}
+assert.ok(w.ZargotaStoryAssets.tags({name:'custom.wav',tags:['custom']}).includes('custom'));
+assert.equal(w.ZargotaStoryAssets.tags({name:'audio/unrelated.wav'}).length,0);

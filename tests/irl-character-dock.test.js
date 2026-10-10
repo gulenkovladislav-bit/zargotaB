@@ -33,9 +33,9 @@ assert.match(html, /function irlStatusRules\(effect,mechanics\)[\s\S]*?cantAct[\
 assert.match(html, /if\(!isAbility\)return'<article class="'\+articleClass\+'"><div class="zg-irl-entry-toggle">'[\s\S]*?class="zg-irl-entry-detail">'\+detailHtml/, 'status cards must render their full detail immediately without an accordion click');
 assert.match(html, /articleClass='zg-irl-entry'[\s\S]*?' status-card open'/, 'every status card must be visibly open by default');
 assert.match(html, /meta=kind==='ability'\?[\s\S]*?:\[\]/, 'status duration must not be repeated as a second detail chip');
-assert.match(html, /\.zg-irl-entry-description\{[^}]*font-size:16px/, 'full ability descriptions must use the larger readable type scale');
-assert.match(html, /\.zg-irl-entry-copy strong\{[^}]*font-size:15px/, 'ability and status titles must use the larger readable type scale');
-assert.match(html, /\.zg-irl-entry\.ability-card \.zg-irl-entry-copy strong\{[^}]*font-size:16\.5px/, 'visual ability cards must make their titles easier to scan');
+assert.match(html, /\.zg-irl-entry-description\{[^}]*font-size:20px/, 'full ability descriptions must use the larger readable type scale');
+assert.match(html, /\.zg-irl-entry-copy strong\{[^}]*font-size:18\.75px/, 'ability and status titles must use the larger readable type scale');
+assert.match(html, /\.zg-irl-entry\.ability-card \.zg-irl-entry-copy strong\{[^}]*font-size:20\.625px/, 'visual ability cards must make their titles easier to scan');
 assert.match(html, /\.zg-irl-rule-line\.tone-damage[\s\S]*?\.zg-irl-rule-line\.tone-healing[\s\S]*?\.zg-irl-rule-line\.tone-check[\s\S]*?\.zg-irl-rule-line\.tone-critical/, 'damage, healing, checks and critical outcomes must have visibly different color coding');
 assert.match(html, /var IRL_GM_FOCUS=\{[\s\S]*?esteros:[\s\S]*?Колесо и погибшее животное[\s\S]*?Лупоглазик — свой[\s\S]*?Подсказка честная, не удобная/, 'Esteros must keep concise curated GM roleplay reminders');
 assert.match(html, /var IRL_GM_FOCUS=\{[\s\S]*?'lin-yin':[\s\S]*?vrotik:[\s\S]*?evan:[\s\S]*?melissa:[\s\S]*?esteros:/, 'all five heroes must have curated GM focus collections');
@@ -55,7 +55,7 @@ assert.match(html, /abilityUsageByKey=stored\.abilityUsageByKey[\s\S]*?sessionKe
 assert.match(html, /function irlAbilityCooldownHtml\(item,heroKey\)[\s\S]*?zg-irl-charge-cell[\s\S]*?spent[\s\S]*?targetUsed/, 'expanded abilities must expose one direct clickable cell per charge');
 assert.match(html, /\.zg-irl-charge-pips\{[^}]*display:inline-flex[^}]*width:max-content/, 'compact spent-charge pips must keep their intrinsic width instead of stretching across the row');
 assert.match(html, /\.zg-irl-charge-pips i\{[^}]*flex:0 0 11px/, 'each compact charge pip must keep a fixed square size');
-assert.match(html, /\.zg-irl-entry\.ability-card \.zg-irl-cooldown-note\{[^}]*font-size:9\.5px/, 'secondary cooldown instructions must stay visually compact');
+assert.match(html, /\.zg-irl-entry\.ability-card \.zg-irl-cooldown-note\{[^}]*font-size:11\.875px/, 'secondary cooldown instructions must stay visually compact');
 assert.match(html, /Зелёная — потратить, красная — вернуть\. Только для этой сессии\./, 'the cooldown hint must remain short enough to leave room for authored ability text');
 assert.match(html, /zg-irl-cooldown-console'\+\(exhausted\?' exhausted'/, 'the whole cooldown console must enter the red exhausted state');
 const cooldownBlock = html.match(/w\.zgIrlCharacterAbilityUsage=function\(heroKey,resourceKey,targetUsed\)[\s\S]*?\};/);
@@ -93,8 +93,8 @@ assert.match(html, /\.zg-irl-ability-list\{flex:1;min-height:0;grid-auto-rows:ma
 assert.match(html, /\.zg-irl-status-list\{flex:0 0 auto;max-height:none[^}]*overflow:visible/, 'status cards must use their natural height instead of clipping inside a short scroller');
 assert.match(html, /\.zg-irl-entry\.status-card \.zg-irl-entry-detail\{display:block/, 'status descriptions and rules must always be visible');
 assert.match(html, /\.zg-irl-rule-lines\{display:block[^}]*background:#100c08/, 'ability rules must read as one calm block instead of a stack of colored cards');
-assert.match(html, /\.zg-irl-gm-note h4\{[^}]*font-size:15\.5px\}/, 'GM reminder titles must remain readable at session distance');
-assert.match(html, /\.zg-irl-gm-note p\{font-size:14\.5px;line-height:1\.5\}/, 'GM reminder prose must use the larger session-readable text scale');
+assert.match(html, /\.zg-irl-gm-note h4\{[^}]*font-size:19\.375px\}/, 'GM reminder titles must remain readable at session distance');
+assert.match(html, /\.zg-irl-gm-note p\{font-size:18\.125px;line-height:1\.5\}/, 'GM reminder prose must use the larger session-readable text scale');
 const cardMarkup = html.match(/card\.innerHTML='<header class="zg-irl-character-head"[\s\S]*?';\n  \}/);
 assert.ok(cardMarkup, 'expanded card markup must exist');
 assert.match(cardMarkup[0], /zg-irl-character-mechanics[\s\S]*?>Характеристики<[\s\S]*?zg-irl-stats[\s\S]*?<\/section><section class="zg-irl-character-live">[\s\S]*?>Состояния<[\s\S]*?>Способности'\+abilityCountLabel/, 'portrait, HP and all characteristics must stay left while statuses and abilities stay right');

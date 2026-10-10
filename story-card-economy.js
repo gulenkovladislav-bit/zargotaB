@@ -8,10 +8,15 @@
   character.inventoryItems=(character.inventoryItems||[]).filter(i=>i.itemId!==id);
   if(amount>0)character.inventoryItems.push({...copy(item),qty:integer(amount),equipped:false});
  }
+ function walletMemory(run,c){
+  if(!c.tableId)return run.cardWallets||(run.cardWallets={players:{},sold:{},fundingUsed:false});
+  const all=run.cardTableWallets||(run.cardTableWallets={}),key='table:'+c.tableId;
+  return all[key]||(all[key]={players:{},sold:{},fundingUsed:false});
+ }
  function begin(project,run){
   const c=project.minigames?.towerClaw||{};if(!c.realMoney)return null;
   const currency=c.currencyItemId||'evan-copper-coin',cash=count(run.character,currency);if(!cash)return null;
-  const memory=run.cardWallets||(run.cardWallets={players:{},sold:{},fundingUsed:false});
+  const memory=walletMemory(run,c);
   if(memory.open)return null;
   const buyIn=Math.min(100000,cash),ids=[project.playerSpeakerId,...(c.opponents||[]).slice(0,3)],stacks=[buyIn];
   ids.slice(1).forEach((id,i)=>{if(memory.players[id]==null)memory.players[id]=integer(c.stacks?.[i+1]??20);stacks.push(memory.players[id]);});
@@ -41,5 +46,5 @@
   }};
  }
  function format(text,project,run){const c=project.minigames?.towerClaw||{},values={silver:count(run?.character,'evan-silver-coin'),copper:count(run?.character,c.currencyItemId||'evan-copper-coin'),lidaContribution:integer(c.sponsor?.amount),tarinStake:integer(c.stacks?.[1])+integer(c.sponsor?.amount),lidaReturn:run?.cardWallets?.sponsorReturn||0};return String(text||'').replace(/\{\{(silver|copper|lidaContribution|tarinStake|lidaReturn)\}\}/g,(_,key)=>values[key]);}
- w.ZargotaCardEconomy={begin,count,format};
+ w.ZargotaCardEconomy={begin,count,format,walletMemory};
 })(window);

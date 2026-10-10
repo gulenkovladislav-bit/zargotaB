@@ -2,6 +2,7 @@
  'use strict';
  function t(a,b){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?b:a;}
  function local(o,k){return t(o[k]||o[k+'Uk']||'',o[k+'Uk']||o[k]||'');}
+ function display(quest,run){var variant=(quest.displayStates||[]).find(function(v){return (!v.sceneId||v.sceneId===run.sceneId)&&(!v.requires||run.flags&&run.flags[v.requires]);});return variant?Object.assign({},quest,{title:variant.title,titleUk:variant.titleUk,objective:variant.objective,objectiveUk:variant.objectiveUk}):quest;}
  function create(data){return{active:data.initialQuestId||'',done:[]};}
  function enter(data,state,sceneId){if(!state||state.active)return null;var q=(data.quests||[]).find(function(q){return q.startSceneId===sceneId&&!(state.done||[]).includes(q.id)&&(!q.requiresQuestId||(state.done||[]).includes(q.requiresQuestId));});if(!q)return null;state.active=q.id;return q;}
  function complete(data,state,nodeId){var q=(data.quests||[]).find(function(q){return q.id===state.active;});if(!q||![q.dialogueId].concat(q.dialogueIds||[]).filter(Boolean).includes(nodeId)||state.done.includes(q.id))return null;state.done.push(q.id);state.active=q.nextId||'';return q;}
@@ -38,5 +39,5 @@
    if(q.reveal)button(t('Показать на карте','Показати на карті'),function(){var r=records(data).find(function(r){return r.id===q.reveal.sceneId;}),o=r&&objects(r.scene||{}).find(function(o){return o.kind===q.reveal.kind&&o.item.id===q.reveal.id;});if(!o)return;var dialog=document.createElement('dialog');dialog.className='zg-quest-map-preview';var map=document.createElement('div');map.style.cssText='position:relative;width:75vw;aspect-ratio:'+((r.scene.boardWidth||24)/(r.scene.boardHeight||16));var image=document.createElement('img');image.src=(r.scene.layers||[]).find(function(l){return l.visible!==false;})?.image||'';image.style.cssText='width:100%;height:100%;object-fit:fill';map.appendChild(image);var pin=document.createElement('span');pin.textContent='◎ '+(local(o.item,'name')||o.item.id);pin.style.cssText='position:absolute;color:#fff;background:#182a20;padding:8px;border:2px solid gold;transform:translate(-50%,-50%);left:'+o.item.x+'%;top:'+o.item.y+'%';map.appendChild(pin);dialog.appendChild(map);button(t('Закрыть','Закрити'),function(){dialog.remove();},dialog);document.body.appendChild(dialog);dialog.showModal();},card);
   });panel.scrollTop=scroll;
  }
- w.ZargotaStoryQuests={create:create,enter:enter,complete:complete,gatedScene:gatedScene,edit:edit};
+ w.ZargotaStoryQuests={display:display,create:create,enter:enter,complete:complete,gatedScene:gatedScene,edit:edit};
 })(window);

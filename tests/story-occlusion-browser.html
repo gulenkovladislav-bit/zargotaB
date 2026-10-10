@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><title>Occlusion UI check</title>
+<style>body{margin:0;background:#17241e;color:white;font:16px system-ui}nav{height:42px;display:flex;align-items:center;gap:16px}button{padding:6px 12px}iframe{width:100%;height:calc(100vh - 45px);border:0}</style>
+<nav><button id="edit">Editor</button><button id="play">Play saved contour</button><button id="sample">Sample half-cover</button><output id="status">Loading</output></nav><iframe src="../index.html?lookout-demo=1"></iframe>
+<script>
+const frame=document.querySelector('iframe'),status=document.querySelector('#status');let data,app;
+const svg=s=>'data:image/svg+xml,'+encodeURIComponent(s);
+const background=svg('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800"><rect width="1200" height="800" fill="#b4aa79"/><path d="M600 0H1200V800H600Z" fill="#397254"/><path d="M600 0V800M800 0V800M1000 0V800" stroke="#234d37" stroke-width="10"/></svg>');
+const portrait=svg('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><circle cx="60" cy="60" r="58" fill="#d84935" stroke="#ffcf6a" stroke-width="4"/><path d="M30 60H90M60 30V90" stroke="white" stroke-width="6"/></svg>');
+function editor(){app.ZargotaStoryPlayer.stop();app.ZargotaStoryStageEditor.open(data,function(fn){fn(data);data.scenes[0].scene=data.scene;status.textContent='Saved zones: '+data.scene.story.zones.length+'; occlusion: '+!!data.scene.story.zones[0]?.occlusion;editor();},data.scenes);}
+function play(){app.ZargotaStoryStageEditor.close();app.ZargotaStoryPlayer.startTest(data);status.textContent='Overlay count: '+frame.contentDocument.querySelectorAll('.zg-story-occlusion').length+'; walk through green area';}
+document.querySelector('#edit').onclick=editor;document.querySelector('#play').onclick=play;document.querySelector('#sample').onclick=()=>{data.scene.story.zones=[{id:'cover',occlusion:true,occlusionFeather:3,points:[[50,0],[100,0],[100,100],[50,100]],x:75,y:50}];play();};
+const timer=setInterval(()=>{app=frame.contentWindow;if(!app.ZargotaStoryStageEditor||!app.ZargotaStoryCampaign)return;clearInterval(timer);app.ZargotaStoryPlayer.stop();data=JSON.parse(JSON.stringify(app.ZargotaStoryCampaign));Object.assign(data,{id:'occlusion-test',activeSceneId:'occlusion-test',startSceneId:'occlusion-test',heroTokenId:'hero',intro:{enabled:false},testLocation:true,initialQuestId:'',quests:[],nodes:[],interactions:{}});data.scene={boardWidth:24,boardHeight:16,gridSize:50,layers:[{image:background,fit:'stretch'}],tokens:[{id:'hero',name:'Test token',x:50,y:50,size:150,image:portrait}],story:{zones:[],cameraZoom:1}};data.scenes=[{id:'occlusion-test',name:'Occlusion test',scene:data.scene}];status.textContent='Ready';editor();},100);
+</script>

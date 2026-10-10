@@ -1,0 +1,22 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><base href="../"><title>v27 · isolated preview</title>
+<link rel="stylesheet" href="story-card-game.css"><link rel="stylesheet" href="story-player.css">
+<script src="story-card-game-core.js"></script><script src="story-card-table-prop.js"></script><script src="story-card-game.js"></script>
+<body style="background:#13231d;color:#ead7ae;font:18px Georgia;padding:24px">
+<h1>v27 · проверка без сохранения / перевірка без збереження</h1>
+<p>Тестовая раздача с тремя купленными рисунками / Тестова роздача з трьома придбаними малюнками</p>
+<button id="launch" disabled>Открыть стол / Відкрити стіл</button><pre id="status"></pre><section id="editor"></section>
+<script>
+fetch('/__v27.json').then(r=>r.json()).then(({episode:p})=>{
+ const c=p.minigames.towerClawTables[0],character={inventoryItems:p.storyItems.filter(i=>i.cardSkin)};
+ p.speakers[p.playerSpeakerId].portrait=p.speakers[p.playerSpeakerId].equipmentPortraits.portrait;
+ ZargotaCardGame.edit(p,fn=>fn(p),document.getElementById('editor'));
+ document.getElementById('launch').disabled=false;
+ document.getElementById('launch').onclick=()=>{
+  const original=ZargotaCardRules.create;
+  ZargotaCardRules.create=options=>{const g=original(options),pool=ZargotaCardRules.deck(),take=(rank,color)=>pool.splice(pool.findIndex(c=>c.rank===rank&&c.color===color),1)[0];
+   g.players[0].hand=[take(6,0),take(7,0)];for(let i=1;i<4;i++)g.players[i].hand=[pool.pop(),pool.pop()];
+   const board=[take(10,0),take(3,0),take(4,1),take(5,1),take(2,0),take(1,1)];g.deck=pool.concat(board.reverse());while(g.round<3)ZargotaCardRules.act(g,'call');return g;};
+  try{ZargotaCardGame.open(p,{...c,character,socialReplies:false,soundEnabled:false},r=>document.getElementById('status').textContent=JSON.stringify(r));}finally{ZargotaCardRules.create=original;}
+ };
+}).catch(e=>document.getElementById('status').textContent=e.message);
+</script></body></html>

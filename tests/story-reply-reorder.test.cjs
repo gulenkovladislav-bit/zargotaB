@@ -1,0 +1,9 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');const w={};const ctx={window:w};
+for(const file of ['story-dialogue-pages.js','story-inspector-workspace.js'])vm.runInNewContext(fs.readFileSync(path.join(__dirname,'..',file),'utf8'),ctx);
+const node={id:'a',title:'Block',x:10,links:[{to:'next',requires:'coin'}],beforeWorldActions:[{type:'flag'}],speaker:'actor1',text:'A',textUk:'А',emotion:'happy',firstShowPortrait:false,showPortrait:true,portrait:'first.png',slides:[{text:'B',textUk:'Б',speaker:'actor2',emotion:'sad',showPortrait:true,portrait:'second.png',musicEvent:{action:'play',sound:'b.mp3'},afterPageActions:[{type:'test'}]},{text:'C',textUk:'В',speaker:'actor3',portrait:'third.png'}]};
+const clone=o=>JSON.parse(JSON.stringify(o)),snapshot=clone(node),move=w.ZargotaStoryInspectorWorkspace.reorder;
+assert.equal(move(node,0,0),false);assert.equal(move(node,-1,1),false);assert.deepEqual(clone(node),snapshot);
+assert.equal(move(node,1,2),true);assert.equal(node.slides[1].text,'B');assert.equal(node.text,'A');move(node,2,1);
+assert.equal(move(node,1,0),true);assert.equal(node.text,'B');assert.equal(node.textUk,'Б');assert.equal(node.speaker,'actor2');assert.equal(node.portrait,'second.png');assert.equal(node.firstShowPortrait,true);assert.equal(node.slides[0].showPortrait,false);assert.equal(node.slides[0].text,'A');assert.equal(node.musicEvent.sound,'b.mp3');assert.deepEqual(clone(node.links),snapshot.links);assert.deepEqual(clone(node.beforeWorldActions),snapshot.beforeWorldActions);assert.equal(node.id,'a');assert.equal(node.x,10);
+move(node,0,2);assert.equal(node.text,'A');assert.equal(node.slides[1].text,'B');assert.equal(node.slides[1].musicEvent.sound,'b.mp3');assert.equal(node.slides[1].portrait,'second.png');
+console.log('PASS reorder: first/other pages, bilingual text, actors, portraits, visibility, sound, page actions, unchanged block links/actions');

@@ -19,7 +19,7 @@ function create(mixer){
  function sound(s,p,opacity,now){
   var gain=Math.pow(Math.max(0,1-Math.hypot((p.x-listener.x)*(scene.boardWidth||24)/100,(p.y-listener.y)*(scene.boardHeight||16)/100)/clamp(s.motion.soundRadius,1,30,5)),2)*clamp(s.motion.soundVolume,0,1,.45)*opacity*soundVolume;
   if(!soundEnabled||!s.motion.sound||gain<.001){if(s.audio)s.audio.pause();return;}
-  if(!s.audio){s.audio=new Audio(s.motion.sound);s.audio.loop=true;if(mixer)mixer.register(s.audio,'traffic',false,0);}
+  if(!s.audio){var source=s.motion.sound;if(s.motion.kind==='cart'&&/\/(horse-wagon-438194|horse-with-old-cart-bruno-auzet-538438-preview)\.mp3$/.test(source))source='assets/stories/audio/freesound_community-2-horse-carriage-41976.mp3';s.audio=new Audio(source);s.audio.loop=true;if(mixer)mixer.register(s.audio,'traffic',false,0);}
   if(mixer)mixer.gain(s.audio,gain);else s.audio.volume=gain;
   if(s.audio.paused&&!s.pending&&now>(s.retryAt||0)){s.pending=true;var audio=s.audio;var promise=audio.play();if(promise&&promise.then)promise.then(function(){s.pending=false;}).catch(function(){s.pending=false;s.retryAt=now+2000;});else s.pending=false;}
  }
@@ -39,7 +39,7 @@ function create(mixer){
    var visible=phase<=s.travel,opacity=visible?(s.motion.mode==='pingpong'?1:Math.min(1,f/.04,(1-f)/.04)):0;
    s.el.style.left=p.x+'%';s.el.style.top=p.y+'%';s.el.style.opacity=String(Math.max(0,opacity));
    sound(s,p,Math.max(0,opacity),now);
-   if(s.motion.kind==='cart'){var art=s.el.querySelector('img');if(art)art.style.transform='rotate('+(Math.atan2(Math.sin(p.angle)*(scene.boardHeight||16)/(scene.boardWidth||24),Math.cos(p.angle))*180/Math.PI+180)+'deg)';}
+   if(s.motion.kind==='cart'){var art=s.el.querySelector('img');if(art)art.style.transform='scaleX('+(Math.cos(p.angle)>0?-1:1)+')';}
    if(s.motion.kind!=='cart'&&visible&&opacity>.2&&w.ZargotaStoryWalk){
     // Shared gait and the same alternating boot prints as the hero.
     w.ZargotaStoryWalk.update(s.el,world,scene,p,now,false,s.motion.trails!==false);

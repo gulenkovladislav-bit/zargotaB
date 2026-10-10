@@ -7,12 +7,21 @@
   function stop(){stopped=true;clearTimeout(timer);cleanups.forEach(function(fn){fn();});w.ZargotaStorySequence.cancel();}
   function patch(a,values,spawn){ctx.state.actionObjects=ctx.state.actionObjects||{};var k=key(a),old=ctx.state.actionObjects[k];ctx.state.actionObjects[k]={sceneId:a.sceneId||'',kind:a.kind||'tokens',id:a.id,spawn:spawn||old&&old.spawn,values:Object.assign({},old&&old.values,values)};}
   function next(){if(stopped)return;var a=actions[index++];if(!a){done();return;}if(a.enabled===false){next();return;}
+   if(a.type==='inspectTravelMap'){if(ctx.inspectTravelMap){var closeMap=ctx.inspectTravelMap(a.itemId,next);if(closeMap)cleanups.push(closeMap);}else next();return;}
    if(a.type==='giveItem'){if(ctx.giveItem)ctx.giveItem(a.itemId,a.qty,a.equip,a.actionId);next();return;}
    if(a.type==='timeline'){if(ctx.timeline){var cancelTimeline=ctx.timeline(a.timelineId,next);if(cancelTimeline)cleanups.push(cancelTimeline);}else next();return;}
    if(a.type==='travel'){var travel=ctx.travel||(w.ZargotaStoryPlayer&&w.ZargotaStoryPlayer.travel);if(travel&&a.sceneId)travel(a.sceneId,next);else next();return;}
    if(a.type==='music'){if(ctx.music)ctx.music(a.musicEvent);next();return;}
    if(a.type==='sound'){if(a.sound){var audio=ctx.sound(a.sound);if(audio&&audio.pause)cleanups.push(function(){audio.pause();});}next();return;}
    if(a.type==='fx'){cleanups.push(w.ZargotaStoryScreenFx.run(ctx.root,{screenFx:a.screenFx||{type:'damage',intensity:.55,durationMs:1800}}));timer=setTimeout(next,Math.max(300,Number(a.screenFx&&a.screenFx.durationMs)||1800));return;}
+   if(a.type==='projectile'){
+    var world=ctx.world(),origin=ctx.position(),record=ctx.records.find(function(r){return r.id===ctx.sceneId();}),target=(ctx.view(record).tokens||[]).find(function(t){return t.id===a.targetId;});
+    if(!world||!origin||!target){next();return;}
+    var pebble=document.createElement('span'),x=target.x+(Number(a.offsetX)||0),y=target.y+(Number(a.offsetY)||0),duration=Math.max(200,Number(a.durationMs)||850);
+    pebble.style.cssText='position:absolute;width:18px;height:14px;border-radius:48%;background:radial-gradient(ellipse at 30% 20%,#c8bc99,#665b45 70%);box-shadow:0 4px 5px #0008;z-index:80;pointer-events:none';world.appendChild(pebble);
+    var flight=pebble.animate([{left:origin.x+'%',top:origin.y+'%',transform:'translate(-50%,-50%)'},{left:(origin.x+x)/2+'%',top:((origin.y+y)/2-8)+'%',transform:'translate(-50%,-50%) rotate(140deg)'},{left:x+'%',top:y+'%',transform:'translate(-50%,-50%) rotate(280deg)'}],{duration:duration,fill:'forwards',easing:'ease-in'});
+    cleanups.push(function(){flight.cancel();pebble.remove();});timer=setTimeout(function(){pebble.remove();next();},duration+180);return;
+   }
    if(a.type==='wait'){timer=setTimeout(next,Math.max(0,Number(a.durationMs)||0));return;}
 if(a.type==='follow'||a.type==='unfollow'){ctx.state.followers=ctx.state.followers||{};if(a.type==='unfollow'){var f=ctx.state.followers[a.id];if(f)patch(Object.assign({},a,{sceneId:f.sceneId,kind:'tokens'}),Object.assign({},f.token,f.position,{visible:true,enabled:true,hidden:false,opacity:1}),true);delete ctx.state.followers[a.id];}else{var r=ctx.records.find(function(r){return r.id===a.sceneId;}),v=r?ctx.view(r):{tokens:[]},actor=(v.tokens||[]).find(function(t){return t.id===a.id;});if(actor)ctx.state.followers[a.id]={pending:actor.hidden===true||actor.visible===false,scope:a.followScope||'all',originSceneId:a.sceneId,sceneIds:a.followSceneIds||[],token:JSON.parse(JSON.stringify(actor)),gapCells:Math.max(.5,Number(a.gapCells)||1.2),sceneId:a.sceneId,position:{x:actor.x,y:actor.y},trail:[{x:actor.x,y:actor.y}]};}ctx.redraw();next();return;}
    if(a.type==='spawn'){patch(a,Object.assign({},a.object,{id:a.id,enabled:true,visible:true,hidden:false}),true);}

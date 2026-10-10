@@ -1,0 +1,13 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let locale='ru';const window={ZargotaI18n:{getLocale:()=>locale}};
+const ctx=vm.createContext({window});
+for(const file of ['story-linin-context.js','story-hero-context.js','story-portrait-kit.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
+const h=window.ZargotaStoryHeroContext;
+assert.equal(h.profile({title:'История Лин’Ин'}),'linin');
+assert.equal(h.profile({playerSpeakerId:'lin',speakers:{lin:{nameUk:'Лін’Ін Верелай'}}}),'linin');
+const lin={aiHeroProfile:'linin',aiHeroLore:'Only this episode'},evan={aiHeroProfile:'evan'};
+const before=JSON.stringify(lin);assert.match(h.context(lin),/СКРЫТАЯ ПРАВДА ТОЛЬКО ДЛЯ АВТОРА/);assert.match(h.context(lin),/Only this episode/);assert.doesNotMatch(h.context(evan),/Only this episode|Таэрил/);assert.equal(JSON.stringify(lin),before);
+const visual=window.ZargotaLinInContext.visual();assert.doesNotMatch(visual,/тайный договор|родители погибли/i);assert.match(window.ZargotaStoryPortraitKit.prompt(visual),/сдержанная или язвительная/);
+assert.ok(fs.existsSync(window.ZargotaLinInContext.portrait));
+locale='uk';assert.match(h.context(lin),/ПРИХОВАНА ПРАВДА ЛИШЕ ДЛЯ АВТОРА/);assert.match(window.ZargotaLinInContext.visual(),/веснянкувата/);
+console.log('LinIn: profile detection, episode isolation, RU/UK context, visual spoiler boundary and reference path passed.');

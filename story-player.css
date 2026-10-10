@@ -320,7 +320,7 @@
 .zg-story-player .zg-story-dialogue .zg-story-dialogue-backdrop{inset:16px 2% 24px;mask-size:100% calc(100% + 64px);-webkit-mask-size:100% calc(100% + 64px)}
 .zg-story-player .zg-story-dialogue .zg-story-answers.is-single-advance button{font-size:0;padding:6px 12px;min-width:40px;border:0;background:transparent;text-align:center;margin-left:auto}
 .zg-story-player .zg-story-dialogue .zg-story-answers.is-single-advance button::after{display:inline;content:'→';font:22px system-ui}
-.zg-story-dialogue .zg-dialogue-keys{position:absolute;right:calc(4vw + 140px);bottom:20px;left:auto;margin:0;padding:0;font-size:9px;line-height:1.1;text-align:right;max-width:calc(92% - 140px);z-index:3}
+.zg-story-dialogue .zg-dialogue-keys{display:none}
 .zg-story-side-quests{margin-top:10px;padding-top:8px;border-top:1px solid #d5b46b44;font-size:clamp(12px,1vw,16px);line-height:1.4}
 .zg-story-side-quests strong{display:block;color:#dfc487;font-size:1.05em}
 .zg-story-side-quests[hidden]{display:none}
@@ -396,3 +396,13 @@
 }
 @media(max-width:760px){.zg-story-player .zg-story-dialogue,.zg-story-player .zg-story-dialogue[data-narrator="true"]{grid-template-columns:58px minmax(0,1fr)!important;padding:8px 10px 24px;height:var(--dialogue-block-height,180px)}.zg-story-player .zg-story-dialogue[data-narrator="true"]{grid-template-columns:minmax(0,1fr)!important}.zg-story-player .zg-story-dialogue .zg-story-speaker-frame{left:10px;width:58px}.zg-story-player .zg-story-dialogue .zg-story-dialogue-body,.zg-story-player .zg-story-dialogue[data-narrator="true"] .zg-story-dialogue-body{padding:8px 4px}}
 .zg-story-zone-marker.is-attention{color:#ffc078;border-color:#ed9a43;background:#21180f;box-shadow:0 0 13px #ed91384d}
+
+.zg-live-text-setting{display:flex;align-items:center;gap:8px}
+.zg-live-text-setting+small{display:block;max-width:280px;line-height:1.4;opacity:.8}
+.can-edit-dialogue .zg-story-line{cursor:text}
+.can-edit-dialogue .zg-story-line:hover{outline:1px dashed #c6ab64;outline-offset:5px}
+.zg-story-line[contenteditable="plaintext-only"]{outline:1px solid #d2b76e;outline-offset:5px;white-space:pre-wrap;user-select:text;cursor:text;min-height:1.4em}
+/* Keep choice focus rings inside the scrollable dialogue body. */
+.zg-story-player .zg-story-dialogue .zg-story-answers button.is-choice:focus-visible{outline:2px solid #edce8c;outline-offset:-2px}
+
+.zg-story-player .zg-story-answers button.zg-minigame-exit::before,.zg-minigame-exit::before{font-size:inherit;content:"";display:inline-block;width:1em;height:1em;margin-right:.45em;vertical-align:-.12em;background:currentColor;mask:url("images/ui/minigame-exit.svg") center/contain no-repeat;-webkit-mask:url("images/ui/minigame-exit.svg") center/contain no-repeat}

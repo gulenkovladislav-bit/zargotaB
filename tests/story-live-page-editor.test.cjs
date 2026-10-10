@@ -1,0 +1,30 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const window={};vm.runInNewContext(fs.readFileSync('story-card-events.js','utf8'),{window});vm.runInNewContext(fs.readFileSync('story-live-page-editor.js','utf8'),{window});
+const api=window.ZargotaLivePageEditor;
+const project={nodes:[{id:'n',speaker:'a',text:'First',textUk:'Перша',afterPageActions:[{type:'music'}],slides:[{text:'Second',textUk:'Друга',speaker:'b'}],links:[{id:'l',to:'end'}]}]};
+const node=project.nodes[0],links=JSON.stringify(node.links);
+const insert={operation:'insertPage',nodeId:'n',pageIndex:0,expected:JSON.stringify(node.slides)};
+assert(api.apply(project,insert));assert.equal(node.slides.length,2);assert.equal(node.slides[0].text,'');assert.equal(node.slides[0].textUk,'');assert.equal(node.slides[0].speaker,'a');assert.equal(node.slides[0].afterPageActions.length,0);assert.equal(node.slides[1].text,'Second');assert.equal(JSON.stringify(node.links),links);assert(!api.apply(project,insert));
+assert(api.apply(project,{operation:'insertPage',nodeId:'n',pageIndex:2,expected:JSON.stringify(node.slides)}));assert.equal(node.slides[2].speaker,'b');
+const settings={operation:'pageSettings',nodeId:'n',pageIndex:1,values:{speaker:'b',speakerName:'Незнакомец',speakerNameUk:'Незнайомець',emotion:'happy',textAnimation:'fade',textSize:32,textSpeed:45},expected:{speaker:'a',speakerName:'',speakerNameUk:'',emotion:'',textAnimation:undefined,textSize:undefined,textSpeed:undefined}};
+assert(api.apply(project,settings));assert.equal(node.speaker,'a');assert.equal(node.slides[0].speaker,'b');assert(!api.apply(project,settings));
+assert(!api.apply(project,{operation:'pageSettings',nodeId:'n',pageIndex:1,values:{textSpeed:-5},expected:{textSpeed:45}}));assert(!api.apply(project,{operation:'pageSettings',nodeId:'n',pageIndex:1,values:{links:[]},expected:{}}));
+const saved=JSON.parse(JSON.stringify(project));assert.equal(saved.nodes[0].slides[0].speakerNameUk,'Незнайомець');assert.equal(saved.nodes[0].slides.length,3);
+const reactions={minigames:{towerClaw:{replies:{a:{raise:[{text:'Reaction'}]}}}}};const source={speaker:'a',event:'raise',index:0};assert(api.apply(reactions,{operation:'insertPage',cardReplySource:source,pageIndex:0,expected:'[]'}));assert.equal(reactions.minigames.towerClaw.replies.a.raise[0].slides.length,1);
+console.log('PASS live page edits: ordered insertion, blank bilingual text, no copied actions, unchanged choices, conflict guard, validated settings, persistence and generated reactions.');
+// Ordinary dialogue choice editing opens a separate form and never selects the answer.
+class Element{constructor(tag){this.tag=tag;this.children=[];this.dataset={};}append(...v){v.forEach(x=>this.appendChild(x));}appendChild(v){this.children.push(v);v.parent=this;}setAttribute(){}querySelectorAll(){return [];}focus(){}remove(){this.parent.children=this.parent.children.filter(x=>x!==this);}}
+const context={window:{ZargotaI18n:{getLocale:()=> 'uk'}},document:{createElement:tag=>new Element(tag)}};vm.runInNewContext(fs.readFileSync('story-live-page-editor.js','utf8'),context);
+const host=new Element('section'),answerButton=new Element('button'),link={id:'choice',label:'Play',labelUk:'Грати'};let selected=0,savedEdit,refreshed=0,stopped=0;answerButton.onclick=()=>selected++;
+context.window.ZargotaLivePageEditor.answer(host,answerButton,'node',link,0,edit=>{savedEdit=edit;return true;},()=>refreshed++);
+answerButton.children[0].onclick({stopPropagation(){stopped++;}});assert.equal(stopped,1);assert.equal(selected,0);const form=host.children[0];form.children[0].value='Гратиму';form.children[1].onclick({stopPropagation(){}});assert.equal(savedEdit.nodeId,'node');assert.equal(savedEdit.linkId,'choice');assert.equal(savedEdit.expected,'Грати');assert.equal(savedEdit.field,'labelUk');assert.equal(link.labelUk,'Гратиму');assert.equal(link.label,'Play');assert.equal(refreshed,1);assert.equal(host.children.length,0);
+console.log('PASS ordinary choices: visible edit control, separate form, no selection, exact localized save and refresh.');
+const wardrobe={playerSpeakerId:'hero',speakers:{hero:{portrait:'pajamas.png',emotions:{happy:{name:'Happy',portrait:'pajamas-happy.png'},new:{portrait:'old.png'}},equipmentPortraits:{portrait:'day.png',emotions:{happy:'day-happy.png'}}},npc:{portrait:'npc.png',emotions:{happy:{portrait:'npc-happy.png'}},equipmentPortraits:{portrait:'other.png'}}}};
+const choices=api.portraitChoices(wardrobe,'@player');assert.equal(choices[0][1].portrait,'day.png');assert.equal(choices[1][1].portrait,'day-happy.png');assert.equal(choices[2][1].portrait,'old.png');assert.equal(api.portraitChoices(wardrobe,'hero')[1][1].portrait,'day-happy.png');assert.equal(api.portraitChoices(wardrobe,'npc')[1][1].portrait,'npc-happy.png');assert.equal(wardrobe.speakers.hero.emotions.happy.portrait,'pajamas-happy.png');
+console.log('PASS wardrobe picker: hero aliases use dressed emotions, safe dressed fallback, NPCs and source portraits unchanged.');
+let stored;window.localStorage={getItem:()=>stored||null,setItem:(_key,value)=>{stored=value;}};
+assert.equal(api.searchHistory(' Еван ')[0],'Еван');api.searchHistory('Тесс');assert.equal(api.searchHistory('еван').join('|'),'еван|Тесс');
+for(let i=0;i<10;i++)api.searchHistory('Имя '+i);assert.equal(api.searchHistory().length,8);assert.equal(api.searchHistory()[0],'Имя 9');
+const reloaded={localStorage:window.localStorage};vm.runInNewContext(fs.readFileSync('story-live-page-editor.js','utf8'),{window:reloaded});assert.equal(reloaded.ZargotaLivePageEditor.searchHistory()[0],'Имя 9');
+stored='broken';assert.doesNotThrow(()=>api.searchHistory());window.localStorage={getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}};assert.equal(api.searchHistory('Мило')[0],'Мило');
+console.log('PASS recent portrait searches: trimming, deduplication, eight-entry limit, reload and unavailable storage.');

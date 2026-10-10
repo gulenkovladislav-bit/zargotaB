@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let locale='ru';const window={ZargotaI18n:{getLocale:()=>locale}},ctx=vm.createContext({window});
+for(const f of ['story-esteros-context.js','story-linin-context.js','story-hero-context.js','story-portrait-kit.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+const h=window.ZargotaStoryHeroContext;
+for(const title of ['История Эстероса','Історія Естероса','Esteros'])assert.equal(h.profile({title}),'esteros');
+const data={aiHeroProfile:'esteros',aiHeroLore:'episode-only'},before=JSON.stringify(data),text=h.context(data);
+assert.match(text,/Внутренние описания могут быть длиннее/);assert.match(text,/НЕИЗВЕСТНО/);assert.match(text,/ОПЦИОНАЛЬНО/);assert.match(text,/не реализованное правило/);assert.equal(JSON.stringify(data),before);
+assert.doesNotMatch(h.context({aiHeroProfile:'linin'}),/episode-only|Гнилушино/);
+assert.doesNotMatch(h.context({aiHeroProfile:'evan'}),/episode-only|Клементий/);
+assert.ok(fs.existsSync(window.ZargotaEsterosContext.portrait));assert.match(window.ZargotaStoryPortraitKit.prompt(window.ZargotaEsterosContext.visual()),/потёртая простая одежда/);
+locale='uk';assert.match(h.context(data),/пробивається тиха надія/);assert.match(h.context(data),/НЕВІДОМО/);
+console.log('Esteros: RU/UK, profile detection, local episode isolation, narrative voice, uncertainty and portrait reference passed.');

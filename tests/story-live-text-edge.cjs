@@ -1,0 +1,30 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:'/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'});try{
+ const page=await browser.newPage({viewport:{width:1440,height:950}});page.setDefaultTimeout(10000);
+ await page.addInitScript(()=>localStorage.setItem('zargota_ui_locale_v1','uk'));
+ await page.goto('http://127.0.0.1:5184/index.html?lookout-demo=1');
+ await page.waitForFunction(()=>window.zgStoryEditorOpen);
+ await page.evaluate(()=>{
+  ZargotaStoryPlayer.stop();const p=JSON.parse(JSON.stringify(ZargotaStoryCampaign));
+  p.heroTokenId='hero';p.entryId='edit-node';p.startSceneId=p.activeSceneId='edit-scene';p.quests=[];p.initialQuestId='';p.intro={enabled:false};p.interactions={};
+  p.scene={boardWidth:24,boardHeight:16,layers:[],tokens:[{id:'hero',name:'Hero',type:'hero',x:50,y:50},{id:'talk',name:'Talk',type:'note',x:52,y:50,entryId:'edit-node'}]};p.scenes=[{id:'edit-scene',name:'Test',scene:p.scene}];
+  p.nodes=[{id:'edit-node',editorSceneId:'edit-scene',text:'Первая строка',textUk:'Перший рядок',textSpeed:100,links:[],slides:[{text:'Вторая строка',textUk:'Другий рядок'}]}];
+  const all=JSON.parse(localStorage.getItem('zargota_story_editor_v1')||'{}');all['live-edit-test']=p;localStorage.setItem('zargota_story_editor_v1',JSON.stringify(all));zgStoryEditorOpen('live-edit-test');
+ });
+ await page.getByRole('button',{name:/Зайти на локац/}).click();await page.locator('dialog').getByRole('button',{name:/Зайти на локац/}).click();
+ const settings=page.locator('.zg-play-settings');await settings.locator('summary').click();
+ const check=page.locator('[data-edit-dialogue]');assert.equal(await check.isChecked(),false);await check.check();await settings.locator('summary').click();
+ await page.locator('[data-play-world] [data-token-id="talk"]').click();
+ const line=page.locator('.zg-story-line');await line.waitFor();await line.click();assert.equal(await line.getAttribute('contenteditable'),'plaintext-only');
+ await line.fill('Нова репліка');await line.press('End');await line.press('Enter');await line.pressSequentially('S та пробіл');await line.press('Control+Enter');
+ const saved=()=>page.evaluate(()=>zgStoryEditorProject().nodes.find(n=>n.id==='edit-node'));
+ let node=await saved();assert.equal(node.textUk,'Нова репліка\nS та пробіл');assert.equal(node.text,'Первая строка');assert.equal(await line.innerText(),node.textUk);
+ await page.keyboard.press('ArrowRight');await line.click();await line.fill('Змінена друга');await line.press('Control+Enter');node=await saved();assert.equal(node.slides[0].textUk,'Змінена друга');assert.equal(node.slides[0].text,'Вторая строка');
+ await line.click();await line.fill('Скасувати');await line.press('Escape');assert.equal(await line.innerText(),'Змінена друга');assert.equal(await page.locator('#zg-story-player').evaluate(e=>e.classList.contains('open')),true);assert.equal((await saved()).slides[0].textUk,'Змінена друга');
+ await line.click();await line.fill('Збережено при виході');await settings.locator('summary').click();assert.equal((await saved()).slides[0].textUk,'Збережено при виході');await check.uncheck();await settings.locator('summary').click();await line.click();assert.equal(await line.getAttribute('contenteditable'),'false');
+ await page.keyboard.press('ArrowLeft');await page.waitForFunction(()=>document.querySelector('.zg-story-line').innerText==='Нова репліка\nS та пробіл');
+ await settings.locator('summary').click();await settings.getByRole('button',{name:/Заново/}).click();await page.locator('[data-play-world] [data-token-id="talk"]').click();await line.click();assert.equal(await line.innerText(),'Нова репліка\nS та пробіл');
+ await page.evaluate(()=>{ZargotaStoryPlayer.stop();zgStoryEditorOpen('live-edit-test');});assert.equal((await saved()).slides[0].textUk,'Збережено при виході');
+ await page.evaluate(()=>ZargotaStoryPlayer.start(zgStoryEditorProject()));assert.equal(await page.locator('[data-edit-dialogue]').count(),0);assert.equal(await page.locator('#zg-story-player').evaluate(e=>e.classList.contains('can-edit-dialogue')),false);
+ console.log('PASS Edge: opt-in inline editing, current locale only, per-page persistence, multiline/shortcuts, Escape cancel, blur save, history, restart, editor reopen.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

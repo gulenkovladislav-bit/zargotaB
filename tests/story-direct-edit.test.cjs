@@ -1,0 +1,34 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');const window={};vm.runInNewContext(fs.readFileSync('story-direct-edit.js','utf8'),{window});
+const clone=x=>JSON.parse(JSON.stringify(x));let data={a:{title:'Author',scene:{name:'scene'},activeSceneId:'s',scenes:[{id:'s',scene:{name:'scene'}}],nodes:[{id:'n',text:'Original',links:[]}]},b:{title:'Other'}},active='a',busy=false,failSave=false,failBackup=false,refreshes=0;const storage=new Map();const port={active:()=>active,load:()=>clone(data),save:x=>{if(failSave)return false;data=clone(x);return true;},busy:()=>busy,refresh:()=>refreshes++,storage:{getItem:k=>storage.get(k),setItem:(k,v)=>{if(failBackup)throw Error('quota');storage.set(k,v);},removeItem:k=>storage.delete(k)}};
+let api=window.ZargotaStoryDirectEdit.create(port);const patch=()=>{const snap=api.read();return{projectId:snap.projectId,snapshotId:snap.snapshotId,changes:[{op:'set',path:['nodes',0,'text'],value:'Changed'}]};};
+let p=patch();data.a.nodes[0].text='User edit';assert.equal(api.apply(p).error,'conflict');assert.equal(data.a.nodes[0].text,'User edit');
+p=patch();p.projectId='b';assert.equal(api.apply(p).error,'wrong-snapshot');
+p=patch();failBackup=true;assert.equal(api.apply(p).error,'backup-storage');assert.equal(data.a.nodes[0].text,'User edit');failBackup=false;
+p=patch();failSave=true;assert.equal(api.apply(p).error,'storage');assert.equal(data.a.nodes[0].text,'User edit');failSave=false;
+p=patch();assert(api.apply(p).ok);assert.equal(data.a.nodes[0].text,'Changed');assert.equal(data.b.title,'Other');assert.equal(refreshes,1);
+api=window.ZargotaStoryDirectEdit.create(port);assert(api.undo().ok);assert.equal(data.a.nodes[0].text,'User edit','backup survives module reload');
+p=patch();p.changes[0].path=['nodes','__proto__','polluted'];assert.equal(api.apply(p).error,'invalid-patch');
+p=patch();p.changes=[{op:'set',path:['scene','name'],value:'New scene'}];assert(api.apply(p).ok);assert.equal(data.a.scenes[0].scene.name,'New scene');data.a.title='New authored title';assert.equal(api.undo().error,'conflict');assert.equal(data.a.title,'New authored title');
+busy=true;assert.equal(api.read().error,'busy');assert.equal(api.apply(p).error,'busy');
+console.log('PASS direct edits: isolation, stale snapshot, wrong project, quota failure, save failure, persistent rollback, rollback conflict, scene alias, busy editor and prototype rejection.');
+const large={text:'Їжак 🦔 '.repeat(8000),nested:{value:'last'}};
+const parts=window.ZargotaStoryDirectEdit.chunks(large);
+assert(parts.length>1);assert(parts.every(p=>p.length<=6000));
+assert.deepEqual(JSON.parse(parts.join('')),large,'chunked JSON preserves Unicode and final fields');
+busy=false;const snapshot=api.read(),unchanged=clone(data),beforeRefresh=refreshes;
+assert.equal(api.apply({projectId:snapshot.projectId,snapshotId:snapshot.snapshotId,changes:[{op:'set',path:['title'],value:data.a.title}]}).changed,false);
+assert.deepEqual(data,unchanged);assert.equal(refreshes,beforeRefresh);
+console.log('PASS large snapshot reassembly and no-op without writes.');
+
+active='b';const inactive=api.read('a');assert.equal(inactive.projectId,'a');const refreshBefore=refreshes;assert(api.apply({projectId:'a',snapshotId:inactive.snapshotId,changes:[{op:'set',path:['title'],value:'Inactive update'}]}).ok);assert.equal(data.b.title,'Other');assert.equal(refreshes,refreshBefore);assert.equal(api.list().episodes.length,2);
+// File-backed exchange must not consume browser rollback quota or alter old backups.
+active='a';failBackup=true;const savedBrowserBackup=storage.get('zargota_story_direct_backup_v1');
+p=patch();p.changes[0].value='Disk-backed audio change';
+assert.equal(api.apply(p,{file:'backup.json',projectId:'wrong',snapshotId:p.snapshotId}).error,'backup-storage');
+assert(api.apply(p,{file:'backup.json',projectId:p.projectId,snapshotId:p.snapshotId}).ok);
+assert.equal(data.a.nodes[0].text,'Disk-backed audio change');
+assert.equal(storage.get('zargota_story_direct_backup_v1'),savedBrowserBackup);
+p=patch();data.a.title='New concurrent edit';
+assert.equal(api.apply(p,{file:'backup.json',projectId:p.projectId,snapshotId:p.snapshotId}).error,'conflict');
+failBackup=false;
+console.log('PASS disk receipt bypasses only redundant backup; stale data remains protected.');

@@ -357,6 +357,12 @@ function createIndexedDb() {
   assert.strictEqual(afterAtomic.find(function(character) { return character.id === 'atomic-a'; }).hpCur, 4);
   assert.strictEqual(afterAtomic.find(function(character) { return character.id === 'atomic-b'; }).name, 'B unchanged');
 
+  var replacement = await store.saveCharacter('atomic-a', {id:'atomic-a',name:'Approved',_updatedAt:5200}, afterAtomic, {replace:true});
+  assert.strictEqual(replacement.ok,true);
+  var restoredReplacement = await store.readConfirmedCharacter('atomic-a','');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(restoredReplacement,'hpCur'),false);
+  assert.strictEqual((await store.readConfirmedCharacter('atomic-b','')).hpCur,9);
+
   console.log('character-store tests passed');
 })().catch(function(error) {
   console.error(error);

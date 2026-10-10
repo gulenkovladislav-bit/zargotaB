@@ -45,7 +45,7 @@ assert.match(playerCss,/\.zg-story-play-token\.is-hotspot\{[^}]*z-index:100!impo
 assert.match(playerCss,/\.is-hotspot \.zg-story-interaction\{[^}]*pointer-events:auto/,'The full visible lookout marker remains clickable');
 assert.match(playerSource,/if\(nearbyBlock\)\{if\(token\.type==='note'\)\{done\(\);return;\}/,'A nearby blocked zone cannot cancel a lookout interaction');
 assert.match(playerSource,/var reason=movementBlock\(state\.position,to\);if\(reason\)\{hint\(reason\);return;\}/,'A distant lookout still requires a reachable approach route');
-assert.match(playerSource,/d<interactionRadius\(token\)/,'Approach uses the per-object interaction radius');
+assert.match(playerSource,/d<=interactionRadius\(token\)/,'Approach includes the per-object interaction radius boundary');
 assert.match(playerSource,/function dissolveHotspot\(target\)/,'Lookout points have a dedicated dissolve effect');
 assert.match(playerSource,/for\(var i=0;i<18;i\+\+\)/,'The dissolve emits a visible particle burst');
 assert.match(playerSource,/if\(item\.type==='note'&&e\.dataset\.tokenId\)dissolveHotspot\(e\);else e\.hidden=true/,'Only hidden lookout points dissolve; other objects still disappear immediately');

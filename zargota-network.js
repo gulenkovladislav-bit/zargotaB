@@ -3365,6 +3365,9 @@
   }
 
   var api = {
+    characterCloudTransport: function () {
+      return ensureReady().then(function (user) { return {user:user,db:db,firebase:firebase}; });
+    },
     mode: 'firebase',
     maxPlayers: MAX_PLAYERS,
 

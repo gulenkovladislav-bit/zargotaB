@@ -1,0 +1,27 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><base href="../"><title>Episode v29 · isolated review</title>
+<link rel="stylesheet" href="story-player.css"><link rel="stylesheet" href="story-card-game.css"><link rel="stylesheet" href="story-travel-map.css"><link rel="stylesheet" href="story-secrets.css">
+<body style="background:#13231d;color:#ead7ae;font:18px Georgia;padding:24px">
+<h1>Проверка v29 / Перевірка v29</h1><p>Изолированный запуск без сохранения / Ізольований запуск без збереження</p>
+<button data-check="full">С начала / Від початку</button>
+<button data-check="decline">Отказ от карт / Відмова від карт</button>
+<button data-check="artist">Художник / Художник</button>
+<button data-check="arrival">Прибытие / Прибуття</button>
+<pre id="status">Загрузка / Завантаження</pre>
+<script>
+const modules=['story-dialogue-layout','story-branch-view','story-branch','story-screen-fx','story-dialogue-pages','story-outfits','story-travel-map','story-items','story-actors','story-audio-mixer','story-traffic','story-environment','story-camera','story-presentation','story-secrets','story-hud','story-walk','story-followers','story-cursor','story-quest-polish','story-dialogue-actions','story-sidequests','story-image-reveal','story-card-game-core','story-card-events','story-card-social','story-card-economy','story-card-table-prop','story-card-game','story-minigames','story-intro','story-camera-events','story-sequence','story-quest-actions','story-quests','story-player'];
+window.ZargotaI18n={getLocale:()=> 'ru'};
+(async()=>{
+ for(const name of modules)await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=name+'.js';s.onload=resolve;s.onerror=reject;document.head.append(s);});
+ const {episode}=await(await fetch('/__v29.json')).json();
+ for(const b of document.querySelectorAll('[data-check]'))b.onclick=()=>{
+  const p=structuredClone(episode),key=b.dataset.check;
+  if(key!=='full'){
+   const ids={decline:['evan-v21-decline','evan-yard-meet-quest'],artist:['campus27-artist','evan-v25-campus'],arrival:['evan-v25-arrival','evan-v25-journey']},[id,quest]=ids[key],n=p.nodes.find(n=>n.id===id);
+   p.entryId=id;p.startSceneId=p.activeSceneId=n.editorSceneId;p.scene=p.scenes.find(s=>s.id===n.editorSceneId).scene;p.initialQuestId=quest;p.intro={enabled:false};
+   p.player.inventoryItems=[...p.storyItems.filter(i=>['evan-day-clothes','evan-university-booklet'].includes(i.itemId)).map(i=>({...i,equipped:i.itemId==='evan-day-clothes'})),{itemId:'evan-copper-coin',qty:15}];
+  }
+  ZargotaStoryPlayer.start(p,()=>document.getElementById('status').textContent='Закрыто / Закрито');
+ };
+ document.getElementById('status').textContent='Готово / Готово';
+})().catch(e=>document.getElementById('status').textContent=e.stack);
+</script></body></html>

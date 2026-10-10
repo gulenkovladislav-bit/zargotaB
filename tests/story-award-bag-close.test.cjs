@@ -1,0 +1,10 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('story-player.js','utf8');
+const body=source.split('giveItem:function(id,qty,equip,actionId){')[1].split('},timeline:function')[0];
+let closed=0;const fresh={inventoryItems:[{itemId:'clothes'}]};
+const ctx={state:{character:{inventoryItems:[]}},data:{},w:{ZargotaStoryItems:{list:()=>[{itemId:'clothes'}],award:()=>({character:fresh,received:true})},ZargotaStoryActors:{close:()=>closed++}},root:{querySelector:()=>null},renderHealth(){},hint(){},t:a=>a};
+vm.createContext(ctx);vm.runInContext('var give=function(id,qty,equip,actionId){'+body+'}',ctx);
+ctx.give('clothes',1,false,'once');assert.equal(closed,1);assert.equal(ctx.state.character,fresh);
+ctx.give('clothes',1,false,'once');assert.equal(closed,1);
+ctx.give('missing',1,false,'missing');assert.equal(closed,1);
+console.log('PASS actual giveItem handler: closes stale bag after award, preserves latest character, duplicate and invalid grants do not close.');

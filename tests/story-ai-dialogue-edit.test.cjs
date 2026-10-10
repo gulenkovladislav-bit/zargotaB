@@ -1,0 +1,8 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const ctx={window:{}};vm.createContext(ctx);vm.runInContext(fs.readFileSync('story-ai-dialogues.js','utf8'),ctx);const api=ctx.window.ZargotaStoryAIDialogues;
+const data={nodes:[{id:'a',text:'old',textUk:'старе',slides:[{text:'two',textUk:'два',speaker:'hero'}],links:[{id:'ab',to:'b',label:'go',labelUk:'йти',requires:'flag'}],musicEvent:{action:'play'}},{id:'b',text:'end',links:[]}]};
+const answer=api.exportDialogue(data,'a',false);answer.nodes[0].text='new';answer.nodes[0].textUk='нове';answer.nodes[0].slides[0].text='second';
+const raw=JSON.stringify(answer),review=api.reviewEdit(raw,data,'a');assert.equal(review.changes.length,3);const copy=JSON.parse(JSON.stringify(data));api.applyEdit(copy,review);assert.equal(copy.nodes[0].text,'new');assert.equal(JSON.stringify(copy.nodes[0].links),JSON.stringify(data.nodes[0].links));assert.deepEqual(copy.nodes[1],data.nodes[1]);assert.equal(data.nodes[0].text,'old');assert.throws(()=>api.applyEdit(copy,review));
+for(const mutate of [d=>d.nodes[0].links[0].to='bad',d=>d.nodes[0].musicEvent.action='stop',d=>d.nodes[0].slides.push({text:'extra'}),d=>d.nodes[0].id='b',d=>d.nodes.push(d.nodes[0]),d=>d.nodes[0].slides[0].speaker='other',d=>d.entry='b']){const d=JSON.parse(raw);mutate(d);assert.throws(()=>api.reviewEdit(JSON.stringify(d),data,'a'));}
+assert.equal(api.reviewEdit('```json\n'+raw+'\n```',data,'a').changes.length,3);assert.throws(()=>api.reviewEdit('not json',data,'a'));
+console.log('PASS AI edit: diff, immutable review, preserved links/settings, no duplicates, stale snapshot guard, fenced JSON.');

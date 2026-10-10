@@ -1,0 +1,12 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+let locale='ru';const window={ZargotaI18n:{getLocale:()=>locale}},ctx=vm.createContext({window});
+for(const f of ['story-melissa-context.js','story-esteros-context.js','story-linin-context.js','story-hero-context.js','story-portrait-kit.js'])vm.runInContext(fs.readFileSync(f,'utf8'),ctx);
+const h=window.ZargotaStoryHeroContext,p=window.ZargotaMelissaContext;
+for(const title of ['История Меллисы','Мелисса','Мелісса','Melissa'])assert.equal(h.profile({title}),'melissa');
+const d={aiHeroProfile:'melissa',aiHeroLore:'only-melissa'},before=JSON.stringify(d),s=h.context(d);
+assert.match(s,/ЗНАЕТ ТОЛЬКО МЕЛИССА/);assert.match(s,/имя предварительное/);assert.match(s,/Не расшифровывай/);assert.equal(JSON.stringify(d),before);
+for(const id of ['esteros','linin','evan'])assert.doesNotMatch(h.context({aiHeroProfile:id}),/only-melissa|Тарвен/);
+assert.equal(Object.keys(p.emotions).length,5);for(const path of [p.portrait,...Object.values(p.emotions).map(e=>e.portrait)])assert.ok(fs.existsSync(path),path);
+assert.doesNotMatch(p.visual(),/Когда забытое|белый изуродованный/);
+locale='uk';assert.match(h.context(d),/ЗНАЄ ЛИШЕ МЕЛІССА/);assert.match(h.context(d),/ім’я попереднє/);
+console.log('Melissa: RU/UK, aliases, episode isolation, secret boundary and six existing portrait paths passed.');

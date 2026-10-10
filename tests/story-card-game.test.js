@@ -53,7 +53,7 @@ console.log('Card minigame: legacy cases and all 15 help examples, 1000 simulate
 const playerSource=fs.readFileSync(require.resolve('../story-player.js'),'utf8');
 const hookSource=playerSource.slice(playerSource.indexOf('  var cardGameStop=null;'),playerSource.indexOf('  function resolveInteraction('));
 let resumed=0,opened=0,onResult;
-const hook={sound:false,w:{ZargotaCardGame:{match:ui.match,config:ui.config,open:(_p,_c,cb)=>{opened++;onResult=cb;return()=>{};}}},data:{minigames:{towerClaw:{enabled:false,afterNodeId:'test'}}},current:{id:'test'},state:{flags:{}},sequenceBusy:false,finishNodeActions:fn=>fn()};
+const hook={musicMixer:null,scene:{},sound:false,w:{ZargotaCardGame:{match:ui.match,config:ui.config,open:(_p,_c,cb)=>{opened++;onResult=cb;return()=>{};}}},data:{minigames:{towerClaw:{enabled:false,afterNodeId:'test'}}},current:{id:'test'},state:{flags:{}},sequenceBusy:false,finishNodeActions:fn=>fn()};
 vm.createContext(hook);vm.runInContext(hookSource,hook);
 hook.finishNode(()=>resumed++);assert.equal(resumed,1);assert.equal(opened,0);
 hook.data.minigames.towerClaw.enabled=true;hook.finishNode(()=>resumed++);assert.equal(opened,1);assert.equal(resumed,1);assert.equal(hook.sequenceBusy,true);

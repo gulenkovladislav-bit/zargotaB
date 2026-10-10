@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');const w={},ctx={window:w};vm.createContext(ctx);
 for(const file of ['story-card-economy.js','story-card-game-core.js','story-items.js','story-player.js'])vm.runInContext(fs.readFileSync(file,'utf8'),ctx);
-const project=JSON.parse(fs.readFileSync('story-content/evan/episode-1-courtyard-v21.json')).episode,c=project.minigames.towerClaw,ids=[project.playerSpeakerId,...c.opponents],api=w.ZargotaCardEconomy;
+const project=JSON.parse(fs.readFileSync(process.argv[2]||'story-content/evan/episode-1-courtyard-v21.json')).episode,c=project.minigames.towerClaw,ids=[project.playerSpeakerId,...c.opponents],api=w.ZargotaCardEconomy;
 function run(n=10){return {flags:{},character:{inventoryItems:[{itemId:'evan-copper-coin',qty:n},{itemId:'evan-silver-coin',qty:5}]}};}
 let state=run(),wallet=api.begin(project,state);assert.equal(JSON.stringify(wallet.stacks),JSON.stringify([10,10,6,7]));assert.equal(api.count(state.character,'evan-copper-coin'),0);assert.equal(api.count(state.character,'evan-silver-coin'),5);assert.equal(api.begin(project,state),null);
 const game=w.ZargotaCardRules.create({players:4,stacks:wallet.stacks});w.ZargotaCardRules.act(game,'raise',2);wallet.finish(game,ids);assert.equal(api.count(state.character,'evan-copper-coin'),10);assert.equal(state.cardWallets.players[ids[1]],4);assert.equal(state.cardWallets.sponsorReturn,6);wallet.finish(game,ids);assert.equal(api.count(state.character,'evan-copper-coin'),10);

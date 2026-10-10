@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm');
+const ctx={window:{}};vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../story-ai-dialogues.js'),'utf8'),ctx);
+const data={playerSpeakerId:'hero',speakers:{hero:{name:'Hero',emotions:{happy:'portrait.png'}}},nodes:[{id:'a',text:'RU',textUk:'UK',slides:[{text:'second'}],musicEvent:{action:'play'},links:[{id:'ab',to:'b',requires:'flag'}]},{id:'b',links:[{to:'a'},{to:'missing'}]},{id:'unrelated',links:[]}]};
+const original=JSON.stringify(data),exp=ctx.window.ZargotaStoryAIDialogues.exportDialogue;
+const one=exp(data,'a',false);assert.equal(one.nodes.length,1);assert.equal(one.externalLinks[0].to,'b');assert.equal(JSON.stringify(one.nodes[0]),JSON.stringify(data.nodes[0]));
+const branch=exp(data,'a',true);assert.equal(branch.nodes.length,2);assert.equal(branch.externalLinks[0].to,'missing');assert.equal(branch.actors.find(a=>a.id==='hero').emotions[0],'happy');
+one.nodes[0].text='changed';assert.equal(JSON.stringify(data),original);assert.throws(()=>exp(data,'absent',true));
+console.log('AI dialogue copy: full settings, pages, bilingual text, external links, cycles, actors and immutable snapshot passed.');

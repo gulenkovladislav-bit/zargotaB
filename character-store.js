@@ -568,7 +568,7 @@
     return { ok: lsOk, indexedDB: 'pending', localStorage: lsOk };
   }
 
-  function upsertCharacter(collection, characterId, patch) {
+  function upsertCharacter(collection, characterId, patch, replace) {
     var result = parseCollection(collection);
     var id = String(characterId);
     var update = clone(patch) || {};
@@ -576,7 +576,7 @@
     result = result.map(function (character) {
       if (!character || character.id === undefined || character.id === null || String(character.id) !== id) return character;
       found = true;
-      return Object.assign({}, character, update, { id:character.id });
+      return Object.assign({}, replace ? {} : character, update, { id:character.id });
     });
     if (!found) {
       if (update.id === undefined || update.id === null) update.id = characterId;
@@ -585,7 +585,7 @@
     return result;
   }
 
-  function writeCharacterIdb(characterId, patch, fallbackCharacters, localRaw) {
+  function writeCharacterIdb(characterId, patch, fallbackCharacters, localRaw, replace) {
     return openDb().then(function (db) {
       return new Promise(function (resolve) {
         var settled = false;
@@ -603,7 +603,7 @@
           request.onsuccess = function () {
             var fallbackMerged = mergeStoredCollections(fallbackCharacters, localRaw);
             var current = mergeStoredCollections(fallbackMerged, request.result);
-            savedCharacters = upsertCharacter(current, characterId, patch);
+            savedCharacters = upsertCharacter(current, characterId, patch, replace);
             store.put(JSON.stringify(savedCharacters), COLLECTION_KEY);
           };
           request.onerror = function () {
@@ -622,7 +622,8 @@
     });
   }
 
-  function saveCharacter(characterId, patch, fallbackCharacters) {
+  function saveCharacter(characterId, patch, fallbackCharacters, options) {
+    var replace = !!(options && options.replace);
     if (characterId === undefined || characterId === null || !patch || typeof patch !== 'object') {
       return Promise.resolve({ ok:false, indexedDB:false, localStorage:false, error:new Error('Invalid character update') });
     }
@@ -632,10 +633,10 @@
     }
     writeQueue = writeQueue.catch(function () { return null; }).then(function () {
       var localRaw = storageGet(COLLECTION_KEY);
-      return writeCharacterIdb(characterId, safePatch, fallbackCharacters, localRaw).then(function (idbResult) {
+      return writeCharacterIdb(characterId, safePatch, fallbackCharacters, localRaw, replace).then(function (idbResult) {
         var characters = idbResult.ok
           ? idbResult.characters
-          : upsertCharacter(mergeStoredCollections(fallbackCharacters, localRaw), characterId, safePatch);
+          : upsertCharacter(mergeStoredCollections(fallbackCharacters, localRaw), characterId, safePatch, replace);
         var json;
         try { json = JSON.stringify(characters); }
         catch (error) {

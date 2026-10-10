@@ -1,0 +1,33 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync('story-player.js','utf8');
+const episode=JSON.parse(fs.readFileSync(process.argv[2]||'story-content/evan/episode-1-courtyard-v22.json','utf8'));
+const data=episode.episode||episode;
+const original=JSON.stringify(data),state={flags:{},completedDialogues:{},character:{inventoryItems:[]}};
+const ctx={window:{}};vm.runInNewContext(source,ctx);
+const rules=ctx.window.ZargotaStoryRules;
+const leave=data.nodes.find(n=>n.id==='evan-exchange-leave');
+const exit=leave.links.find(l=>l.effect==='evan-exchange-errand');
+assert.equal(rules.validDestination(data,exit),true);
+assert(rules.choose(data,state,leave.id,exit.id));assert.equal(state.flags['evan-exchange-errand'],true);
+assert.equal(rules.validDestination(data,{to:'missing',effect:'x'}),false);
+assert.equal(rules.validDestination(data,{to:''}),false);
+const routing={data,state,w:{}};vm.createContext(routing);
+vm.runInContext(source.slice(source.indexOf('  function resolveInteraction('),source.indexOf('  function renderSideQuests(')),routing);
+for(const id of ['evan-yard-tarin','evan-yard-lida','evan-port-feltser-token','evan-port-pen-token']){
+ const result=routing.resolveInteraction(data.interactions[id]);assert.equal(result.entryId,'evan-exchange-back');assert.equal(result.markerVisible,false);
+}
+const repeatable={id:'test-repeat',replayMode:'same'};const once={id:'test-once',replayMode:'once'};
+routing.data={nodes:[repeatable,once]};state.completedDialogues={'test-repeat':true,'test-once':true};
+assert.equal(routing.resolveInteraction({entryId:repeatable.id}).markerVisible,false);
+assert.equal(routing.resolveInteraction({entryId:repeatable.id}).entryId,repeatable.id);
+assert.equal(routing.resolveInteraction({entryId:once.id}),null);
+const courtyard={tokens:[{id:'hero',x:10,y:10},{id:'friend',x:12,y:13,visible:false}],story:{}};
+const street={tokens:[],story:{}};
+const run={sceneFadeStop:null,data:{heroTokenId:'hero',scenes:[{id:'yard',scene:structuredClone(courtyard)},{id:'street',scene:street}]},state:{sceneId:'yard',flags:{'evan-exchange-errand':true}},scene:structuredClone(courtyard),root:{querySelector:()=>({hidden:false}),classList:{remove(){}}},w:{ZargotaStoryHud:{apply(){}}},clone:structuredClone,cancel(){},blinkScene(commit,done){commit();done();},showInspection(){},renderWorld(){},focusHero(){},hint(){},current:null};
+run.scene.tokens[1].x=70;run.scene.tokens[1].visible=true;
+vm.createContext(run);vm.runInContext(source.split('\n').find(l=>l.includes('function changeScene(')),run);
+assert(run.changeScene('street'));assert(run.changeScene('yard'));
+assert.equal(run.scene.tokens[1].x,70);assert.equal(run.scene.tokens[1].visible,true);assert.equal(run.state.flags['evan-exchange-errand'],true);
+assert.equal(run.data.scenes[0].scene.tokens[1].x,12,'authored scene unchanged');
+assert.equal(JSON.stringify(data),original,'user episode unchanged');
+console.log('PASS real episode exit choice, exchange flag, four NPC return routes, marker completion and round-trip scene state');

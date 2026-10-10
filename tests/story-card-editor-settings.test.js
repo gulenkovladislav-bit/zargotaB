@@ -1,6 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 class Element{
- constructor(tag){this.tag=tag;this.children=[];this.attributes={};}
+ constructor(tag){this.tag=tag;this.children=[];this.attributes={};this.classList={add:(v)=>this.className=(this.className||'')+' '+v};}
+ prepend(n){this.children.unshift(n);n.parent=this;}
  append(...nodes){nodes.forEach(n=>this.appendChild(n));}appendChild(n){this.children.push(n);n.parent=this;return n;}replaceChildren(...nodes){this.children=[];this.append(...nodes);}setAttribute(k,v){this.attributes[k]=v;}remove(){if(this.parent)this.parent.children=this.parent.children.filter(n=>n!==this);}
  all(){return this.children.flatMap(n=>[n,...n.all()]);}querySelector(s){return this.querySelectorAll(s)[0]||null;}querySelectorAll(s){return this.all().filter(n=>s.split(',').some(x=>x[0]==='.'?(n.className||'').split(' ').includes(x.slice(1)):n.tag===x));}
 }
@@ -18,3 +19,11 @@ button('Текст, страницы и ответы ↗').onclick();assert.equa
 button('＋ Новое событие').onclick();assert.equal(saved.nodes.length,2);assert.equal(saved.nodes[1].cardEvent.enabled,false);assert.equal(saved.nodes[1].editorSceneId,'yard');assert.ok(saved.nodes[1].titleUk);assert.equal(opened,saved.nodes[1].id);assert.equal(saved.minigames.future.custom,17);
 uk=true;const translated=new Element('main');w.ZargotaCardEvents.editList(project,translated,fn=>fn(saved));assert.equal(translated.querySelector('summary').textContent,'Події під час гри');
 console.log('Card editor settings: collapsed events, binding, safe creation, navigation callback, RU/UK and wallet/style seat swaps passed.');
+
+vm.runInContext(source,ctx);uk=false;
+const settings={playerSpeakerId:'e',speakers:{},nodes:[],minigames:{towerClaw:{ante:1},towerClawTables:[{tableId:'university',name:'Университет',nameUk:'Університет',ante:2}]}};
+const settingsHost=new Element('main');w.ZargotaCardGame.edit(settings,fn=>fn(settings),settingsHost);
+function anteInput(){return settingsHost.querySelectorAll('label').find(l=>l.children[0]?.textContent==='Обязательный взнос, медь').children[1];}
+assert.equal(anteInput().value,1);anteInput().value='3';anteInput().onchange();assert.equal(settings.minigames.towerClaw.ante,3);assert.equal(settings.minigames.towerClawTables[0].ante,2);
+const picker=settingsHost.querySelectorAll('select').find(e=>e.attributes['aria-label']==='Карточный стол');picker.value='university';picker.onchange();assert.equal(anteInput().value,2);anteInput().value='4';anteInput().onchange();assert.equal(settings.minigames.towerClawTables[0].ante,4);assert.equal(settings.minigames.towerClaw.ante,3);
+console.log('PASS per-table ante editor: main and university amounts save independently.');
