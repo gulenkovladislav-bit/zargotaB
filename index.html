@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-25.17';
+var ZG_APP_VERSION = '2026-10-25.29';
 var ZG_APP_CHANGELOG = [
+  {v:'2026-10-25.29',notes:'Поиск в энциклопедии сохраняет фокус и положение курсора при вводе: клавиатура телефона больше не закрывается после каждой буквы.',notesUk:'Пошук в енциклопедії зберігає фокус і положення курсора під час введення: клавіатура телефона більше не закривається після кожної літери.'},
   {v:'2026-10-25.17',notes:'Одно касание «Арена и Товары» открывает только выбор раздела: повторный клик телефона больше не нажимает кнопку боя на следующем экране.',notesUk:'Один дотик до «Арена й Товари» відкриває лише вибір розділу: повторний клік телефона більше не натискає кнопку бою на наступному екрані.'},
   {v:'2026-10-25.16',notes:'Прокрутка каталога и бестиария отделена от неподвижных плашек. Жест на карте перемещает карту, а высота экрана учитывает панели браузера и клавиатуру; исправлен расчёт высоты для старых браузеров. Энциклопедия на планшете использует всю доступную высоту.',notesUk:'Прокручування каталогу й бестіарію відокремлено від нерухомих панелей. Жест на мапі пересуває мапу, а висота екрана враховує панелі браузера й клавіатуру; виправлено розрахунок висоти для старих браузерів. Енциклопедія на планшеті використовує всю доступну висоту.'},
   {v:'2026-10-25.15',notes:'Главная на телефоне помещается без прокрутки; приключение и мастерская доступны через компактные ромбы. Плашки каталога и бестиария закреплены под шапкой без зазора. У арены есть пометка: мобильная версия ещё не готова.',notesUk:'Головна на телефоні вміщується без прокручування; пригода й майстерня доступні через компактні ромби. Панелі каталогу й бестіарію закріплено під шапкою без проміжку. Біля арени є позначка: мобільна версія ще не готова.'},
@@ -39543,7 +39544,7 @@ function renderWorldMeta() {
   renderWorldMobileSheet();
 }
 
-function renderWorldMap() {
+function renderWorldMap(options) {
   var page = document.getElementById('page-world');
   var mapWrap = document.getElementById('world-map-wrap');
   var loreWrap = document.getElementById('world-lore-wrap');
@@ -39567,7 +39568,7 @@ function renderWorldMap() {
     loreWrap.classList.remove('show');
     loreWrap.innerHTML = '';
   }
-  if (worldTab === 'enc') renderEncyclopedia();
+  if (worldTab === 'enc' && !(options && options.preserveEncyclopedia)) renderEncyclopedia();
   renderWorldLoreBrowser();
   renderWorldMobileSheet();
   queueWorldRender();
@@ -42695,7 +42696,8 @@ function initWorldInteractions() {
   });
   window.addEventListener('resize', function(){
     worldRefreshBounds(true);
-    renderWorldMap();
+    // A keyboard resize must not reload the active encyclopedia query from storage.
+    renderWorldMap({ preserveEncyclopedia:true });
     renderWorldLegend();
     renderWorldMeta();
   });
@@ -44917,7 +44919,18 @@ function renderEncSidebar() {
   var el = document.getElementById('world-enc-sidebar');
   if (!el) return;
   var q = (encState.query || '').trim().toLowerCase();
-  var html = '<input class="enc-search" placeholder="Поиск по энциклопедии..." value="' + escHTML(encState.query||'') + '" oninput="encState.query=this.value;renderEncSidebar()">';
+  var search = el.querySelector('.enc-search');
+  var results = el.querySelector('.enc-sidebar-results');
+  if (!search || !results) {
+    el.innerHTML = '<input class="enc-search" placeholder="Поиск по энциклопедии..." oninput="encState.query=this.value;renderEncSidebar()"><div class="enc-sidebar-results"></div>';
+    search = el.querySelector('.enc-search');
+    results = el.querySelector('.enc-sidebar-results');
+  }
+  // Keep the input mounted: replacing it dismisses mobile keyboards and interrupts IME.
+  // Do not assign an unchanged value, so native selection and composition stay intact.
+  var query = encState.query || '';
+  if (search.value !== query) search.value = query;
+  var html = '';
   ENC_CATEGORIES.forEach(function(cat) {
     var items = encState.entries.filter(function(e){ return e.category === cat.key && encMatchesQuery(e, q); });
     if (q && !items.length) return;
@@ -45000,7 +45013,7 @@ function renderEncSidebar() {
   html += '<button class="enc-add-btn" style="margin-top:6px;border-color:#3a2e1a;color:#d4a04a" onclick="manageEncCategories()">⚙ Категории</button>';
   // Скрытая точка — импорт с карты
   html += '<div id="enc-secret-dot" title="" style="width:8px;height:8px;border-radius:50%;background:#2a1e0e;margin:12px auto 0;cursor:pointer;transition:background .2s" onmouseenter="this.style.background=\'#d4a04a\'" onmouseleave="this.style.background=\'#2a1e0e\'" onclick="openEncImportPanel()"></div>';
-  el.innerHTML = html;
+  results.innerHTML = html;
   if (!encEditMode) el.querySelectorAll('[title^="Добавить"]').forEach(function(b){ b.style.display = 'none'; });
 }
 function renderEncMain() {
