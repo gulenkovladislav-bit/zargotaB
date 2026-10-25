@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-25.16';
+var ZG_APP_VERSION = '2026-10-25.17';
 var ZG_APP_CHANGELOG = [
+  {v:'2026-10-25.17',notes:'Одно касание «Арена и Товары» открывает только выбор раздела: повторный клик телефона больше не нажимает кнопку боя на следующем экране.',notesUk:'Один дотик до «Арена й Товари» відкриває лише вибір розділу: повторний клік телефона більше не натискає кнопку бою на наступному екрані.'},
   {v:'2026-10-25.16',notes:'Прокрутка каталога и бестиария отделена от неподвижных плашек. Жест на карте перемещает карту, а высота экрана учитывает панели браузера и клавиатуру; исправлен расчёт высоты для старых браузеров. Энциклопедия на планшете использует всю доступную высоту.',notesUk:'Прокручування каталогу й бестіарію відокремлено від нерухомих панелей. Жест на мапі пересуває мапу, а висота екрана враховує панелі браузера й клавіатуру; виправлено розрахунок висоти для старих браузерів. Енциклопедія на планшеті використовує всю доступну висоту.'},
   {v:'2026-10-25.15',notes:'Главная на телефоне помещается без прокрутки; приключение и мастерская доступны через компактные ромбы. Плашки каталога и бестиария закреплены под шапкой без зазора. У арены есть пометка: мобильная версия ещё не готова.',notesUk:'Головна на телефоні вміщується без прокручування; пригода й майстерня доступні через компактні ромби. Панелі каталогу й бестіарію закріплено під шапкою без проміжку. Біля арени є позначка: мобільна версія ще не готова.'},
   {v:'2026-10-25.14',notes:'Доска диалогов добавляет пространство сверху при прокрутке и перемещении у края, сохраняя координаты узлов. Для вариантов выбора доступны надежда и фатализм перед следующей репликой.',notesUk:'Дошка діалогів додає простір згори під час прокручування й переміщення біля краю, зберігаючи координати вузлів. Для варіантів вибору доступні надія й фаталізм перед наступною реплікою.'},
@@ -57621,8 +57622,35 @@ document.addEventListener('DOMContentLoaded', function() {
     var handledTouchUntil = 0;
     var moveThreshold = 10;
 
+    function guardNavigationClick() {
+      var doc = card.ownerDocument;
+      if (!doc) return;
+      // Navigation on pointerup changes the hit target of the compatibility click.
+      // Consume it before it reaches the newly visible page, not just this card.
+      var timer;
+      function cleanup() {
+        doc.removeEventListener('click', consumeClick, true);
+        doc.removeEventListener('pointerdown', cleanup, true);
+        doc.removeEventListener('keydown', cleanup, true);
+        clearTimeout(timer);
+      }
+      function consumeClick(event) {
+        if (event.detail === 0 && event.pointerType !== 'touch') return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        cleanup();
+      }
+      doc.addEventListener('click', consumeClick, true);
+      // A new physical gesture is intentional, even immediately after navigation.
+      doc.addEventListener('pointerdown', cleanup, true);
+      doc.addEventListener('keydown', cleanup, true);
+      timer = setTimeout(cleanup, 700);
+    }
+
     card.addEventListener('pointerdown', function(e) {
       if (e.isPrimary === false) return;
+      handledTouchUntil = 0;
+      suppressClickUntil = 0;
       pointerId = e.pointerId;
       startX = e.clientX;
       startY = e.clientY;
@@ -57645,6 +57673,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var deliberateTap = finishPointer(e, false);
       if (deliberateTap && e.pointerType === 'touch') {
         handledTouchUntil = Date.now() + 700;
+        guardNavigationClick();
         go();
       }
     }, { passive:true });
