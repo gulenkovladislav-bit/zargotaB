@@ -7,6 +7,9 @@ const json=x=>JSON.stringify(x,null,2),same=(a,b)=>JSON.stringify(a)===JSON.stri
 function write(file,value){fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});const tmp=file+'.tmp';fs.writeFileSync(tmp,json(value),{mode:0o600});fs.renameSync(tmp,file);}
 function changes(before,after){
  if(!after||typeof after!=='object')throw Error('invalid episode');
+ // Existing damage can be repaired separately; never introduce another damaged string.
+ const damaged=value=>{const found=new Map();function visit(v){if(typeof v==='string'&&v.includes('\uFFFD'))found.set(v,(found.get(v)||0)+1);else if(v&&typeof v==='object')Object.values(v).forEach(visit);}visit(value);return found;};
+ const existing=damaged(before);for(const [value,count] of damaged(after))if(count>(existing.get(value)||0))throw Error('new damaged Unicode text');
  const list=[];for(const key of new Set([...Object.keys(before),...Object.keys(after)]))if(!same(before[key],after[key]))list.push(key in after?{op:'set',path:[key],value:after[key]}:{op:'remove',path:[key]});
  // The editor maintains scene as an alias of the active scenes entry.
  if(list.some(c=>c.path[0]==='scenes')&&list.some(c=>c.path[0]==='scene')){
@@ -32,7 +35,10 @@ function createServer({dir=DIR,token=crypto.randomBytes(32).toString('hex'),port
   if(req.headers.authorization!==`Bearer ${token}`)return send(401,{error:'auth'});
   if(req.method!=='POST')return send(405,{error:'method'});
   try{
-   let raw='',size=0;for await(const chunk of req){size+=chunk.length;if(size>32*1024*1024)throw Error('body too large');raw+=chunk;}const body=JSON.parse(raw||'{}');
+   const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>32*1024*1024)throw Error('body too large');chunks.push(chunk);}
+   // A TCP chunk may end inside a UTF-8 character. Decode only the complete body,
+   // and reject invalid bytes rather than silently storing replacement characters.
+   const raw=new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks));const body=JSON.parse(raw||'{}');
    if(req.url==='/poll'){
     if(typeof body.client!=='string')throw Error('client');
     if(client&&client!==body.client&&Date.now()-lastSeen<15000)return send(409,{error:'another-tab'});

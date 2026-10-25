@@ -32,7 +32,7 @@ const path=require('node:path');
     await page.evaluate(()=>{
       document.querySelector('#light-visual-fixture').remove();
       window.lightFixture={id:'light-editor-test',activeSceneId:'room',heroTokenId:'',nodes:[],interactions:{},speakers:{},scene:{boardWidth:12,boardHeight:8,gridSize:64,layers:[],tokens:[],story:{decorations:[{id:'fire',name:'Fire',kind:'fire',x:50,y:50,size:100,opacity:1,showTexture:true,lightEnabled:true,lightOpacity:.62,duration:.9}],zones:[]}}};
-      window.lightSave=function(fn){fn(lightFixture);};
+      window.lightSave=function(fn,opts){fn(lightFixture);if(!opts?.quiet)ZargotaStoryStageEditor.open(lightFixture,lightSave,[{id:'room',name:'Room',scene:lightFixture.scene}]);};
       ZargotaStoryStageEditor.open(lightFixture,lightSave,[{id:'room',name:'Room',scene:lightFixture.scene}]);
     });
     await page.locator('[data-stage-kind=decorations][data-stage-id=fire]').evaluate(el=>el.click());
@@ -41,7 +41,6 @@ const path=require('node:path');
     await texture.uncheck();
     assert.equal(await lighting.isChecked(),true);
     assert.equal(await page.evaluate(()=>lightFixture.scene.story.decorations[0].showTexture),false);
-    await page.getByRole('button',{name:/Предпросмотр эффектов|Попередній перегляд ефектів/}).evaluate(el=>el.click());
     assert.equal(await page.locator('.zg-stage-minimap .is-fire .zg-story-effect-texture').count(),0);
     assert.equal(await page.locator('.zg-stage-minimap .is-fire .zg-story-effect-light').count(),1);
     assert.deepEqual(errors,[]);

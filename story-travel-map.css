@@ -21,3 +21,37 @@ dialog.zg-story-travel-map{position:fixed;inset:0;margin:auto!important;width:fi
 .zg-story-travel-map .zg-travel-board{width:min(90vw,calc((94dvh - 138px)*var(--map-aspect,1.8)));box-shadow:0 5px 25px #0008;border:1px solid #c5a56555;border-radius:6px;overflow:hidden}
 .zg-story-travel-map header{padding:0 2px 10px;border-bottom:1px solid #c5a56530}
 .zg-story-travel-map header strong{letter-spacing:.04em}
+.zg-story-memory-map .zg-travel-destination span{display:none}
+.zg-story-memory-map .zg-travel-destination path{fill:none;stroke:#463a2e88;stroke-width:1}
+.zg-story-memory-map .zg-travel-destination:is(:hover,:focus-visible) path{fill:none;stroke:#fff0b1;stroke-width:2}
+dialog.zg-story-memory-map{background:transparent;border:0;box-shadow:none;padding:0;overflow:visible}
+.zg-story-memory-map .zg-travel-board{border:0;border-radius:0;box-shadow:none;overflow:visible;filter:drop-shadow(0 8px 18px #0009)}
+.zg-story-memory-map header{border:0;margin-bottom:8px;padding:0}
+.zg-story-memory-map header strong{display:none}
+.zg-story-memory-map header button{margin-left:auto;font-size:14px;padding:6px 12px}
+.zg-story-memory-map p{min-height:1.3em;text-align:center;text-shadow:0 1px 4px #000}
+.has-memory-map dialog.zg-story-memory-map[open]{z-index:30;inset:0;width:100%;height:100%;max-width:none;max-height:none;box-sizing:border-box;margin:0!important;padding:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0009;animation:none}
+.has-memory-map .zg-story-memory-map header{width:min(90vw,calc((94dvh - 138px)*var(--map-aspect,1.5)))}
+.has-memory-map .zg-story-memory-map .zg-travel-board{flex:none;margin:0;transform-origin:50% 65%;animation:zg-map-unfold .7s cubic-bezier(.2,.7,.2,1) both}
+.has-memory-map .zg-story-dialogue{z-index:35}
+.has-memory-map.in-dialogue .zg-story-memory-map header button{visibility:hidden}
+.has-memory-map.in-dialogue .zg-travel-destination{pointer-events:none}
+.zg-story-memory-map .zg-travel-destination:is(:hover,:focus-visible) path{animation:zg-memory-trace .65s ease-out both}
+@keyframes zg-memory-trace{from{stroke-dasharray:1000;stroke-dashoffset:1000}to{stroke-dasharray:1000;stroke-dashoffset:0}}
+@keyframes zg-memory-arrive{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.has-memory-map .zg-story-memory-map .zg-travel-board,.zg-story-memory-map .zg-travel-destination:is(:hover,:focus-visible) path{animation:none}}
+/* Search sites use the same small, readable question mark as scene inspections. */
+.zg-travel-marker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:clamp(22px,2.1vw,30px);height:clamp(22px,2.1vw,30px);border:1px solid #b99b63;border-radius:50%;background:#211e19e8;color:#ead8a4;font:600 clamp(17px,1.7vw,24px)/1 Georgia,serif;box-shadow:0 2px 5px #0006;pointer-events:none}
+.zg-travel-destination[data-marker] path{stroke:transparent}
+.zg-travel-destination[data-marker]:is(:hover,:focus-visible) .zg-travel-marker{color:#fff0c1;border-color:#f0d598;box-shadow:0 0 9px #dbbe6955}
+.zg-travel-destination[data-current]{cursor:default}
+.zg-travel-destination[data-current] .zg-travel-marker{background:#4a4932;color:#f2e6bb}
+
+.zg-travel-destination[data-visited]:not([data-current]) .zg-travel-marker{background:#323332e8;color:#aaa9a3;border-color:#777970;box-shadow:0 2px 5px #0005}
+.zg-travel-destination[data-visited]:not([data-current]):is(:hover,:focus-visible) .zg-travel-marker{color:#e0dfd7;border-color:#c3c1b2}
+
+.zg-story-travel-map[data-closing]{pointer-events:none}
+.has-memory-map .zg-story-memory-map[data-closing] .zg-travel-board{animation:none}
+.has-memory-map dialog.zg-story-memory-map[open]:not([data-closing]){animation:zg-memory-backdrop .7s ease-out both}
+@keyframes zg-memory-backdrop{from{background:#0000}to{background:#0009}}
+@media(prefers-reduced-motion:reduce){.has-memory-map dialog.zg-story-memory-map[open]:not([data-closing]){animation:none}}

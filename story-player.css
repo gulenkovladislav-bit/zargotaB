@@ -15,6 +15,9 @@
 .zg-story-quest p{padding:0 0 0 5px;font-size:clamp(13px,1.15vw,16px)}
 @media(max-width:760px){.zg-story-speaker-frame{width:108px;height:108px}.zg-story-quest{max-width:62vw;padding:0}.zg-story-quest h1{font-size:18px}.zg-story-quest p{font-size:12px}}
 .zg-story-play-token img{filter:brightness(1.35)}
+/* Opt-in full-body art; existing portrait tokens retain their presentation. */
+.zg-story-play-token[data-render-mode="sprite"],.zg-story-play-token[data-render-mode="sprite"].is-hero{border:0;background:transparent;box-shadow:none;border-radius:0;filter:drop-shadow(0 5px 3px #0007)}
+.zg-story-play-token[data-render-mode="sprite"] img{object-fit:contain;border-radius:0;filter:none;transform:translateY(-24%);object-position:center!important}
 .zg-story-dialogue-body{position:relative;isolation:isolate;padding:14px 18px 10px}
 .zg-story-dialogue-body::before{content:none}
 /* A single translucent, frayed wash behind both portrait and dialogue. */
@@ -29,9 +32,12 @@
 .zg-story-inspection[hidden]{display:none}
 .zg-story-play-hint:empty{display:none}
 .zg-story-inspection:not([hidden]){animation:zg-inspection-enter .85s ease-out both;isolation:isolate}
-.zg-story-inspection::after{content:'';position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 38%,#03060845 72%,#030608a6 100%)}
+.zg-story-inspection::after{content:'';position:absolute;inset:0;z-index:3;pointer-events:none;background:radial-gradient(ellipse at 50% 42%,transparent 38%,#03060845 72%,#030608a6 100%)}
 .zg-story-inspection::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background:#030507;animation:zg-inspection-reveal .85s ease-out both}
-.zg-story-inspection>button{z-index:2}
+.zg-story-inspection>button{z-index:4}
+/* The intro already revealed this exact image; keep its decoded pixels on screen. */
+.zg-story-inspection.is-intro-continuation:not([hidden]),.zg-story-inspection.is-intro-continuation::before{animation:none}
+.zg-story-inspection.is-intro-continuation::before{opacity:0}
 @keyframes zg-inspection-enter{from{opacity:0}25%,to{opacity:1}}
 @keyframes zg-inspection-reveal{0%,20%{opacity:.95}100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.zg-story-inspection:not([hidden]),.zg-story-inspection::before{animation:none}.zg-story-inspection::before{opacity:0}}
@@ -313,7 +319,7 @@
 .zg-story-player .zg-story-dialogue .zg-story-speaker-frame[hidden]{display:block!important;visibility:hidden;pointer-events:none}
 .zg-story-player .zg-story-dialogue .zg-story-dialogue-body,.zg-story-player .zg-story-dialogue[data-narrator="true"] .zg-story-dialogue-body{grid-column:2;grid-row:1;display:flex;flex-direction:column;align-self:stretch;text-align:left;width:100%;max-width:none;margin:0;padding:16px 16px 32px;overflow:auto;min-height:0}
 .zg-story-player .zg-story-dialogue .zg-story-speaker-name{font-size:clamp(24px,2vw,35.2px);min-height:1.25em;flex-shrink:0;margin:0 0 12px;align-self:flex-start;animation:none}
-.zg-story-player .zg-story-dialogue .zg-story-line{font-size:calc(clamp(26px,2.1vw,var(--dialogue-text-size,32px)) * .8)!important;text-align:left;line-height:1.5;min-height:3em;flex:1;max-height:none;margin:0 0 12px;overflow:auto;animation:none!important}
+.zg-story-player .zg-story-dialogue .zg-story-line{font-size:calc(clamp(26px,2.1vw,var(--dialogue-text-size,32px)) * .8)!important;text-align:left;line-height:1.5;min-height:3em;flex:1;max-height:none;margin:0 0 12px;overflow:auto}
 .zg-story-player .zg-story-dialogue .zg-story-answers{flex-shrink:0;justify-content:flex-start;min-height:36px}
 .zg-story-player .zg-story-dialogue .zg-story-answers button.is-choice{font-size:clamp(14.4px,1.12vw,19.2px);padding:10px 16px}
 .zg-story-player .zg-story-dialogue .zg-choice-context{display:none!important}
@@ -406,3 +412,11 @@
 .zg-story-player .zg-story-dialogue .zg-story-answers button.is-choice:focus-visible{outline:2px solid #edce8c;outline-offset:-2px}
 
 .zg-story-player .zg-story-answers button.zg-minigame-exit::before,.zg-minigame-exit::before{font-size:inherit;content:"";display:inline-block;width:1em;height:1em;margin-right:.45em;vertical-align:-.12em;background:currentColor;mask:url("images/ui/minigame-exit.svg") center/contain no-repeat;-webkit-mask:url("images/ui/minigame-exit.svg") center/contain no-repeat}
+
+/* Preserve the authored portrait column even before a portrait is assigned. */
+.zg-story-player .zg-story-dialogue[data-narrator="true"][data-reserve-portrait="true"]{grid-template-columns:clamp(160px,19vw,260px) minmax(0,1fr)!important}
+.zg-story-player .zg-story-dialogue[data-narrator="true"][data-reserve-portrait="true"] .zg-story-dialogue-body{grid-column:2}
+@media(max-width:760px){.zg-story-player .zg-story-dialogue[data-narrator="true"][data-reserve-portrait="true"]{grid-template-columns:58px minmax(0,1fr)!important}}
+
+/* Space advances narration. Only explicit Tab navigation paints gameplay focus rings. */
+#zg-story-player:not(.is-keyboard-navigation) :is(.zg-story-play-token,.zg-story-zone-marker,.zg-story-answers button):focus-visible{outline:none}

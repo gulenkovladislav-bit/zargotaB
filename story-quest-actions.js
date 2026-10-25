@@ -8,7 +8,7 @@
   function patch(a,values,spawn){ctx.state.actionObjects=ctx.state.actionObjects||{};var k=key(a),old=ctx.state.actionObjects[k];ctx.state.actionObjects[k]={sceneId:a.sceneId||'',kind:a.kind||'tokens',id:a.id,spawn:spawn||old&&old.spawn,values:Object.assign({},old&&old.values,values)};}
   function next(){if(stopped)return;var a=actions[index++];if(!a){done();return;}if(a.enabled===false){next();return;}
    if(a.type==='inspectTravelMap'){if(ctx.inspectTravelMap){var closeMap=ctx.inspectTravelMap(a.itemId,next);if(closeMap)cleanups.push(closeMap);}else next();return;}
-   if(a.type==='giveItem'){if(ctx.giveItem)ctx.giveItem(a.itemId,a.qty,a.equip,a.actionId);next();return;}
+   if(a.type==='giveItem'){var reward=ctx.giveItem&&ctx.giveItem(a.itemId,a.qty,a.equip,a.actionId,a.updateExisting);if(a.showPickup&&reward&&reward.received&&ctx.presentItem){var dismiss=ctx.presentItem(reward,a,next);if(dismiss)cleanups.push(dismiss);}else next();return;}
    if(a.type==='timeline'){if(ctx.timeline){var cancelTimeline=ctx.timeline(a.timelineId,next);if(cancelTimeline)cleanups.push(cancelTimeline);}else next();return;}
    if(a.type==='travel'){var travel=ctx.travel||(w.ZargotaStoryPlayer&&w.ZargotaStoryPlayer.travel);if(travel&&a.sceneId)travel(a.sceneId,next);else next();return;}
    if(a.type==='music'){if(ctx.music)ctx.music(a.musicEvent);next();return;}

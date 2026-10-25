@@ -4,7 +4,7 @@ const gift={actionId:'gift',type:'giveItem',itemId:'cloak',equip:true};
 const pages=w.ZargotaStoryPages.pages({text:'One',afterPageActions:[gift],slides:[{text:'Two'},{text:'Three',afterPageActions:[gift]}]});
 assert.equal(pages[0].afterPageActions.length,1);assert.equal(pages[1].afterPageActions.length,0);assert.equal(pages[2].afterPageActions[0].equip,true);
 let runs=0,answers=0;const el={classList:{remove(){},add(){}},hidden:false};
-const c={current:pages[2],clearInterval(){},timer:1,fullText:'Three',root:{querySelector:()=>el,classList:el.classList},readingCursor:0,readingHistory:[{}],completedPageActions:new WeakSet(),runWorldActions(a,done){runs++;assert.equal(a[0].equip,true);done();},w:{ZargotaStoryHud:{apply(){}}},data:{},slidePlayback:{complete:()=>true},renderAnswers(){answers++;}};
+const c={liveTextEdit:false,current:pages[2],clearInterval(){},timer:1,fullText:'Three',root:{querySelector:()=>el,classList:el.classList},readingCursor:0,readingHistory:[{}],completedPageActions:new WeakSet(),runWorldActions(a,done){runs++;assert.equal(a[0].equip,true);done();},w:{ZargotaStoryHud:{apply(){}}},data:{},slidePlayback:{complete:()=>true},renderAnswers(){answers++;}};
 vm.createContext(c);vm.runInContext(fs.readFileSync('story-player.js','utf8').split('\n').find(l=>l.startsWith('  function reveal(){')),c);c.reveal();c.reveal();assert.equal(runs,1);assert.equal(el.hidden,false);assert(answers>0);
 c.current=pages[0];c.readingHistory.push({});c.reveal();assert.equal(runs,1,'History replay must not grant items');
 console.log('PASS: selected-page actions, no inheritance, immediate equip forwarding, one execution and history guard');

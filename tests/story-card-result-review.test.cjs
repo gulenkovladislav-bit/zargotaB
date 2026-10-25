@@ -1,0 +1,18 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),rules=require('../story-card-game-core.js');
+const window={},source=fs.readFileSync('story-card-game.js','utf8');vm.runInNewContext(source,{window});const difference=window.ZargotaCardGame.resultDifference;
+const hand=ranks=>ranks.map((rank,i)=>({id:String(i),rank,color:0}));
+const hero=rules.best(hand([10,10,9,8,5,2])),milo=rules.best(hand([10,10,9,8,7,2]));
+assert.deepEqual(JSON.parse(JSON.stringify(difference(hero,milo))),{kind:'rank',winner:1,index:5,high:7,low:5});
+assert.equal(difference(milo,hero).winner,0);assert.equal(difference(hero,hero).kind,'tie');assert.equal(difference(null,hero),null);
+assert.equal(difference({score:[1,10],type:1},hero).kind,'type');
+const caption=window.ZargotaCardGame.resultCaption;
+const game={players:[{result:hero},{result:milo}]};
+assert.equal(caption(game,1,true),'Династія · вирішує ранг VII > V');
+assert.equal(caption(game,0,false),'');
+game.players[0].result=milo;
+assert(caption(game,1,false).includes('банк разделён'));
+game.players[0].folded=true;assert.equal(caption(game,1,true),'');
+assert(!source.includes('function reviewResult('));
+assert(!source.includes('zg-result-heading'));
+assert(source.includes('nextDealTimer=setTimeout(continueSession,2400)'));
+console.log('PASS inline result reason: rank, tie, fold, no review dialog, automatic continuation.');

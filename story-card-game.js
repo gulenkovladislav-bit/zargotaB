@@ -22,6 +22,26 @@
     var ranks=[[1,3,5,7,9,10],[2,2,4,6,8,10],[2,2,4,4,8,10],[1,3,5,7,9,10],[2,2,2,5,8,10],[2,2,4,4,8,8],[2,2,2,5,5,10],[1,2,3,4,5,6],[2,2,2,2,8,10],[2,2,2,5,5,5],[2,2,2,2,8,8],[2,3,4,5,6,10],[2,3,4,5,6,4],[2,3,4,5,6,10],[2,3,4,5,6,7]][type];
     return ranks.map(function(rank,i){return {id:'example-'+type+'-'+i,rank:rank,color:type===3||type===14||type===13&&i<5?0:i%2};});
   }
+  function resultDifference(a,b){
+    if(!a||!b)return null;
+    for(var i=0;i<Math.max(a.score.length,b.score.length);i++){
+      var left=a.score[i]||0,right=b.score[i]||0;
+      if(left!==right)return {kind:i===0?'type':'rank',winner:left>right?0:1,index:i,high:Math.max(left,right),low:Math.min(left,right)};
+    }
+    return {kind:'tie'};
+  }
+  function resultCaption(game,index,isUk){
+    var winner=game.players[index],rivals=game.players.filter(function(p,i){return i!==index&&!p.folded&&p.result;});
+    if(!winner.result||!rivals.length)return '';
+    rivals.sort(function(a,b){var d=resultDifference(a.result,b.result);return d.kind==='tie'?0:d.winner===0?-1:1;});
+    var other=rivals[0],d=resultDifference(winner.result,other.result);
+    if(d.kind==='tie')return isUk?'Комбінації рівні · банк поділено':'Комбинации равны · банк разделён';
+    if(d.winner!==0)return ''; // A side-pot winner can have a weaker hand than another pot winner.
+    var name=combos[winner.result.type][isUk?1:0];
+    if(d.kind==='type')return name+' > '+combos[other.result.type][isUk?1:0];
+    var roman=['—','I','II','III','IV','V','VI','VII','VIII','IX','X'];
+    return name+(isUk?' · вирішує ранг ':' · решает ранг ')+roman[d.high]+' > '+roman[d.low];
+  }
   function dealSequence(players){
     var steps=[{board:0},{board:1},{board:2}];
     for(var lap=0;lap<2;lap++)players.forEach(function(p,index){if(!p.folded)steps.push({seat:index,card:lap});});
@@ -73,7 +93,11 @@
     function stopStorySound(){if(storyAudio){storyAudio.pause();storyAudio.removeAttribute('src');storyAudio.load();storyAudio=null;}if(crunchContext){crunchContext.close().catch(function(){});crunchContext=null;}}
     function storySound(src){
       stopStorySound();if(!src||!soundEnabled||closed)return;
-      if(src==='crunch'||src==='stones'){
+      if(src==='throw'){
+        var Context=w.AudioContext||w.webkitAudioContext;if(!Context)return;var ctx=crunchContext=new Context(),buffer=ctx.createBuffer(1,Math.floor(ctx.sampleRate*.55),ctx.sampleRate),samples=buffer.getChannelData(0);
+        for(var i=0;i<samples.length;i++){var phase=i/samples.length;samples[i]=(Math.random()*2-1)*Math.pow(Math.sin(Math.PI*phase),2);}
+        var source=ctx.createBufferSource(),filter=ctx.createBiquadFilter(),gain=ctx.createGain();source.buffer=buffer;filter.type='bandpass';filter.Q.value=.8;filter.frequency.setValueAtTime(2600,ctx.currentTime);filter.frequency.exponentialRampToValueAtTime(450,ctx.currentTime+.55);gain.gain.value=.22;source.connect(filter);filter.connect(gain);gain.connect(ctx.destination);source.onended=function(){if(crunchContext===ctx)crunchContext=null;ctx.close().catch(function(){});};ctx.resume().catch(function(){});source.start();
+      }else if(src==='crunch'||src==='stones'){
         var Context=w.AudioContext||w.webkitAudioContext;if(!Context)return;var ctx=crunchContext=new Context(),buffer=ctx.createBuffer(1,Math.floor(ctx.sampleRate*(src==='stones'?.85:.35)),ctx.sampleRate),samples=buffer.getChannelData(0);
         for(var i=0;i<samples.length;i++)samples[i]=src==='stones'?(Math.random()*2-1)*Math.exp(-((i/ctx.sampleRate)% .15)*65)*.65:(Math.random()*2-1)*Math.pow(1-i/samples.length,3)*(Math.sin(i/ctx.sampleRate*85)>0?.6:.12);
         var source=ctx.createBufferSource(),gain=ctx.createGain();source.buffer=buffer;gain.gain.value=.12;source.connect(gain);gain.connect(ctx.destination);source.onended=function(){if(crunchContext===ctx)crunchContext=null;ctx.close().catch(function(){});};ctx.resume().catch(function(){});source.start();
@@ -95,7 +119,7 @@
     function canPurchase(id){var offer=(options.itemStakes||[]).find(function(o){return o.speakerId===id;}),i=ids.indexOf(id);return !!wallet&&!!offer&&game?.done&&revealComplete&&(payoutCollected||game.paid===0)&&i>0&&game.players[i].stack===0&&!wallet.sold[offer.itemId]&&Number.isSafeInteger(offer.value)&&offer.value>0&&game.players[0].stack>offer.value;}
     function purchase(id){return canPurchase(id)&&wallet.sell(game,ids,id);}
     function storyAction(action){
-      if((action.kind==='stone'||action.kind==='coin'||action.kind==='reachCard'||action.kind==='returnCard')&&storyFx){if(action.sound)storySound(action.sound);return storyFx.play(action);}
+      if((action.kind==='stone'||action.kind==='coin'||action.kind==='reachCard'||action.kind==='returnCard')&&storyFx){if(action.sound||action.kind==='stone')storySound(action.sound||'throw');return storyFx.play(action);}
       if(action.kind==='example'){var preview=el('div','zg-card-teaching-example');preview.append(el('small','',t('Пример: дуэт — два одинаковых ранга','Приклад: дует — два однакові ранги')),card({rank:2,color:0},true,false),card({rank:2,color:1},true,false));table.appendChild(preview);}
       if(action.kind==='guest'){guestVisible=true;guestArrivedAt=performance.now();director?.signal?.('guestAppeared');}if(action.kind==='stones'){guestVisible=true;guestStones=true;stonesAt=performance.now();if(!action.sound)storySound('stones');}if(action.kind==='hideCard'&&guestJoined)hiddenGuestCard=true;if(action.kind==='restoreCard')hiddenGuestCard=false;
       if(action.sound)storySound(action.sound);decorateStory();
@@ -165,7 +189,9 @@
     }
     function runDeal(boardSteps){
       dealSounds=eventAudio(function(){return soundEnabled&&!closed;});
-      var sequence=boardSteps||dealSequence(game.players),deck=table.querySelector('.zg-card-deck').getBoundingClientRect();
+      var sequence=boardSteps||dealSequence(game.players);
+      if(!boardSteps&&game.done){sequence=sequence.filter(function(step){return step.board==null;});game.board.forEach(function(c,board){sequence.push({board:board,reveal:true});});}
+      var deck=table.querySelector('.zg-card-deck').getBoundingClientRect();
       sequence.forEach(function(step,index){
         var view=step.board!=null?table.querySelector('.zg-card-board').children[step.board]:table.querySelector('.seat-'+step.seat+' .zg-card-hand').children[step.card];
         view.classList.remove('is-revealed');view.style.animationDelay='';view.classList.add('is-deal-pending');
@@ -175,7 +201,7 @@
           dealSounds.play('deal',roundNumber+':deal:'+index);
         },300+index*380));
       });
-      dealTimers.push(setTimeout(function(){if(closed)return;stopDeal();if(game.turn===0)turnSound();render();},300+(sequence.length-1)*380+(boardSteps?1250:750)));
+      dealTimers.push(setTimeout(function(){if(closed)return;stopDeal();if(game.done&&revealCursor<0)beginShowdown();else if(game.turn===0)turnSound();render();},300+(sequence.length-1)*380+(boardSteps?1250:750)));
     }
     function flyCoins(from,to,amount){
       if(!from||!to||amount<=0)return;var area=table.getBoundingClientRect(),a=from.getBoundingClientRect(),b=to.getBoundingClientRect();
@@ -203,6 +229,7 @@
     function turnSound(){sounds.play('turn',roundNumber+':turn:'+(++turnSerial));}
     function revealSound(){if(resultFocus<0)return;var result=game.players[resultFocus].result;if(result)sounds.play(rules.strength(result.type)>=9?'strong':'combination',roundNumber+':reveal:'+resultFocus);}
     function outcomeSound(){if(!game.winners.includes(0))sounds.play('loss',roundNumber+':loss');}
+    function beginShowdown(){revealOrder=rules.showdown(game);revealCursor=revealOrder.length?0:-1;revealComplete=!revealOrder.length;resultFocus=revealOrder[0]==null?-1:revealOrder[0];if(revealComplete)outcomeSound();else revealSound();}
     function revealed(index){return revealComplete?revealOrder.includes(index):revealOrder.indexOf(index)>=0&&revealOrder.indexOf(index)<=revealCursor;}
     function epicLevel(type){var power=rules.strength(type);return power>=12?4:power>=9?3:power>=4?2:power>=1?1:0;}
     function skipReveal(){sounds.stop();revealCursor=revealOrder.length-1;revealComplete=true;resultFocus=game.winners[0];outcomeSound();render();}
@@ -272,7 +299,7 @@
       table.querySelectorAll('.zg-card-observation').forEach(function(p){p.remove();});
       var drawer=el('aside','zg-card-help');drawer.setAttribute('aria-label',t('Комбинации и примеры карт','Комбінації та приклади карт'));
       var header=el('header','zg-card-help-header');header.append(el('h2','',t('Комбинации','Комбінації')),btn('×',function(){drawer.remove();if(!storyBusy&&game)render();}));header.lastChild.setAttribute('aria-label',t('Закрыть справку','Закрити довідку'));drawer.appendChild(header);
-      drawer.appendChild(el('p','zg-card-help-intro',t('От слабой к сильной. Золотом выделена основа комбинации.','Від слабкої до сильної. Золотом виділено основу комбінації.')));
+      drawer.appendChild(el('p','zg-card-help-intro',t('От слабой к сильной. Выбирается одна лучшая шестёрка из восьми карт. Комбинации не складываются: отдельная пара не усиливает династию. При равной комбинации сравниваются её ранги по порядку; полное равенство делит банк. Золотом выделена основа комбинации.','Від слабкої до сильної. Обирається одна найкраща шістка з восьми карт. Комбінації не складаються: окрема пара не посилює династію. За рівної комбінації порівнюються її ранги за порядком; повна рівність ділить банк. Золотом виділено основу комбінації.')));
       rules.order.forEach(function(i,position){var c=combos[i];
         var row=el('section','zg-card-help-row');row.append(el('h3','',(position+1)+'. '+c[uk()?1:0]),el('small','',c[uk()?3:2]));
         var examples=exampleCards(i),core=rules.combinationCards(rules.six(examples)),strip=el('div','zg-card-help-examples');
@@ -320,8 +347,8 @@
       }
     }
     if(guestJoined)guestProtectedHands++;
-    game=rules.create({players:people.length,stack:options.stack,stacks:stacks,ante:ante,requireHero:true});roundStacks=stacks.slice();if(social)social.clear();startingStack=stacks[0];if(game.done&&game.paid)sessionDelta+=game.players[0].stack-startingStack;previousBoard=0;reactions={};lastActions={};initialDeal=true;lastPot=0;wasDone=false;revealOrder=[];revealCursor=-1;revealComplete=true;resultFocus=-1;announcementKey='';dealing=!game.done;table.classList.toggle('is-dealing',dealing);render();if(dealing)collectAntes();}
-    function move(action,amount){if(closed||storyBusy||game.done||dealing)return;var actor=game.turn,oldRound=game.round,oldBoard=game.board.length,oldPot=game.pot,beforeStack=game.players[actor].stack,beforeContributed=game.players[actor].contributed;if(rules.act(game,action,amount)){var payment=(game.done?game.paid:game.pot)-oldPot;lastActions[actor]=action;moveSerial++;if(social)social.action({round:roundNumber,move:moveSerial,speaker:ids[actor],action:action,beforeStack:beforeStack,beforeContributed:beforeContributed,after:game.players[actor]});if(game.done){sessionDelta+=game.players[0].stack-startingStack;revealOrder=rules.showdown(game);revealCursor=revealOrder.length?0:-1;revealComplete=!revealOrder.length;resultFocus=revealOrder[0]==null?-1:revealOrder[0];if(revealComplete)outcomeSound();else revealSound();}else if(game.turn===0&&!(oldBoard>=3&&game.board.length>oldBoard)&&(actor!==0||oldRound!==game.round))turnSound();suppressStory=!game.done&&oldBoard>=3&&game.board.length>oldBoard;render();suppressStory=false;if(!game.done&&oldBoard>=3&&game.board.length>oldBoard){dealing=true;table.classList.add('is-dealing');clearTimeout(timeout);table.querySelectorAll('[data-card-action]').forEach(function(button){button.disabled=true;});var steps=[];for(var slot=oldBoard;slot<game.board.length;slot++)steps.push({board:slot,reveal:true});runDeal(steps);}if(payment>0){coinSounds.play('coins','bet:'+(++moneySerial));flyCoins(table.querySelector('.seat-'+actor+' .zg-money-pile'),table.querySelector('.zg-central-bank'),payment);}}}
+    game=rules.create({players:people.length,stack:options.stack,stacks:stacks,ante:ante,requireHero:true});roundStacks=stacks.slice();if(social)social.clear();startingStack=stacks[0];if(game.done&&game.paid)sessionDelta+=game.players[0].stack-startingStack;previousBoard=0;reactions={};lastActions={};initialDeal=true;lastPot=0;wasDone=false;revealOrder=[];revealCursor=-1;revealComplete=true;resultFocus=-1;announcementKey='';dealing=!game.done||game.paid>0&&rules.showdown(game).length>0;if(dealing&&game.done)revealComplete=false;table.classList.toggle('is-dealing',dealing);render();if(dealing)collectAntes();}
+    function move(action,amount){if(closed||storyBusy||game.done||dealing)return;var actor=game.turn,oldRound=game.round,oldBoard=game.board.length,oldPot=game.pot,beforeStack=game.players[actor].stack,beforeContributed=game.players[actor].contributed;if(rules.act(game,action,amount)){var payment=(game.done?game.paid:game.pot)-oldPot;lastActions[actor]=action;moveSerial++;if(social)social.action({round:roundNumber,move:moveSerial,speaker:ids[actor],action:action,beforeStack:beforeStack,beforeContributed:beforeContributed,after:game.players[actor]});if(game.done){sessionDelta+=game.players[0].stack-startingStack;beginShowdown();}else if(game.turn===0&&!(oldBoard>=3&&game.board.length>oldBoard)&&(actor!==0||oldRound!==game.round))turnSound();suppressStory=!game.done&&oldBoard>=3&&game.board.length>oldBoard;render();suppressStory=false;if(!game.done&&oldBoard>=3&&game.board.length>oldBoard){dealing=true;table.classList.add('is-dealing');clearTimeout(timeout);table.querySelectorAll('[data-card-action]').forEach(function(button){button.disabled=true;});var steps=[];for(var slot=oldBoard;slot<game.board.length;slot++)steps.push({board:slot,reveal:true});runDeal(steps);}if(payment>0){coinSounds.play('coins','bet:'+(++moneySerial));flyCoins(table.querySelector('.seat-'+actor+' .zg-money-pile'),table.querySelector('.zg-central-bank'),payment);}}}
     var pendingHeroReply=null;
     function render(){
       if(awaitingEntry||storyBusy||dealing&&!initialDeal)return;
@@ -349,7 +376,7 @@
             cluster.appendChild(view);
           });board.appendChild(cluster);
         });
-      }else for(var i=0;i<6;i++){var community=card(game.board[i],!!game.board[i],false);if(i>=Math.max(3,game.board.length))community.classList.add('is-empty-slot');markCombination(community,game.board[i]);if(i>=previousBoard&&i<game.board.length){community.classList.add('is-revealed');community.style.animationDelay=((i-previousBoard)*180)+'ms';}board.appendChild(community);}previousBoard=game.board.length;table.appendChild(board);
+      }else for(var i=0;i<6;i++){var community=card(game.board[i],!!game.board[i],false);if(i>=Math.max(3,game.board.length))community.classList.add('is-empty-slot');markCombination(community,game.board[i]);if(i>=previousBoard&&i<game.board.length){community.classList.add('is-revealed');community.style.animationDelay=((i-previousBoard)*180)+'ms';}if(dealing&&game.done)community.classList.add('is-deal-pending');board.appendChild(community);}previousBoard=game.board.length;table.appendChild(board);
       people.forEach(function(person,index){var p=game.players[index],seat=el('section','zg-card-seat seat-'+index+(game.turn===index?' is-turn':'')+(p.folded?' is-folded':''));
         if(game.done&&revealComplete&&game.winners.includes(index)){seat.classList.add('is-winner');if(!wasDone)seat.classList.add('just-won');}
         if(resultFocus===index&&revealed(index)){seat.classList.add('is-showing-combo');var epic=epicLevel(p.result.type),pop=el('div','zg-combo-popup');pop.dataset.epic=String(epic);pop.setAttribute('role','status');var key=roundNumber+':'+index+':'+revealComplete;if(announcementKey!==key){pop.classList.add('is-new-result');announcementKey=key;}pop.append(el('strong','',combos[p.result.type][uk()?1:0]));seat.appendChild(pop);}
@@ -359,16 +386,16 @@
         var visibleStack=p.stack;if(game.done&&!payoutCollected){var winIndex=game.winners.indexOf(index);visibleStack-=game.payouts?game.payouts[index]:(winIndex>=0?Math.floor(game.paid/game.winners.length)+(winIndex<game.paid%game.winners.length?1:0):0);}
         var purse=coinPile(visibleStack,t('Медь','Мідь'),index===0);seat.appendChild(purse);
         if(p.lastBet){var detail=purse.querySelector('.zg-money-amount');detail.appendChild(el('small','zg-bet-detail',t('Последняя ставка: +','Остання ставка: +')+p.lastBet.added+t('; всего в круге: ','; разом у колі: ')+p.lastBet.total+' / '+p.lastBet.target));}
-        if(game.done&&revealComplete&&game.winners.includes(index)){var victory=el('div','zg-victory-title',t('Победа','Перемога'));victory.setAttribute('role','status');seat.appendChild(victory);}
+        if(game.done&&revealComplete&&game.winners.includes(index)){var victory=el('div','zg-victory-title',t('Победа','Перемога'));victory.setAttribute('role','status');var reason=resultCaption(game,index,uk());if(reason)victory.appendChild(el('small','zg-victory-reason',reason));seat.appendChild(victory);}
         var caption=!p.folded&&p.stack===0&&!game.done?t('Ва-банк','Ва-банк'):p.folded?(p.stack===0?t('Выбыл','Вибув'):t('Пас','Пас')):'';
         if(caption)seat.appendChild(el('span','zg-card-reaction',caption));if(reactions[index])seat.appendChild(el('span','zg-card-banter',reactions[index]));table.appendChild(seat);
       });
       var footer=el('footer','zg-card-actions'),status=el('div','zg-card-status');status.setAttribute('aria-live','polite');
       var bank=game.done?(payoutCollected?0:game.paid):game.pot,bankPile=coinPile(bank,t('Банк','Банк'),false);bankPile.classList.add('zg-central-bank');table.appendChild(bankPile);
-      if(game.done&&game.pots&&game.pots.length>1){var breakdown=bankPile.querySelector('.zg-money-amount');game.pots.forEach(function(pot,index){breakdown.appendChild(el('small','zg-pot-part',(pot.refund?t('Возврат','Повернення'):index?t('Доп. банк','Дод. банк'):t('Основной банк','Основний банк'))+': '+pot.amount+' → '+pot.winners.map(function(i){return people[i].name;}).join(', ')));});}
-      status.textContent=game.done?revealComplete?t('Победа: ','Перемога: ')+game.winners.map(function(i){return people[i].name;}).join(', '):t('Вскрывается: ','Відкривається: ')+people[revealOrder[revealCursor]].name:game.turn===0?t('Ваш ход','Ваш хід'):people[game.turn].name+'…';footer.appendChild(status);
-      if(game.done&&!revealComplete){footer.append(btn(t('Показать итог','Показати підсумок'),skipReveal));}
-      else if(game.done){
+      if(game.done&&revealComplete&&game.pots&&game.pots.length>1){var breakdown=bankPile.querySelector('.zg-money-amount');game.pots.forEach(function(pot,index){breakdown.appendChild(el('small','zg-pot-part',(pot.refund?t('Возврат','Повернення'):index?t('Доп. банк','Дод. банк'):t('Основной банк','Основний банк'))+': '+pot.amount+' → '+pot.winners.map(function(i){return people[i].name;}).join(', ')));});}
+      status.textContent=dealing?t('Раздача…','Роздача…'):game.done?revealComplete?t('Победа: ','Перемога: ')+game.winners.map(function(i){return people[i].name;}).join(', '):t('Вскрывается: ','Відкривається: ')+people[revealOrder[revealCursor]].name:game.turn===0?t('Ваш ход','Ваш хід'):people[game.turn].name+'…';footer.appendChild(status);
+      if(!dealing&&game.done&&!revealComplete){footer.append(btn(t('Показать итог','Показати підсумок'),skipReveal));}
+      else if(!dealing&&game.done){
         if(!payoutCollected&&game.paid>0){var award=el('div','zg-bank-award'),total=el('strong','zg-bank-total');award.setAttribute('role','status');award.append(el('small','',t('Банк раздачи','Банк роздачі')),total);table.appendChild(award);if(!eventNode)countAward(total,game.paid);}
         else {if(canContinue()){status.textContent=t('Следующая раздача…','Наступна роздача…');nextDealTimer=setTimeout(continueSession,2400);}else status.textContent=game.players[0].stack<Math.max(1,ante)?t('Недостаточно меди для следующего взноса.','Недостатньо міді для наступного внеску.'):t('Игра завершена','Гру завершено');var endLeave=btn(t('Покинуть стол','Залишити стіл'),finish);endLeave.classList.add('zg-minigame-exit');footer.appendChild(endLeave);}
       }
@@ -389,7 +416,7 @@
       var deckRect=deck.getBoundingClientRect();
       table.querySelectorAll('.zg-card.is-dealt').forEach(function(view){var rect=view.getBoundingClientRect();view.style.setProperty('--deal-x',(deckRect.left+deckRect.width/2-rect.left-rect.width/2)+'px');view.style.setProperty('--deal-y',(deckRect.top+deckRect.height/2-rect.top-rect.height/2)+'px');});
       initialDeal=false;wasDone=game.done&&revealComplete;decorateStory();if(eventNode){runStory(eventNode,render);return;}if(resultFocus>=0)linkTimer=setTimeout(drawCombinationLinks,1100);
-      if(game.done&&!revealComplete)timeout=setTimeout(function(){if(closed)return;if(revealCursor+1<revealOrder.length){revealCursor++;resultFocus=revealOrder[revealCursor];revealSound();}else{revealComplete=true;resultFocus=game.winners[0];outcomeSound();}render();},rules.strength(game.players[resultFocus].result.type)>=9?3300:2400);
+      if(!dealing&&game.done&&!revealComplete)timeout=setTimeout(function(){if(closed)return;if(revealCursor+1<revealOrder.length){revealCursor++;resultFocus=revealOrder[revealCursor];revealSound();}else{revealComplete=true;resultFocus=game.winners[0];outcomeSound();}render();},rules.strength(game.players[resultFocus].result.type)>=9?3300:2400);
       if(!dealing&&!game.done&&game.turn!==0)timeout=setTimeout(function(){if(closed)return;var index=game.turn,a=rules.npc(game,Math.random,people[index].style);var amount=a==='raise'?Math.max(1,Math.min(rules.raiseLimit(game),Math.ceil(game.players[index].stack*(people[index].style==='bold'?.2:.1)))):undefined;if(roundNumber===1){var safe=rules.openingMove(game,a,amount,options.firstRoundBetCap??2);a=safe.action;amount=safe.amount;}if(ids[index]===options.guestSpeakerId&&options.guestGraceHands>0&&guestProtectedHands<=options.guestGraceHands){var guest=game.players[index],cost=Math.max(0,game.target-guest.bet),budget=Math.max(0,guest.stack-Math.max(1,ante));if(cost>budget)a='fold';else if(a==='raise'||a==='allin'){amount=Math.min(1,budget-cost);if(amount<1||Math.random()<.6)a='call';}}move(a,amount);},Math.max(600,Math.min(10000,Number(roundNumber===1?options.firstRoundThinkMs:options.npcThinkMs)||(roundNumber===1?2400:1350))));
     }
     storyFx=w.ZargotaCardSocial?w.ZargotaCardSocial.effects(modal,ids):null;modal.showModal();var intro=director&&director.next({intro:true,round:1,board:0,visit:visit});function begin(){var next=director&&director.next({intro:true,round:1,board:0,visit:visit});if(next)runStory(next,begin);else start();}if(intro)runStory(intro,begin);else start();if(!awaitingEntry)modal.querySelector('button')?.focus();return dispose;
@@ -454,5 +481,5 @@
     group(t('Правила и ограничения','Правила й обмеження')).appendChild(el('p','',t('40 карт; общие карты: 3 → 2 → 1. Повышение в пределах своего запаса. Ва-банк сохраняет участие; дополнительные ставки разыгрываются в отдельных банках, непокрытый остаток возвращается. Медь сохраняется между раздачами этой игры. Стартовые суммы применяются при новом запуске. Сюжетное серебро не расходуется.','40 карт; спільні карти: 3 → 2 → 1. Підвищення в межах власного запасу. Ва-банк зберігає участь; додаткові ставки розігруються в окремих банках, непокритий залишок повертається. Мідь зберігається між роздачами цієї гри. Стартові суми застосовуються під час нового запуску. Сюжетне срібло не витрачається.')));
     panel.appendChild(btn(t('▷ Тест мини-игры','▷ Тест мінігри'),function(){open(project,config(project));}));host.appendChild(panel);
   }
-  w.ZargotaCardGame={seatChange:seatChange,open:open,edit:edit,match:match,config:config,dispose:function(){if(active)active();},cardPath:cardPath,combos:combos,exampleCards:exampleCards,observation:observation};
+  w.ZargotaCardGame={resultCaption:resultCaption,resultDifference:resultDifference,seatChange:seatChange,open:open,edit:edit,match:match,config:config,dispose:function(){if(active)active();},cardPath:cardPath,combos:combos,exampleCards:exampleCards,observation:observation};
 })(window);

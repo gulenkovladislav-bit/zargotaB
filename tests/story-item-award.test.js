@@ -9,6 +9,13 @@ r=api.award(r.character,{itemId:'dust'},3,false);assert(r.received);assert.equal
 r=api.award(r.character,{itemId:'dust'},2,false);assert.equal(r.character.inventoryItems[1].qty,5);
 assert(!api.award(hero,null,1,true).received);
 const full={inventoryItems:Array.from({length:41},(_,i)=>({itemId:'item'+i}))};r=api.award(full,cloak,1,true);assert.equal(r.character.inventoryItems.length,42);assert(!r.equipped);
-let call,finished=false;c.window.ZargotaStoryQuestActions.run([{type:'giveItem',itemId:cloak.itemId,qty:1,equip:true,actionId:'gift'}],{giveItem(...args){call=args;}},()=>{finished=true;});assert(finished);assert.deepEqual(call,[cloak.itemId,1,true,'gift']);
+let call,finished=false;c.window.ZargotaStoryQuestActions.run([{type:'giveItem',itemId:cloak.itemId,qty:1,equip:true,actionId:'gift'}],{giveItem(...args){call=args;}},()=>{finished=true;});assert(finished);assert.deepEqual(call,[cloak.itemId,1,true,'gift',undefined]);
 const player=fs.readFileSync('story-player.js','utf8');assert(player.includes('if(actionId&&state.receivedItemActions[actionId])return'));assert(player.includes("classList.add('has-new-items')"));assert(player.includes("classList.remove('has-new-items')"));
 console.log('PASS: grant, unique cloak, auto-equip, no unequip toggle, stacking, missing item, oversized inventory preservation, action forwarding and badge hooks');
+
+const jugHero={inventoryItems:[{itemId:'jug',name:'Empty',image:'empty.png',qty:1,equipped:false},{itemId:'other',qty:3}]};
+const filled={itemId:'jug',name:'Filled',image:'filled.png',stackable:false};
+r=api.award(jugHero,filled,1,false);assert(!r.received);assert.equal(jugHero.inventoryItems[0].image,'empty.png','normal unique award cannot overwrite authored inventory');
+r=api.award(jugHero,filled,1,false,true);assert(r.updated);assert(!r.received);assert.equal(jugHero.inventoryItems.length,2);assert.equal(jugHero.inventoryItems[0].image,'filled.png');assert.equal(jugHero.inventoryItems[0].qty,1);assert(jugHero.inventoryItems[0].storyUnread);assert.equal(jugHero.inventoryItems[1].qty,3);
+c.window.ZargotaStoryQuestActions.run([{type:'giveItem',itemId:'jug',qty:1,actionId:'fill',updateExisting:true}],{giveItem(...args){call=args;}},()=>{});assert.equal(call[4],true);
+console.log('PASS explicit item state update preserves identity, quantity and unrelated inventory; normal unique grants do not replace items.');

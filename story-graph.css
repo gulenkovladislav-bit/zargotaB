@@ -4,8 +4,8 @@
 #zg-story-editor .zg-story-node>small{display:none}
 .zg-graph-kind{font-size:10px;color:#9daea4;letter-spacing:.5px;height:14px}
 .zg-story-body{position:relative}
-.zg-board-tools{position:absolute;z-index:8;left:12px;bottom:14px;display:flex;align-items:center;gap:12px;padding:8px 12px;background:#10201bed;border:1px solid #405b50;border-radius:10px;font-size:11px}
-.zg-board-tools input{width:110px!important}
+.zg-board-tools{position:absolute;z-index:8;left:76px;top:12px;display:flex;align-items:center;gap:12px;padding:8px 12px;background:#10201bed;border:1px solid #405b50;border-radius:10px;font-size:11px}
+.zg-board-tools input{width:110px!important;min-width:40px;max-width:110px;flex:1 1 70px}
 .zg-board-tools{max-width:calc(100% - 24px);flex-wrap:wrap;box-sizing:border-box}
 .zg-board-tools button{font:inherit;padding:6px 9px;border:1px solid #567362;border-radius:6px;background:#182c24;color:#eadfc5;cursor:pointer}
 .zg-board-tools button:hover{background:#294436}
@@ -36,3 +36,10 @@
 .zg-graph-choice-editor{padding:12px;margin-bottom:20px;border:1px solid #8d7448;border-radius:9px;background:#28271955}
 .zg-graph-choice-editor label{margin:12px 0;font-size:13px}
 #zg-story-editor .zg-graph-choice-editor label button{font-size:10px;justify-self:end;padding:4px 8px}
+
+.zg-board-tools[hidden]{display:none!important}
+.zg-board-help{position:relative}
+.zg-board-help>summary{list-style:none;cursor:pointer;border:1px solid #567362;border-radius:50%;width:26px;height:26px;display:grid;place-items:center;color:#eadfc5;font:bold 14px/1 serif}
+.zg-board-help>summary::-webkit-details-marker{display:none}
+.zg-board-help[open]>summary{background:#354338;border-color:#b99b5a}
+.zg-board-help-text{position:absolute;top:36px;left:0;width:240px;max-width:60vw;padding:12px;background:#10201b;border:1px solid #567362;border-radius:8px;box-shadow:0 8px 24px #0009;font:12px/1.6 sans-serif;color:#eadfc5}

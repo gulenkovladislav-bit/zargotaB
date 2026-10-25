@@ -91,11 +91,13 @@
   function inspectItem(item,trigger){
     var inspectionAudio=null,paper=item.itemId==='evan-draft-folder'||/черт[её]ж|креслен|blueprint|sketch|drawing|draft-folder-v1/i.test([item.itemId,item.name,item.nameUk,item.inspectImage,(item.tags||[]).toString()].join(' '));
     var dialog=el('dialog');dialog.className='zg-story-item-inspection';
+    var bag=document.querySelector('.zg-story-play-bag');
+    if(bag)bag.classList.add('is-inspecting-item');
     var coin=w.ZargotaStoryCoins?.detail(item);if(coin)dialog.classList.add('zg-story-coin-inspection');
     var coinView=w.ZargotaStoryCoins?.viewer(item,{soundAllowed:bagSoundAllowed}),art=coinView||el('img');if(!coinView){art.src=item.inspectImage;art.alt=local(item,'name')||'';}
     var back=btn(t('Закрыть осмотр','Закрити огляд'),function(){dialog.close();});
     dialog.append(art,back);document.body.appendChild(dialog);
-    dialog.addEventListener('close',function(){coinView?.dispose();if(inspectionAudio){inspectionAudio.pause();inspectionAudio.src='';}dialog.remove();if(trigger&&trigger.isConnected)trigger.focus();},{once:true});
+    dialog.addEventListener('close',function(){coinView?.dispose();if(inspectionAudio){inspectionAudio.pause();inspectionAudio.src='';}dialog.remove();if(bag)bag.classList.remove('is-inspecting-item');if(trigger&&trigger.isConnected)trigger.focus();},{once:true});
     dialog.addEventListener('keydown',function(e){e.stopPropagation();});
     dialog.showModal();back.focus();
     if(paper&&bagSoundAllowed()){try{inspectionAudio=new Audio('assets/stories/audio/mixkit-paper-slide-1530.wav');inspectionAudio.volume=.45;inspectionAudio.play().catch(function(){});}catch(e){}}

@@ -33,3 +33,12 @@ variants in the same change. This includes the current entry in
 `notesUk`. Do not leave a new interface label, description, notice, or update-log
 entry in only one locale. Technical identifiers and developer-only comments are
 exempt.
+
+## Dialogue causality and voice gate
+
+Before writing or revising dialogue in any episode, read
+`docs/story-dialogue-craft.md`. Review the playable sequence as well as the prose:
+arrival, approach, discovery, decision, outcome, revisit. A character must not
+announce hidden details before observing them or narrate the UI instead of having
+a personal response. Keep approved author wording; do not bulk rewrite episodes.
+When gameplay changes, audit dialogue that depended on the old mechanic.

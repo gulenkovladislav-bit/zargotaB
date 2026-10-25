@@ -48,7 +48,6 @@ const assert=require('node:assert/strict');
     await page.getByRole('spinbutton',{name:'X %',exact:true}).fill('75');
     await page.getByRole('spinbutton',{name:'X %',exact:true}).press('Tab');
     assert.equal(await page.evaluate(()=>zgStoryEditorProject().scene.story.decorations[0].x),75);
-    await page.getByRole('button',{name:'▶ Предпросмотр эффектов',exact:true}).click();
     assert.equal(await page.locator('.zg-stage-minimap .is-fire').count(),1);
     await page.screenshot({path:'/private/tmp/zargota-story-effects-editor.png'});
     await page.locator('#zg-story-stage-settings header button').click();

@@ -20,13 +20,13 @@
   function close(){if(active){const d=active;active=null;d.close();}}
   function show(result,cfg,sound,done){
     close();const focus=document.activeElement,dialog=document.createElement('dialog');active=dialog;
-    dialog.className='zg-secret-found';dialog.setAttribute('aria-label',t('Вы нашли','Ви знайшли'));
-    const heading=document.createElement('h2');heading.textContent=t('Вы нашли','Ви знайшли');
+    dialog.className='zg-secret-found';dialog.setAttribute('aria-label',local(cfg,'title')||t('Вы нашли','Ви знайшли'));
+    const heading=document.createElement('h2');heading.textContent=local(cfg,'title')||t('Вы нашли','Ви знайшли');
     const glow=document.createElement('div');glow.className='zg-secret-glow';
     const coinView=w.ZargotaStoryCoins?.viewer(result.item,{interactive:false});
     const image=coinView||document.createElement('img');if(!coinView){image.src=cfg.image||w.ZargotaStoryItems.icon(result.item);image.alt=local(result.item,'name');}glow.append(image);
     const name=document.createElement('p');name.textContent=local(result.item,'name')+(result.qty>1?' ×'+result.qty:'');
-    const back=document.createElement('button');back.type='button';back.textContent=t('Подобрать','Підібрати');back.onclick=close;
+    const back=document.createElement('button');back.type='button';back.textContent=local(cfg,'button')||t('Подобрать','Підібрати');back.onclick=close;
     dialog.append(heading,glow,name,back);let audio=null;
     dialog.addEventListener('keydown',e=>e.stopPropagation());
     dialog.addEventListener('close',()=>{coinView?.dispose();if(active===dialog)active=null;if(audio){audio.pause();audio.src='';}dialog.remove();if(focus?.isConnected)focus.focus();if(done)done();});

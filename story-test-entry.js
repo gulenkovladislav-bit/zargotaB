@@ -51,7 +51,7 @@
    }
    w.ZargotaStoryQuests.enter(data,s.quests,s.sceneId);
    const q=(data.quests||[]).find(q=>q.id===s.quests.active);
-   const milestone=(q?.milestones||[]).find(m=>{const ids=Array.from(new Set(m.dialogueIds||[])),min=Number(m.minCompleted);return m.id&&!s.dialogueMilestones?.[m.id]&&(!m.sceneId||m.sceneId===s.sceneId)&&equipped(m,s)&&nodeById(m.nodeId)&&Number.isInteger(min)&&min>=0&&min<=ids.length&&ids.filter(id=>s.completedDialogues[id]).length>=min;});
+   const milestone=(q?.milestones||[]).find(m=>{const ids=Array.from(new Set(m.dialogueIds||[])),min=Number(m.minCompleted);return m.id&&!s.dialogueMilestones?.[m.id]&&(!m.sceneId||m.sceneId===s.sceneId)&&(m.requiresFlags||[]).every(flag=>s.flags[flag])&&equipped(m,s)&&nodeById(m.nodeId)&&Number.isInteger(min)&&min>=0&&min<=ids.length&&ids.filter(id=>s.completedDialogues[id]).length>=min;});
    if(milestone){const next=copy(s);(next.dialogueMilestones||(next.dialogueMilestones={}))[milestone.id]=true;push(row,next,milestone.nodeId,milestone.nodeId,{sceneId:s.sceneId,milestoneId:milestone.id});continue;}
    const record=records.find(r=>r.id===s.sceneId);if(!record)continue;
    const view=w.ZargotaStoryQuests.gatedScene(data,record.scene,s.sceneId,s.quests);
@@ -68,11 +68,31 @@
   }
   return {ok:false,reason:queue.length>=limit?'limit':'unresolved',route:[],examined:index};
  }
+ // Runtime reachability protects the current location even when old editor ownership is stale.
+ function locationIds(data,target){
+  const ids=new Set(w.ZargotaStoryLocationDialogues.nodes(data,target).map(n=>n.id));
+  const seen=new Set(),by=new Map((data.nodes||[]).map(n=>[n.id,n]));
+  function visit(id){if(!id||seen.has(id)||!by.has(id))return;seen.add(id);ids.add(id);const n=by.get(id);
+   for(const page of [n,...(n.slides||[])])for(const link of page.links||[])if(!link.sceneId||link.sceneId===target)visit(link.to);
+   const game=data.minigames?.snakeReach;if(game?.enabled&&game.startNodeId===id){visit(game.successNodeId);visit(game.failureNodeId);}
+  }
+  const record=(data.scenes||[]).find(r=>r.id===target),scene=target===data.activeSceneId?data.scene:record?.scene;
+  visit(scene?.story?.firstVisitDialogueId);
+  if(target===(data.startSceneId||data.scenes?.[0]?.id))visit(data.entryId);
+  for(const o of [...(scene?.tokens||[]),...(scene?.story?.zones||[])]){if(o.sceneId&&o.sceneId!==target)continue;const a=data.interactions?.[o.id];visit(o.entryId||(a?.main?data.entryId:a?.entryId));}
+  return ids;
+ }
+ function defaultQuest(data,target){const ids=locationIds(data,target);return (data.quests||[]).find(q=>[q.dialogueId,...(q.dialogueIds||[])].some(id=>ids.has(id)))?.id||data.initialQuestId||'';}
  // Test-only union of rewards and completion from every earlier editor location.
- function prepareAll(data,target){
+ function prepareAll(data,target,selectedQuestId){
   const records=data.scenes||[],index=records.findIndex(r=>r.id===target);
   if(index<0)return {ok:false,reason:'missing'};
-  const state=w.ZargotaStoryRules.createState(data),helpers=w.ZargotaStoryTestTools;
+  const protectedIds=locationIds(data,target),protectedQuests=new Set();
+  let questId=selectedQuestId===undefined?defaultQuest(data,target):selectedQuestId;
+  while(questId&&!protectedQuests.has(questId)){protectedQuests.add(questId);const q=(data.quests||[]).find(q=>q.id===questId);for(const id of [q?.dialogueId,...(q?.dialogueIds||[])].filter(Boolean))protectedIds.add(id);questId=q?.nextId;}
+  const source=data;
+  data=Object.assign({},data,{nodes:(data.nodes||[]).filter(n=>!protectedIds.has(n.id)),quests:(data.quests||[]).filter(q=>!protectedQuests.has(q.id)&&![q.dialogueId,...(q.dialogueIds||[])].some(id=>protectedIds.has(id)))});
+  const state=w.ZargotaStoryRules.createState(source),helpers=w.ZargotaStoryTestTools;
   const prior=records.slice(0,index),quests=new Map();
   for(const record of prior){
    state.sceneId=record.id;
@@ -100,11 +120,10 @@
   const note=document.createElement('p');note.textContent=t('Выберите активное задание. Его завершение запустит обычные действия. Настройки эпизода не изменятся.','Оберіть активне завдання. Його завершення запустить звичайні дії. Налаштування епізоду не зміняться.');
   const preparation=document.createElement('label'),check=document.createElement('input');check.type='checkbox';check.checked=true;preparation.append(check,document.createTextNode(t(' Выдать все предметы и завершить задания предыдущих локаций',' Видати всі предмети та завершити завдання попередніх локацій')));
   const list=document.createElement('div');list.className='zg-custom-options';
-  const nodes=w.ZargotaStoryLocationDialogues.nodes(data,data.activeSceneId);
-  let selected=(data.quests||[]).find(q=>[q.dialogueId,...(q.dialogueIds||[])].some(id=>nodes.some(n=>n.id===id)))?.id||data.initialQuestId||'';
+  let selected=defaultQuest(data,data.activeSceneId);
   const buttons=[];
   [{id:'',title:t('Без задания','Без завдання')},...(data.quests||[])].forEach(q=>{
-   const b=document.createElement('button');b.type='button';b.textContent=t(q.title||q.id,q.titleUk||q.title||q.id);
+   const b=document.createElement('button');b.type='button';b.textContent=t(q.title||q.id,q.titleUk||q.title||q.id);const objective=t(q.objective||'',q.objectiveUk||q.objective||'');if(objective){const detail=document.createElement('small');detail.textContent=objective;detail.style.display='block';b.append(detail);}
    const update=()=>b.setAttribute('aria-pressed',String(selected===q.id));buttons.push(update);update();
    b.onclick=()=>{selected=q.id;buttons.forEach(fn=>fn());};list.appendChild(b);
   });
@@ -115,5 +134,5 @@
   const help=document.createElement('p');help.textContent=t('Все локации выше выбранной в списке редактора, включая награды альтернативных веток. Только в тестовой копии.','Усі локації вище обраної у списку редактора, включно з нагородами альтернативних гілок. Лише в тестовій копії.');
   dialog.append(title,note,preparation,help,list,start,cancel);document.body.appendChild(dialog);dialog.showModal();
  }
- w.ZargotaStoryTestEntry={choose,prepare,prepareAll};
+ w.ZargotaStoryTestEntry={choose,prepare,prepareAll,locationIds,defaultQuest};
 })(window);

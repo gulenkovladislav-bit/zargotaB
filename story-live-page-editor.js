@@ -19,6 +19,13 @@
   if(edit.operation!=='pageSettings'||!edit.values||Object.keys(edit.values).some(k=>!fields.includes(k)))return false;
   if(Object.keys(edit.values).some(k=>page[k]!==edit.expected[k]))return false;
   if(Object.entries(edit.values).some(([k,v])=>k==='showPortrait'?typeof v!=='boolean':['textSpeed','textSize'].includes(k)?!Number.isFinite(v)||v<(k==='textSpeed'?5:16)||v>(k==='textSpeed'?100:48):typeof v!=='string'))return false;
+  // A first-page edit must not silently change the inherited look of later replies.
+  if(edit.pageIndex===0){
+   const defaults={textAnimation:'typewriter',textSpeed:37,textSize:30,showPortrait:true};
+   Object.keys(edit.values).filter(k=>k in defaults).forEach(k=>{
+    (node.slides||[]).forEach(slide=>{if(slide[k]==null)slide[k]=node[k]??defaults[k];});
+   });
+  }
   Object.assign(page,edit.values);return true;
  }
  function portraitChoices(project,id){
@@ -37,6 +44,7 @@
  const cleanups=new WeakMap();
  function unmount(host){cleanups.get(host)?.();cleanups.delete(host);host.querySelectorAll('.zg-live-page-tools').forEach(e=>e.remove());}
  function mount(host,project,meta,save,refresh){
+  const settingsOpen=!!host.querySelector('[data-live-appearance]');
   unmount(host);
   const node=root(project,meta),page=meta.pageIndex===0?node:node?.slides?.[meta.pageIndex-1];if(!page)return;
   const effective=Object.assign({},node,page),bar=document.createElement('div');bar.className='zg-live-page-tools';const restores=[];
@@ -73,7 +81,7 @@
   bar.appendChild(button(t('+ Реплика','+ Репліка'),()=>{if(commit({operation:'insertPage',expected:JSON.stringify(node.slides||[])}))refresh(meta.pageIndex+1,true);}));
   const gear=button('⚙',()=>{
    if(bar.querySelector('.zg-live-page-fields')){bar.querySelector('.zg-live-page-fields').remove();return;}
-   const box=panel(t('Отображение реплики','Відображення репліки')),values={};
+   const box=panel(t('Отображение реплики','Відображення репліки')+' · '+(meta.pageIndex+1)+' / '+(1+(node.slides||[]).length)),values={};box.dataset.liveAppearance='';
    if(effective.image)box.appendChild(button(t('Тайники на картинке','Схованки на зображенні'),()=>{
     const expected=JSON.stringify(page.imageSecrets||[]);
     const close=w.ZargotaImageSecrets.edit(project,effective,rows=>{if(!commit({operation:'imageSecrets',expected,rows}))return false;refresh(meta.pageIndex,false);return true;});restores.push(close);
@@ -85,7 +93,7 @@
    const portrait=button(effective.showPortrait===false?t('Показать портрет','Показати портрет'):t('Скрыть портрет','Приховати портрет'),()=>change({showPortrait:effective.showPortrait===false}));box.appendChild(portrait);
    if(effective.showPortrait===false)box.appendChild(button(t('Выбрать портрет','Обрати портрет'),portraits));
    box.appendChild(button(t('Применить','Застосувати'),()=>change(values)));
-  });gear.setAttribute('aria-label',t('Настройки отображения реплики','Налаштування відображення репліки'));bar.appendChild(gear);host.appendChild(bar);
+  });gear.setAttribute('aria-label',t('Настройки отображения реплики','Налаштування відображення репліки'));bar.appendChild(gear);host.appendChild(bar);if(settingsOpen)gear.click();
  }
  function answer(host,button,nodeId,link,linkIndex,save,done){
   const pencil=document.createElement('span');pencil.className='zg-card-choice-pencil';pencil.dataset.livePageTarget='';pencil.tabIndex=0;pencil.setAttribute('role','button');pencil.setAttribute('aria-label',t('Изменить ответ','Змінити відповідь')+': '+(link.label||''));pencil.title=t('Изменить текст ответа','Змінити текст відповіді');

@@ -28,15 +28,16 @@
   });}search.oninput=render;render();
   host.appendChild(box);
  }
- function award(character,item,qty,equip){
+ function award(character,item,qty,equip,updateExisting){
   if(!item)return {character,received:false,equipped:false};
   const before=(character.inventoryItems||[]).find(i=>i.itemId===item.itemId),count=before?Number(before.qty)||1:0;
-  give(character,item,qty);
+  const updated=!!(updateExisting&&before);
+  if(updated){const keptQty=before.qty,keptEquipped=before.equipped;Object.assign(before,copy(item),{qty:keptQty==null?1:keptQty,equipped:!!keptEquipped,storyUnread:true});}else give(character,item,qty);
   const index=character.inventoryItems.findIndex(i=>i.itemId===item.itemId),owned=character.inventoryItems[index];
   const received=(Number(owned.qty)||1)>count;
   if(received)owned.storyUnread=true;
   if(equip&&!owned.equipped&&character.inventoryItems.length<=40){const result=w.ZargotaEquipmentRules?.applyCreatureInventory(character,{action:'equip',index});if(result?.ok)character=result.source;}
-  return {character,received,equipped:!!character.inventoryItems[index].equipped};
+  return {character,received,updated,equipped:!!character.inventoryItems[index].equipped};
  }
  function exchange(data,run,link){
   const take=Number(link.exchangeTakeQty),receive=Number(link.exchangeGiveQty),once=link.exchangeOnce,limit=Number(link.exchangeLimit||1),spent=Number(run.exchangeCounts?.[once]||0);

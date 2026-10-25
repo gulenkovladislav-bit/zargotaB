@@ -23,8 +23,9 @@
   }
   remove.onclick=removeSelected;
   restore.onclick=()=>{if(!undo)return;if(JSON.stringify(api.get())!==undo.after){status.textContent=t('После удаления были изменения — отмена недоступна.','Після видалення були зміни — скасування недоступне.');return;}api.update(d=>Object.assign(d,copy(undo.before)));undo=null;restore.hidden=true;status.textContent=t('Блоки и связи восстановлены.','Блоки та зв’язки відновлено.');paint();};
-  const hint=Array.from(root.querySelectorAll('.zg-board-tools span:not([role])')).pop();if(hint)hint.textContent=t('ЛКМ · рамка · Shift + клик · выбор · Пробел + мышь · перемещение','ЛКМ · рамка · Shift + клік · вибір · Пробіл + миша · переміщення');
+
   const cards=()=>Array.from(canvas.querySelectorAll('.zg-story-node'));
+  const point=e=>w.ZargotaStoryGraph?.point?w.ZargotaStoryGraph.point(e):{x:(e.clientX+canvas.scrollLeft)/(w.ZargotaStoryGraph?.scale||1),y:(e.clientY+canvas.scrollTop)/(w.ZargotaStoryGraph?.scale||1)};
   function paint(){const count=selectedIds().size;remove.hidden=!count;remove.textContent=t('Удалить выбранные','Видалити вибрані')+' ('+count+')';cards().forEach(c=>{c.style.outline=selected.has(c.dataset.nodeId)?'3px solid #dfbd69':'';});}
   new MutationObserver(paint).observe(root.querySelector('#zg-story-nodes'),{childList:true});
   function cancel(){if(gesture?.box)gesture.box.remove();if(gesture?.card)cards().forEach(c=>{const n=gesture.nodes.find(n=>n.id===c.dataset.nodeId);if(n){c.style.left=n.x+'px';c.style.top=n.y+'px';}});gesture=null;paint();}
@@ -39,19 +40,22 @@
    if(card&&selected.size<2)return;
    e.preventDefault();e.stopImmediatePropagation();
    const rect=canvas.getBoundingClientRect();
-   gesture={pointer:e.pointerId,x:e.clientX,y:e.clientY,moved:false,card:!!card,scale:w.ZargotaStoryGraph?.scale||1};
+   gesture={pointer:e.pointerId,x:e.clientX,y:e.clientY,moved:false,card:!!card,scale:w.ZargotaStoryGraph?.scale||1,origin:point(e),clientX:e.clientX,clientY:e.clientY};
    if(card){const ids=new Set(cards().map(c=>c.dataset.nodeId));gesture.nodes=api.get().nodes.filter(n=>selected.has(n.id)&&ids.has(n.id)).map(n=>({id:n.id,x:Number(n.x)||12,y:Number(n.y)||12}));}
    else{selected.clear();const box=document.createElement('div');box.style.cssText='position:fixed;pointer-events:none;border:1px solid #dfbd69;background:#dfbd6926;z-index:2147483647';document.body.appendChild(box);gesture.box=box;gesture.rect=rect;}
    try{canvas.setPointerCapture(e.pointerId);}catch(_){}paint();
   },true);
+  function moveGroup(){const g=gesture;if(!g?.card)return;const p=point({clientX:g.clientX,clientY:g.clientY});let dx=p.x-g.origin.x,dy=p.y-g.origin.y;dx=Math.max(dx,12-Math.min(...g.nodes.map(n=>n.x)));dy=Math.max(dy,12-Math.min(...g.nodes.map(n=>n.y)));g.dx=dx;g.dy=dy;if(Math.abs(dx)+Math.abs(dy)>.1)g.moved=true;cards().forEach(c=>{const n=g.nodes.find(n=>n.id===c.dataset.nodeId);if(n){c.style.left=n.x+dx+'px';c.style.top=n.y+dy+'px';}});}
+  function finish(e){const g=gesture;if(!g||g.pointer!==e.pointerId)return;suppress=true;setTimeout(()=>suppress=false,0);cancel();if(g.card&&g.moved)api.update(d=>{g.nodes.forEach(p=>{const n=d.nodes.find(n=>n.id===p.id);if(n){n.x=p.x+g.dx;n.y=p.y+g.dy;}});});}
   document.addEventListener('pointermove',e=>{
-   const g=gesture;if(!g||g.pointer!==e.pointerId)return;
-   if(Math.hypot(e.clientX-g.x,e.clientY-g.y)>3)g.moved=true;
+   const g=gesture;if(!g||g.pointer!==e.pointerId)return;if(!(e.buttons&1)){finish(e);return;}
+   g.clientX=e.clientX;g.clientY=e.clientY;if(Math.hypot(e.clientX-g.x,e.clientY-g.y)>3)g.moved=true;
    if(!g.moved)return;e.preventDefault();
-   if(g.card){let dx=(e.clientX-g.x)/g.scale,dy=(e.clientY-g.y)/g.scale;dx=Math.max(dx,12-Math.min(...g.nodes.map(n=>n.x)));dy=Math.max(dy,12-Math.min(...g.nodes.map(n=>n.y)));g.dx=dx;g.dy=dy;cards().forEach(c=>{const n=g.nodes.find(n=>n.id===c.dataset.nodeId);if(n){c.style.left=n.x+dx+'px';c.style.top=n.y+dy+'px';}});}
+   if(g.card)moveGroup();
    else{const x=Math.min(g.x,e.clientX),y=Math.min(g.y,e.clientY),right=Math.max(g.x,e.clientX),bottom=Math.max(g.y,e.clientY);Object.assign(g.box.style,{left:x+'px',top:y+'px',width:right-x+'px',height:bottom-y+'px'});selected.clear();cards().forEach(c=>{const r=c.getBoundingClientRect();if(r.right>=x&&r.left<=right&&r.bottom>=y&&r.top<=bottom)selected.add(c.dataset.nodeId);});paint();}
   });
-  document.addEventListener('pointerup',e=>{const g=gesture;if(!g||g.pointer!==e.pointerId)return;suppress=true;setTimeout(()=>suppress=false,0);cancel();if(g.card&&g.moved)api.update(d=>{g.nodes.forEach(p=>{const n=d.nodes.find(n=>n.id===p.id);if(n){n.x=p.x+g.dx;n.y=p.y+g.dy;}});});},true);
+  canvas.addEventListener('scroll',moveGroup);canvas.addEventListener('zg-graph-viewchange',moveGroup);
+  document.addEventListener('pointerup',finish,true);
   document.addEventListener('pointercancel',cancel);
   canvas.addEventListener('click',e=>{if(suppress||e.target.closest('.zg-story-node')&&selected.size>1&&selected.has(e.target.closest('.zg-story-node').dataset.nodeId)){e.preventDefault();e.stopImmediatePropagation();suppress=false;}},true);
   paint();

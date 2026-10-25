@@ -37,17 +37,22 @@
   function play(action){
    if(action.kind==='returnCard'){Array.from(active).forEach(stop=>stop());return Promise.resolve();}
    const source=target(action.from),dest=target(action.to);if(!source||!dest)return Promise.resolve();
-   if(w.matchMedia?.('(prefers-reduced-motion: reduce)').matches||!dest.animate)return Promise.resolve();
+   const reduced=w.matchMedia?.('(prefers-reduced-motion: reduce)').matches||!dest.animate;
+   if(reduced&&action.kind!=='stone')return Promise.resolve();
    return new Promise(resolve=>{
-    let ended=false;const animations=[],nodes=[];
-    function finish(){if(ended)return;ended=true;animations.forEach(a=>a.cancel());nodes.forEach(n=>n.remove());active.delete(finish);resolve();}
+    let ended=false,timer;const animations=[],nodes=[];
+    function finish(){if(ended)return;ended=true;if(timer)clearTimeout(timer);animations.forEach(a=>a.cancel());nodes.forEach(n=>n.remove());active.delete(finish);resolve();}
     active.add(finish);
     const a=source.getBoundingClientRect(),b=dest.getBoundingClientRect(),r=root.getBoundingClientRect();
+    if(action.kind==='stone'){
+     const caption=document.createElement('span');caption.className='zg-card-throw-caption';caption.textContent=w.ZargotaI18n?.getLocale()==='uk'?'Кидок':'Бросок';caption.setAttribute('role','status');caption.style.left=Math.max(60,Math.min(r.width-60,a.left+a.width/2-r.left))+'px';caption.style.top=Math.max(20,a.top-r.top-30)+'px';root.appendChild(caption);nodes.push(caption);
+     if(reduced){timer=setTimeout(finish,900);return;}
+    }
     if(action.kind==='stone'||action.kind==='coin'){
      const stone=document.createElement('span');stone.className=action.kind==='coin'?'zg-card-story-pebble is-copper':'zg-card-story-pebble';stone.setAttribute('aria-hidden','true');stone.style.left=(a.left+a.width/2-r.left)+'px';stone.style.top=(a.top+a.height/2-r.top)+'px';root.appendChild(stone);nodes.push(stone);
      const dx=b.left+b.width/2-a.left-a.width/2,dy=b.top+b.height/2-a.top-a.height/2;
      const flight=stone.animate([{transform:'translate(0,0) rotate(0deg)'},{transform:'translate('+dx*.5+'px,'+(dy*.5-75)+'px) rotate(170deg)',offset:.5},{transform:'translate('+dx+'px,'+dy+'px) rotate(340deg)'}],{duration:900,easing:'linear',fill:'forwards'});animations.push(flight);
-     flight.finished.then(()=>{if(ended)return;stone.remove();const hit=dest.animate([{transform:'translateX(0)'},{transform:'translateX(7px)'},{transform:'translateX(-5px)'},{transform:'translateX(0)'}],{duration:330});animations.push(hit);hit.finished.then(finish,finish);},finish);
+     flight.finished.then(()=>{if(ended)return;stone.remove();const hit=dest.animate([{transform:'translateX(0)'},{transform:'translateX(4px)'},{transform:'translateX(-3px)'},{transform:'translateX(0)'}],{duration:280});animations.push(hit);hit.finished.then(finish,finish);},finish);
     }else{
      const card=root.querySelector('.seat-'+ids.indexOf(action.to)+' .zg-card-hand .zg-card');
      if(!card){finish();return;}

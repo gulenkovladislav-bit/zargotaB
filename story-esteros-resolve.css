@@ -1,0 +1,42 @@
+.zg-esteros-resolve{position:absolute;inset:0;z-index:900;pointer-events:none;overflow:hidden;font-family:Georgia,serif;color:#eee2c5}
+.zg-esteros-resolve .hud{position:absolute;left:50%;top:8%;transform:translate(-50%,-50%) scale(var(--resolve-scale,1));display:flex;align-items:center;justify-content:center;gap:14px;width:440px;height:96px;isolation:isolate;opacity:0}
+.zg-esteros-resolve .hud:before{content:'';position:absolute;inset:0 -30px;background:radial-gradient(ellipse,rgba(8,12,17,.65),transparent 72%);z-index:-1}
+.zg-esteros-resolve .emblem{position:relative;width:62px;flex-shrink:0;text-align:center}
+.zg-esteros-resolve .art{position:relative;overflow:hidden;margin:auto}
+.zg-esteros-resolve .art img{position:absolute;max-width:none;pointer-events:none}
+.zg-esteros-resolve .emblem .art{height:47px;width:48px}
+.zg-esteros-resolve .label{font-size:12px;letter-spacing:.6px;margin-top:7px;white-space:nowrap}
+.zg-esteros-resolve .fatal{color:#800020}
+.zg-esteros-resolve .label.fatal,.zg-esteros-resolve .award[data-tone="fatalism"] strong{-webkit-text-stroke:1px #000;paint-order:stroke fill;text-shadow:none}
+.zg-esteros-resolve .label.fatal{-webkit-text-stroke-width:1.5px}
+.zg-esteros-resolve .award[data-tone="fatalism"] strong{-webkit-text-stroke-width:2px}
+.zg-esteros-resolve .slots{position:relative;display:flex;gap:9px}
+.zg-esteros-resolve .slot{position:relative;width:42px;height:42px}
+.zg-esteros-resolve .slot .art{width:42px;height:42px;z-index:2}
+.zg-esteros-resolve .flames{position:absolute;inset:3px;border-radius:50%;overflow:hidden;contain:paint;background:rgba(8,10,18,.62)}
+.zg-esteros-resolve .flame{position:absolute;inset:0;opacity:0;transition:opacity .7s ease}
+.zg-esteros-resolve .flame img{position:absolute;inset:-3px -6px;width:calc(100% + 12px);height:calc(100% + 6px);object-fit:contain;opacity:.48}
+.zg-esteros-resolve .fatal-flame img{opacity:.72}
+.zg-esteros-resolve .slot[data-hope="0"] .fatal-flame,.zg-esteros-resolve .slot[data-hope="1"] .hope-flame{opacity:1}
+.zg-esteros-resolve canvas.dust{position:absolute;inset:0;width:100%;height:100%;animation:esterosDustTurn 28s linear infinite;animation-delay:var(--delay);opacity:.85}
+.zg-esteros-resolve .award{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);text-align:center;opacity:0;text-shadow:0 2px 8px #000;isolation:isolate}
+.zg-esteros-resolve .award .art{width:110px;height:110px}
+.zg-esteros-resolve .award strong{display:block;font:30px Georgia,serif;margin-top:12px;letter-spacing:3px}
+.zg-esteros-resolve .award:before{content:'';position:absolute;inset:-65px -100px;z-index:-1;background:radial-gradient(ellipse at center,rgba(var(--aura-color,245,225,180),.42) 0%,rgba(var(--aura-color,245,225,180),.17) 32%,rgba(var(--aura-color,245,225,180),0) 70%);opacity:var(--aura-opacity,0);transform:scale(var(--aura-scale,1))}
+.zg-esteros-resolve .fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.zg-esteros-resolve .slot.impact{animation:esterosSlotImpact .48s ease-out}
+.zg-esteros-resolve .hud:after{content:'';position:absolute;inset:-12px -25px;background:radial-gradient(ellipse,var(--impact-color,#ece0c0) 0%,transparent 70%);opacity:0;z-index:-1}
+.zg-esteros-resolve .hud.impact:after{animation:esterosHudImpact .85s ease-out}
+.zg-esteros-resolve .slot:after{content:'';position:absolute;inset:2px;border-radius:50%;z-index:3;opacity:0;background:radial-gradient(circle,var(--slot-flash,#fff5df) 0%,transparent 70%);box-shadow:0 0 12px 3px var(--slot-flash,#fff5df)}
+.zg-esteros-resolve .slot.impact:after{animation:esterosSlotFlash .65s ease-out}
+.zg-esteros-resolve.paused *{animation-play-state:paused!important}
+@keyframes esterosDustTurn{to{transform:rotate(360deg)}}
+@keyframes esterosSlotImpact{0%,100%{transform:translate(0)}18%{transform:translate(-2px,1px)}38%{transform:translate(2px,-1px)}60%{transform:translate(-1px,0)}}
+@keyframes esterosHudImpact{20%{opacity:.18}100%{opacity:0}}
+@keyframes esterosSlotFlash{0%{opacity:0;transform:scale(.8)}15%{opacity:.9;transform:scale(1.08)}45%{opacity:.4}100%{opacity:0;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.zg-esteros-resolve .dust,.zg-esteros-resolve .slot.impact{animation:none}}
+
+/* Two opacity layers keep the choice reveal quiet and leave the centre clear. */
+.zg-esteros-resolve .resolve-edge{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(var(--resolve-edge-color),0) 48%,rgba(var(--resolve-edge-color),.08) 72%,rgba(var(--resolve-edge-color),.27) 100%)}
+.zg-esteros-resolve .resolve-edge-neutral{--resolve-edge-color:155,159,169}
+.is-resolve-focus :is(.zg-story-quest,.zg-story-play-tools,.zg-story-health,.zg-story-dialogue,.zg-story-play-hint,.zg-story-interaction,.zg-story-zone-marker){opacity:var(--resolve-ui-opacity,1)!important;pointer-events:none!important}

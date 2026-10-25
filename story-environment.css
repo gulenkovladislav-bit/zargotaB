@@ -44,3 +44,21 @@
 .zg-stage-fields summary{cursor:pointer;margin-bottom:12px;color:#e2cc9c}
 .zg-stage-minimap .zg-stage-pin{width:34px;height:34px;padding:2px!important;display:grid;place-items:center}
 @media(max-width:750px){#zg-story-stage-settings{overflow:auto}.zg-stage-layout{display:block}.zg-stage-fields{border-left:0;overflow:visible}}
+/* Two translucent waves alternate without a visible loop reset. */
+.zg-story-decoration.is-water{opacity:var(--texture-opacity,.55)}
+.zg-story-decoration.is-water .zg-story-effect-texture{object-fit:fill;opacity:0;animation:zg-water-current var(--period,6s) linear infinite;transform-origin:center;will-change:transform,opacity}
+.zg-story-decoration.is-water.is-surf .zg-story-effect-texture{animation-name:zg-water-surf;animation-timing-function:ease-in-out}
+.zg-story-decoration.is-water .zg-story-effect-texture.is-second{animation-delay:var(--half-period,-3s)}
+@keyframes zg-water-current{0%{opacity:0;transform:translateY(calc(-1 * var(--drift,18px))) scale(1.01,.98)}25%{opacity:.8}65%{opacity:.8}100%{opacity:0;transform:translateY(var(--drift,18px)) scale(.99,1.02)}}
+@keyframes zg-water-surf{0%{opacity:0;transform:translateY(calc(-1 * var(--drift,18px))) scale(1,.87)}35%{opacity:.85;transform:translateY(var(--drift,18px)) scale(1.025,1.06)}65%{opacity:.4;transform:translateY(calc(.6 * var(--drift,18px))) scale(1.01,1)}100%{opacity:0;transform:translateY(calc(-1 * var(--drift,18px))) scale(1,.9)}}
+@media(prefers-reduced-motion:reduce){.zg-story-decoration.is-water .zg-story-effect-texture{animation:none;opacity:.65}.zg-story-decoration.is-water .zg-story-effect-texture.is-second{display:none}}
+
+/* Full-size selection surface over the water texture, below small object pins. */
+#zg-story-stage-settings .zg-stage-minimap .zg-stage-water-area{position:absolute;z-index:4;box-sizing:border-box;margin:0;padding:0;min-width:0;min-height:0;max-width:none;max-height:none;background:transparent;border:1px dashed transparent;border-radius:3px;box-shadow:none;cursor:grab;touch-action:none;transform-origin:center}
+#zg-story-stage-settings .zg-stage-minimap .zg-stage-water-area:is(:hover,:focus-visible,.selected){border-color:#a5cec5b3;outline:none;background:#8ccfc908}
+#zg-story-stage-settings .zg-stage-minimap .zg-stage-water-area:active{cursor:grabbing}
+#zg-story-stage-settings .zg-stage-water-area[hidden]{display:none}
+
+/* Small local swarms. Detached DOM stops animation; motion does not block interaction. */
+.zg-story-fly{position:absolute;left:0;top:0;display:block;background:#45443f;border-radius:50%;box-shadow:0 0 .6px #c0b8a344;offset-rotate:auto;animation:zg-fly-flight var(--fly-period,4s) linear infinite;pointer-events:none}
+@keyframes zg-fly-flight{from{offset-distance:0%}to{offset-distance:100%}}

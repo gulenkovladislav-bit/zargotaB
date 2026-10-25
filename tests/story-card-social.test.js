@@ -4,7 +4,7 @@ class Element{
  append(...nodes){nodes.forEach(n=>this.appendChild(n));}appendChild(n){this.children.push(n);n.parent=this;return n;}replaceChildren(...nodes){this.children=[];this.append(...nodes);}setAttribute(k,v){this.attributes[k]=v;}remove(){if(this.parent)this.parent.children=this.parent.children.filter(n=>n!==this);}focus(){}
  all(){return this.children.flatMap(n=>[n,...n.all()]);}querySelector(tag){return this.all().find(n=>n.tag===tag)||null;}
 }
-const w={matchMedia:()=>({matches:true})},context={window:w,document:{createElement:t=>new Element(t)}};vm.createContext(context);
+const w={matchMedia:()=>({matches:true})},context={window:w,setTimeout,clearTimeout,document:{createElement:t=>new Element(t)}};vm.createContext(context);
 for(const file of ['story-card-events.js','story-card-social.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
 const p=JSON.parse(fs.readFileSync('story-content/evan/episode-1-courtyard-v19.json')).episode,c=p.minigames.towerClaw,ids=[p.playerSpeakerId,...c.opponents,c.guestSpeakerId],E=ids[0],T=ids[1],P=ids[2],F=ids[3],M=ids[4];
 assert.equal(T,'evan-friend-tarin');assert.equal(F,'evan-port-feltser');assert.deepEqual(c.stacks,[20,4,6,7]);assert.deepEqual(c.styles,['cautious','balanced','bold']);
@@ -42,14 +42,16 @@ async function asynchronous(){
  w.matchMedia=()=>({matches:false});
  // Execute flight and hit completion through the Web Animations contract, without a browser.
  const log=[];Element.prototype.animate=function(frames,options){log.push({tag:this.tag,frames,options});return {finished:Promise.resolve(),cancel(){}};};
- const root=new Element('dialog'),from=new Element('portrait'),to=new Element('portrait');from.getBoundingClientRect=()=>({left:100,top:100,width:50,height:50});to.getBoundingClientRect=()=>({left:300,top:300,width:50,height:50});root.getBoundingClientRect=()=>({left:0,top:0});root.querySelector=selector=>selector.includes('seat-3')?from:selector.includes('seat-4')?to:null;
+ const root=new Element('dialog'),from=new Element('portrait'),to=new Element('portrait');from.getBoundingClientRect=()=>({left:100,top:100,width:50,height:50});to.getBoundingClientRect=()=>({left:300,top:300,width:50,height:50});root.getBoundingClientRect=()=>({left:0,top:0,width:800,height:600});root.querySelector=selector=>selector.includes('seat-3')?from:selector.includes('seat-4')?to:null;
  const fx=w.ZargotaCardSocial.effects(root,ids);await fx.play({kind:'stone',from:F,to:M});assert.equal(log[0].options.duration,900);assert.equal(log[1].tag,'portrait');assert.equal(root.children.length,0);
  const inFlight=fx.play({kind:'stone',from:F,to:M});fx.stop();await inFlight;assert.equal(root.children.length,0);
  // A spectator is a valid visual target before being seated or funded.
  const guest=new Element('aside');guest.dataset={speakerId:M};guest.querySelector=()=>to;root.querySelectorAll=()=>[guest];const observerFx=w.ZargotaCardSocial.effects(root,ids.filter(id=>id!==M));const beforeGuest=log.length;await observerFx.play({kind:'stone',from:F,to:M});assert.equal(log.length,beforeGuest+2);assert.equal(root.children.length,0);
  // A registered ID without a seated token must still resolve the spectator portrait.
  root.querySelector=selector=>selector.includes('seat-3')?from:null;const beforePending=log.length;await fx.play({kind:'stone',from:F,to:M});assert.equal(log.length,beforePending+2);
- const count=log.length;w.matchMedia=()=>({matches:true});await fx.play({kind:'stone',from:F,to:M});assert.equal(log.length,count);
+ const count=log.length;w.matchMedia=()=>({matches:true});w.ZargotaI18n={getLocale:()=> 'uk'};
+ const captionOnly=fx.play({kind:'stone',from:F,to:M});assert.equal(root.children[0].textContent,'Кидок');assert(!root.children[0].style.left.includes('NaN'));
+ await captionOnly;assert.equal(log.length,count);assert.equal(root.children.length,0);
  console.log('Social cards: 105 bilingual/emotion variants, rotation across visits, event gates, rate limits, contextual bets, atomic gifts, animation lifecycle and cancellation passed.');
 }
 asynchronous().catch(e=>{console.error(e);process.exitCode=1;});

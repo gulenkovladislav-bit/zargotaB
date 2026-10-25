@@ -1,0 +1,3574 @@
+{
+  "format": "zargota-story",
+  "version": 1,
+  "episode": {
+    "title": "Эстерос · По ту сторону",
+    "titleUk": "Естерос · По той бік",
+    "entryId": "dialog-1",
+    "activeSceneId": "scene-mvctoydb",
+    "clockVisible": false,
+    "scene": {
+      "boardWidth": 24,
+      "boardHeight": 16,
+      "gridSize": 64,
+      "layers": [
+        {
+          "id": "esteros-walkable-shore-background",
+          "image": "assets/stories/backgrounds/esteros-shore/walkable-shore-v1.png",
+          "visible": true,
+          "opacity": 1,
+          "fit": "cover"
+        }
+      ],
+      "tokens": [
+        {
+          "id": "esteros-child-viewpoint",
+          "name": "Эстерос",
+          "nameUk": "Естерос",
+          "x": 54.65,
+          "y": 48.95,
+          "size": 128,
+          "visible": true,
+          "opacity": 1,
+          "image": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png",
+          "hidden": false
+        },
+        {
+          "id": "food-point-water",
+          "type": "note",
+          "name": "Набрать воды",
+          "nameUk": "Набрати води",
+          "x": 42.58,
+          "y": 42.77,
+          "size": 32,
+          "markerSize": 22,
+          "entryId": "food-water",
+          "visible": true,
+          "opacity": 1
+        },
+        {
+          "id": "food-point-path",
+          "type": "note",
+          "name": "Тропа к деревне",
+          "nameUk": "Стежка до села",
+          "x": 49.24,
+          "y": 94.29,
+          "size": 32,
+          "markerSize": 22,
+          "entryId": "food-path",
+          "visible": false,
+          "opacity": 1,
+          "enabled": false
+        }
+      ],
+      "story": {
+        "ambience": "assets/stories/audio/esteros/the-last-of-us-main-menu-trimmed-v1.m4a",
+        "ambienceLoop": true,
+        "volume": 0.8,
+        "firstVisitDialogueId": "dialog-1",
+        "spawnX": 54.166666666666664,
+        "spawnY": 50,
+        "walkable": [
+          [
+            21,
+            46
+          ],
+          [
+            30,
+            42
+          ],
+          [
+            43,
+            45
+          ],
+          [
+            56,
+            48
+          ],
+          [
+            67,
+            49
+          ],
+          [
+            76,
+            57
+          ],
+          [
+            75,
+            70
+          ],
+          [
+            62,
+            77
+          ],
+          [
+            57,
+            94
+          ],
+          [
+            43,
+            94
+          ],
+          [
+            42,
+            78
+          ],
+          [
+            28,
+            69
+          ],
+          [
+            19,
+            57
+          ]
+        ],
+        "blockedMessage": "Здесь вода или густые заросли. Лучше идти по открытому берегу.",
+        "blockedMessageUk": "Тут вода або густі зарості. Краще йти відкритим берегом.",
+        "cameraZoom": 1,
+        "decorations": [
+          {
+            "id": "stage-mvk75pl4",
+            "x": 55.41,
+            "y": 33.68,
+            "kind": "water",
+            "waterMode": "current",
+            "size": 360,
+            "height": 180,
+            "opacity": 0.4,
+            "duration": 18,
+            "drift": 18,
+            "rotation": 0,
+            "showTexture": true
+          }
+        ],
+        "cameraFit": "cover",
+        "zones": [
+          {
+            "id": "esteros-water-bed",
+            "name": "Вода у берега",
+            "nameUk": "Вода біля берега",
+            "spatial": true,
+            "global": true,
+            "loop": true,
+            "enabled": true,
+            "x": 50,
+            "y": 30,
+            "radiusCells": 4,
+            "volume": 0.09,
+            "sound": "assets/stories/audio/esteros/shore-water-soft-loop.wav",
+            "markerVisible": false
+          }
+        ],
+        "movementSpeed": 0.5,
+        "cameraOffsetX": 0,
+        "cameraOffsetY": 0,
+        "ambienceGroup": "esteros-food-day",
+        "ambienceContinue": true,
+        "ambienceStart": 0,
+        "cameraCenterY": 40
+      },
+      "name": "Берег у недостроенного моста",
+      "nameUk": "Берег біля недобудованого мосту"
+    },
+    "nodes": [
+      {
+        "id": "dialog-1",
+        "title": "Берег · черновик начала",
+        "titleUk": "Берег · чернетка початку",
+        "speaker": "esteros-child-thoughts",
+        "text": "Каменные опоры стоят в воде. Между ними ничего нет. Только река.",
+        "x": 70,
+        "y": 70,
+        "links": [],
+        "kind": "dialogue",
+        "textUk": "Кам’яні опори стоять у воді. Між ними нічого немає. Тільки річка.",
+        "showPortrait": true,
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "text": "Если бы здесь был мост, я мог бы пройти до самого другого берега. Даже не замочив ног.",
+            "textUk": "Якби тут був міст, я міг би пройти аж до іншого берега. Навіть не замочивши ніг.",
+            "showPortrait": true,
+            "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+            "imageSequence": {
+              "frames": [
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+                  "cue": "shore-wash"
+                },
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-02.png",
+                  "cue": "shore-retreat"
+                },
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-03.png",
+                  "cue": "shore-wash"
+                }
+              ],
+              "holdMs": 3000,
+              "fadeMs": 3000,
+              "loop": true,
+              "sound": "assets/stories/audio/esteros/shore-water-synced-18s.wav",
+              "volume": 0.09,
+              "replaceSpatialSound": true
+            },
+            "imageMotion": {
+              "type": "none"
+            },
+            "imageFit": "cover",
+            "imageZoom": 1,
+            "portraitOverride": false,
+            "emotion": "hopeful"
+          },
+          {
+            "speaker": "esteros-child-thoughts",
+            "text": "Интересно, сколько ещё камней нужно, чтобы его закончить?",
+            "textUk": "Цікаво, скільки ще каменів потрібно, щоб його добудувати?",
+            "showPortrait": true,
+            "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+            "imageSequence": {
+              "frames": [
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+                  "cue": "shore-wash"
+                },
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-02.png",
+                  "cue": "shore-retreat"
+                },
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-03.png",
+                  "cue": "shore-wash"
+                }
+              ],
+              "holdMs": 3000,
+              "fadeMs": 3000,
+              "loop": true,
+              "sound": "assets/stories/audio/esteros/shore-water-synced-18s.wav",
+              "volume": 0.09,
+              "replaceSpatialSound": true
+            },
+            "imageMotion": {
+              "type": "none"
+            },
+            "imageFit": "cover",
+            "imageZoom": 1,
+            "portraitOverride": false,
+            "emotion": "doubtful"
+          },
+          {
+            "speaker": "esteros-child-thoughts",
+            "text": "Сегодня надо найти что-нибудь поесть. Мост подождёт.",
+            "textUk": "Сьогодні треба знайти щось поїсти. Міст зачекає.",
+            "showPortrait": true,
+            "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+            "imageSequence": {
+              "frames": [
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+                  "cue": "shore-wash"
+                },
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-02.png",
+                  "cue": "shore-retreat"
+                },
+                {
+                  "image": "assets/stories/backgrounds/esteros-shore/wind-frame-03.png",
+                  "cue": "shore-wash"
+                }
+              ],
+              "holdMs": 3000,
+              "fadeMs": 3000,
+              "loop": true,
+              "sound": "assets/stories/audio/esteros/shore-water-synced-18s.wav",
+              "volume": 0.09,
+              "replaceSpatialSound": true
+            },
+            "imageMotion": {
+              "type": "none"
+            },
+            "imageFit": "cover",
+            "imageZoom": 1,
+            "portraitOverride": false,
+            "emotion": "tense"
+          }
+        ],
+        "editorSceneId": "scene-mvctoydb",
+        "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+        "imageSequence": {
+          "frames": [
+            {
+              "image": "assets/stories/backgrounds/esteros-shore/wind-frame-01.png",
+              "cue": "shore-wash"
+            },
+            {
+              "image": "assets/stories/backgrounds/esteros-shore/wind-frame-02.png",
+              "cue": "shore-retreat"
+            },
+            {
+              "image": "assets/stories/backgrounds/esteros-shore/wind-frame-03.png",
+              "cue": "shore-wash"
+            }
+          ],
+          "holdMs": 3000,
+          "fadeMs": 3000,
+          "loop": true,
+          "sound": "assets/stories/audio/esteros/shore-water-synced-18s.wav",
+          "volume": 0.09,
+          "replaceSpatialSound": true
+        },
+        "imageMotion": {
+          "type": "none"
+        },
+        "imageFit": "cover",
+        "imageZoom": 1,
+        "portraitOverride": false,
+        "emotion": "sad"
+      },
+      {
+        "id": "esteros-map-memory",
+        "kind": "dialogue",
+        "title": "Мамина карта",
+        "titleUk": "Мамина мапа",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Эту карту нарисовала мама. Тогда у нас ещё были цветные карандаши.",
+        "textUk": "Цю мапу намалювала мама. Тоді в нас іще були кольорові олівці.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Их достал отец. Помню, как он принёс их домой. Откуда взял — не знаю.",
+            "textUk": "Їх дістав батько. Пам’ятаю, як він приніс їх додому. Звідки взяв — не знаю.",
+            "portraitOverride": false,
+            "emotion": ""
+          },
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Мама нарисовала деревни, протоки и места, куда лучше не ходить. Чтобы я не путался.",
+            "textUk": "Мама намалювала села, протоки й місця, куди краще не ходити. Щоб я не плутався.",
+            "portraitOverride": false,
+            "emotion": ""
+          },
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Наверное, теперь я справился бы и без неё. Дорогу до дома я давно знаю.",
+            "textUk": "Мабуть, тепер я впорався б і без неї. Дорогу додому я давно знаю.",
+            "portraitOverride": false,
+            "emotion": "doubtful"
+          },
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Но карту всё равно беру с собой.",
+            "textUk": "Але мапу все одно беру із собою.",
+            "portraitOverride": false,
+            "emotion": "sad"
+          }
+        ],
+        "links": [
+          {
+            "id": "food-after-map-memory",
+            "to": "food-plan",
+            "label": "",
+            "labelUk": ""
+          }
+        ],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 100,
+        "y": 400,
+        "portraitOverride": false,
+        "emotion": "hopeful"
+      },
+      {
+        "id": "esteros-map-bridge",
+        "kind": "dialogue",
+        "title": "Остовы моста",
+        "titleUk": "Рештки мосту",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Вот эти два камня. Я сейчас на берегу рядом с ними.",
+        "textUk": "Ось ці два камені. Я зараз на березі поруч із ними.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Мама нарисовала их отдельно. Между ними так и осталась вода.",
+            "textUk": "Мама намалювала їх окремо. Між ними так і лишилася вода.",
+            "portraitOverride": false,
+            "emotion": "sad"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 380,
+        "y": 400,
+        "portraitOverride": false,
+        "emotion": "sad"
+      },
+      {
+        "id": "esteros-map-grey-gat",
+        "kind": "dialogue",
+        "title": "Серая Гать",
+        "titleUk": "Сіра Гать",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Серая Гать. Несколько крыш вытянулись вдоль узкой полоски земли.",
+        "textUk": "Сіра Гать. Кілька дахів витягнулися вздовж вузької смужки землі.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "На бумаге всё рядом. Протяни палец — и уже дошёл.",
+            "textUk": "На папері все поруч. Простягни палець — і вже дістався.",
+            "portraitOverride": false,
+            "emotion": "doubtful"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 660,
+        "y": 400,
+        "portraitOverride": false,
+        "emotion": ""
+      },
+      {
+        "id": "esteros-map-kochary",
+        "kind": "dialogue",
+        "title": "Кочары",
+        "titleUk": "Кочарі",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Кочары. Мама оставила вокруг домов немного сухой земли.",
+        "textUk": "Кочарі. Мама залишила навколо хат трохи сухої землі.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Между нами протоки. По прямой здесь не пройдёшь.",
+            "textUk": "Між нами протоки. Навпростець тут не пройдеш.",
+            "portraitOverride": false,
+            "emotion": "tense"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 940,
+        "y": 400,
+        "portraitOverride": false,
+        "emotion": ""
+      },
+      {
+        "id": "esteros-map-home",
+        "kind": "dialogue",
+        "title": "Гнилушино",
+        "titleUk": "Гнилушино",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Гнилушино. Дом. Даже на карте вокруг него одна вода.",
+        "textUk": "Гнилушино. Дім. Навіть на мапі навколо нього сама вода.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Эту дорогу мне уже не нужно искать.",
+            "textUk": "Цю дорогу мені вже не потрібно шукати.",
+            "portraitOverride": false,
+            "emotion": ""
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 100,
+        "y": 600,
+        "portraitOverride": false,
+        "emotion": "sad",
+        "repeatRoutes": [
+          {
+            "requires": "food-found",
+            "to": "food-home"
+          }
+        ]
+      },
+      {
+        "id": "esteros-map-moss",
+        "kind": "dialogue",
+        "title": "Моховое",
+        "titleUk": "Мохове",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Моховое. До него идти через всё болото. Сколько бы я там ни нашёл, назад придётся возвращаться затемно.",
+        "textUk": "Мохове. До нього йти через усе болото. Хоч би скільки я там знайшов, назад доведеться повертатися поночі.",
+        "slides": [],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 380,
+        "y": 600,
+        "portraitOverride": false,
+        "emotion": "worried"
+      },
+      {
+        "id": "esteros-map-quiet",
+        "kind": "dialogue",
+        "title": "Тихая Гать",
+        "titleUk": "Тиха Гать",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Тихая Гать. Дома тянутся вдоль одной дороги. Должно быть, там тоже смотрят, кто идёт мимо, — не принёс ли чего.",
+        "textUk": "Тиха Гать. Хати тягнуться вздовж однієї дороги. Мабуть, там теж придивляються до перехожих — чи не приніс хто чогось.",
+        "slides": [],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 660,
+        "y": 600,
+        "portraitOverride": false,
+        "emotion": "sad"
+      },
+      {
+        "id": "esteros-map-reeds",
+        "kind": "dialogue",
+        "title": "Камышовка",
+        "titleUk": "Комишівка",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Камышовка у самой реки. Можно подумать: воды столько — уж рыбы-то должно хватать.",
+        "textUk": "Комишівка біля самої річки. Можна подумати: стільки води — риби ж має вистачати.",
+        "slides": [
+          {
+            "text": "Только у нас тоже река рядом. А я опять ищу, что положить в котелок.",
+            "textUk": "Тільки в нас теж річка поруч. А я знову шукаю, що покласти в казанок.",
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "portraitOverride": false,
+            "emotion": "sad"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 940,
+        "y": 600,
+        "portraitOverride": false,
+        "emotion": "doubtful"
+      },
+      {
+        "id": "esteros-map-bay",
+        "kind": "dialogue",
+        "title": "Бухта Яровец",
+        "titleUk": "Бухта Яровець",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Бухта Яровец. Мама даже причалы нарисовала — тоненькие палочки у берега.",
+        "textUk": "Бухта Яровець. Мама навіть причали намалювала — тоненькі палички біля берега.",
+        "slides": [
+          {
+            "text": "Оттуда лодки выходят в большую воду. Я смотрю на них на карте и всё думаю: каково это — когда под тобой уже нет дна, до которого можно достать?",
+            "textUk": "Звідти човни виходять на велику воду. Дивлюся на них на мапі й думаю: як це — коли під тобою вже немає дна, до якого можна дістати?",
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "portraitOverride": false,
+            "emotion": "doubtful"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 100,
+        "y": 800,
+        "portraitOverride": false,
+        "emotion": ""
+      },
+      {
+        "id": "esteros-map-danger-1",
+        "kind": "dialogue",
+        "title": "Гиблое место",
+        "titleUk": "Згубне місце",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Мама отметила это место черепом. Сюда нельзя.",
+        "textUk": "Мама позначила це місце черепом. Сюди не можна.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Прошли годы, а предупреждение всё ещё верное. Здесь по-прежнему опасно.",
+            "textUk": "Минули роки, а попередження досі слушне. Тут, як і раніше, небезпечно.",
+            "portraitOverride": false,
+            "emotion": "tense"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 380,
+        "y": 800,
+        "portraitOverride": false,
+        "emotion": "worried"
+      },
+      {
+        "id": "esteros-map-danger-2",
+        "kind": "dialogue",
+        "title": "Гиблое место",
+        "titleUk": "Згубне місце",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Мама отметила это место черепом. Сюда нельзя.",
+        "textUk": "Мама позначила це місце черепом. Сюди не можна.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Прошли годы, а предупреждение всё ещё верное. Здесь по-прежнему опасно.",
+            "textUk": "Минули роки, а попередження досі слушне. Тут, як і раніше, небезпечно.",
+            "portraitOverride": false,
+            "emotion": "tense"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 660,
+        "y": 800,
+        "portraitOverride": false,
+        "emotion": "worried"
+      },
+      {
+        "id": "esteros-map-danger-3",
+        "kind": "dialogue",
+        "title": "Гиблое место",
+        "titleUk": "Згубне місце",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Мама отметила это место черепом. Сюда нельзя.",
+        "textUk": "Мама позначила це місце черепом. Сюди не можна.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Прошли годы, а предупреждение всё ещё верное. Здесь по-прежнему опасно.",
+            "textUk": "Минули роки, а попередження досі слушне. Тут, як і раніше, небезпечно.",
+            "portraitOverride": false,
+            "emotion": "tense"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 940,
+        "y": 800,
+        "portraitOverride": false,
+        "emotion": "worried"
+      },
+      {
+        "id": "esteros-map-bandits-1",
+        "kind": "dialogue",
+        "title": "Разбойничьи места",
+        "titleUk": "Розбійницькі місця",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Здесь разбойники. Мама и их отметила, чтобы я не забрёл туда по ошибке.",
+        "textUk": "Тут розбійники. Мама і їх позначила, щоб я не забрів туди помилково.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Карта старая. А эти места всё так же приходится обходить.",
+            "textUk": "Мапа стара. А ці місця так само доводиться оминати.",
+            "portraitOverride": false,
+            "emotion": "doubtful"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 100,
+        "y": 1000,
+        "portraitOverride": false,
+        "emotion": "tense"
+      },
+      {
+        "id": "esteros-map-bandits-2",
+        "kind": "dialogue",
+        "title": "Разбойничьи места",
+        "titleUk": "Розбійницькі місця",
+        "speaker": "esteros-child-thoughts",
+        "showPortrait": true,
+        "text": "Здесь разбойники. Мама и их отметила, чтобы я не забрёл туда по ошибке.",
+        "textUk": "Тут розбійники. Мама і їх позначила, щоб я не забрів туди помилково.",
+        "slides": [
+          {
+            "speaker": "esteros-child-thoughts",
+            "showPortrait": true,
+            "text": "Карта старая. А эти места всё так же приходится обходить.",
+            "textUk": "Мапа стара. А ці місця так само доводиться оминати.",
+            "portraitOverride": false,
+            "emotion": "doubtful"
+          }
+        ],
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "x": 380,
+        "y": 1000,
+        "portraitOverride": false,
+        "emotion": "tense"
+      },
+      {
+        "id": "food-water",
+        "kind": "dialogue",
+        "title": "Вода набрана. Пора бы идти, а я всё стою.",
+        "titleUk": "Воду набрано. Час би йти, а я все стою.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Вода набрана. Пора бы идти, а я всё стою.",
+        "textUk": "Воду набрано. Час би йти, а я все стою.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 600,
+        "y": 940,
+        "links": [],
+        "slides": [
+          {
+            "text": "Здесь хотя бы слышно реку. Дома я всё прислушиваюсь, не позвала ли мама.",
+            "textUk": "Тут хоча б чути річку. Удома я весь час прислухаюся, чи не покликала мама.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          },
+          {
+            "text": "Надо ещё найти еды. Вчера она опять сказала, что не голодна.",
+            "textUk": "Треба ще знайти їжу. Учора вона знову сказала, що не голодна.",
+            "emotion": "sad",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "afterEffect": "food-water-filled",
+        "openTravelMap": "esteros-mothers-map",
+        "repeatRoutes": [
+          {
+            "requires": "food-water-filled",
+            "to": "food-water-repeat"
+          }
+        ],
+        "portraitOverride": false,
+        "beforeWorldActions": [
+          {
+            "type": "sound",
+            "sound": "assets/stories/audio/esteros/jug-water-fill-soft.wav"
+          },
+          {
+            "type": "wait",
+            "durationMs": 3800
+          },
+          {
+            "type": "giveItem",
+            "itemId": "esteros-water-jug",
+            "qty": 1,
+            "actionId": "esteros-water-jug-filled-once",
+            "showPickup": true,
+            "pickupTitle": "Вода набрана",
+            "pickupTitleUk": "Воду набрано",
+            "pickupButton": "Убрать в рюкзак",
+            "pickupButtonUk": "Покласти до рюкзака",
+            "updateExisting": true
+          }
+        ]
+      },
+      {
+        "id": "food-water-repeat",
+        "kind": "dialogue",
+        "title": "Кувшин уже полный. Хоть за водой второй раз идти не пр",
+        "titleUk": "Глечик уже повний. Хоч по воду вдруге йти не доведетьс",
+        "speaker": "esteros-child-thoughts",
+        "text": "Кувшин уже полный. Хоть за водой второй раз идти не придётся.",
+        "textUk": "Глечик уже повний. Хоч по воду вдруге йти не доведеться.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 900,
+        "y": 940,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-plan",
+        "kind": "dialogue",
+        "title": "В деревнях просить нечего. У кого ещё есть еда, те бере",
+        "titleUk": "У селах просити нічого. У кого ще є їжа, ті бережуть її",
+        "speaker": "esteros-child-thoughts",
+        "text": "В деревнях просить нечего. У кого ещё есть еда, те берегут её для своих.",
+        "textUk": "У селах просити нічого. У кого ще є їжа, ті бережуть її для своїх.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1200,
+        "y": 940,
+        "links": [],
+        "slides": [
+          {
+            "text": "А где лихорадка, к дверям лучше не подходить. Уже думаю об этом так, будто речь о плохой погоде.",
+            "textUk": "А де гарячка, до дверей краще не підходити. Вже думаю про це так, наче йдеться про негоду.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          },
+          {
+            "text": "Остаются затон, кочка у воды и протока. Надо посмотреть, что там ещё можно найти.",
+            "textUk": "Лишаються затон, купина біля води й протока. Треба подивитися, що там ще можна знайти.",
+            "emotion": "tense",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "afterEffect": "food-planned",
+        "portraitOverride": false
+      },
+      {
+        "id": "food-path",
+        "kind": "dialogue",
+        "title": "Если сейчас пойти домой, мама спросит только, не устал ",
+        "titleUk": "Якщо зараз піти додому, мама спитає тільки, чи я не вто",
+        "speaker": "esteros-child-thoughts",
+        "text": "Если сейчас пойти домой, мама спросит только, не устал ли я. Про пустые руки ничего не скажет.",
+        "textUk": "Якщо зараз піти додому, мама спитає тільки, чи я не втомився. Про порожні руки нічого не скаже.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1500,
+        "y": 940,
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "repeatRoutes": [
+          {
+            "requires": "food-found",
+            "to": "food-home"
+          }
+        ],
+        "portraitOverride": false,
+        "slides": [
+          {
+            "text": "Посмотрю ещё одно место.",
+            "textUk": "Подивлюся ще одне місце.",
+            "emotion": "tense",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ]
+      },
+      {
+        "id": "food-home",
+        "kind": "dialogue",
+        "title": "Теперь есть что принести. Всё проверяю, на месте ли еда",
+        "titleUk": "Тепер є що принести. Все перевіряю, чи на місці їжа, хо",
+        "speaker": "esteros-child-thoughts",
+        "text": "Теперь есть что принести. Всё проверяю, на месте ли еда, хотя потерять её было негде.",
+        "textUk": "Тепер є що принести. Все перевіряю, чи на місці їжа, хоча загубити її було ніде.",
+        "showPortrait": true,
+        "emotion": "hopeful",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1800,
+        "y": 940,
+        "links": [],
+        "slides": [
+          {
+            "text": "Можно домой. Сегодня не придётся начинать с того, что я ничего не нашёл.",
+            "textUk": "Можна додому. Сьогодні не доведеться починати з того, що я нічого не знайшов.",
+            "emotion": "hopeful",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "complete": true,
+        "portraitOverride": false
+      },
+      {
+        "id": "food-already",
+        "kind": "dialogue",
+        "title": "Больше ничего не осталось. Я ведь уже проверял.",
+        "titleUk": "Більше нічого не лишилося. Я ж уже перевіряв.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Больше ничего не осталось. Я ведь уже проверял.",
+        "textUk": "Більше нічого не лишилося. Я ж уже перевіряв.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 600,
+        "y": 1120,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-map",
+        "kind": "dialogue",
+        "title": "Где я ещё не смотрел?..",
+        "titleUk": "Де я ще не дивився?..",
+        "speaker": "esteros-child-thoughts",
+        "text": "Где я ещё не смотрел?..",
+        "textUk": "Де я ще не дивився?..",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 900,
+        "y": 1120,
+        "links": [],
+        "openTravelMap": "esteros-mothers-map",
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-backwater-arrival",
+        "kind": "dialogue",
+        "title": "Тут тихо. Даже вода почти не движется.",
+        "titleUk": "Тут тихо. Навіть вода майже не рухається.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Тут тихо. Даже вода почти не движется.",
+        "textUk": "Тут тихо. Навіть вода майже не рухається.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-backwater",
+        "x": 1200,
+        "y": 1120,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-tracks",
+        "kind": "dialogue",
+        "title": "Колея уходит в камыш. Здесь и пешком вязнешь — зачем бы",
+        "titleUk": "Колія йде в очерет. Тут і пішки грузнеш — навіщо було т",
+        "speaker": "esteros-child-thoughts",
+        "text": "Колея уходит в камыш. Здесь и пешком вязнешь — зачем было тащить сюда повозку?",
+        "textUk": "Колія йде в очерет. Тут і пішки грузнеш — навіщо було тягти сюди воза?",
+        "showPortrait": true,
+        "emotion": "doubtful",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-backwater",
+        "x": 1500,
+        "y": 1120,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-cart",
+        "kind": "dialogue",
+        "title": "Люди… Я сперва увидел только одежду.",
+        "titleUk": "Люди… Я спершу побачив тільки одяг.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Люди… Я сперва увидел только одежду.",
+        "textUk": "Люди… Я спершу побачив тільки одяг.",
+        "showPortrait": true,
+        "emotion": "tense",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-backwater",
+        "x": 1800,
+        "y": 1120,
+        "links": [],
+        "slides": [
+          {
+            "text": "Двое у самой воды. Рядом повозка. Их привезли сюда?..",
+            "textUk": "Двоє біля самої води. Поруч віз. Їх привезли сюди?..",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          },
+          {
+            "text": "Я не узнаю лиц. И всё равно пытаюсь разглядеть. Будто станет легче, если это чужие.",
+            "textUk": "Я не впізнаю облич. І все одно намагаюся роздивитися. Наче стане легше, якщо це чужі.",
+            "emotion": "sad",
+            "showPortrait": true,
+            "portraitOverride": false
+          },
+          {
+            "text": "Надо отойти. От этого жужжания уже мутит.",
+            "textUk": "Треба відійти. Від цього дзижчання вже нудить.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "afterEffect": "food-cart-seen",
+        "resolveEvent": {
+          "id": "esteros-abandoned-bodies",
+          "type": "fatalism"
+        },
+        "sound": "assets/stories/audio/esteros/flies-draft.wav",
+        "repeatRoutes": [
+          {
+            "requires": "food-cart-seen",
+            "to": "food-cart-repeat"
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-cart-repeat",
+        "kind": "dialogue",
+        "title": "Не хочу смотреть ещё раз. А взгляд всё равно возвращает",
+        "titleUk": "Не хочу дивитися ще раз. А погляд усе одно повертається",
+        "speaker": "esteros-child-thoughts",
+        "text": "Не хочу смотреть ещё раз. А взгляд всё равно возвращается к повозке.",
+        "textUk": "Не хочу дивитися ще раз. А погляд усе одно повертається до воза.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 600,
+        "y": 1300,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-bad-roots",
+        "kind": "dialogue",
+        "title": "Корни совсем в тине. Стоит тронуть — поднимается муть.",
+        "titleUk": "Коріння зовсім у баговинні. Варто торкнутися — здіймаєт",
+        "speaker": "esteros-child-thoughts",
+        "text": "Корни совсем в тине. Стоит тронуть — поднимается муть.",
+        "textUk": "Коріння зовсім у баговинні. Варто торкнутися — здіймається каламуть.",
+        "showPortrait": true,
+        "emotion": "doubtful",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-backwater",
+        "x": 900,
+        "y": 1300,
+        "links": [],
+        "slides": [
+          {
+            "text": "Если принести домой ещё и болезнь… Нет. Здесь брать не буду.",
+            "textUk": "Якщо принести додому ще й хворобу… Ні. Тут не братиму.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-roots-arrival",
+        "kind": "dialogue",
+        "title": "Земля под ногами держит. Можно хоть перестать смотреть,",
+        "titleUk": "Земля під ногами тримає. Можна хоч перестати дивитися, ",
+        "speaker": "esteros-child-thoughts",
+        "text": "Земля под ногами держит. Можно хоть перестать смотреть, куда ставлю ногу.",
+        "textUk": "Земля під ногами тримає. Можна хоч перестати дивитися, куди ступаю.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 1200,
+        "y": 1300,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-empty",
+        "kind": "dialogue",
+        "title": "Мелкие обрывки. Я всё перебираю их, хотя уже вижу: брат",
+        "titleUk": "Дрібні обривки. Я все перебираю їх, хоча вже бачу: брат",
+        "speaker": "esteros-child-thoughts",
+        "text": "Мелкие обрывки. Я всё перебираю их, хотя уже вижу: брать нечего.",
+        "textUk": "Дрібні обривки. Я все перебираю їх, хоча вже бачу: брати нічого.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 1500,
+        "y": 1300,
+        "links": [],
+        "slides": [],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-rotten",
+        "kind": "dialogue",
+        "title": "Мягкий… А с виду был целый.",
+        "titleUk": "М’який… А на вигляд був цілий.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Мягкий… А с виду был целый.",
+        "textUk": "М’який… А на вигляд був цілий.",
+        "showPortrait": true,
+        "emotion": "doubtful",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 1800,
+        "y": 1300,
+        "links": [],
+        "slides": [
+          {
+            "text": "Хотелось уже положить в сумку и больше не проверять.",
+            "textUk": "Хотілося вже покласти в торбу й більше не перевіряти.",
+            "emotion": "sad",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-roots-find",
+        "kind": "dialogue",
+        "title": "Эти вроде крепкие. Под землёй ещё есть, только сидят гл",
+        "titleUk": "Ці наче міцні. Під землею ще є, тільки сидять глибоко.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Эти вроде крепкие. Под землёй ещё есть, только сидят глубоко.",
+        "textUk": "Ці наче міцні. Під землею ще є, тільки сидять глибоко.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 600,
+        "y": 1480,
+        "links": [
+          {
+            "id": "food-roots-find-0",
+            "to": "food-roots-work",
+            "label": "Разрыхлить землю обломком ветки",
+            "labelUk": "Розпушити землю уламком гілки"
+          },
+          {
+            "id": "food-roots-find-1",
+            "to": "food-roots-leave",
+            "label": "Пока оставить",
+            "labelUk": "Поки залишити"
+          }
+        ],
+        "repeatRoutes": [
+          {
+            "requires": "esteros-food-roots-taken",
+            "to": "food-already"
+          }
+        ],
+        "portraitOverride": false,
+        "slides": [
+          {
+            "text": "Мама такие резала совсем тонко. В тарелке казалось больше.",
+            "textUk": "Мама такі різала зовсім тонко. У тарілці здавалося більше.",
+            "emotion": "sad",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ]
+      },
+      {
+        "id": "food-leave",
+        "kind": "dialogue",
+        "title": "Рука сама отдёрнулась. Не могу пока.",
+        "titleUk": "Рука сама відсмикнулася. Поки не можу.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Рука сама отдёрнулась. Не могу пока.",
+        "textUk": "Рука сама відсмикнулася. Поки не можу.",
+        "showPortrait": true,
+        "emotion": "worried",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 900,
+        "y": 1480,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-roots-work",
+        "kind": "dialogue",
+        "title": "Ещё чуть-чуть… Земля держит так, будто это её еда.",
+        "titleUk": "Ще трішки… Земля тримає так, ніби це її їжа.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Ещё чуть-чуть… Земля держит так, будто это её еда.",
+        "textUk": "Ще трішки… Земля тримає так, ніби це її їжа.",
+        "showPortrait": true,
+        "emotion": "tense",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 1200,
+        "y": 1480,
+        "links": [
+          {
+            "id": "food-roots-work-0",
+            "to": "food-roots-take",
+            "label": "",
+            "labelUk": ""
+          }
+        ],
+        "slides": [
+          {
+            "text": "Поддался. Только бы не сгнил внутри.",
+            "textUk": "Піддався. Тільки б не згнив усередині.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-roots-take",
+        "kind": "dialogue",
+        "title": "Крепкие. Немного, но из них получится похлёбка.",
+        "titleUk": "Міцні. Небагато, але з них вийде юшка.",
+        "speaker": "esteros-child-thoughts",
+        "text": "Крепкие. Немного, но из них получится похлёбка.",
+        "textUk": "Міцні. Небагато, але з них вийде юшка.",
+        "showPortrait": true,
+        "emotion": "hopeful",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 1500,
+        "y": 1480,
+        "links": [],
+        "slides": [
+          {
+            "text": "Уже представляю, как мама придерживает тёплую миску обеими руками.",
+            "textUk": "Уже уявляю, як мама притримує теплу миску обома руками.",
+            "emotion": "hopeful",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "resolveEvent": {
+          "id": "esteros-provisions-for-home",
+          "type": "hope"
+        },
+        "afterEffect": "esteros-food-roots-taken",
+        "afterWorldActions": [
+          {
+            "type": "giveItem",
+            "itemId": "esteros-food-roots",
+            "qty": 1,
+            "actionId": "esteros-food-roots-once",
+            "showPickup": true
+          }
+        ],
+        "repeatRoutes": [
+          {
+            "requires": "esteros-food-roots-taken",
+            "to": "food-already"
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-channel-arrival",
+        "kind": "dialogue",
+        "title": "Камыш закрывает воду. Слышно её совсем рядом, а видно т",
+        "titleUk": "Очерет затуляє воду. Чути її зовсім поруч, а видно тіль",
+        "speaker": "esteros-child-thoughts",
+        "text": "Камыш закрывает воду. Слышно её совсем рядом, а видно только между стеблями.",
+        "textUk": "Очерет затуляє воду. Чути її зовсім поруч, а видно тільки між стеблами.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 1800,
+        "y": 1480,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-nest",
+        "kind": "dialogue",
+        "title": "Яйца. Два виднеются под корнем… Я уже чувствую, как хоч",
+        "titleUk": "Яйця. Два видніються під коренем… Я вже відчуваю, як х",
+        "speaker": "esteros-child-thoughts",
+        "text": "Яйца. Два виднеются под корнем… Я уже чувствую, как хочется есть.",
+        "textUk": "Яйця. Два видніються під коренем… Я вже відчуваю, як хочеться їсти.",
+        "showPortrait": true,
+        "emotion": "hopeful",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 600,
+        "y": 1660,
+        "links": [
+          {
+            "id": "food-nest-0",
+            "to": "food-eggs-reach",
+            "label": "Попробовать достать яйца",
+            "labelUk": "Спробувати дістати яйця"
+          },
+          {
+            "id": "food-nest-1",
+            "to": "food-leave",
+            "label": "Отойти от корней",
+            "labelUk": "Відійти від коріння"
+          }
+        ],
+        "slides": [
+          {
+            "text": "Дальше темно. Снаружи кажется, что рукой достать легко.",
+            "textUk": "Далі темно. Ззовні здається, що рукою дістати легко.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "repeatRoutes": [
+          {
+            "requires": "esteros-food-eggs-taken",
+            "to": "food-already"
+          },
+          {
+            "requires": "esteros-snake-bitten",
+            "to": "food-nest-bitten"
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-snake-wait",
+        "kind": "dialogue",
+        "title": "Смотрю в эту щель, пока глаза не начинают болеть. Всё р",
+        "titleUk": "Дивлюся в цю щілину, аж очі починають боліти. Усе одно ",
+        "speaker": "esteros-child-thoughts",
+        "text": "Смотрю в эту щель, пока глаза не начинают болеть. Всё равно ничего не разобрать.",
+        "textUk": "Дивлюся в цю щілину, аж очі починають боліти. Усе одно нічого не розібрати.",
+        "showPortrait": true,
+        "emotion": "worried",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 900,
+        "y": 1660,
+        "links": [
+          {
+            "id": "food-snake-wait-0",
+            "to": "food-eggs-reach",
+            "label": "Рискнуть и забрать яйца",
+            "labelUk": "Ризикнути й забрати яйця"
+          },
+          {
+            "id": "food-snake-wait-1",
+            "to": "food-leave",
+            "label": "Не рисковать. Поискать в другом месте",
+            "labelUk": "Не ризикувати. Пошукати в іншому місці"
+          }
+        ],
+        "slides": [],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-eggs-take",
+        "kind": "dialogue",
+        "title": "Оба целые. Держу так осторожно, будто от этого они могу",
+        "titleUk": "Обидва цілі. Тримаю так обережно, наче від цього вони мож",
+        "speaker": "esteros-child-thoughts",
+        "text": "Оба целые. Держу так осторожно, будто от этого они могут стать сытнее.",
+        "textUk": "Обидва цілі. Тримаю так обережно, наче від цього вони можуть стати ситнішими.",
+        "showPortrait": true,
+        "emotion": "tense",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 1200,
+        "y": 1660,
+        "links": [],
+        "slides": [
+          {
+            "text": "Одно маме. Одно мне. Хорошо хоть сегодня не придётся спорить, кто не голоден.",
+            "textUk": "Одне мамі. Одне мені. Добре хоч сьогодні не доведеться сперечатися, хто не голодний.",
+            "emotion": "hopeful",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "resolveEvent": {
+          "id": "esteros-provisions-for-home",
+          "type": "hope"
+        },
+        "afterEffect": "esteros-food-eggs-taken",
+        "afterWorldActions": [
+          {
+            "type": "giveItem",
+            "itemId": "esteros-food-eggs",
+            "qty": 1,
+            "actionId": "esteros-food-eggs-once",
+            "showPickup": true,
+            "pickupImage": "assets/stories/esteros/snake/egg.png"
+          }
+        ],
+        "repeatRoutes": [
+          {
+            "requires": "esteros-food-eggs-taken",
+            "to": "food-already"
+          }
+        ],
+        "portraitOverride": false
+      },
+      {
+        "id": "food-map-backwater",
+        "kind": "dialogue",
+        "title": "В затоне вода тише. Может, у кромки ещё осталось что-ни",
+        "titleUk": "У затоні вода тихіша. Може, біля краю ще лишилося щось ",
+        "speaker": "esteros-child-thoughts",
+        "text": "В затоне вода тише. Может, у кромки ещё осталось что-нибудь съедобное.",
+        "textUk": "У затоні вода тихіша. Може, біля краю ще лишилося щось їстівне.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1500,
+        "y": 1660,
+        "links": [
+          {
+            "id": "food-map-backwater-0",
+            "to": "",
+            "label": "Пойти туда",
+            "labelUk": "Піти туди",
+            "sceneId": "scene-esteros-food-backwater"
+          },
+          {
+            "id": "food-map-backwater-1",
+            "to": "food-map-stay",
+            "label": "Остаться у карты",
+            "labelUk": "Залишитися біля мапи"
+          }
+        ],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-map-roots",
+        "kind": "dialogue",
+        "title": "На этой кочке растут корни. Если их ещё не выкопали, мо",
+        "titleUk": "На цій купині росте коріння. Якщо його ще не викопали, ",
+        "speaker": "esteros-child-thoughts",
+        "text": "На этой кочке растут корни. Если их ещё не выкопали, можно набрать на похлёбку.",
+        "textUk": "На цій купині росте коріння. Якщо його ще не викопали, можна набрати на юшку.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1800,
+        "y": 1660,
+        "links": [
+          {
+            "id": "food-map-roots-0",
+            "to": "",
+            "label": "Пойти туда",
+            "labelUk": "Піти туди",
+            "sceneId": "scene-esteros-food-roots"
+          },
+          {
+            "id": "food-map-roots-1",
+            "to": "food-map-stay",
+            "label": "Остаться у карты",
+            "labelUk": "Залишитися біля мапи"
+          }
+        ],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-map-channel",
+        "kind": "dialogue",
+        "title": "У протоки много корней и сухого камыша. Там бывает что ",
+        "titleUk": "Біля протоки багато коріння й сухого очерету. Там буває",
+        "speaker": "esteros-child-thoughts",
+        "text": "У протоки много корней и сухого камыша. Там бывает что поискать. Только под ноги надо смотреть.",
+        "textUk": "Біля протоки багато коріння й сухого очерету. Там буває що пошукати. Тільки під ноги треба дивитися.",
+        "showPortrait": true,
+        "emotion": "worried",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 600,
+        "y": 1840,
+        "links": [
+          {
+            "id": "food-map-channel-0",
+            "to": "",
+            "label": "Пойти туда",
+            "labelUk": "Піти туди",
+            "sceneId": "scene-esteros-food-channel"
+          },
+          {
+            "id": "food-map-channel-1",
+            "to": "food-map-stay",
+            "label": "Остаться у карты",
+            "labelUk": "Залишитися біля мапи"
+          }
+        ],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-map-stay",
+        "kind": "dialogue",
+        "title": "Может, ближе есть что-нибудь…",
+        "titleUk": "Може, ближче є щось…",
+        "speaker": "esteros-child-thoughts",
+        "text": "Может, ближе есть что-нибудь…",
+        "textUk": "Може, ближче є щось…",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 900,
+        "y": 1840,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-map-shore",
+        "kind": "dialogue",
+        "title": "От берега я найду дорогу домой и в темноте.",
+        "titleUk": "Від берега я знайду дорогу додому й у темряві.",
+        "speaker": "esteros-child-thoughts",
+        "text": "От берега я найду дорогу домой и в темноте.",
+        "textUk": "Від берега я знайду дорогу додому й у темряві.",
+        "showPortrait": true,
+        "emotion": "",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1200,
+        "y": 1840,
+        "links": [
+          {
+            "id": "food-map-shore-0",
+            "to": "food-shore-return",
+            "label": "Вернуться на берег",
+            "labelUk": "Повернутися на берег",
+            "sceneId": "scene-mvctoydb"
+          },
+          {
+            "id": "food-map-shore-1",
+            "to": "food-map-stay",
+            "label": "Остаться у карты",
+            "labelUk": "Залишитися біля мапи"
+          }
+        ],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-shore-return",
+        "kind": "dialogue",
+        "title": "Тот же плеск. Пока меня не было, здесь ничего не измени",
+        "titleUk": "Той самий плюскіт. Поки мене не було, тут нічого не змі",
+        "speaker": "esteros-child-thoughts",
+        "text": "Тот же плеск. Пока меня не было, здесь ничего не изменилось.",
+        "textUk": "Той самий плюскіт. Поки мене не було, тут нічого не змінилося.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-mvctoydb",
+        "x": 1500,
+        "y": 1840,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      },
+      {
+        "id": "food-eggs-reach",
+        "kind": "dialogue",
+        "title": "Только бы достать…",
+        "titleUk": "Тільки б дістати…",
+        "text": "Только бы достать…",
+        "textUk": "Тільки б дістати…",
+        "speaker": "esteros-child-thoughts",
+        "emotion": "tense",
+        "showPortrait": true,
+        "textSpeed": 43,
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 1200,
+        "y": 1900,
+        "links": [],
+        "slides": [],
+        "repeatRoutes": [
+          {
+            "requires": "esteros-snake-bitten",
+            "to": "food-nest-bitten"
+          }
+        ]
+      },
+      {
+        "id": "food-snake-fright",
+        "kind": "dialogue",
+        "title": "Укус",
+        "titleUk": "Укус",
+        "text": "Да чтоб тебя… Я ведь почти достал.",
+        "textUk": "Та щоб тебе… Я ж майже дістав.",
+        "speaker": "esteros-child-thoughts",
+        "emotion": "angry",
+        "showPortrait": true,
+        "textSpeed": 43,
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 1500,
+        "y": 1900,
+        "links": [],
+        "resolveEvent": {
+          "id": "esteros-snake-fright",
+          "type": "fatalism"
+        },
+        "slides": [
+          {
+            "text": "Только бы не ядовитая. Пожалуйста.",
+            "textUk": "Тільки б не отруйна. Будь ласка.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          },
+          {
+            "text": "Маме скажу — о ветку. Пусть хоть об этом не тревожится.",
+            "textUk": "Мамі скажу — об гілку. Нехай хоч за це не тривожиться.",
+            "emotion": "sad",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ],
+        "damage": 2,
+        "effect": "esteros-snake-bitten"
+      },
+      {
+        "id": "food-nest-bitten",
+        "kind": "dialogue",
+        "title": "После укуса",
+        "titleUk": "Після укусу",
+        "speaker": "esteros-child-thoughts",
+        "text": "Яйца всё там же. Как будто ничего не было.",
+        "textUk": "Яйця й досі там. Наче нічого й не сталося.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-channel",
+        "x": 1800,
+        "y": 1900,
+        "links": [],
+        "portraitOverride": false,
+        "slides": [
+          {
+            "text": "Нет. Я уже один раз решил, что успею.",
+            "textUk": "Ні. Я вже раз вирішив, що встигну.",
+            "emotion": "worried",
+            "showPortrait": true,
+            "portraitOverride": false
+          }
+        ]
+      },
+      {
+        "id": "food-roots-leave",
+        "kind": "dialogue",
+        "title": "Не сейчас",
+        "titleUk": "Не зараз",
+        "speaker": "esteros-child-thoughts",
+        "text": "Если бы сил было столько же, сколько голода… Посмотрю в другом месте.",
+        "textUk": "Якби сил було стільки ж, скільки голоду… Подивлюся в іншому місці.",
+        "showPortrait": true,
+        "emotion": "sad",
+        "textSpeed": 43,
+        "imageMotion": "none",
+        "branchOverride": true,
+        "editorSceneId": "scene-esteros-food-roots",
+        "x": 900,
+        "y": 1480,
+        "links": [],
+        "portraitOverride": false,
+        "slides": []
+      }
+    ],
+    "speakers": {
+      "tabaxi-hunter": {
+        "name": "Табакси",
+        "nameUk": "Табакси",
+        "portrait": "assets/stories/portraits/Portraits/tabaxi-hunter/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/tabaxi-hunter/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/tabaxi-hunter/03_angry.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "happy": {
+            "name": "Радость",
+            "nameUk": "Радість",
+            "portrait": "assets/stories/portraits/Portraits/tabaxi-hunter/04_happy.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Грусть",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/tabaxi-hunter/05_sad.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "thinking": {
+            "name": "Задумался",
+            "nameUk": "Замислився",
+            "portrait": "assets/stories/portraits/Portraits/tabaxi-hunter/06_thinking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "satyr-girl": {
+        "name": "Сатир",
+        "nameUk": "Сатир",
+        "portrait": "assets/stories/portraits/Portraits/satyr-girl/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/satyr-girl/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/satyr-girl/03_angry.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "happy": {
+            "name": "Радость",
+            "nameUk": "Радість",
+            "portrait": "assets/stories/portraits/Portraits/satyr-girl/04_happy.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Грусть",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/satyr-girl/05_sad.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "thinking": {
+            "name": "Задумалась",
+            "nameUk": "Замислилася",
+            "portrait": "assets/stories/portraits/Portraits/satyr-girl/06_thinking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "gnome-engineer": {
+        "name": "Гном-инженер",
+        "nameUk": "Гном-інженер",
+        "portrait": "assets/stories/portraits/Portraits/gnome-engineer/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/gnome-engineer/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/gnome-engineer/03_angry.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "happy": {
+            "name": "Радость",
+            "nameUk": "Радість",
+            "portrait": "assets/stories/portraits/Portraits/gnome-engineer/04_happy.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Грусть",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/gnome-engineer/05_sad.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "thinking": {
+            "name": "Задумался",
+            "nameUk": "Замислився",
+            "portrait": "assets/stories/portraits/Portraits/gnome-engineer/06_thinking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "settlement-elder": {
+        "name": "Старейшина поселения",
+        "nameUk": "Старійшина поселення",
+        "portrait": "assets/stories/portraits/Portraits/settlement-elder/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/settlement-elder/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/settlement-elder/03_angry.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "happy": {
+            "name": "Радость",
+            "nameUk": "Радість",
+            "portrait": "assets/stories/portraits/Portraits/settlement-elder/04_happy.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Грусть",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/settlement-elder/05_sad.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "thinking": {
+            "name": "Задумался",
+            "nameUk": "Замислився",
+            "portrait": "assets/stories/portraits/Portraits/settlement-elder/06_thinking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "goblin-messenger": {
+        "name": "Гоблин-гонец",
+        "nameUk": "Гоблін-гонець",
+        "portrait": "assets/stories/portraits/Portraits/goblin-messenger/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/goblin-messenger/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/goblin-messenger/03_angry.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "happy": {
+            "name": "Радость",
+            "nameUk": "Радість",
+            "portrait": "assets/stories/portraits/Portraits/goblin-messenger/04_happy.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Грусть",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/goblin-messenger/05_sad.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "thinking": {
+            "name": "Задумался",
+            "nameUk": "Замислився",
+            "portrait": "assets/stories/portraits/Portraits/goblin-messenger/06_thinking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "karven-dragonborn": {
+        "name": "Карвен",
+        "nameUk": "Карвен",
+        "portrait": "assets/stories/portraits/Portraits/karven-dragonborn/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/karven-dragonborn/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/karven-dragonborn/03_angry.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "happy": {
+            "name": "Радость",
+            "nameUk": "Радість",
+            "portrait": "assets/stories/portraits/Portraits/karven-dragonborn/04_happy.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Грусть",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/karven-dragonborn/05_sad.png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "thinking": {
+            "name": "Задумался",
+            "nameUk": "Замислився",
+            "portrait": "assets/stories/portraits/Portraits/karven-dragonborn/06_thinking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "fairy-guest": {
+        "name": "Фея-гостья",
+        "nameUk": "Фея-гостя",
+        "portrait": "assets/stories/portraits/Portraits/fairy-guest/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/fairy-guest/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "myconid-guest": {
+        "name": "Миконид-музыкант",
+        "nameUk": "Міконід-музикант",
+        "portrait": "assets/stories/portraits/Portraits/myconid-guest/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/myconid-guest/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "minotaur-guest": {
+        "name": "Минотавр-пивовар",
+        "nameUk": "Мінотавр-бровар",
+        "portrait": "assets/stories/portraits/Portraits/minotaur-guest/01_neutral.png",
+        "position": "50% 50%",
+        "zoom": 1,
+        "emotions": {
+          "speaking": {
+            "name": "Говорит",
+            "nameUk": "Говорить",
+            "portrait": "assets/stories/portraits/Portraits/minotaur-guest/02_speaking.png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        }
+      },
+      "esteros-child-thoughts": {
+        "name": "Эстерос · мысли",
+        "nameUk": "Естерос · думки",
+        "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png",
+        "emotions": {
+          "map-sad": {
+            "name": "Печаль",
+            "nameUk": "Сум",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_21 (3).png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "tense": {
+            "name": "Напряжение",
+            "nameUk": "Напруження",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (2).png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "worried": {
+            "name": "Тревога",
+            "nameUk": "Тривога",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_21 (3).png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "sad": {
+            "name": "Печаль",
+            "nameUk": "Смуток",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_21 (4).png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "doubtful": {
+            "name": "Недоверие",
+            "nameUk": "Недовіра",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_22 (6).png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "hopeful": {
+            "name": "Слабая улыбка",
+            "nameUk": "Легка усмішка",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_23 (7).png",
+            "position": "50% 50%",
+            "zoom": 1
+          },
+          "angry": {
+            "name": "Злость",
+            "nameUk": "Злість",
+            "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_22 (5).png",
+            "position": "50% 50%",
+            "zoom": 1
+          }
+        },
+        "position": "50% 50%",
+        "zoom": 1
+      }
+    },
+    "tabaxiHunterPortraitsV1": true,
+    "satyrGirlPortraitsV1": true,
+    "gnomeEngineerPortraitsV1": true,
+    "settlementElderPortraitsV1": true,
+    "goblinMessengerPortraitsV1": true,
+    "karvenDragonbornPortraitsV1": true,
+    "fairyGuestPortraitsV1": true,
+    "myconidGuestPortraitsV1": true,
+    "minotaurGuestPortraitsV1": true,
+    "scenes": [
+      {
+        "id": "scene-mvctoydb",
+        "name": "Берег у недостроенного моста",
+        "scene": {
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [
+            {
+              "id": "esteros-walkable-shore-background",
+              "image": "assets/stories/backgrounds/esteros-shore/walkable-shore-v1.png",
+              "visible": true,
+              "opacity": 1,
+              "fit": "cover"
+            }
+          ],
+          "tokens": [
+            {
+              "id": "esteros-child-viewpoint",
+              "name": "Эстерос",
+              "nameUk": "Естерос",
+              "x": 54.65,
+              "y": 48.95,
+              "size": 128,
+              "visible": true,
+              "opacity": 1,
+              "image": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png",
+              "hidden": false
+            },
+            {
+              "id": "food-point-water",
+              "type": "note",
+              "name": "Набрать воды",
+              "nameUk": "Набрати води",
+              "x": 42.58,
+              "y": 42.77,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-water",
+              "visible": true,
+              "opacity": 1
+            },
+            {
+              "id": "food-point-path",
+              "type": "note",
+              "name": "Тропа к деревне",
+              "nameUk": "Стежка до села",
+              "x": 49.24,
+              "y": 94.29,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-path",
+              "visible": false,
+              "opacity": 1,
+              "enabled": false
+            }
+          ],
+          "story": {
+            "ambience": "assets/stories/audio/esteros/the-last-of-us-main-menu-trimmed-v1.m4a",
+            "ambienceLoop": true,
+            "volume": 0.8,
+            "firstVisitDialogueId": "dialog-1",
+            "spawnX": 54.166666666666664,
+            "spawnY": 50,
+            "walkable": [
+              [
+                21,
+                46
+              ],
+              [
+                30,
+                42
+              ],
+              [
+                43,
+                45
+              ],
+              [
+                56,
+                48
+              ],
+              [
+                67,
+                49
+              ],
+              [
+                76,
+                57
+              ],
+              [
+                75,
+                70
+              ],
+              [
+                62,
+                77
+              ],
+              [
+                57,
+                94
+              ],
+              [
+                43,
+                94
+              ],
+              [
+                42,
+                78
+              ],
+              [
+                28,
+                69
+              ],
+              [
+                19,
+                57
+              ]
+            ],
+            "blockedMessage": "Здесь вода или густые заросли. Лучше идти по открытому берегу.",
+            "blockedMessageUk": "Тут вода або густі зарості. Краще йти відкритим берегом.",
+            "cameraZoom": 1,
+            "decorations": [
+              {
+                "id": "stage-mvk75pl4",
+                "x": 55.41,
+                "y": 33.68,
+                "kind": "water",
+                "waterMode": "current",
+                "size": 360,
+                "height": 180,
+                "opacity": 0.4,
+                "duration": 18,
+                "drift": 18,
+                "rotation": 0,
+                "showTexture": true
+              }
+            ],
+            "cameraFit": "cover",
+            "zones": [
+              {
+                "id": "esteros-water-bed",
+                "name": "Вода у берега",
+                "nameUk": "Вода біля берега",
+                "spatial": true,
+                "global": true,
+                "loop": true,
+                "enabled": true,
+                "x": 50,
+                "y": 30,
+                "radiusCells": 4,
+                "volume": 0.09,
+                "sound": "assets/stories/audio/esteros/shore-water-soft-loop.wav",
+                "markerVisible": false
+              }
+            ],
+            "movementSpeed": 0.5,
+            "cameraOffsetX": 0,
+            "cameraOffsetY": 0,
+            "ambienceGroup": "esteros-food-day",
+            "ambienceContinue": true,
+            "ambienceStart": 0,
+            "cameraCenterY": 40
+          },
+          "name": "Берег у недостроенного моста",
+          "nameUk": "Берег біля недобудованого мосту"
+        },
+        "nameUk": "Берег біля недобудованого мосту"
+      },
+      {
+        "id": "scene-mvctoydb-51hs",
+        "name": "Мещера · поиск еды",
+        "scene": {
+          "name": "Мещера · поиск еды",
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [],
+          "tokens": [],
+          "story": {},
+          "nameUk": "Мещера · пошук їжі"
+        },
+        "nameUk": "Мещера · пошук їжі"
+      },
+      {
+        "id": "scene-esteros-gnilushino",
+        "name": "Гнилушино",
+        "nameUk": "Гнилушино",
+        "scene": {
+          "name": "Гнилушино",
+          "nameUk": "Гнилушино",
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [],
+          "tokens": [],
+          "story": {}
+        }
+      },
+      {
+        "id": "scene-esteros-family-hut",
+        "name": "Семейная изба",
+        "nameUk": "Родинна хата",
+        "scene": {
+          "name": "Семейная изба",
+          "nameUk": "Родинна хата",
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [],
+          "tokens": [],
+          "story": {}
+        }
+      },
+      {
+        "id": "scene-esteros-food-backwater",
+        "name": "Глухой затон",
+        "nameUk": "Глухий затон",
+        "scene": {
+          "name": "Глухой затон",
+          "nameUk": "Глухий затон",
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [
+            {
+              "id": "food-bg-backwater",
+              "image": "assets/stories/backgrounds/esteros-food-v1/backwater-v2.png",
+              "visible": true,
+              "opacity": 1,
+              "fit": "cover"
+            }
+          ],
+          "tokens": [
+            {
+              "id": "esteros-child-viewpoint",
+              "name": "Эстерос",
+              "nameUk": "Естерос",
+              "x": 50,
+              "y": 89,
+              "size": 128,
+              "visible": true,
+              "opacity": 1,
+              "image": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png"
+            },
+            {
+              "id": "food-point-backwater-exit",
+              "type": "note",
+              "name": "Обратно к карте",
+              "nameUk": "Назад до мапи",
+              "x": 50,
+              "y": 92,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-map",
+              "visible": false,
+              "opacity": 1,
+              "enabled": false
+            },
+            {
+              "id": "food-point-tracks",
+              "type": "note",
+              "name": "Следы в грязи",
+              "nameUk": "Сліди в багнюці",
+              "x": 57,
+              "y": 65,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-tracks",
+              "visible": true,
+              "opacity": 1
+            },
+            {
+              "id": "food-point-cart",
+              "type": "note",
+              "name": "Повозка",
+              "nameUk": "Віз",
+              "x": 77,
+              "y": 31,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-cart",
+              "visible": true,
+              "opacity": 1
+            },
+            {
+              "id": "food-point-bad-roots",
+              "type": "note",
+              "name": "Корни у воды",
+              "nameUk": "Корені біля води",
+              "x": 35,
+              "y": 63,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-bad-roots",
+              "visible": true,
+              "opacity": 1
+            }
+          ],
+          "story": {
+            "spawnX": 50,
+            "spawnY": 89,
+            "walkable": [
+              [
+                45,
+                97
+              ],
+              [
+                55,
+                97
+              ],
+              [
+                64,
+                78
+              ],
+              [
+                71,
+                62
+              ],
+              [
+                80,
+                42
+              ],
+              [
+                85,
+                27
+              ],
+              [
+                77,
+                25
+              ],
+              [
+                70,
+                41
+              ],
+              [
+                60,
+                56
+              ],
+              [
+                45,
+                61
+              ],
+              [
+                35,
+                58
+              ],
+              [
+                28,
+                64
+              ],
+              [
+                41,
+                81
+              ]
+            ],
+            "cameraZoom": 1.28,
+            "movementSpeed": 0.5,
+            "blockedMessage": "Вода и вязкий ил. Лучше держаться суши.",
+            "blockedMessageUk": "Вода й в’язкий мул. Краще триматися суші.",
+            "cameraFit": "cover",
+            "ambience": "assets/stories/audio/esteros/the-last-of-us-main-menu-trimmed-v1.m4a",
+            "volume": 0.8,
+            "ambienceLoop": true,
+            "ambienceGroup": "esteros-food-day",
+            "ambienceContinue": true,
+            "zones": [
+              {
+                "id": "esteros-water-bed",
+                "name": "Вода у берега",
+                "nameUk": "Вода біля берега",
+                "spatial": true,
+                "global": true,
+                "loop": true,
+                "enabled": true,
+                "x": 50,
+                "y": 30,
+                "radiusCells": 4,
+                "volume": 0.06,
+                "sound": "assets/stories/audio/esteros/shore-water-soft-loop.wav",
+                "markerVisible": false
+              }
+            ],
+            "ambienceStart": 0
+          }
+        }
+      },
+      {
+        "id": "scene-esteros-food-roots",
+        "name": "Корневая кочка",
+        "nameUk": "Коренева купина",
+        "scene": {
+          "name": "Корневая кочка",
+          "nameUk": "Коренева купина",
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [
+            {
+              "id": "food-bg-roots",
+              "image": "assets/stories/backgrounds/esteros-food-v1/roots.png",
+              "visible": true,
+              "opacity": 1,
+              "fit": "cover"
+            }
+          ],
+          "tokens": [
+            {
+              "id": "esteros-child-viewpoint",
+              "name": "Эстерос",
+              "nameUk": "Естерос",
+              "x": 50,
+              "y": 87,
+              "size": 128,
+              "visible": true,
+              "opacity": 1,
+              "image": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png"
+            },
+            {
+              "id": "food-point-roots-exit",
+              "type": "note",
+              "name": "Обратно к карте",
+              "nameUk": "Назад до мапи",
+              "x": 50,
+              "y": 92,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-map",
+              "visible": false,
+              "opacity": 1,
+              "enabled": false
+            },
+            {
+              "id": "food-point-empty",
+              "type": "note",
+              "name": "Раскопанная земля",
+              "nameUk": "Розкопана земля",
+              "x": 29,
+              "y": 49,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-empty",
+              "visible": true,
+              "opacity": 1
+            },
+            {
+              "id": "food-point-rotten",
+              "type": "note",
+              "name": "Потемневшие корни",
+              "nameUk": "Потемнілі корені",
+              "x": 49,
+              "y": 43,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-rotten",
+              "visible": true,
+              "opacity": 1
+            },
+            {
+              "id": "food-point-good",
+              "type": "note",
+              "name": "Корни в плотной земле",
+              "nameUk": "Корені в щільній землі",
+              "x": 70,
+              "y": 58,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-roots-find",
+              "visible": true,
+              "opacity": 1
+            }
+          ],
+          "story": {
+            "spawnX": 50,
+            "spawnY": 87,
+            "walkable": [
+              [
+                46,
+                97
+              ],
+              [
+                55,
+                97
+              ],
+              [
+                63,
+                79
+              ],
+              [
+                79,
+                65
+              ],
+              [
+                78,
+                54
+              ],
+              [
+                64,
+                43
+              ],
+              [
+                48,
+                35
+              ],
+              [
+                27,
+                34
+              ],
+              [
+                21,
+                49
+              ],
+              [
+                28,
+                65
+              ],
+              [
+                42,
+                78
+              ]
+            ],
+            "cameraZoom": 1.28,
+            "movementSpeed": 0.5,
+            "blockedMessage": "Вода и вязкий ил. Лучше держаться суши.",
+            "blockedMessageUk": "Вода й в’язкий мул. Краще триматися суші.",
+            "cameraFit": "cover",
+            "ambience": "assets/stories/audio/esteros/the-last-of-us-main-menu-trimmed-v1.m4a",
+            "volume": 0.8,
+            "ambienceLoop": true,
+            "ambienceGroup": "esteros-food-day",
+            "ambienceContinue": true,
+            "zones": [
+              {
+                "id": "esteros-water-bed",
+                "name": "Вода у берега",
+                "nameUk": "Вода біля берега",
+                "spatial": true,
+                "global": true,
+                "loop": true,
+                "enabled": true,
+                "x": 50,
+                "y": 30,
+                "radiusCells": 4,
+                "volume": 0.04,
+                "sound": "assets/stories/audio/esteros/shore-water-soft-loop.wav",
+                "markerVisible": false
+              }
+            ],
+            "ambienceStart": 0
+          }
+        }
+      },
+      {
+        "id": "scene-esteros-food-channel",
+        "name": "Змеиная протока",
+        "nameUk": "Зміїна протока",
+        "scene": {
+          "name": "Змеиная протока",
+          "nameUk": "Зміїна протока",
+          "boardWidth": 24,
+          "boardHeight": 16,
+          "gridSize": 64,
+          "layers": [
+            {
+              "id": "food-bg-channel",
+              "image": "assets/stories/backgrounds/esteros-food-v1/channel.png",
+              "visible": true,
+              "opacity": 1,
+              "fit": "cover"
+            }
+          ],
+          "tokens": [
+            {
+              "id": "esteros-child-viewpoint",
+              "name": "Эстерос",
+              "nameUk": "Естерос",
+              "x": 50,
+              "y": 88,
+              "size": 128,
+              "visible": true,
+              "opacity": 1,
+              "image": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png"
+            },
+            {
+              "id": "food-point-channel-exit",
+              "type": "note",
+              "name": "Обратно к карте",
+              "nameUk": "Назад до мапи",
+              "x": 50,
+              "y": 92,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-map",
+              "visible": false,
+              "opacity": 1,
+              "enabled": false
+            },
+            {
+              "id": "food-point-nest",
+              "type": "note",
+              "name": "Гнездо под корнями",
+              "nameUk": "Гніздо під корінням",
+              "x": 69,
+              "y": 55,
+              "size": 32,
+              "markerSize": 22,
+              "entryId": "food-nest",
+              "visible": true,
+              "opacity": 1
+            }
+          ],
+          "story": {
+            "spawnX": 50,
+            "spawnY": 88,
+            "walkable": [
+              [
+                44,
+                97
+              ],
+              [
+                56,
+                97
+              ],
+              [
+                66,
+                76
+              ],
+              [
+                73,
+                63
+              ],
+              [
+                71,
+                53
+              ],
+              [
+                59,
+                46
+              ],
+              [
+                43,
+                30
+              ],
+              [
+                31,
+                26
+              ],
+              [
+                23,
+                35
+              ],
+              [
+                23,
+                53
+              ],
+              [
+                36,
+                72
+              ]
+            ],
+            "cameraZoom": 1,
+            "movementSpeed": 0.5,
+            "blockedMessage": "Вода и вязкий ил. Лучше держаться суши.",
+            "blockedMessageUk": "Вода й в’язкий мул. Краще триматися суші.",
+            "cameraFit": "cover",
+            "ambience": "assets/stories/audio/esteros/the-last-of-us-main-menu-trimmed-v1.m4a",
+            "volume": 0.8,
+            "ambienceLoop": true,
+            "ambienceGroup": "esteros-food-day",
+            "ambienceContinue": true,
+            "zones": [
+              {
+                "id": "esteros-water-bed",
+                "name": "Вода у берега",
+                "nameUk": "Вода біля берега",
+                "spatial": true,
+                "global": true,
+                "loop": true,
+                "enabled": true,
+                "x": 50,
+                "y": 30,
+                "radiusCells": 4,
+                "volume": 0.07,
+                "sound": "assets/stories/audio/esteros/shore-water-soft-loop.wav",
+                "markerVisible": false
+              }
+            ],
+            "cameraOffsetX": 0,
+            "cameraOffsetY": 0,
+            "ambienceStart": 0
+          }
+        }
+      }
+    ],
+    "heroTokenId": "esteros-child-viewpoint",
+    "presentation": {
+      "frameSize": 1.2,
+      "zoom": 1,
+      "softEdge": 16,
+      "cropX": 50,
+      "cropY": 50,
+      "offsetX": -3,
+      "offsetY": 5,
+      "mirror": false,
+      "backdrop": "brush",
+      "shape": "circle",
+      "border": true,
+      "panelHeight": 240,
+      "reservePortraitSpace": true,
+      "esterosResolve": {
+        "enabled": true,
+        "initialHope": 3,
+        "hitTime": 4.27
+      }
+    },
+    "storyItems": [
+      {
+        "itemId": "esteros-mothers-map",
+        "name": "Мамина карта Мещеры",
+        "nameUk": "Мамина мапа Мещери",
+        "description": "Карта, которую мама нарисовала цветными карандашами. На ней отмечены деревни и опасные места.",
+        "descriptionUk": "Мапа, яку мама намалювала кольоровими олівцями. На ній позначені села й небезпечні місця.",
+        "image": "assets/stories/items/esteros/northern-meshchera-ru-v2.png",
+        "qty": 1,
+        "stackable": false,
+        "equipped": false,
+        "travelMap": {
+          "mode": "inspect",
+          "title": "Северная Мещера",
+          "titleUk": "Північна Мещера",
+          "image": "assets/stories/items/esteros/northern-meshchera-ru-v2.png",
+          "imageUk": "assets/stories/items/esteros/northern-meshchera-uk-v2.png",
+          "firstOpenNodeId": "esteros-map-memory",
+          "destinations": [
+            {
+              "id": "bridge",
+              "name": "Остовы моста",
+              "nameUk": "Рештки мосту",
+              "nodeId": "esteros-map-bridge",
+              "x": 10,
+              "y": 14,
+              "width": 11,
+              "height": 9,
+              "geometryUk": {
+                "x": 10,
+                "y": 15,
+                "width": 9,
+                "height": 10
+              }
+            },
+            {
+              "id": "grey-gat",
+              "name": "Серая Гать",
+              "nameUk": "Сіра Гать",
+              "nodeId": "esteros-map-grey-gat",
+              "x": 40,
+              "y": 25,
+              "width": 15,
+              "height": 7,
+              "geometryUk": {
+                "x": 40,
+                "y": 29,
+                "width": 15,
+                "height": 7
+              }
+            },
+            {
+              "id": "kochary",
+              "name": "Кочары",
+              "nameUk": "Кочарі",
+              "nodeId": "esteros-map-kochary",
+              "x": 6,
+              "y": 33,
+              "width": 13,
+              "height": 8,
+              "geometryUk": {
+                "x": 6,
+                "y": 38,
+                "width": 13,
+                "height": 9
+              }
+            },
+            {
+              "id": "home",
+              "name": "Гнилушино",
+              "nameUk": "Гнилушино",
+              "nodeId": "esteros-map-home",
+              "x": 39,
+              "y": 43,
+              "width": 12,
+              "height": 8,
+              "geometryUk": {
+                "x": 39,
+                "y": 47,
+                "width": 12,
+                "height": 10
+              }
+            },
+            {
+              "id": "moss",
+              "name": "Моховое",
+              "nameUk": "Мохове",
+              "nodeId": "esteros-map-moss",
+              "x": 6,
+              "y": 58,
+              "width": 13,
+              "height": 7,
+              "geometryUk": {
+                "x": 6,
+                "y": 65,
+                "width": 13,
+                "height": 8
+              }
+            },
+            {
+              "id": "quiet",
+              "name": "Тихая Гать",
+              "nameUk": "Тиха Гать",
+              "nodeId": "esteros-map-quiet",
+              "x": 37,
+              "y": 63,
+              "width": 15,
+              "height": 7,
+              "geometryUk": {
+                "x": 35,
+                "y": 70,
+                "width": 18,
+                "height": 9
+              }
+            },
+            {
+              "id": "reeds",
+              "name": "Камышовка",
+              "nameUk": "Комишівка",
+              "nodeId": "esteros-map-reeds",
+              "x": 77,
+              "y": 46,
+              "width": 15,
+              "height": 8,
+              "geometryUk": {
+                "x": 77,
+                "y": 52,
+                "width": 15,
+                "height": 10
+              }
+            },
+            {
+              "id": "bay",
+              "name": "Бухта Яровец",
+              "nameUk": "Бухта Яровець",
+              "nodeId": "esteros-map-bay",
+              "x": 87,
+              "y": 61,
+              "width": 10,
+              "height": 16,
+              "geometryUk": {
+                "x": 88,
+                "y": 67,
+                "width": 10,
+                "height": 20
+              }
+            },
+            {
+              "id": "danger-1",
+              "name": "Гиблое место",
+              "nameUk": "Згубне місце",
+              "nodeId": "esteros-map-danger-1",
+              "x": 34,
+              "y": 30,
+              "width": 5,
+              "height": 6,
+              "geometryUk": {
+                "x": 34.5,
+                "y": 33.5,
+                "width": 5,
+                "height": 6
+              }
+            },
+            {
+              "id": "danger-2",
+              "name": "Гиблое место",
+              "nameUk": "Згубне місце",
+              "nodeId": "esteros-map-danger-2",
+              "x": 20.5,
+              "y": 47,
+              "width": 5,
+              "height": 6,
+              "geometryUk": {
+                "x": 20.5,
+                "y": 52,
+                "width": 5,
+                "height": 6
+              }
+            },
+            {
+              "id": "danger-3",
+              "name": "Гиблое место",
+              "nameUk": "Згубне місце",
+              "nodeId": "esteros-map-danger-3",
+              "x": 67,
+              "y": 52,
+              "width": 5,
+              "height": 7,
+              "geometryUk": {
+                "x": 67,
+                "y": 59,
+                "width": 5,
+                "height": 7
+              }
+            },
+            {
+              "id": "bandits-1",
+              "name": "Разбойничьи места",
+              "nameUk": "Розбійницькі місця",
+              "nodeId": "esteros-map-bandits-1",
+              "x": 13,
+              "y": 71,
+              "width": 5,
+              "height": 7,
+              "geometryUk": {
+                "x": 13,
+                "y": 80,
+                "width": 5,
+                "height": 7
+              }
+            },
+            {
+              "id": "bandits-2",
+              "name": "Разбойничьи места",
+              "nameUk": "Розбійницькі місця",
+              "nodeId": "esteros-map-bandits-2",
+              "x": 51,
+              "y": 78,
+              "width": 5,
+              "height": 8,
+              "geometryUk": {
+                "x": 51,
+                "y": 89,
+                "width": 5,
+                "height": 7
+              }
+            },
+            {
+              "id": "food-backwater",
+              "name": "Глухой затон",
+              "nameUk": "Глухий затон",
+              "nodeId": "food-map-backwater",
+              "x": 19.5,
+              "y": 30,
+              "width": 5,
+              "height": 5,
+              "requires": "food-planned",
+              "sceneId": "scene-esteros-food-backwater",
+              "marker": "search",
+              "geometryUk": {
+                "x": 19.5,
+                "y": 32,
+                "width": 5,
+                "height": 5.5
+              }
+            },
+            {
+              "id": "food-roots",
+              "name": "Корневая кочка",
+              "nameUk": "Коренева купина",
+              "nodeId": "food-map-roots",
+              "x": 23,
+              "y": 23,
+              "width": 5,
+              "height": 5,
+              "requires": "food-planned",
+              "sceneId": "scene-esteros-food-roots",
+              "marker": "search",
+              "geometryUk": {
+                "x": 23,
+                "y": 25,
+                "width": 5,
+                "height": 5.5
+              }
+            },
+            {
+              "id": "food-channel",
+              "name": "Змеиная протока",
+              "nameUk": "Зміїна протока",
+              "nodeId": "food-map-channel",
+              "x": 28,
+              "y": 29,
+              "width": 5,
+              "height": 5,
+              "requires": "food-planned",
+              "sceneId": "scene-esteros-food-channel",
+              "marker": "search",
+              "geometryUk": {
+                "x": 28,
+                "y": 31,
+                "width": 5,
+                "height": 5.5
+              }
+            },
+            {
+              "id": "food-shore",
+              "name": "Береговая тропа",
+              "nameUk": "Берегова стежка",
+              "nodeId": "food-map-shore",
+              "x": 15.5,
+              "y": 23,
+              "width": 5,
+              "height": 5,
+              "requires": "food-planned",
+              "sceneId": "scene-mvctoydb",
+              "marker": "location",
+              "geometryUk": {
+                "x": 15.5,
+                "y": 25,
+                "width": 5,
+                "height": 5.5
+              }
+            }
+          ],
+          "refreshOnFlags": true,
+          "travelCaption": "Через некоторое время",
+          "travelCaptionUk": "Через деякий час"
+        }
+      },
+      {
+        "itemId": "esteros-food-roots",
+        "name": "Болотные корни",
+        "nameUk": "Болотні корені",
+        "description": "Три небольших корня, добытых на сухой кочке. Скудный припас для дома.",
+        "descriptionUk": "Три невеликі корені, знайдені на сухій купині. Мізерний припас для дому.",
+        "image": "assets/stories/items/esteros/marsh-roots.png",
+        "qty": 1,
+        "stackable": false
+      },
+      {
+        "itemId": "esteros-food-eggs",
+        "name": "Два болотных яйца",
+        "nameUk": "Два болотні яйця",
+        "description": "Два целых яйца из гнезда у протоки.",
+        "descriptionUk": "Два цілих яйця з гнізда біля протоки.",
+        "qty": 1,
+        "stackable": false,
+        "image": "assets/stories/esteros/snake/egg.png",
+        "inspectImage": "assets/stories/esteros/snake/egg.png"
+      },
+      {
+        "itemId": "esteros-water-jug",
+        "name": "Кувшин с водой",
+        "nameUk": "Глечик із водою",
+        "description": "Небольшой глиняный кувшин. Заделанную дыру стягивает плотная обвязка из сухого камыша. Внутри — набранная у берега вода.",
+        "descriptionUk": "Невеликий глиняний глечик. Залатану дірку стягує щільна обв’язка із сухого очерету. Усередині — набрана біля берега вода.",
+        "qty": 1,
+        "stackable": false,
+        "image": "assets/stories/items/esteros/repaired-water-jug-v1.png",
+        "inspectImage": "assets/stories/items/esteros/repaired-water-jug-v1.png"
+      }
+    ],
+    "player": {
+      "name": "Эстерос",
+      "nameUk": "Естерос",
+      "portrait": "assets/stories/portraits/Portraits/ChatGPT Image 9 сент. 2026 г., 21_24_20 (1).png",
+      "hp": 10,
+      "hpMax": 10,
+      "ac": 10,
+      "speed": 7,
+      "initiative": 0,
+      "level": 1,
+      "stats": {
+        "str": 0,
+        "dex": 0,
+        "int": 0,
+        "cha": 0,
+        "per": 0,
+        "con": 0
+      },
+      "inventoryItems": [
+        {
+          "itemId": "esteros-mothers-map",
+          "name": "Мамина карта Мещеры",
+          "nameUk": "Мамина мапа Мещери",
+          "description": "Карта, которую мама нарисовала цветными карандашами. На ней отмечены деревни и опасные места.",
+          "descriptionUk": "Мапа, яку мама намалювала кольоровими олівцями. На ній позначені села й небезпечні місця.",
+          "image": "assets/stories/items/esteros/northern-meshchera-ru-v2.png",
+          "qty": 1,
+          "stackable": false,
+          "equipped": false,
+          "travelMap": {
+            "mode": "inspect",
+            "title": "Северная Мещера",
+            "titleUk": "Північна Мещера",
+            "image": "assets/stories/items/esteros/northern-meshchera-ru-v2.png",
+            "imageUk": "assets/stories/items/esteros/northern-meshchera-uk-v2.png",
+            "firstOpenNodeId": "esteros-map-memory",
+            "destinations": [
+              {
+                "id": "bridge",
+                "name": "Остовы моста",
+                "nameUk": "Рештки мосту",
+                "nodeId": "esteros-map-bridge",
+                "x": 10,
+                "y": 14,
+                "width": 11,
+                "height": 9,
+                "geometryUk": {
+                  "x": 10,
+                  "y": 15,
+                  "width": 9,
+                  "height": 10
+                }
+              },
+              {
+                "id": "grey-gat",
+                "name": "Серая Гать",
+                "nameUk": "Сіра Гать",
+                "nodeId": "esteros-map-grey-gat",
+                "x": 40,
+                "y": 25,
+                "width": 15,
+                "height": 7,
+                "geometryUk": {
+                  "x": 40,
+                  "y": 29,
+                  "width": 15,
+                  "height": 7
+                }
+              },
+              {
+                "id": "kochary",
+                "name": "Кочары",
+                "nameUk": "Кочарі",
+                "nodeId": "esteros-map-kochary",
+                "x": 6,
+                "y": 33,
+                "width": 13,
+                "height": 8,
+                "geometryUk": {
+                  "x": 6,
+                  "y": 38,
+                  "width": 13,
+                  "height": 9
+                }
+              },
+              {
+                "id": "home",
+                "name": "Гнилушино",
+                "nameUk": "Гнилушино",
+                "nodeId": "esteros-map-home",
+                "x": 39,
+                "y": 43,
+                "width": 12,
+                "height": 8,
+                "geometryUk": {
+                  "x": 39,
+                  "y": 47,
+                  "width": 12,
+                  "height": 10
+                }
+              },
+              {
+                "id": "moss",
+                "name": "Моховое",
+                "nameUk": "Мохове",
+                "nodeId": "esteros-map-moss",
+                "x": 6,
+                "y": 58,
+                "width": 13,
+                "height": 7,
+                "geometryUk": {
+                  "x": 6,
+                  "y": 65,
+                  "width": 13,
+                  "height": 8
+                }
+              },
+              {
+                "id": "quiet",
+                "name": "Тихая Гать",
+                "nameUk": "Тиха Гать",
+                "nodeId": "esteros-map-quiet",
+                "x": 37,
+                "y": 63,
+                "width": 15,
+                "height": 7,
+                "geometryUk": {
+                  "x": 35,
+                  "y": 70,
+                  "width": 18,
+                  "height": 9
+                }
+              },
+              {
+                "id": "reeds",
+                "name": "Камышовка",
+                "nameUk": "Комишівка",
+                "nodeId": "esteros-map-reeds",
+                "x": 77,
+                "y": 46,
+                "width": 15,
+                "height": 8,
+                "geometryUk": {
+                  "x": 77,
+                  "y": 52,
+                  "width": 15,
+                  "height": 10
+                }
+              },
+              {
+                "id": "bay",
+                "name": "Бухта Яровец",
+                "nameUk": "Бухта Яровець",
+                "nodeId": "esteros-map-bay",
+                "x": 87,
+                "y": 61,
+                "width": 10,
+                "height": 16,
+                "geometryUk": {
+                  "x": 88,
+                  "y": 67,
+                  "width": 10,
+                  "height": 20
+                }
+              },
+              {
+                "id": "danger-1",
+                "name": "Гиблое место",
+                "nameUk": "Згубне місце",
+                "nodeId": "esteros-map-danger-1",
+                "x": 34,
+                "y": 30,
+                "width": 5,
+                "height": 6,
+                "geometryUk": {
+                  "x": 34.5,
+                  "y": 33.5,
+                  "width": 5,
+                  "height": 6
+                }
+              },
+              {
+                "id": "danger-2",
+                "name": "Гиблое место",
+                "nameUk": "Згубне місце",
+                "nodeId": "esteros-map-danger-2",
+                "x": 20.5,
+                "y": 47,
+                "width": 5,
+                "height": 6,
+                "geometryUk": {
+                  "x": 20.5,
+                  "y": 52,
+                  "width": 5,
+                  "height": 6
+                }
+              },
+              {
+                "id": "danger-3",
+                "name": "Гиблое место",
+                "nameUk": "Згубне місце",
+                "nodeId": "esteros-map-danger-3",
+                "x": 67,
+                "y": 52,
+                "width": 5,
+                "height": 7,
+                "geometryUk": {
+                  "x": 67,
+                  "y": 59,
+                  "width": 5,
+                  "height": 7
+                }
+              },
+              {
+                "id": "bandits-1",
+                "name": "Разбойничьи места",
+                "nameUk": "Розбійницькі місця",
+                "nodeId": "esteros-map-bandits-1",
+                "x": 13,
+                "y": 71,
+                "width": 5,
+                "height": 7,
+                "geometryUk": {
+                  "x": 13,
+                  "y": 80,
+                  "width": 5,
+                  "height": 7
+                }
+              },
+              {
+                "id": "bandits-2",
+                "name": "Разбойничьи места",
+                "nameUk": "Розбійницькі місця",
+                "nodeId": "esteros-map-bandits-2",
+                "x": 51,
+                "y": 78,
+                "width": 5,
+                "height": 8,
+                "geometryUk": {
+                  "x": 51,
+                  "y": 89,
+                  "width": 5,
+                  "height": 7
+                }
+              },
+              {
+                "id": "food-backwater",
+                "name": "Глухой затон",
+                "nameUk": "Глухий затон",
+                "nodeId": "food-map-backwater",
+                "x": 19.5,
+                "y": 30,
+                "width": 5,
+                "height": 5,
+                "requires": "food-planned",
+                "sceneId": "scene-esteros-food-backwater",
+                "marker": "search",
+                "geometryUk": {
+                  "x": 19.5,
+                  "y": 32,
+                  "width": 5,
+                  "height": 5.5
+                }
+              },
+              {
+                "id": "food-roots",
+                "name": "Корневая кочка",
+                "nameUk": "Коренева купина",
+                "nodeId": "food-map-roots",
+                "x": 23,
+                "y": 23,
+                "width": 5,
+                "height": 5,
+                "requires": "food-planned",
+                "sceneId": "scene-esteros-food-roots",
+                "marker": "search",
+                "geometryUk": {
+                  "x": 23,
+                  "y": 25,
+                  "width": 5,
+                  "height": 5.5
+                }
+              },
+              {
+                "id": "food-channel",
+                "name": "Змеиная протока",
+                "nameUk": "Зміїна протока",
+                "nodeId": "food-map-channel",
+                "x": 28,
+                "y": 29,
+                "width": 5,
+                "height": 5,
+                "requires": "food-planned",
+                "sceneId": "scene-esteros-food-channel",
+                "marker": "search",
+                "geometryUk": {
+                  "x": 28,
+                  "y": 31,
+                  "width": 5,
+                  "height": 5.5
+                }
+              },
+              {
+                "id": "food-shore",
+                "name": "Береговая тропа",
+                "nameUk": "Берегова стежка",
+                "nodeId": "food-map-shore",
+                "x": 15.5,
+                "y": 23,
+                "width": 5,
+                "height": 5,
+                "requires": "food-planned",
+                "sceneId": "scene-mvctoydb",
+                "marker": "location",
+                "geometryUk": {
+                  "x": 15.5,
+                  "y": 25,
+                  "width": 5,
+                  "height": 5.5
+                }
+              }
+            ],
+            "refreshOnFlags": true,
+            "travelCaption": "Через некоторое время",
+            "travelCaptionUk": "Через деякий час"
+          }
+        },
+        {
+          "itemId": "esteros-water-jug",
+          "name": "Пустой кувшин",
+          "nameUk": "Порожній глечик",
+          "description": "Небольшой глиняный кувшин с заделанной дырой, плотно обвязанный сухим камышом. Воды пока нет.",
+          "descriptionUk": "Невеликий глиняний глечик із залатаною діркою, щільно обв’язаний сухим очеретом. Води поки немає.",
+          "qty": 1,
+          "stackable": false,
+          "image": "assets/stories/items/esteros/repaired-water-jug-empty-v1.png",
+          "inspectImage": "assets/stories/items/esteros/repaired-water-jug-empty-v1.png"
+        }
+      ]
+    },
+    "interactions": {},
+    "quests": [
+      {
+        "id": "food-search",
+        "startSceneId": "scene-mvctoydb",
+        "title": "Выжить",
+        "titleUk": "Вижити",
+        "objective": "Раздобыть еды. Осмотреть ближайшие места на маминой карте.",
+        "objectiveUk": "Здобути їжу. Оглянути найближчі місця на маминій мапі.",
+        "dialogueIds": [
+          "food-roots-take",
+          "food-eggs-take"
+        ],
+        "nextId": "food-return",
+        "flag": "food-found"
+      },
+      {
+        "id": "food-return",
+        "title": "Выжить",
+        "titleUk": "Вижити",
+        "objective": "Вернуться к береговой тропе с припасом.",
+        "objectiveUk": "Повернутися до берегової стежки з припасом.",
+        "dialogueId": "food-home",
+        "flag": "food-draft-finished"
+      }
+    ],
+    "intro": {
+      "enabled": true,
+      "place": "Мещера",
+      "placeUk": "Мещера",
+      "title": "По ту сторону",
+      "titleUk": "По той бік",
+      "time": "Пять лет назад",
+      "timeUk": "П'ять років тому",
+      "titleMs": 5500,
+      "revealMs": 2600,
+      "sound": false,
+      "soundUrl": "",
+      "dialogueId": "dialog-1",
+      "sceneId": "scene-mvctoydb"
+    },
+    "minigames": {
+      "snakeReach": {
+        "enabled": true,
+        "startNodeId": "food-eggs-reach",
+        "successNodeId": "food-eggs-take",
+        "failureNodeId": "food-snake-fright",
+        "abortNodeId": "food-leave",
+        "successFlag": "esteros-snake-eggs-won",
+        "repeatNodeId": "food-already",
+        "image": "assets/stories/esteros/snake/root-hollow.png",
+        "scareImage": "assets/stories/esteros/snake/strike.png",
+        "sound": "assets/stories/audio/esteros/snake-bite-01-tight.wav",
+        "soundVolume": 1,
+        "soundRate": 4
+      }
+    }
+  }
+}

@@ -16,7 +16,7 @@ ctx.runDeal();assert.equal(jobs.length,8);assert.equal(sounds,0);
 for(let i=0;i<7;i++){assert.equal(jobs[i].delay,300+i*380);jobs[i].fn();assert.equal(sounds,i+1);assert.equal(ctx.dealing,true);}
 jobs[7].fn();assert.equal(ctx.dealing,false);assert.equal(rendered,1);assert.equal(turns,1);
 jobs=[];ctx.dealing=true;ctx.runDeal();ctx.closed=true;jobs.forEach(j=>j.fn());assert.equal(sounds,7,'exit suppresses pending sounds');
-assert(source.includes('if(storyBusy||dealing&&!initialDeal)return;'),'redraw must not restart or reveal pending cards');
+assert(source.includes('if(awaitingEntry||storyBusy||dealing&&!initialDeal)return;'),'redraw must not restart or reveal pending cards');
 assert(source.includes('if(closed||storyBusy||game.done||dealing)return;'),'block actions during dealing or dialogue');
 assert(fs.existsSync('assets/stories/cards/tower-claw/audio/candidates-v2/casino/card-slide-4.mp3'));
 for(const slots of [[3,4],[5]]){
@@ -30,3 +30,25 @@ for(const slots of [[3,4],[5]]){
   jobs.at(-1).fn();assert.equal(ctx.dealing,false);
 }
 console.log('Deal: three table cards, two round-robin laps, eliminated seats skipped, timed audio, turn lock and exit guards passed. No browser test.');
+
+// Last donated copper is entirely ante: it still gets a full visual deal and showdown.
+let revealed=0,flights=[];jobs=[];ctx.closed=false;ctx.dealing=true;ctx.revealCursor=-1;
+ctx.game={done:true,turn:-1,players:[{folded:false},{folded:true},{folded:true},{folded:true},{folded:false}],board:Array(6).fill({})};
+ctx.beginShowdown=()=>{assert.equal(ctx.dealing,false);revealed++;};
+ctx.flyDealtCard=(view,deck,reveal)=>flights.push({slot:board.children.indexOf(view),reveal});
+ctx.runDeal();assert.equal(revealed,0);assert.equal(jobs.length,11);
+jobs.slice(0,-1).forEach(j=>j.fn());assert.equal(revealed,0);assert.equal(flights.length,10);
+assert.deepEqual(flights.filter(f=>f.slot>=0).map(f=>f.slot),[0,1,2,3,4,5]);
+jobs.at(-1).fn();assert.equal(revealed,1);
+const rules=require('../story-card-game-core.js'),wins=new Set();
+for(let seed=1;seed<=100;seed++){let state=seed;const random=()=>((state=(state*1664525+1013904223)>>>0)/4294967296);const g=rules.create({players:5,stacks:[50,0,0,0,1],ante:1,requireHero:true},random);assert(g.done);assert.equal(g.board.length,6);assert.equal(g.paid,2);assert.equal(g.players.reduce((s,p)=>s+p.stack,0),51);g.winners.forEach(i=>wins.add(i));}
+assert(wins.has(0)&&wins.has(4),'no guaranteed winner after a one-coin top-up');
+console.log('PASS one-copper runout: all 10 cards animate before showdown; both players can win across 100 seeded deals.');
+let antes=0,initialRender;
+const topup={options:{guestSpeakerId:'milo'},ids:['hero','tarin','pen','feltser','milo'],people:Array(5).fill({}),guestJoined:true,guestPending:0,guestProtectedHands:5,director:{flags:{}},game:{done:true,paid:2,players:[{stack:51},{stack:0},{stack:0},{stack:0},{stack:0}]},revealComplete:true,payoutCollected:true,sounds:{stop(){}},coinSounds:{stop(){}},stopDeal(){},clearTimeout(){},payoutTimer:0,rules,social:null,sessionDelta:0,ante:1,table:{classList:{toggle(){}}},render(){initialRender={dealing:topup.dealing,revealComplete:topup.revealComplete};},collectAntes(){antes++;}};
+vm.createContext(topup);
+vm.runInContext(source.slice(source.indexOf('    function canTopUp('),source.indexOf('    function canPurchase(')),topup);
+vm.runInContext(source.slice(source.indexOf('    function dealRound('),source.indexOf('    function move(')),topup);
+assert(topup.topUp(1));assert.deepEqual(topup.game.players.map(p=>p.stack),[50,0,0,0,1]);
+topup.dealRound();assert(topup.game.done);assert.equal(antes,1);assert.deepEqual(initialRender,{dealing:true,revealComplete:false});assert.equal(topup.resultFocus,-1);
+console.log('PASS actual topUp -> dealRound: outcome stays hidden until ante/deal animation finishes.');

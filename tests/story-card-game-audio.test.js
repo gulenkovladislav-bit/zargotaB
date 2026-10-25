@@ -12,6 +12,8 @@ sound.stop();assert(made[1].paused);enabled=false;sound.play('loss','loss1');ass
 enabled=true;sound.play('loss','loss1');assert.equal(made.length,2,'muted events must not replay later');
 sound.play('strong','reveal2');made[2].onended();assert(made[2].paused&&made[2].unloaded);
 for(const name of ['turn','loss','combination','strong'])assert(fs.statSync('assets/stories/cards/tower-claw/audio/approved/'+name+'.mp3').size>0);
-const render=source.slice(source.indexOf('    function render(){'),source.indexOf('      if(game.done&&!revealComplete)timeout='));
+const renderStart=source.indexOf('    function render(){'),revealTimer=source.indexOf('timeout=setTimeout(function(){if(closed)return;if(revealCursor',renderStart);
+assert(renderStart>=0&&revealTimer>renderStart,'locate synchronous render before the reveal timer');
+const render=source.slice(renderStart,revealTimer);
 assert(!render.includes('sounds.play(')&&!render.includes('turnSound();')&&!render.includes('revealSound();'),'render must not emit sounds');
 console.log('Audio: event deduplication, muted events, stop/cleanup, four assets and no render-triggered playback passed. Playback mocked; no browser test.');

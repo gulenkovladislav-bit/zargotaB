@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const source=fs.readFileSync(require.resolve('../story-card-game.js'),'utf8');
 const css=fs.readFileSync(require.resolve('../story-card-game.css'),'utf8');
 let starts=0;
-const ctx={game:{done:true,paid:20,players:[{stack:10},{stack:30},{stack:0},{stack:0}]},closed:false,revealComplete:true,payoutCollected:false,roundNumber:1,start(){starts++;}};
+const ctx={ante:1,resultReview:null,game:{done:true,paid:20,players:[{stack:10},{stack:30},{stack:0},{stack:0}]},closed:false,revealComplete:true,payoutCollected:false,roundNumber:1,start(){starts++;}};
 vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('    function canContinue('),source.indexOf('    function drawCombinationLinks(')),ctx);
 ctx.storyBusy=false;ctx.guestPending=0;
 ctx.continueSession();assert.equal(starts,0,'must collect first');

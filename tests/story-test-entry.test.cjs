@@ -41,3 +41,14 @@ assert.equal(api.prepareAll(union,'missing').ok,false);
 const lockedUnion=JSON.parse(unionSnapshot);lockedUnion.scenes[0].scene.story.zones[0].requires='unreachable';
 assert.equal(api.prepareAll(lockedUnion,'target').ok,true);
 console.log('PASS all-prior test entry: alternative rewards, slide rewards, hidden pickup, main/side quests, no route requirement, current/future untouched, source isolation.');
+// A legacy editorSceneId must not pre-award a branch still reachable in the target scene.
+const stale=JSON.parse(unionSnapshot);stale.nodes.find(n=>n.id==='bad').editorSceneId='start';
+stale.nodes.find(n=>n.id==='target-node').links=[{id:'reach',to:'bad'}];
+stale.nodes.find(n=>n.id==='bad').afterEffect='target-looted';
+const guarded=api.prepareAll(stale,'target','q2');
+assert.equal(guarded.state.flags['target-looted'],undefined);
+assert.equal(guarded.state.completedDialogues.bad,undefined);
+assert.equal(guarded.state.character.inventoryItems.some(i=>i.itemId==='alternative'),false);
+assert.equal(guarded.state.quests.done.includes('q2'),false);
+assert.equal(api.defaultQuest(stale,'target'),'q1');
+console.log('PASS target runtime branches protected from stale editor ownership and premature rewards.');

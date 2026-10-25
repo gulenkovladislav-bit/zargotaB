@@ -13,7 +13,7 @@
     presentation=presentation||{};speaker=speaker||{};
     host.dataset.dialogueSkin='unified';host.dataset.backdrop=presentation.backdrop||'brush';host.dataset.portraitShape=presentation.shape||'oval';host.dataset.portraitBorder=String(!!presentation.border);
     var frame=panel.querySelector('.zg-story-speaker-frame'),image=frame.querySelector('img'),clip=frame.querySelector('.zg-story-portrait-clip');
-    panel.dataset.narrator=String(frame.hidden);panel.style.setProperty('--dialogue-text-size',(presentation.textSize||30)+'px');panel.style.setProperty('--dialogue-text-width',(presentation.textWidth||100)+'%');if(!clip){clip=document.createElement('div');clip.className='zg-story-portrait-clip';image.before(clip);clip.appendChild(image);}
+    panel.dataset.narrator=String(frame.hidden);panel.dataset.reservePortrait=String(presentation.reservePortraitSpace===true);panel.style.setProperty('--dialogue-text-size',(presentation.textSize||30)+'px');panel.style.setProperty('--dialogue-text-width',(presentation.textWidth||100)+'%');if(!clip){clip=document.createElement('div');clip.className='zg-story-portrait-clip';image.before(clip);clip.appendChild(image);}
     var softness=presentation.softEdge==null?speaker.softEdge==null?43:speaker.softEdge:presentation.softEdge;
     clip.style.setProperty('--portrait-core',(100-Math.max(0,Math.min(80,Number(softness))))+'%');
     frame.style.setProperty('--portrait-size',Math.max(.6,Math.min(1.4,Number(presentation.frameSize)||Number(speaker.frameSize)||1)));
