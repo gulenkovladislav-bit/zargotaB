@@ -12,7 +12,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="zargota-i18n.css?v=2026-08-26.1">
 <link rel="stylesheet" href="arena-v2-workspace.css?v=2026-09-01.34">
-  <script src="zargota-i18n.js?v=2026-08-30.21"></script>
+  <script src="zargota-i18n.js?v=2026-10-25.15"></script>
   <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
 <script src="zargota-i18n-characters-uk.js?v=2026-08-27.3"></script>
 <script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
@@ -10414,8 +10414,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-09-27.2';
+var ZG_APP_VERSION = '2026-10-25.15';
 var ZG_APP_CHANGELOG = [
+  {v:'2026-10-25.15',notes:'Главная на телефоне помещается без прокрутки; приключение и мастерская доступны через компактные ромбы. Плашки каталога и бестиария закреплены под шапкой без зазора. У арены есть пометка: мобильная версия ещё не готова.',notesUk:'Головна на телефоні вміщується без прокручування; пригода й майстерня доступні через компактні ромби. Панелі каталогу й бестіарію закріплено під шапкою без проміжку. Біля арени є позначка: мобільна версія ще не готова.'},
   {v:'2026-10-25.14',notes:'Доска диалогов добавляет пространство сверху при прокрутке и перемещении у края, сохраняя координаты узлов. Для вариантов выбора доступны надежда и фатализм перед следующей репликой.',notesUk:'Дошка діалогів додає простір згори під час прокручування й переміщення біля краю, зберігаючи координати вузлів. Для варіантів вибору доступні надія й фаталізм перед наступною реплікою.'},
   {v:'2026-10-25.13',notes:'Во вкладке внешнего вида исправлены одинаковые заголовки: движение внутри картинки и смена кадров фона теперь подписаны отдельно.',notesUk:'У вкладці вигляду виправлено однакові заголовки: рух усередині зображення та зміна кадрів тла тепер підписані окремо.'},
   {v:'2026-10-25.12',notes:'Узлы создаются под курсором и следуют за ним при перемещении и масштабировании доски. Масштаб перенесён наверх доски, памятка скрыта под знаком вопроса.',notesUk:'Вузли створюються під курсором і рухаються за ним під час переміщення й масштабування дошки. Масштаб перенесено нагору дошки, пам’ятку приховано під знаком питання.'},
@@ -26710,6 +26711,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
   }, true);
 })();
 </script>
+<link rel="stylesheet" href="mobile-shell.css?v=2026-10-25.15">
+<script defer src="mobile-shell.js?v=2026-10-25.15"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -30295,8 +30298,10 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
     <div class="home-content">
     <div class="home-title">Мир Зарготы</div>
     <div class="home-subtitle">Панель Мастера · Инструменты кампании</div>
-    <button type="button" class="home-adventure-btn" onclick="zgAdvOpen()"><span class="orn-line"></span><span class="orn-star">✦</span><span class="sw">⚔</span> Отправиться в приключение <span class="orn-star">✦</span><span class="orn-line"></span></button>
-    <button type="button" class="home-dice-test-btn" onclick="zgWorkshopModeOpen()" title="Локальная арена: бой или свободная комната без Firebase">⚒ Мастерская</button>
+    <div class="home-quick-actions">
+    <button type="button" aria-label="Отправиться в приключение" title="Отправиться в приключение" class="home-adventure-btn" onclick="zgAdvOpen()"><span class="orn-line"></span><span class="orn-star">✦</span><span class="sw">⚔</span> <span class="home-action-label">Отправиться в приключение</span> <span class="orn-star">✦</span><span class="orn-line"></span></button>
+    <button type="button" class="home-dice-test-btn" onclick="zgWorkshopModeOpen()" title="Мастерская" aria-label="Мастерская"><span class="home-workshop-icon" aria-hidden="true">⚒</span><span class="home-action-label">Мастерская</span></button>
+    </div>
 
     <div class="home-grid">
 
@@ -30325,6 +30330,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       <button type="button" class="home-card available" data-target-page="arena" style="--card-accent:#b88442; cursor:pointer">
         <span class="home-card-icon"><img src="images/ui/main-menu/arena.png" alt="" aria-hidden="true"></span>
         <div class="home-card-title">Арена и Товары</div>
+        <div class="mobile-arena-note">Арена — пока только на компьютере</div>
         <div class="home-card-desc">Пошаговый бой и состояния, а рядом — витрина товаров и экономика мира.</div>
       </button>
 
@@ -37066,6 +37072,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       <div class="zg-confirm-title" id="zg-workshop-mode-title">Режим Мастерской</div>
       <div class="zg-confirm-div"></div>
       <div class="zg-confirm-text">Выберите начальное состояние локальной сцены. Режим можно поменять позже в настройках.</div>
+      <p class="mobile-arena-note mobile-arena-banner">Арена пока не адаптирована для телефона.</p>
       <div class="zg-workshop-mode-grid">
         <button type="button" onclick="zgWorkshopModeChoose('combat')"><i>⚔</i><b>Сразу бой</b><small>Инициатива, экономика хода, атаки, реакции и урон</small></button>
         <button type="button" onclick="zgWorkshopModeChoose('free')"><i>◇</i><b>Свободная комната</b><small>Передвижение, жетоны, листы, меню и инструменты без очереди</small></button>
@@ -37700,6 +37707,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       <button id="arena-tab-statuses" onclick="arenaShowTab(&#39;statuses&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer">💫 СОСТОЯНИЯ</button>
       <button id="arena-tab-shop" onclick="arenaShowTab(&#39;shop&#39;)" style="display:none;background:transparent;border:none;border-right:1px solid var(--border);border-bottom:2px solid transparent;padding:0 18px;height:42px;color:var(--muted);font-family:&#39;Cinzel&#39;,serif;font-size:11px;letter-spacing:1.5px;cursor:pointer"><img src="images/ui/coins/gold-sm.webp" alt="" aria-hidden="true" width="64" height="64" decoding="async" style="width:16px;height:16px;object-fit:contain;vertical-align:-4px;margin-right:4px"> ТОВАРЫ</button>
     </div>
+    <p class="mobile-arena-note mobile-arena-banner">Арена пока не адаптирована для телефона.</p>
     <div id="arena-hub-inner" style="padding:40px 20px 60px;max-width:820px;margin:0 auto"></div>
     <div id="arena-page-inner"></div>
     <div id="statuses-page-inner" style="display:none;padding:16px 20px;max-width:1300px;margin:0 auto"></div>

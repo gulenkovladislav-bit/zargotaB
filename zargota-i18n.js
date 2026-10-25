@@ -67,6 +67,8 @@
   // Exact UI phrases only. Authored campaign text is deliberately not translated here.
   // Russian stays the canonical fallback, so a missing Ukrainian entry never hides text.
   var UK = Object.freeze({
+    'Арена — пока только на компьютере': 'Арена — поки лише на комп’ютері',
+    'Арена пока не адаптирована для телефона.': 'Арену поки не адаптовано для телефона.',
     '⚔ Заргота — Панель Мастера': '⚔ Заргота — Панель Майстра',
     'Заргота · Бета · Панель Мастера': 'Заргота · Бета · Панель Майстра',
     'ПАНЕЛЬ МАСТЕРА': 'ПАНЕЛЬ МАЙСТРА',
