@@ -50,7 +50,7 @@ const iphoneUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWe
           await page.waitForTimeout(300);
           // A fixed fixture keeps this geometry test independent of cloud catalog content.
           await page.evaluate(name => {
-            const root = document.getElementById('page-' + name);
+            const root = pageScrollElement(document.getElementById('page-' + name));
             if (!root.querySelector('[data-scroll-fixture]')) {
               const fixture = document.createElement('div');
               fixture.dataset.scrollFixture = '';
@@ -63,10 +63,10 @@ const iphoneUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWe
           const initial = await bar.boundingBox();
           const header = await page.locator('#header').boundingBox();
           assert.equal(initial.y, header.y + header.height, `${name} initial gap`);
-          await page.evaluate(name => document.getElementById('page-' + name).scrollTop = 500, name);
+          await page.evaluate(name => pageScrollElement(document.getElementById('page-' + name)).scrollTop = 500, name);
           await page.waitForTimeout(100);
           assert.equal((await bar.boundingBox()).y, initial.y, `${name} sticky bar moved`);
-          assert.ok(await page.evaluate(name => document.getElementById('page-' + name).scrollTop > 0, name));
+          assert.ok(await page.evaluate(name => pageScrollElement(document.getElementById('page-' + name)).scrollTop > 0, name));
           await page.screenshot({ path:path.join(output, `${name}-${locale}-${ua.includes('iPhone')?'ios':'telegram'}.png`) });
           await bar.locator('.back-to-home').filter({ visible: true }).first().tap();
           await page.waitForTimeout(200);

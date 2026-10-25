@@ -5,6 +5,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<meta name="theme-color" content="#0f0b06">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <script>document.documentElement.classList.add('zg-startup-pending');</script>
 <style id="zg-startup-guard">html{background:#050403}html.zg-startup-pending::before{content:"";position:fixed;inset:0;z-index:2147483647;background:radial-gradient(ellipse at 28% 48%,#2b2119 0,transparent 46%),radial-gradient(ellipse at 76% 58%,#181714 0,transparent 50%),#050403;pointer-events:none}</style>
@@ -12,7 +13,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="zargota-i18n.css?v=2026-08-26.1">
 <link rel="stylesheet" href="arena-v2-workspace.css?v=2026-09-01.34">
-  <script src="zargota-i18n.js?v=2026-10-25.15"></script>
+  <script src="zargota-i18n.js?v=2026-10-25.16"></script>
   <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
 <script src="zargota-i18n-characters-uk.js?v=2026-08-27.3"></script>
 <script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
@@ -10414,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-25.15';
+var ZG_APP_VERSION = '2026-10-25.16';
 var ZG_APP_CHANGELOG = [
+  {v:'2026-10-25.16',notes:'Прокрутка каталога и бестиария отделена от неподвижных плашек. Жест на карте перемещает карту, а высота экрана учитывает панели браузера и клавиатуру; исправлен расчёт высоты для старых браузеров. Энциклопедия на планшете использует всю доступную высоту.',notesUk:'Прокручування каталогу й бестіарію відокремлено від нерухомих панелей. Жест на мапі пересуває мапу, а висота екрана враховує панелі браузера й клавіатуру; виправлено розрахунок висоти для старих браузерів. Енциклопедія на планшеті використовує всю доступну висоту.'},
   {v:'2026-10-25.15',notes:'Главная на телефоне помещается без прокрутки; приключение и мастерская доступны через компактные ромбы. Плашки каталога и бестиария закреплены под шапкой без зазора. У арены есть пометка: мобильная версия ещё не готова.',notesUk:'Головна на телефоні вміщується без прокручування; пригода й майстерня доступні через компактні ромби. Панелі каталогу й бестіарію закріплено під шапкою без проміжку. Біля арени є позначка: мобільна версія ще не готова.'},
   {v:'2026-10-25.14',notes:'Доска диалогов добавляет пространство сверху при прокрутке и перемещении у края, сохраняя координаты узлов. Для вариантов выбора доступны надежда и фатализм перед следующей репликой.',notesUk:'Дошка діалогів додає простір згори під час прокручування й переміщення біля краю, зберігаючи координати вузлів. Для варіантів вибору доступні надія й фаталізм перед наступною реплікою.'},
   {v:'2026-10-25.13',notes:'Во вкладке внешнего вида исправлены одинаковые заголовки: движение внутри картинки и смена кадров фона теперь подписаны отдельно.',notesUk:'У вкладці вигляду виправлено однакові заголовки: рух усередині зображення та зміна кадрів тла тепер підписані окремо.'},
@@ -26711,8 +26713,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
   }, true);
 })();
 </script>
-<link rel="stylesheet" href="mobile-shell.css?v=2026-10-25.15">
-<script defer src="mobile-shell.js?v=2026-10-25.15"></script>
+<link rel="stylesheet" href="mobile-shell.css?v=2026-10-25.16">
+<script defer src="mobile-shell.js?v=2026-10-25.16"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -39300,7 +39302,7 @@ function getWorldFocusLabel() {
 }
 
 function isWorldMobileMapUI() {
-  return worldTab === 'map' && window.innerWidth < 601;
+  return worldTab === 'map' && window.matchMedia('(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse)').matches;
 }
 
 function isWorldMobileEncUI() {
@@ -42520,13 +42522,11 @@ function initWorldInteractions() {
   });
 
   // ───── TOUCH PINCH-ZOOM ─────
-  // Важно: НЕ ставим touchAction:'none' глобально на wrap — это ломает существующую
-  // pointer-логику drag'а (она уже работает корректно через pointerdown/move/up).
-  // Вместо этого preventDefault() только внутри самого touchmove при 2 пальцах.
-  // Так нативный pinch-browser не вмешивается, а drag одним пальцем остаётся целым.
+  // The canvas owns pan and pinch gestures. Its touch-action:none keeps the browser
+  // from cancelling pointer drag to start scrolling the containing page.
   var _pinch = null;
   wrap.addEventListener('touchstart', function(e) {
-    if (worldTab === 'lore') return;
+    if (worldTab === 'lore' || e.target.closest('#world-mobile-bottom-sheet, #world-mobile-controls')) return;
     if (e.touches && e.touches.length === 2) {
       var t1 = e.touches[0], t2 = e.touches[1];
       var dx = t2.clientX - t1.clientX, dy = t2.clientY - t1.clientY;
@@ -42573,8 +42573,15 @@ function initWorldInteractions() {
       releaseWorldFastRenderSoon();
     }
   });
+  wrap.addEventListener('pointercancel', function() {
+    worldDrag = null;
+    wrap.classList.remove('dragging');
+    releaseWorldFastRenderSoon();
+  });
   wrap.addEventListener('touchcancel', function() {
     _pinch = null;
+    worldDrag = null;
+    wrap.classList.remove('dragging');
     releaseWorldFastRenderSoon();
   });
 
@@ -42858,6 +42865,13 @@ function zgManualReturn() {
 window.zgManualOpenFromGame = zgManualOpenFromGame;
 window.zgManualReturn = zgManualReturn;
 
+function pageScrollElement(page) {
+  if (page && (page.id === 'page-catalog' || page.id === 'page-bestiary')) {
+    return page.querySelector('.page-inner') || page;
+  }
+  return page;
+}
+
 function showPage(name) {
   if (name === 'chars') name = 'characters';
   if (name === 'workshop' && !zgGmUnlocked()) {
@@ -42919,7 +42933,7 @@ function showPage(name) {
   if (name === 'chars') renderCharsPage();
   // Скроллим именно активную страницу наверх
   const activePage = document.getElementById('page-' + name);
-  if (activePage) activePage.scrollTop = 0;
+  if (activePage) pageScrollElement(activePage).scrollTop = 0;
   // Показываем навбар атласа только на странице мира
   var wnb = document.getElementById('world-nav-bar');
   if (wnb) wnb.classList.toggle('visible', name === 'world');
@@ -58402,7 +58416,7 @@ function beastToggleMetaInArray(arr, label) {
 }
 
 function rerenderBeastEditorKeepScroll() {
-  var wrap = document.getElementById('page-bestiary') || document.getElementById('bestiary-editor-view');
+  var wrap = pageScrollElement(document.getElementById('page-bestiary')) || document.getElementById('bestiary-editor-view');
   var top = wrap ? wrap.scrollTop : window.scrollY;
   renderBeastEditor();
   if (wrap) wrap.scrollTop = top;
@@ -58811,7 +58825,7 @@ function showBeastView(v) {
     pg.classList.remove('region-threat-detail');
     removeRegionThreatParticles();
   }
-  if (pg) pg.scrollTop = 0;
+  if (pg) pageScrollElement(pg).scrollTop = 0;
   if (v === 'list') { renderBeastiary(); renderBeastStats(); initBeastFilterPills(); }
 }
 

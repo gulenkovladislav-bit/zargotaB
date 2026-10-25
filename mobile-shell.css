@@ -1,40 +1,88 @@
 /* The app header is shared by pages both inside #main and directly under body. */
 .mobile-arena-note { display: none; }
 
+/* Every device uses a bounded viewport; only content regions own scrolling. */
+:root { --zg-viewport-height: 100vh; --zg-viewport-top: 0px; --zg-world-nav-height: 56px; }
+@supports (height: 100dvh) { :root { --zg-viewport-height: 100dvh; } }
+html { background: #0a0806; color-scheme: dark; }
+html, body, body.ios-webview, body.telegram-webview {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body { position: fixed; inset: 0; width: 100%; }
+#header { top: var(--zg-viewport-top); }
+body #main, body.ios-webview #main, body.telegram-webview #main {
+  position: fixed !important;
+  top: calc(var(--zg-viewport-top) + var(--zg-app-header-height, 56px)) !important;
+  height: calc(var(--zg-viewport-height) - var(--zg-app-header-height, 56px));
+  min-height: 0 !important;
+  bottom: auto !important;
+  overflow: hidden !important;
+}
+body #main > .page {
+  position: absolute !important;
+  inset: 0 !important;
+  height: 100%;
+  min-height: 0 !important;
+}
+body > .page, body.ios-webview > .page, body.telegram-webview > .page {
+  position: fixed !important;
+  top: calc(var(--zg-viewport-top) + var(--zg-app-header-height, 56px)) !important;
+  bottom: auto !important;
+  height: calc(var(--zg-viewport-height) - var(--zg-app-header-height, 56px));
+  min-height: 0 !important;
+  padding-top: 0 !important;
+}
+body .page { overscroll-behavior-y: contain; }
+:root body #page-catalog, :root body #page-bestiary {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+:root body #page-catalog.active, :root body #page-bestiary.active { display: flex; flex-direction: column; }
+:root body #page-catalog > .page-back-bar, :root body #page-bestiary > .page-back-bar {
+  position: relative;
+  top: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  z-index: 110;
+}
+:root body #page-catalog > .page-inner, :root body #page-bestiary > .page-inner {
+  flex: 1 1 0%;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y pinch-zoom;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+}
+/* The atlas nav is outside its page. Measure both bars rather than adding old offsets. */
+#world-nav-bar { top: calc(var(--zg-viewport-top) + var(--zg-app-header-height, 56px)); }
+:root body #page-world { overflow: hidden !important; padding-bottom: 0 !important; }
+:root body #page-world > .page-inner {
+  margin-top: var(--zg-world-nav-height);
+  height: calc(100% - var(--zg-world-nav-height));
+  max-height: calc(100% - var(--zg-world-nav-height));
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+/* The map's tablet rows must not reserve an empty row under the encyclopedia. */
+#page-world.world-enc-mode .world-shell { grid-template-rows: minmax(0, 1fr); }
+/* Native panning would cancel the pointer stream used to drag the map. */
+#world-map-wrap { touch-action: auto; overscroll-behavior: none; }
+#world-map-canvas { touch-action: none; }
+
+
 @media (max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse) {
-  html, body, body.ios-webview, body.telegram-webview {
-    height: 100%;
-    overflow: hidden;
-    overscroll-behavior: none;
-  }
-  body #main, body.ios-webview #main, body.telegram-webview #main {
-    position: fixed !important;
-    top: var(--zg-app-header-height, 50px) !important;
-    height: calc(100dvh - var(--zg-app-header-height, 50px));
-    min-height: 0 !important;
-    bottom: auto !important;
-    overflow: hidden !important;
-  }
-  body #main > .page {
-    position: absolute !important;
-    inset: 0 !important;
-    height: 100%;
-    min-height: 0 !important;
-  }
-  body > .page, body.ios-webview > .page, body.telegram-webview > .page {
-    position: fixed !important;
-    top: var(--zg-app-header-height, 50px) !important;
-    bottom: auto !important;
-    height: calc(100dvh - var(--zg-app-header-height, 50px));
-    min-height: 0 !important;
-    padding-top: 0 !important;
-  }
-  body .page > .page-back-bar {
-    position: sticky;
-    top: 0;
-    margin-top: 0;
-    z-index: 110;
-  }
+  :root body #page-world.world-mobile-map-ui > .page-inner { padding: 0; overflow: hidden; }
+  #page-world.world-mobile-map-ui .world-shell { display: flex; height: 100%; min-height: 0; gap: 0; padding: 0; }
+  #page-world.world-mobile-map-ui .world-shell > aside { display: none; }
+  #page-world.world-mobile-map-ui #world-map-wrap { flex: 1 1 0%; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; }
+  #page-home .home-card-icon { width: clamp(38px, 10vh, 84px); height: clamp(38px, 10vh, 84px); }
   #header #logo { gap: 5px; letter-spacing: 2px; }
   #header #zg-app-version {
     max-width: 64px;
