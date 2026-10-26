@@ -34,11 +34,15 @@ async function pinch(page, cdp, x, y) {
       const tablet=name==='tablet';
       const context=await browser.newContext({viewport:tablet?{width:820,height:1180}:{width:390,height:700},hasTouch:true,isMobile:true,userAgent});
       if(name==='generic-legacy') {
-        await context.addInitScript(()=>{Object.defineProperty(window,'visualViewport',{value:undefined});window.ResizeObserver=undefined;});
+        await context.addInitScript(()=>{
+          Object.defineProperty(window,'visualViewport',{value:undefined});window.ResizeObserver=undefined;
+          const supports=CSS.supports.bind(CSS);
+          CSS.supports=(...args)=>args[0].includes('overscroll')?false:supports(...args);
+        });
         // Force the new stylesheet's unsupported-dvh fallback path.
         await context.route(/mobile-shell\.css/,async route=>{
           const response=await route.fetch();
-          await route.fulfill({response,body:(await response.text()).replaceAll('dvh','unsupportedvh')});
+          await route.fulfill({response,body:(await response.text()).replaceAll('dvh','unsupportedvh').replaceAll('overscroll-behavior','unsupported-overscroll-behavior')});
         });
       }
       const page=await context.newPage();

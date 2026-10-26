@@ -34,7 +34,16 @@ body > .page, body.ios-webview > .page, body.telegram-webview > .page {
   min-height: 0 !important;
   padding-top: 0 !important;
 }
-body .page { overscroll-behavior-y: contain; }
+/* `contain` still allows the native rubber-band effect. Cover nested scrollers
+   too, and override the older iOS/Telegram rule that sets pages back to auto. */
+:root body .page,
+:root body .page > .page-inner,
+:root body .world-enc-sidebar,
+:root body .world-enc-main,
+:root body .manual-library-controls,
+:root body .zg-power-guide-cloud,
+:root body .zg-shop-guide-list,
+:root body .zg-shop-guide-detail { overscroll-behavior: none !important; }
 :root body #page-catalog, :root body #page-bestiary {
   overflow: hidden !important;
   padding: 0 !important;
@@ -54,7 +63,7 @@ body .page { overscroll-behavior-y: contain; }
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y pinch-zoom;
   padding-bottom: max(20px, env(safe-area-inset-bottom));
@@ -68,7 +77,7 @@ body .page { overscroll-behavior-y: contain; }
   max-height: calc(100% - var(--zg-world-nav-height));
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: none;
 }
 /* The map's tablet rows must not reserve an empty row under the encyclopedia. */
 #page-world.world-enc-mode .world-shell { grid-template-rows: minmax(0, 1fr); }
