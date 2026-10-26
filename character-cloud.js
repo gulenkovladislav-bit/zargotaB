@@ -1,6 +1,6 @@
 (function(w){
   'use strict';
-  var R=w.ZargotaCharacterReview, key='zargota_character_cloud_v1', state={records:{},pending:[]}, live={},started=false,busy=false,error='';
+  var R=w.ZargotaCharacterReview, key='zargota_character_cloud_v1', state={records:{},pending:[]}, live={},started=false,busy=false,error='',errorCause=null;
   function id(){var a=new Uint8Array(16);w.crypto.getRandomValues(a);return Array.from(a,function(v){return v.toString(16).padStart(2,'0');}).join('');}
   function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -10,14 +10,14 @@
   function character(){var view=document.getElementById('char-sheet-view');if(!view||view.style.display==='none')return null;return (w.characters||[]).find(function(c){return String(c.id)===String(w.viewingCharId);});}
   function binding(c){if(!c)return null;return Object.keys(state.records).find(function(sid){return String(state.records[sid].characterId)===String(c.id);})||null;}
   function message(e){var code=String(e&&e.code||e&&e.message||e);
-    if(/permission.denied|PERMISSION_DENIED/i.test(code))return t('Нет доступа. Мастер должен подтвердить приглашение; новые правила Firebase должны быть опубликованы.','Немає доступу. Майстер має підтвердити запрошення; нові правила Firebase мають бути опубліковані.');
+    if(/permission.denied|PERMISSION_DENIED/i.test(code))return t('Нет доступа к синхронизации. Уточните приглашение у мастера. Локальные персонажи доступны.','Немає доступу до синхронізації. Уточніть запрошення в майстра. Локальні персонажі доступні.');
     if(code==='review-conflict')return t('Данные изменились во время просмотра. Откройте сравнение заново.','Дані змінилися під час перегляду. Відкрийте порівняння знову.');
     if(code==='already-resolved')return t('Эта заявка уже обработана.','Цю заявку вже опрацьовано.');
     if(/too-large/.test(code))return t('Слишком большой лист или запрос. Уменьшите встроенные изображения перед отправкой.','Аркуш або запит завеликі. Зменште вбудовані зображення перед надсиланням.');
     return t('Не удалось сохранить или загрузить изменения. Черновик остаётся на устройстве.','Не вдалося зберегти або завантажити зміни. Чернетка залишається на пристрої.')+' '+code;
   }
-  function fail(e){error=message(e);var alert=document.querySelector('#character-cloud-dialog [role=alert]');if(alert)alert.textContent=error;render();}
-  function run(fn){if(busy)return;busy=true;error='';render();Promise.resolve().then(fn).catch(fail).finally(function(){busy=false;render();});}
+  function fail(e){errorCause=e;error=message(e);var alert=document.querySelector('#character-cloud-dialog [role=alert]');if(alert)alert.textContent=error;render();}
+  function run(fn){if(busy)return;busy=true;error='';errorCause=null;render();Promise.resolve().then(fn).catch(fail).finally(function(){busy=false;render();});}
   function changed(c){var sid=binding(c),record=sid&&state.records[sid];return !!(record&&record.base&&R.diff(record.base,c).length);}
   function prepareLocal(chars){chars.forEach(function(c,index){if(binding(c))Object.assign(c,R.prepare(c,id));});}
   function saveLocal(sid,data,base){
@@ -55,8 +55,40 @@
   function start(){if(started)return;started=true;store.list().then(function(ids){ids.forEach(watch);render();}).catch(function(e){started=false;fail(e);});}
   function button(action,label,attrs){return '<button type="button" class="btn btn-dim btn-sm" data-cloud-action="'+action+'" '+(attrs||'')+' '+(busy?'disabled':'')+'>'+label+'</button>';}
   function pendingRequests(){var rows=[];Object.keys(live).forEach(function(sid){var item=live[sid];if(!item.master)return;Object.keys(item.requests||{}).forEach(function(uid){Object.values(item.requests[uid]||{}).forEach(function(r){if(r.status==='pending')rows.push({sid:sid,request:r});});});});return rows;}
+  function syncStatus(){
+    if(busy)return {kind:'busy',label:t('Синхронизация…','Синхронізація…')};
+    if(error)return {kind:'attention',label:t('Синхронизация недоступна','Синхронізація недоступна')};
+    var ids=Object.keys(state.records),attention=state.pending.length||pendingRequests().length;
+    ids.forEach(function(sid){
+      var rec=state.records[sid],item=live[sid],c=(w.characters||[]).find(function(c){return String(c.id)===String(rec.characterId);});
+      if(rec.deferred||(c&&rec.base&&R.diff(rec.base,c).length)||(item&&(Object.keys(item.joins||{}).length||(item.approved&&!rec.base))))attention=true;
+      if(item&&!item.master&&Object.values(item.requests||{}).some(function(r){return r.status==='pending';}))attention=true;
+    });
+    if(attention)return {kind:'attention',label:t('Синхронизация: требуется внимание','Синхронізація: потрібна увага')};
+    if(ids.length&&ids.every(function(sid){return live[sid]&&live[sid].approved&&state.records[sid].base;}))return {kind:'ready',label:t('Листы синхронизированы','Аркуші синхронізовано')};
+    return {kind:'local',label:t('Персонажи на этом устройстве','Персонажі на цьому пристрої')};
+  }
+  function renderIndicator(){
+    var bar=document.getElementById('chars-back-bar');if(!bar)return;
+    var indicator=document.getElementById('character-cloud-indicator');
+    if(!indicator){
+      indicator=document.createElement('button');indicator.id='character-cloud-indicator';indicator.type='button';
+      indicator.setAttribute('aria-haspopup','dialog');indicator.innerHTML='<span aria-hidden="true"></span>';
+      indicator.addEventListener('click',function(){
+        var dialog=modal(t('Синхронизация листов','Синхронізація аркушів'),'<p id="character-cloud-status"></p><div id="character-cloud-summary"></div>');
+        dialog.setAttribute('aria-label',t('Синхронизация листов','Синхронізація аркушів'));
+        dialog.addEventListener('close',function(){dialog.remove();});render();
+      });
+      bar.appendChild(indicator);document.getElementById('page-characters').classList.add('character-cloud-compact');
+    }
+    var status=syncStatus();indicator.dataset.state=status.kind;
+    var label=t('Синхронизация листов: ','Синхронізація аркушів: ')+status.label;
+    indicator.setAttribute('aria-label',label);indicator.title=label;
+    var description=document.getElementById('character-cloud-status');if(description)description.textContent=status.label;
+  }
   function render(){
     var panel=document.getElementById('character-cloud-panel');if(!panel)return;
+    if(errorCause)error=message(errorCause);
     var c=character(),sid=binding(c),item=sid&&live[sid],record=sid&&state.records[sid],dirty=record&&record.base&&c?R.diff(record.base,c).length:0;
     var html='<div class="character-cloud-actions"><strong>'+t('Синхронизация листов','Синхронізація аркушів')+'</strong>';
     if(!sid&&c)html+=button('create',t('Сделать этот лист общим','Зробити цей аркуш спільним'));
@@ -76,6 +108,8 @@
     state.pending.forEach(function(id){html+='<div>'+t('Ожидается доступ к листу','Очікується доступ до аркуша')+' '+button('check',t('Проверить доступ','Перевірити доступ'),'data-sheet="'+id+'"')+'</div>';});
     if(sid)html+='<p class="character-cloud-hint">'+t('Несохранённый в облаке черновик остаётся на этом устройстве. Доступ Firebase сейчас закреплён за входом этого браузера.','Не збережена в хмарі чернетка залишається на цьому пристрої. Доступ Firebase зараз закріплено за входом цього браузера.')+'</p>';
     if(error)html+='<p role="alert">'+esc(error)+'</p>';panel.innerHTML=html;
+    var summary=document.getElementById('character-cloud-summary');if(summary)summary.innerHTML=html;
+    renderIndicator();
   }
   function modal(title,content){var old=document.getElementById('character-cloud-dialog');if(old)old.remove();var dialog=document.createElement('dialog');dialog.id='character-cloud-dialog';dialog.innerHTML='<h2>'+esc(title)+'</h2>'+content+'<p role="alert"></p><div class="character-cloud-actions">'+button('close',t('Закрыть','Закрити'))+'</div>';document.body.appendChild(dialog);dialog.addEventListener('click',action);dialog.showModal();return dialog;}
   function display(entry){if(!entry.exists)return t('Отсутствует','Відсутнє');if(typeof entry.value==='string')return entry.value;return JSON.stringify(entry.value,null,2);}
@@ -96,7 +130,11 @@
     if(a==='check'){run(function(){return store.checkAccess(sid).then(function(ok){if(ok){state.pending=state.pending.filter(function(s){return s!==sid;});persist();watch(sid);}});});return;}
     if(a==='grant'||a==='deny'){run(function(){return store.grant(sid,b.dataset.uid,a==='grant');});return;}
     if(a==='load'){run(function(){var rec=state.records[sid],data=R.clone(live[sid].approved.data);if(binding(data)&&binding(data)!==sid)throw Error('character-already-connected');rec.backup=R.clone((w.characters||[]).find(function(x){return String(x.id)===String(data.id);})||null);persist();return saveLocal(sid,data,data);});return;}
-    if(a==='refresh'){run(function(){receive(sid,live[sid].approved);});return;}
+    if(a==='refresh'){
+      // Receiving is intentionally deferred while a cloud dialog is open.
+      if(dialog&&dialog.querySelector('#character-cloud-summary')){dialog.close();dialog.remove();}
+      run(function(){receive(sid,live[sid].approved);});return;
+    }
     if(a==='submit'){run(function(){var rec=state.records[sid],changes=R.diff(rec.base,c);var previous=rec.outgoing&&live[sid].requests&&live[sid].requests[rec.outgoing.id];if(!rec.outgoing||(previous&&previous.status!=='pending')||!R.equal(rec.outgoing.changes,changes)){rec.outgoing={id:id(),changes:changes};persist();}return store.submit(sid,rec.base,c,rec.outgoing.id);});return;}
     if(a==='publish'){var req={changes:R.diff(state.records[sid].base,c)};review(sid,req,true);return;}
     if(a==='inbox'){var requests=pendingRequests();modal(t('Заявки игроков','Заявки гравців'),requests.map(function(row){return '<p>'+esc(live[row.sid].approved.data.name)+' · '+row.request.changes.length+' '+button('review',t('Сравнить поля','Порівняти поля'),'data-sheet="'+row.sid+'" data-author="'+esc(row.request.authorUid)+'" data-request="'+esc(row.request.id)+'"')+'</p>';}).join(''));return;}
@@ -108,4 +146,5 @@
   w.ZargotaCharacterCloud={isDraft:changed,prepareLocal:prepareLocal,refresh:function(){start();setTimeout(render,0);}};
   document.addEventListener('click',function(e){if(e.target.closest('#character-cloud-panel'))action(e);});
   document.addEventListener('DOMContentLoaded',function(){start();render();});
+  document.addEventListener('zargota:localechange',render);
 })(window);
