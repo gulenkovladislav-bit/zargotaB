@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-26.13';
+var ZG_APP_VERSION = '2026-10-28.15';
 var ZG_APP_CHANGELOG = [
+{v:'2026-10-28.15',notes:'Новый мобильный лист персонажа: портрет во всю ширину, характеристики по центру, компактные состояния и четыре вкладки. Выбранная вкладка увеличена и мягко светится, без подчёркивания.',notesUk:'Новий мобільний аркуш персонажа: портрет на всю ширину, характеристики по центру, компактні стани й чотири вкладки. Вибрану вкладку збільшено й м’яко підсвічено, без підкреслення.'},
   {v:'2026-10-26.13',notes:'На телефоне синхронизация листов свёрнута в круглый индикатор справа от заголовка персонажей. Состояние подключения и действия открываются по нажатию.',notesUk:'На телефоні синхронізацію аркушів згорнуто в круглий індикатор праворуч від заголовка персонажів. Стан підключення та дії відкриваються після натискання.'},
   {v:'2026-10-26.12',notes:'Убрано растягивание страниц за верхнюю и нижнюю границу при свайпе: персонажи, каталог, бестиарий, товары, мануал и энциклопедия. Обычная прокрутка сохранена.',notesUk:'Прибрано розтягування сторінок за верхню та нижню межу під час свайпу: персонажі, каталог, бестіарій, товари, мануал та енциклопедія. Звичайне прокручування збережено.'},
   {v:'2026-10-25.29',notes:'Поиск в энциклопедии сохраняет фокус и положение курсора при вводе: клавиатура телефона больше не закрывается после каждой буквы.',notesUk:'Пошук в енциклопедії зберігає фокус і положення курсора під час введення: клавіатура телефона більше не закривається після кожної літери.'},
@@ -26719,6 +26720,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 </script>
 <link rel="stylesheet" href="mobile-shell.css?v=2026-10-26.12">
 <script defer src="mobile-shell.js?v=2026-10-26.12"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.15">
+<script defer src="character-mobile-overview.js?v=2026-10-28.13"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -42878,6 +42881,7 @@ function pageScrollElement(page) {
 }
 
 function showPage(name) {
+  if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   if (name === 'chars') name = 'characters';
   if (name === 'workshop' && !zgGmUnlocked()) {
     zgGmGate(function(){ showPage('workshop'); });
@@ -51392,6 +51396,7 @@ function switchCharTab(tab) {
 }
 
 function showCharView(v) {
+  if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   var sessionEditActive = !!(window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive());
   if (v === 'list' && sessionEditActive) {
     window.zgSessionCharacterEditReturn();
@@ -52641,6 +52646,7 @@ function renderCharSheet() {
     var strayCombatPanel = document.getElementById('combat-panel');
     if (strayCombatPanel) strayCombatPanel.remove();
   }
+  if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(isMobileDevice && (window._charSheetTab||"stats") === "stats");
   if (!isMobileDevice) {
     var sheetD = document.getElementById('char-sheet');
     // Убираем мобильный tab bar если есть
@@ -52883,7 +52889,7 @@ function renderCharSheet() {
             (tempHpTotal > 0 ? '<span style="margin-left:8px;font-family:\'Cinzel\',serif;font-size:11px;color:#7288a1">врем. +' + tempHpTotal + '</span>' : '') +
           '</div>' +
         '</div>' +
-        '<button onclick="charSheetMenu(event,'+c.id+')" style="width:38px;height:38px;border-radius:10px;border:1px solid #3a2918;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0">⋯</button>' +
+        '<button onclick="ZargotaMobileSheet.openMenu()" style="width:38px;height:38px;border-radius:10px;border:1px solid #3a2918;background:transparent;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0">⋯</button>' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
         [
@@ -53081,33 +53087,28 @@ function renderCharSheet() {
       '</div>' +
     '</div>';
 
-  // ─── TAB BAR (FIXED) ───
+  // Mobile overview keeps the existing health/effect tools available from its HP menu.
+  if (window.ZargotaMobileSheet) {
+    if (sheetTab === 'combat') sheetTab = window._charSheetTab = 'stats';
+    tabStats = window.ZargotaMobileSheet.render(c, tabCombat);
+    tabLore = window.ZargotaMobileSheet.fame(c) + tabLore;
+    window.ZargotaMobileSheet.setActive(sheetTab === 'stats');
+  }
+  var mobileUk = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
   var tabs = [
-    { key:'stats',     icon:'📊', label:'Статы' },
-    { key:'combat',    icon:'⚔️',  label:'Бой' },
-    { key:'skills',    icon:'🎯',  label:'Навыки' },
-    { key:'inventory', icon:'🎒',  label:'Вещи' },
-    { key:'lore',      icon:'📖',  label:'Лор' },
+    {key:'stats',icon:'▥',label:'Характеристики'},
+    {key:'skills',icon:'◎',label:mobileUk?'Навички':'Навыки'},
+    {key:'inventory',icon:'♧',label:mobileUk?'Інвентар':'Инвентарь'},
+    {key:'lore',icon:'▤',label:'Лор'}
   ];
   var tabBarHTML = tabs.map(function(t){
-    var active = sheetTab === t.key;
-    var fn = "window._charSheetTab='"+t.key+"';openCharSheet("+c.id+")";
-    return '<button onclick="'+fn+'" ontouchend="event.preventDefault();'+fn+'" style="flex:1;padding:10px 4px 8px;border:none;background:transparent;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;border-top:3px solid '+(active?'#d4a04a':'transparent')+'">' +
-      '<span style="font-size:18px;line-height:1">'+t.icon+'</span>' +
-      '<span style="font-family:\'Cinzel\',serif;font-size:8px;letter-spacing:.5px;color:'+(active?'#d4a04a':'var(--dim)')+'">'+t.label+'</span>' +
-    '</button>';
+    return '<button type="button" '+(sheetTab===t.key?'aria-current="page" ':'')+'onclick="window._charSheetTab=\''+t.key+'\';openCharSheet('+c.id+')"><span class="zgmo-diamond" aria-hidden="true"><span>'+window.ZargotaMobileSheet.navIcon(t.key)+'</span></span><span>'+t.label+'</span></button>';
   }).join('');
-
-  // ─── КОНТЕНТ ───
-  var tabContent = { stats:tabStats, combat:tabCombat, skills:tabSkills, inventory:tabInventory, lore:tabLore }[sheetTab] || tabStats;
-
-  // ─── СБОРКА ───
+  var tabContent = {stats:tabStats,skills:tabSkills,inventory:tabInventory,lore:tabLore}[sheetTab] || tabStats;
   var sheet = document.getElementById('char-sheet');
-  sheet.innerHTML =
+  sheet.innerHTML = sheetTab === 'stats' && window.ZargotaMobileSheet ? tabStats :
     '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
-      header +
-      '<div class="tab-content-wrap">' + tabContent + '</div>' +
-    '</div>';
+      header + '<div class="tab-content-wrap">' + tabContent + '</div></div>';
   // Применение ambient-свечения по уровню славы
   // 0..2 = тусклое, 3..5 = заметное, 6..8 = яркое с аурой
   var fameMax = Math.max(parseInt(c.fameMundo,10)||0, parseInt(c.fameZargoty,10)||0);
@@ -53124,8 +53125,10 @@ function renderCharSheet() {
   if (oldBar) oldBar.remove();
   var tabBarEl = document.createElement('div');
   tabBarEl.id = 'char-sheet-tab-bar';
+  tabBarEl.className = 'zgmo-nav';
   tabBarEl.innerHTML = tabBarHTML;
-  document.body.appendChild(tabBarEl);
+  if(charView === 'sheet' && document.getElementById('page-characters').classList.contains('active')) document.body.appendChild(tabBarEl);
+  if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.mounted();
 
   setTimeout(function() {
     document.querySelectorAll('#char-sheet textarea').forEach(function(ta) { autoResize(ta); });
@@ -57158,7 +57161,7 @@ function renderCombatPanel(c, opts) {
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
             '<span style="font-family:\'Cinzel\',serif;font-size:11px;color:var(--text);flex:1">' +
               escHTML(eff.label) +
-              '<span style="color:#80c080;margin-left:6px;font-weight:600">' + escHTML(eff.value) + '</span>' +
+              '<span style="color:#80c080;margin-left:6px;font-weight:600">' + escHTML(String(eff.value == null ? '' : eff.value)) + '</span>' +
             '</span>' +
             '<span style="font-family:\'Cinzel\',serif;font-size:11px;color:' + barColor + ';min-width:70px;text-align:right;white-space:nowrap">' +
               eff.remaining + ' ' + unitInfo.icon +
@@ -57218,6 +57221,7 @@ function toggleCombatMode(id) {
     combatModeActive = false;
     _combatCharId = id;
     renderCharSheet();
+    if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.openTools();
     return;
   }
   combatModeActive = !combatModeActive;
