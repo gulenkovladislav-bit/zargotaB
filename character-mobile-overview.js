@@ -117,23 +117,25 @@
       else {var c=(w.characters||[]).find(function(x){return x.id===entry.id;});if(!c)return;if(entry.key==='initiative')value-=w.readTempBonusTotal(c,entry.key);w.updateSimpleField(entry.id,entry.key,value);}
       w.renderCharSheet();if(entry.source&&entry.source.isConnected)entry.source.focus({preventScroll:true});return;
     }
-    if(key==='back'){entry.draft=entry.draft.slice(0,-1);entry.replace=false;}
-    else if(key==='sign'){entry.draft=entry.draft.charAt(0)==='-'?entry.draft.slice(1):'-'+entry.draft;entry.replace=false;}
-    else if(/^\d$/.test(key)){if(entry.replace){entry.draft=key;entry.replace=false;}else if(entry.draft.replace('-','').length<10)entry.draft+=key;}
-    var popup=document.getElementById('zgmo-number-pad');popup.querySelector('output').textContent=entry.draft||'0';popup.querySelector('output').classList.toggle('zgmo-number-selected',entry.replace);popup.querySelector('[data-number-key=save]').disabled=!/^-?\d+$/.test(entry.draft);
+    if(key!=='plus'&&key!=='minus')return;
+    var next=Number(entry.draft)+(key==='plus'?1:-1);if(!Number.isSafeInteger(next))return;
+    entry.draft=String(next);
+    var output=document.querySelector('#zgmo-number-pad output');output.textContent=entry.draft;
+    if(!matchMedia('(prefers-reduced-motion:reduce)').matches&&output.animate){output.getAnimations().forEach(function(a){a.cancel();});output.animate([{transform:'scale(1.12)',color:key==='plus'?'#a5d691':'#ef7970'},{transform:'scale(1)',color:'#f5da92'}],{duration:180});}
+
   }
   function openNumber(c,key,label,value,kind,source){
-    close();numberEntry={id:c.id,key:key,kind:kind,draft:String(value),replace:true,source:source};
-    var popup=document.createElement('div');popup.id='zgmo-number-pad';
+    close();numberEntry={id:c.id,key:key,kind:kind,draft:String(value),source:source};
+    var popup=document.createElement('div');popup.id='zgmo-number-pad';popup.style.setProperty('--tone',getComputedStyle(source.closest('.zgmo-stat')||source).getPropertyValue('--tone')||'#c5a56a');
     function keyButton(key,text,label){return '<button type="button" data-number-key="'+key+'"'+(label?' aria-label="'+e(label)+'"':'')+'>'+text+'</button>';}
-    popup.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="zgmo-number-title"><header><h2 id="zgmo-number-title">'+e(label)+'</h2>'+(kind==='vital'?keyButton('temp','⌛',t('Временный эффект','Тимчасовий ефект')):'')+keyButton('cancel','×',t('Закрыть','Закрити'))+'</header><output class="zgmo-number-selected" aria-live="polite">'+e(value)+'</output><div class="zgmo-number-keys">'+['1','2','3','4','5','6','7','8','9'].map(function(k){return keyButton(k,k);}).join('')+keyButton('sign','±',t('Сменить знак','Змінити знак'))+keyButton('0','0')+keyButton('back','⌫',t('Удалить цифру','Видалити цифру'))+'</div><footer>'+keyButton('cancel',t('Отмена','Скасувати'))+keyButton('save',t('Сохранить','Зберегти'))+'</footer></section>';
+    popup.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="zgmo-number-title"><header><h2 id="zgmo-number-title">'+e(label)+'</h2>'+(kind==='vital'?keyButton('temp','⌛',t('Временный эффект','Тимчасовий ефект')):'')+keyButton('cancel','×',t('Закрыть','Закрити'))+'</header><div class="zgmo-number-stepper">'+keyButton('minus',controlMark(false),t('Уменьшить на 1','Зменшити на 1'))+'<output aria-live="polite">'+e(value)+'</output>'+keyButton('plus',controlMark(true),t('Увеличить на 1','Збільшити на 1'))+'</div><footer>'+keyButton('cancel',t('Отмена','Скасувати'))+keyButton('save',t('Сохранить','Зберегти'))+'</footer></section>';
     popup.onclick=function(ev){if(ev.target===popup){closeNumber();return;}var b=ev.target.closest('[data-number-key]');if(b)numberKey(b.dataset.numberKey);};document.body.appendChild(popup);popup.querySelector('[data-number-key=save]').focus({preventScroll:true});
   }
   document.addEventListener('keydown',function(ev){
     var popup=document.getElementById('zgmo-number-pad');
     if(!popup){if((ev.key==='Enter'||ev.key===' ')&&ev.target.matches('.zgmo-stat input[readonly]')){ev.preventDefault();ev.target.click();}return;}
-    if(/^\d$/.test(ev.key)){ev.preventDefault();numberKey(ev.key);}
-    else if(['Backspace','Delete','-','Enter','Escape'].indexOf(ev.key)>=0){ev.preventDefault();numberKey({Backspace:'back',Delete:'back','-':'sign',Enter:'save',Escape:'cancel'}[ev.key]);}
+    if(ev.key==='Escape'){ev.preventDefault();numberKey('cancel');}
+    else if(['ArrowUp','ArrowDown','+','-'].indexOf(ev.key)>=0){ev.preventDefault();if(!ev.repeat)numberKey(ev.key==='ArrowUp'||ev.key==='+'?'plus':'minus');}
     else if(ev.key==='Tab'){var buttons=Array.from(popup.querySelectorAll('button:not(:disabled)')),first=buttons[0],last=buttons[buttons.length-1];if(ev.shiftKey&&document.activeElement===first){ev.preventDefault();last.focus();}else if(!ev.shiftKey&&document.activeElement===last){ev.preventDefault();first.focus();}}
   });
   function editingInput(){var el=document.activeElement;return el&&el.matches('input:not([type=file]):not([readonly]),textarea')&&el.closest('.zgmo-overview,#zgmo-modal,#quick-temp-popup,#status-popup,#level-manager')?el:null;}

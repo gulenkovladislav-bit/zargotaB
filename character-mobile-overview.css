@@ -168,7 +168,7 @@
  body.zg-stats-overview #char-sheet>.zgmo-overview{grid-template-rows:minmax(150px,1fr) 46px 58px minmax(216px,.8fr) 112px;gap:5px;padding-bottom:2px}
  .zgmo-stat label,.zgmo-derived small{color:#e6d9ba}
  .zgmo-derived>button{--edge:#675438;color:#e6d9ba}
- .zgmo-stat:before{background:linear-gradient(135deg,#826843,#3e3325 55%,#695439)}
+ .zgmo-stat:before{background:var(--tone)}
  .zgmo-stat:after{background:linear-gradient(135deg,#15120c,#0b0906)}
  .zgmo-stat button{border:0;background:transparent;opacity:.65}
  .zgmo-stat button.has-effect{opacity:1;box-shadow:inset 0 -1px var(--tone)}
@@ -303,18 +303,22 @@
  .zgmo-status-extra>button{min-height:44px;font-size:14px!important}
 }
 
-/* Direct values use an in-app keypad: the sheet and viewport never reflow. */
+/* Direct values use a one-step control without changing the sheet viewport. */
 @media(max-width:899px){
  .zgmo-state-arrow[hidden]{display:none!important}
  #char-sheet .zgmo-stat input[readonly]{cursor:pointer;caret-color:transparent;-webkit-user-select:none;user-select:none}
  #zgmo-number-pad{position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;background:#05040388;backdrop-filter:blur(2px);padding:12px;box-sizing:border-box}
- #zgmo-number-pad>section{width:min(320px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:14px;background:linear-gradient(145deg,#241c10f5,#0c0906f5);border:1px solid #977744;border-radius:14px 4px;color:#eed9aa;box-shadow:0 12px 40px #0008;box-sizing:border-box}
+ #zgmo-number-pad>section{width:min(320px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:14px;background:linear-gradient(145deg,#241c10f5,#0c0906f5);border:1px solid var(--tone,#977744);border-radius:14px 4px;color:#eed9aa;box-shadow:0 12px 40px #0008;box-sizing:border-box}
  #zgmo-number-pad header{display:flex;align-items:center;gap:12px;margin-bottom:10px}#zgmo-number-pad h2{flex:1;margin:0;font:20px Georgia,serif}
  #zgmo-number-pad button{min-height:44px;padding:0;border:1px solid #665033;border-radius:8px;background:#17120b;color:#ead4a1;font:24px Georgia,serif;touch-action:manipulation;cursor:pointer;transition:background .15s,transform .15s;-webkit-tap-highlight-color:transparent}
  #zgmo-number-pad header button{width:40px;font-size:26px}
- #zgmo-number-pad output{display:block;padding:10px 6px;margin-bottom:12px;text-align:center;font:36px/1.1 Georgia,serif;color:#f5da92;border:1px solid #725b32;border-radius:8px;background:#090704;overflow-wrap:anywhere}
- #zgmo-number-pad output.zgmo-number-selected{background:#49361c}
- .zgmo-number-keys{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.zgmo-number-keys button{height:48px}
+ .zgmo-number-stepper{display:grid;grid-template-columns:60px minmax(0,1fr) 60px;align-items:center;gap:10px;padding:12px 0 16px}
+ #zgmo-number-pad output{display:block;text-align:center;font:46px/1.2 Georgia,serif;color:#f5da92;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+ #zgmo-number-pad .zgmo-number-stepper button{position:relative;isolation:isolate;display:grid;place-items:center;width:60px;height:60px;border:0;border-radius:0;background:none;--edge:#a8493c;--surface:#3b1410;color:#ef7970;filter:drop-shadow(0 0 5px #a8493c30)}
+ #zgmo-number-pad .zgmo-number-stepper button[data-number-key=plus]{--edge:#658e50;--surface:#20341a;color:#a5d691;filter:drop-shadow(0 0 5px #658e5030)}
+ .zgmo-number-stepper button:before,.zgmo-number-stepper button:after{content:'';position:absolute;inset:0;z-index:-2;pointer-events:none;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px);background:var(--edge)}
+ .zgmo-number-stepper button:after{inset:1.5px;z-index:-1;background:linear-gradient(140deg,var(--surface),#0b0905 80%)}
+ .zgmo-number-stepper .zgmo-control-mark{width:32px;height:32px;stroke-width:2}
  #zgmo-number-pad footer{display:grid;grid-template-columns:1fr 1.3fr;gap:8px;margin-top:12px}#zgmo-number-pad footer button{font-size:16px}
  #zgmo-number-pad button[data-number-key=save]{border-color:#b18b45;color:#f3d68b;background:#332611}
  #zgmo-number-pad button:active{background:#4d391d;transform:scale(.96)}#zgmo-number-pad button:focus-visible{outline:2px solid #f3d68b;outline-offset:1px}
