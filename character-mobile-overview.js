@@ -91,7 +91,7 @@
     next.forEach(function(node,i){if(children[i])patchNode(children[i],node);else container.appendChild(node.cloneNode(true));});
     children.slice(next.length).forEach(function(node){node.remove();});
   }
-  function editingInput(){var el=document.activeElement;return el&&el.matches('input:not([type=file]),textarea')&&el.closest('.zgmo-overview,#zgmo-modal,#quick-temp-popup,#level-manager')?el:null;}
+  function editingInput(){var el=document.activeElement;return el&&el.matches('input:not([type=file]),textarea')&&el.closest('.zgmo-overview,#zgmo-modal,#quick-temp-popup,#status-popup,#level-manager')?el:null;}
   function keepEditorVisible(){
     var el=editingInput();document.body.classList.toggle('zgmo-number-editing',!!el&&mobile.matches);
     if(!el)return;
@@ -146,7 +146,7 @@
   var observer=new MutationObserver(function(records){if(records.some(function(r){return r.target.id==='character-cloud-indicator'||r.target.id==='persistent-sheet-status'||r.target.closest&&r.target.closest('#persistent-sheet-status');}))sync();});
   var popupObserver=new MutationObserver(function(records){
     if(!mobile.matches)return;
-    records.forEach(function(record){Array.from(record.addedNodes).forEach(function(node){if(node.nodeType!==1)return;if(node.id==='quick-temp-popup'||node.id==='level-manager'){node.classList.add('zgmo-aux-dialog');node.querySelectorAll('input[type=number]').forEach(function(input){input.setAttribute('inputmode','numeric');input.setAttribute('enterkeyhint','done');});}});});
+    records.forEach(function(record){Array.from(record.addedNodes).forEach(function(node){if(node.nodeType!==1)return;if(node.id==='quick-temp-popup'||node.id==='status-popup'||node.id==='level-manager'){node.classList.add('zgmo-aux-dialog');node.querySelectorAll('input[type=number]').forEach(function(input){input.setAttribute('inputmode','numeric');input.setAttribute('enterkeyhint','done');});}});});
     if(document.body.classList.contains('zgmo-number-editing')&&!editingInput())scheduleEditor();
   });
   popupObserver.observe(document.body,{childList:true});
