@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-28.29';
+var ZG_APP_VERSION = '2026-10-28.30';
 var ZG_APP_CHANGELOG = [
+{v:'2026-10-28.30',notes:'Мобильный инвентарь: сетка предметов, сумка и снаряжение, монеты с кнопками плюс/минус, страницы и подробности по нажатию. Редактирование и удаление убраны в меню предмета.',notesUk:'Мобільний інвентар: сітка предметів, сумка та спорядження, монети з кнопками плюс/мінус, сторінки й подробиці за натисканням. Редагування та видалення перенесено до меню предмета.'},
 {v:'2026-10-28.29',notes:'Навыки: записи из каталога разделены на экипированные, изученные и неизученные. Все три фильтра доступны сразу; добавление записи не изучает её автоматически.',notesUk:'Навички: записи з каталогу розділено на споряджені, вивчені та невивчені. Усі три фільтри доступні одразу; додавання запису не вивчає його автоматично.'},
 {v:'2026-10-28.28',notes:'Мобильный лист: компактные описания навыков и заметные заряды. Исправлены добавление из каталога, сохранение типов черт, прокрутка инвентаря, отмена нового предмета и открытие листа со снаряжением после перезагрузки.',notesUk:'Мобільний аркуш: компактні описи навичок і помітні заряди. Виправлено додавання з каталогу, збереження типів рис, прокручування інвентарю, скасування нового предмета та відкриття аркуша зі спорядженням після перезавантаження.'},
 {v:'2026-10-28.26',notes:'Значок черт заменён: вместо отпечатка пальца — профиль персонажа. Проверен мобильный раздел навыков на реальных героях.',notesUk:'Значок рис замінено: замість відбитка пальця — профіль персонажа. Перевірено мобільний розділ навичок на реальних героях.'},
@@ -26731,7 +26732,9 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="mobile-shell.css?v=2026-10-26.12">
 <script defer src="mobile-shell.js?v=2026-10-26.12"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.28">
-<script defer src="character-mobile-overview.js?v=2026-10-28.28"></script>
+<script defer src="character-mobile-overview.js?v=2026-10-28.30"></script>
+<link rel="stylesheet" href="character-mobile-inventory.css?v=2026-10-28.30">
+<script defer src="character-mobile-inventory.js?v=2026-10-28.30"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-10-28.28">
 <script defer src="character-mobile-skills.js?v=2026-10-28.29"></script>
 </head>
@@ -53131,7 +53134,7 @@ function renderCharSheet() {
   var sheet = document.getElementById('char-sheet');
   if(sheetTab === 'stats' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,tabStats);
   else if(sheetTab === 'skills' && window.ZargotaMobileSkills) window.ZargotaMobileSheet.updateMarkup(sheet,tabSkills);
-  else if(sheetTab === 'inventory' && window.ZargotaMobileSheet) sheet.innerHTML = window.ZargotaMobileSheet.inventory(c,tabInventory);
+  else if(sheetTab === 'inventory' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,window.ZargotaMobileSheet.inventory(c,tabInventory));
   else sheet.innerHTML =
     '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
       header + '<div class="tab-content-wrap">' + tabContent + '</div></div>';
@@ -53280,6 +53283,7 @@ function charInventorySetSort(charId, sortKey) {
 }
 
 function charRefreshInventoryLaunch(charId) {
+  if(window.ZargotaMobileInventory) window.ZargotaMobileInventory.refresh(charId);
   var c = characters.find(function(ch) { return ch.id === charId; });
   var host = document.getElementById('inv-items-' + charId);
   if (c && host) host.innerHTML = buildCharacterInventoryLauncher(c);
@@ -72455,7 +72459,8 @@ global.getStatusCombatMods = function(combatant) {
     raw.category = raw.category || raw.cat || 'item';
     raw.damageFormula = raw.damageFormula || raw.damage || '';
     raw.acBonus = Number(raw.acBonus != null ? raw.acBonus : raw.defense) || 0;
-    raw.effects = raw.effects || raw.effect || '';
+    // Structured effects drive mechanics; the legacy view needs their authored summary.
+    raw.effects = typeof raw.effects === 'string' ? raw.effects : (raw.effect || '');
     raw.description = raw.description || raw.desc || '';
     var price = raw.price || {};
     raw.priceCu = Number(raw.priceCu != null ? raw.priceCu : price.md) || 0;

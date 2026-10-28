@@ -40,11 +40,11 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  // Inventory editing, sorting, scroll reachability and navigation on short screens.
  await nav().nth(2).tap();
  const inventoryCount=()=>page.evaluate(()=>characters.find(c=>c.id===987654398).inventoryItems.length);
- const countBefore=await inventoryCount();await page.locator('button[onclick^="addInventoryItem"]').tap();await page.locator('#ic-close').tap();assert.equal(await inventoryCount(),countBefore,'Cancel new item must not retain an empty slot');
- await page.locator('button[onclick^="addInventoryItem"]').tap();await page.locator('#ic-name').fill('Тестовый предмет');await page.locator('#ic-desc').fill('Сохранённое описание');await page.locator('#ic-qty-plus').tap();await page.locator('#ic-save').tap();
- await page.locator('.char-inventory-sort').selectOption('name');await page.locator('.char-inventory-inline-slot[title="Тестовый предмет"]').tap();assert.equal(await page.locator('#ic-qty').inputValue(),'2');await page.locator('#ic-name').fill('Новый предмет');await page.locator('#ic-save').tap();
+ const countBefore=await inventoryCount();await page.locator('.zgmi-toolbar [data-zgmi=add]').tap();await page.locator('#ic-close').tap();assert.equal(await inventoryCount(),countBefore,'Cancel new item must not retain an empty slot');
+ await page.locator('.zgmi-toolbar [data-zgmi=add]').tap();await page.locator('#ic-name').fill('Тестовый предмет');await page.locator('#ic-desc').fill('Сохранённое описание');await page.locator('#ic-qty-plus').tap();await page.locator('#ic-save').tap();
+ await page.locator('[data-zgmi-sort]').selectOption('name');await page.locator('.zgmi-card[aria-label="Тестовый предмет"]').tap();await page.locator('[data-zgmi=detail-menu]').tap();await page.locator('[data-zgmi=edit]').tap();assert.equal(await page.locator('#ic-qty').inputValue(),'2');await page.locator('#ic-name').fill('Новый предмет');await page.locator('#ic-save').tap();
  // Equipment catalog: touch selection must update the sheet and preserve the tab.
- await page.locator('.char-inventory-arena-link').tap();
+ await page.locator('.zgmi-footer [data-zgmi=shop]').tap();
  const equipOverlay=page.locator('#char-equip-modal-overlay');await equipOverlay.waitFor();
  await page.locator('#char-equip-search').pressSequentially('меч',{delay:40});await page.waitForTimeout(450);assert.ok(await page.locator('#char-equip-search').evaluate(el=>document.activeElement===el));
  const equipment=page.locator('#char-equip-items [onclick^="charEquipItem"]');assert.ok(await equipment.count()>0);await equipment.first().tap();
@@ -52,13 +52,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  await equipOverlay.locator('button[onclick="charSaveEquip()"]').tap();assert.ok(await page.locator('.zgmi-sheet').isVisible());
  for(const locale of ['ru','uk']){await page.evaluate(l=>ZargotaI18n.setLocale(l),locale);for(const [width,height] of [[320,568],[390,780],[430,932]]){
   await page.setViewportSize({width,height});await page.waitForTimeout(350);
-  const g=await page.evaluate(()=>{const root=document.querySelector('.zgmi-sheet'),scroll=root.querySelector('.tab-content-wrap'),nav=document.querySelector('.zgmo-nav');scroll.scrollTop=scroll.scrollHeight;return {rootOverflow:root.scrollHeight-root.clientHeight,top:root.getBoundingClientRect().top,end:scroll.getBoundingClientRect().bottom,nav:nav.getBoundingClientRect().top,width:document.documentElement.scrollWidth-innerWidth,remaining:scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight};});
+  const g=await page.evaluate(()=>{const root=document.querySelector('.zgmi-sheet'),scroll=root.querySelector('.zgmi-grid'),nav=document.querySelector('.zgmo-nav');scroll.scrollTop=scroll.scrollHeight;return {rootOverflow:root.scrollHeight-root.clientHeight,top:root.getBoundingClientRect().top,end:scroll.getBoundingClientRect().bottom,nav:nav.getBoundingClientRect().top,width:document.documentElement.scrollWidth-innerWidth,remaining:scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight};});
   assert.ok(g.rootOverflow<=1&&g.top===0&&g.end<=g.nav+1&&g.width<=1&&g.remaining<=1,JSON.stringify({locale,width,g}));
  }}
- await page.setViewportSize({width:390,height:780});await page.waitForTimeout(350);await page.locator('.tab-content-wrap').evaluate(el=>el.scrollTop=0);await page.locator('.char-inventory-inline img').evaluateAll(els=>Promise.all(els.map(el=>el.decode())));await page.screenshot({path:'/tmp/zargota-inventory-after.png'});
+ await page.setViewportSize({width:390,height:780});await page.waitForTimeout(350);await page.locator('.zgmi-art img').evaluateAll(els=>Promise.all(els.map(el=>el.decode())));await page.screenshot({path:'/tmp/zargota-inventory-after.png'});
  await page.reload();await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});assert.ok(await page.evaluate(()=>{const c=characters.find(c=>c.id===987654398);return c.stats.dex.base===1&&c.inventoryItems.some(i=>i.name==='Новый предмет'&&i.qty===2&&i.description==='Сохранённое описание')&&Object.values(c.preparedSpells).flat().length===1;}));
- await page.evaluate(()=>{window._charSheetTab='inventory';showPage('characters');openCharSheet(987654398)});await page.locator('.char-inventory-inline-slot[title="Новый предмет"]').tap();await page.locator('#ic-remove').tap();await page.locator('.ic-confirm-accept').tap();assert.ok(await page.evaluate(()=>!characters.find(c=>c.id===987654398).inventoryItems.some(i=>i.name==='Новый предмет')));
- await page.locator('.zgmi-toolbar [data-zgmo=back]').tap();assert.ok(await page.locator('#header').isVisible());assert.equal(await page.locator('body.zg-inventory-view').count(),0);
+ await page.evaluate(()=>{window._charSheetTab='inventory';showPage('characters');openCharSheet(987654398)});await page.locator('.zgmi-card[aria-label="Новый предмет"]').tap();await page.locator('[data-zgmi=detail-menu]').tap();await page.locator('[data-zgmi=remove]').tap();await page.locator('[data-zgmi=confirm-remove]').tap();assert.ok(await page.evaluate(()=>!characters.find(c=>c.id===987654398).inventoryItems.some(i=>i.name==='Новый предмет')));
+ await page.locator('.zgmi-toolbar [data-zgmi=back]').tap();assert.ok(await page.locator('#header').isVisible());assert.equal(await page.locator('body.zg-inventory-view').count(),0);
  assert.deepEqual(errors,[]);console.log('PASS mobile character flows: compact rules/charges, spend/restore, catalog search/link/learn/equip, cancelled creation, inventory add/edit/sort/delete, RU/UK bounds, reload persistence and back navigation');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
