@@ -27,3 +27,7 @@ Built-in ImageGen with source-folio-v2.png as material/style reference. Original
 - source-personal-v1.png — original exec-3c769f09-9515-4bbb-9c84-2ec4514650db.png
 - source-traits-v1.png — original exec-28b37c7e-12ce-40eb-9ea1-7424f1689d34.png
 - source-mastery-v1.png — original exec-f68b6fd6-7e3e-4093-ac63-16f9f6f8b804.png
+
+## Trait emblem replacement — 2026-10-28
+
+- source-traits-v2.png — clear character profile, replacing the rejected fingerprint in the interface. Built-in ImageGen, transparent RGBA PNG copied unchanged. Original: exec-8bdcbd7f-5077-4f2d-86bb-4207c0ec2c27.png. Style reference: source-personal-v1.png. Personal and mastery emblems remain unchanged.

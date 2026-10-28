@@ -51,7 +51,7 @@
  function source(row){
   if(row.spell)return '<img src="images/ui/mobile-skills/source-'+(books[row.item.spellType]||'folio')+'-v2.png" alt="" draggable="false">';
   var kind=({personal:'personal',traits:'traits',mastery:'mastery'})[row.group]||'personal';
-  return '<img src="images/ui/mobile-skills/source-'+kind+'-v1.png" alt="" draggable="false">';
+  return '<img src="images/ui/mobile-skills/source-'+kind+(kind==='traits'?'-v2.png':'-v1.png')+'" alt="" draggable="false">';
  }
  function recoveryLabel(usage,r){
   // Only remove an already-displayed leading charge count. Keep all limits and timing.
