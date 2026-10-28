@@ -62,3 +62,36 @@
 @media(max-width:360px){.zgms-tabs button{font-size:12px}.zgms-filter button{font-size:12px}.zgms-copy{padding:2px 7px 6px}.zgms-resource{font-size:12px}.zgms-copy small{font-size:11px}}
 @media(max-width:899px) and (max-height:650px){#char-sheet .zgms-screen{gap:3px}.zgms-header{flex-basis:38px}.zgms-tabs{flex-basis:38px}.zgms-content{gap:5px}.zgms-grid{gap:6px}.zgms-copy strong{font-size:16px}.zgms-copy{gap:2px}.zgms-filter{flex-basis:32px}.zgms-copy em{font-size:10px}.zgms-pagination{flex-basis:32px}}
 @media(prefers-reduced-motion:reduce){#zgms-dialog{animation:none}}
+
+/* One readable document with a compact, persistent usage control. */
+@media(max-width:899px){
+ #zgms-dialog{animation:zgms-detail-fade .18s ease-out}
+ #zgms-dialog>section{overflow:visible}
+ #zgms-dialog header{flex-shrink:0;padding:8px 8px 8px 13px}
+ #zgms-dialog h2{font-size:20px;overflow-wrap:anywhere}
+ #zgms-dialog .zgms-detail-summary{display:flex;align-items:center;gap:12px;padding:10px 14px 8px;flex-shrink:0}
+ #zgms-dialog .zgms-detail-art{width:56px;height:56px;flex:0 0 56px;border-radius:5px;background:none}
+ #zgms-dialog .zgms-detail-summary>div:last-child{min-width:0;display:grid;gap:3px}
+ #zgms-dialog .zgms-detail-type{font-size:13px;line-height:1.35;color:#cbb58c}
+ #zgms-dialog .zgms-detail-summary small{font-size:12px;color:#ad9c80}
+ #zgms-dialog .zgms-charges{flex:0 0 auto;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:10px;align-items:center;margin:0 14px;padding:9px 0 11px;border-bottom:1px solid #5c4428}
+ #zgms-dialog .zgms-charges button{width:44px;height:44px;font-size:28px!important;border-radius:7px 2px;padding:0;background:#251b0e;color:#f4d590}
+ #zgms-dialog .zgms-charges button:disabled{opacity:.3}
+ .zgms-charge-copy{display:grid;gap:2px;text-align:center;min-width:0;font-size:13px;color:#bdaa87;line-height:1.25}
+ #zgms-dialog .zgms-charges strong{font:600 24px/1.1 Georgia,serif;color:#eed59b;min-width:0;white-space:nowrap;margin-left:5px}
+ .zgms-charge-copy small{font-size:12px;overflow-wrap:anywhere}
+ #zgms-dialog .zgms-charges.exhausted strong,.zgms-exhausted-label{color:#ed9c87}
+ #zgms-dialog .zgms-detail-body{flex:1;min-height:0;padding:12px 16px 18px;scrollbar-gutter:stable;scrollbar-color:#735632 transparent}
+ #zgms-dialog .char-ability-rule-lines{display:block}
+ #zgms-dialog .char-ability-rule-section,#zgms-dialog .zgms-rule{padding:12px 0 0;margin:12px 0 0;border:0;border-top:1px solid #46351f;border-radius:0;background:none;box-shadow:none;color:#e1d1b1}
+ #zgms-dialog .char-ability-rule-section:first-child,#zgms-dialog .zgms-rule:first-child{padding-top:0;margin-top:0;border-top:0}
+ #zgms-dialog .char-ability-rule-section h4,#zgms-dialog .zgms-rule h3{margin:0 0 6px;font:600 13px/1.4 Georgia,serif;letter-spacing:0;color:#cfb17c}
+ #zgms-dialog .char-ability-rule-paragraph,#zgms-dialog .char-ability-rule-copy ul,#zgms-dialog .zgms-rule p{font:15px/1.55 Georgia,serif;color:#e1d1b1}
+ #zgms-dialog .char-ability-rule-paragraph.outcome-benefit,#zgms-dialog .char-ability-rule-paragraph.outcome-danger{padding:0;border:0;border-radius:0;background:none}
+ #zgms-dialog .char-ability-rule-copy{gap:6px}
+ #zgms-dialog .char-ability-rule-section.tone-roleplay .char-ability-rule-paragraph{color:#b6a68a}
+ #zgms-dialog .zgms-menu{max-width:calc(100vw - 44px)}
+ @keyframes zgms-detail-fade{from{opacity:0}to{opacity:1}}
+}
+@media(max-width:360px){#zgms-dialog h2{font-size:18px}#zgms-dialog .zgms-charges{gap:6px}.zgms-charge-copy{font-size:12px}#zgms-dialog .zgms-charges strong{font-size:22px}}
+@media(prefers-reduced-motion:reduce){#zgms-dialog{animation:none}}

@@ -9,6 +9,8 @@
   function button(action,label,content,extra){if(content==='+'||content==='−')content=controlMark(content==='+');return '<button type="button" data-zgmo="'+action+'" aria-label="'+e(label)+'" '+(extra||'')+'>'+content+'</button>';}
   function character(){return (w.characters||[]).find(function(c){return c.id===current;});}
   function setActive(on){var page=document.getElementById('page-characters');on=!!on&&w.charView==='sheet'&&page&&page.classList.contains('active');document.body.classList.toggle('zg-stats-overview',!!on);if(!on){close();lastView=null;previousHP=null;}}
+  function setInventoryActive(on){var page=document.getElementById('page-characters');document.body.classList.toggle('zg-inventory-view',!!on&&w.charView==='sheet'&&!!page&&page.classList.contains('active'));}
+  function inventory(c,content){return '<section class="zgmi-sheet"><header class="zgmi-toolbar">'+button('back',t('Назад к персонажам','Назад до персонажів'),'‹')+'<div><h1>'+t('Инвентарь','Інвентар')+'</h1><small>'+e(w.characterEntryText(c,c.name||''))+'</small></div>'+button('menu',t('Действия персонажа','Дії персонажа'),'⋯')+'</header><div class="tab-content-wrap">'+content+'</div></section>';}
   function effects(c){
     var result=(c.tempEffects||[]).filter(function(x){return x.type==='status';}).map(function(x){return {key:x.statusKey,label:x.label||x.value,effect:x};});
     (c.statuses||[]).forEach(function(key){if(!result.some(function(x){return x.key===key;}))result.push({key:key});});
@@ -217,5 +219,5 @@
     return '<svg class="zgmo-nav-icon" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true" focusable="false" fill="currentColor">'+(shapes[key]||shapes.stats)+'</svg>';
   }
   var mobile=matchMedia('(max-width: 899px)');mobile.addEventListener('change',function(){if(w.charView==='sheet'&&document.getElementById('page-characters').classList.contains('active')){w.renderCharSheet();}else setActive(false);});
-  w.ZargotaMobileSheet={updateMarkup:updateMarkup,render:render,fame:fame,navIcon:navIcon,setActive:setActive,mounted:mounted,openTools:function(){action('health');},openMenu:function(){action('menu');}};
+  w.ZargotaMobileSheet={setInventoryActive:setInventoryActive,inventory:inventory,updateMarkup:updateMarkup,render:render,fame:fame,navIcon:navIcon,setActive:setActive,mounted:mounted,openTools:function(){action('health');},openMenu:function(){action('menu');}};
 })(window);

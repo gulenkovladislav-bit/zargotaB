@@ -326,3 +326,23 @@
 }
 @media(max-width:899px) and (prefers-reduced-motion:no-preference){#zgmo-number-pad{animation:zgmo-fade .16s both}#zgmo-number-pad>section{animation:zgmo-window-in .24s both}}
 @media(prefers-reduced-motion:reduce){#zgmo-number-pad button{transition:none}}
+
+/* Keep inventory scrolling inside the sheet, above the fixed navigation. */
+@media(max-width:899px){
+ body.zg-inventory-view #header,body.zg-inventory-view #chars-back-bar,body.zg-inventory-view #character-cloud-panel,body.zg-inventory-view #char-sheet-view>#persistent-sheet-status,body.zg-inventory-view .zoom-controls{display:none!important}
+ body.zg-inventory-view #main,body.zg-inventory-view>#page-characters{top:var(--zg-viewport-top)!important;height:var(--zg-viewport-height)!important}
+ body.zg-inventory-view #page-characters{padding:0!important;overflow:hidden!important}
+ body.zg-inventory-view #page-characters>.page-inner{height:100%!important;max-width:none!important;padding:0!important;overflow:hidden!important}
+ body.zg-inventory-view #char-sheet-view,body.zg-inventory-view .sheet-wrap,body.zg-inventory-view #sheet-zoom-wrap,body.zg-inventory-view #char-sheet{height:100%!important;min-height:0!important;padding:0!important;margin:0!important;zoom:1!important;border:0!important;overflow:hidden!important;max-width:none!important}
+ body.zg-inventory-view #char-sheet{padding-bottom:calc(var(--zgmo-nav-height,76px) + env(safe-area-inset-bottom,0px))!important}
+ #char-sheet .zgmi-sheet{display:flex;flex-direction:column;height:100%;min-height:0;background:#0b0905}
+ .zgmi-toolbar{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;align-items:center;flex-shrink:0;padding:calc(4px + env(safe-area-inset-top,0px)) 10px 7px;border-bottom:1px solid #4b371e}
+ .zgmi-toolbar>div{text-align:center;min-width:0}
+ #char-sheet .zgmi-toolbar h1{font:400 24px/1.2 Georgia,serif;color:#efdab0;margin:0}
+ .zgmi-toolbar small{display:block;font:12px/1.5 Georgia,serif;color:#b3a185;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .zgmi-toolbar button{height:44px;border:0;background:none;color:#d7b47b;font-size:30px;cursor:pointer;touch-action:manipulation}
+ #char-sheet .zgmi-sheet .tab-content-wrap{flex:1;min-height:0;height:0;overflow:auto;overscroll-behavior:contain;padding-bottom:12px;box-sizing:border-box}
+ .zgmi-sheet .char-inventory-inline-head>button{min-width:44px;min-height:44px}
+ body.zg-inventory-view #ic-qty-plus,body.zg-inventory-view #ic-qty-minus{width:44px!important;height:44px!important;font-size:26px!important}
+ body.zg-inventory-view #ic-qty{height:44px!important;font-size:18px!important}
+}

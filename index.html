@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-28.26';
+var ZG_APP_VERSION = '2026-10-28.28';
 var ZG_APP_CHANGELOG = [
+{v:'2026-10-28.28',notes:'Мобильный лист: компактные описания навыков и заметные заряды. Исправлены добавление из каталога, сохранение типов черт, прокрутка инвентаря, отмена нового предмета и открытие листа со снаряжением после перезагрузки.',notesUk:'Мобільний аркуш: компактні описи навичок і помітні заряди. Виправлено додавання з каталогу, збереження типів рис, прокручування інвентарю, скасування нового предмета та відкриття аркуша зі спорядженням після перезавантаження.'},
 {v:'2026-10-28.26',notes:'Значок черт заменён: вместо отпечатка пальца — профиль персонажа. Проверен мобильный раздел навыков на реальных героях.',notesUk:'Значок рис замінено: замість відбитка пальця — профіль персонажа. Перевірено мобільний розділ навичок на реальних героях.'},
 {v:'2026-10-28.25',notes:'Личные навыки, черты и мастерство получили отдельные PNG-значки на прозрачном фоне в едином стиле с книгами.',notesUk:'Особисті навички, риси та майстерність отримали окремі PNG-значки на прозорому тлі в єдиному стилі з книгами.'},
 {v:'2026-10-28.24',notes:'Навыки на телефоне: четыре раздела — личные, изученные, черты и мастерство. Крупные карточки с цветом источника, фильтр экипированных, страницы и подробности по нажатию. PNG-значки происхождения на прозрачном фоне, цветная металлическая вставка и краткие подписи без повторов.',notesUk:'Навички на телефоні: чотири розділи — особисті, вивчені, риси та майстерність. Великі картки з кольором джерела, фільтр споряджених, сторінки та подробиці за натисканням. PNG-значки походження на прозорому тлі, кольорова металева вставка та короткі підписи без повторів.'},
@@ -26728,10 +26729,10 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 </script>
 <link rel="stylesheet" href="mobile-shell.css?v=2026-10-26.12">
 <script defer src="mobile-shell.js?v=2026-10-26.12"></script>
-<link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.20">
-<script defer src="character-mobile-overview.js?v=2026-10-28.20"></script>
-<link rel="stylesheet" href="character-mobile-skills.css?v=2026-10-28.23d">
-<script defer src="character-mobile-skills.js?v=2026-10-28.26"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.28">
+<script defer src="character-mobile-overview.js?v=2026-10-28.28"></script>
+<link rel="stylesheet" href="character-mobile-skills.css?v=2026-10-28.28">
+<script defer src="character-mobile-skills.js?v=2026-10-28.28"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -42891,6 +42892,7 @@ function pageScrollElement(page) {
 }
 
 function showPage(name) {
+  if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
   if(name !== "characters" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   if (name === 'chars') name = 'characters';
@@ -51408,6 +51410,7 @@ function switchCharTab(tab) {
 }
 
 function showCharView(v) {
+  if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
   if(v !== "sheet" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   var sessionEditActive = !!(window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive());
@@ -51868,7 +51871,7 @@ function buildMasteryList(c) {
 }
 
 // Full constructor popup for skill/mastery entry
-window.openSkillCardPopup = function(charId, field, idx) {
+window.openSkillCardPopup = function(charId, field, idx, options) {
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
   var list = c[field] || [];
@@ -51892,6 +51895,8 @@ window.openSkillCardPopup = function(charId, field, idx) {
   var typeOptions = field==='skills'
     ? ['Активный','Пассивный','Реакция','Ритуал','Боевой','Социальный','Магический']
     : ['Позиция','Стиль','Пассив','Манёвр','Стойка','Заповедь','Черта','Мастерство'];
+  // Preserve legacy/custom types instead of silently selecting the first option.
+  if (item.type && typeOptions.indexOf(item.type) < 0) typeOptions.push(item.type);
 
   var backdrop = document.createElement('div');
   backdrop.id = 'skill-card-backdrop';
@@ -51922,7 +51927,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
         '<div class="sc-editor-grid">' +
           '<div class="sc-editor-field"><div class="sc-editor-label">ТИП</div><div class="sc-select-wrap">' +
             '<select class="sc-type" style="width:100%;padding:9px 8px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box">' +
-              typeOptions.map(function(t){ return '<option value="' + t + '"' + (item.type===t?' selected':'') + '>' + (window.ZargotaI18n && window.ZargotaI18n.getLocale()==='uk' ? ({'Черта':'Риса','Мастерство':'Майстерність'}[t]||t) : t) + '</option>'; }).join('') +
+              typeOptions.map(function(t){ return '<option value="' + escHTML(t) + '"' + (item.type===t?' selected':'') + '>' + (window.ZargotaI18n && window.ZargotaI18n.getLocale()==='uk' ? escHTML({'Черта':'Риса','Мастерство':'Майстерність'}[t]||t) : escHTML(t)) + '</option>'; }).join('') +
             '</select><span aria-hidden="true">⌄</span></div></div>' +
           '<div class="sc-editor-field"><div class="sc-editor-label">ИСПОЛЬЗОВАНИЯ</div>' +
             '<input class="sc-usages" type="text" value="' + escHTML(item.usages||'') + '" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box" placeholder="1 раз в бой"></div>' +
@@ -52067,6 +52072,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
         if (item.cdUsed === undefined) item.cdUsed = 0;
         saveChars();
         refreshList();
+        if (options && typeof options.onSave === 'function') { closeAll(); options.onSave(item); return; }
         popup.dataset.mode = 'view';
         renderContent();
       };
@@ -52661,6 +52667,7 @@ function renderCharSheet() {
   }
   if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(isMobileDevice && (window._charSheetTab||"stats") === "stats");
   if(window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(isMobileDevice && window._charSheetTab === "skills");
+  if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(isMobileDevice && window._charSheetTab === "inventory");
   if (!isMobileDevice) {
     var sheetD = document.getElementById('char-sheet');
     // Убираем мобильный tab bar если есть
@@ -53123,6 +53130,7 @@ function renderCharSheet() {
   var sheet = document.getElementById('char-sheet');
   if(sheetTab === 'stats' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,tabStats);
   else if(sheetTab === 'skills' && window.ZargotaMobileSkills) window.ZargotaMobileSheet.updateMarkup(sheet,tabSkills);
+  else if(sheetTab === 'inventory' && window.ZargotaMobileSheet) sheet.innerHTML = window.ZargotaMobileSheet.inventory(c,tabInventory);
   else sheet.innerHTML =
     '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
       header + '<div class="tab-content-wrap">' + tabContent + '</div></div>';
@@ -53465,7 +53473,7 @@ function addInventoryItem(id) {
   charRefreshInventoryPanel(id);
   charRefreshInventoryLaunch(id);
   // Клик по «+ предмет» → сразу попадаем в конструктор (главное UX-ожидание пользователя)
-  setTimeout(function(){ openItemConstructor(id, 'inventory', newIdx); }, 80);
+  setTimeout(function(){ openItemConstructor(id, 'inventory', newIdx, {isNew:true}); }, 80);
 }
 
 function removeInventoryItem(id, idx) {
@@ -53597,7 +53605,7 @@ function openItemConstructorByName(charId, type, encodedName, fallbackIdx) {
   openItemConstructor(charId, type, currentIdx >= 0 ? currentIdx : fallbackIdx);
 }
 
-function openItemConstructor(charId, type, idx) {
+function openItemConstructor(charId, type, idx, options) {
   var c = characters.find(function(x){ return x.id === charId; });
   if (!c) return;
   var equipmentMode=type==='equip'||type==='inventory-equip';
@@ -53754,6 +53762,16 @@ function openItemConstructor(charId, type, idx) {
         onConfirm: function() { closeIt(true); }
       });
       return false;
+    }
+    // A cancelled creation must not consume a slot or leave a saved empty item.
+    if (options && options.isNew && !String(item.name||'').trim() && !String(item.description||'').trim()) {
+      var draftIndex = c[arrKey].indexOf(item);
+      if (draftIndex >= 0) {
+        c[arrKey].splice(draftIndex,1);
+        saveChars({reason:'inventory-cancel-create'});
+        renderCharSheet();
+        charRefreshInventoryPanel(charId);
+      }
     }
     backdrop.remove();
     return true;
@@ -69918,6 +69936,8 @@ window.zgShopImageSource = zgShopImageSource;
 window.zgShopFullImageSource = zgShopFullImageSource;
 window.zgShopOpenImage = zgShopOpenImage;
 window.zgShopVisualMarkup = zgShopVisualMarkup;
+// Character equipment uses the same reviewed localization outside this module.
+window.armoryItemText = armoryItemText;
 function zgUpdateCartBtn() {
   // Перерисовываем текущую вкладку магазина, чтобы обновить бейдж на кнопке корзины
   var host = document.getElementById('shop-page-inner');

@@ -37,7 +37,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // A spent equipped ability stays equipped; consuming a charge keeps DOM and pagination stable.
   await page.evaluate(()=>{window.__skillsNav=document.querySelector('.zgmo-nav');window.__skillsHeader=document.querySelector('.zgms-header');});
   await page.locator('.zgms-card').first().click();
-  assert.match(await page.locator('.zgms-detail-body').innerText(),/2 раза за бой/);
+  assert.match(await page.locator('.zgms-charge-copy').innerText(),/За бой/);
+  assert.equal(await page.locator('.zgms-charges strong').innerText(),'2 / 2');
   await page.locator('[data-zgms=spend]').click();await page.waitForTimeout(250);
   assert.match(await page.locator('.zgms-charges strong').innerText(),/1 \/ 2/);
   await page.locator('[data-zgms=close]').click();
@@ -64,7 +65,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.screenshot({path:'/tmp/zargota-skills-personal.png'});
   await page.locator('.zgms-card').click();assert.match(await page.locator('.zgms-rules').innerText(),/Третий уровень/);
   await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=edit]').click();
-  await page.locator('.sc-name').fill('Обновлённый навык');await page.locator('.sc-save-btn').click();await page.locator('.sc-close-x').click();
+  await page.locator('.sc-name').fill('Обновлённый навык');await page.locator('.sc-save-btn').click();await page.locator('[data-zgms=close]').click();
   await page.waitForTimeout(300);assert.match(await page.locator('.zgms-card').innerText(),/Обновлённый навык/);
   // Learn/unlearn and preparation use the existing data structure and limits.
   await page.locator('[data-group=learned]').click();await page.locator('[data-zgms=menu]').click();await page.locator('[data-zgms=unlearned]').click();await page.waitForTimeout(100);
@@ -80,9 +81,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await targetCard.click();await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=equip]').click();
   assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654322).preparedSpells.kodex.length),3);
   await page.locator('[data-zgms=close]').click();
+  await page.locator('[data-group=traits]').click();await page.waitForTimeout(150);
+  await page.locator('.zgms-card').filter({hasText:'Следопыт'}).click();await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=edit]').click();
+  assert.equal(await page.locator('.sc-type').inputValue(),'Черта');await page.locator('.sc-name').fill('Следопыт обновлён');await page.locator('.sc-save-btn').click();await page.locator('[data-zgms=close]').click();
+  assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654322).skills[1].type),'Черта');
   // New traits can be created, edited, and deleted without losing the category.
   await page.locator('[data-group=traits]').click();await page.locator('[data-zgms=menu]').click();await page.locator('[data-zgms=add]').click();
-  await page.locator('.sc-name').fill('Тестовая черта');await page.locator('.sc-save-btn').click();await page.locator('.sc-close-x').click();await page.waitForTimeout(150);
+  await page.locator('.sc-name').fill('Тестовая черта');await page.locator('.sc-save-btn').click();await page.locator('[data-zgms=close]').click();await page.waitForTimeout(150);
   assert.equal(await page.locator('.zgms-card').count(),3);
   await page.locator('.zgms-card').filter({hasText:'Тестовая черта'}).click();await page.locator('[data-zgms=detail-menu]').click();
   page.once('dialog',dialog=>dialog.accept());await page.locator('[data-zgms=remove]').click();await page.waitForTimeout(150);assert.equal(await page.locator('.zgms-card').count(),2);

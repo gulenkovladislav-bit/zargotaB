@@ -83,8 +83,13 @@
  function close(){var dialog=document.getElementById('zgms-dialog');if(dialog)dialog.remove();dialogKey=null;if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
  function details(c,row){
   var fields=row.spell?[[t('Эффект','Ефект'),row.item.effect],[t('Бой','Бій'),row.item.battle],[t('Проявление','Прояв'),row.item.manifestation],[t('Описание','Опис'),row.item.description],[t('Обучение','Навчання'),row.item.learnText],[t('Ограничения','Обмеження'),row.item.restriction]].concat((row.item.optFields||[]).map(function(f){return [text(c,f.label,row.item),f.text];})):[];
-  var r=row.resource,usage=text(c,r.text,row.spell&&row.item);
-  return '<header><h2>'+e(row.name)+'</h2>'+button('detail-menu',t('Действия способности','Дії здібності'),'⋯','aria-expanded="false"')+button('close',t('Закрыть','Закрити'),'×')+'</header><div class="zgms-detail-body"><div class="zgms-detail-art '+(row.art.scene?'scene':'symbol')+'"><img alt="" src="'+e(row.art.src)+'"></div>'+(row.type?'<p class="zgms-detail-type">'+e(row.type)+'</p>':'')+(usage?'<p>'+e(usage)+'</p>':'')+(r.max?'<div class="zgms-charges">'+button('restore',t('Вернуть заряд','Повернути заряд'),'＋',r.used?'':'disabled')+'<strong>'+r.remaining+' / '+r.max+'</strong>'+button('spend',t('Потратить заряд','Витратити заряд'),'−',r.remaining&&(!row.spell||row.learned)?'':'disabled')+'</div>':'')+(row.spell?fields.filter(function(f){return !!f[1];}).map(function(f){return '<section class="zgms-rule"><h3>'+e(f[0])+'</h3><p>'+e(text(c,f[1],row.item))+'</p></section>';}).join(''):'<div class="zgms-rules">'+w.characterAbilityRulesHtml(row.description,row.item)+'</div>')+'</div>';
+  var r=row.resource,usage=recoveryLabel(text(c,r.text,row.spell&&row.item),r),seen=new Set();
+  var rules=row.spell?fields.filter(function(f){if(!f[1])return false;var value=text(c,f[1],row.item).trim();if(seen.has(value))return false;seen.add(value);return true;}).map(function(f){return '<section class="zgms-rule"><h3>'+e(f[0])+'</h3><p>'+e(text(c,f[1],row.item))+'</p></section>';}).join(''):'<div class="zgms-rules">'+w.characterAbilityRulesHtml(row.description,row.item)+'</div>';
+  var origin=sourceLabel(row),kind=row.type&&row.type!==origin?' · '+row.type:'';
+  return '<header><h2>'+e(row.name)+'</h2>'+button('detail-menu',t('Действия способности','Дії здібності'),'⋯','aria-expanded="false"')+button('close',t('Закрыть','Закрити'),'×')+'</header>'+
+   '<div class="zgms-detail-summary"><div class="zgms-detail-art '+(row.art.scene?'scene':'symbol')+'"><img alt="" src="'+e(row.art.src)+'"></div><div><span class="zgms-detail-type">'+e(origin+kind)+'</span>'+(row.item.descByLevel?'<small>'+t('На уровне персонажа: ','На рівні персонажа: ')+e(c.level||1)+'</small>':'')+(!r.max&&usage?'<small>'+e(usage)+'</small>':'')+'</div></div>'+
+   (r.max?'<div class="zgms-charges'+(!r.remaining?' exhausted':'')+'">'+button('spend',t('Потратить использование','Витратити використання'),'−',r.remaining&&(!row.spell||row.learned)?'':'disabled')+'<div class="zgms-charge-copy"><span>'+t('Осталось','Залишилось')+' <strong aria-live="polite">'+r.remaining+' / '+r.max+'</strong></span>'+(usage?'<small>'+e(usage)+'</small>':'')+(!r.remaining?'<small class="zgms-exhausted-label">'+t('Всё потрачено','Усе витрачено')+'</small>':'')+'</div>'+button('restore',t('Вернуть использование','Повернути використання'),'＋',r.used?'':'disabled')+'</div>':'')+
+   '<div class="zgms-detail-body">'+rules+'</div>';
  }
  function updateDialog(){var c=char(),row=c&&rows(c).find(function(x){return x.key===dialogKey;}),panel=document.querySelector('#zgms-dialog>section');if(!panel)return;if(!row){close();return;}w.ZargotaMobileSheet.updateMarkup(panel,details(c,row));panel.style.setProperty('--tone',row.tone);}
  function open(key,source){close();dialogKey=key;returnFocus=source;var el=document.createElement('div');el.id='zgms-dialog';el.setAttribute('data-zg-i18n-skip','');el.innerHTML='<section role="dialog" aria-modal="true" aria-label="'+t('Описание способности','Опис здібності')+'"></section>';el.addEventListener('click',function(ev){if(ev.target===el)close();});document.body.appendChild(el);updateDialog();var dismiss=el.querySelector('[data-zgms=close]');if(dismiss)dismiss.focus({preventScroll:true});}
@@ -95,13 +100,14 @@
   else el.innerHTML=button('add',t('Добавить','Додати'),view().group==='learned'?t('Добавить из каталога','Додати з каталогу'):t('Добавить запись','Додати запис'))+(view().group==='learned'?button('unlearned',t('Ещё не изучены','Ще не вивчені'),t('Ещё не изучены','Ще не вивчені')):'');
   source.setAttribute('aria-expanded','true');source.parentElement.appendChild(el);
  }
- function add(){var c=char(),group=view().group;if(group==='learned'){w.openSpellPicker(c.id);return;}
+ function editorOptions(c,field){return {onSave:function(item){var index=(c[field]||[]).indexOf(item);refresh();if(index>=0)open(field+'-'+index,null);}};}
+ function add(){var c=char(),group=view().group;if(group==='learned'){view().filter='unlearned';view().pages['learned-unlearned']=0;refresh();w.openSpellPicker(c.id);return;}
   var field=group==='personal'?'skills':'mastery';if(!c[field])c[field]=[];
-  c[field].push({name:'',description:'',type:group==='traits'?'Черта':group==='mastery'?'Мастерство':'Активный',usages:'',cdMax:0,cdUsed:0});w.openSkillCardPopup(c.id,field,c[field].length-1);
+  c[field].push({name:'',description:'',type:group==='traits'?'Черта':group==='mastery'?'Мастерство':'Активный',usages:'',cdMax:0,cdUsed:0});w.openSkillCardPopup(c.id,field,c[field].length-1,editorOptions(c,field));
  }
  function mutate(action){
   var c=char(),row=rows(c).find(function(x){return x.key===dialogKey;});if(!row)return;var item=row.item,r=row.resource;
-  if(action==='edit'){close();w.openSkillCardPopup(c.id,row.field,row.index);var popup=document.getElementById('skill-card-popup');if(popup&&popup.dataset.mode!=='edit')popup.querySelector('.sc-edit-btn')?.click();return;}
+  if(action==='edit'){close();w.openSkillCardPopup(c.id,row.field,row.index,editorOptions(c,row.field));var popup=document.getElementById('skill-card-popup');if(popup&&popup.dataset.mode!=='edit')popup.querySelector('.sc-edit-btn')?.click();return;}
   if(action==='remove'){
    if(!w.confirm(t('Убрать «','Прибрати «')+row.name+t('» из листа?','» з аркуша?')))return;
    close();if(row.spell)w.removeSpellRef(c.id,item.id);else w.removeListItem(c.id,row.field,row.index);refresh();return;
