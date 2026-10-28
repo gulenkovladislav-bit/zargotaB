@@ -61,13 +61,23 @@
     var children=Array.from(card.children),heading=children.shift(),footer=children.pop();
     heading.classList.add('zgmo-status-hero');
     var body=document.createElement('div');body.className='zgmo-status-body';
-    // Lead with the status description; keep detailed rules available on demand.
+    // Keep the description visible; auxiliary rules and actions open from compact controls.
     var description=children.pop();if(description)body.appendChild(description);
-    if(children.length){var more=document.createElement('details');more.className='zgmo-status-rules';var moreTitle=document.createElement('summary');moreTitle.textContent=t('Подробнее о действии','Докладніше про дію');more.appendChild(moreTitle);children.forEach(function(child){more.appendChild(child);});body.appendChild(more);}
+    if(state.key==='poison'||state.key==='shield')heading.firstElementChild.innerHTML='<img class="zgmo-detail-icon" src="images/ui/character-mobile/status-'+state.key+'-v1.webp" alt="">';
     var dismiss=document.createElement('button');dismiss.className='zgmo-status-dismiss';dismiss.type='button';dismiss.setAttribute('aria-label',t('Закрыть состояние','Закрити стан'));dismiss.textContent='×';dismiss.onclick=function(){closeStatus(false);};
-    var actions=document.createElement('details');actions.className='zgmo-status-actions';var summary=document.createElement('summary');summary.textContent=t('Действия с состоянием','Дії зі станом');actions.appendChild(summary);
-    var remove=footer&&footer.querySelector('button');if(remove)actions.appendChild(remove);
-    body.appendChild(actions);card.replaceChildren(dismiss,heading,body);
+    var toolbar=document.createElement('div');toolbar.className='zgmo-status-toolbar';
+    function panel(key,label,nodes,icon){
+      if(!nodes.length)return;
+      var extra=document.createElement('section');extra.className='zgmo-status-extra';extra.id='zgmo-status-'+key;extra.hidden=true;
+      var title=document.createElement('h3');title.textContent=label;extra.appendChild(title);nodes.forEach(function(node){extra.appendChild(node);});body.appendChild(extra);
+      var toggle=document.createElement('button');toggle.type='button';toggle.className='zgmo-status-tool';toggle.setAttribute('aria-label',label);toggle.title=label;toggle.setAttribute('aria-controls',extra.id);toggle.setAttribute('aria-expanded','false');toggle.innerHTML=icon;
+      toggle.onclick=function(){var open=extra.hidden;body.querySelectorAll('.zgmo-status-extra').forEach(function(el){el.hidden=true;});toolbar.querySelectorAll('button').forEach(function(el){el.setAttribute('aria-expanded','false');});extra.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open){if(!matchMedia('(prefers-reduced-motion:reduce)').matches)extra.animate([{opacity:0,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:180});requestAnimationFrame(function(){body.scrollTop=body.scrollHeight;});}};
+      toolbar.appendChild(toggle);
+    }
+    panel('rules',t('Подробнее о действии','Докладніше про дію'),children,'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></svg>');
+    var remove=footer&&footer.querySelector('button');
+    panel('actions',t('Действия с состоянием','Дії зі станом'),remove?[remove]:[],'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 1-2h4l1 2 3 2 2 .5 2 3-1 2v3l1 2-2 3-2 .5-3 2-1 2h-4l-1-2-3-2-2-.5-2-3 1-2v-3l-1-2 2-3L6 5Z" transform="translate(1 1) scale(.91)"/><circle cx="12" cy="12" r="3"/></svg>');
+    card.replaceChildren(dismiss,heading,body,toolbar);
     popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};dismiss.focus({preventScroll:true});
   }
   document.addEventListener('click',function(ev){if(ev.target.closest('#char-sheet-tab-bar'))closeStatus(true);},true);

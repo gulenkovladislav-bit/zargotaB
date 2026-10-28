@@ -280,3 +280,25 @@
 }
 @media(max-width:899px) and (prefers-reduced-motion:no-preference){#status-popup{animation:zgmo-quick-in .32s cubic-bezier(.2,.8,.2,1) both}}
 @media(max-width:899px) and (prefers-reduced-motion:reduce){#status-popup button[onclick^="spAdjDur"],#quick-temp-popup button[onclick^="qtAdjust"]{transition:none}}
+
+/* Auxiliary status controls stay compact; the carousel is not a hidden scroll container. */
+@media(max-width:899px){
+ .zgmo-state-cards{overflow:visible;padding:1px 0;box-sizing:border-box}
+ .zgmo-state-cards>button:before{inset:0;transform:translateZ(0)}
+ #status-info-popup.zgmo-status-dialog{align-items:center!important}
+ #status-info-popup.zgmo-status-dialog>.status-info-card{height:auto;max-height:100%!important}
+ .zgmo-status-hero{padding:14px 28px 12px!important;margin-bottom:8px!important}
+ .zgmo-status-hero>div:first-child{width:56px!important;height:56px!important}
+ .zgmo-status-hero .zg-status-glyph,.zgmo-detail-icon{display:block;width:54px!important;height:54px!important;object-fit:contain;margin:auto}
+ .zgmo-status-body{flex:0 1 auto;padding:0;min-height:0}
+ .zgmo-status-body>div:first-child{margin-bottom:0!important}
+ .zgmo-status-toolbar{display:flex;justify-content:flex-end;gap:8px;padding-top:10px;flex-shrink:0}
+ .zgmo-status-tool{display:grid;place-items:center;width:40px;height:40px;padding:8px;background:#151109;border:1px solid #675132;border-radius:7px;color:#d8bf8d;cursor:pointer;touch-action:manipulation}
+ .zgmo-status-tool svg{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+ .zgmo-status-tool[aria-expanded=true]{color:#f1d58b;border-color:#bd944d;background:#312413;box-shadow:0 0 10px #bd944d20}
+ .zgmo-status-tool:focus-visible{outline:2px solid #e9c36a;outline-offset:2px}
+ .zgmo-status-extra{margin-top:12px;padding-top:10px;border-top:1px solid #59472c}
+ .zgmo-status-extra[hidden]{display:none!important}
+ .zgmo-status-extra h3{font:400 15px Georgia,serif;color:#d8bf8d;margin:0 0 10px}
+ .zgmo-status-extra>button{min-height:44px;font-size:14px!important}
+}
