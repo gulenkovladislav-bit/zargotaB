@@ -19,6 +19,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   });
   await page.locator('.zgms-card').first().waitFor();
   assert.equal(await page.locator('.zgms-card').count(),4);
+  assert.equal(await page.locator('[data-group=learned]').innerText(),'Каталог');
+  assert.equal(await page.locator('.zgms-filter button').count(),3);
   assert.equal(await page.locator('.zgms-card em').count(),0,'Equipped filter does not repeat a badge on every card');
   assert.equal(await page.locator('.zgms-card').first().locator('small').innerText(),'За бой');
   assert.ok(await page.evaluate(()=>parseFloat(getComputedStyle(document.querySelector('.zgms-art'),'::before').height)>=8));
@@ -28,7 +30,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
    for(const [width,height] of [[320,568],[390,700],[390,780],[430,932]]){
     await page.setViewportSize({width,height});await page.waitForTimeout(250);
     await page.waitForFunction(()=>Math.abs(document.querySelector(".zgms-screen").getBoundingClientRect().top)<0.1);
-    const g=await page.evaluate(()=>{const root=document.querySelector('.zgms-screen'),nav=document.getElementById('char-sheet-tab-bar');return {root:root.scrollHeight-root.clientHeight,body:document.body.scrollHeight-innerHeight,width:document.documentElement.scrollWidth-innerWidth,top:root.getBoundingClientRect().top,end:root.getBoundingClientRect().bottom,nav:nav.getBoundingClientRect().top,cards:[...document.querySelectorAll('.zgms-card')].map(el=>({overflow:el.scrollHeight-el.clientHeight,h:el.clientHeight,art:el.querySelector('.zgms-art').clientHeight})),labels:[...document.querySelectorAll('.zgms-tabs button')].map(el=>el.scrollWidth-el.clientWidth)};});
+    const g=await page.evaluate(()=>{const root=document.querySelector('.zgms-screen'),nav=document.getElementById('char-sheet-tab-bar');return {root:root.scrollHeight-root.clientHeight,body:document.body.scrollHeight-innerHeight,width:document.documentElement.scrollWidth-innerWidth,top:root.getBoundingClientRect().top,end:root.getBoundingClientRect().bottom,nav:nav.getBoundingClientRect().top,cards:[...document.querySelectorAll('.zgms-card')].map(el=>({overflow:el.scrollHeight-el.clientHeight,h:el.clientHeight,art:el.querySelector('.zgms-art').clientHeight})),labels:[...document.querySelectorAll('.zgms-tabs button,.zgms-filter button')].map(el=>el.scrollWidth-el.clientWidth)};});
     assert.ok(g.root<=1&&g.body<=1&&g.width<=1,JSON.stringify({locale,width,height,g}));assert.equal(g.top,0);assert.ok(g.end<=g.nav+1,JSON.stringify(g));assert.ok(g.cards.every(c=>c.overflow<=1&&c.art>=24),JSON.stringify(g));assert.ok(g.labels.every(n=>n<=1),JSON.stringify(g));
    }
   }
@@ -68,7 +70,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.locator('.sc-name').fill('Обновлённый навык');await page.locator('.sc-save-btn').click();await page.locator('[data-zgms=close]').click();
   await page.waitForTimeout(300);assert.match(await page.locator('.zgms-card').innerText(),/Обновлённый навык/);
   // Learn/unlearn and preparation use the existing data structure and limits.
-  await page.locator('[data-group=learned]').click();await page.locator('[data-zgms=menu]').click();await page.locator('[data-zgms=unlearned]').click();await page.waitForTimeout(100);
+  await page.locator('[data-group=learned]').click();await page.locator('[data-filter=unlearned]').click();await page.waitForTimeout(100);
+  assert.equal(await page.locator('.zgms-card').count(),1,'Unlearned entries have their own visible filter');
   await page.locator('.zgms-card').click();assert.ok(await page.locator('[data-zgms=spend]').isDisabled());
   await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=learn]').click();await page.waitForTimeout(150);
   await page.locator('[data-zgms=detail-menu]').click();assert.ok(await page.locator('[data-zgms=equip]').isEnabled());
