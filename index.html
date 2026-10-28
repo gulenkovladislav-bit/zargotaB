@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-28.20';
+var ZG_APP_VERSION = '2026-10-28.24';
 var ZG_APP_CHANGELOG = [
+{v:'2026-10-28.24',notes:'Навыки на телефоне: четыре раздела — личные, изученные, черты и мастерство. Крупные карточки с цветом источника, фильтр экипированных, страницы и подробности по нажатию. PNG-значки происхождения на прозрачном фоне, цветная металлическая вставка и краткие подписи без повторов.',notesUk:'Навички на телефоні: чотири розділи — особисті, вивчені, риси та майстерність. Великі картки з кольором джерела, фільтр споряджених, сторінки та подробиці за натисканням. PNG-значки походження на прозорому тлі, кольорова металева вставка та короткі підписи без повторів.'},
 {v:'2026-10-28.20',notes:'Каждая характеристика получила обводку своего цвета. Цифровая панель заменена крупными кнопками плюс и минус: одно нажатие меняет значение на единицу, лист остаётся неподвижным.',notesUk:'Кожна характеристика отримала обведення свого кольору. Цифрову панель замінено великими кнопками плюс і мінус: одне натискання змінює значення на одиницю, аркуш залишається нерухомим.'},
 {v:'2026-10-28.19',notes:'Характеристики редактируются встроенной цифровой панелью без сдвига экрана. При перелистывании состояний меняются только карточки, заголовок и стрелки остаются на месте.',notesUk:'Характеристики редагуються вбудованою цифровою панеллю без зсуву екрана. Під час гортання станів змінюються лише картки, заголовок і стрілки залишаються на місці.'},
 {v:'2026-10-28.18',notes:'Описание состояния стало компактнее: подробности и действия открываются небольшими кнопками. Убрано обрезание рамок при перелистывании состояний; отравление и щит используют одинаковые прозрачные иконки в карточке и описании.',notesUk:'Опис стану став компактнішим: подробиці та дії відкриваються невеликими кнопками. Прибрано обрізання рамок під час гортання станів; отруєння та щит використовують однакові прозорі іконки в картці й описі.'},
@@ -26727,6 +26728,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="mobile-shell.js?v=2026-10-26.12"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.20">
 <script defer src="character-mobile-overview.js?v=2026-10-28.20"></script>
+<link rel="stylesheet" href="character-mobile-skills.css?v=2026-10-28.23d">
+<script defer src="character-mobile-skills.js?v=2026-10-28.23d"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -42886,6 +42889,7 @@ function pageScrollElement(page) {
 }
 
 function showPage(name) {
+  if(name !== "characters" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   if (name === 'chars') name = 'characters';
   if (name === 'workshop' && !zgGmUnlocked()) {
@@ -49897,6 +49901,7 @@ function saveChars(options) {
       },700);
     }
     if(window.ZargotaCharacterCloud)window.ZargotaCharacterCloud.refresh();
+    if(window.ZargotaMobileSkills)window.ZargotaMobileSkills.refresh();
     return result;
   });
 }
@@ -51401,6 +51406,7 @@ function switchCharTab(tab) {
 }
 
 function showCharView(v) {
+  if(v !== "sheet" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   var sessionEditActive = !!(window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive());
   if (v === 'list' && sessionEditActive) {
@@ -51883,7 +51889,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
   var typeLabel = field==='skills' ? 'НАВЫК' : 'МАСТЕРСТВО / ПОЗИЦИЯ';
   var typeOptions = field==='skills'
     ? ['Активный','Пассивный','Реакция','Ритуал','Боевой','Социальный','Магический']
-    : ['Позиция','Стиль','Пассив','Манёвр','Стойка','Заповедь'];
+    : ['Позиция','Стиль','Пассив','Манёвр','Стойка','Заповедь','Черта','Мастерство'];
 
   var backdrop = document.createElement('div');
   backdrop.id = 'skill-card-backdrop';
@@ -51914,7 +51920,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
         '<div class="sc-editor-grid">' +
           '<div class="sc-editor-field"><div class="sc-editor-label">ТИП</div><div class="sc-select-wrap">' +
             '<select class="sc-type" style="width:100%;padding:9px 8px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box">' +
-              typeOptions.map(function(t){ return '<option value="' + t + '"' + (item.type===t?' selected':'') + '>' + t + '</option>'; }).join('') +
+              typeOptions.map(function(t){ return '<option value="' + t + '"' + (item.type===t?' selected':'') + '>' + (window.ZargotaI18n && window.ZargotaI18n.getLocale()==='uk' ? ({'Черта':'Риса','Мастерство':'Майстерність'}[t]||t) : t) + '</option>'; }).join('') +
             '</select><span aria-hidden="true">⌄</span></div></div>' +
           '<div class="sc-editor-field"><div class="sc-editor-label">ИСПОЛЬЗОВАНИЯ</div>' +
             '<input class="sc-usages" type="text" value="' + escHTML(item.usages||'') + '" style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:4px;background:#0a0704;color:var(--text);font-family:\'Cinzel\',serif;font-size:12px;box-sizing:border-box" placeholder="1 раз в бой"></div>' +
@@ -52063,7 +52069,7 @@ window.openSkillCardPopup = function(charId, field, idx) {
         renderContent();
       };
       popup.querySelector('.sc-cancel-btn').onclick = closeAll;
-      setTimeout(function(){ popup.querySelector('.sc-name').focus(); }, 50);
+      setTimeout(function(){ var input=popup.querySelector('.sc-name');if(input&&input.isConnected)input.focus({preventScroll:true}); }, 50);
     } else {
       // VIEW mode: отображение + CD-виджет с зарядами (если cdMax > 0)
       var viewUkrainian = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' && characterEntryIsReviewed(c);
@@ -52652,6 +52658,7 @@ function renderCharSheet() {
     if (strayCombatPanel) strayCombatPanel.remove();
   }
   if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(isMobileDevice && (window._charSheetTab||"stats") === "stats");
+  if(window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(isMobileDevice && window._charSheetTab === "skills");
   if (!isMobileDevice) {
     var sheetD = document.getElementById('char-sheet');
     // Убираем мобильный tab bar если есть
@@ -53099,6 +53106,7 @@ function renderCharSheet() {
     tabLore = window.ZargotaMobileSheet.fame(c) + tabLore;
     window.ZargotaMobileSheet.setActive(sheetTab === 'stats');
   }
+  if(window.ZargotaMobileSkills) tabSkills = window.ZargotaMobileSkills.render(c);
   var mobileUk = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
   var tabs = [
     {key:'stats',icon:'▥',label:'Характеристики'},
@@ -53112,6 +53120,7 @@ function renderCharSheet() {
   var tabContent = {stats:tabStats,skills:tabSkills,inventory:tabInventory,lore:tabLore}[sheetTab] || tabStats;
   var sheet = document.getElementById('char-sheet');
   if(sheetTab === 'stats' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,tabStats);
+  else if(sheetTab === 'skills' && window.ZargotaMobileSkills) window.ZargotaMobileSheet.updateMarkup(sheet,tabSkills);
   else sheet.innerHTML =
     '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
       header + '<div class="tab-content-wrap">' + tabContent + '</div></div>';
