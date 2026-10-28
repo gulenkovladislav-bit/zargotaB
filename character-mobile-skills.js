@@ -50,12 +50,8 @@
  function sourceLabel(row){return row.spell?row.type:({personal:t('Личный навык','Особиста навичка'),traits:t('Черта','Риса'),mastery:t('Мастерство','Майстерність')})[row.group];}
  function source(row){
   if(row.spell)return '<img src="images/ui/mobile-skills/source-'+(books[row.item.spellType]||'folio')+'-v2.png" alt="" draggable="false">';
-  if(row.group==='personal')return w.ZargotaMobileSheet.navIcon('skills');
-  // Simple silhouettes match the existing navigation; origin is independent of action type.
-  var shape=row.group==='traits'
-   ?'<g fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round"><path d="M8 25c0-10 6-17 16-17s16 7 16 17M14 29v-5c0-7 4-11 10-11s10 4 10 11v7M20 37c2-6 0-8 0-13a4 4 0 0 1 8 0c0 9 0 13-4 18M8 32l-2 5M14 35l-3 7M34 38l-2 5M40 31l-1 6"/></g>'
-   :'<path fill="currentColor" d="m8 9 8-5 17 13-5 8-6-4-13 22-6-4 14-21-6-4-3 1zM36 28l3 6 7 2-7 2-3 7-2-7-7-2 7-2z"/>';
-  return '<svg viewBox="0 0 48 48" aria-hidden="true">'+shape+'</svg>';
+  var kind=({personal:'personal',traits:'traits',mastery:'mastery'})[row.group]||'personal';
+  return '<img src="images/ui/mobile-skills/source-'+kind+'-v1.png" alt="" draggable="false">';
  }
  function recoveryLabel(usage,r){
   // Only remove an already-displayed leading charge count. Keep all limits and timing.

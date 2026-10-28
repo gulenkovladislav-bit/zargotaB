@@ -19,3 +19,11 @@ Built-in ImageGen; original RGBA PNGs copied without modification, alpha preserv
 - source-metal-strip-v1.png — original exec-9bf4a91c-beec-4233-a730-8ab64244dba1.png
 
 Exact generation prompts: `SOURCE_ICON_PROMPTS.md`.
+
+## Group emblems — 2026-10-28
+
+Built-in ImageGen with source-folio-v2.png as material/style reference. Original RGBA PNGs copied without modification.
+
+- source-personal-v1.png — original exec-3c769f09-9515-4bbb-9c84-2ec4514650db.png
+- source-traits-v1.png — original exec-28b37c7e-12ce-40eb-9ea1-7424f1689d34.png
+- source-mastery-v1.png — original exec-f68b6fd6-7e3e-4093-ac63-16f9f6f8b804.png

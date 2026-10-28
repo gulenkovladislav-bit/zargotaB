@@ -20,3 +20,22 @@ Subject: the RED RITUAL SEAL from the bottom-left card. A crimson circular ring 
 ## strip
 
 Use case: stylized-concept. Production game UI asset: ONE horizontal narrow inlaid STEEL STRIP on genuine transparent background. Antique restrained dark fantasy RPG card top border, worn brushed pewter, softly mottled forged metal grain, subtle upper bevel and dark lower edge, NOT shiny chrome/plastic, not luxury. Plain neutral silver/gray metal only, no gold or colored elements, NO symbols, NO text, no frame surrounding it, no glow. Straight strip with short diagonal clipped top corners. Wide landscape canvas, strip stretches nearly full canvas width with 3 percent side padding; actual strip ratio around 18:1, centered vertically with clear transparent space above/below. Entire shape visible. Crisp high resolution, believable hand-painted material. Intended to be tinted blue/red/silver by UI and displayed as a 175px wide by 9px tall card crown. Broad subtle texture that survives small size.
+
+## Additional group emblems
+
+Style reference: source-folio-v2.png. Built-in ImageGen; transparent_background: true.
+
+### personal
+
+Use case: stylized-concept. Generate ONE production PNG source emblem for a dark fantasy RPG mobile skill card. Genuinely transparent background, isolated emblem only with NO enclosing badge, NO text, NO screen. Attached blue book is STYLE reference: match its crafted painterly enamel/pewter surface, subtle shallow 2.5D bevel, delicate worn grain, bold silhouette, high contrast clean edges and soft limited highlights. Do NOT draw a book. Consistent 8 percent padding and 84 percent canvas coverage. Readable at 40 CSS pixels: few bold shapes, no intricate small detail, no pixel art. Muted warm antique brass #c6a16f, dark recesses, restrained polished edges, not luxury gold, no excessive glow. A matching family with that book.
+Subject: PERSONAL ABILITY. One stylized open upturned hand seen in side silhouette, fingers reaching gracefully to the upper right, small floating four-point spark just above the palm. Short wrist at lower left. Sculpted emblem hand, not realistic flesh. Clear negative space separating spark and palm. Broad recognizable hand, limited finger details.
+
+### traits
+
+Use case: stylized-concept. Generate ONE production PNG source emblem for a dark fantasy RPG mobile skill card. Genuinely transparent background, isolated emblem only with NO enclosing badge, NO text, NO screen. Attached blue book is STYLE reference: match its crafted painterly enamel/pewter surface, subtle shallow 2.5D bevel, delicate worn grain, bold silhouette, high contrast clean edges and soft limited highlights. Do NOT draw a book. Consistent 8 percent padding and 84 percent canvas coverage. Readable at 40 CSS pixels: few bold shapes, no intricate small detail, no pixel art. Muted warm antique brass #c6a16f, dark recesses, restrained polished edges, not luxury gold, no excessive glow. A matching family with that book.
+Subject: CHARACTER TRAIT. A single upright oval FINGERPRINT emblem, six broad flowing raised nested ridges curling around a distinctive center, transparent gaps between ridges. Crafted brass lines as a cohesive recognizable fingerprint, no actual skin or finger. Thick enough to read at 40 pixels. Few elegant ridges rather than dozens of hairlines.
+
+### mastery
+
+Use case: stylized-concept. Generate ONE production PNG source emblem for a dark fantasy RPG mobile skill card. Genuinely transparent background, isolated emblem only with NO enclosing badge, NO text, NO screen. Attached blue book is STYLE reference: match its crafted painterly enamel/pewter surface, subtle shallow 2.5D bevel, delicate worn grain, bold silhouette, high contrast clean edges and soft limited highlights. Do NOT draw a book. Consistent 8 percent padding and 84 percent canvas coverage. Readable at 40 CSS pixels: few bold shapes, no intricate small detail, no pixel art. Muted warm antique brass #c6a16f, dark recesses, restrained polished edges, not luxury gold, no excessive glow. A matching family with that book.
+Subject: MASTERY / CRAFT. A single diagonally placed small craftsman's hammer with robust head at upper left and short handle pointing lower right, and one small four-point spark beside its head. Front-facing heraldic graphic emblem, not a realistic weapon or inventory item. Clear sturdy silhouette, broad simple shapes, muted brass/pewter, no ornamental frame.
