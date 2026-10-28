@@ -30,7 +30,7 @@
     current=c.id;toolsHTML=combat;
     var labels={str:['Сила','Сила'],dex:['Ловкость','Спритність'],int:['Интеллект','Інтелект'],cha:['Харизма','Харизма'],per:['Восприятие','Сприйняття'],con:['Выносливость','Витривалість']};
     var colors={str:'#ed7676',dex:'#93d18b',int:'#7dc7f0',cha:'#ebbc68',per:'#c59af0',con:'#d7d4cd'};
-    var stats=Object.keys(labels).map(function(key){var temp=w.readTempBonusTotal(c,key),val=(parseInt((c.stats[key]||{}).cur)||0)+temp,label=t.apply(null,labels[key]);return '<div class="zgmo-stat" style="--tone:'+colors[key]+'">'+w.zgStatIcon(key)+'<label for="zgmo-'+key+'">'+label+'</label><input id="zgmo-'+key+'" data-stat="'+key+'" type="number" inputmode="numeric" aria-label="'+label+'" value="'+val+'" style="color:'+(temp>0?'#86d7a0':temp<0?'#f08f80':'#f1d58b')+'">'+button('temp',t('Временный эффект: ','Тимчасовий ефект: ')+label,'⌛','data-field="'+key+'"'+(temp?' class="has-effect"':''))+'</div>';}).join('');
+    var stats=Object.keys(labels).map(function(key){var temp=w.readTempBonusTotal(c,key),val=(parseInt((c.stats[key]||{}).cur)||0)+temp,label=t.apply(null,labels[key]);return '<div class="zgmo-stat" style="--tone:'+colors[key]+'">'+w.zgStatIcon(key)+'<label for="zgmo-'+key+'">'+label+'</label><input id="zgmo-'+key+'" data-stat="'+key+'" type="number" inputmode="numeric" enterkeyhint="done" aria-label="'+label+'" value="'+val+'" style="color:'+(temp>0?'#86d7a0':temp<0?'#f08f80':'#f1d58b')+'">'+button('temp',t('Временный эффект: ','Тимчасовий ефект: ')+label,'⌛','data-field="'+key+'"'+(temp?' class="has-effect"':''))+'</div>';}).join('');
     var derived=[['ac',t('Броня','Броня'),'⛨','#b3c5ee',Number(c.ac)||0],['initiative',t('Инициатива','Ініціатива'),'ϟ','#f0d16c',Number(c.initiative)||0],['speed',t('Скорость','Швидкість'),'»','#9ed49b',w.parseSpeedNumber(c.speed||'0')]].map(function(x){return button('vital',x[1],'<small>'+x[1]+'</small><span><img class="zgmo-vital-icon" alt="" src="images/ui/stats/'+({ac:'armor',initiative:'initiative',speed:'speed'})[x[0]]+'.png"> '+(x[4]+w.readTempBonusTotal(c,x[0]))+'</span>','data-field="'+x[0]+'" style="--tone:'+x[3]+'"');}).join('');
     var hp=Math.max(0,Math.min(100,c.hpMax?c.hpCur/c.hpMax*100:0)),tmp=w.readTempHpTotal(c);
     return '<div class="zgmo-overview" data-zg-i18n-skip><input type="file" id="sheet-portrait-input" accept="image/*" hidden onchange="handleSheetPortrait('+c.id+',event)"><section class="zgmo-portrait">'+(c.portrait?'<img class="zgmo-portrait-image" src="'+e(c.portrait)+'" alt="'+e(w.characterEntryText(c,c.name))+'">':'')+'<div class="zgmo-top">'+button('back',t('Назад','Назад'),'‹')+'<div>'+button('sync',t('Синхронизация','Синхронізація'),'<span></span>','class="zgmo-sync"')+button('menu',t('Меню персонажа','Меню персонажа'),'⋯')+'</div></div><div class="zgmo-identity"><h1>'+e(w.characterEntryText(c,c.name))+'</h1><div><span>'+e(w.characterEntryText(c,c.race||''))+' · '+e(w.characterEntryText(c,c.klasse||''))+'</span>'+button('level',t('Управление уровнем','Керування рівнем'),t('Ур. ','Рів. ')+(c.level||1)+(c.unspentStatPoints?' ✦'+c.unspentStatPoints:''))+'</div></div></section><div class="zgmo-hp">'+button('damage',t('Убрать 1 HP','Зняти 1 HP'),'−','class="zgmo-damage"')+button('health',t('Здоровье и эффекты','Здоров’я та ефекти'),'<b>♥ '+(c.hpCur||0)+' / '+(c.hpMax||0)+(tmp?' <small>+'+tmp+'</small>':'')+'</b><span class="zgmo-hp-track"><span style="width:'+hp+'%"></span></span>','class="zgmo-hp-value"')+button('heal',t('Восстановить 1 HP','Відновити 1 HP'),'+','class="zgmo-heal"')+'</div><div class="zgmo-derived">'+derived+'</div><section class="zgmo-stats" aria-label="'+t('Характеристики','Характеристики')+'">'+stats+'</section>'+states(c)+'</div>';
@@ -73,6 +73,45 @@
   document.addEventListener('click',function(ev){if(ev.target.closest('#char-sheet-tab-bar'))closeStatus(true);},true);
   document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&document.querySelector('#status-info-popup.zgmo-status-dialog')){closeStatus(false);ev.preventDefault();}});
   function sync(){var source=document.getElementById('character-cloud-indicator'),dest=document.querySelector('.zgmo-sync'),persistent=document.getElementById('persistent-sheet-status');if(!dest)return;if(persistent&&!persistent.hidden){dest.dataset.state='linked';dest.title=persistent.textContent;dest.setAttribute('aria-label',persistent.textContent);}else if(source){dest.dataset.state=source.dataset.state;dest.title=source.title;dest.setAttribute('aria-label',source.getAttribute('aria-label'));}}
+  // Reconcile the existing mobile tree so updates keep images, inputs and navigation alive.
+  function patchNode(node,next){
+    if(node.nodeType!==next.nodeType||node.nodeName!==next.nodeName){node.replaceWith(next.cloneNode(true));return;}
+    if(node.nodeType!==1){if(node.nodeValue!==next.nodeValue)node.nodeValue=next.nodeValue;return;}
+    var focused=node===document.activeElement;
+    Array.from(node.attributes).forEach(function(a){if(!next.hasAttribute(a.name))node.removeAttribute(a.name);});
+    Array.from(next.attributes).forEach(function(a){if(!(focused&&a.name==='value')&&node.getAttribute(a.name)!==a.value)node.setAttribute(a.name,a.value);});
+    if(node.tagName==='INPUT'&&!focused&&node.type!=='file'&&node.value!==next.value)node.value=next.value;
+    var oldChildren=Array.from(node.childNodes),newChildren=Array.from(next.childNodes);
+    newChildren.forEach(function(child,i){if(oldChildren[i])patchNode(oldChildren[i],child);else node.appendChild(child.cloneNode(true));});
+    oldChildren.slice(newChildren.length).forEach(function(child){child.remove();});
+  }
+  function updateMarkup(container,html){
+    var template=document.createElement('template');template.innerHTML=html;
+    var children=Array.from(container.childNodes),next=Array.from(template.content.childNodes);
+    next.forEach(function(node,i){if(children[i])patchNode(children[i],node);else container.appendChild(node.cloneNode(true));});
+    children.slice(next.length).forEach(function(node){node.remove();});
+  }
+  function editingInput(){var el=document.activeElement;return el&&el.matches('input:not([type=file]),textarea')&&el.closest('.zgmo-overview,#zgmo-modal,#quick-temp-popup,#level-manager')?el:null;}
+  function keepEditorVisible(){
+    var el=editingInput();document.body.classList.toggle('zgmo-number-editing',!!el&&mobile.matches);
+    if(!el)return;
+    var root=el.closest('.zgmo-overview');
+    if(root){var target=el.closest('.zgmo-stat')||el,r=target.getBoundingClientRect(),bounds=root.getBoundingClientRect();if(r.bottom>bounds.bottom-16)root.scrollTop+=r.bottom-bounds.bottom+16;else if(r.top<bounds.top+12)root.scrollTop+=r.top-bounds.top-12;}
+  }
+  var editingTimer;
+  function scheduleEditor(){requestAnimationFrame(keepEditorVisible);clearTimeout(editingTimer);editingTimer=setTimeout(keepEditorVisible,180);}
+  document.addEventListener('focusin',scheduleEditor);
+  document.addEventListener('focusout',scheduleEditor);
+  if(w.visualViewport){w.visualViewport.addEventListener('resize',scheduleEditor);w.visualViewport.addEventListener('scroll',scheduleEditor);}
+  w.addEventListener('resize',scheduleEditor);
+  document.addEventListener('keydown',function(ev){if(ev.key==='Enter'&&editingInput()===ev.target&&ev.target.tagName==='INPUT'){ev.preventDefault();ev.target.blur();}});
+  function animateHP(c,root){
+    var temp=w.readTempHpTotal(c),delta=(c.hpCur+temp)-(previousHP.value+previousHP.temp),percent=Math.max(0,Math.min(100,c.hpMax?c.hpCur/c.hpMax*100:0));
+    var track=root.querySelector('.zgmo-hp-track>span'),value=root.querySelector('.zgmo-hp-value');
+    if(track&&track.animate){track.getAnimations().forEach(function(a){a.cancel();});track.animate([{width:previousHP.percent+'%'},{width:percent+'%'}],{duration:480,easing:'cubic-bezier(.2,.8,.2,1)'});}
+    if(value&&value.animate){value.getAnimations().forEach(function(a){a.cancel();});value.animate([{filter:'brightness(1)',transform:'scale(1)'},{filter:'brightness(1.6)',transform:'scale(.97)',offset:.25},{filter:'brightness(1)',transform:'scale(1)'}],{duration:480});}
+    if(delta){var old=root.querySelector('.zgmo-hp-change');if(old)old.remove();var label=document.createElement('span');label.className='zgmo-hp-change';label.textContent=(delta>0?'+':'−')+Math.abs(delta);label.style.color=delta>0?'#a5d691':'#ff8c80';label.setAttribute('aria-hidden','true');root.querySelector('.zgmo-hp').appendChild(label);var a=label.animate([{opacity:0,transform:'translate(-50%,4px)'},{opacity:1,transform:'translate(-50%,-4px)',offset:.2},{opacity:0,transform:'translate(-50%,-24px)'}],{duration:800});a.onfinish=function(){label.remove();};}
+  }
   function mounted(){
     sync();
     var page=document.getElementById('page-characters');
@@ -80,15 +119,10 @@
     var c=character(),view=String(current)+':'+(w._charSheetTab||'stats'),root=document.querySelector('.zgmo-overview'),nav=document.querySelector('.zgmo-nav');
     var reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;
     if(view!==lastView){if(root)root.classList.add('zgmo-enter');if(nav)nav.classList.add('zgmo-nav-enter');}
-    else if(root&&c&&previousHP&&previousHP.id===c.id&&previousHP.value!==c.hpCur&&!reduced){
-      var track=root.querySelector('.zgmo-hp-track>span');
-      if(track&&track.animate)track.animate([{width:previousHP.percent+'%'},{width:track.style.width}],{duration:320,easing:'cubic-bezier(.2,.8,.2,1)'});
-      var value=root.querySelector('.zgmo-hp-value');
-      if(value&&value.animate)value.animate([{filter:'brightness(1.55)'},{filter:'brightness(1)'}],{duration:350});
-    }
+    else if(root&&c&&previousHP&&previousHP.id===c.id&&(previousHP.value!==c.hpCur||previousHP.temp!==w.readTempHpTotal(c))&&!reduced)animateHP(c,root);
     lastView=view;
-    if(c)previousHP={id:c.id,value:c.hpCur,percent:Math.max(0,Math.min(100,c.hpMax?c.hpCur/c.hpMax*100:0))};
-    var modal=document.querySelector('#zgmo-modal[data-tools] .zgmo-modal-body');if(modal)modal.innerHTML=toolsHTML;}
+    if(c)previousHP={id:c.id,value:c.hpCur,temp:w.readTempHpTotal(c),percent:Math.max(0,Math.min(100,c.hpMax?c.hpCur/c.hpMax*100:0))};
+    var modal=document.querySelector('#zgmo-modal[data-tools] .zgmo-modal-body');if(modal)updateMarkup(modal,toolsHTML);}
   function action(name,el){var c=character();if(name==='close'){close();return;}if(!c)return;
     if(name==='back'){setActive(false);w.zgCharBack();}
     else if(name==='temp')w.openQuickTemp(c.id,el.dataset.field);
@@ -110,6 +144,12 @@
   document.addEventListener('keydown',function(ev){var m=document.getElementById('zgmo-modal');if(!m)return;if(ev.key==='Escape'){close();ev.preventDefault();}if(ev.key==='Tab'){var a=Array.from(m.querySelectorAll('button,input,select,textarea,[tabindex="0"]')).filter(function(x){return !x.disabled&&x.getClientRects().length;});if(!a.length)return;var first=a[0],last=a[a.length-1];if(ev.shiftKey&&document.activeElement===first){last.focus();ev.preventDefault();}else if(!ev.shiftKey&&document.activeElement===last){first.focus();ev.preventDefault();}}});
   // Observe only the existing sync status; do not create another connection.
   var observer=new MutationObserver(function(records){if(records.some(function(r){return r.target.id==='character-cloud-indicator'||r.target.id==='persistent-sheet-status'||r.target.closest&&r.target.closest('#persistent-sheet-status');}))sync();});
+  var popupObserver=new MutationObserver(function(records){
+    if(!mobile.matches)return;
+    records.forEach(function(record){Array.from(record.addedNodes).forEach(function(node){if(node.nodeType!==1)return;if(node.id==='quick-temp-popup'||node.id==='level-manager'){node.classList.add('zgmo-aux-dialog');node.querySelectorAll('input[type=number]').forEach(function(input){input.setAttribute('inputmode','numeric');input.setAttribute('enterkeyhint','done');});}});});
+    if(document.body.classList.contains('zgmo-number-editing')&&!editingInput())scheduleEditor();
+  });
+  popupObserver.observe(document.body,{childList:true});
   observer.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['data-state','title','hidden']});
   // Simple silhouettes from the approved diamond navigation; color follows selection.
   function navIcon(key){
@@ -122,5 +162,5 @@
     return '<svg class="zgmo-nav-icon" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true" focusable="false" fill="currentColor">'+(shapes[key]||shapes.stats)+'</svg>';
   }
   var mobile=matchMedia('(max-width: 899px)');mobile.addEventListener('change',function(){if(w.charView==='sheet'&&document.getElementById('page-characters').classList.contains('active')){w.renderCharSheet();}else setActive(false);});
-  w.ZargotaMobileSheet={render:render,fame:fame,navIcon:navIcon,setActive:setActive,mounted:mounted,openTools:function(){action('health');},openMenu:function(){action('menu');}};
+  w.ZargotaMobileSheet={updateMarkup:updateMarkup,render:render,fame:fame,navIcon:navIcon,setActive:setActive,mounted:mounted,openTools:function(){action('health');},openMenu:function(){action('menu');}};
 })(window);

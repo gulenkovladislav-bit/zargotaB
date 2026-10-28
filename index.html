@@ -10415,8 +10415,9 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-28.15';
+var ZG_APP_VERSION = '2026-10-28.16';
 var ZG_APP_CHANGELOG = [
+{v:'2026-10-28.16',notes:'Мобильный лист: портрет центрируется, ввод числа остаётся виден над клавиатурой. Изменение HP анимируется без перезагрузки иконок и вкладок; окна бонусов открываются плавно.',notesUk:'Мобільний аркуш: портрет центрується, введення числа залишається видимим над клавіатурою. Зміна HP анімується без перезавантаження іконок і вкладок; вікна бонусів відкриваються плавно.'},
 {v:'2026-10-28.15',notes:'Новый мобильный лист персонажа: портрет во всю ширину, характеристики по центру, компактные состояния и четыре вкладки. Выбранная вкладка увеличена и мягко светится, без подчёркивания.',notesUk:'Новий мобільний аркуш персонажа: портрет на всю ширину, характеристики по центру, компактні стани й чотири вкладки. Вибрану вкладку збільшено й м’яко підсвічено, без підкреслення.'},
   {v:'2026-10-26.13',notes:'На телефоне синхронизация листов свёрнута в круглый индикатор справа от заголовка персонажей. Состояние подключения и действия открываются по нажатию.',notesUk:'На телефоні синхронізацію аркушів згорнуто в круглий індикатор праворуч від заголовка персонажів. Стан підключення та дії відкриваються після натискання.'},
   {v:'2026-10-26.12',notes:'Убрано растягивание страниц за верхнюю и нижнюю границу при свайпе: персонажи, каталог, бестиарий, товары, мануал и энциклопедия. Обычная прокрутка сохранена.',notesUk:'Прибрано розтягування сторінок за верхню та нижню межу під час свайпу: персонажі, каталог, бестіарій, товари, мануал та енциклопедія. Звичайне прокручування збережено.'},
@@ -26720,8 +26721,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 </script>
 <link rel="stylesheet" href="mobile-shell.css?v=2026-10-26.12">
 <script defer src="mobile-shell.js?v=2026-10-26.12"></script>
-<link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.15">
-<script defer src="character-mobile-overview.js?v=2026-10-28.13"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.16">
+<script defer src="character-mobile-overview.js?v=2026-10-28.16"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -53106,7 +53107,8 @@ function renderCharSheet() {
   }).join('');
   var tabContent = {stats:tabStats,skills:tabSkills,inventory:tabInventory,lore:tabLore}[sheetTab] || tabStats;
   var sheet = document.getElementById('char-sheet');
-  sheet.innerHTML = sheetTab === 'stats' && window.ZargotaMobileSheet ? tabStats :
+  if(sheetTab === 'stats' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,tabStats);
+  else sheet.innerHTML =
     '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
       header + '<div class="tab-content-wrap">' + tabContent + '</div></div>';
   // Применение ambient-свечения по уровню славы
@@ -53122,12 +53124,11 @@ function renderCharSheet() {
 
   // Tab bar — FIXED в body
   var oldBar = document.getElementById('char-sheet-tab-bar');
-  if (oldBar) oldBar.remove();
-  var tabBarEl = document.createElement('div');
+  var tabBarEl = oldBar || document.createElement('div');
   tabBarEl.id = 'char-sheet-tab-bar';
   tabBarEl.className = 'zgmo-nav';
-  tabBarEl.innerHTML = tabBarHTML;
-  if(charView === 'sheet' && document.getElementById('page-characters').classList.contains('active')) document.body.appendChild(tabBarEl);
+  window.ZargotaMobileSheet.updateMarkup(tabBarEl,tabBarHTML);
+  if(charView === 'sheet' && document.getElementById('page-characters').classList.contains('active')) { if(!tabBarEl.isConnected) document.body.appendChild(tabBarEl); }
   if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.mounted();
 
   setTimeout(function() {
