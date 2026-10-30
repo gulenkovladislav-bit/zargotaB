@@ -10415,8 +10415,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-28.31';
+var ZG_APP_VERSION = '2026-10-30.1';
 var ZG_APP_CHANGELOG = [
+{v:'2026-10-30.1',notes:'Мобильный лор: исправлены типы карт и записей, сброс поиска и фильтров; добавлены предпросмотр и удаление вложения, возврат от увеличенного изображения к записи. Старые задания сохраняют свой тип.',notesUk:'Мобільний лор: виправлено типи мап і записів, скидання пошуку й фільтрів; додано попередній перегляд і видалення вкладення, повернення від збільшеного зображення до запису. Старі завдання зберігають свій тип.'},
+{v:'2026-10-29.1',notes:'Лор на телефоне: Обо мне, Люди, Письма. Портрет, путь и история с древом связей; поиск знакомых и фильтры по региону и отношениям. Записи, письма и изображения сохраняются в существующем листе.',notesUk:'Лор на телефоні: Про мене, Люди, Листи. Портрет, шлях та історія з деревом зв’язків; пошук знайомих і фільтри за регіоном та стосунками. Записи, листи й зображення зберігаються в наявному аркуші.'},
 {v:'2026-10-28.31',notes:'Инвентарь: подсветка вкладок «Сумка» и «Снаряжение» приведена к стилю навыков — тёмный центр и мягкое свечение по краю.',notesUk:'Інвентар: підсвічування вкладок «Сумка» та «Спорядження» узгоджено зі стилем навичок — темний центр і м’яке світіння вздовж краю.'},
 {v:'2026-10-28.30',notes:'Мобильный инвентарь: сетка предметов, сумка и снаряжение, монеты с кнопками плюс/минус, страницы и подробности по нажатию. Редактирование и удаление убраны в меню предмета.',notesUk:'Мобільний інвентар: сітка предметів, сумка та спорядження, монети з кнопками плюс/мінус, сторінки й подробиці за натисканням. Редагування та видалення перенесено до меню предмета.'},
 {v:'2026-10-28.29',notes:'Навыки: записи из каталога разделены на экипированные, изученные и неизученные. Все три фильтра доступны сразу; добавление записи не изучает её автоматически.',notesUk:'Навички: записи з каталогу розділено на споряджені, вивчені та невивчені. Усі три фільтри доступні одразу; додавання запису не вивчає його автоматично.'},
@@ -26736,6 +26738,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-mobile-overview.js?v=2026-10-28.30"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-10-28.31">
 <script defer src="character-mobile-inventory.js?v=2026-10-28.30"></script>
+<link rel="stylesheet" href="character-mobile-lore.css?v=2026-10-30.1">
+<script defer src="character-mobile-lore.js?v=2026-10-30.1"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-10-28.28">
 <script defer src="character-mobile-skills.js?v=2026-10-28.29"></script>
 </head>
@@ -42898,6 +42902,7 @@ function pageScrollElement(page) {
 
 function showPage(name) {
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
+  if(name !== "characters" && window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(false);
   if(name !== "characters" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   if (name === 'chars') name = 'characters';
@@ -51416,6 +51421,7 @@ function switchCharTab(tab) {
 
 function showCharView(v) {
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
+  if(v !== "sheet" && window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(false);
   if(v !== "sheet" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   var sessionEditActive = !!(window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive());
@@ -52672,6 +52678,7 @@ function renderCharSheet() {
   }
   if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(isMobileDevice && (window._charSheetTab||"stats") === "stats");
   if(window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(isMobileDevice && window._charSheetTab === "skills");
+  if(window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(isMobileDevice && window._charSheetTab === "lore");
   if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(isMobileDevice && window._charSheetTab === "inventory");
   if (!isMobileDevice) {
     var sheetD = document.getElementById('char-sheet');
@@ -53135,6 +53142,7 @@ function renderCharSheet() {
   var sheet = document.getElementById('char-sheet');
   if(sheetTab === 'stats' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,tabStats);
   else if(sheetTab === 'skills' && window.ZargotaMobileSkills) window.ZargotaMobileSheet.updateMarkup(sheet,tabSkills);
+  else if(sheetTab === 'lore' && window.ZargotaMobileLore) window.ZargotaMobileSheet.updateMarkup(sheet,window.ZargotaMobileLore.render(c));
   else if(sheetTab === 'inventory' && window.ZargotaMobileSheet) window.ZargotaMobileSheet.updateMarkup(sheet,window.ZargotaMobileSheet.inventory(c,tabInventory));
   else sheet.innerHTML =
     '<div' + characterEntrySkipAttr(c) + ' style="display:flex;flex-direction:column;height:100%;background:#0a0704;overflow:hidden">' +
