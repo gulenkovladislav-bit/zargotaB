@@ -10415,8 +10415,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-10-30.1';
+var ZG_APP_VERSION = '2026-11-04.3';
 var ZG_APP_CHANGELOG = [
+{v:'2026-11-04.3',notes:'В карусели героев обновлены кадрирование портретов, рамки и подсветка выбранной миниатюры. Увеличены имя и значения характеристик.',notesUk:'У каруселі героїв оновлено кадрування портретів, рамки та підсвічування вибраної мініатюри. Збільшено ім’я та значення характеристик.'},
+{v:'2026-11-04.2',notes:'На телефоне героев можно выбирать стрелками, свайпом или по миниатюре. На портрете виден назначенный путь, под ним — здоровье и раскрываемые характеристики.',notesUk:'На телефоні героїв можна вибирати стрілками, свайпом або за мініатюрою. На портреті видно призначений шлях, під ним — здоров’я та характеристики, які можна розгорнути.'},
 {v:'2026-10-30.1',notes:'Мобильный лор: исправлены типы карт и записей, сброс поиска и фильтров; добавлены предпросмотр и удаление вложения, возврат от увеличенного изображения к записи. Старые задания сохраняют свой тип.',notesUk:'Мобільний лор: виправлено типи мап і записів, скидання пошуку й фільтрів; додано попередній перегляд і видалення вкладення, повернення від збільшеного зображення до запису. Старі завдання зберігають свій тип.'},
 {v:'2026-10-29.1',notes:'Лор на телефоне: Обо мне, Люди, Письма. Портрет, путь и история с древом связей; поиск знакомых и фильтры по региону и отношениям. Записи, письма и изображения сохраняются в существующем листе.',notesUk:'Лор на телефоні: Про мене, Люди, Листи. Портрет, шлях та історія з деревом зв’язків; пошук знайомих і фільтри за регіоном та стосунками. Записи, листи й зображення зберігаються в наявному аркуші.'},
 {v:'2026-10-28.31',notes:'Инвентарь: подсветка вкладок «Сумка» и «Снаряжение» приведена к стилю навыков — тёмный центр и мягкое свечение по краю.',notesUk:'Інвентар: підсвічування вкладок «Сумка» та «Спорядження» узгоджено зі стилем навичок — темний центр і м’яке світіння вздовж краю.'},
@@ -26739,6 +26741,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-10-28.31">
 <script defer src="character-mobile-inventory.js?v=2026-10-28.30"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-10-30.1">
+<link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-04.3">
+<script defer src="character-mobile-roster.js?v=2026-11-04.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-10-30.1"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-10-28.28">
 <script defer src="character-mobile-skills.js?v=2026-10-28.29"></script>
@@ -38073,6 +38077,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       <button class="back-to-home" id="chars-btn-home" onclick="showPage(&#39;home&#39;)">← На Главную</button>
       <button class="back-to-home" id="chars-btn-back" onclick="zgCharBack()" style="display:none">← Назад</button>
       <span class="page-back-title" id="chars-back-title">Персонажи</span>
+      <details class="roster-menu"><summary>⋯</summary><button type="button" data-roster-action="import"></button></details>
     </div>
     <div class="page-inner">
 
@@ -51430,6 +51435,10 @@ function showCharView(v) {
     return;
   }
   charView = v;
+  var rosterPage=document.getElementById('page-characters');
+  rosterPage.toggleAttribute('data-roster-list',v==='list');
+  if(v!=='sheet') document.getElementById('char-sheet-tab-bar')?.remove();
+  rosterPage.querySelector('.roster-menu').open=false;
   document.getElementById('char-list-view').style.display   = v === 'list'   ? 'block' : 'none';
   document.getElementById('char-sheet-view').style.display  = v === 'sheet'  ? 'block' : 'none';
   document.getElementById('char-editor-view').style.display = v === 'editor' ? 'block' : 'none';
@@ -51479,6 +51488,7 @@ function renderCharList() {
   var type = charTab === 'heroes' ? 'hero' : 'npc';
   var filtered = characters.filter(function(c){ return c.type === type; });
   var grid = document.getElementById('char-grid');
+  if(window.ZargotaMobileRoster && window.ZargotaMobileRoster.render(grid,filtered))return;
   var networkSnapshot = window.ZargotaRooms && typeof window.ZargotaRooms.getSnapshot === 'function'
     ? window.ZargotaRooms.getSnapshot()
     : null;
