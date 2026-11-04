@@ -13,7 +13,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%94%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="zargota-i18n.css?v=2026-08-26.1">
 <link rel="stylesheet" href="arena-v2-workspace.css?v=2026-09-01.34">
-  <script src="zargota-i18n.js?v=2026-10-28.1"></script>
+  <script src="zargota-i18n.js?v=2026-11-04.6"></script>
   <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
 <script src="zargota-i18n-characters-uk.js?v=2026-08-27.3"></script>
 <script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
@@ -10415,7 +10415,7 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-04.4';
+var ZG_APP_VERSION = '2026-11-04.6';
 var ZG_APP_CHANGELOG = [
   {v:'2026-11-04.4',notes:'На телефоне «Отправиться в приключение» открывает создание игры или вход по коду. Мастерская доступна на компьютере.',notesUk:'На телефоні «Вирушити в пригоду» відкриває створення гри або вхід за кодом. Майстерня доступна на комп’ютері.'},
 {v:'2026-11-04.3',notes:'В карусели героев обновлены кадрирование портретов, рамки и подсветка выбранной миниатюры. Увеличены имя и значения характеристик.',notesUk:'У каруселі героїв оновлено кадрування портретів, рамки та підсвічування вибраної мініатюри. Збільшено ім’я та значення характеристик.'},
@@ -26745,7 +26745,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 })();
 </script>
 <link rel="stylesheet" href="mobile-shell.css?v=2026-11-04.4">
-<script defer src="mobile-shell.js?v=2026-10-26.12"></script>
+<link rel="stylesheet" href="home-mobile-atlas.css?v=2026-11-04.6">
+<script defer src="mobile-shell.js?v=2026-11-04.6"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-10-28.28">
 <script defer src="character-mobile-overview.js?v=2026-10-28.30"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-10-28.31">
@@ -29652,6 +29653,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
       <button type="button" class="active" data-zg-locale="ru" aria-pressed="true" onclick="ZargotaI18n.setLocale('ru')">RU</button>
       <button type="button" data-zg-locale="uk" aria-pressed="false" onclick="ZargotaI18n.setLocale('uk')">UA</button>
     </div>
+    <button type="button" id="home-atlas-version" onclick="zgShowVersionInfo()">Версия</button>
     <div id="zg-irl-session-bridge" class="zg-irl-session-bridge" hidden>
       <button type="button" class="zg-irl-session-return" onclick="zgIrlSessionReturn()">✦ Вернуться к игре</button>
       <button type="button" class="zg-irl-session-end" onclick="zgIrlSessionEndRequest()" title="Завершить реальную сессию" aria-label="Завершить реальную сессию">×</button>
@@ -30323,6 +30325,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
 
   <!-- ══ HOME PAGE ══ -->
   <div class="page active particles-live" id="page-home">
+    <div class="home-mobile-backdrop" aria-hidden="true"></div>
     <div class="home-particles" aria-hidden="true">
       <span class="home-particle" style="--left: 11%; --size: 4px; --dur: 9.12s; --delay: 2.2s; --drift-x: -32px; --tilt: 18deg; --rise: 92px; --spark-mid: rgba(255,176,88,0.86); --spark-outer: rgba(230,92,56,0.5); --launch-delay: 4.25s;"></span>
       <span class="home-particle" style="--left: 22%; --size: 4.5px; --dur: 7.68s; --delay: 4.7s; --drift-x: -36px; --tilt: 20deg; --rise: 104px; --spark-mid: rgba(255,198,96,0.88); --spark-outer: rgba(255,132,48,0.54); --launch-delay: 8.74s;"></span>
@@ -30341,6 +30344,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       <span class="home-particle" style="--left: 90%; --size: 5.5px; --dur: 8.48s; --delay: 12.1s; --drift-x: 34px; --tilt: -20deg; --rise: 76px; --spark-mid: rgba(255,194,96,0.89); --spark-outer: rgba(255,146,58,0.55); --launch-delay: 8.64s;"></span>
     </div>
     <div class="home-content">
+    <button type="button" class="home-mobile-wordmark" aria-label="Заргота — меню и настройки" aria-expanded="false" aria-controls="nav">Заргота</button>
     <div class="home-title">Мир Зарготы</div>
     <div class="home-subtitle">Панель Мастера · Инструменты кампании</div>
     <div class="home-quick-actions">
@@ -30364,11 +30368,14 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       </button>
 
       <!-- Персонажи — доступен -->
+      <div class="home-character-cell">
       <button type="button" class="home-card available" data-target-page="characters" style="--card-accent:#7a9ae0">
-        <span class="home-card-icon"><img src="images/ui/main-menu/characters.png" alt="" aria-hidden="true"></span>
+        <span class="home-card-icon"><picture><source media="(max-width: 700px) and (orientation: portrait)" srcset="images/ui/main-menu/home-helm.webp"><img src="images/ui/main-menu/characters.png" alt=""></picture></span>
         <div class="home-card-title">Персонажи</div>
         <div class="home-card-desc">Листы игроков. Характеристики, HP, статусы, навыки и арена.</div>
       </button>
+      <button type="button" class="home-own-sheet" data-pc-action="own-sheet"><span>Открыть свой лист</span> <span aria-hidden="true">›</span></button>
+      </div>
 
       <!-- Арена и Снаряжение -->
       <button type="button" class="home-card available" data-target-page="arena" style="--card-accent:#b88442; cursor:pointer">
@@ -57779,6 +57786,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var target = card.getAttribute('data-target-page');
     var go = function() {
       if (!target) return;
+      if (target === 'characters') charView = 'list';
       showPage(target);
     };
     bindHomeCardPreciseTap(card, go);
@@ -74976,6 +74984,9 @@ global.getStatusCombatMods = function(combatant) {
   window.openZgTestPanel = openTestPanel;
   window.zgRunTests = runAllTests;
 })();
+
+// Add current releases after historical notes have finished building.
+ZG_APP_CHANGELOG.unshift({v:'2026-11-04.6',notes:'Обновлена главная на телефоне. Под шлемом в разделе «Персонажи» можно открыть свой лист. Нажатие на название «Заргота» открывает меню настроек.',notesUk:'Оновлено головну сторінку на телефоні. Під шоломом у розділі «Персонажі» можна відкрити свій аркуш. Натискання на назву «Заргота» відкриває меню налаштувань.'});
 </script>
 
 

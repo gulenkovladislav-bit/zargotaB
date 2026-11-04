@@ -1,0 +1,281 @@
+/* The desktop menu keeps its original six direct grid items for layout. */
+#page-home .home-character-cell { display: contents; }
+#page-home .home-card-icon picture {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+#home-atlas-version,
+#page-home .home-mobile-wordmark,
+#page-home .home-own-sheet,
+#page-home .home-mobile-backdrop { display: none; }
+
+@media (max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse) {
+  body.home-atlas-active {
+    --atlas-brand-height: clamp(44px, 6.2vh, 62px);
+  }
+  body.home-atlas-active #main {
+    top: var(--zg-viewport-top) !important;
+    height: var(--zg-viewport-height);
+  }
+  body.home-atlas-active:not(.home-atlas-tools-open) #header { display: none; }
+  body.home-atlas-active.home-atlas-tools-open #header {
+    top: calc(var(--zg-viewport-top) + env(safe-area-inset-top, 0px) + var(--atlas-brand-height));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    width: fit-content;
+    max-width: calc(100% - 16px);
+    height: auto;
+    min-height: 44px;
+    margin-inline: auto;
+    padding: 5px 9px;
+    justify-content: center;
+    border: 1px solid #68583e;
+    border-radius: 4px;
+    background: #17140f;
+    box-shadow: 0 6px 22px #0009;
+  }
+  body.home-atlas-active.home-atlas-tools-open #header #logo { display: none; }
+  body.home-atlas-active.home-atlas-tools-open #home-atlas-version {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 6px;
+    border: 0;
+    background: transparent;
+    color: #dbccad;
+    font: 13px/1.2 Georgia, serif;
+    cursor: pointer;
+  }
+  body.home-atlas-active.home-atlas-tools-open #header #nav {
+    flex-shrink: 1;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  :root body #main > #page-home {
+    --atlas-ink: #eddfc6;
+    --atlas-gold: #d9a650;
+    --atlas-rule: #655942;
+    --atlas-sheet-height: clamp(30px, 4.75vh, 44px);
+    --atlas-art-size: clamp(64px, min(36vw, 17.6vh), 178px);
+    padding: env(safe-area-inset-top, 0px) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    isolation: isolate;
+    background: radial-gradient(ellipse at 50% 48%, #191510 0, #110f0c 49%, #0c0b09 86%);
+  }
+  #page-home .home-mobile-backdrop {
+    display: block;
+    position: absolute;
+    inset: auto 0 0;
+    height: 28%;
+    /* Anchor the castle on the right when a tall phone crops the wide valley. */
+    background: url('images/ui/main-menu/home-valley.webp') 82% 70% / cover no-repeat;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 38%);
+    mask-image: linear-gradient(to bottom, transparent, #000 38%);
+    pointer-events: none;
+  }
+  #page-home .home-particles { visibility: hidden; }
+  #page-home .home-particle,
+  #page-home .home-particles::before,
+  #page-home .home-particles::after { animation: none; }
+  #page-home .home-content {
+    max-width: 560px;
+    grid-template-rows: var(--atlas-brand-height) minmax(44px, 6.2%) minmax(0, 1fr) minmax(44px, 21%);
+    grid-template-columns: minmax(0, 1fr);
+    align-content: stretch;
+    align-items: center;
+    gap: 0;
+  }
+  #page-home .home-mobile-wordmark,
+  #page-home .home-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: center;
+    gap: clamp(10px, 3.8vw, 22px);
+    color: var(--atlas-ink);
+    text-transform: none;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 400;
+  }
+  #page-home .home-mobile-wordmark {
+    padding: 0 10px;
+    min-height: 44px;
+    font-size: clamp(14px, 3.7vw, 22px);
+    line-height: 1;
+    letter-spacing: .24em;
+    cursor: pointer;
+    appearance: none;
+    border: 0;
+    background: none;
+  }
+  #page-home .home-mobile-wordmark::before,
+  #page-home .home-mobile-wordmark::after,
+  #page-home .home-footer::before,
+  #page-home .home-footer::after {
+    content: '';
+    width: clamp(30px, 12vw, 68px);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #796747);
+  }
+  #page-home .home-mobile-wordmark::after,
+  #page-home .home-footer::after { transform: rotate(180deg); }
+  #page-home .home-quick-actions { align-self: stretch; }
+  #page-home .home-adventure-btn {
+    align-self: stretch;
+    justify-content: center;
+    gap: 0;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 0 5px;
+    color: var(--atlas-ink);
+    font: 400 clamp(18px, 5.75vw, 33px)/1.16 Georgia, 'Times New Roman', serif;
+    letter-spacing: .012em;
+    text-shadow: 0 2px 9px #000b;
+  }
+  #page-home .home-adventure-btn::before {
+    top: auto;
+    bottom: 5px;
+    left: 50%;
+    width: clamp(44px, 17vw, 76px);
+    height: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, transparent, var(--atlas-gold), transparent);
+    animation: none;
+  }
+  #page-home .home-adventure-btn :is(.orn-line, .sw, .orn-star) { display: none; }
+
+  #page-home .home-grid {
+    position: relative;
+    align-self: stretch;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.13fr) minmax(0, 1fr);
+    gap: 0;
+    margin-top: min(1.2vh, 10px);
+    background: linear-gradient(0deg, transparent, var(--atlas-rule) 15%, var(--atlas-rule) 85%, transparent) center / 1px 100% no-repeat;
+  }
+  #page-home .home-grid::before,
+  #page-home .home-grid::after {
+    content: '';
+    position: absolute;
+    inset-inline: 3%;
+    top: 31.95%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--atlas-rule) 12%, var(--atlas-rule) 46%, transparent 50%, var(--atlas-rule) 54%, var(--atlas-rule) 88%, transparent);
+    pointer-events: none;
+  }
+  #page-home .home-grid::after { top: 68.05%; }
+
+  #page-home .home-grid .home-card {
+    width: 100%;
+    min-height: 0;
+    min-width: 0;
+    padding: 3px 3px 5px;
+    gap: clamp(2px, .55vh, 8px);
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+    touch-action: manipulation;
+  }
+  #page-home .home-grid .home-card::before { content: none; }
+  #page-home .home-card-icon {
+    width: var(--atlas-art-size);
+    height: var(--atlas-art-size);
+    min-height: 0;
+    flex: 0 1 auto;
+  }
+  #page-home .home-card-icon img {
+    min-height: 0;
+    height: 100%;
+    transform: none;
+    filter: brightness(1.08) drop-shadow(0 2px 3px #0008);
+    transition: transform .22s ease-out, filter .22s ease-out;
+  }
+  #page-home .home-card:active .home-card-icon img {
+    transform: scale(.96);
+    filter: brightness(1.22) drop-shadow(0 1px 2px #0008);
+  }
+  #page-home .home-card-title {
+    color: var(--atlas-ink);
+    font: 400 clamp(16px, 4.9vw, 27px)/1.13 Georgia, 'Times New Roman', serif;
+    letter-spacing: .01em;
+    overflow-wrap: anywhere;
+  }
+  #page-home .home-character-cell {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) var(--atlas-sheet-height);
+    min-height: 0;
+    min-width: 0;
+  }
+  #page-home .home-grid .home-character-cell > .home-card {
+    justify-content: end;
+    padding-bottom: 0;
+  }
+  #page-home .home-grid > .home-card[data-target-page="arena"] {
+    justify-content: end;
+    padding-bottom: var(--atlas-sheet-height);
+  }
+  #page-home .home-own-sheet {
+    display: block;
+    align-self: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 0 2px;
+    border: 0;
+    background: none;
+    color: #e1cfae;
+    font: italic 400 clamp(12px, 3.25vw, 18px)/1.14 Georgia, 'Times New Roman', serif;
+    text-align: center;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  #page-home .home-own-sheet:active,
+  #page-home .home-mobile-wordmark[aria-expanded="true"] { color: #ffdb8f; }
+  #page-home :is(.home-mobile-wordmark, .home-own-sheet, .home-card, .home-adventure-btn):focus-visible {
+    outline: 2px solid var(--atlas-gold);
+    outline-offset: -3px;
+  }
+  #page-home .mobile-arena-note,
+  #page-home .home-card-desc { display: none; }
+  #page-home .home-footer {
+    align-self: end;
+    padding-bottom: 2px;
+    font-size: clamp(11px, 3.05vw, 16px);
+    line-height: 1.4;
+    letter-spacing: .13em;
+    text-shadow: 0 1px 4px #000, 0 1px 12px #000;
+  }
+}
+
+@media (max-width: 700px) and (max-height: 575px) {
+  #page-home .home-content { grid-template-rows: 44px 44px minmax(0, 1fr) 11%; }
+  #page-home .home-grid { margin-top: 0; }
+}
+
+@media (max-width: 700px) and (orientation: landscape), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse) and (orientation: landscape) {
+  #page-home .home-content { max-width: 720px; grid-template-rows: 44px 44px minmax(0, 1fr) 21px; }
+  #page-home .home-grid {
+    margin-top: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    background: none;
+  }
+  #page-home .home-grid::before { top: 50%; }
+  #page-home .home-grid::after { content: none; }
+  #page-home .home-grid .home-card { gap: 2px; padding: 2px; }
+  #page-home .home-card-icon { width: min(16vh, 80px); height: min(16vh, 80px); }
+  #page-home .home-grid > .home-card[data-target-page="arena"] { justify-content: center; padding-bottom: 2px; }
+  #page-home .home-character-cell { grid-template-rows: minmax(0, 1fr) 26px; }
+  #page-home .home-adventure-btn { font-size: 20px; }
+  #page-home .home-card-title { font-size: 15px; }
+  #page-home .home-footer { font-size: 11px; }
+  #page-home .home-mobile-backdrop { height: 19%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #page-home .home-card-icon img { transition: none; }
+}

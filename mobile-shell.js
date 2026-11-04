@@ -4,6 +4,53 @@
   var header = document.getElementById('header');
   var worldNav = document.getElementById('world-nav-bar');
   if (!header) return;
+  var home = document.getElementById('page-home');
+  var brand = home && home.querySelector('.home-mobile-wordmark');
+  if (brand) {
+    var phoneLayout = window.matchMedia('(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse)');
+    function setHomeTools(open) {
+      document.body.classList.toggle('home-atlas-tools-open', open);
+      brand.setAttribute('aria-expanded', String(open));
+      if (!open && window.zgSessionMonitorToggle) window.zgSessionMonitorToggle(null, false);
+    }
+    function syncHomeTools() {
+      var active = home.classList.contains('active');
+      document.body.classList.toggle('home-atlas-active', active);
+      if ((!active || !phoneLayout.matches) && brand.getAttribute('aria-expanded') === 'true') setHomeTools(false);
+    }
+    syncHomeTools();
+    new MutationObserver(syncHomeTools).observe(home, { attributes: true, attributeFilter: ['class'] });
+    if (phoneLayout.addEventListener) phoneLayout.addEventListener('change', syncHomeTools);
+    else phoneLayout.addListener(syncHomeTools);
+    brand.addEventListener('click', function (event) {
+      var open = brand.getAttribute('aria-expanded') !== 'true';
+      setHomeTools(open);
+      if (open && !event.detail) {
+        var first = Array.from(header.querySelectorAll('#nav button')).find(function (b) {
+          return !b.disabled && b.getClientRects().length;
+        });
+        if (first) first.focus();
+      }
+    });
+    function closeOutside(event) {
+      if (brand.getAttribute('aria-expanded') === 'true' && !brand.contains(event.target) && !header.contains(event.target)) setHomeTools(false);
+    }
+    document.addEventListener('click', closeOutside);
+    document.addEventListener('focusin', closeOutside);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && brand.getAttribute('aria-expanded') === 'true') {
+        setHomeTools(false);
+        brand.focus();
+      }
+    });
+    home.querySelector('.home-own-sheet').addEventListener('click', function () {
+      // A build without the persistent-sheet module still has the local roster.
+      if (!window.ZargotaPersistentCharacters) {
+        window.showPage('characters');
+        window.showCharView('list');
+      }
+    });
+  }
   function syncViewport() {
     var viewport = window.visualViewport;
     root.style.setProperty('--zg-viewport-height', (viewport ? viewport.height : window.innerHeight) + 'px');
