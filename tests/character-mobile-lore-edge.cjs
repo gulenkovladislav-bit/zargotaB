@@ -17,6 +17,26 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  const action=a=>page.locator('[data-zgml="'+a+'"]');const close=()=>page.locator('#zgml-dialog>header [data-zgml=close]').tap();
  assert.equal(await page.locator('.zgml-portrait h2').innerText(),'Эстерос');assert.equal(await page.locator('.zgml-story-preview').innerText(),'История до обновления');
  await page.screenshot({path:'/tmp/zargota-lore-about.png'});
+ // Fame changes both readouts and atmosphere while preserving the mounted portrait.
+ await page.evaluate(()=>{const c=characters.find(x=>x.id===987654398);c.fameMundo=0;c.fameZargoty=0;ZargotaMobileLore.refresh();window.lorePortraitNode=document.querySelector('.zgml-portrait img');});
+ assert.equal(await page.locator('.zgml-sheet').getAttribute('data-renown'),'0');
+ assert.equal(await page.locator('.zgml-fame-track .is-lit').count(),0);
+ const zeroGlow=await page.locator('.zgml-sheet').evaluate(el=>getComputedStyle(el,'::before').opacity);
+ for(const [world,city] of [[3,1],[8,6]]){
+  await page.evaluate(([world,city])=>{const c=characters.find(x=>x.id===987654398);c.fameMundo=world;c.fameZargoty=city;ZargotaMobileLore.refresh();},[world,city]);
+  assert.equal(await page.locator('[data-fame=fameMundo] .is-lit').count(),world);
+  assert.equal(await page.locator('[data-fame=fameZargoty] .is-lit').count(),city);
+  assert.ok(await page.evaluate(()=>document.querySelector('.zgml-portrait img')===window.lorePortraitNode));
+ }
+ await page.waitForTimeout(900);
+ assert.ok(Number(await page.locator('.zgml-sheet').evaluate(el=>getComputedStyle(el,'::before').opacity))>Number(zeroGlow));
+ assert.ok(await page.locator('.zgml-fame-art').evaluateAll(imgs=>imgs.length===2&&imgs.every(img=>img.complete&&img.naturalWidth>=256)));
+ assert.equal(await page.locator('.zgml-fame-emblem.has-art').count(),2);
+ await page.screenshot({path:'/tmp/zargota-lore-high-fame.png'});
+ await page.emulateMedia({reducedMotion:'reduce'});
+ assert.equal(await page.locator('.zgml-sheet').evaluate(el=>getComputedStyle(el,'::after').animationName),'none');
+ await page.emulateMedia({reducedMotion:'no-preference'});
+
  await action('story').tap();assert.match(await page.locator('.zgml-dialog-body').innerText(),/История до обновления/);await close();
  await action('tree').tap();assert.equal(await page.locator('.zgml-tree [data-key]').count(),3);await close();
  // Existing relationship values survive editing; cancellation creates no record.
@@ -71,6 +91,6 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654398).journalEntries.filter(x=>x.title==='Повтор сохранения').length),1);
  // Closing dialog on tab/desktop transition; desktop still uses the existing journal.
  await page.locator('[data-tab=about]').tap();await action('tree').tap();await page.keyboard.press('Escape');assert.equal(await page.locator('#zgml-dialog').count(),0);await page.setViewportSize({width:1400,height:900});await page.waitForTimeout(300);assert.equal(await page.locator('.zgml-sheet').count(),0);assert.equal(await page.locator('.sheet-journal').count(),1);
- assert.deepEqual(errors,[]);console.log('PASS lore: RU/UK 320–430px, biography, people CRUD, search focus, filters, cycle guard, image upload, journal/map detail, persistence, path isolation, attachment removal, legacy types, failed save retry, desktop fallback');
+ assert.deepEqual(errors,[]);console.log('PASS lore: progressive fame 0–8, stable portrait node, reduced motion, generated art, RU/UK 320–430px, biography, people CRUD, search focus, filters, cycle guard, image upload, journal/map detail, persistence, path isolation, attachment removal, legacy types, failed save retry, desktop fallback');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

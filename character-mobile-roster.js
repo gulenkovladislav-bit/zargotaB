@@ -17,8 +17,8 @@
     path:'M12 21v-6m0 0C12 9 5 10 4 4l5 2M12 15c0-6 7-5 8-11l-5 2'
   };
   const glyph = name => '<svg class="roster-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="'+glyphs[name]+'"/></svg>';
-  function portrait(hero) {
-    return hero.portrait ? '<img alt="" draggable="false" src="'+escape(hero.portrait)+'">' : '<span class="roster-silhouette" aria-hidden="true">♙</span>';
+  function portrait(hero, context) {
+    return hero.portrait ? '<img'+(w.ZargotaPortrait?w.ZargotaPortrait.attributes(hero,context):'')+' alt="" draggable="false" src="'+escape(hero.portrait)+'">' : '<span class="roster-silhouette" aria-hidden="true">♙</span>';
   }
   function draw(grid) {
     const hero = heroes.find(item => item.id === selectedId) || heroes[0];
@@ -38,8 +38,8 @@
     const arrow = (action,icon,label) => heroes.length > 1 ?
       '<button class="roster-arrow '+action+'" data-roster-action="'+action+'" aria-label="'+label+'">'+glyph(icon)+'</button>' : '';
     const meta = [hero.race,hero.klasse].filter(Boolean).map(value=>escape(w.characterEntryText(hero,value))).join(' · ');
-    const thumbs = heroes.map((item,index)=>'<button class="roster-thumb" data-roster-action="select" data-index="'+index+'" aria-label="'+escape(nameOf(item))+'" aria-pressed="'+(hero.id===item.id)+'">'+'<span class="roster-cameo">'+portrait(item)+'</span>'+'</button>').join('');
-    const markup = '<section class="roster-screen" data-zg-i18n-skip><div class="roster-stage">'+portrait(hero)+
+    const thumbs = heroes.map((item,index)=>'<button class="roster-thumb" data-roster-action="select" data-index="'+index+'" aria-label="'+escape(nameOf(item))+'" aria-pressed="'+(hero.id===item.id)+'">'+'<span class="roster-cameo">'+portrait(item,'thumb')+'</span>'+'</button>').join('');
+    const markup = '<section class="roster-screen" data-zg-i18n-skip><div class="roster-stage">'+portrait(hero,'roster')+
       arrow('prev','left',t('Предыдущий герой','Попередній герой'))+arrow('next','right',t('Следующий герой','Наступний герой'))+
       '<div class="roster-caption"><h2>'+escape(parts?parts[1]:fullName)+'</h2>'+
       (parts?'<div>'+escape(parts[2])+'</div>':'')+(path?'<em>'+glyph('path')+escape(path)+'</em>':'')+'</div></div>'+

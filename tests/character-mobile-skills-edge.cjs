@@ -50,12 +50,12 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.locator('[data-zgms=next]').click();await page.waitForTimeout(250);
   assert.equal(await page.locator('.zgms-pagination span').innerText(),'2 / 2');
   assert.ok(await page.evaluate(()=>window.__skillsHeader===document.querySelector('.zgms-header')&&window.__skillsNav===document.querySelector('.zgmo-nav')));
-  await page.locator('[data-group=traits]').click();await page.waitForTimeout(100);assert.equal(await page.locator('.zgms-card').count(),2);
+  await page.locator('[data-group=features]').click();await page.waitForTimeout(100);assert.equal(await page.locator('.zgms-card').count(),4);assert.equal(await page.locator('.zgms-tabs button').count(),3);
   assert.equal(await page.locator('.zgms-source[data-source=traits]').count(),2);
   await page.locator('.zgms-source[data-source=traits] img').evaluateAll(els=>Promise.all(els.map(el=>el.decode())));
   assert.equal(await page.locator('.zgms-source[data-source=traits] svg').count(),0);
   await page.screenshot({path:'/tmp/zargota-skills-traits.png'});
-  await page.locator('[data-group=mastery]').click();await page.waitForTimeout(100);assert.equal(await page.locator('.zgms-card').count(),2);
+  assert.equal(await page.locator('.zgms-card').count(),4);
   assert.equal(await page.locator('.zgms-source[data-source=mastery]').count(),2);
   await page.locator('.zgms-source[data-source=mastery] img').evaluateAll(els=>Promise.all(els.map(el=>el.decode())));
   assert.equal(await page.locator('.zgms-source[data-source=mastery] svg').count(),0);
@@ -72,34 +72,58 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // Learn/unlearn and preparation use the existing data structure and limits.
   await page.locator('[data-group=learned]').click();await page.locator('[data-filter=unlearned]').click();await page.waitForTimeout(100);
   assert.equal(await page.locator('.zgms-card').count(),1,'Unlearned entries have their own visible filter');
-  await page.locator('.zgms-card').click();assert.ok(await page.locator('[data-zgms=spend]').isDisabled());
-  await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=learn]').click();await page.waitForTimeout(150);
-  await page.locator('[data-zgms=detail-menu]').click();assert.ok(await page.locator('[data-zgms=equip]').isEnabled());
+  await page.locator('.zgms-card').click();assert.equal(await page.locator('[data-zgms=spend]').count(),0);
+  await page.locator('#zgms-dialog').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
+  await page.screenshot({path:'/tmp/zargota-skills-study-before.png'});
+  // A failed save must not claim that learning succeeded or move the card.
+  await page.evaluate(()=>{window.__saveChars=window.saveChars;window.saveChars=()=>Promise.resolve({ok:false});window.__studyDialog=document.querySelector('#zgms-dialog');window.__studyArt=document.querySelector('#zgms-dialog .zgms-detail-art img');});
+  await page.locator('[data-zgms=learn]').click();await page.waitForTimeout(100);
+  assert.equal(await page.locator('[data-filter=unlearned]').getAttribute('aria-pressed'),'true');
+  assert.ok(await page.locator('[data-zgms=learn]').isEnabled());
+  assert.match(await page.locator('.zgms-study-state').innerText(),/не изучено/);
+  await page.locator('#toast').waitFor({state:'hidden'});
+  await page.evaluate(()=>window.saveChars=window.__saveChars);
+  await page.locator('[data-zgms=learn]').click();await page.locator('[data-zgms=equip]').waitFor();
+  assert.ok(await page.locator('[data-zgms=equip]').isEnabled());
+  assert.equal(await page.locator('.zgms-filter [data-filter=all]').getAttribute('aria-pressed'),'true');
+  assert.ok(await page.evaluate(()=>window.__studyDialog===document.querySelector('#zgms-dialog')&&window.__studyArt===document.querySelector('#zgms-dialog .zgms-detail-art img')&&window.__skillsHeader===document.querySelector('.zgms-header')),'Learning preserves detail image and header nodes');
+  assert.match(await page.locator('.zgms-study-state').innerText(),/^Изучено$/);
+  await page.locator('#zgms-dialog .zgms-study-primary').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
+  await page.screenshot({path:'/tmp/zargota-skills-study-after.png'});
+  await page.locator('[data-zgms=equip]').click();
+  await page.waitForFunction(()=>document.querySelector('.zgms-study-state').textContent==='Экипировано');
+  await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=forget]').click();
+  await page.locator('[data-zgms=learn]').waitFor();
+  assert.equal(await page.locator('.zgms-filter [data-filter=unlearned]').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('[data-zgms=spend]').count(),0);
+  assert.ok(await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322),id=document.querySelector('.zgms-card').dataset.key.slice(6);return !c.spellsLearned[id]&&!Object.values(c.preparedSpells).flat().map(String).includes(id);}),'Forgetting removes preparation without deleting the catalog reference');
+  await page.locator('[data-zgms=learn]').click();await page.locator('[data-zgms=equip]').waitFor();
   await page.locator('[data-zgms=close]').click();
   // Enforce existing per-type preparation limits through the new detail action.
   const target=await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322),list=c.spellRefs.map(id=>findCharacterCatalogSpell(id)).filter(s=>s.spellType==='kodex'&&c.spellsLearned[s.id]);c.preparedSpells.kodex=list.slice(0,3).map(s=>String(s.id));ZargotaMobileSkills.refresh();return list[3].id;});
   await page.locator('.zgms-filter [data-filter=all]').click();await page.waitForTimeout(150);
   const targetCard=page.locator('.zgms-card[data-key="spell-'+target+'"]');
-  if(!await targetCard.count()){await page.locator('[data-zgms=next]').click();await page.waitForTimeout(150);}
-  await targetCard.click();await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=equip]').click();
+  while(await page.locator('[data-zgms=prev]').isEnabled()){await page.locator('[data-zgms=prev]').click();await page.waitForTimeout(80);}
+  while(!await targetCard.count()&&await page.locator('[data-zgms=next]').isEnabled()){await page.locator('[data-zgms=next]').click();await page.waitForTimeout(80);}
+  await targetCard.click();await page.locator('[data-zgms=equip]').click();
   assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654322).preparedSpells.kodex.length),3);
   await page.locator('[data-zgms=close]').click();
-  await page.locator('[data-group=traits]').click();await page.waitForTimeout(150);
+  await page.locator('[data-group=features]').click();await page.waitForTimeout(150);
   await page.locator('.zgms-card').filter({hasText:'Следопыт'}).click();await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=edit]').click();
   assert.equal(await page.locator('.sc-type').inputValue(),'Черта');await page.locator('.sc-name').fill('Следопыт обновлён');await page.locator('.sc-save-btn').click();await page.locator('[data-zgms=close]').click();
   assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654322).skills[1].type),'Черта');
   // New traits can be created, edited, and deleted without losing the category.
-  await page.locator('[data-group=traits]').click();await page.locator('[data-zgms=menu]').click();await page.locator('[data-zgms=add]').click();
+  await page.locator('[data-group=features]').click();await page.locator('[data-zgms=menu]').click();await page.locator('[data-zgms=add-trait]').click();
   await page.locator('.sc-name').fill('Тестовая черта');await page.locator('.sc-save-btn').click();await page.locator('[data-zgms=close]').click();await page.waitForTimeout(150);
-  assert.equal(await page.locator('.zgms-card').count(),3);
+  assert.equal(await page.locator('.zgms-pagination span').innerText(),'2 / 2');assert.equal(await page.locator('.zgms-card').count(),1);
   await page.locator('.zgms-card').filter({hasText:'Тестовая черта'}).click();await page.locator('[data-zgms=detail-menu]').click();
-  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-zgms=remove]').click();await page.waitForTimeout(150);assert.equal(await page.locator('.zgms-card').count(),2);
+  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-zgms=remove]').click();await page.waitForTimeout(150);assert.equal(await page.locator('.zgms-card').count(),4);
   // Saved character values survive a new page load (isolated browser storage).
   await page.reload();await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
   await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322);if(!c)throw Error('Saved character missing');if(c.skills[0].name!=='Обновлённый навык')throw Error('Skill edit lost');const spell=entries.find(s=>s.name.includes('Ответный Шип'));if(c.spellCD[spell.id].used!==1)throw Error('Charge edit lost');window._charSheetTab='skills';showPage('characters');openCharSheet(c.id);});
   // Leaving the tab restores the original character and desktop layouts.
   await page.locator('.zgmo-nav button').first().click();assert.ok(await page.locator('.zgmo-overview').isVisible());assert.equal(await page.locator('body.zg-skills-view').count(),0);
   await page.setViewportSize({width:1400,height:900});await page.waitForTimeout(300);assert.equal(await page.locator('.zgms-screen').count(),0);
-  assert.deepEqual(errors,[]);console.log('PASS mobile skills: RU/UK 320–430px, four sections, learned/prepared filters, pagination, charges, editing, level descriptions, desktop return');
+  assert.deepEqual(errors,[]);console.log('PASS mobile skills: RU/UK 320–430px, three sections, merged traits/mastery, explicit learning/equipment, pagination, charges, editing, level descriptions, desktop return');
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

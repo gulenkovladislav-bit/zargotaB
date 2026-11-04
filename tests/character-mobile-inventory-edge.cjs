@@ -7,7 +7,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.ZG_TEST_URL||'http://127.0.0.1:8877');await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
  await page.evaluate(()=>{const c=JSON.parse(JSON.stringify(characters.find(c=>c.name==='Эстерос')));c.id=987654399;c.coins={platinum:0,gold:12,silver:8,copper:24};characters.push(c);window._charSheetTab='inventory';showPage('characters');openCharSheet(c.id);});
- await page.locator('.zgmi-v2').waitFor();await page.locator('.zgmi-art img').evaluateAll(els=>Promise.all(els.map(el=>el.decode())));await page.screenshot({path:'/tmp/zargota-inventory-v2-bag.png'});
+ await page.locator('.zgmi-v2').waitFor();await page.locator('.zgmi-art img').evaluateAll(els=>Promise.all(els.map(el=>el.decode())));await page.waitForTimeout(300);await page.screenshot({path:'/tmp/zargota-inventory-v2-bag.png'});
  const nav=()=>page.locator('.zgmo-nav button'),items=()=>page.locator('.zgmi-card[data-zgmi=item]');
  for(const locale of ['ru','uk']){await page.evaluate(l=>ZargotaI18n.setLocale(l),locale);for(const [width,height] of [[320,568],[390,780],[430,932]]){
   await page.setViewportSize({width,height});await page.waitForTimeout(250);
@@ -15,6 +15,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
    await page.locator('.zgmi-groups [data-group='+group+']').tap();await page.waitForTimeout(120);
    const g=await page.evaluate(()=>{const root=document.querySelector('.zgmi-v2'),nav=document.querySelector('.zgmo-nav');return {overflow:root.scrollHeight-root.clientHeight,width:document.documentElement.scrollWidth-innerWidth,top:root.getBoundingClientRect().top,end:root.getBoundingClientRect().bottom,nav:nav.getBoundingClientRect().top,cards:[...root.querySelectorAll('.zgmi-card')].map(el=>({h:el.clientHeight,w:el.clientWidth,overflow:el.scrollHeight-el.clientHeight})),wallet:[...root.querySelectorAll('.zgmi-wallet button')].map(el=>el.scrollWidth-el.clientWidth)};});
    assert.ok(g.overflow<=1&&g.width<=1&&g.top===0&&g.end<=g.nav+1&&g.cards.every(x=>x.h>=44&&x.w>=44&&x.overflow<=1)&&g.wallet.every(x=>x<=1),JSON.stringify({locale,width,height,group,g}));
+   if(group==='bag'){
+    await items().first().tap();await page.waitForTimeout(250);
+    const detailBounds=await page.locator('#zgmi-dialog>section').evaluate(el=>({width:el.scrollWidth-el.clientWidth,top:el.getBoundingClientRect().top,bottom:el.getBoundingClientRect().bottom,nav:document.querySelector('.zgmo-nav').getBoundingClientRect().top,buttons:[...el.querySelectorAll('.zgmi-item-actions button')].map(b=>({w:b.clientWidth,h:b.clientHeight,over:b.scrollWidth-b.clientWidth}))}));
+    assert.ok(detailBounds.width<=1&&detailBounds.top>=0&&detailBounds.bottom<=detailBounds.nav&&detailBounds.buttons.every(b=>b.w>=44&&b.h>=44&&b.over<=1),JSON.stringify({locale,width,height,detailBounds}));
+    assert.equal(await page.locator('#zgmi-dialog [data-zgmi=plus]').count(),0);
+    await page.locator('[data-zgmi=quantity]').tap();assert.equal(await page.locator('#zgmi-dialog input').count(),0);await page.locator('[data-zgmi=quantity-cancel]').last().tap();await page.locator('#zgmi-dialog header [data-zgmi=close]').tap();
+   }
   }
  }}
  await page.evaluate(()=>ZargotaI18n.setLocale('ru'));await page.setViewportSize({width:390,height:780});await page.waitForTimeout(250);
@@ -24,15 +31,18 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  await page.locator('[data-coin=gold]').tap();await page.locator('[data-zgmi=coin-plus]').tap();await page.locator('[data-zgmi=coin-save]').tap();await page.waitForTimeout(150);assert.equal(await page.locator('[data-coin=gold] b').innerText(),'13');
  // Real item description opens above nav; secondary actions are hidden until requested.
  await page.locator('.zgmi-groups [data-group=bag]').tap();await page.waitForTimeout(100);await items().first().tap();assert.equal(await page.locator('[data-zgmi=edit]').count(),0);assert.ok(await page.locator('#zgmi-dialog').evaluate(el=>el.getBoundingClientRect().bottom<=document.querySelector('.zgmo-nav').getBoundingClientRect().top+1));
- await page.locator('[data-zgmi=plus]').tap();await page.waitForTimeout(100);await page.screenshot({path:'/tmp/zargota-inventory-v2-detail.png'});await page.locator('#zgmi-dialog header [data-zgmi=close]').tap();
+ assert.equal(await page.locator('#zgmi-dialog [data-zgmi=plus]').count(),0);
+ const itemQty=await page.locator('.zgmi-quantity-link b').innerText();
+ await page.locator('[data-zgmi=quantity]').tap();await page.locator('[data-zgmi=plus]').tap();await page.locator('[data-zgmi=quantity-cancel]').last().tap();assert.equal(await page.locator('.zgmi-quantity-link b').innerText(),itemQty);
+ await page.locator('[data-zgmi=quantity]').tap();await page.locator('[data-zgmi=plus]').tap();await page.locator('[data-zgmi=quantity-save]').tap();await page.waitForTimeout(250);assert.equal(await page.locator('.zgmi-quantity-link b').innerText(),'× '+(parseInt(itemQty.replace(/\D/g,''),10)+1));await page.screenshot({path:'/tmp/zargota-inventory-v2-detail.png'});await page.locator('#zgmi-dialog header [data-zgmi=close]').tap();
  // Equip/remove the same stored item without duplication or loss.
  const before=await page.evaluate(()=>characters.find(c=>c.id===987654399).inventoryItems.length);
- await items().first().tap();const title=await page.locator('#zgmi-dialog h2').innerText();await page.locator('[data-zgmi=detail-menu]').tap();await page.locator('[data-zgmi=equip]').tap();await page.waitForTimeout(150);
- await page.locator('.zgmi-groups [data-group=equipment]').tap();await page.waitForTimeout(150);await items().filter({hasText:title}).tap();await page.locator('[data-zgmi=detail-menu]').tap();await page.locator('[data-zgmi=equip]').tap();assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654399).inventoryItems.length),before);
+ await items().first().tap();const title=await page.locator('#zgmi-dialog h2').innerText();assert.equal(await page.locator('.zgmi-item-actions [data-zgmi=equip]').count(),0);await page.locator('[data-zgmi=detail-menu]').tap();await page.locator('[data-zgmi=equip]').tap();await page.waitForTimeout(150);
+ await page.locator('.zgmi-groups [data-group=equipment]').tap();await page.waitForTimeout(150);await items().filter({hasText:title}).tap();await page.locator('[data-zgmi=equip]').tap();assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654399).inventoryItems.length),before);
  // A cancelled draft is discarded, a saved custom item keeps its qty and description.
  await page.locator('.zgmi-groups [data-group=bag]').tap();await page.locator('.zgmi-toolbar [data-zgmi=add]').tap();await page.locator('#ic-close').tap();assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654399).inventoryItems.length),before);
  await page.locator('.zgmi-toolbar [data-zgmi=add]').tap();await page.locator('#ic-name').fill('А Проверочный предмет');await page.locator('#ic-desc').fill('Полное описание предмета.');await page.locator('#ic-qty-plus').tap();await page.locator('#ic-save').tap();
- await page.locator('[data-zgmi-sort]').selectOption('name');await page.waitForTimeout(150);await items().filter({hasText:'А Проверочный'}).tap();assert.match(await page.locator('.zgmi-description').innerText(),/Полное описание/);assert.equal(await page.locator('.zgmi-quantity strong').innerText(),'2');
+ await page.locator('[data-zgmi-sort]').selectOption('name');await page.waitForTimeout(150);await items().filter({hasText:'А Проверочный'}).tap();assert.match(await page.locator('.zgmi-description').innerText(),/Полное описание/);assert.equal(await page.locator('.zgmi-quantity-link b').innerText(),'× 2');
  await page.locator('[data-zgmi=detail-menu]').tap();await page.locator('[data-zgmi=edit]').tap();await page.locator('#ic-name').fill('А Исправленный предмет');await page.locator('#ic-save').tap();await page.waitForTimeout(150);assert.ok(await items().filter({hasText:'А Исправленный'}).isVisible());
  // Pagination with multiple identical names must use the original item indices.
  await page.evaluate(()=>{const c=characters.find(c=>c.id===987654399);for(let i=0;i<12;i++)c.inventoryItems.push({name:'Тест '+i,description:'Запись '+i,qty:1,icon:'art:backpack'});saveChars();ZargotaMobileInventory.refresh();});await page.waitForTimeout(150);assert.equal(await items().count(),9);

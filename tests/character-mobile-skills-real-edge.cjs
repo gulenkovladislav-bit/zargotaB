@@ -16,7 +16,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
     for(const hero of heroes){
      await page.evaluate(id=>{window._charSheetTab='skills';showPage('characters');openCharSheet(id);},hero.id);
      await page.waitForFunction(()=>document.querySelector('.zgms-screen')&&Math.abs(document.querySelector('.zgms-screen').getBoundingClientRect().top)<0.1);
-     for(const group of ['personal','learned','traits','mastery']){
+     for(const group of ['personal','learned','features']){
       await page.locator('[data-group='+group+']').tap();
       await page.waitForFunction(g=>document.querySelector('[data-group='+g+']').getAttribute('aria-pressed')==='true',group);
       if(group==='learned'){await page.locator('.zgms-filter [data-filter=all]').tap();await page.waitForFunction(()=>document.querySelector('.zgms-filter [data-filter=all]').getAttribute('aria-pressed')==='true');}
@@ -35,7 +35,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
        const fits=await page.evaluate(()=>document.querySelector('#zgms-dialog').getBoundingClientRect().bottom<=document.querySelector('.zgmo-nav').getBoundingClientRect().top+1);
        assert.ok(fits,'Details cover bottom navigation');
        await page.locator('[data-zgms=close]').tap();opened++;
-       if(group==='traits')await page.screenshot({path:'/tmp/zargota-real-traits-'+hero.id+'.png'});
+       if(group==='features')await page.screenshot({path:'/tmp/zargota-real-traits-'+hero.id+'.png'});
       }
      }
     }
