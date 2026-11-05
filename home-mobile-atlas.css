@@ -95,10 +95,11 @@
   #page-home .home-mobile-backdrop::before,
   #page-home .home-mobile-backdrop::after {content: ''; position: absolute; pointer-events: none;}
   #page-home .home-mobile-backdrop::before {
-    inset: -4px -14px;
+    inset: -10px -26px;
     /* Extra painted width keeps both edges covered throughout the slow pan. */
     background: url('images/ui/main-menu/home-valley.webp') 82% 70% / cover no-repeat;
-    animation: atlas-valley-drift 96s ease-in-out infinite;
+    transform-origin: 60% 70%;
+    animation: atlas-valley-drift 32s ease-in-out infinite;
   }
   #page-home .home-mobile-backdrop::after {
     inset: -5% -18%;
@@ -106,14 +107,22 @@
       radial-gradient(ellipse 47% 13% at 23% 38%, #c7c1ad55, #b1ac9820 45%, transparent 75%),
       radial-gradient(ellipse 52% 11% at 75% 50%, #bbb9ab55, #a4a69522 42%, transparent 78%),
       radial-gradient(ellipse 40% 8% at 35% 73%, #c5c2ad55, transparent 80%);
-    animation: atlas-mist-drift 73s ease-in-out infinite;
+    animation: atlas-mist-drift 38s ease-in-out infinite;
   }
   #page-home:not(.active) .home-mobile-backdrop::before,
   #page-home:not(.active) .home-mobile-backdrop::after {animation-play-state: paused;}
-  #page-home .home-particles { visibility: hidden; }
-  #page-home .home-particle,
+  #page-home .home-particles { visibility: visible; height: 25%; opacity: .75; pointer-events: none; }
+  #page-home .home-particle { display: none; }
+  #page-home .home-particle:nth-child(3n + 1), #page-home .home-particle:last-child {
+    display: block; width: 2px; height: 2px; bottom: 8%;
+    background: #ebc27c; border-radius: 50%; filter: none;
+    box-shadow: 0 0 7px #e3ad54, 0 0 14px #d7984b44;
+    animation: atlas-ember-rise calc(var(--dur) * 1.8) linear infinite;
+    animation-delay: calc(var(--delay) * -1);
+  }
   #page-home .home-particles::before,
-  #page-home .home-particles::after { animation: none; }
+  #page-home .home-particles::after { display: none; animation: none; }
+  #page-home:not(.active) .home-particle { animation-play-state: paused; }
   #page-home .home-content {
     max-width: 560px;
     grid-template-rows: var(--atlas-brand-height) minmax(44px, 6.2%) minmax(0, 1fr) minmax(44px, 21%);
@@ -327,16 +336,23 @@
   #page-home .home-content > :not(.home-mobile-wordmark) { transition: none; }
   #page-home .home-mobile-backdrop::before,
   #page-home .home-mobile-backdrop::after,
+  #page-home .home-particle,
   body.home-atlas-active.home-atlas-tools-open #header {animation: none;}
 }
 
 @keyframes atlas-valley-drift {
-  0%,100% {transform: translate3d(-5px, 0, 0);}
-  50% {transform: translate3d(5px, 0, 0);}
+  0%,100% {transform: translate3d(-12px, 0, 0) scale(1);}
+  50% {transform: translate3d(12px, -2px, 0) scale(1.075);}
 }
 @keyframes atlas-mist-drift {
-  0%,100% {transform: translate3d(-12px, 1px, 0); opacity: .22;}
-  50% {transform: translate3d(16px, -2px, 0); opacity: .38;}
+  0%,100% {transform: translate3d(-24px, 2px, 0); opacity: .32;}
+  50% {transform: translate3d(28px, -4px, 0); opacity: .58;}
+}
+@keyframes atlas-ember-rise {
+  0% {opacity: 0; transform: translate3d(0, 0, 0) scale(.7);}
+  18% {opacity: .62;}
+  66% {opacity: .4;}
+  100% {opacity: 0; transform: translate3d(var(--drift-x), -100px, 0) scale(.2);}
 }
 @keyframes atlas-tools-reveal {
   from {opacity: 0;}

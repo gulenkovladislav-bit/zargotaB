@@ -5,9 +5,101 @@
   var worldNav = document.getElementById('world-nav-bar');
   if (!header) return;
   var home = document.getElementById('page-home');
+  var phoneLayout = window.matchMedia('(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse)');
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  var toolsToggle = document.createElement('button');
+  toolsToggle.type = 'button';
+  toolsToggle.className = 'zg-mobile-tools-toggle';
+  toolsToggle.setAttribute('aria-controls', 'nav');
+  toolsToggle.setAttribute('aria-expanded', 'false');
+  toolsToggle.innerHTML = '<span>Заргота</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>';
+  header.insertBefore(toolsToggle, header.firstChild);
+  function labelTools() {
+    var uk = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
+    toolsToggle.setAttribute('aria-label', uk ? 'Заргота — меню та налаштування' : 'Заргота — меню и настройки');
+  }
+  labelTools();
+  document.addEventListener('zargota:localechange', labelTools);
+  function setSectionTools(open) {
+    document.body.classList.toggle('zg-section-tools-open', open);
+    toolsToggle.setAttribute('aria-expanded', String(open));
+    if (!open && window.zgSessionMonitorToggle) window.zgSessionMonitorToggle(null, false);
+  }
+  toolsToggle.addEventListener('click', function (event) {
+    var open = toolsToggle.getAttribute('aria-expanded') !== 'true';
+    setSectionTools(open);
+    if (open && !event.detail) {
+      var first = Array.from(header.querySelectorAll('#nav button')).find(function (b) { return !b.disabled && b.getClientRects().length; });
+      if (first) first.focus();
+    }
+  });
+  function closeSectionTools(event) {
+    if (toolsToggle.getAttribute('aria-expanded') === 'true' && !header.contains(event.target)) setSectionTools(false);
+  }
+  document.addEventListener('click', closeSectionTools);
+  document.addEventListener('focusin', closeSectionTools);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && toolsToggle.getAttribute('aria-expanded') === 'true') {
+      setSectionTools(false);
+      toolsToggle.focus();
+    }
+  });
+  var lastPage = document.querySelector('.page.active');
+  function pageChanged() {
+    var page = document.querySelector('.page.active');
+    if (page === lastPage) return;
+    lastPage = page;
+    setSectionTools(false);
+    var mapSplash = document.getElementById('world-map-splash');
+    if (mapSplash && (!page || page.id !== 'page-world')) mapSplash.classList.add('hidden');
+    // Opacity only: transforming a page would move its fixed dialogs and map controls.
+    if (page && phoneLayout.matches && !reducedMotion.matches && page.animate) {
+      page.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    }
+  }
+  var pageObserver = new MutationObserver(pageChanged);
+  document.querySelectorAll('.page').forEach(function (page) { pageObserver.observe(page, { attributes: true, attributeFilter: ['class'] }); });
+  function layoutChanged() { if (!phoneLayout.matches) setSectionTools(false); }
+  if (phoneLayout.addEventListener) phoneLayout.addEventListener('change', layoutChanged);
+  else phoneLayout.addListener(layoutChanged);
+
+  // Existing adventure steps replace their display state synchronously. Animate
+  // only the newly visible step, and interpolate the dialog height on phones.
+  var adventure = document.getElementById('zg-adv-overlay');
+  var adventureDialog = adventure && adventure.querySelector('.zg-adv-dialog');
+  var activeStep = '', previousDialogHeight = 0, stepAnimation = null, heightAnimation = null;
+  function animateAdventureStep() {
+    if (!adventure || !adventureDialog) return;
+    if (!adventure.classList.contains('open')) { activeStep = ''; previousDialogHeight = 0; return; }
+    var next = Array.from(adventure.querySelectorAll('.zg-adv-view')).find(function (view) { return view.style.display !== 'none'; });
+    if (!next || next.id === activeStep) return;
+    var wasOpen = !!activeStep;
+    activeStep = next.id;
+    if (stepAnimation) stepAnimation.cancel();
+    if (heightAnimation) heightAnimation.cancel();
+    var nextHeight = adventureDialog.getBoundingClientRect().height;
+    if (phoneLayout.matches && !reducedMotion.matches && next.animate) {
+      next.style.animation = 'none';
+      stepAnimation = next.animate([{ opacity: 0, transform: 'translateY(9px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 300, easing: 'cubic-bezier(.2,.75,.25,1)' });
+      if (wasOpen && previousDialogHeight && Math.abs(nextHeight - previousDialogHeight) > 2) {
+        heightAnimation = adventureDialog.animate([{ height: previousDialogHeight + 'px' }, { height: nextHeight + 'px' }], { duration: 280, easing: 'cubic-bezier(.2,.75,.25,1)' });
+      }
+    }
+    previousDialogHeight = nextHeight;
+  }
+  if (adventure) {
+    var modeMarks = adventure.querySelectorAll('#zg-adv-view-format .zg-adv-mode-mark');
+    var modeIcons = [
+      '<circle cx="12" cy="6" r="3"/><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="m10 9-3 6m7-6 3 6M8 18h8"/>',
+      '<ellipse cx="12" cy="12" rx="8" ry="4"/><path d="M4 12v6m16-6v6M8 8V5m8 3V5"/><circle cx="8" cy="3" r="1"/><circle cx="16" cy="3" r="1"/>'
+    ];
+    modeMarks.forEach(function (mark, index) { mark.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + modeIcons[index] + '</svg>'; });
+    var adventureObserver = new MutationObserver(animateAdventureStep);
+    adventureObserver.observe(adventure, { attributes: true, attributeFilter: ['class'] });
+    adventure.querySelectorAll('.zg-adv-view').forEach(function (view) { adventureObserver.observe(view, { attributes: true, attributeFilter: ['style'] }); });
+  }
   var brand = home && home.querySelector('.home-mobile-wordmark');
   if (brand) {
-    var phoneLayout = window.matchMedia('(max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse)');
     function setHomeTools(open) {
       document.body.classList.toggle('home-atlas-tools-open', open);
       brand.setAttribute('aria-expanded', String(open));

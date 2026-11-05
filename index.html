@@ -10415,7 +10415,7 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-05.2';
+var ZG_APP_VERSION = '2026-11-05.3';
 var ZG_APP_CHANGELOG = [
   {v:'2026-11-04.4',notes:'На телефоне «Отправиться в приключение» открывает создание игры или вход по коду. Мастерская доступна на компьютере.',notesUk:'На телефоні «Вирушити в пригоду» відкриває створення гри або вхід за кодом. Майстерня доступна на комп’ютері.'},
 {v:'2026-11-04.3',notes:'В карусели героев обновлены кадрирование портретов, рамки и подсветка выбранной миниатюры. Увеличены имя и значения характеристик.',notesUk:'У каруселі героїв оновлено кадрування портретів, рамки та підсвічування вибраної мініатюри. Збільшено ім’я та значення характеристик.'},
@@ -26744,20 +26744,20 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
   }, true);
 })();
 </script>
-<link rel="stylesheet" href="mobile-shell.css?v=2026-11-04.4">
-<link rel="stylesheet" href="home-mobile-atlas.css?v=2026-11-05.2">
-<script defer src="mobile-shell.js?v=2026-11-04.6"></script>
+<link rel="stylesheet" href="mobile-shell.css?v=2026-11-05.3">
+<link rel="stylesheet" href="home-mobile-atlas.css?v=2026-11-05.3">
+<script defer src="mobile-shell.js?v=2026-11-05.3"></script>
 <script defer src="character-portrait.js?v=2026-11-05.1"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-05.1">
 <script defer src="character-mobile-overview.js?v=2026-11-05.1"></script>
-<link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.2">
-<script defer src="character-mobile-inventory.js?v=2026-11-05.2"></script>
-<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.1">
-<link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-05.2">
-<script defer src="character-mobile-roster.js?v=2026-11-05.1"></script>
-<script defer src="character-mobile-lore.js?v=2026-11-05.1"></script>
-<link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-05.1">
-<script defer src="character-mobile-skills.js?v=2026-11-05.1"></script>
+<link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.3">
+<script defer src="character-mobile-inventory.js?v=2026-11-05.3"></script>
+<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.3">
+<link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-05.3">
+<script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
+<script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
+<link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-05.3">
+<script defer src="character-mobile-skills.js?v=2026-11-05.3"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -74990,6 +74990,7 @@ global.getStatusCombatMods = function(combatant) {
 ZG_APP_CHANGELOG.unshift({v:'2026-11-04.6',notes:'Обновлена главная на телефоне. Под шлемом в разделе «Персонажи» можно открыть свой лист. Нажатие на название «Заргота» открывает меню настроек.',notesUk:'Оновлено головну сторінку на телефоні. Під шоломом у розділі «Персонажі» можна відкрити свій аркуш. Натискання на назву «Заргота» відкриває меню налаштувань.'});
 ZG_APP_CHANGELOG.unshift({v:'2026-11-05.1',notes:'В мобильном листе объединены черты и мастерство, изучение навыков вынесено в отдельное действие. Увеличены изображения предметов, количество меняется отдельно. Обновлены вкладки лора, иконки и свечение славы; портреты кадрируются по положению лица.',notesUk:'У мобільному аркуші об’єднано риси й майстерність, вивчення навичок винесено в окрему дію. Збільшено зображення предметів, кількість змінюється окремо. Оновлено вкладки лору, іконки та сяйво слави; портрети кадруються за розташуванням обличчя.'});
 ZG_APP_CHANGELOG.unshift({v:'2026-11-05.2',notes:'На мобильной главной добавлены мягкое движение пейзажа и дымка. Улучшены верхнее меню и панель персонажей. Инвентарь поддерживает свайп страниц, заметные метки экипировки и новое окно добавления предметов; исправлена яркость изображений.',notesUk:'На мобільній головній додано м’який рух краєвиду й серпанок. Поліпшено верхнє меню та панель персонажів. Інвентар підтримує гортання сторінок жестом, помітні позначки спорядження й нове вікно додавання предметів; виправлено яскравість зображень.'});
+ZG_APP_CHANGELOG.unshift({v:'2026-11-05.3',notes:'Обновлены мобильные меню и переходы, пейзаж главной оживает с дымкой и искрами. Из списка героев убраны лишние панели. Предметы добавляются из нового каталога в сумку, открываются крупно с оригинальным изображением. Улучшены цветовые полосы навыков. В лоре объединены история и цель, расширен путь героя; у каждого вида славы восемь ступеней изображения и доступное мастеру изменение уровня.',notesUk:'Оновлено мобільні меню й переходи, краєвид головної оживає із серпанком та іскрами. Зі списку героїв прибрано зайві панелі. Предмети додаються з нового каталогу до сумки, відкриваються великими з оригінальним зображенням. Поліпшено кольорові смуги навичок. У лорі об’єднано історію та мету, розширено шлях героя; кожен вид слави має вісім ступенів зображення й доступну майстру зміну рівня.'});
 </script>
 
 

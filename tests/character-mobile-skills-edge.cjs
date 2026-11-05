@@ -23,8 +23,9 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   assert.equal(await page.locator('.zgms-filter button').count(),3);
   assert.equal(await page.locator('.zgms-card em').count(),0,'Equipped filter does not repeat a badge on every card');
   assert.equal(await page.locator('.zgms-card').first().locator('small').innerText(),'За бой');
-  assert.ok(await page.evaluate(()=>parseFloat(getComputedStyle(document.querySelector('.zgms-art'),'::before').height)>=8));
+  assert.ok(await page.evaluate(()=>{const style=getComputedStyle(document.querySelector('.zgms-art'),'::before');return parseFloat(style.height)===13&&!style.backgroundImage.includes('url(');}),'Colour strip must be crisp, thicker, and independent of the stretched raster texture');
   assert.deepEqual(await page.locator('.zgms-source').evaluateAll(els=>els.map(el=>el.dataset.source)),['kodex','folio','obrad','folio']);
+  assert.deepEqual(await page.locator('.zgms-card').evaluateAll(els=>els.map(el=>getComputedStyle(el).getPropertyValue('--tone').trim())),['#c8d4dc','#5a9ae0','#c03030','#5a9ae0']);
   for(const locale of ['ru','uk']){
    await page.evaluate(locale=>ZargotaI18n.setLocale(locale),locale);
    for(const [width,height] of [[320,568],[390,700],[390,780],[430,932]]){
@@ -121,6 +122,11 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // Saved character values survive a new page load (isolated browser storage).
   await page.reload();await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
   await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322);if(!c)throw Error('Saved character missing');if(c.skills[0].name!=='Обновлённый навык')throw Error('Skill edit lost');const spell=entries.find(s=>s.name.includes('Ответный Шип'));if(c.spellCD[spell.id].used!==1)throw Error('Charge edit lost');window._charSheetTab='skills';showPage('characters');openCharSheet(c.id);});
+  // An empty equipped filter does not duplicate the immediately available Learned tab.
+  await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322);c.preparedSpells={kodex:[],folio:[],obrad:[]};ZargotaMobileSkills.refresh();});
+  await page.locator('[data-group=learned]').tap();await page.locator('[data-filter=equipped]').tap();await page.locator('.zgms-empty').waitFor();
+  assert.equal(await page.locator('.zgms-empty button').count(),0);assert.ok(await page.locator('.zgms-filter [data-filter=all]').isVisible());
+  await page.locator('.zgms-filter [data-filter=all]').tap();await page.locator('.zgms-card').first().waitFor();
   // Leaving the tab restores the original character and desktop layouts.
   await page.locator('.zgmo-nav button').first().click();assert.ok(await page.locator('.zgmo-overview').isVisible());assert.equal(await page.locator('body.zg-skills-view').count(),0);
   await page.setViewportSize({width:1400,height:900});await page.waitForTimeout(300);assert.equal(await page.locator('.zgms-screen').count(),0);

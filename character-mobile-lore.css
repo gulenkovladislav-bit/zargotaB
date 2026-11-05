@@ -88,3 +88,31 @@
  }
  @media(prefers-reduced-motion:reduce){.zgml-sheet::before,.zgml-sheet::after,.zgml-fame-card::before,.zgml-fame-emblem,.zgml-fame-art,.zgml-fame-track i{animation:none!important;transition:none!important}}
 }
+
+/* About: one personal chronicle and two independently progressing fame emblems. */
+@media(max-width:899px){
+ .zgml-about{grid-template-rows:minmax(82px,1.45fr) minmax(62px,.65fr) minmax(112px,1fr) minmax(114px,1fr);gap:8px}
+ .zgml-path{padding:10px 13px;gap:14px;border-radius:2px;clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px);border-color:#947448;background-position:center 60%}
+ .zgml-path strong{font-size:clamp(18px,5vw,22px);line-height:1.16;-webkit-line-clamp:2}.zgml-path small{font-size:11px;letter-spacing:.05em;margin-bottom:5px;color:#c7ad80}.zgml-path-symbol svg{width:44px;height:44px}
+ .zgml-fame{gap:9px}.zgml-fame-card{grid-template-columns:minmax(56px,1fr) minmax(0,1.15fr);grid-template-rows:minmax(0,1fr) 4px;gap:5px;padding:9px 9px 11px;text-align:left;border:0;border-radius:0;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px);background:linear-gradient(130deg,#9b7e4d,#50422d 55%,#7d6540);box-shadow:none}
+ .zgml-fame-card::after{content:'';position:absolute;inset:1px;z-index:-1;clip-path:inherit;background:linear-gradient(145deg,#221d14,#0f0d09 75%)}
+ .zgml-fame-card::before{z-index:0;pointer-events:none;background:radial-gradient(ellipse at 20% 30%,#e1b75a38,transparent 75%)}
+ .zgml-fame-card>span{position:relative;z-index:1}.zgml-fame-card .zgml-fame-edit{position:absolute;right:6px;top:5px;width:18px;height:18px;color:#cdb37d;opacity:.8}.zgml-fame-edit svg{width:15px;height:15px}
+ .zgml-fame-emblem img{filter:saturate(calc(.6 + .4 * var(--zgml-fame-power))) brightness(calc(.9 + .16 * var(--zgml-fame-power)))}
+ .zgml-fame-card[data-fame-stage="0"] .zgml-fame-emblem{opacity:.45;filter:none}.zgml-fame-copy{font-size:clamp(11px,3.1vw,14px);line-height:1.2;color:#d5c5a6;padding-top:7px}.zgml-fame b{font-size:30px;margin-top:4px;color:#f3e2bd}.zgml-fame-track{gap:4px}.zgml-fame-track i{height:4px;border-radius:1px}.zgml-fame-track .is-lit{background:#d7b46a}
+ .zgml-chronicle{min-height:0;display:flex;flex-direction:column;border-top:1px solid #77603d;padding:4px 3px 0;overflow:hidden}
+ .zgml-chronicle header{display:flex;align-items:center;gap:8px;flex:none;min-height:36px}.zgml-chronicle h2{font:22px/1.15 Georgia,serif;color:#f0dfbd;margin:0;flex:1}
+ .zgml-story-tree{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:36px;padding:3px 6px;border:0;background:none;color:#d5b77c!important;font-size:12px!important}.zgml-story-tree svg{width:19px;height:19px}
+ .zgml-chronicle-open{display:flex;flex:1;min-height:0;flex-direction:column;text-align:left;width:100%;padding:3px 0 4px;gap:6px;border:0;background:none}
+ .zgml-chronicle .zgml-story-preview{font:13px/1.25 Georgia,serif;color:#bcae94;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+ .zgml-story-goal{display:flex;align-items:baseline;gap:8px;border-top:1px solid #5d4b302e;padding-top:5px;margin-top:auto;max-width:100%}.zgml-story-goal small{flex:none;font:11px Georgia,serif;color:#ba9864}.zgml-story-goal strong{font:14px/1.2 Georgia,serif;font-weight:400;color:#e1cc9f;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+ #zgml-dialog .zgml-story-actions{display:flex;gap:6px;border-top:1px solid #675238;padding-top:8px}#zgml-dialog .zgml-story-actions button{flex:1;padding-inline:6px;margin:0;font-size:14px}
+ #zgml-dialog .zgml-fame-editor{text-align:center}.zgml-fame-editor-art{display:block;width:clamp(130px,44vw,200px);height:clamp(130px,44vw,200px);object-fit:contain;margin:0 auto 10px;filter:drop-shadow(0 0 calc(2px + 10px * var(--zgml-fame-power)) #e3bd5d44)}
+ .zgml-fame-editor[data-fame-stage="0"] .zgml-fame-editor-art{opacity:.4;filter:none}
+ .zgml-fame-stepper{display:grid;grid-template-columns:56px 1fr 56px;gap:12px;max-width:290px;align-items:center;margin:auto}#zgml-dialog .zgml-fame-stepper button{width:56px;height:56px;margin:0;padding:0;border-radius:7px 2px;font:36px/1 Georgia;background:radial-gradient(ellipse at 50% 0,#b4812830,transparent),#171108;border-color:#ad8b50;color:#f0cf83}#zgml-dialog .zgml-fame-stepper button:disabled{opacity:.3;cursor:default}
+ .zgml-fame-stepper output{font:42px/1 Georgia;color:#f3dba2}.zgml-fame-stepper output small{font:18px Georgia;color:#a58f68}.zgml-fame-editor>p{font:13px Georgia;color:#b9a17c;margin:12px 0!important}#zgml-dialog [data-zgml=fame-save]{min-width:160px;background:linear-gradient(120deg,#544024,#2c2112);border-color:#bf9c5a;color:#f4dfb1}
+ #zgml-dialog .zgml-fame-editor>.zgml-save-error{color:#edb49a}
+ @media(max-height:650px){.zgml-about{gap:5px;grid-template-rows:minmax(70px,1fr) 62px 106px 105px}.zgml-path{padding:7px 10px}.zgml-path strong{font-size:17px}.zgml-path small{margin-bottom:3px}.zgml-path-symbol svg{width:36px;height:36px}.zgml-fame-card{padding:6px 7px 9px}.zgml-fame-copy{font-size:11px}.zgml-fame b{font-size:27px}.zgml-chronicle h2{font-size:20px}.zgml-chronicle .zgml-story-preview{-webkit-line-clamp:1}.zgml-portrait h2{font-size:23px}}
+ @media(max-height:500px){.zgml-content.is-about{overflow:auto}.zgml-about{flex:0 0 480px}}
+ @media(prefers-reduced-motion:no-preference){.zgml-fame-card{transition:filter .2s ease}.zgml-fame-card:active{filter:brightness(1.15)}.zgml-fame-editor-art{animation:zgml-emblem-reveal .25s ease-out}@keyframes zgml-emblem-reveal{from{opacity:.3;transform:scale(.94)}to{opacity:1;transform:scale(1)}}}
+}

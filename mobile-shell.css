@@ -1,5 +1,7 @@
 /* The app header is shared by pages both inside #main and directly under body. */
 .mobile-arena-note { display: none; }
+.zg-mobile-tools-toggle { display: none; }
+#zg-adv-overlay .zg-adv-mode-mark svg { width: 34px; height: 34px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 
 /* Every device uses a bounded viewport; only content regions own scrolling. */
 :root { --zg-viewport-height: 100vh; --zg-viewport-top: 0px; --zg-world-nav-height: 56px; }
@@ -188,6 +190,67 @@ body > #zg-adv-overlay {
 }
 
 @media (max-width: 700px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse) {
+  :root body .page.active { animation: none !important; }
+  /* A quiet wordmark opens the shared tools; opening it never changes page height. */
+  body:not(.home-atlas-active) #header {
+    min-height: 0; height: calc(48px + env(safe-area-inset-top, 0px));
+    padding: env(safe-area-inset-top, 0px) 12px 0;
+    justify-content: center; border: 0;
+    background: linear-gradient(180deg, #151109, #0d0b08);
+    box-shadow: 0 1px #6c563530;
+  }
+  body:not(.home-atlas-active) #header #logo { display: none; }
+  body:not(.home-atlas-active) .zg-mobile-tools-toggle {
+    display: inline-flex; position: relative; align-items: center; justify-content: center;
+    gap: 9px; min-height: 44px; padding: 0 16px; border: 0; background: none;
+    color: #e8d9ba; font: 17px/1.2 Georgia, serif; letter-spacing: .22em;
+    -webkit-tap-highlight-color: transparent; cursor: pointer;
+  }
+  .zg-mobile-tools-toggle::before,.zg-mobile-tools-toggle::after {
+    content: ''; width: 34px; height: 1px; margin-inline: 5px;
+    background: linear-gradient(90deg, transparent, #8a7042);
+  }
+  .zg-mobile-tools-toggle::after { transform: rotate(180deg); }
+  .zg-mobile-tools-toggle svg { width: 12px; height: 12px; fill: none; stroke: #c9a367; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+  .zg-mobile-tools-toggle[aria-expanded="true"] { color: #ffe2a2; text-shadow: 0 0 16px #c1904155; }
+  .zg-mobile-tools-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .zg-mobile-tools-toggle:focus-visible { outline: 1px solid #c9a367; outline-offset: -4px; }
+  body:not(.home-atlas-active):not(.zg-section-tools-open) #header #nav { display: none; }
+  body.zg-section-tools-open:not(.home-atlas-active) #header #nav {
+    display: flex; position: absolute; top: calc(100% + 5px); left: 12px; right: 12px;
+    justify-content: center; flex-wrap: wrap; gap: 8px; padding: 12px;
+    max-height: calc(var(--zg-viewport-height) - 74px); overflow: visible;
+    border: 1px solid #80633d; border-radius: 12px 3px 12px 3px;
+    background: linear-gradient(135deg, #282015, #13100b 80%);
+    box-shadow: 0 16px 34px #000b, inset 0 1px #e8c37b1c;
+    animation: zg-mobile-tools-in .22s ease-out;
+  }
+  body.zg-section-tools-open #home-atlas-version {
+    display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px;
+    border: 0; background: transparent; color: #dbccad; font: 14px/1.2 Georgia, serif;
+  }
+  body.zg-section-tools-open #nav :is(.zg-net-monitor-btn, #persistent-entry, .btn-nav) {
+    min-height: 44px; height: 44px; border-radius: 5px; font-size: 15px;
+  }
+  body.zg-section-tools-open #nav .zg-language-switch { padding: 3px; border-radius: 5px; background: #100d08; }
+  body.zg-section-tools-open #nav .zg-language-switch > span { display: none; }
+  body.zg-section-tools-open #nav .zg-language-switch button { min-width: 32px; height: 36px; border-radius: 3px; }
+  body.zg-section-tools-open #zg-net-monitor-panel { top: calc(var(--zg-viewport-top) + var(--zg-app-header-height) + 72px); max-height: calc(var(--zg-viewport-height) - var(--zg-app-header-height) - 84px); overflow-y: auto; overscroll-behavior: none; }
+  /* Preserve each section's controls, but remove the bulky second chrome band. */
+  :root body .page > .page-back-bar {
+    min-height: 50px; padding: 3px 12px; gap: 12px;
+    background: #0d0b08; border-bottom: 1px solid #735b343f;
+  }
+  :root body .page > .page-back-bar .back-to-home {
+    min-height: 44px; padding: 0 8px; border: 0; border-radius: 0;
+    color: #cab18a; font-size: 12px; letter-spacing: .3px;
+  }
+  :root body .page > .page-back-bar .page-back-title { color: #e4d5b5; font-size: 12px; letter-spacing: .8px; }
+  #zg-adv-overlay .zg-adv-dialog { border-radius: 15px 4px 15px 4px; }
+  #zg-adv-overlay .zg-adv-card { border-radius: 10px 3px 10px 3px; transition: border-color .2s, background .2s, transform .2s; }
+  #zg-adv-overlay .zg-adv-card:active { transform: scale(.98); background: #392910; border-color: #c99c51; }
+  #zg-adv-overlay .zg-adv-back { min-height: 44px; top: 8px; left: 8px; }
+  #zg-adv-overlay .zg-adv-view { animation: none; }
   :root body #page-world.world-mobile-map-ui > .page-inner { padding: 0; overflow: hidden; }
   #page-world.world-mobile-map-ui .world-shell { display: flex; height: 100%; min-height: 0; gap: 0; padding: 0; }
   #page-world.world-mobile-map-ui .world-shell > aside { display: none; }
@@ -257,6 +320,17 @@ body > #zg-adv-overlay {
   #zg-adv-overlay .zg-adv-card-art { display: none; }
   #zg-workshop-mode .zg-confirm-box { max-height: calc(var(--zg-viewport-height) - 24px); overflow-y: auto; }
   #zg-adv-overlay .zg-adv-card-title { margin-bottom: 6px; }
+  #zg-adv-overlay :is(#zg-adv-view-main, #zg-adv-view-format) .zg-adv-card {
+    display: grid; grid-template-columns: 52px minmax(0,1fr); column-gap: 12px;
+    align-items: center; text-align: left;
+  }
+  #zg-adv-overlay :is(#zg-adv-view-main, #zg-adv-view-format) :is(.zg-adv-card-art,.zg-adv-mode-mark) {
+    display: grid; place-items: center; grid-column: 1; grid-row: 1 / 3;
+    width: 52px; height: 62px; margin: 0; border: 0; background: none; box-shadow: none;
+  }
+  #zg-adv-overlay .zg-adv-card-art img { width: 52px; height: 62px; object-fit: contain; }
+  #zg-adv-overlay :is(#zg-adv-view-main, #zg-adv-view-format) :is(.zg-adv-card-title,.zg-adv-card-desc) { grid-column: 2; }
+  #zg-adv-overlay .zg-adv-card-desc { font-size: 13px; line-height: 1.45; }
   #page-home .home-grid {
     min-height: 0;
     max-height: none;
@@ -293,6 +367,13 @@ body > #zg-adv-overlay {
   .mobile-arena-note { display: block; color: #bda884; font: 10px/1.3 'Lora', Georgia, serif; }
   .mobile-arena-banner { margin: 12px 16px; text-align: center; font-size: 12px; }
   #page-home .mobile-arena-note { max-width: 155px; flex-shrink: 0; }
+}
+
+@keyframes zg-mobile-tools-in { from { opacity: 0; translate: 0 -6px; } to { opacity: 1; translate: 0 0; } }
+@media (prefers-reduced-motion: reduce) {
+  body.zg-section-tools-open #header #nav { animation: none !important; }
+  .zg-mobile-tools-toggle svg, #zg-adv-overlay, #zg-adv-overlay .zg-adv-dialog, #zg-adv-overlay .zg-adv-card { transition: none; }
+  #zg-adv-overlay::before, #zg-adv-overlay .zg-adv-view { animation: none; }
 }
 
 @media (max-width: 700px) and (max-height: 500px), (max-width: 1000px) and (max-height: 500px) and (pointer: coarse) {
