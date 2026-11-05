@@ -1,7 +1,7 @@
 /* Mobile bag/equipment presentation; keeps the existing sheet storage and item editors. */
 (function(w){
  'use strict';
- var current=null,views={},detail=null,returnFocus=null,frame=0,coinDraft=null,quantityDraft=null;
+ var current=null,views={},detail=null,returnFocus=null,frame=0,coinDraft=null,quantityDraft=null,itemDraft=null,gesture=null,suppressClickUntil=0,pageDirection=0;
  var currencies=[['platinum','pl','ПЛ','Платина','Платина'],['gold','zl','ЗЛ','Золото','Золото'],['silver','sr','СР','Серебро','Срібло'],['copper','md','МД','Медь','Мідь']];
  function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
  function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -19,8 +19,16 @@
   return out;
  }
  function selected(c){var v=state(),list=rows(c).filter(function(row){return row.equipped===(v.group==='equipment');});if(v.sort==='name')list.sort(function(a,b){return name(c,a).localeCompare(name(c,b),t('ru','uk'));});if(v.sort==='qty')list.sort(function(a,b){return (Number(b.item.qty)||1)-(Number(a.item.qty)||1);});return list;}
- function art(c,row){return w.charInventoryArt(row.item,c);}
- function card(c,row){var qty=Math.max(1,parseInt(row.item.qty,10)||1);return button('item',name(c,row),'<span class="zgmi-art">'+art(c,row)+'</span><strong>'+e(name(c,row))+'</strong>'+(qty>1?'<span class="zgmi-qty">'+qty+'</span>':''),'class="zgmi-card" data-key="'+e(row.key)+'"');}
+ function art(c,row){
+  var item=row.item,source=String(item.imageThumb||item.image||''),icon=String(item.icon||item.iconKey||''),catalog=w.ZargotaItemIcons;
+  if(!source&&catalog&&catalog.byKey[icon.replace(/^art:/,'')])source=catalog.pathFor(icon);
+  if(!source&&typeof w.loadShopItems==='function'){var shop=w.loadShopItems().find(function(x){return String(x.name||'').trim().toLowerCase()===String(item.name||'').trim().toLowerCase();});if(shop)source=String(shop.imageThumb||shop.image||'');}
+  // Legacy emoji are sometimes placeholders: infer only an unambiguous noun in the name, never the description.
+  if(!source&&catalog){var title=String(item.name||item.text||'').toLowerCase(),rules=[[/посох|staff/,'staff'],[/бурдюк|waterskin/,'waterskin'],[/топор|сокир/,'axe'],[/флакон/,'vial'],[/кинжал|кинджал/,'dagger'],[/свиток|сувій/,'scroll'],[/гр[иі]муар/,'spellbook'],[/картошк|картопл/,'hero-esteros-large-potatoes']];for(var i=0;i<rules.length;i++)if(rules[i][0].test(title)){source=catalog.pathFor(rules[i][1]);break;}}
+  if(source)return '<img src="'+e(source)+'" alt="'+e(name(c,row))+'" decoding="async">';
+  return '<span class="zgmi-art-symbol" aria-label="'+e(name(c,row))+'">'+e(icon&&!/^art:/.test(icon)?icon:'◇')+'</span>';
+ }
+ function card(c,row){var qty=Math.max(1,parseInt(row.item.qty,10)||1);return button('item',name(c,row),'<span class="zgmi-art">'+art(c,row)+'</span><strong>'+e(name(c,row).replace(/^(?:\p{Extended_Pictographic}|\uFE0F|\s)+/u,''))+'</strong>'+(qty>1?'<span class="zgmi-qty">'+qty+'</span>':'')+(row.equipped?'<span class="zgmi-card-equipped"><i aria-hidden="true">✓</i>'+t('Экипировано','Споряджено')+'</span>':''),'class="zgmi-card" data-key="'+e(row.key)+'"');}
  function markup(c){
   var v=state(),list=selected(c),count=Math.max(1,Math.ceil(list.length/9));v.page=Math.min(v.page,count-1);
   var cards=list.slice(v.page*9,v.page*9+9).map(function(row){return card(c,row);});
@@ -34,11 +42,11 @@
    '<footer class="zgmi-footer">'+button('prev',t('Предыдущие предметы','Попередні предмети'),'‹',v.page?'':'disabled style="visibility:hidden"')+'<div>'+button('shop',t('Выбрать из товаров','Вибрати з товарів'),t('Из товаров','З товарів')+' ›')+(count>1?'<small aria-live="polite">'+(v.page+1)+' / '+count+'</small>':'')+'</div>'+button('next',t('Следующие предметы','Наступні предмети'),'›',v.page<count-1?'':'disabled style="visibility:hidden"')+'</footer></section>';
  }
  function render(c){if(String(current)!==String(c.id))close();current=c.id;return markup(c);}
- function refresh(id){if(id!=null&&String(id)!==String(current))return;if(!document.body.classList.contains('zg-inventory-view'))return;cancelAnimationFrame(frame);frame=requestAnimationFrame(function(){var c=character(),root=document.querySelector('.zgmi-v2');if(!c||!root)return;w.ZargotaMobileSheet.updateMarkup(root.parentElement,markup(c));if(detail)updateDetail();});}
- function close(){document.getElementById('zgmi-dialog')?.remove();detail=null;coinDraft=null;quantityDraft=null;document.querySelector('.zgmi-menu')?.remove();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
+ function refresh(id){if(id!=null&&String(id)!==String(current))return;if(!document.body.classList.contains('zg-inventory-view'))return;cancelAnimationFrame(frame);frame=requestAnimationFrame(function(){var c=character(),root=document.querySelector('.zgmi-v2');if(!c||!root)return;w.ZargotaMobileSheet.updateMarkup(root.parentElement,markup(c));if(pageDirection){var grid=document.querySelector('.zgmi-grid');if(!w.matchMedia('(prefers-reduced-motion: reduce)').matches&&grid&&grid.animate)grid.animate([{opacity:.35,transform:'translateX('+(pageDirection*22)+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:210,easing:'cubic-bezier(.2,.7,.2,1)'});pageDirection=0;}if(detail&&!itemDraft)updateDetail();});}
+ function close(){document.getElementById('zgmi-dialog')?.remove();detail=null;coinDraft=null;quantityDraft=null;itemDraft=null;gesture=null;document.querySelector('.zgmi-menu')?.remove();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
  function active(on){if(!on){close();document.querySelector('.zgmi-menu')?.remove();}}
  function resolveDetail(c){if(!detail)return null;return rows(c).find(function(row){return detail.armory?row.armory&&row.slot===detail.slot&&String(row.item.id)===String(detail.item.id):row.field===detail.field&&row.item===detail.item;});}
- function present(title,content){var el=document.getElementById('zgmi-dialog');if(!el){el=document.createElement('div');el.id='zgmi-dialog';el.setAttribute('data-zg-i18n-skip','');el.innerHTML='<section role="dialog" aria-modal="true"></section>';el.addEventListener('click',function(ev){if(ev.target===el)close();});document.body.appendChild(el);}el.firstElementChild.setAttribute('aria-label',title);w.ZargotaMobileSheet.updateMarkup(el.firstElementChild,content);}
+ function present(title,content){var el=document.getElementById('zgmi-dialog');if(!el){el=document.createElement('div');el.id='zgmi-dialog';el.setAttribute('data-zg-i18n-skip','');el.innerHTML='<section role="dialog" aria-modal="true"></section>';el.addEventListener('click',function(ev){if(ev.target===el&&!itemDraft)close();});document.body.appendChild(el);}el.firstElementChild.setAttribute('aria-label',title);w.ZargotaMobileSheet.updateMarkup(el.firstElementChild,content);}
  function equipmentAction(row){var item=row.item;return row.equipped||row.armory||row.field==='equipItems'||!!item.slot||['weapon','armor','shield','equipment'].indexOf(item.category)>=0;}
  function detailHTML(c,row){
   var item=row.item,description=label(c,row,item.description||item.desc||item.text),stats=[],qty=Math.max(1,parseInt(item.qty,10)||1);
@@ -57,9 +65,38 @@
   el.innerHTML=row?(row.armory?button('shop',t('Изменить снаряжение','Змінити спорядження'),t('Изменить снаряжение','Змінити спорядження')):button('edit',t('Редактировать','Редагувати'),t('Редактировать','Редагувати')))+(!equipmentAction(row)?button('equip',t('Экипировать','Спорядити'),t('Экипировать','Спорядити')):'')+(!row.armory?button('remove',t('Удалить','Видалити'),t('Удалить','Видалити')):''):button('add',t('Добавить предмет','Додати предмет'),t('Добавить предмет','Додати предмет'))+button('shop',t('Выбрать из товаров','Вибрати з товарів'),t('Из товаров','З товарів'));
   source.parentElement.appendChild(el);source.setAttribute('aria-expanded','true');
  }
- function add(){var c=character();if(state().group==='equipment'){w.charOpenEquipModal(c.id);return;}state().sort='manual';state().page=Math.floor(selected(c).length/9);w.addInventoryItem(c.id);}
+ function changePage(delta){var c=character();if(!c||document.getElementById('zgmi-dialog'))return;var v=state(),next=Math.max(0,Math.min(Math.ceil(selected(c).length/9)-1,v.page+delta));if(next===v.page||next<0)return;v.page=next;pageDirection=delta;refresh();}
+ function add(source){close();returnFocus=source;present(t('Добавить предмет','Додати предмет'),'<header><h2>'+t('Добавить предмет','Додати предмет')+'</h2>'+button('close',t('Закрыть','Закрити'),'×')+'</header><div class="zgmi-add-choices">'+button('shop',t('Из товаров','З товарів'),'<b>'+t('Из товаров','З товарів')+'</b><span>'+t('Выбрать готовое снаряжение','Вибрати готове спорядження')+'</span><i aria-hidden="true">›</i>')+button('create',t('Создать предмет','Створити предмет'),'<b>'+t('Создать предмет','Створити предмет')+'</b><span>'+t('Название, описание и изображение','Назва, опис та зображення')+'</span><i aria-hidden="true">+</i>')+'</div>');}
+ function formError(message){var el=document.querySelector('.zgmi-form-error');if(el)el.textContent=message;}
+ function formHTML(){var d=itemDraft,row={item:d};return '<header><h2>'+t(d.original?'Редактировать предмет':'Новый предмет',d.original?'Редагувати предмет':'Новий предмет')+'</h2>'+button('form-cancel',t('Закрыть','Закрити'),'×')+'</header><div class="zgmi-form-scroll"><div class="zgmi-form-visual"><div class="zgmi-form-preview">'+art(character(),row)+'</div><div><label class="zgmi-file-button">'+t('Выбрать изображение','Вибрати зображення')+'<input type="file" data-zgmi-image accept="image/png,image/jpeg,image/webp"></label>'+button('form-icons',t('Выбрать значок','Вибрати значок'),t('Или значок','Або значок'),'aria-expanded="false"')+'</div></div><div class="zgmi-icon-options" hidden>'+[['potion','Зелье','Зілля'],['sword','Меч','Меч'],['shield','Щит','Щит'],['cloak','Плащ','Плащ'],['spellbook','Книга','Книга'],['scroll','Свиток','Сувій'],['herbs','Травы','Трави'],['toolkit','Инструменты','Інструменти'],['backpack','Рюкзак','Рюкзак']].map(function(x){return button('form-icon',t(x[1],x[2]),'<img src="images/ui/item-icons/'+x[0]+'.png" alt="">','data-icon="'+x[0]+'"');}).join('')+'</div><label class="zgmi-field">'+t('Название','Назва')+'<input data-zgmi-field="name" value="'+e(d.name)+'" maxlength="180" autocomplete="off" enterkeyhint="next"></label><label class="zgmi-field">'+t('Описание','Опис')+'<textarea data-zgmi-field="description" rows="3" maxlength="12000">'+e(d.description)+'</textarea></label><div class="zgmi-form-quantity"><span>'+t('Количество','Кількість')+'</span>'+button('form-minus',t('Уменьшить количество','Зменшити кількість'),mark(false))+'<output aria-live="polite">'+d.qty+'</output>'+button('form-plus',t('Увеличить количество','Збільшити кількість'),mark(true))+'</div><label class="zgmi-form-equip"><input type="checkbox" data-zgmi-field="equipped"'+(d.equipped?' checked':'')+'>'+t('Экипировано','Споряджено')+'</label><p class="zgmi-form-error" role="alert"></p></div><div class="zgmi-dialog-actions">'+button('form-cancel',t('Отмена','Скасувати'),t('Отмена','Скасувати'))+button('form-save',t('Сохранить','Зберегти'),t('Сохранить','Зберегти'))+'</div>';}
+ function editForm(row){var item=row?row.item:{};itemDraft={original:row||null,name:String(item.name||item.text||''),description:String(item.description||item.desc||''),qty:Math.max(1,parseInt(item.qty,10)||1),equipped:row?row.equipped:state().group==='equipment',icon:String(item.icon||item.iconKey||'◇'),image:item.image||'',imageThumb:item.imageThumb||'',artChanged:false,loading:false};present(t('Предмет','Предмет'),formHTML());document.querySelector('#zgmi-dialog>section').dataset.view='form';}
+ function previewDraft(){var el=document.querySelector('.zgmi-form-preview');if(el&&itemDraft)el.innerHTML=art(character(),{item:itemDraft});}
+ function cancelForm(){if(itemDraft&&itemDraft.saving)return;itemDraft=null;if(detail)updateDetail();else close();}
+ async function saveForm(){
+  var d=itemDraft,c=character();if(!d||!c||d.saving)return;
+  if(d.loading){formError(t('Изображение ещё загружается.','Зображення ще завантажується.'));return;}
+  if(!d.name.trim()){formError(t('Добавьте название предмета.','Додайте назву предмета.'));document.querySelector('[data-zgmi-field=name]').focus();return;}
+  var item=d.original&&resolveDetail(c);if(d.original&&!item){formError(t('Предмет изменился. Откройте его снова.','Предмет змінився. Відкрийте його знову.'));return;}
+  var hpBefore=c.hpCur,target=item?item.item:{},field=item?item.field:'inventoryItems',changed=['name','description','qty','equipped'],before={},written={};
+  if(item&&item.field==='equipItems')changed.push('text');if(d.artChanged||!item)changed=changed.concat(['icon','image','imageThumb']);
+  changed.forEach(function(key){before[key]={exists:Object.prototype.hasOwnProperty.call(target,key),value:target[key]};});
+  target.name=d.name.trim();target.description=d.description;target.qty=d.qty;target.equipped=d.equipped;if(item&&item.field==='equipItems')target.text=target.name;
+  if(d.artChanged||!item){target.icon=d.icon;if(d.image)target.image=d.image;else delete target.image;if(d.imageThumb)target.imageThumb=d.imageThumb;else delete target.imageThumb;}
+  changed.forEach(function(key){written[key]=target[key];});if(!item){if(!Array.isArray(c.inventoryItems))c.inventoryItems=[];c.inventoryItems.push(target);}
+  d.saving=true;var panel=document.querySelector('#zgmi-dialog>section');if(panel){panel.setAttribute('aria-busy','true');panel.querySelectorAll('button,input,textarea').forEach(function(el){el.disabled=true;});}formError('');
+  var saved,hpDuring=c.hpCur;try{var operation=w.saveChars({reason:item?'inventory-update':'inventory-add'});hpDuring=c.hpCur;saved=await operation;}catch(error){saved={ok:false};}d.saving=false;
+  if(!saved||saved.ok===false){
+   var stored=(c[field]||[]).find(function(x){return x===target||target.itemId&&x.itemId===target.itemId;});
+   if(!item){var idx=(c[field]||[]).indexOf(stored);if(idx>=0)c[field].splice(idx,1);}else if(stored)changed.forEach(function(key){if(stored[key]!==written[key])return;if(before[key].exists)stored[key]=before[key].value;else delete stored[key];});
+   var liveHp=c.hpCur,restoreHp=liveHp===hpDuring?hpBefore:liveHp;if(w.applyCharacterEquipmentBonuses)w.applyCharacterEquipmentBonuses(c);c.hpCur=Math.max(0,Math.min(c.hpMax,parseInt(restoreHp,10)||0));
+   if(itemDraft===d){panel.removeAttribute('aria-busy');panel.querySelectorAll('button,input,textarea').forEach(function(el){el.disabled=false;});formError(t('Не удалось сохранить. Ваши изменения остались здесь — попробуйте ещё раз.','Не вдалося зберегти. Ваші зміни залишилися тут — спробуйте ще раз.'));}refresh();return;
+  }
+  if(!item&&String(current)===String(c.id)){state().sort='manual';state().group=d.equipped?'equipment':'bag';state().page=Math.max(0,Math.floor((selected(c).length-1)/9));}
+  if(itemDraft===d)close();refresh(c.id);if(w.zgVttRefreshDrawer)w.zgVttRefreshDrawer();
+ }
+ function loadImage(file){var d=itemDraft;if(!d||!file)return;var request=(d.imageRequest||0)+1;d.imageRequest=request;d.loading=false;if(!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>8*1024*1024){formError(t('Выберите PNG, JPG или WebP до 8 МБ.','Виберіть PNG, JPG або WebP до 8 МБ.'));return;}d.loading=true;formError(t('Загружаем изображение…','Завантажуємо зображення…'));var reader=new FileReader();function failed(){if(itemDraft===d&&d.imageRequest===request){d.loading=false;formError(t('Не удалось открыть изображение.','Не вдалося відкрити зображення.'));}}reader.onerror=failed;reader.onload=function(){if(itemDraft!==d||d.imageRequest!==request)return;var img=new Image();img.onerror=failed;img.onload=function(){if(itemDraft!==d||d.imageRequest!==request)return;try{var scale=Math.min(1,768/Math.max(img.width,img.height)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);d.image=canvas.toDataURL(file.type==='image/jpeg'?'image/jpeg':'image/png',.88);d.imageThumb=d.image;d.artChanged=true;d.loading=false;previewDraft();formError('');}catch(err){failed();}};img.src=reader.result;};reader.readAsDataURL(file);}
  function mutate(action){var c=character(),row=c&&resolveDetail(c);if(!row)return;
-  if(action==='edit'){close();w.openItemConstructor(c.id,row.field==='equipItems'?'equip':'inventory',row.index);return;}
+  if(action==='edit'){editForm(row);return;}
   if(action==='remove'){
    present(t('Удаление предмета','Видалення предмета'),'<header><h2>'+e(name(c,row))+'</h2>'+button('close',t('Закрыть','Закрити'),'×')+'</header><p class="zgmi-confirm">'+t('Удалить этот предмет из листа?','Видалити цей предмет з аркуша?')+'</p><div class="zgmi-dialog-actions">'+button('detail-return',t('Отмена','Скасувати'),t('Отмена','Скасувати'))+button('confirm-remove',t('Удалить','Видалити'),t('Удалить','Видалити'))+'</div>');return;
   }
@@ -77,17 +114,29 @@
  document.addEventListener('click',function(ev){var b=ev.target.closest('[data-zgmi]');if(!b){if(!ev.target.closest('.zgmi-menu'))document.querySelector('.zgmi-menu')?.remove();return;}var a=b.dataset.zgmi,c=character();if(!c)return;
   if(a!=='menu'&&a!=='detail-menu'){document.querySelector('.zgmi-menu')?.remove();document.querySelectorAll('[data-zgmi][aria-expanded=true]').forEach(function(el){el.setAttribute('aria-expanded','false');});}
   if(a==='back')w.zgCharBack();else if(a==='close')close();else if(a==='group'){state().group=b.dataset.group;state().page=0;refresh();}
-  else if(a==='menu'||a==='detail-menu')menu(b,a==='detail-menu');else if(a==='add')add();
+  else if(a==='menu'||a==='detail-menu')menu(b,a==='detail-menu');else if(a==='add')add(b);
+  else if(a==='create')editForm(null);
+  else if(a==='form-cancel')cancelForm();else if(a==='form-save')saveForm();
+  else if(a==='form-icons'){var options=document.querySelector('.zgmi-icon-options');options.hidden=!options.hidden;b.setAttribute('aria-expanded',String(!options.hidden));}
+  else if(a==='form-icon'){itemDraft.imageRequest=(itemDraft.imageRequest||0)+1;itemDraft.loading=false;formError('');itemDraft.icon='art:'+b.dataset.icon;itemDraft.image='images/ui/item-icons/'+b.dataset.icon+'.png';itemDraft.imageThumb=itemDraft.image;itemDraft.artChanged=true;previewDraft();document.querySelector('.zgmi-icon-options').hidden=true;document.querySelector('[data-zgmi=form-icons]').setAttribute('aria-expanded','false');}
+  else if(a==='form-plus'||a==='form-minus'){itemDraft.qty=Math.max(1,itemDraft.qty+(a==='form-plus'?1:-1));document.querySelector('.zgmi-form-quantity output').textContent=itemDraft.qty;}
   else if(a==='shop'){close();w.charOpenEquipModal(c.id);}
   else if(a==='item'){var row=rows(c).find(function(row){return row.key===b.dataset.key;});if(row)open(row,b);}
-  else if(a==='prev'||a==='next'){state().page=Math.max(0,state().page+(a==='next'?1:-1));refresh();}
+  else if(a==='prev'||a==='next')changePage(a==='next'?1:-1);
   else if(a==='coin'){close();returnFocus=b;coinDraft={key:b.dataset.coin,value:Math.max(0,parseInt((c.coins||{})[b.dataset.coin],10)||0),step:1};showCoin();document.querySelector('#zgmi-dialog [data-zgmi=close]')?.focus({preventScroll:true});}
   else if(a==='coin-plus'||a==='coin-minus'){coinDraft.value=Math.max(0,coinDraft.value+(a==='coin-plus'?coinDraft.step:-coinDraft.step));showCoin();}
   else if(a==='coin-step'){coinDraft.step=Number(b.dataset.step);showCoin();}
   else if(a==='coin-save'){w.setCoin(c.id,coinDraft.key,coinDraft.value);close();refresh();}
   else if(a==='detail-return')updateDetail();else mutate(a);
  });
- document.addEventListener('change',function(ev){if(ev.target.matches('[data-zgmi-sort]')){state().sort=ev.target.value;state().page=0;refresh();}});
- document.addEventListener('keydown',function(ev){var dialog=document.getElementById('zgmi-dialog');if(!dialog)return;if(ev.key==='Escape'){close();ev.preventDefault();}else if(ev.key==='Tab'){var els=Array.from(dialog.querySelectorAll('button')).filter(function(el){return !el.disabled&&el.getClientRects().length;}),first=els[0],last=els[els.length-1];if(ev.shiftKey&&document.activeElement===first){last.focus();ev.preventDefault();}else if(!ev.shiftKey&&document.activeElement===last){first.focus();ev.preventDefault();}}});
+ document.addEventListener('input',function(ev){if(itemDraft&&ev.target.matches('[data-zgmi-field]')){var field=ev.target.dataset.zgmiField;itemDraft[field]=field==='equipped'?ev.target.checked:ev.target.value;}});
+ document.addEventListener('change',function(ev){if(ev.target.matches('[data-zgmi-image]'))loadImage(ev.target.files[0]);if(ev.target.matches('[data-zgmi-sort]')){state().sort=ev.target.value;state().page=0;refresh();}});
+ document.addEventListener('keydown',function(ev){var dialog=document.getElementById('zgmi-dialog');if(!dialog)return;if(ev.key==='Escape'){if(itemDraft)cancelForm();else close();ev.preventDefault();}else if(ev.key==='Tab'){var els=Array.from(dialog.querySelectorAll('button,input,textarea,select,[tabindex]')).filter(function(el){return !el.disabled&&el.getClientRects().length;}),first=els[0],last=els[els.length-1];if(ev.shiftKey&&document.activeElement===first){last.focus();ev.preventDefault();}else if(!ev.shiftKey&&document.activeElement===last){first.focus();ev.preventDefault();}}});
+ // Touch scrolling remains vertical; a deliberate horizontal drag turns only the item grid.
+ document.addEventListener('touchstart',function(ev){var grid=ev.target.closest('.zgmi-grid');if(!grid||document.getElementById('zgmi-dialog')||ev.touches.length!==1||ev.target.closest('[data-zgmi=add]')){gesture=null;return;}var touch=ev.touches[0];gesture={x:touch.clientX,y:touch.clientY,dx:0,dy:0,grid:grid};},{passive:true});
+ document.addEventListener('touchmove',function(ev){if(!gesture)return;if(ev.touches.length!==1){gesture=null;return;}gesture.dx=ev.touches[0].clientX-gesture.x;gesture.dy=ev.touches[0].clientY-gesture.y;if(Math.abs(gesture.dy)>18&&Math.abs(gesture.dy)>Math.abs(gesture.dx)){gesture=null;return;}if(Math.abs(gesture.dx)>18&&Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.5&&ev.cancelable)ev.preventDefault();},{passive:false});
+ document.addEventListener('touchend',function(){if(!gesture)return;var g=gesture;gesture=null;if(Math.abs(g.dx)>=44&&Math.abs(g.dx)>Math.abs(g.dy)*1.5){suppressClickUntil=Date.now()+400;changePage(g.dx<0?1:-1);}},{passive:true});
+ document.addEventListener('touchcancel',function(){gesture=null;},{passive:true});
+ document.addEventListener('click',function(ev){if(Date.now()<suppressClickUntil&&ev.target.closest('.zgmi-grid')){ev.preventDefault();ev.stopImmediatePropagation();}},true);
  w.ZargotaMobileInventory={render:render,refresh:refresh,setActive:active,rows:rows};
 })(window);

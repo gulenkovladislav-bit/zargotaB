@@ -10415,7 +10415,7 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-05.1';
+var ZG_APP_VERSION = '2026-11-05.2';
 var ZG_APP_CHANGELOG = [
   {v:'2026-11-04.4',notes:'На телефоне «Отправиться в приключение» открывает создание игры или вход по коду. Мастерская доступна на компьютере.',notesUk:'На телефоні «Вирушити в пригоду» відкриває створення гри або вхід за кодом. Майстерня доступна на комп’ютері.'},
 {v:'2026-11-04.3',notes:'В карусели героев обновлены кадрирование портретов, рамки и подсветка выбранной миниатюры. Увеличены имя и значения характеристик.',notesUk:'У каруселі героїв оновлено кадрування портретів, рамки та підсвічування вибраної мініатюри. Збільшено ім’я та значення характеристик.'},
@@ -26745,15 +26745,15 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 })();
 </script>
 <link rel="stylesheet" href="mobile-shell.css?v=2026-11-04.4">
-<link rel="stylesheet" href="home-mobile-atlas.css?v=2026-11-04.6">
+<link rel="stylesheet" href="home-mobile-atlas.css?v=2026-11-05.2">
 <script defer src="mobile-shell.js?v=2026-11-04.6"></script>
 <script defer src="character-portrait.js?v=2026-11-05.1"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-05.1">
 <script defer src="character-mobile-overview.js?v=2026-11-05.1"></script>
-<link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.1">
-<script defer src="character-mobile-inventory.js?v=2026-11-05.1"></script>
+<link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.2">
+<script defer src="character-mobile-inventory.js?v=2026-11-05.2"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.1">
-<link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-05.1">
+<link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-05.2">
 <script defer src="character-mobile-roster.js?v=2026-11-05.1"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.1"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-05.1">
@@ -30345,7 +30345,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
       <span class="home-particle" style="--left: 90%; --size: 5.5px; --dur: 8.48s; --delay: 12.1s; --drift-x: 34px; --tilt: -20deg; --rise: 76px; --spark-mid: rgba(255,194,96,0.89); --spark-outer: rgba(255,146,58,0.55); --launch-delay: 8.64s;"></span>
     </div>
     <div class="home-content">
-    <button type="button" class="home-mobile-wordmark" aria-label="Заргота — меню и настройки" aria-expanded="false" aria-controls="nav">Заргота</button>
+    <button type="button" class="home-mobile-wordmark" aria-label="Заргота — меню и настройки" aria-expanded="false" aria-controls="nav">Заргота<svg class="home-wordmark-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="m2 4 4 4 4-4"/></svg></button>
     <div class="home-title">Мир Зарготы</div>
     <div class="home-subtitle">Панель Мастера · Инструменты кампании</div>
     <div class="home-quick-actions">
@@ -74989,6 +74989,7 @@ global.getStatusCombatMods = function(combatant) {
 // Add current releases after historical notes have finished building.
 ZG_APP_CHANGELOG.unshift({v:'2026-11-04.6',notes:'Обновлена главная на телефоне. Под шлемом в разделе «Персонажи» можно открыть свой лист. Нажатие на название «Заргота» открывает меню настроек.',notesUk:'Оновлено головну сторінку на телефоні. Під шоломом у розділі «Персонажі» можна відкрити свій аркуш. Натискання на назву «Заргота» відкриває меню налаштувань.'});
 ZG_APP_CHANGELOG.unshift({v:'2026-11-05.1',notes:'В мобильном листе объединены черты и мастерство, изучение навыков вынесено в отдельное действие. Увеличены изображения предметов, количество меняется отдельно. Обновлены вкладки лора, иконки и свечение славы; портреты кадрируются по положению лица.',notesUk:'У мобільному аркуші об’єднано риси й майстерність, вивчення навичок винесено в окрему дію. Збільшено зображення предметів, кількість змінюється окремо. Оновлено вкладки лору, іконки та сяйво слави; портрети кадруються за розташуванням обличчя.'});
+ZG_APP_CHANGELOG.unshift({v:'2026-11-05.2',notes:'На мобильной главной добавлены мягкое движение пейзажа и дымка. Улучшены верхнее меню и панель персонажей. Инвентарь поддерживает свайп страниц, заметные метки экипировки и новое окно добавления предметов; исправлена яркость изображений.',notesUk:'На мобільній головній додано м’який рух краєвиду й серпанок. Поліпшено верхнє меню та панель персонажів. Інвентар підтримує гортання сторінок жестом, помітні позначки спорядження й нове вікно додавання предметів; виправлено яскравість зображень.'});
 </script>
 
 
