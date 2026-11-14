@@ -4,7 +4,8 @@
 #persistent-sheet-status[hidden]{display:none}
 #persistent-sheet-status>span{flex:1 1 130px}
 #persistent-sheet-status button{min-height:36px;border:1px solid #69502a;border-radius:18px;padding:5px 10px;background:#201707;color:#e7c368;font:inherit;cursor:pointer}
-#char-sheet-view.pc-linked-sheet{display:flex!important;flex-direction:column;min-height:0}
+#char-sheet-view.pc-linked-sheet{display:block!important;min-height:0}
+@media(max-width:900px){#char-sheet-view.pc-linked-sheet{display:flex!important;flex-direction:column}}
 #char-sheet-view.pc-linked-sheet>#sheet-zoom-wrap{min-height:0;flex:1}
 #persistent-character-dialog{position:fixed;inset:0;margin:auto;width:calc(100vw - 24px);max-width:560px;max-height:calc(var(--zg-viewport-height,100dvh) - 32px);box-sizing:border-box;overflow:auto;overscroll-behavior:contain;padding:22px;background:#130e07;color:#e0d2b2;border:1px solid #80602e;border-radius:18px;box-shadow:0 18px 70px #000c;font:16px/1.5 Georgia,serif}
 #persistent-character-dialog::backdrop{background:#000b}
@@ -104,7 +105,7 @@
 #pc-control-accounts .pc-roster-heading button>span{font-size:21px;vertical-align:-1px}
 #pc-control-accounts .pc-account-master,#persistent-character-dialog .pc-account-master{display:flex;align-items:center;gap:12px;width:100%;margin:0 0 10px;padding:10px 12px;border:1px solid #604724;border-radius:5px;background:#241a0b47;text-align:left;color:#d8bd83;font-size:14px}
 .pc-account-master>span{font-size:23px;color:#d8b55d}
-.pc-account-roster{display:grid;gap:7px;max-height:260px;overflow-y:auto;overscroll-behavior:contain;padding:3px;scrollbar-width:thin;scrollbar-color:#70542b transparent}
+.pc-account-roster{display:grid;gap:7px;max-height:none;overflow:visible;overscroll-behavior:contain;padding:3px;scrollbar-width:thin;scrollbar-color:#70542b transparent}
 #pc-control-accounts .pc-account-row,#persistent-character-dialog .pc-account-row{display:grid;grid-template-columns:46px minmax(0,1fr) 12px;align-items:center;gap:11px;width:100%;margin:0;padding:8px 10px;text-align:left;border:1px solid #46341b;border-radius:5px;background:linear-gradient(120deg,#231b0b35,#0f0c07);transition:border-color .2s,background .2s,box-shadow .2s;min-height:66px}
 #pc-control-accounts .pc-account-row.is-selected,#persistent-character-dialog .pc-account-row.is-selected{border-color:#bd9345;background:linear-gradient(110deg,#5037195e,#22190e52);box-shadow:inset 2px 0 #d3a649}
 #pc-control-accounts .pc-account-row:hover,#persistent-character-dialog .pc-account-row:hover{border-color:#98723a}
@@ -149,7 +150,7 @@
 #zg-net-monitor-panel:not(.pc-players-open)>#pc-control-accounts{display:none}
 #zg-net-monitor-panel.pc-players-open>:not(.zg-net-monitor-head):not(.pc-control-tabs):not(#pc-control-accounts){display:none!important}
 #zg-net-monitor-panel.pc-players-open>#pc-control-accounts{display:block}
-#zg-net-monitor-panel:has(#pc-control-tabs){max-height:calc(var(--zg-viewport-height,100dvh) - 76px);overflow-y:auto;overscroll-behavior:contain}
+#zg-net-monitor-panel:has(#pc-control-accounts){max-height:calc(var(--zg-viewport-height,100dvh) - 76px);overflow-y:auto;overscroll-behavior:contain}
 
 .pc-control-tabs[hidden]{display:none}
 
@@ -160,3 +161,20 @@
 .pc-mine-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px}
 
 .pc-new-character{margin-bottom:18px}.pc-new-character .pc-primary{width:100%}#pc-new-character-form input{width:100%;box-sizing:border-box}#persistent-issued-code{font-variant-numeric:tabular-nums;letter-spacing:.12em}
+
+/* Desktop account management: show the party together, without a nested scroller. */
+@media(min-width:701px){
+ #zg-net-monitor-panel.pc-players-open{width:min(820px,calc(100vw - 40px));box-sizing:border-box}
+ #pc-control-accounts .pc-account-roster{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+ #pc-control-accounts .pc-account-row{grid-template-columns:38px minmax(0,1fr);gap:8px;padding:9px;min-height:76px}
+ #pc-control-accounts .pc-account-row .pc-avatar{width:38px;height:44px}
+ #pc-control-accounts .pc-row-chevron{display:none}
+ #pc-control-accounts .pc-account-row .pc-account-info>b{font-size:14px}
+ #pc-control-accounts .pc-selected-account{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 24px;margin-top:12px;padding-top:12px}
+ #pc-control-accounts .pc-selected-account h3{grid-column:1/-1;font-size:20px;margin-bottom:6px}
+ #pc-control-accounts .pc-code-summary{grid-column:1;grid-row:2/4;align-content:start}
+ #pc-control-accounts .pc-code-hint{grid-column:2;margin:0}
+ #pc-control-accounts .pc-detail-actions{grid-column:2}
+}
+.pc-selected-account h3{padding-bottom:10px}
+.pc-code-mask{user-select:text;font-variant-numeric:tabular-nums;font-size:20px}

@@ -19,7 +19,7 @@
   // The in-person table observes the same acknowledged sheet as the player.
   // Cached presence alone must never unlock an edit after a reload or account change.
   var tableSeen=new Set(),tableWrites=new Set(),tablePackets=new WeakMap(),incomingTasks=new Map();
-  var subscribedUid='',retryAttempts={},authGeneration=0;
+  var subscribedUid='',retryAttempts={},authGeneration=0,revealedCodes={};
   function tableHero(sid){
     var e=records[sid];
     if(!state.enabled||account.role!=='admin'||!e||!e.allowed||e.role!=='master'||!e.meta||e.meta.ownerUid!==uid||!e.base||e.localId==null)return null;
@@ -167,7 +167,7 @@
     await openOwnSheet(identity&&identity.sheetId,originDialog);
   }
   async function create(localId){
-    await enable();var c=character(localId);if(!c)throw Error('character-missing');
+    await enable();var c=character(localId);if(!c||c.type==='npc')throw Error('character-missing');
     var sid=binding(localId);if(sid)return transport.call({action:'code',sheetId:sid});
     if(w.ZargotaRooms.getSnapshot().session)throw Error('leave-session-before-linking');
     state.creating=state.creating||{};sid=state.creating[uid+':'+localId]||newId();state.creating[uid+':'+localId]=sid;persist();
@@ -250,7 +250,7 @@
   async function logout(){
     await boot;if(starting)await starting.catch(function(){});
     if(hasUnsaved())throw Error('unsent-character-changes');
-    authGeneration++;
+    authGeneration++;revealedCodes={};
     await cacheWrite;
     if(!transport&&w.ZargotaPersistentTransport.available())transport=await w.ZargotaPersistentTransport.start();
     if(transport&&transport.logout)await transport.logout();
@@ -263,13 +263,14 @@
     return Object.keys(records).filter(function(sid){return records[sid].allowed&&character(records[sid].localId);}).map(function(sid){
       var entry=records[sid],playerUid=entry.meta&&entry.meta.playerUid;
       var activity=entry.activity||{};
-      return {sid:sid,hero:character(entry.localId),online:navigator.onLine&&!!(entry.presence&&entry.presence[playerUid]&&Object.keys(entry.presence[playerUid]).length),lastSeen:entry.lastSeen&&entry.lastSeen[playerUid],unread:entry.role==='master'&&(activity.lastPlayerRevision||0)>(activity.seenRevision||0)};
+      return {sid:sid,code:revealedCodes[sid],hero:character(entry.localId),online:navigator.onLine&&!!(entry.presence&&entry.presence[playerUid]&&Object.keys(entry.presence[playerUid]).length),lastSeen:entry.lastSeen&&entry.lastSeen[playerUid],unread:entry.role==='master'&&(activity.lastPlayerRevision||0)>(activity.seenRevision||0)};
     });
   }
   function paintAccounts(){
     if(account.role!=='admin')return;
     var items=accountItems();if(!items.some(function(i){return i.sid===selectedAccount;}))selectedAccount=items[0]&&items[0].sid||'';
     var list=document.getElementById('pc-account-list');if(!list)return;
+    document.querySelectorAll('[data-pc-player-count]').forEach(function(el){el.textContent=items.length;});
     var html=w.ZargotaAccountViews.roster(items,selectedAccount);
     if(!list.contains(document.activeElement)&&list.innerHTML!==html)list.innerHTML=html;
     var detail=document.getElementById('pc-account-detail');
@@ -277,15 +278,16 @@
   }
   function controlTabs(){
     var panel=document.getElementById('zg-net-monitor-panel');if(!panel)return;
-    var tabs=document.getElementById('pc-control-tabs'),admin=state.enabled&&account.role==='admin';
-    if(!tabs){tabs=document.createElement('nav');tabs.id='pc-control-tabs';tabs.className='pc-control-tabs';tabs.setAttribute('aria-label',t('Разделы настроек','Розділи налаштувань'));panel.insertBefore(tabs,panel.children[1]);}
-    tabs.hidden=!admin;
-    var selected=panel.classList.contains('pc-players-open');
-    if(!tabs.children.length)tabs.innerHTML=button('control-general','','')+button('settings','','');
-    var general=tabs.querySelector('[data-pc-action="control-general"]'),players=tabs.querySelector('[data-pc-action="settings"]');
-    general.textContent=t('Общее','Загальне');general.setAttribute('aria-pressed',String(!selected));
-    players.textContent=t('Игроки','Гравці');players.setAttribute('aria-pressed',String(selected));
-    if(!admin)panel.classList.remove('pc-players-open');
+    // Accounts and the gear have distinct entry points; do not duplicate settings inside accounts.
+    var tabs=document.getElementById('pc-control-tabs');if(tabs)tabs.remove();
+    if(!state.enabled||account.role!=='admin')panel.classList.remove('pc-players-open');
+    var title=panel.querySelector('.zg-net-monitor-head b');
+    if(title)title.textContent=panel.classList.contains('pc-players-open')?t('Игроки','Гравці'):t('Центр управления','Центр керування');
+  }
+  function showGeneralSettings(){
+    var panel=document.getElementById('zg-net-monitor-panel');
+    if(panel)panel.classList.remove('pc-players-open');
+    controlTabs();
   }
   function showAccounts(){
     closeAccountMenu();var admin=account.role==='admin',items=accountItems();
@@ -298,6 +300,12 @@
       host.innerHTML=body+'<p role="alert" aria-live="polite"></p>';panel.classList.add('pc-players-open');controlTabs();
       if(w.zgSessionMonitorToggle)w.zgSessionMonitorToggle(null,true);
     }else{var el=dialog(admin?t('Игроки','Гравці'):t('Мой аккаунт','Мій акаунт'),body);el.classList.add('pc-accounts-dialog');}
+  }
+  function showCreatedAccount(localId,result){
+    selectedAccount=binding(localId);revealedCodes={};
+    if(selectedAccount)revealedCodes[selectedAccount]=result.code;
+    var el=document.getElementById('persistent-character-dialog');if(el)el.close();
+    showAccounts();
   }
   function openLocalRoster(){
     w.showPage('characters');
@@ -429,9 +437,8 @@
     if(action==='close-account'){closeAccountMenu();return;}
     if(action==='account-menu'){accountMenu(buttonEl);return;}
     if(action==='leave'){await logout();return;}
-    if(action==='control-general'){document.getElementById('zg-net-monitor-panel').classList.remove('pc-players-open');controlTabs();return;}
     if(action==='select-account'){
-      selectedAccount=sid;
+      selectedAccount=sid;revealedCodes={};
       var list=document.getElementById('pc-account-list'),detail=document.getElementById('pc-account-detail');
       // Keep the clicked row attached so the settings panel's outside-click
       // handler does not mistake account selection for a click outside it.
@@ -446,7 +453,7 @@
     if(action==='settings'){await settings();return;}
     if(action==='login'){var input=document.getElementById('persistent-login-code');if(!input)return;if(!String(input.value||'').trim()){input.focus();if(input.reportValidity)input.reportValidity();return;}await login(input.value,el);if(el&&el.open)el.close();return;}
     if(action==='open'||action==='account-open'){if(!records[sid]||!records[sid].allowed)throw Error('access-denied');closeAccountMenu();if(el)el.close();if(w.zgSessionMonitorToggle)w.zgSessionMonitorToggle(null,false);w.showPage('characters');w.openCharSheet(records[sid].localId);return;}
-    if(action==='account-add'){if(account.role!=='admin')throw Error('access-denied');dialog(t('Добавить игрока','Додати гравця'),w.ZargotaAccountViews.picker((w.characters||[]).filter(function(c){return !binding(c.id);}))).classList.add('pc-accounts-dialog');return;}
+    if(action==='account-add'){if(account.role!=='admin')throw Error('access-denied');dialog(t('Добавить игрока','Додати гравця'),w.ZargotaAccountViews.picker((w.characters||[]).filter(function(c){return c.type!=='npc'&&!binding(c.id);}))).classList.add('pc-accounts-dialog');return;}
     if(action==='account-new'){
       if(account.role!=='admin')throw Error('access-denied');
       dialog(t('Новый персонаж','Новий персонаж'),'<form id="pc-new-character-form"><label for="pc-new-character-name">'+t('Имя персонажа','Ім’я персонажа')+'</label><input id="pc-new-character-name" maxlength="300" required placeholder="'+t('Например, Тест','Наприклад, Тест')+'"><p>'+t('Создадим пустой лист и сразу выдадим код для входа с телефона. Остальное можно заполнить позже.','Створимо порожній аркуш і одразу видамо код для входу з телефона. Решту можна заповнити пізніше.')+'</p><button type="submit" class="pc-primary" data-pc-action="account-new-save">'+t('Создать и выдать код','Створити й видати код')+'</button></form>');return;
@@ -463,10 +470,27 @@
         w.characters.push(c);localId=c.id;form.dataset.localId=String(localId);
         if(w.renderCharList)w.renderCharList();
       }
-      var result=await create(localId);showCode(result.code,false);return;
+      var result=await create(localId);showCreatedAccount(localId,result);return;
     }
-    if(action==='account-create'){if(account.role!=='admin')throw Error('access-denied');var result=await create(buttonEl.dataset.character);showCode(result.code,false);return;}
-    if(action==='account-code'){if(account.role!=='admin')throw Error('access-denied');var result=await transport.call({action:'code',sheetId:sid});showCode(result.code,false);return;}
+    if(action==='account-create'){if(account.role!=='admin')throw Error('access-denied');var result=await create(buttonEl.dataset.character);showCreatedAccount(buttonEl.dataset.character,result);return;}
+    if(action==='account-code'){
+      if(account.role!=='admin')throw Error('access-denied');
+      var host=buttonEl.closest('[data-account-detail]'),generation=authGeneration;
+      if(!host)return;
+      if(revealedCodes[sid])delete revealedCodes[sid];
+      else{
+        var result=await transport.call({action:'code',sheetId:sid});
+        if(generation!==authGeneration||account.role!=='admin'||selectedAccount!==sid||!host.isConnected)return;
+        revealedCodes[sid]=result.code;
+      }
+      var detail=document.getElementById('pc-account-detail');
+      if(detail)detail.innerHTML=w.ZargotaAccountViews.accountDetail(accountItems().find(function(item){return item.sid===sid;}));
+      return;
+    }
+    if(action==='copy-account-code'){
+      if(account.role!=='admin'||!revealedCodes[sid])return;
+      await navigator.clipboard.writeText(revealedCodes[sid]);buttonEl.textContent=t('Скопировано','Скопійовано');return;
+    }
     if(action==='reveal-code'){var codeInput=document.getElementById('persistent-issued-code');codeInput.type=codeInput.type==='password'?'text':'password';buttonEl.textContent=codeInput.type==='password'?t('Показать','Показати'):t('Скрыть','Приховати');return;}
     if(action==='master-code'){var result=await transport.call({action:'master-code'});showCode(result.code,true);return;}
     if(action==='copy'){var input=document.getElementById('persistent-issued-code');await navigator.clipboard.writeText(input.value);buttonEl.textContent=t('Скопировано','Скопійовано');return;}
@@ -496,7 +520,7 @@
   document.addEventListener('keydown',function(event){var pop=document.getElementById('pc-account-popover');if(!pop)return;if(event.key==='Escape'){var anchor=accountAnchor;closeAccountMenu();if(anchor)anchor.focus({preventScroll:true});event.preventDefault();}else if(event.key==='Tab'){var buttons=Array.from(pop.querySelectorAll('button:not(:disabled)'));var first=buttons[0],last=buttons[buttons.length-1];if(event.shiftKey&&document.activeElement===first){last.focus();event.preventDefault();}else if(!event.shiftKey&&document.activeElement===last){first.focus();event.preventDefault();}}});
   w.addEventListener('zargota:persistent-auth-change',function(){
     // Preserve cached drafts, but never send them using another tab's identity.
-    authGeneration++;stop();state.enabled=false;state.activeUid='';uid='';records={};account={role:'visitor'};transport=null;persist();closeAccountMenu();render();
+    authGeneration++;revealedCodes={};stop();state.enabled=false;state.activeUid='';uid='';records={};account={role:'visitor'};transport=null;persist();closeAccountMenu();render();
     var el=document.getElementById('persistent-character-dialog');if(el)el.close();
   });
   document.addEventListener('input',function(event){var sid=binding(w.viewingCharId);if(sid&&event.target.closest('#char-sheet,#char-editor-view'))records[sid].dirtyInput=true;});
@@ -507,5 +531,5 @@
   var resizeTimer;w.addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(render,100);});
   w.addEventListener('zargota-room-state',function(){resume().catch(failed);});
   document.addEventListener('DOMContentLoaded',function(){boot.then(function(){render();if(state.enabled)connect().catch(failed);});var shared=new URLSearchParams(location.search).get('character');if(shared)sharedView(shared);});
-  w.ZargotaPersistentCharacters={tableHeroes:tableHeroes,tableHp:tableHp,start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
+  w.ZargotaPersistentCharacters={tableHeroes:tableHeroes,tableHp:tableHp,start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
 })(window);

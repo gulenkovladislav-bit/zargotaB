@@ -42,9 +42,9 @@
   <script src="persistent-character-core.js?v=2026-10-26.15"></script>
   <script src="persistent-character-cache.js?v=2026-10-26.15"></script>
   <script src="persistent-character-transport.js?v=2026-11-05-accounts"></script>
-  <script src="persistent-account-views.js?v=2026-11-14.5"></script>
-  <script src="persistent-characters.js?v=2026-11-14.5"></script>
-  <link rel="stylesheet" href="persistent-characters.css?v=2026-11-14.5">
+  <script src="persistent-account-views.js?v=2026-11-14.7"></script>
+  <script src="persistent-characters.js?v=2026-11-14.7"></script>
+  <link rel="stylesheet" href="persistent-characters.css?v=2026-11-14.7">
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
   <script src="character-cloud.js?v=2026-10-26.15"></script>
   <link rel="stylesheet" href="character-cloud.css?v=2026-10-26.20">
@@ -10427,9 +10427,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-14.5';
+var ZG_APP_VERSION = '2026-11-14.7';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-14.7',notes:'Исправлено подключение Евана и Эстероса и ширина листа на ПК. Игроки собраны в компактную сетку; коды показываются на месте. NPC исключены из добавления игроков.',notesUk:'Виправлено підключення Евана й Естероса та ширину аркуша на ПК. Гравців зібрано в компактну сітку; коди показуються на місці. NPC виключено з додавання гравців.'},
   {v:'2026-11-14.5',notes:'Четырёхзначные коды игроков и создание нового персонажа прямо в аккаунтах. Исправлено подключение листов с текстовой скоростью и показ ошибок.',notesUk:'Чотиризначні коди гравців і створення нового персонажа просто в акаунтах. Виправлено підключення аркушів із текстовою швидкістю та показ помилок.'},
   {v:'2026-11-14.2',notes:'Постоянный вход к персонажу, автоматическое сохранение листа и история изменений для мастера. Новые портреты пяти героев с выбором прежнего образа и загрузкой своего.',notesUk:'Постійний вхід до персонажа, автоматичне збереження аркуша та історія змін для майстра. Нові портрети п’яти героїв із вибором попереднього образу та завантаженням власного.'},
   {v:'2026-11-04.4',notes:'На телефоне «Отправиться в приключение» открывает создание игры или вход по коду. Мастерская доступна на компьютере.',notesUk:'На телефоні «Вирушити в пригоду» відкриває створення гри або вхід за кодом. Майстерня доступна на комп’ютері.'},
@@ -30394,7 +30395,7 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
     if(charactersPage&&charactersPage.classList.contains('active')&&typeof w.renderCharList==='function')w.renderCharList();
     if(hadRoom&&!room){w.zgSessionMonitorToggle(null,false);if(w.zgGameClose)w.zgGameClose(true);if(w.zgJourneyClose)w.zgJourneyClose();if(w.zgCharSelClose)w.zgCharSelClose();if(w.zgAdvClose)w.zgAdvClose();if(typeof w.showPage==='function')w.showPage('home');if(w.showToast)w.showToast('Сессия завершена или больше недоступна.');}
   }
-  w.zgSessionMonitorToggle=function(ev,force){if(ev){ev.preventDefault();ev.stopPropagation();}var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel){panel.classList.toggle('open',typeof force==='boolean'?force:!panel.classList.contains('open'));if(button)button.setAttribute('aria-expanded',panel.classList.contains('open')?'true':'false');}};
+  w.zgSessionMonitorToggle=function(ev,force){if(ev){ev.preventDefault();ev.stopPropagation();}var panel=el('zg-net-monitor-panel'),button=el('zg-net-monitor-btn');if(panel){if(ev&&ev.currentTarget===button){if(panel.classList.contains('pc-players-open'))force=true;if(w.ZargotaPersistentCharacters&&w.ZargotaPersistentCharacters.showGeneralSettings)w.ZargotaPersistentCharacters.showGeneralSettings();}panel.classList.toggle('open',typeof force==='boolean'?force:!panel.classList.contains('open'));if(button)button.setAttribute('aria-expanded',panel.classList.contains('open')?'true':'false');}};
   w.zgSessionMonitorReturn=function(){w.zgSessionMonitorToggle(null,false);if(w.zgAdvOpen)w.zgAdvOpen();};
   w.zgSessionTakeOver=function(ev){
     if(ev){ev.preventDefault();ev.stopPropagation();}

@@ -20,7 +20,9 @@ function fixtureScript() {
     function meta(sid) { return {ownerUid:'fixture-admin', playerUid:sid === 'sheet-1' ? 'fixture-player' : 'fixture-player-two', locked:true}; }
     const prepared = new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true})).then(async () => {
       await window.zgCharacterLoadPromise;
-      fixture.heroes = window.characters.filter(c => c.type === 'hero').slice(0, 2);
+      fixture.heroes = window.characters.filter(c => c.type === 'hero').slice(0, 5);
+      fixture.heroes.push(Object.assign(clone(fixture.heroes[0]),{id:9000001,name:'Тест'}));
+      window.characters.push(fixture.heroes[5],{id:9000002,name:'NPC must not appear',type:'npc'},{id:9000003,name:'Available player',type:'hero'});
       if (fixture.heroes.length < 2) throw Error('fixture requires two existing heroes');
       const accounts = {'fixture-admin': {}, 'fixture-player': {}};
       fixture.heroes.forEach((hero, index) => {
@@ -49,7 +51,7 @@ function fixtureScript() {
         return {sheetId:'sheet-1'};
       },
       logout: async () => { fixture.calls.push({action:'logout'}); localStorage.setItem('pc-test-role', 'visitor'); },
-      list: async () => role() === 'admin' ? {'sheet-1':'master','sheet-2':'master'} : role() === 'player' ? {'sheet-1':'player'} : {},
+      list: async () => role() === 'admin' ? Object.fromEntries(Object.keys(fixture.packets).map(sid=>[sid,'master'])) : role() === 'player' ? {'sheet-1':'player'} : {},
       meta: async sid => meta(sid),
       read: async sid => clone(fixture.packets[sid]),
       watch: (sid, cb) => watch(fixture.packets[sid], cb),
@@ -60,6 +62,10 @@ function fixtureScript() {
       history: async () => ({}),
       call: async data => {
         fixture.calls.push({action:data.action,sheetId:data.sheetId});
+        if (data.action === 'create') {
+          const state=fixture.packets[data.sheetId]={characterJson:JSON.stringify(data.character),revision:1,updatedBy:uid(),writerRole:'master'};
+          return {code:'4826',meta:meta(data.sheetId),state};
+        }
         if (data.action === 'code') return {code:data.sheetId === 'sheet-1' ? 'FIXTURE-PLAYER' : 'FIXTURE-SECOND'};
         if (data.action === 'master-code') return {code:'FIXTURE-ADMIN'};
         if (data.action === 'save') {
@@ -92,7 +98,7 @@ async function load(page) {
   await page.goto(base, {waitUntil:'domcontentloaded'});
   await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
   await page.evaluate(() => window.zgCharacterLoadPromise);
-  await page.waitForFunction(() => window.__pcFixture && window.__pcFixture.heroes.length === 2);
+  await page.waitForFunction(() => window.__pcFixture && window.__pcFixture.heroes.length === 6);
 }
 
 async function fits(page, selector, label) {
@@ -141,7 +147,7 @@ async function screenshot(page, name) { await page.screenshot({path:out+'/'+name
     await admin.evaluate(() => window.ZargotaPersistentCharacters.settings());
     await admin.locator('#zg-net-monitor-panel #pc-account-list .pc-account-row').first().waitFor();
     assert.equal(await admin.locator('#persistent-character-dialog').count(),0,'desktop accounts use existing settings panel');
-    assert.equal(await admin.locator('#pc-account-list .pc-account-row').count(),2);
+    assert.equal(await admin.locator('#pc-account-list .pc-account-row').count(),6);
     await fits(admin,'#zg-net-monitor-panel','desktop account settings');
     await admin.locator('#pc-account-list [data-sheet="sheet-2"]').click();
     await admin.locator('[data-account-detail="sheet-2"]').waitFor();
@@ -149,16 +155,54 @@ async function screenshot(page, name) { await page.screenshot({path:out+'/'+name
     assert.equal(await admin.locator('#pc-account-list [data-sheet="sheet-1"]').getAttribute('aria-pressed'),'false');
     await screenshot(admin,'admin-settings-desktop');
     await admin.locator('#pc-account-detail [data-pc-action=account-code]').click();
-    assert.equal(await admin.locator('#persistent-issued-code').inputValue(),'FIXTURE-SECOND');
-    assert.equal(await admin.locator('#persistent-issued-code').getAttribute('type'),'password');
-    await admin.locator('[data-pc-action=reveal-code]').click();
-    assert.equal(await admin.locator('#persistent-issued-code').getAttribute('type'),'text');
-    assert.deepEqual(await admin.evaluate(() => window.__pcFixture.calls.filter(c => c.action==='code')),[{action:'code',sheetId:'sheet-2'}]);
+    await admin.waitForFunction(()=>document.querySelector('#pc-account-detail .pc-code-mask').textContent==='FIXTURE-SECOND');
+    assert.equal(await admin.locator('#persistent-character-dialog[open]').count(),0,'show code stays inline');
+    assert.equal(await admin.locator('.pc-selected-meta').count(),0,'account details omit race and class');
+    await admin.locator('#pc-account-detail [data-pc-action=account-code]').click();
+    assert.equal(await admin.locator('#pc-account-detail .pc-code-mask').innerText(),'••••');
+    await admin.locator('#pc-account-detail [data-pc-action=account-code]').click();
+    await admin.waitForFunction(()=>document.querySelector('#pc-account-detail .pc-code-mask').textContent==='FIXTURE-SECOND');
+    await admin.locator('#pc-account-list [data-sheet="sheet-1"]').click();
+    assert.equal(await admin.locator('#pc-account-detail .pc-code-mask').innerText(),'••••','changing player hides previously revealed code');
+    for(const size of [{width:1280,height:900},{width:1690,height:850},{width:1024,height:768}]){
+      await admin.setViewportSize(size);
+      await fits(admin,'#zg-net-monitor-panel','desktop party '+size.width);
+      const roster=await admin.locator('#pc-account-list').evaluate(el=>({height:el.clientHeight,scroll:el.scrollHeight,cols:getComputedStyle(el).gridTemplateColumns.split(' ').length}));
+      assert.equal(roster.cols,3);assert.ok(roster.scroll<=roster.height+1,'all six players fit without nested scrolling');
+      await fits(admin,'#pc-account-list .pc-account-row:last-child','last player visible');
+    }
+    await screenshot(admin,'party-six-desktop');
+    await admin.locator('[data-pc-action=account-add]').click();
+    assert.equal(await admin.locator('[data-character="9000002"]').count(),0,'NPC excluded');
+    assert.equal(await admin.locator('[data-character="9000003"]').count(),1,'unbound hero offered');
     await admin.locator('#persistent-character-dialog [data-pc-action=settings]').click();
-    await admin.locator('#pc-control-tabs [data-pc-action=control-general]').click();
-    assert.equal(await admin.locator('#pc-control-accounts').isVisible(),false,'general settings still available');
-    await admin.locator('#pc-control-tabs [data-pc-action=settings]').click();
-    assert.equal(await admin.locator('#pc-control-accounts').isVisible(),true);
+    await admin.locator('#pc-account-detail [data-pc-action=account-open]').click();
+    await admin.waitForFunction(()=>document.querySelector('#char-sheet-view').classList.contains('pc-linked-sheet'));
+    for(const zoom of [1,1.1,1.3]){
+      await admin.evaluate(z=>{window.sheetZoom=z;window.applyZoom();},zoom);
+      await admin.waitForTimeout(200);
+      const sizes=await admin.evaluate(()=>({sheet:document.getElementById('char-sheet').getBoundingClientRect().width,view:document.getElementById('char-sheet-view').getBoundingClientRect().width}));
+      assert.ok(sizes.sheet>=sizes.view*.8,'linked desktop sheet has full width at zoom '+zoom+': '+JSON.stringify(sizes));
+    }
+    await screenshot(admin,'linked-sheet-desktop');
+    await admin.locator('#persistent-entry').click();
+    assert.equal(await admin.locator('#pc-control-tabs').count(),0,'accounts do not repeat general settings');
+    await admin.locator('#zg-net-monitor-btn').click();
+    assert.equal(await admin.locator('#zg-net-monitor-panel').isVisible(),true,'gear switches to settings without closing the panel');
+    assert.equal(await admin.locator('#pc-control-accounts').isVisible(),false,'gear shows general settings only');
+    await admin.locator('#persistent-entry').click();
+    assert.equal(await admin.locator('#pc-control-accounts').isVisible(),true,'account entry returns directly to players');
+    await admin.locator('[data-pc-action=account-add]').click();
+    await admin.locator('[data-pc-action=account-create][data-character="9000003"]').click();
+    await admin.waitForFunction(()=>document.querySelector('#pc-account-detail .pc-code-mask')?.textContent==='4826');
+    assert.equal(await admin.locator('#persistent-character-dialog[open]').count(),0,'linking hero returns inline code');
+    await admin.locator('[data-pc-action=account-add]').click();
+    await admin.locator('[data-pc-action=account-new]').click();
+    await admin.locator('#pc-new-character-name').fill('New test hero');
+    await admin.locator('#pc-new-character-name').press('Enter');
+    await admin.waitForFunction(()=>document.querySelector('#pc-account-detail h3')?.textContent==='New test hero');
+    assert.equal(await admin.locator('#pc-account-detail .pc-code-mask').innerText(),'4826');
+    assert.equal(await admin.locator('#persistent-character-dialog[open]').count(),0,'new hero returns inline code');
     await adminContext.close();
 
     const playerContext=await context(browser,390,750), player=await playerContext.newPage();

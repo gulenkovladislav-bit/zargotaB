@@ -130,3 +130,18 @@ test('descriptive movement accepted without accepting markup',()=>{
  for(const speed of ['тест','не ходит','полёт 12 м','30 фт']) assert.equal(D.clean({id:123,name:'Тест',speed}).speed,speed);
  for(const speed of ['<img src=x onerror=alert(1)>',"10');alert(1)//"]) assert.throws(()=>D.clean({id:123,name:'Тест',speed}));
 });
+
+test('existing progression notes survive create and save without weakening text validation',()=>{
+ const plan={version:1,baselineLevel:1,selectedLevel:2,levels:{2:{stats:{str:1},spellIds:[],items:[],gold:[],notes:['Найти наставника','<b>Новая способность</b>'],appliedAt:null}}};
+ const c={...hero,progressionPlan:plan};
+ assert.deepEqual(D.clean(c).progressionPlan,plan);
+ const sheet=D.initial(c,'master','player','1234',100);
+ const saved=D.commit(sheet,'master',input({...c,hpCur:9}),200);
+ assert.deepEqual(JSON.parse(saved.state.characterJson).progressionPlan,plan);
+ for(const notes of [[{}],['<img src=x onerror=alert(1)>'],'text']){
+  const broken=structuredClone(c);broken.progressionPlan.levels[2].notes=notes;
+  assert.throws(()=>D.clean(broken));
+ }
+ assert.throws(()=>D.clean({...hero,notes:[]}));
+ assert.throws(()=>D.clean({...hero,inventoryItems:[{notes:[]}]}));
+});

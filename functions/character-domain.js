@@ -124,13 +124,17 @@ function clean(character){
   const json=JSON.stringify(character);
   if(Buffer.byteLength(json)>1900000)fail('character-too-large');
   const result=JSON.parse(json);
-  function inspect(value,depth){
+  function inspect(value,depth,path=[]){
     if(depth>32)fail('invalid-character');
     if(value&&typeof value==='object')for(const key of Object.keys(value)){
       if(key==='prototype'||Object.hasOwn(Object.prototype,key)||/["'<>`\x00-\x1f]/.test(key))fail('invalid-character');
       const field=value[key];
       if(field==null)continue;
-      if(textFields.has(key)&&typeof field!=='string')fail('invalid-character');
+      const planNotes=key==='notes'&&path.length===3&&path[0]==='progressionPlan'&&path[1]==='levels'&&/^\d+$/.test(path[2]);
+      if(planNotes){
+        if(!Array.isArray(field)||field.length>1000||field.some(note=>typeof note!=='string'))fail('invalid-character');
+        field.forEach(note=>safeText(note,'notes'));
+      }else if(textFields.has(key)&&typeof field!=='string')fail('invalid-character');
       if(key==='statusKey'&&(typeof field!=='string'||!keyPattern.test(field)))fail('unsafe-character-content');
       if((key==='color'||key==='bg')&&(typeof field!=='string'||field!==''&&!colorPattern.test(field)))fail('unsafe-character-content');
       if(key==='cdMax'){
@@ -140,7 +144,7 @@ function clean(character){
       if(mediaFields.has(key)&&typeof field!=='string')fail('invalid-character');
       if(identifierField.test(key)&&typeof field!=='string'&&typeof field!=='number')fail('invalid-character');
       if(typeof field==='string')safeText(field,key);
-      inspect(field,depth+1);
+      inspect(field,depth+1,path.concat(key));
     }
   }
   inspect(result,0);for(const key of META)delete result[key];

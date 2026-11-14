@@ -147,3 +147,26 @@ test('explicit logout wins over a code login started before leaving the account'
   release();await tick();await tick();
   assert.equal(f.w.ZargotaPersistentCharacters.status().enabled,false,'a cancelled login cannot restore a signed-out account');
 });
+
+
+test('the gear switches from accounts to general settings, with no duplicate general tab',async()=>{
+  const f=mount({role:'admin',online:false});await f.ready();
+  const panel=f.document.createElement('section');panel.id='zg-net-monitor-panel';f.document.body.appendChild(panel);
+  const gear=f.document.createElement('button');gear.id='zg-net-monitor-btn';f.document.body.appendChild(gear);
+  const oldTabs=f.document.createElement('nav');oldTabs.id='pc-control-tabs';panel.appendChild(oldTabs);
+  const app=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  const toggle=app.match(/  w\.zgSessionMonitorToggle=function\(ev,force\)\{[^\n]+/)[0];
+  vm.runInNewContext(toggle,{w:f.w,el:id=>f.document.getElementById(id)});
+  const event={currentTarget:gear,preventDefault(){},stopPropagation(){}};
+  panel.classList.add('open','pc-players-open');
+  f.w.zgSessionMonitorToggle(event);
+  assert(panel.classList.contains('open'),'gear switches content rather than closing accounts');
+  assert(!panel.classList.contains('pc-players-open'));
+  assert.equal(f.document.getElementById('pc-control-tabs'),null);
+  f.w.zgSessionMonitorToggle(event);assert(!panel.classList.contains('open'),'second gear click still closes settings');
+  panel.classList.add('pc-players-open');f.w.zgSessionMonitorToggle(null,true);
+  assert(panel.classList.contains('pc-players-open'),'opening accounts keeps its dedicated content');
+  f.w.zgSessionMonitorToggle(null,false);f.w.zgSessionMonitorToggle(event);
+  assert(panel.classList.contains('open'));assert(!panel.classList.contains('pc-players-open'),'gear never reopens stale accounts');
+  assert(!source.includes("button('control-general'"),'no General button is generated for accounts');
+});

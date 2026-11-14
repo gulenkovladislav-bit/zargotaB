@@ -10,7 +10,7 @@ const {provisionTestAdmin}=require('./persistent-admin-fixture.cjs');
 async function client(name){const app=initializeApp({projectId:'demo-zargota-persistent',apiKey:'demo-key',databaseURL:'https://demo-zargota-persistent-default-rtdb.firebaseio.com'},name);apps.push(app);const auth=getAuth(app),db=getDatabase(app),fn=getFunctions(app,'europe-west1');connectAuthEmulator(auth,'http://127.0.0.1:9199',{disableWarnings:true});connectDatabaseEmulator(db,'127.0.0.1',9190);connectFunctionsEmulator(fn,'127.0.0.1',5191);await signInAnonymously(auth);return {auth,db,call:async data=>(await httpsCallable(fn,'characterAccess')(data)).data};}
 (async()=>{try{
  const master=await client('master'),player=await client('player'),other=await client('other');
- const sheetId='test_'+Date.now(),character={id:711,name:'Test Hero',campaignKey:'test-'+sheetId,hpCur:10,stats:{str:{cur:1,base:1}},inventoryItems:[]};
+ const sheetId='test_'+Date.now(),character={id:711,name:'Test Hero',campaignKey:'test-'+sheetId,hpCur:10,stats:{str:{cur:1,base:1}},inventoryItems:[],progressionPlan:{version:1,baselineLevel:1,selectedLevel:2,levels:{2:{stats:{str:0},spellIds:[],items:[],gold:[],notes:['Найти наставника'],appliedAt:null}}}};
  assert.equal((await master.call({action:'account'})).role,'visitor');
  await assert.rejects(master.call({action:'create',sheetId,character}),/access-denied/);
  await assert.rejects(master.call({action:'master-code'}),/access-denied/);
