@@ -2,6 +2,21 @@
 (function (w) {
   'use strict';
   const presets = Object.freeze({
+    'evan-2026-11.png': [48, 29],
+    'evan-classic.png': [61, 43],
+    'melissa-2026-11.png': [49, 29],
+    'melissa-classic.png': [52, 27],
+    'esteros-2026-11.png': [43, 28],
+    'esteros-classic.png': [49, 22],
+    'vrotik-2026-11.png': [36, 28],
+    'vrotik-classic.png': [34, 26],
+    'lin-yin-2026-11.png': [49, 30],
+    'lin-yin-classic.png': [50, 28],
+    'Evan.png': [50, 32],
+    'Melissa.png': [50, 32],
+    'Esteros.png': [50, 32],
+    'Vrotik.png': [50, 32],
+    'LinIn.png': [50, 32],
     'char_1776627463516.png': [61, 43],
     'char_1776626039651.png': [52, 27],
     'char_1776463717210.png': [49, 22],

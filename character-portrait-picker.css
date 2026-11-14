@@ -1,0 +1,17 @@
+.zg-portrait-picker{box-sizing:border-box;position:fixed;inset:0;margin:auto;width:min(640px,calc(100% - 24px));max-height:calc(100dvh - 32px);padding:20px;border:1px solid #9c7c43;border-radius:16px 4px;background:linear-gradient(135deg,#201a10,#0e0c08);color:#e8d5a4;box-shadow:0 18px 70px #000a;overflow:auto;animation:zg-portrait-enter .2s ease-out}
+.zg-portrait-picker::backdrop{background:#080705b8;backdrop-filter:blur(6px)}
+.zg-portrait-picker header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.zg-portrait-picker h2{font-size:clamp(21px,5vw,28px);margin:0}
+.zg-portrait-picker button{font:inherit;color:inherit;cursor:pointer;border:1px solid #655333;background:#100d08;min-height:44px;border-radius:8px;transition:border-color .18s,box-shadow .18s}
+.zg-portrait-picker header button{font-size:28px;min-width:44px}
+.zg-portrait-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.zg-portrait-options button{padding:0;overflow:hidden;display:flex;flex-direction:column;text-align:center}
+.zg-portrait-options img{display:block;width:100%;height:clamp(120px,32vw,210px);object-fit:cover}
+.zg-portrait-options span{padding:10px 5px;line-height:1.2;font-size:16px}
+.zg-portrait-options button[aria-pressed=true]{border-color:#ebc671;box-shadow:0 0 14px #d4a44940}
+.zg-portrait-picker button:hover,.zg-portrait-picker button:focus-visible{border-color:#f1d58b;outline:2px solid #b2914c;outline-offset:2px}
+.zg-portrait-upload{width:100%;margin-top:18px;padding:12px}
+.zg-portrait-picker [role=status]:empty{display:none}
+.zg-portrait-picker [role=status]{color:#efaa97}
+@keyframes zg-portrait-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.zg-portrait-picker{animation:none}.zg-portrait-picker button{transition:none}}

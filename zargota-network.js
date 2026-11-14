@@ -3365,6 +3365,7 @@
   }
 
   var api = {
+    firebaseConfig: function () { return Object.assign({},FIREBASE_CONFIG); },
     characterCloudTransport: function () {
       return ensureReady().then(function (user) { return {user:user,db:db,firebase:firebase}; });
     },

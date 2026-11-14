@@ -1,0 +1,139 @@
+Persistent character sheets — implementation and release notes
+Pilot release operations • 2026-11-04
+
+The website is served by GitHub Pages. Player data is saved separately in Firebase
+project zargota-vtt. Blaze and Anonymous Auth have been confirmed for this project.
+Do not infer activation from the plan. Verify the callable, live RTDB rules,
+administrator login, and the feature flag on the deployed page separately.
+
+User flow
+Enter the operator-issued administrator code once. Then use:
+Settings gear > Accounts > Add player > select an existing character > get code.
+Accounts shows the administrator and the player's character portraits, presence,
+sheet, private code and history controls. The player sees only their own account.
+The administrator header shows connected players as small portraits; tapping
+one opens the sheet. An amber dot indicates unreviewed player edits, including
+when the player is offline. Accounts shows the last connection/disconnection
+time. Closing one of several tabs does not make the whole player offline.
+Opening the GM-only history acknowledges only the player revisions it loaded;
+new concurrent changes stay unread. The read marker is stored on the server.
+Presence is a live connection indicator, separate from remembered sign-in.
+Browser suspension/network loss can take time for Firebase to detect.
+The current model is one player code per character; multi-character accounts
+and a main/last-character selector are not implemented.
+The player enters that code via the header sign-in button once per browser.
+The normal sheet editor saves automatically. The master edits the same sheet.
+Only actual sheet mutations are synchronized. The store cart's existing
+"Buy all" handler still displays a toast and clears the cart; it does not grant
+inventory items. This presence change does not implement a purchase pipeline.
+Only the master can read before/after history; closed sheets are the default.
+The lock can allow a read-only link. It never grants editing permissions.
+The separate administrator code restores ownership on another device.
+Keep that code private; it is not a player invitation.
+
+Administrator identity
+- The server checks persistentCharacterAdmins/<uid> === true. IP addresses do
+  not grant roles; the existing IP-based login throttle is only rate limiting.
+- Visitors and players cannot create administrator accounts or read admin codes.
+  The allowlist denies all direct client reads and writes. Editing cached browser
+  roles cannot grant server permissions.
+- functions/provision-admin.cjs is an operator CLI, never a callable endpoint.
+  It writes a stable code to a new private file (mode 0600), not to stdout.
+- Provision an existing owner's UID when migrating an earlier deployment, so
+  sheet ownership stays intact. For a fresh installation use a new dedicated UID.
+  Example, only after production activation is approved and credentials exist:
+    node functions/provision-admin.cjs --production --project zargota-vtt \
+      --database-url https://zargota-vtt-default-rtdb.europe-west1.firebasedatabase.app \
+      --uid <administrator-uid> --output <private-file-outside-repository>
+- On a new browser the master enters the private, randomly generated recovery
+  code once. A numeric PIN (4–12 digits) is scoped to that already authenticated
+  master UID. A visitor entering even the correct PIN cannot become an admin.
+  The operator CLI's --code can configure this PIN. The private output always
+  contains the long recovery code needed on a new device. Keep it out of Git.
+- Player codes still open exactly one assigned account and persist in that browser.
+
+Architecture and data boundaries
+- Named Firebase app zargota-persistent-characters uses persisted Auth separately
+  from the default app used by zargota-network.js and online game rooms.
+- Existing local characters remain in ZargotaCharacterStore. The binding maps a
+  remote sheet ID to a local character ID and preserves its campaignKey.
+- Creation links only the explicitly selected character. An original local
+  backup is retained in the account cache. There is no bulk migration.
+- persistentCharacters/<id>/state holds the canonical JSON and its revision.
+  The Cloud Function characterAccess is the only writer. Client rules permit
+  reads to owner/player (or read-only sharing when unlocked).
+- Every save compares the whole-sheet revision in a transaction. A stable
+  operation ID and receipt make retries idempotent. Exact before/after values,
+  authenticated actor and source are written atomically with the new revision.
+- activity is owner-readable only; player saves atomically advance its latest
+  revision, while owner review advances a monotonic seen revision. Clients cannot
+  write activity. lastSeen permits a member to write only their own server time;
+  other players cannot read it, even through an unlocked read-only sheet link.
+- Drafts, retry payloads and conflict backups are stored in IndexedDB, with
+  localStorage as a fallback. Firebase Auth persists the login separately.
+- Conflicts retain the local draft. The user can accept the new version or
+  explicitly replace it with their whole draft; the latter is confirmed again.
+- The legacy approval-based cloud receiver skips a newly linked character.
+  Unlinked characters keep their previous behavior.
+- Online room data, schemas, transports and merge rules are unchanged.
+  Accepted room runtime changes already flow through saveChars(sync:false);
+  those updates reach persistent sheets with source=session. Their history
+  is labelled as coming from the online game, not attributed to a player edit.
+  Incoming canonical changes are deferred while that player's room is active.
+  Concurrent room/canonical edits require version review, not field merging.
+  Direct persistent-sheet changes do not bypass the GM's existing room tools.
+
+Limits and follow-up
+- Maximum serialized sheet input: 1.9 MB. Large inline portraits may need to
+  be reduced or moved to asset URLs. The UI reports a rejected oversized save.
+- History retains at most 100 saves and 6 MB of exact changes per sheet.
+- Player codes and automatically generated admin codes contain 128 random bits.
+  The optional numeric PIN works only on a paired administrator device. Codes are exchanged
+  server-side for Firebase custom tokens. Hash indexes are not client-readable.
+  Login is rate limited.
+- Code rotation/revocation UI and long-term audit exports are not included.
+- Private mode cannot revoke already downloaded copies or previously public
+  seed data. Clearing browser storage requires entering the code again.
+- Device tests use Edge mobile viewport/touch emulation, not physical iOS or
+  Android devices. Real Telegram/Safari smoke testing remains a release step.
+
+Local verification (Node 22+; local run used Node 24.19)
+1. Install functions dependencies: npm ci --prefix functions
+2. Start isolated emulators (Java 21+):
+   firebase emulators:start --config firebase.persistent-test.json \
+     --project demo-zargota-persistent --only auth,database,functions
+3. node --test tests/persistent-characters.test.js
+4. node tests/persistent-characters-emulator.cjs
+5. Serve repository on 127.0.0.1:8765, then run with Playwright available:
+   node tests/persistent-characters-edge.cjs
+   node tests/persistent-accounts-edge.cjs
+   node tests/persistent-admin-short-code-edge.cjs
+   URL: http://127.0.0.1:8765/?firebase_emulator=1
+   Persistent emulators use Auth 9199, RTDB 9190, Functions 5191.
+   Existing online-room emulator ports remain unchanged.
+
+Production activation order (requires separate approval for billing)
+1. Confirm Blaze, Anonymous Authentication and a dedicated function runtime
+   service account with RTDB/Auth permissions and iam.serviceAccounts.signBlob.
+   Prefer scoped service-account permissions; never put a private key in this
+   repository or the public website. Verify automatic Firebase_CONFIG points to
+   zargota-vtt-default-rtdb.europe-west1.firebasedatabase.app.
+2. Publish only the named function from an isolated release directory:
+   firebase deploy --project zargota-vtt \
+     --only functions:persistent-characters:characterAccess
+   Fetch the live database rules and preserve them. Add only the six persistent
+   character / login namespaces. Compare the live rules again directly before
+   publishing. Do not deploy the complete shared-worktree database.rules.json.
+   Keep the exact previous rules available for rollback.
+3. Provision the owner's administrator identity with the operator CLI above.
+   Verify code exchange, two different users, denial of self-promotion and
+   private/history reads, and administrator recovery in a disposable test sheet.
+4. Set ZG_PERSISTENT_BACKEND_ENABLED=true and publish the reviewed frontend paths
+   only after the backend and paired administrator access are verified.
+   This shared worktree contains unrelated changes; do not stage or push all.
+5. Check the deployed app version and mobile flow on real devices. Keep prior
+   character/room data intact. Do not delete old approval records during rollout.
+
+Official prerequisites
+https://firebase.google.com/docs/projects/billing/firebase-pricing-plans
+https://firebase.google.com/docs/auth/admin/create-custom-tokens

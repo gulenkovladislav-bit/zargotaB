@@ -1,59 +1,5 @@
 {
   "rules": {
-    "characterSheets": {
-      "$sheet": {
-        ".read": "auth != null && (!data.exists() || data.child('meta/ownerUid').val() === auth.uid)",
-        ".write": "auth != null && ((!data.exists() && newData.child('meta/ownerUid').val() === auth.uid && !newData.child('access').exists() && !newData.child('requests').exists()) || data.child('meta/ownerUid').val() === auth.uid)",
-        ".validate": "newData.hasChildren(['meta','approved']) && (!data.exists() || newData.child('meta/ownerUid').val() === data.child('meta/ownerUid').val())",
-        "meta": {
-          ".read": "auth != null",
-          ".validate": "newData.hasChildren(['ownerUid','createdAt']) && newData.child('ownerUid').isString() && newData.child('createdAt').isNumber()"
-        },
-        "approved": {
-          ".read": "auth != null && (root.child('characterSheets').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('characterSheets').child($sheet).child('access').child(auth.uid).val() === true)",
-          ".validate": "newData.hasChildren(['revision','characterJson','updatedAt']) && newData.child('revision').isNumber() && newData.child('revision').val() > 0 && newData.child('characterJson').isString() && newData.child('characterJson').val().length <= 2000000 && newData.child('updatedAt').isNumber()"
-        },
-        "access": {
-          "$uid": {
-            ".read": "auth != null && auth.uid === $uid",
-            ".validate": "newData.isBoolean()"
-          }
-        },
-        "joinRequests": {
-          "$uid": {
-            ".write": "auth != null && auth.uid === $uid && root.child('characterSheets').child($sheet).child('meta').exists()",
-            ".validate": "newData.hasChildren(['uid','name','createdAt']) && newData.child('uid').val() === $uid && newData.child('name').isString() && newData.child('name').val().length <= 100 && newData.child('createdAt').isNumber()",
-            "$other": {
-              ".validate": false
-            },
-            "uid": {},
-            "name": {},
-            "createdAt": {}
-          }
-        },
-        "requests": {
-          "$uid": {
-            ".read": "auth != null && auth.uid === $uid && (root.child('characterSheets').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('characterSheets').child($sheet).child('access').child(auth.uid).val() === true)",
-            "$request": {
-              ".write": "auth != null && auth.uid === $uid && root.child('characterSheets').child($sheet).child('access').child(auth.uid).val() === true && !data.exists() && newData.child('status').val() === 'pending' && newData.child('authorUid').val() === auth.uid && !newData.child('resolvedBy').exists() && !newData.child('resolvedAt').exists()",
-              ".validate": "newData.hasChildren(['id','authorUid','status','changesJson','createdAt']) && newData.child('id').val() === $request && newData.child('authorUid').val() === $uid && newData.child('changesJson').isString() && newData.child('changesJson').val().length <= 250000 && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'accepted' || newData.child('status').val() === 'rejected') && newData.child('createdAt').isNumber()"
-            }
-          }
-        },
-        "$other": {
-          ".validate": false
-        }
-      }
-    },
-    "characterSheetUsers": {
-      "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
-        "$sheet": {
-          ".write": "auth != null && auth.uid === $uid && (root.child('characterSheets').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('characterSheets').child($sheet).child('access').child(auth.uid).val() === true)",
-          ".validate": "newData.val() === true"
-        }
-      }
-    },
     "campaigns": {
       "$campaign": {
         ".read": "auth != null",
@@ -90,15 +36,6 @@
         ".write": "auth != null && ((!data.exists() && newData.child('masterUid').val() === auth.uid) || data.child('masterUid').val() === auth.uid)",
         "updatedAt": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()"
-        },
-        "scene": {
-          "tokens": {
-            "$index": {
-              "$field": {
-                ".write": "auth != null && data.parent().child('type').val() === 'hero' && data.parent().child('memberUid').val() === auth.uid && newData.parent().child('memberUid').val() === auth.uid && ($field === 'hp' || $field === 'tempHp' || $field === 'hpMax' || $field === 'statusBaseHpMax' || $field === 'statuses' || $field === 'statusEffects' || $field === 'zeroHp')"
-              }
-            }
-          }
         },
         "combatEvent": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()"
@@ -138,13 +75,78 @@
         "combat": {
           ".write": "auth != null && root.child('rooms').child($room).child('members').child(auth.uid).exists()",
           "order": {
-            ".validate": "!newData.exists() || newData.parent().child('active').val() === true || newData.parent().child('phase').val() === 'initiative' || data.parent().child('active').val() === true",
             "$index": {
               ".write": "auth != null && data.child('uid').val() === auth.uid && newData.child('uid').val() === auth.uid"
             }
           }
         }
       }
+    },
+    "persistentCharacters": {
+      "$sheet": {
+        ".write": false,
+        "meta": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/locked').val() === false)"
+        },
+        "state": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/locked').val() === false)"
+        },
+        "history": {
+          ".read": "auth != null && root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid"
+        },
+        "activity": {
+          ".read": "auth != null && root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid"
+        },
+        "lastSeen": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+            ".validate": "newData.isNumber() && newData.val() === now"
+          }
+        },
+        "private": {
+          ".read": false
+        },
+        "receipts": {
+          ".read": false
+        },
+        "presence": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+          "$uid": {
+            "$connection": {
+              ".write": "auth != null && auth.uid === $uid && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+              ".validate": "newData.hasChildren(['online','at']) && newData.child('online').val() === true && newData.child('at').isNumber() && newData.child('at').val() <= now + 1000",
+              "online": {},
+              "at": {},
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "persistentCharacterUsers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "persistentCharacterAdmins": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentCharacterCodes": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentCharacterAccounts": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentLoginLimits": {
+      ".read": false,
+      ".write": false
     }
   }
 }
