@@ -76,7 +76,7 @@
       if(entry.status==='review')return t('Обновление требует внимания','Оновлення потребує уваги');
       return entry.author==='master'?t('Мастер обновил лист','Майстер оновив аркуш'):t('Лист обновлён','Аркуш оновлено');
     }
-    function refresh(){clearTimeout(timer);timer=setTimeout(render,0);}
+    function refresh(){clearTimeout(timer);timer=setTimeout(function(){render();doc.dispatchEvent(new CustomEvent('zargota:character-updates'));},0);}
     function receive(event){var id=String(event.characterId),old=entries(id),next=record(old,event,Date.now());if(next!==old){history[id]=next;persist();refresh();}}
     function settle(id,channel,revision){id=String(id);var token=channel+':'+revision;history[id]=entries(id).filter(function(entry){return entry.token!==token||entry.status!=='pending';});persist();refresh();}
     function pending(){return t('Обновление ещё не применено. Текущий ввод не заменён. Завершите редактирование и откройте синхронизацию через лампочку.','Оновлення ще не застосовано. Поточне введення не замінено. Завершіть редагування й відкрийте синхронізацію через індикатор.');}
@@ -148,7 +148,7 @@
       });
     }
     doc.addEventListener('DOMContentLoaded',refresh);doc.addEventListener('zargota:localechange',refresh);
-    return {receive:receive,settle:settle,refresh:refresh};
+    return {receive:receive,settle:settle,refresh:refresh,unread:function(id){return unread(String(id)).length;},open:function(id){details(String(id),false);}};
   }
   return {summary:summary,record:record,mount:mount};
 });

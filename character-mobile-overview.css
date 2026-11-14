@@ -17,9 +17,12 @@
  .zgmo-top{display:flex;justify-content:space-between;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 0}
  .zgmo-top>button,.zgmo-top>div>button{width:38px;height:38px;font-size:26px;background:#100c07cf;backdrop-filter:blur(5px)}
  .zgmo-top>div{display:flex;gap:6px}
- .zgmo-top .zgmo-sync{border:0;background:transparent;width:32px}
- .zgmo-sync span{display:block;width:8px;height:8px;margin:auto;border-radius:50%;background:#9c9585;box-shadow:0 0 6px #000}
- .zgmo-sync[data-state=ready] span{background:#65d383}.zgmo-sync[data-state=busy] span,.zgmo-sync[data-state=attention] span{background:#e3b44f}
+ .zgmo-top .zgmo-sync{display:flex;align-items:center;justify-content:center;width:44px;min-height:44px;padding:6px;border:0;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;border-radius:0;color:#f5ce77}
+ .zgmo-top .zgmo-sync[hidden]{display:none!important}
+ .zgmo-sync svg{width:20px;height:29px;fill:currentColor;filter:drop-shadow(0 1px 2px #000) drop-shadow(0 0 5px #e1a74177);animation:zgmo-update-glow 2.8s ease-in-out infinite}
+ .zgmo-sync:focus-visible{outline:1px solid #f5ce77;outline-offset:1px}
+ @keyframes zgmo-update-glow{0%,100%{opacity:.8;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
+ @media(prefers-reduced-motion:reduce){.zgmo-sync svg{animation:none}}
  .zgmo-identity{position:absolute;bottom:8px;left:16px;right:16px;color:#efdbac}
  #char-sheet .zgmo-identity h1{font-family:Georgia,serif;font-size:clamp(23px,6.7vw,34px);line-height:1.05;margin:0 0 5px;font-weight:400;overflow-wrap:anywhere;letter-spacing:0}
  .zgmo-identity>div{display:flex;align-items:center;gap:8px;font-size:13px}.zgmo-identity>div>span{flex:1;min-width:0}

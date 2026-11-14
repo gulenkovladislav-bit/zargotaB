@@ -13,3 +13,7 @@
 @keyframes zg-chat-enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:700px){.zg-chat{right:12px;bottom:calc(max(var(--chat-keyboard,0px),var(--zgmo-nav-height,76px) + env(safe-area-inset-bottom,0px)) + 10px)}.zg-chat-panel{width:350px;max-height:calc(var(--chat-view-height,100dvh) - var(--chat-clearance,110px))}.zg-chat-log{height:185px}.zg-chat-launcher{border-radius:50%!important;min-width:48px}.zg-chat-launcher span:empty{display:none}}
 @media(prefers-reduced-motion:reduce){.zg-chat-panel,.zg-chat-message{animation:none}}
+
+/* The conversation stays available from the account menu; only a recent-message cue floats above the page. */
+.zg-chat .zg-chat-launcher{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);width:44px;height:44px;min-width:44px;padding:9px;border:0;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none;color:#f2d38a;filter:drop-shadow(0 1px 3px #000) drop-shadow(0 0 6px #d9a64b66)}
+.zg-chat-launcher span{display:none}.zg-chat-launcher svg{width:26px;height:26px}

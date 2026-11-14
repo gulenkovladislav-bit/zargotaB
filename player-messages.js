@@ -1,6 +1,6 @@
 (function(w){
   'use strict';
-  var api,user='',roles={},threads={},drafts={},stops=[],epoch=0,selected='',expanded=false,root,resolveName;
+  var api,user='',roles={},threads={},drafts={},stops=[],epoch=0,selected='',expanded=false,root,resolveName,launcherUntil=0,launcherTimer;
   var icon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 6l9 7 9-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
   function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
   function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n;}
@@ -14,7 +14,7 @@
     var launcher=button('',function(){expanded=!expanded;paint();},'zg-chat-launcher');launcher.innerHTML=icon+'<span></span>';root.append(launcher);
     var panel=el('section','zg-chat-panel');panel.hidden=true;panel.setAttribute('aria-label',t('Переписка с мастером и игроками','Листування з майстром і гравцями'));
     var head=el('header'),title=el('strong','zg-chat-title');head.append(title);
-    var close=button('×',function(){expanded=false;paint();launcher.focus();},'zg-chat-close');close.setAttribute('aria-label',t('Свернуть чат','Згорнути чат'));head.append(close);panel.append(head);
+    var close=button('×',function(){expanded=false;paint();returnFocus(launcher);},'zg-chat-close');close.setAttribute('aria-label',t('Свернуть чат','Згорнути чат'));head.append(close);panel.append(head);
     var select=el('select','zg-chat-select');select.setAttribute('aria-label',t('Выберите игрока','Виберіть гравця'));select.addEventListener('change',function(){open(select.value);});panel.append(select);
     var log=el('div','zg-chat-log');log.setAttribute('role','log');log.setAttribute('aria-live','polite');log.setAttribute('aria-relevant','additions');log.addEventListener('scroll',read);panel.append(log);
     panel.append(el('p','zg-chat-note',t('Личная переписка · последние 50 сообщений','Особисте листування · останні 50 повідомлень')));
@@ -22,16 +22,18 @@
     input.addEventListener('input',function(){var d=drafts[selected]||(drafts[selected]={});d.text=input.value;d.id=null;root.querySelector('.zg-chat-error').textContent='';});
     form.append(input);var send=el('button','zg-chat-send',t('Отправить','Надіслати'));send.type='submit';form.append(send);form.addEventListener('submit',sendMessage);panel.append(form);
     var error=el('p','zg-chat-error');error.setAttribute('role','status');panel.append(error);root.append(panel);document.body.append(root);
-    root.addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();expanded=false;paint();launcher.focus();}});
+    root.addEventListener('keydown',function(e){if(e.key==='Escape'){e.stopPropagation();expanded=false;paint();returnFocus(launcher);}});
     root.addEventListener('click',function(e){e.stopPropagation();});
     viewport();
   }
+  function signalMessage(){launcherUntil=Date.now()+10000;clearTimeout(launcherTimer);launcherTimer=setTimeout(paint,10000);}
+  function returnFocus(launcher){if(!launcher.hidden)launcher.focus({preventScroll:true});}
   function viewport(){if(!root)return;var v=w.visualViewport;root.style.setProperty('--chat-keyboard',Math.max(0,v?w.innerHeight-v.height-v.offsetTop:0)+'px');root.style.setProperty('--chat-view-height',(v?v.height:w.innerHeight)+'px');root.style.setProperty('--chat-clearance',v&&w.innerHeight-v.height>150?'24px':'110px');}
   function paint(){
     if(!root||!user)return;
     var ids=Object.keys(roles),count=ids.reduce(function(n,id){return n+unread(id);},0),launcher=root.querySelector('.zg-chat-launcher');
     launcher.querySelector('span').textContent=count?String(count):t('Чат','Чат');launcher.setAttribute('aria-label',t('Сообщения','Повідомлення')+(count?': '+count:''));launcher.classList.toggle('has-unread',count>0);launcher.setAttribute('aria-expanded',String(expanded));
-    var panel=root.querySelector('.zg-chat-panel');panel.hidden=!expanded;launcher.hidden=expanded;
+    var panel=root.querySelector('.zg-chat-panel');panel.hidden=!expanded;launcher.hidden=expanded||Date.now()>=launcherUntil;
     if(!expanded)return;
     root.querySelector('.zg-chat-panel').setAttribute('aria-label',t('Переписка с мастером и игроками','Листування з майстром і гравцями'));
     root.querySelector('.zg-chat-close').setAttribute('aria-label',t('Свернуть чат','Згорнути чат'));
@@ -63,17 +65,17 @@
     var id=selected,d=drafts[id]||(drafts[id]={}),input=root.querySelector('textarea'),text=input.value.trim();if(!text||d.sending)return;
     if(!navigator.onLine){root.querySelector('.zg-chat-error').textContent=t('Нет связи. Текст сохранён здесь — отправьте после подключения.','Немає зв’язку. Текст збережено тут — надішліть після підключення.');return;}
     var e=epoch;d.text=input.value;d.id=d.id||w.crypto.randomUUID();d.sending=true;paint();
-    try{await api.call({action:'message',sheetId:id,messageId:d.id,text:text});if(e!==epoch)return;drafts[id]={};if(selected===id){input.value='';root.querySelector('.zg-chat-error').textContent='';}}
+    try{await api.call({action:'message',sheetId:id,messageId:d.id,text:text});if(e!==epoch)return;signalMessage();drafts[id]={};if(selected===id){input.value='';root.querySelector('.zg-chat-error').textContent='';}}
     catch(error){if(e!==epoch)return;if(selected===id)root.querySelector('.zg-chat-error').textContent=/message-rate-limit/.test(String(error.message))?t('Подождите секунду и отправьте ещё раз.','Зачекайте секунду й надішліть ще раз.'):t('Не удалось отправить. Текст сохранён — попробуйте ещё раз.','Не вдалося надіслати. Текст збережено — спробуйте ще раз.');}
     finally{if(e===epoch){d.sending=false;paint();}}
   }
   function open(id){if(!roles[id])return;selected=id;expanded=true;ensure();paint();}
-  function stop(){epoch++;stops.forEach(function(fn){fn();});stops=[];api=null;user='';roles={};threads={};drafts={};reading={};selected='';expanded=false;if(root)root.remove();root=null;}
+  function stop(){epoch++;clearTimeout(launcherTimer);launcherUntil=0;stops.forEach(function(fn){fn();});stops=[];api=null;user='';roles={};threads={};drafts={};reading={};selected='';expanded=false;if(root)root.remove();root=null;}
   function start(client,uid,ids,names){
     stop();api=client;user=uid;roles=Object.assign({},ids);resolveName=names;var e=epoch,notified={};selected=Object.keys(roles)[0]||'';if(!selected||!client.watchMessages)return;ensure();paint();
     Object.keys(roles).forEach(function(id){stops.push(client.watchMessages(id,function(thread){
       if(e!==epoch)return;threads[id]=thread||{};var incoming=entries(id).filter(function(p){return p[1].senderUid!==user;}).pop(),last=incoming&&incoming[0];
-      if(last&&last!==notified[id]&&unread(id)&&roles[id]==='player'&&!expanded){selected=id;expanded=true;}
+      if(last&&last!==notified[id]&&unread(id)){signalMessage();if(!expanded){selected=id;if(roles[id]==='player')expanded=true;}}
       notified[id]=last;paint();
     },function(){if(e!==epoch)return;if(root&&selected===id)root.querySelector('.zg-chat-error').textContent=t('Переписка временно недоступна.','Листування тимчасово недоступне.');}));});
   }

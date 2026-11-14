@@ -37,14 +37,14 @@
 <script src="spell-automation.js?v=2026-08-30.5"></script>
 <script src="zargota-network.js?v=2026-10-26.15"></script>
   <script src="character-review.js?v=2026-09-27.1"></script>
-  <script src="character-update-notices.js?v=2026-11-14.8"></script>
-  <link rel="stylesheet" href="character-update-notices.css?v=2026-10-26.14">
+  <script src="character-update-notices.js?v=2026-11-14.10"></script>
+  <link rel="stylesheet" href="character-update-notices.css?v=2026-11-14.10">
   <script src="persistent-character-core.js?v=2026-10-26.15"></script>
   <script src="persistent-character-cache.js?v=2026-10-26.15"></script>
   <script src="persistent-character-transport.js?v=2026-11-14.9"></script>
-  <script src="persistent-account-views.js?v=2026-11-14.9"></script>
-  <script src="player-messages.js?v=2026-11-14.9"></script>
-  <link rel="stylesheet" href="player-messages.css?v=2026-11-14.9">
+  <script src="persistent-account-views.js?v=2026-11-14.10"></script>
+  <script src="player-messages.js?v=2026-11-14.10"></script>
+  <link rel="stylesheet" href="player-messages.css?v=2026-11-14.10">
   <script src="persistent-characters.js?v=2026-11-14.9"></script>
   <link rel="stylesheet" href="persistent-characters.css?v=2026-11-14.7">
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
@@ -10429,9 +10429,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-14.9';
+var ZG_APP_VERSION = '2026-11-14.10';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-14.10',notes:'Значок сообщений появляется сверху на 10 секунд. Изменения листа отмечены мягко светящимся восклицательным знаком без размытия на портрете.',notesUk:'Значок повідомлень з’являється вгорі на 10 секунд. Зміни аркуша позначені м’яко сяючим знаком оклику без розмиття на портреті.'},
   {v:'2026-11-14.9',notes:'Личные короткие сообщения между мастером и игроком: мини-чат поверх сайта, ответы и сохранённая переписка.',notesUk:'Особисті короткі повідомлення між майстром і гравцем: мінічат поверх сайту, відповіді та збережене листування.'},
   {v:'2026-11-14.8',notes:'Собственные портреты передаются между игроком и мастером. Изменения HP, характеристик и инвентаря обновляют лист без повторной загрузки изображений.',notesUk:'Власні портрети передаються між гравцем і майстром. Зміни HP, характеристик та інвентарю оновлюють аркуш без повторного завантаження зображень.'},
   {v:'2026-11-14.7',notes:'Исправлено подключение Евана и Эстероса и ширина листа на ПК. Игроки собраны в компактную сетку; коды показываются на месте. NPC исключены из добавления игроков.',notesUk:'Виправлено підключення Евана й Естероса та ширину аркуша на ПК. Гравців зібрано в компактну сітку; коди показуються на місці. NPC виключено з додавання гравців.'},
@@ -26770,8 +26771,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-portrait.js?v=2026-11-14.1"></script>
 <link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-14.1">
 <script defer src="character-portrait-picker.js?v=2026-11-14.1"></script>
-<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-05.1">
-<script defer src="character-mobile-overview.js?v=2026-11-14.8"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-14.10">
+<script defer src="character-mobile-overview.js?v=2026-11-14.10"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.3">
 <script defer src="character-mobile-inventory.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.3">
