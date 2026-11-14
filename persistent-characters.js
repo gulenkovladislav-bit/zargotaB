@@ -73,6 +73,8 @@
     if(/leave-session-before-linking/.test(text))return t('Сначала выйдите из онлайн-игры, затем выдайте код.','Спочатку вийдіть з онлайн-гри, потім видайте код.');
     if(/unsent-character-changes/.test(text))return t('Сначала сохраните правки или разрешите конфликт версии.','Спочатку збережіть правки або розв’яжіть конфлікт версії.');
     if(/wait-for-remote/.test(text))return t('Новая версия ещё загружается. Попробуйте ещё раз.','Нова версія ще завантажується. Спробуйте ще раз.');
+    if(/resource-exhausted|try-later/.test(code+' '+text))return t('Слишком много попыток входа. Попробуйте через 10 минут.','Забагато спроб входу. Спробуйте через 10 хвилин.');
+    if(/invalid-character/.test(text))return t('Не удалось подключить лист: проверьте значения в редакторе персонажа. Ваши данные сохранены.','Не вдалося підключити аркуш: перевірте значення в редакторі персонажа. Ваші дані збережено.');
     if(/invalid-code/.test(text))return t('Код не найден. Проверьте его у мастера.','Код не знайдено. Перевірте його в майстра.');
     if(/revision-conflict/.test(text))return t('Лист уже изменён на другом устройстве. Ваши правки сохранены отдельно.','Аркуш уже змінено на іншому пристрої. Ваші правки збережено окремо.');
     if(/permission-denied|access-denied/.test(code+' '+text))return t('Нет доступа к этому листу.','Немає доступу до цього аркуша.');
@@ -80,7 +82,7 @@
     if(/unsafe-character-content/.test(text))return t('В листе есть неподдерживаемая разметка или ссылка. Проверьте вставленный текст и изображения.','В аркуші є непідтримувана розмітка або посилання. Перевірте вставлений текст і зображення.');
     return t('Постоянные листы сейчас недоступны. Локальные данные сохранены; попробуйте подключиться позже.','Постійні аркуші зараз недоступні. Локальні дані збережено; спробуйте приєднатися пізніше.');
   }
-  function failed(e){error=explain(e);render();var alert=document.querySelector('#persistent-character-dialog [role=alert],#pc-account-popover [role=alert],#pc-control-accounts [role=alert]');if(alert)alert.textContent=error;}
+  function failed(e){error=explain(e);render();var alert=document.querySelector('#persistent-character-dialog [role=alert]')||document.querySelector('#pc-account-popover [role=alert]')||document.querySelector('#pc-control-accounts [role=alert]');if(alert)alert.textContent=error;}
   function redraw(){if(w.charView==='sheet'&&typeof w.renderCharSheet==='function')w.renderCharSheet();else if(typeof w.renderCharList==='function')w.renderCharList();render();}
   async function apply(sid,packet,initial){
     var generation=authGeneration,entry=records[sid];if(!state.enabled||!entry)return;
@@ -445,6 +447,24 @@
     if(action==='login'){var input=document.getElementById('persistent-login-code');if(!input)return;if(!String(input.value||'').trim()){input.focus();if(input.reportValidity)input.reportValidity();return;}await login(input.value,el);if(el&&el.open)el.close();return;}
     if(action==='open'||action==='account-open'){if(!records[sid]||!records[sid].allowed)throw Error('access-denied');closeAccountMenu();if(el)el.close();if(w.zgSessionMonitorToggle)w.zgSessionMonitorToggle(null,false);w.showPage('characters');w.openCharSheet(records[sid].localId);return;}
     if(action==='account-add'){if(account.role!=='admin')throw Error('access-denied');dialog(t('Добавить игрока','Додати гравця'),w.ZargotaAccountViews.picker((w.characters||[]).filter(function(c){return !binding(c.id);}))).classList.add('pc-accounts-dialog');return;}
+    if(action==='account-new'){
+      if(account.role!=='admin')throw Error('access-denied');
+      dialog(t('Новый персонаж','Новий персонаж'),'<form id="pc-new-character-form"><label for="pc-new-character-name">'+t('Имя персонажа','Ім’я персонажа')+'</label><input id="pc-new-character-name" maxlength="300" required placeholder="'+t('Например, Тест','Наприклад, Тест')+'"><p>'+t('Создадим пустой лист и сразу выдадим код для входа с телефона. Остальное можно заполнить позже.','Створимо порожній аркуш і одразу видамо код для входу з телефона. Решту можна заповнити пізніше.')+'</p><button type="submit" class="pc-primary" data-pc-action="account-new-save">'+t('Создать и выдать код','Створити й видати код')+'</button></form>');return;
+    }
+    if(action==='account-new-save'){
+      if(account.role!=='admin')throw Error('access-denied');
+      var form=document.getElementById('pc-new-character-form'),input=document.getElementById('pc-new-character-name');
+      if(!input||!input.value.trim()){if(input)input.reportValidity();return;}
+      var localId=Number(form.dataset.localId);
+      if(!localId){
+        var c=w.blankChar('hero');c.inventoryItems=[];while(character(c.id))c.id++;c.name=input.value.trim();
+        var saved=await w.ZargotaCharacterStore.saveCharacter(c.id,c,w.characters);
+        if(!saved.ok)throw Error('local-storage-failed');
+        w.characters.push(c);localId=c.id;form.dataset.localId=String(localId);
+        if(w.renderCharList)w.renderCharList();
+      }
+      var result=await create(localId);showCode(result.code,false);return;
+    }
     if(action==='account-create'){if(account.role!=='admin')throw Error('access-denied');var result=await create(buttonEl.dataset.character);showCode(result.code,false);return;}
     if(action==='account-code'){if(account.role!=='admin')throw Error('access-denied');var result=await transport.call({action:'code',sheetId:sid});showCode(result.code,false);return;}
     if(action==='reveal-code'){var codeInput=document.getElementById('persistent-issued-code');codeInput.type=codeInput.type==='password'?'text':'password';buttonEl.textContent=codeInput.type==='password'?t('Показать','Показати'):t('Скрыть','Приховати');return;}
@@ -462,7 +482,7 @@
     if(action==='replace-confirm'){dialog(t('Заменить общую версию?','Замінити спільну версію?'),'<p>'+t('Весь ваш черновик заменит новую версию. Изменения другого устройства останутся в истории мастера.','Уся ваша чернетка замінить нову версію. Зміни іншого пристрою залишаться в історії майстра.')+'</p>'+button('replace',t('Заменить моей версией','Замінити моєю версією'),'data-sheet="'+sid+'"'));return;}
     if(action==='replace'){var e=records[sid];if(!e.remote)throw Error('wait-for-remote');var draft=e.draft||C.clean(character(e.localId));e.base=e.remote;e.remote=null;e.pending=null;e.conflict=false;C.draft(e,draft,newId,e.source);persist();await flush(sid);el.close();return;}
   }
-  function runAction(b){if(!b||b.disabled)return;b.disabled=true;Promise.resolve(action(b)).catch(failed).finally(function(){b.disabled=false;});}
+  function runAction(b){if(!b||b.disabled)return;error='';document.querySelectorAll('#persistent-character-dialog [role=alert],#pc-control-accounts [role=alert]').forEach(function(el){el.textContent='';});b.disabled=true;Promise.resolve(action(b)).catch(failed).finally(function(){b.disabled=false;});}
   document.addEventListener('click',function(event){
     var b=event.target.closest('[data-pc-action]');
     if(!b){if(!event.target.closest('#pc-account-popover')&&!(accountAnchor&&accountAnchor.contains(event.target)))closeAccountMenu();return;}
@@ -472,7 +492,7 @@
     if(event.stopImmediatePropagation)event.stopImmediatePropagation();
     runAction(b);
   });
-  document.addEventListener('submit',function(event){if(event.target.id!=='pc-login-form')return;event.preventDefault();runAction(event.target.querySelector('[data-pc-action="login"]'));});
+  document.addEventListener('submit',function(event){if(!['pc-login-form','pc-new-character-form'].includes(event.target.id))return;event.preventDefault();runAction(event.target.querySelector('[type="submit"]'));});
   document.addEventListener('keydown',function(event){var pop=document.getElementById('pc-account-popover');if(!pop)return;if(event.key==='Escape'){var anchor=accountAnchor;closeAccountMenu();if(anchor)anchor.focus({preventScroll:true});event.preventDefault();}else if(event.key==='Tab'){var buttons=Array.from(pop.querySelectorAll('button:not(:disabled)'));var first=buttons[0],last=buttons[buttons.length-1];if(event.shiftKey&&document.activeElement===first){last.focus();event.preventDefault();}else if(!event.shiftKey&&document.activeElement===last){first.focus();event.preventDefault();}}});
   w.addEventListener('zargota:persistent-auth-change',function(){
     // Preserve cached drafts, but never send them using another tab's identity.

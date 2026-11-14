@@ -123,3 +123,10 @@ test('reloaded outbox recognizes own snapshot and retries safely after lost resp
  const e=entry();C.draft(e,{...hero,hpCur:7},()=> 'local_save_1');const packet=D.commit(initial(),'player',e.pending,200).state;
  const restored=JSON.parse(JSON.stringify(e));assert.equal(C.incoming(restored,packet,false),'own');C.acknowledged(restored,packet,()=> 'next');assert.equal(restored.pending,null);assert.equal(restored.base.revision,2);
 });
+
+// Regression: the editor permits a textual speed; this used to reject the whole test sheet.
+test('descriptive movement accepted without accepting markup',()=>{
+ const D=require('../functions/character-domain');
+ for(const speed of ['тест','не ходит','полёт 12 м','30 фт']) assert.equal(D.clean({id:123,name:'Тест',speed}).speed,speed);
+ for(const speed of ['<img src=x onerror=alert(1)>',"10');alert(1)//"]) assert.throws(()=>D.clean({id:123,name:'Тест',speed}));
+});

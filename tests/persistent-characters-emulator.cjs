@@ -17,7 +17,17 @@ async function client(name){const app=initializeApp({projectId:'demo-zargota-per
  await assert.rejects(set(ref(master.db,'persistentCharacterAdmins/'+master.auth.currentUser.uid),true));
  const admin=provisionTestAdmin();const adminLogin=await master.call({action:'login',code:admin.code});await signInWithCustomToken(master.auth,adminLogin.token);
  assert.equal((await master.call({action:'account'})).role,'admin');
- const created=await master.call({action:'create',sheetId,character});assert.equal(created.meta.locked,true);
+ const created=await master.call({action:'create',sheetId,character});assert.equal(created.meta.locked,true);assert.match(created.code,/^\d{4}$/);assert.notEqual(created.code,'7777');
+ const codes=await Promise.all([master.call({action:'code',sheetId}),master.call({action:'code',sheetId})]);assert.equal(codes[0].code,created.code);assert.equal(codes[1].code,created.code);
+ const extra=await master.call({action:'create',sheetId:sheetId+'_second',character:{...character,id:712,speed:'тест'}});assert.match(extra.code,/^\d{4}$/);assert.notEqual(extra.code,created.code);
+ // Simulate an existing sheet from the previous release; upgrade it concurrently.
+ const emulatorUrl='http://127.0.0.1:9190/persistentCharacters/'+sheetId+'_second/private';
+ const adminHeaders={Authorization:'Bearer owner','Content-Type':'application/json'};
+ const legacyResponse=await fetch(emulatorUrl+'.json?ns=demo-zargota-persistent-default-rtdb',{headers:adminHeaders});assert.equal(legacyResponse.status,200);const legacy=await legacyResponse.json();
+ const clearPin=await fetch(emulatorUrl+'/playerPin.json?ns=demo-zargota-persistent-default-rtdb',{method:'DELETE',headers:adminHeaders});assert.equal(clearPin.status,200);
+ const upgrade=await Promise.all([master.call({action:'code',sheetId:sheetId+'_second'}),master.call({action:'code',sheetId:sheetId+'_second'})]);assert.match(upgrade[0].code,/^\d{4}$/);assert.equal(upgrade[0].code,upgrade[1].code);
+ assert.ok((await other.call({action:'login',code:legacy.playerCode})).token,'legacy long code still works');
+ assert.ok((await other.call({action:'login',code:upgrade[0].code})).token,'upgraded short code works');
  const login=await player.call({action:'login',code:created.code});await signInWithCustomToken(player.auth,login.token);
  assert.equal((await player.call({action:'account'})).role,'player');
  await assert.rejects(player.call({action:'create',sheetId:'self_promote_'+Date.now(),character}),/access-denied/);

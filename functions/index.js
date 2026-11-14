@@ -5,6 +5,7 @@ const {getDatabase}=require('firebase-admin/database');
 const {getAuth}=require('firebase-admin/auth');
 const crypto=require('node:crypto');
 const D=require('./character-domain');
+const {playerCode}=require('./player-codes');
 initializeApp(process.env.FIREBASE_DATABASE_EMULATOR_HOST?{projectId:process.env.GCLOUD_PROJECT,databaseURL:'https://'+process.env.GCLOUD_PROJECT+'-default-rtdb.firebaseio.com'}:undefined);
 const db=getDatabase();
 const options={region:'europe-west1',minInstances:0,maxInstances:3,timeoutSeconds:30,memory:'256MiB',
@@ -19,7 +20,7 @@ async function mutate(ref,change){
   if(!result.committed)throw new HttpsError('aborted','retry-save');
   return result;
 }
-function error(e){if(e instanceof HttpsError)return e;const c=e.code||e.message;return new HttpsError(c==='access-denied'?'permission-denied':c==='revision-conflict'?'failed-precondition':['invalid-character','invalid-operation','identity-change','operation-reused','character-too-large','unsafe-character-content'].includes(c)?'invalid-argument':'internal',['revision-conflict','access-denied','character-too-large','unsafe-character-content'].includes(c)?c:'character-operation-failed');}
+function error(e){if(e instanceof HttpsError)return e;const c=e.code||e.message;return new HttpsError(c==='access-denied'?'permission-denied':c==='revision-conflict'?'failed-precondition':['invalid-character','invalid-operation','identity-change','operation-reused','character-too-large','unsafe-character-content'].includes(c)?'invalid-argument':'internal',['revision-conflict','access-denied','character-too-large','unsafe-character-content','invalid-character','player-code-capacity'].includes(c)?c:'character-operation-failed');}
 async function register(sheetId,sheet){
   const values={};
   values['persistentCharacterUsers/'+sheet.meta.ownerUid+'/'+sheetId]='master';
@@ -37,29 +38,33 @@ exports.characterAccess=onCall(options,async request=>{
     }
     if(input.action==='login'){
       const key=D.hash(String(request.rawRequest.ip||uid));
-      const rate=await db.ref('persistentLoginLimits/'+key).transaction(old=>{const now=Date.now(),v=old&&now-old.since<600000?old:{since:now,count:0};if(v.count>=40)return;return {since:v.since,count:v.count+1};});
+      const rate=await db.ref('persistentLoginLimits/'+key).transaction(old=>{const now=Date.now(),v=old&&now-old.since<600000?old:{since:now,count:0};if(v.count>=10)return;return {since:v.since,count:v.count+1};});
       if(!rate.committed)throw new HttpsError('resource-exhausted','try-later');
+      const grant=async (targetUid,sheetId)=>{
+        const token=await getAuth().createCustomToken(targetUid);
+        await db.ref('persistentLoginLimits/'+key).transaction(v=>v?{...v,count:Math.max(0,v.count-1)}:v);
+        return {token,sheetId};
+      };
       const normalized=D.normalizeCode(input.code);
       if(!/^(?:ZG[A-F0-9]{32}|[0-9]{4,12})$/.test(normalized))throw new HttpsError('permission-denied','invalid-code');
       if(/^\d+$/.test(normalized)){
         // A convenient PIN can resume the GM account only in a browser already paired to it.
         const account=(await db.ref('persistentCharacterAccounts/'+uid).get()).val();
-        if(!account||account.pinHash!==D.hash(normalized)||!await isAdmin(uid))throw new HttpsError('permission-denied','invalid-code');
-        return {token:await getAuth().createCustomToken(uid),sheetId:null};
+        if(account&&account.pinHash===D.hash(normalized)&&await isAdmin(uid))return grant(uid,null);
       }
       const link=(await db.ref('persistentCharacterCodes/'+D.hash(normalized)).get()).val();
       if(!link)throw new HttpsError('permission-denied','invalid-code');
       if(link.kind==='player'){
-        if(!/^ZG[A-F0-9]{32}$/.test(normalized))throw new HttpsError('permission-denied','invalid-code');
+        if(!/^(?:ZG[A-F0-9]{32}|[0-9]{4})$/.test(normalized))throw new HttpsError('permission-denied','invalid-code');
         const sheet=db.ref('persistentCharacters/'+link.sheetId);
-        const [player,issuedCode]=await Promise.all([sheet.child('meta/playerUid').get(),sheet.child('private/playerCode').get()]);
+        const [player,issuedCode]=await Promise.all([sheet.child('meta/playerUid').get(),sheet.child(/^\d{4}$/.test(normalized)?'private/playerPin':'private/playerCode').get()]);
         if(player.val()!==link.uid||D.normalizeCode(issuedCode.val())!==normalized)throw new HttpsError('permission-denied','invalid-code');
       }else if(link.kind==='master'){
         await requireAdmin(link.uid);
         const account=(await db.ref('persistentCharacterAccounts/'+link.uid).get()).val();
         if(!account||D.normalizeCode(account.code)!==normalized)throw new HttpsError('permission-denied','invalid-code');
       }else throw new HttpsError('permission-denied','invalid-code');
-      return {token:await getAuth().createCustomToken(link.uid),sheetId:link.sheetId||null};
+      return grant(link.uid,link.sheetId||null);
     }
     if(input.action==='master-code'){
       await requireAdmin(uid);
@@ -76,14 +81,14 @@ exports.characterAccess=onCall(options,async request=>{
     }
     if(input.action==='create'){
       await requireAdmin(uid);
-      const playerCode=D.code(),playerUid='pc_'+crypto.randomBytes(16).toString('hex');
+      const legacyPlayerCode=D.code(),playerUid='pc_'+crypto.randomBytes(16).toString('hex');
       const prepared=D.clean(input.character);
       const result=await mutate(ref,old=>{
         if(old){if(old.meta.ownerUid!==uid)D.fail('access-denied');return old;}
-        return D.initial(prepared,uid,playerUid,playerCode,Date.now());
+        return D.initial(prepared,uid,playerUid,legacyPlayerCode,Date.now());
       });
       const sheet=result.snapshot.val();await register(id,sheet);
-      return {sheetId:id,state:sheet.state,meta:sheet.meta,code:sheet.private.playerCode};
+      return {sheetId:id,state:sheet.state,meta:sheet.meta,code:await playerCode(db,id,sheet)};
     }
     if(input.action==='save'){
       const result=await mutate(ref,sheet=>sheet===null?null:D.commit(sheet,uid,input,Date.now()));
@@ -110,7 +115,7 @@ exports.characterAccess=onCall(options,async request=>{
     if(input.action==='code'){
       await requireAdmin(uid);
       if((await ref.child('meta/ownerUid').get()).val()!==uid)D.fail('access-denied');
-      return {code:(await ref.child('private/playerCode').get()).val()};
+      return {code:await playerCode(db,id,(await ref.get()).val())};
     }
     throw new HttpsError('invalid-argument','unknown-action');
   }catch(e){throw error(e);}

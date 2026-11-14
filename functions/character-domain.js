@@ -8,7 +8,8 @@ const textFields=new Set(['name','label','title','notes','note','description','b
 const colorPattern=/^(?:#[\da-f]{3,4}|#[\da-f]{6}|#[\da-f]{8}|(?:rgb|hsl)a?\([\d.,%+\-\s]+\)|[a-z]{1,24})$/i;
 const keyPattern=/^[-\p{L}\p{N}_:. ]{0,150}$/u;
 const numericFields=['level','hpCur','hpMax','baseHpMax','hpDelta','tempHp','ac','baseAc','initiative','baseInitiative','unspentStatPoints','combatRound','fameMundo','fameZargoty'];
-const speedPattern=/^\s*(?:[+-]?\d+(?:[.,]\d+)?\s*(?:м\.?|метр(?:а|ов|ів|и)?|ф(?:т|ут(?:а|ов|ів|и)?)\.?|ft\.?|m|клет(?:ка|ки|ок)|клітин(?:а|и|ок))?)?\s*$/iu;
+// The editor accepts descriptive movement (e.g. 'не ходит'), not just distances.
+const speedPattern=/^[\p{L}\p{N}\s.,()+/—–-]{0,64}$/u;
 const richTags=new Set(['p','br','b','strong','i','em','u','s','ul','ol','li','span','div','a','hr','h1','h2','h3','h4','blockquote']);
 function fail(code){throw Object.assign(new Error(code),{code});}
 function validateNumber(value){
