@@ -13,7 +13,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=r
  await update(false,2);await page.locator('.zgmo-sync').waitFor();
  const css=await page.locator('.zgmo-sync').evaluate(e=>{const s=getComputedStyle(e);return {blur:s.backdropFilter,background:s.backgroundColor,width:e.clientWidth,animation:getComputedStyle(e.querySelector('svg')).animationName};});
  assert.equal(css.blur,'none');assert.equal(css.background,'rgba(0, 0, 0, 0)');assert.ok(css.width>=44);assert.equal(css.animation,'zgmo-update-glow');
- assert.equal(await page.locator('.character-update-notice').isVisible(),false);
+ assert.equal(await page.locator('.character-update-notice').count(),0,'mobile uses the cue without mounting a hidden banner');
  assert.ok(await page.evaluate(()=>!keptPortrait||keptPortrait===document.querySelector('.zgmo-portrait-image')));
  await page.waitForTimeout(600);fs.mkdirSync('/tmp/zg-notices-review',{recursive:true});await page.screenshot({path:'/tmp/zg-notices-review/phone-update.png'});
  await page.locator('.zgmo-sync').click();await page.locator('#character-update-dialog').waitFor();assert.match(await page.locator('#character-update-dialog').innerText(),/Мастер обновил лист/);await page.locator('[data-update-read]').click();await page.locator('.zgmo-sync').waitFor({state:'hidden'});

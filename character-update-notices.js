@@ -120,7 +120,7 @@
       var notice=doc.querySelector('.character-update-notice');
       if(!show&&!editing){if(notice)notice.remove();sheet.querySelectorAll('.character-update-marker').forEach(function(el){el.remove();});return;}
       var updates=unread(currentId),latest=updates[0];
-      if(latest){
+      if(latest&&!doc.body.classList.contains('zg-stats-overview')){
         if(!notice)notice=doc.createElement('section');notice.className='character-update-notice';notice.setAttribute('aria-label',t('Обновления листа','Оновлення аркуша'));
         var noticeHTML='<div role="status"><strong>'+esc(title(latest))+'</strong><span>'+esc(latest.status==='pending'?t('Ваш ввод не заменён','Ваше введення не замінено'):brief(latest.changes[0]))+(updates.length>1?' · '+t('ещё обновлений: ','ще оновлень: ')+(updates.length-1):latest.changes.length>1?' · +'+(latest.changes.length-1):'')+'</span></div><button type="button">'+t('Подробнее','Докладніше')+'</button>';
         if(notice.innerHTML!==noticeHTML)notice.innerHTML=noticeHTML;
