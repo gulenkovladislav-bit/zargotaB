@@ -23,7 +23,7 @@
       '<div class="zgmo-state-cards">'+(all.length?all.slice(page*2,page*2+2).map(function(x,i){
       var st=(w.ALL_STATUSES||[]).find(function(s){return s.key===x.key;})||{},f=x.effect;
       var unit=f?({round:t('раунд.','раунд.'),rounds:t('раунд.','раунд.'),minute:t('мин.','хв.'),minutes:t('мин.','хв.'),hour:t('ч.','год.'),hours:t('ч.','год.'),days:t('дн.','дн.')})[f.unit]||tr(f.unit||''):'';
-      var glyph=(x.key==='poison'||x.key==='shield')?'<img src="images/ui/character-mobile/status-'+x.key+'-v1.webp" alt="" width="32" height="32">':w.characterStatusGlyph(Object.assign({},st,f||{}),st.label||'','character-status-icon');
+      var glyph=statusGlyph(x,st);
       return button('status',tr(x.label||st.label||x.key||t('Состояние','Стан')),'<span class="zgmo-status-icon">'+glyph+'</span><span class="zgmo-state-copy"><b>'+e(tr(x.label||st.label||x.key||t('Состояние','Стан')))+'</b><small>'+e(f&&f.remaining!=null?f.remaining+' '+unit:t('До снятия','До зняття'))+'</small></span>','data-index="'+(page*2+i)+'" style="--tone:'+e(st.color||'#c6ad70')+'"');
     }).join(''):'<span class="zgmo-empty">'+t('Нет активных состояний','Немає активних станів')+'</span>')+'</div>'+
       button('next',t('Следующие состояния','Наступні стани'),'›','class="zgmo-state-arrow zgmo-state-next"'+(page<count-1?'':' hidden disabled'))+'</div><span class="zgmo-page-count" aria-live="polite">'+(count>1?(page+1)+' / '+count:'')+'</span></section>';
@@ -49,9 +49,24 @@
     popup.classList.add('zgmo-closing');setTimeout(done,170);
   }
   function highlighted(text){return String(text==null?'':text).split(/([+−-]?\d+(?:[dдк]\d+)?(?:\s*[–—-]\s*\d+)?(?:\s*[%])?)/gi).map(function(part,i){return i%2?'<strong class="zgmo-rule-value">'+e(part)+'</strong>':e(part);}).join('');}
-  function statusGlyph(state,st){return state.key==='poison'||state.key==='shield'?'<img class="zgmo-detail-icon" src="images/ui/character-mobile/status-'+state.key+'-v1.webp" alt="">':w.characterStatusGlyph(Object.assign({},st,state.effect||{},{key:state.key}),st.label||state.label,'status-dialog-icon');}
-  function openStatus(c,state,source){
-    closeStatus(true);
+  function statusGlyph(state,st){
+    var source=Object.assign({},st,state.effect||{},{key:state.key}),key=w.zgStatusGlyphKey(source,state.label||st.label),color=source.color||'#c6ad70';
+    if(state.key==='poison'||state.key==='shield')return '<img class="zgmo-detail-icon" src="images/ui/character-mobile/status-'+state.key+'-v1.webp" alt="">';
+    if(!/^#[0-9a-f]{3,8}$/i.test(color))color='#c6ad70';
+    return '<svg class="zgmo-status-symbol" data-status-glyph="'+e(key)+'" viewBox="0 0 64 64" aria-hidden="true" focusable="false" style="color:'+color+'"><use href="character-status-symbols.svg?v=2026-11-14.13#'+e(key)+'"></use></svg>';
+  }
+  function swipeOn(node,move){
+    var start=null;
+    node.addEventListener('touchstart',function(ev){start=ev.touches.length===1&&!ev.target.closest('button,input,select,textarea')?{x:ev.touches[0].clientX,y:ev.touches[0].clientY,at:Date.now()}:null;},{passive:true});
+    node.addEventListener('touchcancel',function(){start=null;},{passive:true});
+    node.addEventListener('touchend',function(ev){if(!start)return;var first=start;start=null;var touch=ev.changedTouches[0];if(!touch)return;var dx=touch.clientX-first.x,dy=touch.clientY-first.y;if(Date.now()-first.at<900&&Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4)move(dx<0?1:-1);},{passive:true});
+  }
+  function openStatus(c,state,source,direction){
+    var popup=direction&&document.querySelector('#status-info-popup.zgmo-status-dialog'),reuse=!!popup;
+    if(!reuse)closeStatus(true);
+    var all=effects(c),index=all.findIndex(function(x){return state.effect&&state.effect.id!=null?x.effect&&x.effect.id===state.effect.id:x.key===state.key;});
+    function move(step){var fresh=character();if(!fresh)return;var list=effects(fresh),at=list.findIndex(function(x){return state.effect&&state.effect.id!=null?x.effect&&x.effect.id===state.effect.id:x.key===state.key;});if(at<0){closeStatus(false);return;}if(list[at+step])openStatus(fresh,list[at+step],source,step);}
+
     var st=(w.ALL_STATUSES||[]).find(function(x){return x.key===state.key;})||{},f=state.effect||{};
     var mech=(typeof w.getStatusMechanics==='function'?w.getStatusMechanics():[]).find(function(x){return x.key===state.key;})||{};
     var label=tr(state.label||st.label||state.key||t('Состояние','Стан')),rules=[];
@@ -59,13 +74,28 @@
     if(f.tickType&&Number(f.tickValue))rule((f.tickValue>0?'+':'')+f.tickValue+' '+tr(f.tickType)+t(' каждый раунд',' кожен раунд'));
     var units={round:t('раунд.','раунд.'),rounds:t('раунд.','раунд.'),minute:t('мин.','хв.'),hour:t('ч.','год.'),minutes:t('мин.','хв.'),hours:t('ч.','год.'),days:t('дн.','дн.')};
     var duration=f.remaining!=null?f.remaining+' '+(units[f.unit]||tr(f.unit||'')):t('До снятия','До зняття');
-    var popup=document.createElement('div');popup.id='status-info-popup';popup.className='zgmo-status-dialog';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');popup.setAttribute('aria-label',label);popup.setAttribute('data-zg-i18n-skip','');
-    popup.innerHTML='<article class="status-info-card character-ui-dialog"><button type="button" class="zgmo-status-dismiss" aria-label="'+t('Закрыть состояние','Закрити стан')+'">×</button><header class="zgmo-status-hero"><div>'+statusGlyph(state,st)+'</div><h2 style="color:'+e(f.color||st.color||'#e4cc96')+'">'+e(label)+'</h2><p>'+highlighted(duration)+'</p></header><div class="zgmo-status-body">'+(rules.length?'<div class="zgmo-player-rules">'+rules.join('')+'</div>':'')+'<div class="zgmo-status-description">'+highlighted(tr(f.description||mech.description||t('Описание пока не добавлено.','Опис поки не додано.')))+'</div><section class="zgmo-status-extra" id="zgmo-status-actions" hidden><button type="button" class="zgmo-remove-status">'+t('Снять состояние','Зняти стан')+'</button></section></div><div class="zgmo-status-toolbar"><button type="button" class="zgmo-status-tool" aria-controls="zgmo-status-actions" aria-expanded="false" aria-label="'+t('Действия с состоянием','Дії зі станом')+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 1-2h4l1 2 3 2 2 .5 2 3-1 2v3l1 2-2 3-2 .5-3 2-1 2h-4l-1-2-3-2-2-.5-2-3 1-2v-3l-1-2 2-3L6 5Z" transform="translate(1 1) scale(.91)"/><circle cx="12" cy="12" r="3"/></svg></button></div></article>';
+    if(!popup)popup=document.createElement('div');popup.id='status-info-popup';popup.className='zgmo-status-dialog';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');popup.setAttribute('aria-label',label);popup.setAttribute('data-zg-i18n-skip','');
+    var markup='<article class="status-info-card character-ui-dialog"><button type="button" class="zgmo-status-dismiss" aria-label="'+t('Закрыть состояние','Закрити стан')+'">×</button><header class="zgmo-status-hero"><div>'+statusGlyph(state,st)+'</div><h2 style="color:'+e(f.color||st.color||'#e4cc96')+'">'+e(label)+'</h2><p>'+highlighted(duration)+'</p></header><div class="zgmo-status-body">'+(rules.length?'<div class="zgmo-player-rules">'+rules.join('')+'</div>':'')+'<div class="zgmo-status-description">'+highlighted(tr(f.description||mech.description||t('Описание пока не добавлено.','Опис поки не додано.')))+'</div><section class="zgmo-status-extra" id="zgmo-status-actions" hidden><button type="button" class="zgmo-remove-status">'+t('Снять состояние','Зняти стан')+'</button></section></div><div class="zgmo-status-toolbar">'+(all.length>1?'<span class="zgmo-status-position" aria-live="polite">'+(index+1)+' / '+all.length+'</span>':'')+'<button type="button" class="zgmo-status-tool" aria-controls="zgmo-status-actions" aria-expanded="false" aria-label="'+t('Действия с состоянием','Дії зі станом')+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 1-2h4l1 2 3 2 2 .5 2 3-1 2v3l1 2-2 3-2 .5-3 2-1 2h-4l-1-2-3-2-2-.5-2-3 1-2v-3l-1-2 2-3L6 5Z" transform="translate(1 1) scale(.91)"/><circle cx="12" cy="12" r="3"/></svg></button></div></article>';
+    if(reuse){var template=document.createElement('template');template.innerHTML=markup;popup.firstElementChild.replaceChildren.apply(popup.firstElementChild,Array.from(template.content.firstElementChild.childNodes));}
+    else popup.innerHTML=markup;
+    var hero=popup.querySelector('.zgmo-status-hero');
+    [-1,1].forEach(function(step){var nav=document.createElement('button');nav.type='button';nav.className='zgmo-status-browse '+(step<0?'is-prev':'is-next');nav.dataset.statusStep=step;nav.setAttribute('aria-label',step<0?t('Предыдущее состояние','Попередній стан'):t('Следующее состояние','Наступний стан'));nav.textContent=step<0?'‹':'›';nav.hidden=step<0?index<=0:index>=all.length-1;nav.onclick=function(){move(step);};hero.appendChild(nav);});
     statusReturnFocus=source;
+    popup._moveStatus=move;
+    if(!reuse){
+      swipeOn(popup,function(step){if(!popup.classList.contains('zgmo-closing'))popup._moveStatus(step);});
+      popup.addEventListener('keydown',function(ev){if(ev.key==='ArrowLeft'||ev.key==='ArrowRight'){ev.preventDefault();popup._moveStatus(ev.key==='ArrowLeft'?-1:1);}});
+    }
+
     popup.querySelector('.zgmo-status-dismiss').onclick=function(){closeStatus(false);};
     popup.querySelector('.zgmo-status-tool').onclick=function(){var extra=popup.querySelector('#zgmo-status-actions');extra.hidden=!extra.hidden;this.setAttribute('aria-expanded',String(!extra.hidden));};
     popup.querySelector('.zgmo-remove-status').onclick=function(){closeStatus(true);if(state.key)w.removeStatusFromInfo(c.id,state.key);else if(f.id!=null)w.removeEffect(c.id,f.id);};
-    popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};document.body.appendChild(popup);popup.querySelector('.zgmo-status-dismiss').focus({preventScroll:true});
+    popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};
+    if(!reuse){document.body.appendChild(popup);popup.querySelector('.zgmo-status-dismiss').focus({preventScroll:true});}
+    else {
+      var focus=popup.querySelector('[data-status-step="'+direction+'"]:not([hidden])')||popup.querySelector('.zgmo-status-dismiss');focus.focus({preventScroll:true});
+      if(!matchMedia('(prefers-reduced-motion:reduce)').matches)[hero,popup.querySelector('.zgmo-status-body')].forEach(function(node){node.animate([{opacity:.25,transform:'translateX('+direction*12+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:170,easing:'ease-out'});});
+    }
   }
   function healthHTML(c){
     var temp=w.readTempHpTotal(c);
@@ -73,6 +103,10 @@
   }
   document.addEventListener('click',function(ev){if(ev.target.closest('#char-sheet-tab-bar'))closeStatus(true);},true);
   document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&document.querySelector('#status-info-popup.zgmo-status-dialog')){closeStatus(false);ev.preventDefault();}});
+  var stateSwipeStart=null;
+  document.addEventListener('touchstart',function(ev){var cards=ev.target.closest('.zgmo-state-cards');stateSwipeStart=cards&&ev.touches.length===1?{x:ev.touches[0].clientX,y:ev.touches[0].clientY,at:Date.now()}:null;},{passive:true});
+  document.addEventListener('touchcancel',function(){stateSwipeStart=null;},{passive:true});
+  document.addEventListener('touchend',function(ev){if(!stateSwipeStart)return;var from=stateSwipeStart;stateSwipeStart=null;var touch=ev.changedTouches[0];if(!touch)return;var dx=touch.clientX-from.x,dy=touch.clientY-from.y;if(Date.now()-from.at<900&&Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4){var target=document.querySelector('.zgmo-states [data-zgmo="'+(dx<0?'next':'prev')+'"]:not([hidden])');if(target)action(dx<0?'next':'prev',target);}},{passive:true});
   function sync(){var dest=document.querySelector('.zgmo-sync'),updates=w.ZargotaCharacterUpdates,c=character();if(!dest)return;var count=c&&updates&&updates.unread(c.id)||0;dest.hidden=!count;var label=t('Обновления персонажа','Оновлення персонажа')+(count?': '+count:'');dest.title=label;dest.setAttribute('aria-label',label);dest.setAttribute('aria-haspopup','dialog');}
   // Update sheet content without replacing mounted media or synchronization decorations.
   function contentChildren(node){return Array.from(node.childNodes).filter(function(child){return child.nodeType!==1||!child.matches(".character-update-notice,.character-update-marker");});}
@@ -190,7 +224,7 @@
     }
     else if(name==='number')openNumber(c,el.dataset.stat,el.getAttribute('aria-label'),el.value,'stat',el);
     else if(name==='status'){var state=effects(c)[Number(el.dataset.index)];if(state)openStatus(c,state,el);}
-    else if(name==='add-status'){modal(t('Добавить состояние','Додати стан'),'<div class="zgmo-status-picker">'+w.ALL_STATUSES.map(function(st){return button('choose-status',tr(st.label),w.characterStatusGlyph(st,st.label,'character-status-icon')+' '+e(tr(st.label)),'data-key="'+e(st.key)+'"');}).join('')+'</div>');}
+    else if(name==='add-status'){modal(t('Добавить состояние','Додати стан'),'<div class="zgmo-status-picker">'+w.ALL_STATUSES.map(function(st){return button('choose-status',tr(st.label),statusGlyph({key:st.key},st)+' '+e(tr(st.label)),'data-key="'+e(st.key)+'"');}).join('')+'</div>');}
     else if(name==='choose-status'){close();w.toggleStatus(c.id,el.dataset.key);}
     else if(name==='vital'){var key=el.dataset.field,base=key==='speed'?w.parseSpeedNumber(c.speed):Number(c[key])||0;openNumber(c,key,el.getAttribute('aria-label'),base+w.readTempBonusTotal(c,key),'vital',el);}
     else if(name==='menu'&&w.ZargotaPersistentCharacters&&w.ZargotaPersistentCharacters.accountMenu)w.ZargotaPersistentCharacters.accountMenu(el);
