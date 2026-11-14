@@ -10429,9 +10429,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-14.11';
+var ZG_APP_VERSION = '2026-11-14.12';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-14.12',notes:'На телефоне окно здоровья содержит только HP и временный запас. Описания состояний показывают игровые правила с выделенными числами, без технических пояснений. Убраны квадратные края иконок и кнопок над портретом; исправлено изменение скорости с текстовым исходным значением.',notesUk:'На телефоні вікно здоров’я містить лише HP і тимчасовий запас. Описи станів показують ігрові правила з виділеними числами, без технічних пояснень. Прибрано квадратні краї іконок і кнопок над портретом; виправлено зміну швидкості з текстовим початковим значенням.'},
   {v:'2026-11-14.11',notes:'Уведомление об изменениях на телефоне больше не оставляет скрытую панель и лишнее затемнение листа.',notesUk:'Сповіщення про зміни на телефоні більше не залишає приховану панель і зайве затемнення аркуша.'},
   {v:'2026-11-14.10',notes:'Значок сообщений появляется сверху на 10 секунд. Изменения листа отмечены мягко светящимся восклицательным знаком без размытия на портрете.',notesUk:'Значок повідомлень з’являється вгорі на 10 секунд. Зміни аркуша позначені м’яко сяючим знаком оклику без розмиття на портреті.'},
   {v:'2026-11-14.9',notes:'Личные короткие сообщения между мастером и игроком: мини-чат поверх сайта, ответы и сохранённая переписка.',notesUk:'Особисті короткі повідомлення між майстром і гравцем: мінічат поверх сайту, відповіді та збережене листування.'},
@@ -26772,8 +26773,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-portrait.js?v=2026-11-14.1"></script>
 <link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-14.1">
 <script defer src="character-portrait-picker.js?v=2026-11-14.1"></script>
-<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-14.10">
-<script defer src="character-mobile-overview.js?v=2026-11-14.10"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-14.12">
+<script defer src="character-mobile-overview.js?v=2026-11-14.12"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.3">
 <script defer src="character-mobile-inventory.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.3">
@@ -49788,7 +49789,7 @@ function parseSpeedNumber(speed) {
 
 function formatSpeedLike(baseSpeed, value) {
   var template = String(baseSpeed || '').trim();
-  if (!template) return String(value);
+  if (!template || !/-?\d+/.test(template)) return String(value);
   if (/^-?\d+$/.test(template)) return String(value);
   return template.replace(/-?\d+/, String(value));
 }

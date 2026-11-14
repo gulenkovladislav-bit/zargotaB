@@ -1,7 +1,7 @@
 /* Mobile character overview: presentation only, all edits use existing sheet actions. */
 (function(w){
   'use strict';
-  var current, toolsHTML='', pages={}, returnFocus=null, movedStatus=null, lastView=null, previousHP=null;
+  var current, pages={}, returnFocus=null, movedStatus=null, lastView=null, previousHP=null;
   function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
   function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function tr(s){return w.ZargotaI18n?w.ZargotaI18n.translate(s):s;}
@@ -29,13 +29,13 @@
       button('next',t('Следующие состояния','Наступні стани'),'›','class="zgmo-state-arrow zgmo-state-next"'+(page<count-1?'':' hidden disabled'))+'</div><span class="zgmo-page-count" aria-live="polite">'+(count>1?(page+1)+' / '+count:'')+'</span></section>';
   }
   function render(c,combat){
-    current=c.id;toolsHTML=combat;
+    current=c.id;
     var labels={str:['Сила','Сила'],dex:['Ловкость','Спритність'],int:['Интеллект','Інтелект'],cha:['Харизма','Харизма'],per:['Восприятие','Сприйняття'],con:['Выносливость','Витривалість']};
     var colors={str:'#ed7676',dex:'#93d18b',int:'#7dc7f0',cha:'#ebbc68',per:'#c59af0',con:'#d7d4cd'};
     var stats=Object.keys(labels).map(function(key){var temp=w.readTempBonusTotal(c,key),val=(parseInt((c.stats[key]||{}).cur)||0)+temp,label=t.apply(null,labels[key]);return '<div class="zgmo-stat" style="--tone:'+colors[key]+'">'+w.zgStatIcon(key)+'<label for="zgmo-'+key+'">'+label+'</label><input id="zgmo-'+key+'" data-stat="'+key+'" type="text" readonly inputmode="none" role="button" aria-haspopup="dialog" data-zgmo="number" aria-label="'+label+'" value="'+val+'" style="color:'+(temp>0?'#86d7a0':temp<0?'#f08f80':'#f1d58b')+'">'+button('temp',t('Временный эффект: ','Тимчасовий ефект: ')+label,'⌛','data-field="'+key+'"'+(temp?' class="has-effect"':''))+'</div>';}).join('');
     var derived=[['ac',t('Броня','Броня'),'⛨','#b3c5ee',Number(c.ac)||0],['initiative',t('Инициатива','Ініціатива'),'ϟ','#f0d16c',Number(c.initiative)||0],['speed',t('Скорость','Швидкість'),'»','#9ed49b',w.parseSpeedNumber(c.speed||'0')]].map(function(x){return button('vital',x[1],'<small>'+x[1]+'</small><span><img class="zgmo-vital-icon" alt="" src="images/ui/stats/'+({ac:'armor',initiative:'initiative',speed:'speed'})[x[0]]+'.png"> '+(x[4]+w.readTempBonusTotal(c,x[0]))+'</span>','data-field="'+x[0]+'" style="--tone:'+x[3]+'"');}).join('');
     var hp=Math.max(0,Math.min(100,c.hpMax?c.hpCur/c.hpMax*100:0)),tmp=w.readTempHpTotal(c);
-    return '<div class="zgmo-overview" data-zg-i18n-skip><input type="file" id="sheet-portrait-input" accept="image/*" hidden onchange="handleSheetPortrait('+c.id+',event)"><section class="zgmo-portrait">'+(c.portrait?'<img'+(w.ZargotaPortrait?w.ZargotaPortrait.attributes(c,'sheet'):'')+' class="zgmo-portrait-image" src="'+e(c.portrait)+'" alt="'+e(w.characterEntryText(c,c.name))+'">':'')+'<div class="zgmo-top">'+button('back',t('Назад','Назад'),'‹')+'<div>'+button('updates',t('Обновления персонажа','Оновлення персонажа'),'<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M9 2h6l-1 19h-4Z"/><path d="m12 25 3 3-3 3-3-3Z"/></svg>','class="zgmo-sync" hidden')+button('menu',t('Меню персонажа','Меню персонажа'),'⋯')+'</div></div><div class="zgmo-identity"><h1>'+e(w.characterEntryText(c,c.name))+'</h1><div><span>'+e(w.characterEntryText(c,c.race||''))+' · '+e(w.characterEntryText(c,c.klasse||''))+'</span>'+button('level',t('Управление уровнем','Керування рівнем'),t('Ур. ','Рів. ')+(c.level||1)+(c.unspentStatPoints?' ✦'+c.unspentStatPoints:''))+'</div></div></section><div class="zgmo-hp">'+button('damage',t('Убрать 1 HP','Зняти 1 HP'),'−','class="zgmo-damage"')+button('health',t('Здоровье и эффекты','Здоров’я та ефекти'),'<b>♥ '+(c.hpCur||0)+' / '+(c.hpMax||0)+(tmp?' <small>+'+tmp+'</small>':'')+'</b><span class="zgmo-hp-track"><span style="width:'+hp+'%"></span></span>','class="zgmo-hp-value"')+button('heal',t('Восстановить 1 HP','Відновити 1 HP'),'+','class="zgmo-heal"')+'</div><div class="zgmo-derived">'+derived+'</div><section class="zgmo-stats" aria-label="'+t('Характеристики','Характеристики')+'">'+stats+'</section>'+states(c)+'</div>';
+    return '<div class="zgmo-overview" data-zg-i18n-skip><input type="file" id="sheet-portrait-input" accept="image/*" hidden onchange="handleSheetPortrait('+c.id+',event)"><section class="zgmo-portrait">'+(c.portrait?'<img'+(w.ZargotaPortrait?w.ZargotaPortrait.attributes(c,'sheet'):'')+' class="zgmo-portrait-image" src="'+e(c.portrait)+'" alt="'+e(w.characterEntryText(c,c.name))+'">':'')+'<div class="zgmo-top">'+button('back',t('Назад','Назад'),'‹')+'<div>'+button('updates',t('Обновления персонажа','Оновлення персонажа'),'<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M9 2h6l-1 19h-4Z"/><path d="m12 25 3 3-3 3-3-3Z"/></svg>','class="zgmo-sync" hidden')+button('menu',t('Меню персонажа','Меню персонажа'),'⋯')+'</div></div><div class="zgmo-identity"><h1>'+e(w.characterEntryText(c,c.name))+'</h1><div><span>'+e(w.characterEntryText(c,c.race||''))+' · '+e(w.characterEntryText(c,c.klasse||''))+'</span>'+button('level',t('Управление уровнем','Керування рівнем'),t('Ур. ','Рів. ')+(c.level||1)+(c.unspentStatPoints?' ✦'+c.unspentStatPoints:''))+'</div></div></section><div class="zgmo-hp">'+button('damage',t('Убрать 1 HP','Зняти 1 HP'),'−','class="zgmo-damage"')+button('health',t('Здоровье','Здоров’я'),'<b>♥ '+(c.hpCur||0)+' / '+(c.hpMax||0)+(tmp?' <small>+'+tmp+'</small>':'')+'</b><span class="zgmo-hp-track"><span style="width:'+hp+'%"></span></span>','class="zgmo-hp-value"')+button('heal',t('Восстановить 1 HP','Відновити 1 HP'),'+','class="zgmo-heal"')+'</div><div class="zgmo-derived">'+derived+'</div><section class="zgmo-stats" aria-label="'+t('Характеристики','Характеристики')+'">'+stats+'</section>'+states(c)+'</div>';
   }
   function fame(c){return '<section class="zgmo-fame"><h3>'+t('Слава','Слава')+'</h3>'+[['fameMundo',t('Мировая слава','Світова слава')],['fameZargoty',t('Слава в Зарготе','Слава в Зарготі')]].map(function(x){return '<div><span>'+x[1]+'</span><div>'+Array.from({length:8},function(_,i){return '<button aria-label="'+x[1]+': '+(i+1)+'" aria-pressed="'+(i<(c[x[0]]||0))+'" onclick="toggleFame('+c.id+',\''+x[0]+'\','+i+')">'+(i<(c[x[0]]||0)?'◆':'◇')+'</button>';}).join('')+'</div></div>';}).join('')+'</section>';}
   function close(){closeNumber();closeStatus(true);var modal=document.getElementById('zgmo-modal');if(movedStatus){var sheet=document.getElementById('char-sheet-view');sheet.prepend(movedStatus);movedStatus=null;}if(modal)modal.remove();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
@@ -48,39 +48,28 @@
     if(popup.classList.contains('zgmo-closing'))return;
     popup.classList.add('zgmo-closing');setTimeout(done,170);
   }
+  function highlighted(text){return String(text==null?'':text).split(/([+−-]?\d+(?:[dдк]\d+)?(?:\s*[–—-]\s*\d+)?(?:\s*[%])?)/gi).map(function(part,i){return i%2?'<strong class="zgmo-rule-value">'+e(part)+'</strong>':e(part);}).join('');}
+  function statusGlyph(state,st){return state.key==='poison'||state.key==='shield'?'<img class="zgmo-detail-icon" src="images/ui/character-mobile/status-'+state.key+'-v1.webp" alt="">':w.characterStatusGlyph(Object.assign({},st,state.effect||{},{key:state.key}),st.label||state.label,'status-dialog-icon');}
   function openStatus(c,state,source){
     closeStatus(true);
-    if(state.key)w.showStatusInfoPopup(c.id,state.key);
-    else {
-      var old=document.getElementById('status-info-popup');if(old)old.remove();
-      var custom=document.createElement('div');custom.id='status-info-popup';
-      custom.innerHTML='<div class="status-info-card"><div><div>'+w.characterStatusGlyph(state.effect||{},state.label,'status-dialog-icon')+'</div><div>'+e(tr(state.label||t('Состояние','Стан')))+'</div></div><div>'+e(state.effect&&state.effect.description||t('Описание пока не добавлено','Опис поки не додано'))+'</div><div><button type="button">'+t('Снять состояние','Зняти стан')+'</button></div></div>';
-      custom.querySelector('button').onclick=function(){closeStatus(true);if(state.effect)w.removeEffect(c.id,state.effect.id);};document.body.appendChild(custom);
-    }
-    var popup=document.getElementById('status-info-popup'),card=popup&&popup.querySelector('.status-info-card');if(!card)return;
-    popup.classList.add('zgmo-status-dialog');popup.setAttribute('role','dialog');popup.setAttribute('aria-label',tr(state.label||state.key));
+    var st=(w.ALL_STATUSES||[]).find(function(x){return x.key===state.key;})||{},f=state.effect||{};
+    var mech=(typeof w.getStatusMechanics==='function'?w.getStatusMechanics():[]).find(function(x){return x.key===state.key;})||{};
+    var label=tr(state.label||st.label||state.key||t('Состояние','Стан')),rules=[];
+    function rule(value){rules.push('<span>'+highlighted(value)+'</span>');}
+    if(f.tickType&&Number(f.tickValue))rule((f.tickValue>0?'+':'')+f.tickValue+' '+tr(f.tickType)+t(' каждый раунд',' кожен раунд'));
+    var units={round:t('раунд.','раунд.'),rounds:t('раунд.','раунд.'),minute:t('мин.','хв.'),hour:t('ч.','год.'),minutes:t('мин.','хв.'),hours:t('ч.','год.'),days:t('дн.','дн.')};
+    var duration=f.remaining!=null?f.remaining+' '+(units[f.unit]||tr(f.unit||'')):t('До снятия','До зняття');
+    var popup=document.createElement('div');popup.id='status-info-popup';popup.className='zgmo-status-dialog';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','true');popup.setAttribute('aria-label',label);popup.setAttribute('data-zg-i18n-skip','');
+    popup.innerHTML='<article class="status-info-card character-ui-dialog"><button type="button" class="zgmo-status-dismiss" aria-label="'+t('Закрыть состояние','Закрити стан')+'">×</button><header class="zgmo-status-hero"><div>'+statusGlyph(state,st)+'</div><h2 style="color:'+e(f.color||st.color||'#e4cc96')+'">'+e(label)+'</h2><p>'+highlighted(duration)+'</p></header><div class="zgmo-status-body">'+(rules.length?'<div class="zgmo-player-rules">'+rules.join('')+'</div>':'')+'<div class="zgmo-status-description">'+highlighted(tr(f.description||mech.description||t('Описание пока не добавлено.','Опис поки не додано.')))+'</div><section class="zgmo-status-extra" id="zgmo-status-actions" hidden><button type="button" class="zgmo-remove-status">'+t('Снять состояние','Зняти стан')+'</button></section></div><div class="zgmo-status-toolbar"><button type="button" class="zgmo-status-tool" aria-controls="zgmo-status-actions" aria-expanded="false" aria-label="'+t('Действия с состоянием','Дії зі станом')+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 1-2h4l1 2 3 2 2 .5 2 3-1 2v3l1 2-2 3-2 .5-3 2-1 2h-4l-1-2-3-2-2-.5-2-3 1-2v-3l-1-2 2-3L6 5Z" transform="translate(1 1) scale(.91)"/><circle cx="12" cy="12" r="3"/></svg></button></div></article>';
     statusReturnFocus=source;
-    var children=Array.from(card.children),heading=children.shift(),footer=children.pop();
-    heading.classList.add('zgmo-status-hero');
-    var body=document.createElement('div');body.className='zgmo-status-body';
-    // Keep the description visible; auxiliary rules and actions open from compact controls.
-    var description=children.pop();if(description)body.appendChild(description);
-    if(state.key==='poison'||state.key==='shield')heading.firstElementChild.innerHTML='<img class="zgmo-detail-icon" src="images/ui/character-mobile/status-'+state.key+'-v1.webp" alt="">';
-    var dismiss=document.createElement('button');dismiss.className='zgmo-status-dismiss';dismiss.type='button';dismiss.setAttribute('aria-label',t('Закрыть состояние','Закрити стан'));dismiss.textContent='×';dismiss.onclick=function(){closeStatus(false);};
-    var toolbar=document.createElement('div');toolbar.className='zgmo-status-toolbar';
-    function panel(key,label,nodes,icon){
-      if(!nodes.length)return;
-      var extra=document.createElement('section');extra.className='zgmo-status-extra';extra.id='zgmo-status-'+key;extra.hidden=true;
-      var title=document.createElement('h3');title.textContent=label;extra.appendChild(title);nodes.forEach(function(node){extra.appendChild(node);});body.appendChild(extra);
-      var toggle=document.createElement('button');toggle.type='button';toggle.className='zgmo-status-tool';toggle.setAttribute('aria-label',label);toggle.title=label;toggle.setAttribute('aria-controls',extra.id);toggle.setAttribute('aria-expanded','false');toggle.innerHTML=icon;
-      toggle.onclick=function(){var open=extra.hidden;body.querySelectorAll('.zgmo-status-extra').forEach(function(el){el.hidden=true;});toolbar.querySelectorAll('button').forEach(function(el){el.setAttribute('aria-expanded','false');});extra.hidden=!open;toggle.setAttribute('aria-expanded',String(open));if(open){if(!matchMedia('(prefers-reduced-motion:reduce)').matches)extra.animate([{opacity:0,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)'}],{duration:180});requestAnimationFrame(function(){body.scrollTop=body.scrollHeight;});}};
-      toolbar.appendChild(toggle);
-    }
-    panel('rules',t('Подробнее о действии','Докладніше про дію'),children,'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/></svg>');
-    var remove=footer&&footer.querySelector('button');
-    panel('actions',t('Действия с состоянием','Дії зі станом'),remove?[remove]:[],'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3 1-2h4l1 2 3 2 2 .5 2 3-1 2v3l1 2-2 3-2 .5-3 2-1 2h-4l-1-2-3-2-2-.5-2-3 1-2v-3l-1-2 2-3L6 5Z" transform="translate(1 1) scale(.91)"/><circle cx="12" cy="12" r="3"/></svg>');
-    card.replaceChildren(dismiss,heading,body,toolbar);
-    popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};dismiss.focus({preventScroll:true});
+    popup.querySelector('.zgmo-status-dismiss').onclick=function(){closeStatus(false);};
+    popup.querySelector('.zgmo-status-tool').onclick=function(){var extra=popup.querySelector('#zgmo-status-actions');extra.hidden=!extra.hidden;this.setAttribute('aria-expanded',String(!extra.hidden));};
+    popup.querySelector('.zgmo-remove-status').onclick=function(){closeStatus(true);if(state.key)w.removeStatusFromInfo(c.id,state.key);else if(f.id!=null)w.removeEffect(c.id,f.id);};
+    popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};document.body.appendChild(popup);popup.querySelector('.zgmo-status-dismiss').focus({preventScroll:true});
+  }
+  function healthHTML(c){
+    var temp=w.readTempHpTotal(c);
+    return '<div class="zgmo-health-tools">'+[['hpCur',t('Текущее здоровье','Поточне здоров’я'),c.hpCur||0],['hpMax',t('Максимум здоровья','Максимум здоров’я'),c.hpMax||1]].map(function(x){return button('health-number',x[1],'<span>'+x[1]+'</span><b>'+e(x[2])+'</b>','data-field="'+x[0]+'"');}).join('')+button('health-temp',t('Временные HP','Тимчасові HP'),'<span>'+t('Временные HP','Тимчасові HP')+'</span><b>+'+temp+'</b>')+'</div>';
   }
   document.addEventListener('click',function(ev){if(ev.target.closest('#char-sheet-tab-bar'))closeStatus(true);},true);
   document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&document.querySelector('#status-info-popup.zgmo-status-dialog')){closeStatus(false);ev.preventDefault();}});
@@ -124,6 +113,7 @@
     if(key==='temp'){closeNumber(false);w.openQuickTemp(entry.id,entry.key);return;}
     if(key==='save'){
       var value=Number(entry.draft);if(!/^-?\d+$/.test(entry.draft)||!Number.isSafeInteger(value))return;
+      if(entry.kind==='health')value=Math.max(entry.key==='hpMax'?1:0,value);
       closeNumber(false);
       if(entry.kind==='stat')w.updateStatField(entry.id,entry.key,'cur',value);
       else {var c=(w.characters||[]).find(function(x){return x.id===entry.id;});if(!c)return;if(entry.key==='initiative')value-=w.readTempBonusTotal(c,entry.key);w.updateSimpleField(entry.id,entry.key,value);}
@@ -181,13 +171,15 @@
     else if(root&&c&&previousHP&&previousHP.id===c.id&&(previousHP.value!==c.hpCur||previousHP.temp!==w.readTempHpTotal(c))&&!reduced)animateHP(c,root);
     lastView=view;
     if(c)previousHP={id:c.id,value:c.hpCur,temp:w.readTempHpTotal(c),percent:Math.max(0,Math.min(100,c.hpMax?c.hpCur/c.hpMax*100:0))};
-    var modal=document.querySelector('#zgmo-modal[data-tools] .zgmo-modal-body');if(modal)updateMarkup(modal,toolsHTML);}
+    var modal=document.querySelector('#zgmo-modal[data-tools] .zgmo-modal-body');if(modal&&c)updateMarkup(modal,healthHTML(c));}
   function action(name,el){var c=character();if(name==='close'){close();return;}if(!c)return;
     if(name==='back'){setActive(false);w.zgCharBack();}
     else if(name==='temp')w.openQuickTemp(c.id,el.dataset.field);
     else if(name==='damage'||name==='heal'){close();w.changeHP(c.id,name==='damage'?-1:1);}
+    else if(name==='health-number')openNumber(c,el.dataset.field,el.getAttribute('aria-label'),Number(c[el.dataset.field])||0,'health',el);
+    else if(name==='health-temp'){close();w.openQuickTemp(c.id,'hp');}
     else if(name==='level')w.openLevelManager(c.id);
-    else if(name==='health')modal(t('Здоровье и эффекты','Здоров’я та ефекти'),toolsHTML).dataset.tools='true';
+    else if(name==='health')modal(t('Здоровье','Здоров’я'),healthHTML(c)).dataset.tools='true';
     else if(name==='prev'||name==='next'){
       pages[c.id]=Math.max(0,(pages[c.id]||0)+(name==='next'?1:-1));
       var holder=document.createElement('template');holder.innerHTML=states(c);var next=holder.content.firstElementChild,root=document.querySelector('.zgmo-states'),cards=root.querySelector('.zgmo-state-cards');
@@ -202,7 +194,7 @@
     else if(name==='choose-status'){close();w.toggleStatus(c.id,el.dataset.key);}
     else if(name==='vital'){var key=el.dataset.field,base=key==='speed'?w.parseSpeedNumber(c.speed):Number(c[key])||0;openNumber(c,key,el.getAttribute('aria-label'),base+w.readTempBonusTotal(c,key),'vital',el);}
     else if(name==='menu'&&w.ZargotaPersistentCharacters&&w.ZargotaPersistentCharacters.accountMenu)w.ZargotaPersistentCharacters.accountMenu(el);
-    else if(name==='character-actions'||name==='menu')modal(t('Персонаж','Персонаж'),'<div class="zgmo-menu">'+button('edit',t('Редактировать персонажа','Редагувати персонажа'),t('Редактировать персонажа','Редагувати персонажа'))+button('portrait',t('Изменить портрет','Змінити портрет'),t('Изменить портрет','Змінити портрет'))+button('level',t('Уровень и развитие','Рівень і розвиток'),t('Уровень и развитие','Рівень і розвиток'))+button('health',t('Здоровье и эффекты','Здоров’я та ефекти'),t('Здоровье и эффекты','Здоров’я та ефекти'))+button('sync',t('Синхронизация','Синхронізація'),t('Синхронизация','Синхронізація'))+'</div>');
+    else if(name==='character-actions'||name==='menu')modal(t('Персонаж','Персонаж'),'<div class="zgmo-menu">'+button('edit',t('Редактировать персонажа','Редагувати персонажа'),t('Редактировать персонажа','Редагувати персонажа'))+button('portrait',t('Изменить портрет','Змінити портрет'),t('Изменить портрет','Змінити портрет'))+button('level',t('Уровень и развитие','Рівень і розвиток'),t('Уровень и развитие','Рівень і розвиток'))+button('health',t('Здоровье','Здоров’я'),t('Здоровье','Здоров’я'))+button('sync',t('Синхронизация','Синхронізація'),t('Синхронизация','Синхронізація'))+'</div>');
     else if(name==='edit'){close();setActive(false);w.openCharEditor(c.id);}
     else if(name==='portrait'){close();w.triggerPortraitUpload(c.id);}
     else if(name==='updates'){if(w.ZargotaCharacterUpdates)w.ZargotaCharacterUpdates.open(c.id);}
