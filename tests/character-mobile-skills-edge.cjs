@@ -23,7 +23,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   assert.equal(await page.locator('.zgms-filter button').count(),3);
   assert.equal(await page.locator('.zgms-card em').count(),0,'Equipped filter does not repeat a badge on every card');
   assert.equal(await page.locator('.zgms-card').first().locator('small').innerText(),'За бой');
-  assert.ok(await page.evaluate(()=>{const style=getComputedStyle(document.querySelector('.zgms-art'),'::before');return parseFloat(style.height)===13&&!style.backgroundImage.includes('url(');}),'Colour strip must be crisp, thicker, and independent of the stretched raster texture');
+  assert.ok(await page.evaluate(()=>{const card=document.querySelector('.zgms-card'),art=getComputedStyle(card.querySelector('.zgms-art'),'::before'),title=getComputedStyle(card.querySelector('.zgms-copy strong')),copy=getComputedStyle(card.querySelector('.zgms-copy'));return art.content==='none'&&title.backgroundImage.includes('linear-gradient')&&title.backgroundSize==='100% 1px'&&copy.backgroundImage.includes('to top');}),'Category colour belongs in the title divider and bottom fade, without the old raised top strip');
   assert.deepEqual(await page.locator('.zgms-source').evaluateAll(els=>els.map(el=>el.dataset.source)),['kodex','folio','obrad','folio']);
   assert.deepEqual(await page.locator('.zgms-card').evaluateAll(els=>els.map(el=>getComputedStyle(el).getPropertyValue('--tone').trim())),['#c8d4dc','#5a9ae0','#c03030','#5a9ae0']);
   for(const locale of ['ru','uk']){
