@@ -117,24 +117,29 @@
       var help=doc.getElementById('character-update-help');
       if(!help){help=doc.createElement('button');help.type='button';help.id='character-update-help';help.textContent='?';help.addEventListener('click',function(){details(help.dataset.character,true);});bar.appendChild(help);}
       help.hidden=!show&&!editing;help.dataset.character=currentId;help.setAttribute('aria-label',t('Как работают обновления листа','Як працюють оновлення аркуша'));help.setAttribute('aria-haspopup','dialog');
-      doc.querySelectorAll('.character-update-notice').forEach(function(el){el.remove();});
-      sheet.querySelectorAll('.character-update-marker').forEach(function(el){el.remove();});
-      if(!show&&!editing)return;
+      var notice=doc.querySelector('.character-update-notice');
+      if(!show&&!editing){if(notice)notice.remove();sheet.querySelectorAll('.character-update-marker').forEach(function(el){el.remove();});return;}
       var updates=unread(currentId),latest=updates[0];
       if(latest){
-        var notice=doc.createElement('section');notice.className='character-update-notice';notice.setAttribute('aria-label',t('Обновления листа','Оновлення аркуша'));
-        notice.innerHTML='<div role="status"><strong>'+esc(title(latest))+'</strong><span>'+esc(latest.status==='pending'?t('Ваш ввод не заменён','Ваше введення не замінено'):brief(latest.changes[0]))+(updates.length>1?' · '+t('ещё обновлений: ','ще оновлень: ')+(updates.length-1):latest.changes.length>1?' · +'+(latest.changes.length-1):'')+'</span></div><button type="button">'+t('Подробнее','Докладніше')+'</button>';
-        notice.querySelector('button').addEventListener('click',function(){details(currentId,false);});
+        if(!notice)notice=doc.createElement('section');notice.className='character-update-notice';notice.setAttribute('aria-label',t('Обновления листа','Оновлення аркуша'));
+        var noticeHTML='<div role="status"><strong>'+esc(title(latest))+'</strong><span>'+esc(latest.status==='pending'?t('Ваш ввод не заменён','Ваше введення не замінено'):brief(latest.changes[0]))+(updates.length>1?' · '+t('ещё обновлений: ','ще оновлень: ')+(updates.length-1):latest.changes.length>1?' · +'+(latest.changes.length-1):'')+'</span></div><button type="button">'+t('Подробнее','Докладніше')+'</button>';
+        if(notice.innerHTML!==noticeHTML)notice.innerHTML=noticeHTML;
+        notice.querySelector('button').onclick=function(){details(currentId,false);};
         var host=editing?editor.querySelector('.char-editor'):sheet.querySelector('.tab-content-wrap')||sheet;
-        if(host)host.insertBefore(notice,host.firstChild);
-      }
+        if(host&&notice.parentNode!==host)host.insertBefore(notice,host.firstChild);
+      }else if(notice)notice.remove();
       if(!show)return;
+      sheet.querySelectorAll('.character-update-marker').forEach(function(marker){
+        if(marker.dataset.character!==id||!updates.some(function(entry){return entry.status==='applied'&&entry.changes.some(function(row){return row.field==='stats.'+marker.dataset.stat;});}))marker.remove();
+      });
       Object.keys(stats).forEach(function(stat){
         var changed=updates.some(function(entry){return entry.status==='applied'&&entry.changes.some(function(row){return row.field==='stats.'+stat;});});
         if(!changed)return;
         sheet.querySelectorAll('input[onchange]').forEach(function(input){
           var handler=input.getAttribute('onchange');if(handler.indexOf('updateStatField(')<0||handler.indexOf("'"+stat+"'")<0)return;
-          var marker=doc.createElement('button');marker.className='character-update-marker';marker.type='button';marker.textContent='↻';
+          var container=input.closest('.stat-block')||input.parentElement;
+          if(container.querySelector('.character-update-marker[data-stat="'+stat+'"]'))return;
+          var marker=doc.createElement('button');marker.dataset.stat=stat;marker.dataset.character=id;marker.className='character-update-marker';marker.type='button';marker.textContent='↻';
           marker.setAttribute('aria-label',t('Что изменилось: ','Що змінилося: ')+stats[stat][t('ru','uk')==='uk'?1:0]);marker.setAttribute('aria-haspopup','dialog');
           marker.addEventListener('click',function(){details(id,false,'stats.'+stat);});
           var desktopStat=input.closest('.stat-block');

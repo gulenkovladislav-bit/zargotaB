@@ -85,21 +85,30 @@
   document.addEventListener('click',function(ev){if(ev.target.closest('#char-sheet-tab-bar'))closeStatus(true);},true);
   document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&document.querySelector('#status-info-popup.zgmo-status-dialog')){closeStatus(false);ev.preventDefault();}});
   function sync(){var source=document.getElementById('character-cloud-indicator'),dest=document.querySelector('.zgmo-sync'),persistent=document.getElementById('persistent-sheet-status');if(!dest)return;if(persistent&&!persistent.hidden){dest.dataset.state='linked';dest.title=persistent.textContent;dest.setAttribute('aria-label',persistent.textContent);}else if(source){dest.dataset.state=source.dataset.state;dest.title=source.title;dest.setAttribute('aria-label',source.getAttribute('aria-label'));}}
-  // Reconcile the existing mobile tree so updates keep images, inputs and navigation alive.
+  // Update sheet content without replacing mounted media or synchronization decorations.
+  function contentChildren(node){return Array.from(node.childNodes).filter(function(child){return child.nodeType!==1||!child.matches(".character-update-notice,.character-update-marker");});}
   function patchNode(node,next){
     if(node.nodeType!==next.nodeType||node.nodeName!==next.nodeName){node.replaceWith(next.cloneNode(true));return;}
     if(node.nodeType!==1){if(node.nodeValue!==next.nodeValue)node.nodeValue=next.nodeValue;return;}
     var focused=node===document.activeElement;
+    var sameImage=node.tagName==='IMG'&&(node.getAttribute('src')===next.getAttribute('src')||node.dataset.zgResolvedSource===next.getAttribute('src'));
+    // Runtime image resolution and face framing belong to the mounted image.
+    // Reapplying its original URL would reload a local portrait on every edit.
+    if(sameImage){
+      next.setAttribute('src',node.getAttribute('src'));
+      ['data-zg-resolved','data-zg-resolved-source'].forEach(function(key){if(node.hasAttribute(key))next.setAttribute(key,node.getAttribute(key));});
+      if(node.hasAttribute('data-zg-portrait'))next.style.objectPosition=node.style.objectPosition;
+    }
     Array.from(node.attributes).forEach(function(a){if(!next.hasAttribute(a.name))node.removeAttribute(a.name);});
     Array.from(next.attributes).forEach(function(a){if(!(focused&&a.name==='value')&&node.getAttribute(a.name)!==a.value)node.setAttribute(a.name,a.value);});
-    if(node.tagName==='INPUT'&&!focused&&node.type!=='file'&&node.value!==next.value)node.value=next.value;
-    var oldChildren=Array.from(node.childNodes),newChildren=Array.from(next.childNodes);
+    if((node.tagName==='INPUT'&&node.type!=='file'||node.tagName==='TEXTAREA')&&!focused&&node.value!==next.value)node.value=next.value;
+    var oldChildren=contentChildren(node),newChildren=contentChildren(next);
     newChildren.forEach(function(child,i){if(oldChildren[i])patchNode(oldChildren[i],child);else node.appendChild(child.cloneNode(true));});
     oldChildren.slice(newChildren.length).forEach(function(child){child.remove();});
   }
   function updateMarkup(container,html){
     var template=document.createElement('template');template.innerHTML=html;
-    var children=Array.from(container.childNodes),next=Array.from(template.content.childNodes);
+    var children=contentChildren(container),next=contentChildren(template.content);
     next.forEach(function(node,i){if(children[i])patchNode(children[i],node);else container.appendChild(node.cloneNode(true));});
     children.slice(next.length).forEach(function(node){node.remove();});
     if(w.ZargotaPortrait)w.ZargotaPortrait.refresh(container);

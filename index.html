@@ -37,13 +37,13 @@
 <script src="spell-automation.js?v=2026-08-30.5"></script>
 <script src="zargota-network.js?v=2026-10-26.15"></script>
   <script src="character-review.js?v=2026-09-27.1"></script>
-  <script src="character-update-notices.js?v=2026-10-26.14"></script>
+  <script src="character-update-notices.js?v=2026-11-14.8"></script>
   <link rel="stylesheet" href="character-update-notices.css?v=2026-10-26.14">
   <script src="persistent-character-core.js?v=2026-10-26.15"></script>
   <script src="persistent-character-cache.js?v=2026-10-26.15"></script>
   <script src="persistent-character-transport.js?v=2026-11-05-accounts"></script>
   <script src="persistent-account-views.js?v=2026-11-14.7"></script>
-  <script src="persistent-characters.js?v=2026-11-14.7"></script>
+  <script src="persistent-characters.js?v=2026-11-14.8"></script>
   <link rel="stylesheet" href="persistent-characters.css?v=2026-11-14.7">
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
   <script src="character-cloud.js?v=2026-10-26.15"></script>
@@ -10427,9 +10427,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-14.7';
+var ZG_APP_VERSION = '2026-11-14.8';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-14.8',notes:'Собственные портреты передаются между игроком и мастером. Изменения HP, характеристик и инвентаря обновляют лист без повторной загрузки изображений.',notesUk:'Власні портрети передаються між гравцем і майстром. Зміни HP, характеристик та інвентарю оновлюють аркуш без повторного завантаження зображень.'},
   {v:'2026-11-14.7',notes:'Исправлено подключение Евана и Эстероса и ширина листа на ПК. Игроки собраны в компактную сетку; коды показываются на месте. NPC исключены из добавления игроков.',notesUk:'Виправлено підключення Евана й Естероса та ширину аркуша на ПК. Гравців зібрано в компактну сітку; коди показуються на місці. NPC виключено з додавання гравців.'},
   {v:'2026-11-14.5',notes:'Четырёхзначные коды игроков и создание нового персонажа прямо в аккаунтах. Исправлено подключение листов с текстовой скоростью и показ ошибок.',notesUk:'Чотиризначні коди гравців і створення нового персонажа просто в акаунтах. Виправлено підключення аркушів із текстовою швидкістю та показ помилок.'},
   {v:'2026-11-14.2',notes:'Постоянный вход к персонажу, автоматическое сохранение листа и история изменений для мастера. Новые портреты пяти героев с выбором прежнего образа и загрузкой своего.',notesUk:'Постійний вхід до персонажа, автоматичне збереження аркуша та історія змін для майстра. Нові портрети п’яти героїв із вибором попереднього образу та завантаженням власного.'},
@@ -26767,7 +26768,7 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-14.1">
 <script defer src="character-portrait-picker.js?v=2026-11-14.1"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-05.1">
-<script defer src="character-mobile-overview.js?v=2026-11-05-accounts"></script>
+<script defer src="character-mobile-overview.js?v=2026-11-14.8"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.3">
 <script defer src="character-mobile-inventory.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.3">
@@ -29394,8 +29395,8 @@ window.zgImageStore = (function() {
   // Оригинал остаётся в IndexedDB и в экспортируемом архиве.
   function makePortable(source, options, cb) {
     options = options || {};
-    var maxSide = Math.max(96, Math.min(480, Number(options.maxSide) || 256));
-    var maxChars = Math.max(24000, Math.min(180000, Number(options.maxChars) || 120000));
+    var maxSide = Math.max(96, Math.min(1024, Number(options.maxSide) || 256));
+    var maxChars = Math.max(24000, Math.min(500000, Number(options.maxChars) || 120000));
     var done = false;
     function finish(value) {
       if (done) return;
@@ -29633,10 +29634,16 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     if (path.indexOf('images/') !== 0) return;
     if (img.dataset.zgResolved === '1') return;
     img.dataset.zgResolved = '1';
+    img.dataset.zgResolvedSource = src;
 
     window.zgImageStore.getBlobUrl(path, function(url) {
-      if (url) {
-        img.src = url;
+      if (!img.isConnected || img.getAttribute('src') !== src) return;
+      // Older uploads already carry a portable preview. Show it on devices
+      // without the original rather than hiding the portrait.
+      var owner = (window.characters || []).find(function(c){ return c.portrait === src || c.portrait === path; });
+      var fallback = owner && owner.portraitThumb;
+      if (url || fallback) {
+        img.src = url || fallback;
       } else {
         // Нет ни в репо, ни в IDB — скрываем
         img.style.opacity = '0.15';
@@ -49682,7 +49689,8 @@ function characterEntryText(entry, value) {
 function characterEntrySkipAttr(entry) {
   return characterEntryIsReviewed(entry) ? '' : ' data-zg-i18n-skip';
 }
-var efPortraitData = null; // путь к оригиналу в локальном хранилище
+var efPortraitUploadToken = null;
+var efPortraitData = null; // переносимый портрет или путь к изображению проекта
 var efPortraitThumbData = ''; // переносимое превью для комнаты/Firebase
 
 var STATS = [
@@ -52854,7 +52862,7 @@ function renderCharSheet() {
     var equipSlots = c.arenaEquipSlots||{};
     var equipCount = Object.keys(equipSlots).filter(function(k){return equipSlots[k];}).length;
 
-    sheetD.innerHTML =
+    var desktopSheetHTML =
     // ═══ HEADER ═══
     '<div style="background:linear-gradient(180deg,#1a1208,#120e06);border-bottom:1px solid #2a1a08;padding:12px 20px">' +
       '<div class="char-sheet-heading" style="display:flex;align-items:center;gap:16px">' +
@@ -53036,6 +53044,7 @@ function renderCharSheet() {
     '<div id="combat-panel-host"></div>' +
     buildJournalSection(c);
 
+    window.ZargotaMobileSheet.updateMarkup(sheetD,desktopSheetHTML);
     setTimeout(function(){ document.querySelectorAll('#char-sheet textarea').forEach(function(ta){ autoResize(ta); }); }, 60);
     return;
   }
@@ -56280,51 +56289,39 @@ function triggerPortraitUpload(id) {
   document.getElementById('sheet-portrait-input').click();
 }
 
-function handleSheetPortrait(id, event) {
-  var file = event.target.files[0];
-  if (!file) return;
-
-  if (window.zgImageStore) {
-    window.zgImageStore.put(file, 'portraits', 'custom_' + id + '_' + Date.now().toString(36), function(path) {
-      if (path) {
-        var c = characters.find(function(x){ return x.id === id; });
-        if (c) {
-          c.portrait = path;
-          delete c.portraitChoice; delete c.portraitFocusX; delete c.portraitFocusY;
-          window.zgImageStore.makePortable(path, { maxSide:320, maxChars:140000 }, function(thumb) {
-            c.portraitThumb = thumb || '';
-            saveChars();
-            renderCharSheet();
-          });
-        }
-      } else {
-        var reader = new FileReader();
-        reader.onload = function(e) {
-          var c = characters.find(function(x){ return x.id === id; });
-          if (c) {
-            c.portrait = e.target.result; delete c.portraitChoice; delete c.portraitFocusX; delete c.portraitFocusY;
-            window.zgImageStore.makePortable(file, { maxSide:320, maxChars:140000 }, function(thumb) {
-              c.portraitThumb = thumb || '';
-              saveChars();
-              renderCharSheet();
-            });
-          }
-        };
-        reader.readAsDataURL(file);
-      }
+// Upload a portable portrait, not a device-local IndexedDB filename.
+var zgPortraitUploadTokens = new Map();
+function zgPreparePortraitUpload(file, done) {
+  window.zgImageStore.put(file, 'portraits', 'custom_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8), function() {});
+  window.zgImageStore.makePortable(file, { maxSide:1024, maxChars:500000 }, function(image) {
+    if (!image) {
+      var uk = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk';
+      showToast(uk ? 'Не вдалося прочитати зображення. Спробуйте PNG, JPEG або WebP.' : 'Не удалось прочитать изображение. Попробуйте PNG, JPEG или WebP.');
+      done(null); return;
+    }
+    window.zgImageStore.makePortable(file, { maxSide:320, maxChars:140000 }, function(thumb) {
+      done({ portrait:image, portraitThumb:thumb || '' });
     });
-  } else {
-    var reader = new FileReader();
-    reader.onload = function(e) {
-      var c = characters.find(function(x){ return x.id === id; });
-      if (c) { c.portrait = e.target.result; delete c.portraitChoice; delete c.portraitFocusX; delete c.portraitFocusY; c.portraitThumb = ''; saveChars(); renderCharSheet(); }
-    };
-    reader.readAsDataURL(file);
-  }
+  });
+}
+function handleSheetPortrait(id, event) {
+  var file = event.target.files[0], c = characters.find(function(x){ return x.id === id; });
+  if (!file || !c) return;
+  var token = {}; zgPortraitUploadTokens.set(id, token);
+  var previous = c.portrait;
+  zgPreparePortraitUpload(file, function(media) {
+    var live = characters.find(function(x){ return x.id === id; });
+    if (!media || zgPortraitUploadTokens.get(id) !== token || !live || live.portrait !== previous) return;
+    Object.assign(live, media);
+    delete live.portraitChoice; delete live.portraitFocusX; delete live.portraitFocusY;
+    saveChars();
+    if (charView === 'sheet' && viewingCharId === id) renderCharSheet();
+  });
 }
 
 // ── Editor ──
 function openCharEditor(id) {
+  efPortraitUploadToken = null;
   if (window.zgSessionCharacterEditActive && window.zgSessionCharacterEditActive() && (!id || !window.zgSessionCharacterEditActive(id))) {
     showToast('В сессии можно редактировать только выбранного героя');
     return;
@@ -56380,51 +56377,26 @@ function setCharType(type) {
 }
 
 function handlePortraitUpload(event, prefix) {
-  var file = event.target.files[0];
+  var input = event.target, file = input.files[0], editorId = editingCharId;
   if (!file) return;
-
-  function applyToForm(valueForPreview, valueToStore) {
-    efPortraitData = valueToStore;
+  var token = {}; efPortraitUploadToken = token;
+  zgPreparePortraitUpload(file, function(media) {
+    if (efPortraitUploadToken !== token) return;
+    efPortraitUploadToken = null;
+    if (!media || input.files[0] !== file || editingCharId !== editorId || charView !== 'editor') return;
+    efPortraitData = media.portrait;
+    efPortraitThumbData = media.portraitThumb;
     var prev = document.getElementById(prefix + '-portrait-preview');
-    if (prev) { prev.src = valueForPreview; prev.style.display = 'block'; }
+    if (prev) { prev.src = media.portrait; prev.style.display = 'block'; }
     var nameEl = document.getElementById(prefix + '-portrait-name');
     if (nameEl) nameEl.textContent = file.name;
     var clearBtn = document.getElementById(prefix + '-portrait-clear');
     if (clearBtn) clearBtn.style.display = 'inline-block';
-  }
-  function preparePortablePreview() {
-    if (!window.zgImageStore || !window.zgImageStore.makePortable) return;
-    window.zgImageStore.makePortable(file, { maxSide:320, maxChars:140000 }, function(data) {
-      efPortraitThumbData = data || '';
-    });
-  }
-
-  if (window.zgImageStore) {
-    var charId = (typeof currentEditingCharId !== 'undefined' && currentEditingCharId)
-      ? currentEditingCharId
-      : ('new_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6));
-
-    window.zgImageStore.put(file, 'portraits', 'char_' + charId, function(path) {
-      if (path) {
-        // Получаем blob URL для превью
-        window.zgImageStore.getBlobUrl(path, function(blobUrl) {
-          applyToForm(blobUrl || path, path);
-          preparePortablePreview();
-        });
-      } else {
-        var reader = new FileReader();
-        reader.onload = function(e) { applyToForm(e.target.result, e.target.result); preparePortablePreview(); };
-        reader.readAsDataURL(file);
-      }
-    });
-  } else {
-    var reader = new FileReader();
-    reader.onload = function(e) { applyToForm(e.target.result, e.target.result); };
-    reader.readAsDataURL(file);
-  }
+  });
 }
 
 function clearPortrait(prefix) {
+  efPortraitUploadToken = null;
   efPortraitData = null;
   efPortraitThumbData = '';
   document.getElementById(prefix + '-portrait-preview').style.display = 'none';
@@ -56566,6 +56538,10 @@ function importCharacterBackup(event) {
 }
 
 function saveChar() {
+  if (efPortraitUploadToken) {
+    showToast(window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' ? 'Портрет ще обробляється. Зачекайте кілька секунд.' : 'Портрет ещё обрабатывается. Подождите несколько секунд.');
+    return;
+  }
   var name = document.getElementById('ef-name').value.trim();
   if (!name) { showToast('⚠ Укажи имя'); return; }
   if (editingCharId) {
@@ -56585,6 +56561,7 @@ function saveChar() {
       c.baseSpeed = c.speed;
       c.type   = editingCharType;
       if (efPortraitData !== null) {
+        if (c.portrait !== efPortraitData) { delete c.portraitChoice; delete c.portraitFocusX; delete c.portraitFocusY; }
         c.portrait = efPortraitData;
         c.portraitThumb = efPortraitThumbData || '';
       }

@@ -10,7 +10,7 @@ const fs=require('node:fs');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   // Local assets only; do not contact Firebase or the published site's data loader.
   await page.route('**/*',route=>new URL(route.request().url()).hostname==='127.0.0.1'?route.continue():route.abort());
-  await page.goto('http://127.0.0.1:18543/');
+  await page.goto(process.env.ZG_TEST_URL||'http://127.0.0.1:18543/');
   await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
   await page.evaluate(async()=>{await window.zgCharacterLoadPromise;showPage('characters');openCharSheet(characters[0].id);});
   const id=await page.evaluate(()=>characters[0].id);
@@ -36,15 +36,25 @@ const fs=require('node:fs');
   await page.waitForTimeout(400);await page.screenshot({path:out+'/new-sheet-390.png'});
   // Upload follows the existing file picker and keeps a portable preview.
   await page.locator('#sheet-portrait-input').setInputFiles('images/portraits/defaults/evan-classic.png');
-  await page.waitForFunction(id=>{const c=characters.find(c=>c.id===id);return c.portrait.includes('custom_')&&c.portraitThumb.startsWith('data:');},id);
+  await page.waitForFunction(id=>{const c=characters.find(c=>c.id===id);return c.portrait.startsWith('data:image/webp;base64,')&&c.portraitThumb.startsWith('data:');},id);
   const custom=await page.evaluate(id=>characters.find(c=>c.id===id).portrait,id);
   await page.waitForFunction(path=>JSON.parse(localStorage.getItem('grimoire_chars')).some(c=>c.portrait===path),custom);
   await page.reload();await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});await page.evaluate(async()=>{await window.zgCharacterLoadPromise;});
   assert.equal(await page.evaluate(id=>characters.find(c=>c.id===id).portrait,id),custom);
+  // The desktop editor also saves portable media and keeps the other sheet values.
+  await page.setViewportSize({width:1280,height:900});
+  const before=await page.evaluate(id=>{showPage('characters');openCharEditor(id);const c=characters.find(c=>c.id===id);return {hp:c.hpCur,stats:JSON.stringify(c.stats)};},id);
+  await page.locator('#ef-portrait-file').setInputFiles('images/portraits/defaults/evan-classic.png');
+  await page.waitForFunction(()=>!efPortraitUploadToken&&efPortraitData.startsWith('data:image/webp;base64,')&&efPortraitThumbData.startsWith('data:'));
+  const editorPortrait=await page.evaluate(()=>efPortraitData);
+  await page.evaluate(()=>saveChar());
+  assert.deepEqual(await page.evaluate(id=>{const c=characters.find(c=>c.id===id);return {hp:c.hpCur,stats:JSON.stringify(c.stats)};},id),before);
+  await page.reload();await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});await page.evaluate(()=>zgCharacterLoadPromise);
+  assert.equal(await page.evaluate(id=>characters.find(c=>c.id===id).portrait,id),editorPortrait);
   // All five heroes have distinct, loadable sets and both locales.
   const choices=await page.evaluate(()=>characters.slice(0,5).map(c=>ZargotaPortraitPicker.choices(c)));
   assert.equal(new Set(choices.map(c=>c[0].src)).size,5);
   assert.deepEqual(errors,[]);
-  console.log('PASS: 3 choices, mobile/desktop fit, fog choice survives reload, new choice, personal upload survives reload; no page errors. Screenshots: '+out);
+  console.log('PASS: 3 choices, mobile/desktop fit, fog choice survives reload, new choice, personal uploads from sheet and editor survive reload; no page errors. Screenshots: '+out);
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

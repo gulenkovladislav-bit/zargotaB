@@ -83,7 +83,16 @@
     return t('Постоянные листы сейчас недоступны. Локальные данные сохранены; попробуйте подключиться позже.','Постійні аркуші зараз недоступні. Локальні дані збережено; спробуйте приєднатися пізніше.');
   }
   function failed(e){error=explain(e);render();var alert=document.querySelector('#persistent-character-dialog [role=alert]')||document.querySelector('#pc-account-popover [role=alert]')||document.querySelector('#pc-control-accounts [role=alert]');if(alert)alert.textContent=error;}
-  function redraw(){if(w.charView==='sheet'&&typeof w.renderCharSheet==='function')w.renderCharSheet();else if(typeof w.renderCharList==='function')w.renderCharList();render();}
+  function redraw(id){
+    if(w.charView==='sheet'){
+      if((id==null||String(w.viewingCharId)===String(id))&&typeof w.renderCharSheet==='function')w.renderCharSheet();
+    }else if(w.charView==='list'&&typeof w.renderCharList==='function')w.renderCharList();
+    render();
+  }
+  function markup(node,html){
+    if(w.ZargotaMobileSheet)w.ZargotaMobileSheet.updateMarkup(node,html);
+    else if(node.innerHTML!==html)node.innerHTML=html;
+  }
   async function apply(sid,packet,initial){
     var generation=authGeneration,entry=records[sid];if(!state.enabled||!entry)return;
     var remote=JSON.parse(packet.characterJson),before=character(entry.localId),value=C.clone(remote);
@@ -104,7 +113,7 @@
     entry.base=C.clone(packet);entry.remote=null;entry.draft=null;entry.conflict=false;
     if(!persist())return;
     if(!initial&&before&&packet.updatedBy!==uid&&w.ZargotaCharacterUpdates)w.ZargotaCharacterUpdates.receive({characterId:value.id,before:before,after:value,channel:'cloud',revision:'persistent:'+sid+':'+packet.revision,author:packet.writerRole==='master'?'master':'shared'});
-    redraw();
+    redraw(value.id);
   }
   async function receive(sid,packet){
     if(!state.enabled||!packet)return;
@@ -272,9 +281,9 @@
     var list=document.getElementById('pc-account-list');if(!list)return;
     document.querySelectorAll('[data-pc-player-count]').forEach(function(el){el.textContent=items.length;});
     var html=w.ZargotaAccountViews.roster(items,selectedAccount);
-    if(!list.contains(document.activeElement)&&list.innerHTML!==html)list.innerHTML=html;
+    if(!list.contains(document.activeElement))markup(list,html);
     var detail=document.getElementById('pc-account-detail');
-    if(detail&&!detail.contains(document.activeElement)){var body=w.ZargotaAccountViews.accountDetail(items.find(function(i){return i.sid===selectedAccount;}));if(detail.innerHTML!==body)detail.innerHTML=body;}
+    if(detail&&!detail.contains(document.activeElement)){var body=w.ZargotaAccountViews.accountDetail(items.find(function(i){return i.sid===selectedAccount;}));markup(detail,body);}
   }
   function controlTabs(){
     var panel=document.getElementById('zg-net-monitor-panel');if(!panel)return;
@@ -401,14 +410,14 @@
     var nav=document.getElementById('nav'),tools=document.querySelector('.zg-control-tools');if(!nav||!tools)return;
     var loginButton=document.getElementById('persistent-entry');if(!loginButton){loginButton=document.createElement('button');loginButton.id='persistent-entry';loginButton.type='button';loginButton.dataset.pcAction='entry';nav.insertBefore(loginButton,nav.querySelector('.zg-net-monitor'));}
     var logged=state.enabled&&account.role!=='visitor',myHero=accountItems()[0];
-    loginButton.innerHTML=logged?w.ZargotaAccountViews.avatar(account.role==='admin'?null:myHero&&myHero.hero,account.role==='admin'):t('Вход','Вхід');
+    markup(loginButton,logged?w.ZargotaAccountViews.avatar(account.role==='admin'?null:myHero&&myHero.hero,account.role==='admin'):t('Вход','Вхід'));
     loginButton.classList.toggle('pc-account-entry',logged);loginButton.setAttribute('aria-label',logged?(account.role==='admin'?t('Аккаунты · администратор','Акаунти · адміністратор'):t('Мой аккаунт','Мій акаунт')):t('Вход по коду','Вхід за кодом'));
     var items=accountItems(),admin=logged&&account.role==='admin',unread=admin&&items.some(function(item){return item.unread;});
     loginButton.classList.toggle('pc-has-updates',!!unread);
     if(unread)loginButton.setAttribute('aria-label',t('Аккаунты · есть изменения игроков','Акаунти · є зміни гравців'));
     var onlineBar=document.getElementById('persistent-online');if(!onlineBar){onlineBar=document.createElement('div');onlineBar.id='persistent-online';nav.insertBefore(onlineBar,loginButton);}
     var online=admin?items.filter(function(item){return item.online;}):[];
-    var onlineHtml=w.ZargotaAccountViews.online(online);if(onlineBar.innerHTML!==onlineHtml)onlineBar.innerHTML=onlineHtml;
+    var onlineHtml=w.ZargotaAccountViews.online(online);markup(onlineBar,onlineHtml);
     onlineBar.hidden=!online.length;document.getElementById('header').classList.toggle('pc-has-online',!!online.length);
     var settingsButton=document.getElementById('persistent-settings');if(!settingsButton){settingsButton=document.createElement('button');settingsButton.id='persistent-settings';settingsButton.type='button';settingsButton.className='zg-control-tool';settingsButton.dataset.pcAction='settings';tools.appendChild(settingsButton);}settingsButton.innerHTML='<i>♙</i><span><b>'+t('Аккаунты','Акаунти')+'</b><small>'+t('Игроки и личные коды входа','Гравці й особисті коди входу')+'</small></span>';
     var panel=document.getElementById('character-cloud-panel'),sid=binding(w.viewingCharId),entry=sid&&records[sid],sheet=document.getElementById('char-sheet-view'),viewing=entry&&sheet&&sheet.style.display!=='none';
@@ -427,7 +436,7 @@
     html+=button('lock',entry.meta&&entry.meta.locked===false?'🔓':'🔒','data-sheet="'+sid+'" aria-label="'+t('Доступ других игроков к листу','Доступ інших гравців до аркуша')+'"');
     if(entry.meta&&entry.meta.locked===false)html+=button('share',t('Ссылка','Посилання'),'data-sheet="'+sid+'"');
     if(entry.role==='master')html+=button('history',(entry.activity&&(entry.activity.lastPlayerRevision||0)>(entry.activity.seenRevision||0)?'● '+t('Есть изменения','Є зміни'):t('История','Історія')),'data-sheet="'+sid+'"');
-    toolbar.innerHTML=html;
+    markup(toolbar,html);
   }
   async function action(buttonEl){
     await boot;
