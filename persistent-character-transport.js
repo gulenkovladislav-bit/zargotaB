@@ -52,6 +52,8 @@
         meta:async function(id){return (await D.get(D.ref(db,'persistentCharacters/'+id+'/meta'))).val();},
         watchMeta:function(id,listener,onError){return D.onValue(D.ref(db,'persistentCharacters/'+id+'/meta'),function(s){listener(s.val());},onError);},
         read:async function(id){return (await D.get(D.ref(db,'persistentCharacters/'+id+'/state'))).val();},
+        watchMessages:function(id,listener,onError){return D.onValue(D.ref(db,'persistentCharacterMessages/'+id),function(s){listener(s.val());},onError);},
+        readMessages:function(id,at){return D.set(D.ref(db,'persistentCharacterMessages/'+id+'/read/'+auth.currentUser.uid),at);},
         history:async function(id){return (await D.get(D.ref(db,'persistentCharacters/'+id+'/history'))).val()||{};},
         watchActivity:function(id,listener,onError){return D.onValue(D.ref(db,'persistentCharacters/'+id+'/activity'),function(s){listener(s.val()||{});},onError);},
         watchLastSeen:function(id,listener,onError){return D.onValue(D.ref(db,'persistentCharacters/'+id+'/lastSeen'),function(s){listener(s.val()||{});},onError);},

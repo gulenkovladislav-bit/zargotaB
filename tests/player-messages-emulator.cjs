@@ -1,0 +1,34 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {initializeApp,deleteApp}=require('firebase/app');
+const {getAuth,connectAuthEmulator,signInAnonymously,signInWithCustomToken}=require('firebase/auth');
+const {getDatabase,connectDatabaseEmulator,ref,get,set}=require('firebase/database');
+const {getFunctions,connectFunctionsEmulator,httpsCallable}=require('firebase/functions');
+const {provisionTestAdmin}=require('./persistent-admin-fixture.cjs');
+const apps=[];
+async function client(name){const app=initializeApp({projectId:'demo-zargota-persistent',apiKey:'demo-key',databaseURL:'https://demo-zargota-persistent-default-rtdb.firebaseio.com'},name);apps.push(app);const auth=getAuth(app),db=getDatabase(app),fn=getFunctions(app,'europe-west1');connectAuthEmulator(auth,'http://127.0.0.1:9199',{disableWarnings:true});connectDatabaseEmulator(db,'127.0.0.1',9190);connectFunctionsEmulator(fn,'127.0.0.1',5191);await signInAnonymously(auth);return {auth,db,call:async data=>(await httpsCallable(fn,'characterAccess')(data)).data};}
+(async()=>{try{
+ const gm=await client('chat-master'),pl=await client('chat-player'),other=await client('chat-other');
+ const login=await gm.call({action:'login',code:provisionTestAdmin().code});await signInWithCustomToken(gm.auth,login.token);
+ const sheetId='chat_rules_'+Date.now(),created=await gm.call({action:'create',sheetId,character:{id:90001,name:'Chat rules',hpCur:10,inventoryItems:[]}});
+ await signInWithCustomToken(pl.auth,(await pl.call({action:'login',code:created.code})).token);
+ const request={action:'message',sheetId,messageId:'test_message_0000001',text:'Hello'};
+ const sent=await gm.call(request);assert.equal(sent.message.senderUid,gm.auth.currentUser.uid);assert.equal(sent.message.role,'master');assert.deepEqual(await gm.call(request),sent,'idempotent retry');
+ await assert.rejects(gm.call({...request,messageId:'test_message_0000002'}),/message-rate-limit/);
+ await assert.rejects(pl.call({...request,text:'spoof'}),/invalid-message/);
+ await assert.rejects(pl.call({...request,messageId:'test_message_0000003',text:'x'.repeat(501)}),/invalid-message/);
+ const path='persistentCharacterMessages/'+sheetId;
+ assert.equal((await get(ref(pl.db,path+'/messages/'+request.messageId))).val().text,'Hello');
+ await assert.rejects(set(ref(pl.db,path+'/messages/forged'),{text:'Forged',senderUid:gm.auth.currentUser.uid,createdAt:Date.now()}));
+ await assert.rejects(set(ref(pl.db,path+'/messages/'+request.messageId),null));
+ await assert.rejects(set(ref(pl.db,path+'/read/'+gm.auth.currentUser.uid),sent.message.createdAt));
+ await set(ref(pl.db,path+'/read/'+pl.auth.currentUser.uid),sent.message.createdAt);
+ await assert.rejects(set(ref(pl.db,path+'/read/'+pl.auth.currentUser.uid),sent.message.createdAt-1));
+ await assert.rejects(set(ref(pl.db,path+'/read/'+pl.auth.currentUser.uid),Date.now()+999999));
+ await gm.call({action:'visibility',sheetId,locked:false});
+ assert.ok((await get(ref(other.db,'persistentCharacters/'+sheetId+'/state'))).exists(),'public sheet is readable');
+ await assert.rejects(get(ref(other.db,path)),'public sheet never reveals messages');
+ await assert.rejects(other.call({...request,messageId:'test_message_0000004'}),/access-denied/);
+ assert.equal((await get(ref(gm.db,'persistentCharacters/'+sheetId+'/state'))).val().revision,1,'messages do not mutate sheet');
+ console.log('PASS: server validation, retries, throttling, immutable messages, private read markers and private chat on shared sheet');
+}finally{await Promise.all(apps.map(deleteApp));}})().then(()=>process.exit(0),e=>{console.error(e);process.exit(1);});

@@ -5,6 +5,7 @@ const {getDatabase}=require('firebase-admin/database');
 const {getAuth}=require('firebase-admin/auth');
 const crypto=require('node:crypto');
 const D=require('./character-domain');
+const Messages=require('./character-messages');
 const {playerCode}=require('./player-codes');
 initializeApp(process.env.FIREBASE_DATABASE_EMULATOR_HOST?{projectId:process.env.GCLOUD_PROJECT,databaseURL:'https://'+process.env.GCLOUD_PROJECT+'-default-rtdb.firebaseio.com'}:undefined);
 const db=getDatabase();
@@ -20,7 +21,7 @@ async function mutate(ref,change){
   if(!result.committed)throw new HttpsError('aborted','retry-save');
   return result;
 }
-function error(e){if(e instanceof HttpsError)return e;const c=e.code||e.message;return new HttpsError(c==='access-denied'?'permission-denied':c==='revision-conflict'?'failed-precondition':['invalid-character','invalid-operation','identity-change','operation-reused','character-too-large','unsafe-character-content'].includes(c)?'invalid-argument':'internal',['revision-conflict','access-denied','character-too-large','unsafe-character-content','invalid-character','player-code-capacity'].includes(c)?c:'character-operation-failed');}
+function error(e){if(e instanceof HttpsError)return e;if(e.code==='invalid-message')return new HttpsError('invalid-argument','invalid-message');if(e.code==='message-rate-limit')return new HttpsError('resource-exhausted','message-rate-limit');const c=e.code||e.message;return new HttpsError(c==='access-denied'?'permission-denied':c==='revision-conflict'?'failed-precondition':['invalid-character','invalid-operation','identity-change','operation-reused','character-too-large','unsafe-character-content'].includes(c)?'invalid-argument':'internal',['revision-conflict','access-denied','character-too-large','unsafe-character-content','invalid-character','player-code-capacity'].includes(c)?c:'character-operation-failed');}
 async function register(sheetId,sheet){
   const values={};
   values['persistentCharacterUsers/'+sheet.meta.ownerUid+'/'+sheetId]='master';
@@ -89,6 +90,12 @@ exports.characterAccess=onCall(options,async request=>{
       });
       const sheet=result.snapshot.val();await register(id,sheet);
       return {sheetId:id,state:sheet.state,meta:sheet.meta,code:await playerCode(db,id,sheet)};
+    }
+    if(input.action==='message'){
+      const meta=(await ref.child('meta').get()).val();
+      const role=meta&&(meta.ownerUid===uid?'master':meta.playerUid===uid?'player':null);
+      const result=await mutate(db.ref('persistentCharacterMessages/'+id),thread=>Messages.append(thread,input,uid,role,Date.now()));
+      return {message:result.snapshot.child('messages/'+input.messageId).val()};
     }
     if(input.action==='save'){
       const result=await mutate(ref,sheet=>sheet===null?null:D.commit(sheet,uid,input,Date.now()));

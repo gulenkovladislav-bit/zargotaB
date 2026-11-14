@@ -147,6 +147,18 @@
     "persistentLoginLimits": {
       ".read": false,
       ".write": false
+    },
+    "persistentCharacterMessages": {
+      "$sheet": {
+        ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+        ".write": false,
+        "read": {
+          "$uid": {
+            ".write": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid) && auth.uid === $uid",
+            ".validate": "newData.isNumber() && newData.val() <= now && (!data.exists() || newData.val() >= data.val())"
+          }
+        }
+      }
     }
   }
 }

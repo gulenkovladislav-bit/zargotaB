@@ -41,9 +41,11 @@
   <link rel="stylesheet" href="character-update-notices.css?v=2026-10-26.14">
   <script src="persistent-character-core.js?v=2026-10-26.15"></script>
   <script src="persistent-character-cache.js?v=2026-10-26.15"></script>
-  <script src="persistent-character-transport.js?v=2026-11-05-accounts"></script>
-  <script src="persistent-account-views.js?v=2026-11-14.7"></script>
-  <script src="persistent-characters.js?v=2026-11-14.8"></script>
+  <script src="persistent-character-transport.js?v=2026-11-14.9"></script>
+  <script src="persistent-account-views.js?v=2026-11-14.9"></script>
+  <script src="player-messages.js?v=2026-11-14.9"></script>
+  <link rel="stylesheet" href="player-messages.css?v=2026-11-14.9">
+  <script src="persistent-characters.js?v=2026-11-14.9"></script>
   <link rel="stylesheet" href="persistent-characters.css?v=2026-11-14.7">
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
   <script src="character-cloud.js?v=2026-10-26.15"></script>
@@ -10427,9 +10429,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-14.8';
+var ZG_APP_VERSION = '2026-11-14.9';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-14.9',notes:'Личные короткие сообщения между мастером и игроком: мини-чат поверх сайта, ответы и сохранённая переписка.',notesUk:'Особисті короткі повідомлення між майстром і гравцем: мінічат поверх сайту, відповіді та збережене листування.'},
   {v:'2026-11-14.8',notes:'Собственные портреты передаются между игроком и мастером. Изменения HP, характеристик и инвентаря обновляют лист без повторной загрузки изображений.',notesUk:'Власні портрети передаються між гравцем і майстром. Зміни HP, характеристик та інвентарю оновлюють аркуш без повторного завантаження зображень.'},
   {v:'2026-11-14.7',notes:'Исправлено подключение Евана и Эстероса и ширина листа на ПК. Игроки собраны в компактную сетку; коды показываются на месте. NPC исключены из добавления игроков.',notesUk:'Виправлено підключення Евана й Естероса та ширину аркуша на ПК. Гравців зібрано в компактну сітку; коди показуються на місці. NPC виключено з додавання гравців.'},
   {v:'2026-11-14.5',notes:'Четырёхзначные коды игроков и создание нового персонажа прямо в аккаунтах. Исправлено подключение листов с текстовой скоростью и показ ошибок.',notesUk:'Чотиризначні коди гравців і створення нового персонажа просто в акаунтах. Виправлено підключення аркушів із текстовою швидкістю та показ помилок.'},

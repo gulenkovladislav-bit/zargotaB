@@ -131,7 +131,7 @@
     else if(action==='deferred'){persist();render();}
     else if((action==='same'||action==='own')&&entry.pending)queue(sid);
   }
-  function stop(){stops.forEach(function(fn){fn();});stops=[];subscribedUid='';tableSeen.clear();Object.values(sendTimers).forEach(clearTimeout);sendTimers={};retryAttempts={};}
+  function stop(){if(w.ZargotaPlayerMessages)w.ZargotaPlayerMessages.stop();stops.forEach(function(fn){fn();});stops=[];subscribedUid='';tableSeen.clear();Object.values(sendTimers).forEach(clearTimeout);sendTimers={};retryAttempts={};}
   async function connect(){
     if(starting)return starting;
     starting=(async function(){
@@ -159,6 +159,7 @@
         if(records[sid].role==='master')stops.push(transport.watchActivity(sid,function(value){if(records[sid]===watched){watched.activity=value;render();}},failed));
         stops.push(transport.presence(sid,function(value){if(records[sid]===watched){watched.presence=value;render();}},function(){if(records[sid]===watched){watched.presence={};render();}}));
       }
+      if(w.ZargotaPlayerMessages)w.ZargotaPlayerMessages.start(api,uid,ids,function(sid){var c=records[sid]&&character(records[sid].localId);return c&&c.name;});
       subscribedUid=uid;error='';persist();render();return records;
     })().finally(function(){starting=null;});return starting;
   }
@@ -441,6 +442,7 @@
   async function action(buttonEl){
     await boot;
     var action=buttonEl.dataset.pcAction,sid=buttonEl.dataset.sheet,el=document.getElementById('persistent-character-dialog');
+    if(action==='message'){if(!records[sid]||!records[sid].allowed)throw Error('access-denied');if(el)el.close();closeAccountMenu();if(w.zgSessionMonitorToggle)w.zgSessionMonitorToggle(null,false);if(w.ZargotaPlayerMessages)w.ZargotaPlayerMessages.open(sid);return;}
     if(action==='close'){if(el)el.close();return;}
     if(action==='character-actions'){closeAccountMenu();if(w.zgMobileCharacterActions)w.zgMobileCharacterActions();return;}
     if(action==='close-account'){closeAccountMenu();return;}
