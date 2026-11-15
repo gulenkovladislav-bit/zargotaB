@@ -38,8 +38,12 @@ const mobileSelector = '.zgms-card .zgms-art.scene > img';
 
 async function decoded(locator) {
   await locator.first().waitFor({ state: 'visible' });
+  await locator.first().scrollIntoViewIfNeeded();
   return locator.evaluateAll(async images => {
-    await Promise.all(images.map(image => image.decode()));
+    // Bulk reference checks include offscreen lazy images. Decode them explicitly;
+    // single-card checks above use real scrolling to trigger lazy loading.
+    if (images.length > 1) images.forEach(image => { image.loading = 'eager'; });
+    await Promise.all(images.map(image => Promise.race([image.decode(), new Promise((_, reject) => setTimeout(() => reject(Error('Image decode timed out: ' + image.getAttribute('src'))), 15000))])));
     return images.map(image => ({ src: image.getAttribute('src'), width: image.naturalWidth, height: image.naturalHeight }));
   });
 }
@@ -244,6 +248,10 @@ async function checkMappedArtworkOverride(page, id, source, expected, label, mea
         assert.equal(await page.locator('.zgms-card').count(), countOnPage);
         assert.equal(await page.locator(mobileSelector).count(), countOnPage);
         await assertMobileArtFill(page, locale + ': catalog page ' + pageNumber, fillMeasurements);
+        if (locale === 'ru' && [17, 25, pageCount].includes(pageNumber)) {
+          await page.locator('.zgms-grid').evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
+          await page.screenshot({ path: path.join(output, 'mobile-catalog-page-' + pageNumber + '.png') });
+        }
         const visible = await page.locator('.zgms-card').evaluateAll(async cards => Promise.all(cards.map(async card => {
           const image = card.querySelector('.zgms-art.scene > img'); await image.decode();
           const rect = card.getBoundingClientRect();
