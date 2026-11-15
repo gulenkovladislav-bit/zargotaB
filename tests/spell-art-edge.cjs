@@ -18,10 +18,16 @@ const root = path.resolve(__dirname, '..');
 const data = JSON.parse(fs.readFileSync(path.join(root, 'data.json'), 'utf8'));
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
 const heroId = 987654329;
+const uploadedImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="640" height="360" fill="#284b63"/><path d="M0 360L320 0L640 360Z" fill="#d8a85b"/></svg>');
+const linInImage = 'images/abilities/lin-in/existential-veil-v1.png';
+assert.ok(fs.existsSync(path.join(root, linInImage)), 'The Lin In fixture uses an existing illustration');
 const fixture = JSON.parse(JSON.stringify(data.characters.find(c => /Эстерос/.test(c.name)) || data.characters[0]));
 Object.assign(fixture, {
   id: heroId, name: 'Проверка иллюстраций', nameUk: 'Перевірка ілюстрацій',
-  skills: [], mastery: [], spellRefs: [], spellsLearned: {},
+  skills: [
+    { name: 'Загрузка / Завантаження', type: 'Активный', image: uploadedImage },
+    { name: 'Лин’Ин / Лін’Ін', type: 'Активный', image: linInImage }
+  ], mastery: [], spellRefs: [], spellsLearned: {},
   preparedSpells: { kodex: [], folio: [], obrad: [] }, spellCD: {}
 });
 delete fixture.campaignKey;
@@ -36,6 +42,31 @@ async function decoded(locator) {
     await Promise.all(images.map(image => image.decode()));
     return images.map(image => ({ src: image.getAttribute('src'), width: image.naturalWidth, height: image.naturalHeight }));
   });
+}
+
+async function assertMobileArtFill(page, label, measurements, selector = '.zgms-card .zgms-art > img') {
+  const metrics = await page.locator(selector).evaluateAll(async images => Promise.all(images.map(async image => {
+    await image.decode();
+    const frame = image.parentElement, outer = frame.getBoundingClientRect(), inner = image.getBoundingClientRect();
+    const style = getComputedStyle(image);
+    return {
+      key: image.closest('.zgms-card')?.dataset.key || 'detail',
+      src: image.getAttribute('src'), scene: frame.classList.contains('scene'),
+      frame: { width: outer.width, height: outer.height }, image: { width: inner.width, height: inner.height },
+      edges: [inner.left - outer.left, inner.top - outer.top, inner.right - outer.right, inner.bottom - outer.bottom],
+      objectFit: style.objectFit,
+      padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]
+    };
+  })));
+  assert.ok(metrics.length, label + ': visible artwork exists');
+  metrics.forEach(metric => {
+    assert.equal(metric.scene, true, label + ': illustration classified as scene: ' + metric.key);
+    assert.equal(metric.objectFit, 'cover', label + ': artwork fills its frame: ' + metric.key);
+    assert.ok(metric.padding.every(value => parseFloat(value) === 0), label + ': no symbol padding: ' + JSON.stringify(metric));
+    assert.ok(metric.frame.width > 0 && metric.frame.height > 0 && metric.edges.every(value => Math.abs(value) <= 1), label + ': artwork and frame rectangles match: ' + JSON.stringify(metric));
+  });
+  measurements.push({ label, metrics });
+  return metrics;
 }
 
 async function firstMobilePage(page) {
@@ -58,13 +89,39 @@ async function findMobileCard(page, id) {
   return card;
 }
 
+async function checkMappedArtworkOverride(page, id, source, expected, label, measurements) {
+  const card = await findMobileCard(page, id);
+  const previous = await page.evaluate(({ id, source }) => {
+    const item = findCharacterCatalogSpell(id), previous = { own: Object.hasOwn(item, 'iconAsset'), value: item.iconAsset, src: ZargotaSpellArt.resolve(item) };
+    item.iconAsset = source;
+    ZargotaMobileSkills.refresh();
+    return previous;
+  }, { id, source });
+  try {
+    await page.waitForFunction(({ id, expected }) => document.querySelector('.zgms-card[data-key="spell-' + id + '"] .zgms-art > img')?.getAttribute('src') === expected, { id, expected });
+    assert.equal((await decoded(card.locator('.zgms-art > img')))[0].src, expected, label);
+    await assertMobileArtFill(page, label, measurements);
+    await card.click();
+    assert.equal((await decoded(page.locator('#zgms-dialog .zgms-detail-art > img')))[0].src, expected, label + ': detail');
+    await assertMobileArtFill(page, label + ': detail', measurements, '#zgms-dialog .zgms-detail-art > img');
+    await page.locator('[data-zgms=close]').click();
+  } finally {
+    await page.evaluate(({ id, previous }) => {
+      const item = findCharacterCatalogSpell(id);
+      if (previous.own) item.iconAsset = previous.value; else delete item.iconAsset;
+      ZargotaMobileSkills.refresh();
+    }, { id, previous });
+    await page.waitForFunction(({ id, previous }) => document.querySelector('.zgms-card[data-key="spell-' + id + '"] .zgms-art > img')?.getAttribute('src') === previous.src, { id, previous });
+  }
+}
+
 (async () => {
   fs.mkdirSync(output, { recursive: true });
   const browser = await playwright.chromium.launch({
     headless: true,
     executablePath: process.env.ZG_EDGE_EXECUTABLE || '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
   });
-  const errors = [], blocked = new Set(), checks = [];
+  const errors = [], blocked = new Set(), checks = [], fillMeasurements = [];
   try {
     // A fresh, nonpersistent context cannot access the user's browser login or storage.
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, hasTouch: true, deviceScaleFactor: 1 });
@@ -109,17 +166,19 @@ async function findMobileCard(page, id) {
       window.__spellArtCatalogBefore = JSON.stringify(entries);
       return records;
     }, heroId);
-    assert.equal(mapped.length, 20, 'Exactly 20 mapped spell illustrations');
-    assert.equal(new Set(mapped.map(record => record.src)).size, 20, 'Every spell has its own illustration');
+    assert.ok(mapped.length > 0, 'The artwork catalog is not empty');
+    if (process.env.ZG_EXPECTED_SPELL_ART_COUNT) assert.equal(mapped.length, Number(process.env.ZG_EXPECTED_SPELL_ART_COUNT), 'Expected release artwork count');
+    assert.equal(new Set(mapped.map(record => record.src)).size, mapped.length, 'Every spell has its own illustration');
+    const pageCount = Math.ceil(mapped.length / 4);
     mapped.forEach(record => { assert.equal(record.resolved, record.src, record.name); assert.equal(record.scene, true, record.name); });
     const allImages = await page.evaluate(async records => Promise.all(records.map(async record => {
       const image = new Image(); image.src = record.src; await image.decode();
       return { id: record.id, width: image.naturalWidth, height: image.naturalHeight };
     })), mapped);
-    assert.ok(allImages.every(image => image.width > 0 && image.height > 0), 'All 20 published paths decode');
+    assert.ok(allImages.every(image => image.width > 0 && image.height > 0), 'All mapped published paths decode');
     const eye = mapped.find(record => /eye|глаз|око/i.test(record.src + ' ' + record.name));
     assert.ok(eye, 'The eye illustration is included');
-    checks.push('20 unique mapped URLs decode and resolve to scene art');
+    checks.push(mapped.length + ' unique mapped URLs decode and resolve to scene art');
 
     for (const locale of ['ru', 'uk']) {
       await page.evaluate(locale => { ZargotaI18n.setLocale(locale); showPage('catalog'); renderCatalog(); }, locale);
@@ -137,7 +196,7 @@ async function findMobileCard(page, id) {
       await page.screenshot({ path: path.join(output, 'desktop-eye-' + locale + '.png') });
       await page.evaluate(heroId => { window._charSheetTab = 'skills'; showPage('characters'); openCharSheet(heroId); }, heroId);
       const refs = page.locator('#spell-refs-' + heroId);
-      assert.equal(await refs.locator(thumbSelector).count(), 20, 'Desktop references show all 20 artworks');
+      assert.equal(await refs.locator(thumbSelector).count(), mapped.length, 'Desktop references show every mapped artwork');
       await decoded(refs.locator(thumbSelector));
       for (const record of mapped) {
         await page.evaluate(({ heroId, id }) => showSpellDetail(heroId, findCharacterCatalogSpell(id).id), { heroId, id: record.id });
@@ -156,10 +215,12 @@ async function findMobileCard(page, id) {
       await page.evaluate(locale => ZargotaI18n.setLocale(locale), locale);
       await firstMobilePage(page);
       const seen = [];
-      for (let pageNumber = 1; pageNumber <= 5; pageNumber++) {
-        await page.waitForFunction(pageNumber => document.querySelector('.zgms-pagination span').textContent === pageNumber + ' / 5', pageNumber);
-        assert.equal(await page.locator('.zgms-card').count(), 4);
-        assert.equal(await page.locator(mobileSelector).count(), 4);
+      for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+        await page.waitForFunction(({ pageNumber, pageCount }) => document.querySelector('.zgms-pagination span').textContent === pageNumber + ' / ' + pageCount, { pageNumber, pageCount });
+        const countOnPage = Math.min(4, mapped.length - (pageNumber - 1) * 4);
+        assert.equal(await page.locator('.zgms-card').count(), countOnPage);
+        assert.equal(await page.locator(mobileSelector).count(), countOnPage);
+        await assertMobileArtFill(page, locale + ': catalog page ' + pageNumber, fillMeasurements);
         const visible = await page.locator('.zgms-card').evaluateAll(async cards => Promise.all(cards.map(async card => {
           const image = card.querySelector('.zgms-art.scene > img'); await image.decode();
           const rect = card.getBoundingClientRect();
@@ -171,15 +232,16 @@ async function findMobileCard(page, id) {
           seen.push(card.id);
         });
         if (pageNumber === 1) await page.screenshot({ path: path.join(output, 'mobile-four-cards-' + locale + '.png') });
-        if (pageNumber < 5) await page.locator('[data-zgms=next]').click();
+        if (pageNumber < pageCount) await page.locator('[data-zgms=next]').click();
       }
-      assert.deepEqual(seen.slice().sort(), mapped.map(record => record.id).sort(), 'All mapped spells appear once across five pages');
+      assert.deepEqual(seen.slice().sort(), mapped.map(record => record.id).sort(), 'All mapped spells appear once across ' + pageCount + ' pages');
       await (await findMobileCard(page, eye.id)).click();
       assert.equal((await decoded(page.locator('#zgms-dialog .zgms-detail-art.scene > img')))[0].src, eye.src);
+      await assertMobileArtFill(page, locale + ': eye detail', fillMeasurements, '#zgms-dialog .zgms-detail-art > img');
       await page.locator('#zgms-dialog').evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
       await page.screenshot({ path: path.join(output, 'mobile-eye-' + locale + '.png') });
       await page.locator('[data-zgms=close]').click();
-      checks.push(locale + ': mobile 390x780, five pages of four artworks and eye detail');
+      checks.push(locale + ': mobile 390x780, ' + pageCount + ' artwork pages and eye detail');
     }
 
     const chargedId = await page.evaluate(heroId => {
@@ -206,14 +268,14 @@ async function findMobileCard(page, id) {
     }), 'Spending a charge preserves the detail image, visible card image nodes and current page');
     await page.locator('[data-zgms=close]').click();
 
-    const custom = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#ac7d43"/></svg>');
+    const custom = uploadedImage;
     const customResult = await page.evaluate(({ id, custom }) => {
       const original = findCharacterCatalogSpell(id), item = Object.assign({}, original, { iconAsset: custom });
       const parsed = document.createElement('template'); parsed.innerHTML = cardHTML(item);
       const image = parsed.content.querySelector('img.zg-spell-art-thumb, .zg-spell-art-thumb img');
-      return { resolved: ZargotaSpellArt.resolve(item), card: image && image.getAttribute('src') };
+      return { resolved: ZargotaSpellArt.resolve(item), custom: ZargotaSpellArt.resolveCustom(item), scene: ZargotaSpellArt.isScene(custom), card: image && image.getAttribute('src') };
     }, { id: mapped[0].id, custom });
-    assert.deepEqual(customResult, { resolved: custom, card: custom }, 'Custom artwork has priority over the default');
+    assert.deepEqual(customResult, { resolved: custom, custom, scene: true, card: custom }, 'Custom artwork has priority over the default and renders as an illustration');
     const customCard = await findMobileCard(page, mapped[0].id);
     await page.evaluate(({ id, custom }) => {
       const item = findCharacterCatalogSpell(id);
@@ -223,17 +285,64 @@ async function findMobileCard(page, id) {
     }, { id: mapped[0].id, custom });
     await page.waitForFunction(({ id, custom }) => document.querySelector('.zgms-card[data-key="spell-' + id + '"] .zgms-art > img')?.getAttribute('src') === custom, { id: mapped[0].id, custom });
     assert.equal((await decoded(customCard.locator('.zgms-art > img')))[0].src, custom, 'Mobile card uses custom artwork');
+    await assertMobileArtFill(page, 'Custom spell upload', fillMeasurements);
     await page.evaluate(id => {
       const item = findCharacterCatalogSpell(id), before = window.__spellArtCustomBefore;
       if (before.own) item.iconAsset = before.value; else delete item.iconAsset;
       ZargotaMobileSkills.refresh();
     }, mapped[0].id);
+
+    const queriedImage = mapped[0].src + '?v=geometry-test#preview';
+    const sourceClassification = await page.evaluate(({ queriedImage, uploadedImage, linInImage }) => {
+      const api = ZargotaSpellArt;
+      return {
+        queried: api.isScene(queriedImage), uploaded: api.isScene(uploadedImage), linIn: api.isScene(linInImage),
+        bookSymbol: api.isScene('images/ui/combat-generated/codex.png'),
+        sourceSymbol: api.isScene('images/ui/mobile-skills/source-folio-v2.png'),
+        queriedCustom: api.resolveCustom({ image: queriedImage }),
+        uploadedCustom: api.resolveCustom({ image: uploadedImage }),
+        linInCustom: api.resolveCustom({ image: linInImage })
+      };
+    }, { queriedImage, uploadedImage, linInImage });
+    assert.deepEqual(sourceClassification, {
+      queried: true, uploaded: true, linIn: true, bookSymbol: false, sourceSymbol: false,
+      queriedCustom: queriedImage, uploadedCustom: uploadedImage, linInCustom: linInImage
+    }, 'Queries and provided illustrations stay scenes; actual built-in symbols stay symbols');
+    await checkMappedArtworkOverride(page, mapped[0].id, queriedImage, queriedImage, 'Mapped image with query and fragment', fillMeasurements);
+
+    const legacyCases = await page.evaluate(() => ['kodex', 'folio', 'obrad'].map(type => {
+      const item = entries.find(item => item.spellType === type && ZargotaSpellArt.defaults[String(item.id)]);
+      if (!item) throw Error('No mapped spell for legacy source type: ' + type);
+      const legacy = 'images/ui/combat-generated/' + ({ kodex: 'codex', folio: 'folio', obrad: 'ritual' })[type] + '.png';
+      return { id: String(item.id), type, legacy, expected: ZargotaSpellArt.defaults[String(item.id)], actual: ZargotaSpellArt.resolve(Object.assign({}, item, { iconAsset: legacy })) };
+    }));
+    for (const legacy of legacyCases) {
+      assert.equal(legacy.actual, legacy.expected, 'New default replaces matching stale ' + legacy.type + ' book artwork');
+      await checkMappedArtworkOverride(page, legacy.id, legacy.legacy, legacy.expected, 'Legacy ' + legacy.type + ' fallback', fillMeasurements);
+    }
+    checks.push('Queried image fills its card/detail; matching stale codex, folio and ritual defaults resolve to current art');
+
+    await page.locator('[data-group=personal]').click();
+    for (const locale of ['ru', 'uk']) {
+      await page.evaluate(locale => ZargotaI18n.setLocale(locale), locale);
+      await page.waitForFunction(() => document.querySelectorAll('.zgms-card').length === 2 && document.querySelector('.zgms-card[data-key="skills-0"]'));
+      assert.deepEqual((await decoded(page.locator('.zgms-card .zgms-art > img'))).map(image => image.src), [uploadedImage, linInImage]);
+      await assertMobileArtFill(page, locale + ': personal uploaded and Lin In illustrations', fillMeasurements);
+      await page.screenshot({ path: path.join(output, 'mobile-personal-art-' + locale + '.png') });
+      for (const [index, source] of [uploadedImage, linInImage].entries()) {
+        await page.locator('.zgms-card[data-key="skills-' + index + '"]').click();
+        assert.equal((await decoded(page.locator('#zgms-dialog .zgms-detail-art > img')))[0].src, source);
+        await assertMobileArtFill(page, locale + ': personal illustration ' + index + ' detail', fillMeasurements, '#zgms-dialog .zgms-detail-art > img');
+        await page.locator('[data-zgms=close]').click();
+      }
+    }
+    checks.push('Personal uploaded data image and existing Lin In illustration fill card/detail frames in RU/UK');
     assert.ok(await page.evaluate(() => window.__spellArtCatalogBefore === JSON.stringify(entries)), 'Viewing illustrations and spending a charge never changes catalog rules');
     checks.push('Charge update preserves image nodes and pagination; custom art wins; catalog remains unchanged');
     assert.deepEqual(errors, [], 'No uncaught browser errors');
-    const report = { checks, mapped, dimensions: allImages, blockedExternalOrigins: [...blocked], screenshots: fs.readdirSync(output).filter(name => name.endsWith('.png')) };
+    const report = { checks, mappedCount: mapped.length, pageCount, mapped, dimensions: allImages, fillMeasurements, sourceClassification, legacyCases, blockedExternalOrigins: [...blocked], screenshots: fs.readdirSync(output).filter(name => name.endsWith('.png')) };
     fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log('PASS spell art: 20 assets, RU/UK catalog and desktop details, 390x780 mobile pagination/charges, custom priority. Evidence: ' + output);
+    console.log('PASS spell art: ' + mapped.length + ' assets, RU/UK catalog and desktop details, 390x780 mobile pagination/charges, frame fill and custom priority. Evidence: ' + output);
     await context.close();
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -35,7 +35,7 @@
 <script src="combat-vfx-runtime.js?v=2026-08-30.4"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-30.4"></script>
 <link rel="stylesheet" href="spell-art.css?v=2026-11-15.21">
-<script src="spell-art.js?v=2026-11-15.21"></script>
+<script src="spell-art.js?v=2026-11-15.60"></script>
 <script src="spell-automation.js?v=2026-08-30.5"></script>
 <script src="zargota-network.js?v=2026-10-26.15"></script>
   <script src="character-review.js?v=2026-09-27.1"></script>
@@ -10431,9 +10431,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-15.21';
+var ZG_APP_VERSION = '2026-11-15.23';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-15.23',notes:'Добавлены новые рисунки способностей №21–60. Иллюстрации навыков заполняют рамку и центрируются; старые служебные значки больше не скрывают новые рисунки. Собственные изображения игроков сохраняются.',notesUk:'Додано нові малюнки здібностей №21–60. Ілюстрації навичок заповнюють рамку й центруються; старі службові значки більше не приховують нові малюнки. Власні зображення гравців зберігаються.'},
   {v:'2026-11-15.21',notes:'Добавлены согласованные рисунки для 20 способностей первого уровня: 10 боевых кодексов и 10 фолиантов. Они видны в каталоге и листах персонажей; собственные изображения сохраняются.',notesUk:'Додано погоджені малюнки для 20 здібностей першого рівня: 10 бойових кодексів і 10 фоліантів. Вони відображаються в каталозі й аркушах персонажів; власні зображення зберігаються.'},
   {v:'2026-11-15.4',notes:'Мобильные навыки: тонкие цветные рамки, линия под названием и мягкий градиент снизу. Цвета каталога сохранены; личные навыки, черты и мастерство используют палитру типов действий.',notesUk:'Мобільні навички: тонкі кольорові рамки, лінія під назвою та м’який градієнт знизу. Кольори каталогу збережено; особисті навички, риси й майстерність використовують палітру типів дій.'},
   {v:'2026-11-14.14',notes:'В мобильном листе обновлены и увеличены значки брони, инициативы и скорости. Скорость обозначена двумя простыми стрелками.',notesUk:'У мобільному аркуші оновлено та збільшено значки броні, ініціативи й швидкості. Швидкість позначено двома простими стрілками.'},
@@ -26788,8 +26789,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-05.3">
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
-<link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-15.4">
-<script defer src="character-mobile-skills.js?v=2026-11-15.21"></script>
+<link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-15.60">
+<script defer src="character-mobile-skills.js?v=2026-11-15.60"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -51828,8 +51829,8 @@ function characterAbilityVisual(item, field) {
   } else if (field === 'mastery' || /позици|стиль|стойк|черта|риса|ман[её]вр|заповед/.test(hay)) {
     kind = 'trait'; label = item.type || 'Позиция · особенность'; asset = 'images/ui/combat-generated/prepare.png'; color = '#aa85d3';
   }
-  var ownAsset = String(item.iconAsset || item.abilityIcon || item.iconImage || item.image || '').trim();
-  if (/^images\/characters\/abilities\/[a-z0-9-]+\.png$/.test(ownAsset)) asset = ownAsset;
+  var ownAsset = window.ZargotaSpellArt && window.ZargotaSpellArt.resolveCustom(item);
+  if (ownAsset) asset = ownAsset;
   return { kind: kind, label: label, asset: asset, color: color };
 }
 
@@ -52011,7 +52012,7 @@ function characterAbilityRowHtml(c, field, item, index, emptyLabel, fallbackIcon
     cdBadge = '<span class="char-ability-cd' + (remaining === 0 ? ' exhausted' : '') + '"><span class="char-ability-cd-label">' + (remaining === 0 ? (characterUkrainian ? 'УСЕ ВИТРАЧЕНО' : 'ВСЁ ПОТРАЧЕНО') : remaining + ' / ' + cdMax + (characterUkrainian ? ' ГОТОВО' : ' ГОТОВО')) + '</span><span class="char-ability-charge-cells">' + cells + '</span></span>';
   }
   return '<div class="char-ability-row kind-' + visual.kind + '" data-character-ability-kind="' + visual.kind + '" onclick="openSkillCardPopup(' + c.id + ',\'' + field + '\',' + index + ')">' +
-    '<span class="char-ability-icon"><img src="' + visual.asset + '" alt="" onerror="this.remove();this.parentNode.textContent=\'' + fallbackIcon + '\'"></span>' +
+    '<span class="char-ability-icon"><img src="' + escHTML(visual.asset) + '" alt="" onerror="this.remove();this.parentNode.textContent=\'' + fallbackIcon + '\'"></span>' +
     '<span class="char-ability-copy"><small class="char-ability-kind">' + escHTML(visual.label) + '</small><strong class="' + (name ? '' : 'empty') + '">' + escHTML(name || emptyLabel) + '</strong><small class="char-ability-preview">' + escHTML(descPreview) + '</small></span>' +
     cdBadge +
     '<span class="char-ability-open">' + (hasDesc ? '▶' : '✎') + '</span>' +

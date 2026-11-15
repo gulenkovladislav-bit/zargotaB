@@ -25,9 +25,9 @@
  }
  function safeImage(value){value=String(value||'');return /^(?:images\/|assets\/|https?:\/\/|data:image\/|blob:|\.\.?\/)/i.test(value)?value:'';}
  function artwork(item,spell,visual){
-  var approved=spell&&w.ZargotaSpellArt&&w.ZargotaSpellArt.resolve(item);
-  if(approved)return {src:approved,scene:w.ZargotaSpellArt.isScene(approved)||/^images\/characters\/abilities\//.test(approved)};
-  var own=safeImage(item.iconAsset||item.abilityIcon||item.iconImage||item.image||item.icon);if(own)return {src:own,scene:/^images\/characters\/abilities\//.test(own)};
+  var art=w.ZargotaSpellArt,approved=art&&(spell?art.resolve(item):art.resolveCustom(item));
+  if(approved)return {src:approved,scene:art.isScene(approved)};
+  var own=['iconAsset','abilityIcon','iconImage','image','icon'].map(function(key){return safeImage(item[key]);}).find(Boolean);if(own)return {src:own,scene:true};
   if(spell){
    var name=String(item.name||'').toLowerCase(),key=/ответный шип/.test(name)?'thorn':/жар пальцев/.test(name)?'heat':/луч гнили/.test(name)?'rot':/огненный снаряд/.test(name)?'fire':'';
    if(key)return {src:'images/ui/mobile-skills/'+key+'-v1.png',scene:true};
