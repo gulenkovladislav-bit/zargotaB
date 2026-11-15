@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="arena-v2-workspace.css?v=2026-09-01.34">
   <script src="zargota-i18n.js?v=2026-11-04.6"></script>
   <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
-<script src="zargota-i18n-characters-uk.js?v=2026-11-15-linin-abilities"></script>
+<script src="zargota-i18n-characters-uk.js?v=2026-11-15-hero-abilities"></script>
 <script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
 <script src="zargota-i18n-npc-uk.js?v=2026-08-27.1"></script>
   <script src="zargota-i18n-shop-uk.js?v=2026-08-27.15"></script>
@@ -26785,7 +26785,7 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-15.4">
-<script defer src="character-mobile-skills.js?v=2026-11-05.3"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-15.5"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -51816,6 +51816,8 @@ function characterAbilityVisual(item, field) {
   } else if (field === 'mastery' || /позици|стиль|стойк|черта|риса|ман[её]вр|заповед/.test(hay)) {
     kind = 'trait'; label = item.type || 'Позиция · особенность'; asset = 'images/ui/combat-generated/prepare.png'; color = '#aa85d3';
   }
+  var ownAsset = String(item.iconAsset || item.abilityIcon || item.iconImage || item.image || '').trim();
+  if (/^images\/characters\/abilities\/[a-z0-9-]+\.png$/.test(ownAsset)) asset = ownAsset;
   return { kind: kind, label: label, asset: asset, color: color };
 }
 
