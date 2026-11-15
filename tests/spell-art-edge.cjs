@@ -48,16 +48,24 @@ async function assertMobileArtFill(page, label, measurements, selector = '.zgms-
   const metrics = await page.locator(selector).evaluateAll(async images => Promise.all(images.map(async image => {
     await image.decode();
     const frame = image.parentElement, card = image.closest('.zgms-card');
-    // Scene art must cover the entire card, including the text area, rather than
-    // merely filling the separate artwork box that caused the reported gap.
+    // The scene layer spans the card, but the actual illustration must fit
+    // inside it without cropping. Its painted bounds differ from the img box.
     const reference = card || frame, outer = reference.getBoundingClientRect(), inner = image.getBoundingClientRect();
     const art = frame.getBoundingClientRect(), copy = card?.querySelector('.zgms-copy')?.getBoundingClientRect();
     const style = getComputedStyle(image);
+    const scale = card ? Math.min(inner.width / image.naturalWidth, inner.height / image.naturalHeight) : Math.max(inner.width / image.naturalWidth, inner.height / image.naturalHeight);
+    const paintedWidth = image.naturalWidth * scale, paintedHeight = image.naturalHeight * scale;
+    const positions = style.objectPosition.split(/\s+/);
+    const offset = (position, extra) => position.endsWith('%') ? extra * parseFloat(position) / 100 : parseFloat(position) || 0;
+    const paintedLeft = inner.left + offset(positions[0], inner.width - paintedWidth);
+    const paintedTop = inner.top + offset(positions[1] || '50%', inner.height - paintedHeight);
     return {
       key: card?.dataset.key || 'detail', reference: card ? 'whole-card' : 'detail-art',
       src: image.getAttribute('src'), scene: frame.classList.contains('scene'),
       frame: { width: outer.width, height: outer.height }, image: { width: inner.width, height: inner.height },
       artBox: { width: art.width, height: art.height },
+      natural: { width: image.naturalWidth, height: image.naturalHeight },
+      painted: { width: paintedWidth, height: paintedHeight, scale, left: paintedLeft - outer.left, top: paintedTop - outer.top, right: paintedLeft + paintedWidth - outer.left, bottom: paintedTop + paintedHeight - outer.top },
       edges: [inner.left - outer.left, inner.top - outer.top, inner.right - outer.right, inner.bottom - outer.bottom],
       coversText: !copy || (inner.left <= copy.left + 1 && inner.top <= copy.top + 1 && inner.right >= copy.right - 1 && inner.bottom >= copy.bottom - 1),
       objectFit: style.objectFit,
@@ -67,10 +75,14 @@ async function assertMobileArtFill(page, label, measurements, selector = '.zgms-
   assert.ok(metrics.length, label + ': visible artwork exists');
   metrics.forEach(metric => {
     assert.equal(metric.scene, true, label + ': illustration classified as scene: ' + metric.key);
-    assert.equal(metric.objectFit, 'cover', label + ': artwork covers ' + metric.reference + ': ' + metric.key);
+    assert.equal(metric.objectFit, metric.reference === 'whole-card' ? 'contain' : 'cover', label + ': correct fit mode for ' + metric.reference + ': ' + metric.key);
     assert.ok(metric.padding.every(value => parseFloat(value) === 0), label + ': no symbol padding: ' + JSON.stringify(metric));
-    assert.ok(metric.frame.width > 0 && metric.frame.height > 0 && metric.edges.every(value => Math.abs(value) <= 1), label + ': artwork covers the whole ' + metric.reference + ' within its 1px border: ' + JSON.stringify(metric));
-    assert.ok(metric.coversText, label + ': scene image continues behind the card text: ' + JSON.stringify(metric));
+    assert.ok(metric.frame.width > 0 && metric.frame.height > 0 && metric.edges.every(value => Math.abs(value) <= 1), label + ': image element fills its ' + metric.reference + ' within the 1px border: ' + JSON.stringify(metric));
+    if (metric.reference === 'whole-card') {
+      assert.ok(metric.painted.left >= -1 && metric.painted.top >= -1 && metric.painted.right <= metric.frame.width + 1 && metric.painted.bottom <= metric.frame.height + 1, label + ': complete painted artwork stays inside the card: ' + JSON.stringify(metric));
+      assert.ok(Math.abs(metric.painted.width / metric.painted.height - metric.natural.width / metric.natural.height) < 0.00001, label + ': painted artwork preserves its natural aspect ratio');
+      assert.ok(Math.abs(metric.painted.width - metric.image.width) <= 1 || Math.abs(metric.painted.height - metric.image.height) <= 1, label + ': contained artwork uses the available width or height');
+    }
   });
   measurements.push({ label, metrics });
   return metrics;
@@ -303,7 +315,7 @@ async function checkMappedArtworkOverride(page, id, source, expected, label, mea
     await page.locator('.zgms-filter [data-filter=all]').click();
     await page.waitForFunction(() => document.querySelector('.zgms-filter [data-filter=all]').getAttribute('aria-pressed') === 'true');
     await firstMobilePage(page);
-    checks.push('RU/UK three and four equipped cards at 390x699, 390x780 and 360x640: whole-card background covers text, no repeated badge, no clipping');
+    checks.push('RU/UK three and four equipped cards at 390x699, 390x780 and 360x640: complete artwork contained without cropping, no repeated badge, no clipping');
 
     const chargedId = await page.evaluate(heroId => {
       const hero = characters.find(c => c.id === heroId);
@@ -433,13 +445,13 @@ async function checkMappedArtworkOverride(page, id, source, expected, label, mea
     assert.ok(symbolMetrics.artHeight < symbolMetrics.cardHeight - 20, 'The small symbol box stays separate from text');
     await assertMobileArtFill(page, 'Personal illustrations beside a genuine symbol', fillMeasurements, '.zgms-card .zgms-art.scene > img');
     await page.screenshot({ path: path.join(output, 'mobile-personal-art-and-symbol.png') });
-    checks.push('Genuine built-in symbol keeps its padded contain-mode icon area beside full-card personal illustrations');
+    checks.push('Genuine built-in symbol keeps its padded contain-mode icon area beside uncropped personal illustrations');
     assert.ok(await page.evaluate(() => window.__spellArtCatalogBefore === JSON.stringify(entries)), 'Viewing illustrations and spending a charge never changes catalog rules');
     checks.push('Charge update preserves image nodes and pagination; custom art wins; catalog remains unchanged');
     assert.deepEqual(errors, [], 'No uncaught browser errors');
     const report = { checks, mappedCount: mapped.length, pageCount, mapped, dimensions: allImages, fillMeasurements, responsiveCases, symbolMetrics, sourceClassification, legacyCases, blockedExternalOrigins: [...blocked], screenshots: fs.readdirSync(output).filter(name => name.endsWith('.png')) };
     fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log('PASS spell art: ' + mapped.length + ' assets, RU/UK catalog/details, 390x699/390x780/360x640 whole-card backgrounds, 3/4 equipped cards, stable charge image nodes and symbol mode. Evidence: ' + output);
+    console.log('PASS spell art: ' + mapped.length + ' assets, RU/UK catalog/details, 390x699/390x780/360x640 uncropped contained artwork, 3/4 equipped cards, stable charge image nodes and symbol mode. Evidence: ' + output);
     await context.close();
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
