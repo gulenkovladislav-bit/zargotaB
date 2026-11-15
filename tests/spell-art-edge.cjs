@@ -47,13 +47,19 @@ async function decoded(locator) {
 async function assertMobileArtFill(page, label, measurements, selector = '.zgms-card .zgms-art > img') {
   const metrics = await page.locator(selector).evaluateAll(async images => Promise.all(images.map(async image => {
     await image.decode();
-    const frame = image.parentElement, outer = frame.getBoundingClientRect(), inner = image.getBoundingClientRect();
+    const frame = image.parentElement, card = image.closest('.zgms-card');
+    // Scene art must cover the entire card, including the text area, rather than
+    // merely filling the separate artwork box that caused the reported gap.
+    const reference = card || frame, outer = reference.getBoundingClientRect(), inner = image.getBoundingClientRect();
+    const art = frame.getBoundingClientRect(), copy = card?.querySelector('.zgms-copy')?.getBoundingClientRect();
     const style = getComputedStyle(image);
     return {
-      key: image.closest('.zgms-card')?.dataset.key || 'detail',
+      key: card?.dataset.key || 'detail', reference: card ? 'whole-card' : 'detail-art',
       src: image.getAttribute('src'), scene: frame.classList.contains('scene'),
       frame: { width: outer.width, height: outer.height }, image: { width: inner.width, height: inner.height },
+      artBox: { width: art.width, height: art.height },
       edges: [inner.left - outer.left, inner.top - outer.top, inner.right - outer.right, inner.bottom - outer.bottom],
+      coversText: !copy || (inner.left <= copy.left + 1 && inner.top <= copy.top + 1 && inner.right >= copy.right - 1 && inner.bottom >= copy.bottom - 1),
       objectFit: style.objectFit,
       padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft]
     };
@@ -61,19 +67,22 @@ async function assertMobileArtFill(page, label, measurements, selector = '.zgms-
   assert.ok(metrics.length, label + ': visible artwork exists');
   metrics.forEach(metric => {
     assert.equal(metric.scene, true, label + ': illustration classified as scene: ' + metric.key);
-    assert.equal(metric.objectFit, 'cover', label + ': artwork fills its frame: ' + metric.key);
+    assert.equal(metric.objectFit, 'cover', label + ': artwork covers ' + metric.reference + ': ' + metric.key);
     assert.ok(metric.padding.every(value => parseFloat(value) === 0), label + ': no symbol padding: ' + JSON.stringify(metric));
-    assert.ok(metric.frame.width > 0 && metric.frame.height > 0 && metric.edges.every(value => Math.abs(value) <= 1), label + ': artwork and frame rectangles match: ' + JSON.stringify(metric));
+    assert.ok(metric.frame.width > 0 && metric.frame.height > 0 && metric.edges.every(value => Math.abs(value) <= 1), label + ': artwork covers the whole ' + metric.reference + ' within its 1px border: ' + JSON.stringify(metric));
+    assert.ok(metric.coversText, label + ': scene image continues behind the card text: ' + JSON.stringify(metric));
   });
   measurements.push({ label, metrics });
   return metrics;
 }
 
 async function firstMobilePage(page) {
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   while (await page.locator('[data-zgms=prev]').isEnabled()) {
     const before = await page.locator('.zgms-pagination span').innerText();
     await page.locator('[data-zgms=prev]').click();
     await page.waitForFunction(before => document.querySelector('.zgms-pagination span').textContent !== before, before);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   }
 }
 
@@ -84,7 +93,9 @@ async function findMobileCard(page, id) {
     const before = await page.locator('.zgms-pagination span').innerText();
     await page.locator('[data-zgms=next]').click();
     await page.waitForFunction(before => document.querySelector('.zgms-pagination span').textContent !== before, before);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   }
+  await page.locator('.zgms-grid').evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
   assert.equal(await card.count(), 1, 'Mapped spell has a mobile card: ' + id);
   return card;
 }
@@ -121,7 +132,7 @@ async function checkMappedArtworkOverride(page, id, source, expected, label, mea
     headless: true,
     executablePath: process.env.ZG_EDGE_EXECUTABLE || '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
   });
-  const errors = [], blocked = new Set(), checks = [], fillMeasurements = [];
+  const errors = [], blocked = new Set(), checks = [], fillMeasurements = [], responsiveCases = [];
   try {
     // A fresh, nonpersistent context cannot access the user's browser login or storage.
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, hasTouch: true, deviceScaleFactor: 1 });
@@ -244,21 +255,87 @@ async function checkMappedArtworkOverride(page, id, source, expected, label, mea
       checks.push(locale + ': mobile 390x780, ' + pageCount + ' artwork pages and eye detail');
     }
 
+    const originalPrepared = await page.evaluate(heroId => JSON.parse(JSON.stringify(characters.find(c => c.id === heroId).preparedSpells)), heroId);
+    await page.locator('.zgms-filter [data-filter=equipped]').click();
+    for (const locale of ['ru', 'uk']) {
+      await page.evaluate(locale => ZargotaI18n.setLocale(locale), locale);
+      for (const [width, height] of [[390, 699], [390, 780], [360, 640]]) {
+        await page.setViewportSize({ width, height });
+        for (const count of [4, 3]) {
+          await page.evaluate(({ heroId, ids }) => {
+            const hero = characters.find(c => c.id === heroId);
+            hero.preparedSpells = { kodex: [], folio: [], obrad: [] };
+            ids.forEach(id => { const item = findCharacterCatalogSpell(id); hero.preparedSpells[item.spellType].push(String(id)); });
+            ZargotaMobileSkills.refresh();
+          }, { heroId, ids: mapped.slice(0, count).map(record => record.id) });
+          await page.waitForFunction(count => document.querySelectorAll('.zgms-card').length === count && document.querySelector('.zgms-pagination span').textContent === '1 / 1', count);
+          await page.waitForTimeout(150); // Resize observers and pagination fades must settle for visual evidence.
+          assert.equal(await page.locator('.zgms-card em').count(), 0, 'Equipped cards do not repeat their equipped badge');
+          const label = locale + ': ' + count + ' equipped cards at ' + width + 'x' + height;
+          await assertMobileArtFill(page, label, fillMeasurements);
+          const geometry = await page.evaluate(() => {
+            const nav = document.querySelector('.zgmo-nav').getBoundingClientRect();
+            return {
+              width: innerWidth, height: innerHeight, documentOverflow: document.documentElement.scrollWidth - innerWidth,
+              navTop: nav.top,
+              cards: [...document.querySelectorAll('.zgms-card')].map(card => {
+                const rect = card.getBoundingClientRect(), copy = card.querySelector('.zgms-copy').getBoundingClientRect();
+                return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, copyInside: copy.left >= rect.left - 1 && copy.right <= rect.right + 1 && copy.top >= rect.top - 1 && copy.bottom <= rect.bottom + 1 };
+              })
+            };
+          });
+          assert.ok(geometry.documentOverflow <= 1, label + ': no horizontal page overflow');
+          assert.ok(geometry.cards.every(card => card.left >= -1 && card.right <= width + 1 && card.top >= 0 && card.bottom <= geometry.navTop + 1 && card.copyInside), label + ': all card text and images remain above navigation: ' + JSON.stringify(geometry));
+          responsiveCases.push({ locale, count, ...geometry });
+          await page.screenshot({ path: path.join(output, 'mobile-equipped-' + count + '-' + width + 'x' + height + '-' + locale + '.png') });
+          if (locale === 'ru' && width === 390 && height === 699 && count === 3) {
+            const cdp = await context.newCDPSession(page);
+            await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 3, mobile: false });
+            await page.screenshot({ path: path.join(output, 'mobile-equipped-3-390x699-ru-dpr3.png') });
+            await cdp.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+            await cdp.detach();
+          }
+        }
+      }
+    }
+    await page.setViewportSize({ width: 390, height: 780 });
+    await page.evaluate(({ heroId, prepared }) => { characters.find(c => c.id === heroId).preparedSpells = prepared; ZargotaMobileSkills.refresh(); }, { heroId, prepared: originalPrepared });
+    await page.locator('.zgms-filter [data-filter=all]').click();
+    await page.waitForFunction(() => document.querySelector('.zgms-filter [data-filter=all]').getAttribute('aria-pressed') === 'true');
+    await firstMobilePage(page);
+    checks.push('RU/UK three and four equipped cards at 390x699, 390x780 and 360x640: whole-card background covers text, no repeated badge, no clipping');
+
     const chargedId = await page.evaluate(heroId => {
       const hero = characters.find(c => c.id === heroId);
       return hero.spellRefs.find(id => Number((findCharacterCatalogSpell(id).cd || '').match(/(\d+)\s*(?:раз|заряд)/i)?.[1]) >= 2);
     }, heroId);
     assert.ok(chargedId, 'A mapped spell has charges to exercise');
     await (await findMobileCard(page, String(chargedId))).click();
-    await page.evaluate(() => {
+    assert.equal((await decoded(page.locator('#zgms-dialog .zgms-detail-art > img')))[0].src, mapped.find(record => record.id === String(chargedId)).src, 'Charge test opens the chosen spell before spending');
+    await page.evaluate(({ heroId, id }) => {
       window.__spellArtNodes = {
         detail: document.querySelector('#zgms-dialog .zgms-detail-art > img'),
         cards: [...document.querySelectorAll('.zgms-card .zgms-art > img')],
-        pagination: document.querySelector('.zgms-pagination span').textContent
+        pagination: document.querySelector('.zgms-pagination span').textContent,
+        beforeUsed: characters.find(c => c.id === heroId).spellCD[id].used,
+        title: document.querySelector('#zgms-dialog h2').textContent
       };
-    });
+    }, { heroId, id: chargedId });
     await page.locator('[data-zgms=spend]').click();
-    await page.waitForFunction(({ heroId, id }) => characters.find(c => c.id === heroId).spellCD[id].used === 1, { heroId, id: chargedId });
+    await page.waitForFunction(({ heroId, id }) => characters.find(c => c.id === heroId).spellCD[id].used === window.__spellArtNodes.beforeUsed + 1, { heroId, id: chargedId }).catch(async error => {
+      const diagnostic = await page.evaluate(({ heroId, id }) => ({
+        heroId, id, beforeUsed: window.__spellArtNodes.beforeUsed,
+        expectedTitle: window.__spellArtNodes.title,
+        currentTitle: document.querySelector('#zgms-dialog h2')?.textContent,
+        currentCharges: document.querySelector('.zgms-charges')?.innerText,
+        used: characters.find(c => c.id === heroId)?.spellCD[id],
+        toast: document.getElementById('toast')?.textContent,
+        errors: document.querySelector('#zgms-dialog')?.innerText
+      }), { heroId, id: chargedId });
+      fs.writeFileSync(path.join(output, 'charge-failure.json'), JSON.stringify(diagnostic, null, 2) + '\n');
+      await page.screenshot({ path: path.join(output, 'charge-failure.png') });
+      throw error;
+    });
     await page.waitForFunction(() => document.querySelector('[data-zgms=spend]').disabled === false);
     assert.ok(await page.evaluate(() => {
       const saved = window.__spellArtNodes, now = [...document.querySelectorAll('.zgms-card .zgms-art > img')];
@@ -337,12 +414,32 @@ async function checkMappedArtworkOverride(page, id, source, expected, label, mea
       }
     }
     checks.push('Personal uploaded data image and existing Lin In illustration fill card/detail frames in RU/UK');
+    await page.evaluate(heroId => {
+      const hero = characters.find(c => c.id === heroId);
+      hero.skills.push({ name: 'Значок / Піктограма', type: 'Активный', iconAsset: 'images/ui/combat-generated/codex.png' });
+      ZargotaMobileSkills.refresh();
+    }, heroId);
+    const symbolCard = page.locator('.zgms-card[data-key="skills-2"]');
+    await decoded(symbolCard.locator('.zgms-art.symbol > img'));
+    const symbolMetrics = await symbolCard.evaluate(card => {
+      const frame = card.querySelector('.zgms-art'), image = frame.querySelector(':scope > img');
+      const style = getComputedStyle(image), cardRect = card.getBoundingClientRect(), frameRect = frame.getBoundingClientRect();
+      return { scene: frame.classList.contains('scene'), symbol: frame.classList.contains('symbol'), objectFit: style.objectFit, padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft], cardHeight: cardRect.height, artHeight: frameRect.height };
+    });
+    assert.equal(symbolMetrics.scene, false, 'Built-in symbols do not turn into scene backgrounds');
+    assert.equal(symbolMetrics.symbol, true);
+    assert.equal(symbolMetrics.objectFit, 'contain', 'Genuine small symbols retain contain mode');
+    assert.ok(symbolMetrics.padding.every(value => parseFloat(value) > 0), 'Genuine small symbols retain internal padding');
+    assert.ok(symbolMetrics.artHeight < symbolMetrics.cardHeight - 20, 'The small symbol box stays separate from text');
+    await assertMobileArtFill(page, 'Personal illustrations beside a genuine symbol', fillMeasurements, '.zgms-card .zgms-art.scene > img');
+    await page.screenshot({ path: path.join(output, 'mobile-personal-art-and-symbol.png') });
+    checks.push('Genuine built-in symbol keeps its padded contain-mode icon area beside full-card personal illustrations');
     assert.ok(await page.evaluate(() => window.__spellArtCatalogBefore === JSON.stringify(entries)), 'Viewing illustrations and spending a charge never changes catalog rules');
     checks.push('Charge update preserves image nodes and pagination; custom art wins; catalog remains unchanged');
     assert.deepEqual(errors, [], 'No uncaught browser errors');
-    const report = { checks, mappedCount: mapped.length, pageCount, mapped, dimensions: allImages, fillMeasurements, sourceClassification, legacyCases, blockedExternalOrigins: [...blocked], screenshots: fs.readdirSync(output).filter(name => name.endsWith('.png')) };
+    const report = { checks, mappedCount: mapped.length, pageCount, mapped, dimensions: allImages, fillMeasurements, responsiveCases, symbolMetrics, sourceClassification, legacyCases, blockedExternalOrigins: [...blocked], screenshots: fs.readdirSync(output).filter(name => name.endsWith('.png')) };
     fs.writeFileSync(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log('PASS spell art: ' + mapped.length + ' assets, RU/UK catalog and desktop details, 390x780 mobile pagination/charges, frame fill and custom priority. Evidence: ' + output);
+    console.log('PASS spell art: ' + mapped.length + ' assets, RU/UK catalog/details, 390x699/390x780/360x640 whole-card backgrounds, 3/4 equipped cards, stable charge image nodes and symbol mode. Evidence: ' + output);
     await context.close();
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
