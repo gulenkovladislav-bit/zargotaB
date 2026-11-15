@@ -34,6 +34,8 @@
 <script src="combat-vfx-presets.js?v=2026-08-30.4"></script>
 <script src="combat-vfx-runtime.js?v=2026-08-30.4"></script>
 <script src="combat-vfx-canvas.js?v=2026-08-30.4"></script>
+<link rel="stylesheet" href="spell-art.css?v=2026-11-15.21">
+<script src="spell-art.js?v=2026-11-15.21"></script>
 <script src="spell-automation.js?v=2026-08-30.5"></script>
 <script src="zargota-network.js?v=2026-10-26.15"></script>
   <script src="character-review.js?v=2026-09-27.1"></script>
@@ -50,7 +52,7 @@
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
   <script src="character-cloud.js?v=2026-10-26.15"></script>
   <link rel="stylesheet" href="character-cloud.css?v=2026-10-26.20">
-<script defer src="arena-v2-workspace.js?v=2026-09-01.28"></script>
+<script defer src="arena-v2-workspace.js?v=2026-11-15.21"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-08-21.1">
 <script src="gm-delivery.js?v=2026-08-21.1"></script>
 <link rel="stylesheet" href="gm-cues.css?v=2026-08-21.1">
@@ -10429,9 +10431,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-15.4';
+var ZG_APP_VERSION = '2026-11-15.21';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-15.21',notes:'Добавлены согласованные рисунки для 20 способностей первого уровня: 10 боевых кодексов и 10 фолиантов. Они видны в каталоге и листах персонажей; собственные изображения сохраняются.',notesUk:'Додано погоджені малюнки для 20 здібностей першого рівня: 10 бойових кодексів і 10 фоліантів. Вони відображаються в каталозі й аркушах персонажів; власні зображення зберігаються.'},
   {v:'2026-11-15.4',notes:'Мобильные навыки: тонкие цветные рамки, линия под названием и мягкий градиент снизу. Цвета каталога сохранены; личные навыки, черты и мастерство используют палитру типов действий.',notesUk:'Мобільні навички: тонкі кольорові рамки, лінія під назвою та м’який градієнт знизу. Кольори каталогу збережено; особисті навички, риси й майстерність використовують палітру типів дій.'},
   {v:'2026-11-14.14',notes:'В мобильном листе обновлены и увеличены значки брони, инициативы и скорости. Скорость обозначена двумя простыми стрелками.',notesUk:'У мобільному аркуші оновлено та збільшено значки броні, ініціативи й швидкості. Швидкість позначено двома простими стрілками.'},
   {v:'2026-11-14.13',notes:'Состояния можно перелистывать стрелками и свайпом прямо в открытом окне. Значки на телефоне больше не вырезаются из общего листа: убраны клетчатая подложка и обрезанные края.',notesUk:'Стани можна гортати стрілками та свайпом просто у відкритому вікні. Значки на телефоні більше не вирізаються зі спільного аркуша: прибрано картату підкладку й обрізані краї.'},
@@ -21861,7 +21864,7 @@ document.addEventListener('DOMContentLoaded', function(){
       zoneKind:String(meta.zoneKind||''),movementKind:String(meta.movementKind||''),teleportCells:Math.max(0,Number(meta.teleportCells)||0),smokeRadius:Math.max(0,Number(meta.smokeRadius)||0),pullTowardPoint:meta.pullTowardPoint===true,pullCells:Math.max(0,Number(meta.pullCells)||0),collisionDamageFormula:String(meta.collisionDamageFormula||''),
       statuses:meta.statuses||[],casterStatuses:meta.casterStatuses||[],durationRounds:Math.max(0,Number(meta.durationRounds)||0),conditionalStatusSaveStep:String(meta.conditionalStatusSaveStep||''),statusDurationRollMode:String(meta.statusDurationRollMode||''),statusBlockedByDamageImmunity:meta.statusBlockedByDamageImmunity===true,concentration:!!meta.concentration,cooldown:meta.cooldown||null,
       resourceKey:key.replace(/[^a-zA-Z0-9_-]/g,''),resourceMax:Math.max(0,Number(meta.maxUses||meta.charges||item.maxUses||item.charges)||0),resourceUsed:Math.max(0,Number(item.used||item.usesSpent)||0),resourceScopeKind:['battle','short-rest','long-rest','two-days'].indexOf(meta.resourceScopeKind)>=0?meta.resourceScopeKind:'',maxUsesPerBattle:Math.max(0,Number(meta.maxUsesPerBattle)||0),resourceBattleScopeKey:'',resourceBattleUsed:0,cooldownMs:Math.max(0,Number(meta.cooldownMs)||0),
-      automationKey:String(meta.automationKey||''),weaponMode:String(meta.weaponMode||''),damageSplit:String(meta.damageSplit||''),resolutionPlan:meta.resolutionPlan||null,animationKey:String(meta.animationKey||''),soundProfile:String(meta.soundProfile||''),iconAsset:String(meta.iconAsset||''),nonCombat:meta.nonCombat||null,description:item.effect||item.description||item.battle||item.desc||item.text||''
+      automationKey:String(meta.automationKey||''),weaponMode:String(meta.weaponMode||''),damageSplit:String(meta.damageSplit||''),resolutionPlan:meta.resolutionPlan||null,animationKey:String(meta.animationKey||''),soundProfile:String(meta.soundProfile||''),iconAsset:abilityAssetForItem(item,String(meta.iconAsset||'')),nonCombat:meta.nonCombat||null,description:item.effect||item.description||item.battle||item.desc||item.text||''
     };
   }
   function abilityProfileBadges(profile){
@@ -21911,6 +21914,7 @@ document.addEventListener('DOMContentLoaded', function(){
   }
   function abilityAssetForItem(item,fallback){
     item=item||{};
+    var approved=w.ZargotaSpellArt&&w.ZargotaSpellArt.resolve(item);if(approved)return approved;
     var asset=String(item.iconAsset||item.abilityIcon||item.iconImage||item.image||'').trim();
     var icon=String(item.icon||'').trim();
     if(!asset&&/^(?:https?:|data:image\/|blob:|\.?\.?\/|images\/)/i.test(icon))asset=icon;
@@ -26785,7 +26789,7 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-15.4">
-<script defer src="character-mobile-skills.js?v=2026-11-15.5"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-15.21"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -29922,6 +29926,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     else if(/коротк|коротка|short/.test(actionHay)){kind='short';label='Короткий навык';asset='images/ui/combat-generated/short-action.png';icon='➤';}
     else if(/долг|довг|long/.test(actionHay)){kind='long';label='Долгий навык';asset='images/ui/combat-generated/long-action.png';icon='◈';}
     var tone='gold';if(/пчел|рой|м[её]д|лес|природ|снадоб/.test(hay))tone='nature';else if(/кров|ожог|плам|огн/.test(hay))tone='blood';else if(/мертв|некро|гнил|кост|лупоглаз|труп/.test(hay))tone='decay';else if(/хлеб|агра|урож|батон/.test(hay))tone='harvest';else if(/душ|крыл|полет|пол[её]т|паден/.test(hay))tone='soul';else if(/экзист|разум|бестелес|памят|видени/.test(hay))tone='mind';else if(/гром|молн|бур|шторм/.test(hay))tone='storm';
+    if(sourceKind==='spell'&&w.ZargotaSpellArt)asset=w.ZargotaSpellArt.resolve(raw)||asset;
     return{kind:kind,label:label,tone:tone,asset:asset,icon:icon};
   }
   function irlSpellSections(spell){
@@ -47042,6 +47047,12 @@ document.addEventListener('zargota:localechange', function() {
   if (detailId != null && detailPage && detailPage.classList.contains('active')) openDetail(detailId);
 });
 
+// Artwork is resolved at display time so cached catalogs and existing sheets use the same art.
+function spellArtworkMarkup(item, detail) {
+  var src = window.ZargotaSpellArt && window.ZargotaSpellArt.resolve(item);
+  return src ? '<img class="zg-spell-art-' + (detail ? 'detail' : 'thumb') + '" src="' + escHTML(src) + '" alt="" loading="lazy" decoding="async" draggable="false">' : '';
+}
+
 function cardHTML(e) {
   const cats = CATEGORIES.filter(c => (e.categories||[]).includes(c.key));
   const dmgs = DAMAGE_TYPES.filter(d => (e.damageTypes||[]).includes(d.key));
@@ -47084,7 +47095,7 @@ function cardHTML(e) {
       ${schoolBadge}
       ${levelBadge}
     </div>
-    <div class="card-name"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.name||'Без названия'))}</div>
+    <div class="card-name zg-spell-art-title"${catalogEntrySkipAttr(e)}>${spellArtworkMarkup(e, false)}<span>${escHTML(catalogEntryText(e, e.name||'Без названия'))}</span></div>
     ${e.description ? `<div class="card-desc"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.description))}</div>` : ''}
     ${catChips ? `<div class="cat-chips">${catChips}</div>` : ''}
     ${dmgChips ? `<div class="dmg-chips">${dmgChips}</div>` : ''}
@@ -47160,6 +47171,7 @@ function openDetail(id) {
   document.getElementById('detail-body').innerHTML = `
     <div class="detail-meta">${metaChips}</div>
     <div id="detail-name"${catalogEntrySkipAttr(e)}>${escHTML(catalogEntryText(e, e.name||'Без названия'))}</div>
+    ${spellArtworkMarkup(e, true)}
     ${catChips ? `<div style="margin-bottom:10px">${catChips}</div>` : ''}
     ${dmgChips ? `<div style="margin-bottom:16px">${dmgChips}</div>` : ''}
     <hr class="detail-hr">
@@ -56852,6 +56864,7 @@ function buildSpellRefsList(c) {
       'border-left:4px solid ' + borderColor + ';background:#0e0a06;border-radius:0 4px 4px 0;' +
       'cursor:pointer;transition:all .15s;opacity:' + rowOpacity + '" ' +
       'onclick="showSpellDetail(' + c.id + ',' + sid + ')">' +
+      spellArtworkMarkup(sp, false) +
       '<span' + catalogEntrySkipAttr(sp) + ' style="flex:1;font-family:\'Cinzel\',serif;font-size:12px;color:' + nameColor + ';letter-spacing:.3px;text-decoration:' + (onCD ? 'line-through' : 'none') + ';min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + icon + ' ' + escHTML(catalogEntryText(sp, sp.name||'?')) + '</span>' +
       learnBadge +
       cdBadge +
@@ -56977,6 +56990,7 @@ function showSpellDetail(charId, spellId) {
         '<button class="zoom-reset" onclick="resetSpellPopupZoom()">сброс</button>' +
       '</div>' +
       '<div id="spell-detail-content">' +
+      spellArtworkMarkup(sp, true) +
       '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">' + badgesHTML + '</div>' +
       '<div' + catalogEntrySkipAttr(sp) + ' style="font-family:\'Cinzel Decorative\',serif;font-size:17px;color:var(--text);margin-bottom:8px">' + escHTML(catalogEntryText(sp, sp.name||'')) + '</div>' +
       (catsHTML || dmgsHTML ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">' + catsHTML + dmgsHTML + '</div>' : '') +
@@ -57145,7 +57159,7 @@ function openSpellPicker(charId) {
     var icon = typeIcons[type] || '📜';
     var search = normalizeSpellPickerSearchText([sp.name,sp.tip,sp.description,sp.effect,sp.battle,sp.school,sp.schoolCustom,sp.klasse,type,sp.level,categories.join(' '),damageTypes.join(' ')].join(' '));
     spellListHtml += '<div class="sp-picker-item' + (isAdded ? ' is-added' : '') + '" data-search="' + escHTML(search) + '" data-type="' + escHTML(type) + '" data-lvl="' + escHTML(String(sp.level == null ? '' : sp.level)) + '" data-categories="|' + escHTML(categories.join('|')) + '|" style="--spell-picker-accent:' + col + ';border-left-color:' + col + '" onclick="pickSpell(' + charId + ',' + sp.id + ',this)">' +
-      '<span class="sp-picker-item-icon">' + icon + '</span>' +
+      '<span class="sp-picker-item-icon">' + (spellArtworkMarkup(sp, false) || icon) + '</span>' +
       '<span class="sp-picker-item-name">' + escHTML(sp.name || '?') + '</span>' +
       '<span class="sp-picker-item-level">ур.' + escHTML(String(sp.level == null ? '—' : sp.level)) + '</span>' +
       '<span class="sp-picker-item-action">' + (isAdded ? '✓' : '＋') + '</span>' +

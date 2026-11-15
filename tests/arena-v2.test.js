@@ -8,7 +8,7 @@ const workspace = fs.readFileSync(path.join(root, 'arena-v2-workspace.js'), 'utf
 const css = fs.readFileSync(path.join(root, 'arena-v2-workspace.css'), 'utf8');
 
 assert(html.includes('arena-v2-workspace.css?v=2026-09-01.34'), 'Arena workspace stylesheet must be loaded');
-assert(html.includes('arena-v2-workspace.js?v=2026-09-01.28'), 'Arena workspace controller must be loaded');
+assert(/<script\b[^>]*src="arena-v2-workspace\.js\?v=[^"]+"/.test(html), 'Arena workspace controller must be loaded');
 assert(html.includes("global.zgArenaWorkspaceOpen==='function'"), 'Arena tab must open the battlefield workspace directly');
 assert(html.includes('w.zgArenaV2Launch=function(config)'), 'VTT must expose the local Arena launch adapter');
 assert(html.includes('w.zgArenaV2AddParticipant=function(participant,position)'), 'Arena must add participants directly to the live field');
