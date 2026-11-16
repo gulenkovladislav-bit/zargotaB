@@ -16,6 +16,7 @@
   <script src="zargota-i18n.js?v=2026-11-04.6"></script>
   <script src="zargota-i18n-content-uk.js?v=2026-08-27.7"></script>
 <script src="zargota-i18n-characters-uk.js?v=2026-11-15-hero-abilities"></script>
+<script src="character-display-translations.js?v=2026-11-16.20"></script>
 <script src="zargota-i18n-armory-uk.js?v=2026-08-27.1"></script>
 <script src="zargota-i18n-npc-uk.js?v=2026-08-27.1"></script>
   <script src="zargota-i18n-shop-uk.js?v=2026-08-27.15"></script>
@@ -10431,9 +10432,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-16.19';
+var ZG_APP_VERSION = '2026-11-16.20';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {"v": "2026-11-16.20", "notes": "Личные навыки, черты и мастерство с зарядами применяются кнопкой «Применить»; один заряд можно вернуть. Исправлено отображение украинских исходных текстов в русском режиме, открытая карточка следует переключателю языка. Свайпы страниц навыков и состояний стали плавнее.", "notesUk": "Особисті навички, риси й майстерність із зарядами застосовуються кнопкою «Застосувати»; один заряд можна повернути. Виправлено відображення українських вихідних текстів у російському режимі, відкрита картка реагує на перемикач мови. Свайпи сторінок навичок і станів стали плавнішими."},
   {"v": "2026-11-16.19", "notes": "Пять главных героев используют утверждённые новые портреты. Личные навыки, черты и мастерство сохраняют авторские разделы; характеристики, проверки, кубы, бонусы и ограничения выделены цветом. Успех и провал читаются отдельно, без дополнительных вкладок.", "notesUk": "П’ять головних героїв використовують затверджені нові портрети. Особисті навички, риси й майстерність зберігають авторські розділи; характеристики, перевірки, кубики, бонуси й обмеження виділено кольором. Успіх і провал читаються окремо, без додаткових вкладок."},
   {"v": "2026-11-16.17", "notes": "Черты, мастерство и личные навыки открываются одной карточкой без вкладок изучения: компактная шапка, читаемые правила и подсветка чисел и характеристик. Счётчики остаются только у способностей с лимитом применений. Рисунок можно открыть целиком.", "notesUk": "Риси, майстерність і особисті навички відкриваються однією карткою без вкладок вивчення: компактна шапка, читабельні правила та підсвічування чисел і характеристик. Лічильники залишаються лише у здібностей з обмеженням використань. Зображення можна відкрити повністю."},
   {"v": "2026-11-16.15", "notes": "Страницы карточек навыков персонажа на телефоне можно листать горизонтальным свайпом. Нажатие на рисунок открывает его целиком на весь экран с цитатой из описания или проявления; закрытие возвращает к прежнему месту чтения.", "notesUk": "Сторінки карток навичок персонажа на телефоні можна гортати горизонтальним свайпом. Натискання на зображення відкриває його повністю на весь екран із цитатою з опису або прояву; закриття повертає до попереднього місця читання."},
@@ -26792,8 +26794,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-portrait.js?v=2026-11-14.1"></script>
 <link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-14.1">
 <script defer src="character-portrait-picker.js?v=2026-11-14.1"></script>
-<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-14.14">
-<script defer src="character-mobile-overview.js?v=2026-11-14.14"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-16.20">
+<script defer src="character-mobile-overview.js?v=2026-11-16.20"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-05.3">
 <script defer src="character-mobile-inventory.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.3">
@@ -26801,9 +26803,9 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-16.11">
-<link rel="stylesheet" href="character-spell-detail.css?v=2026-11-16.19">
+<link rel="stylesheet" href="character-spell-detail.css?v=2026-11-16.20">
 <script defer src="spell-detail-content.js?v=2026-11-16.19"></script>
-<script defer src="character-mobile-skills.js?v=2026-11-16.19"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-16.20"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -49715,10 +49717,17 @@ function characterEntryUsesUkrainian(entry) {
 
 function characterEntryText(entry, value) {
   var source = value == null ? '' : String(value);
-  if (!characterEntryUsesUkrainian(entry)) return source;
-  return window.ZargotaI18n && typeof window.ZargotaI18n.translate === 'function'
-    ? window.ZargotaI18n.translate(source, 'uk')
-    : source;
+  var locale = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' ? 'uk' : 'ru';
+  var reviewedDisplay = window.ZargotaCharacterDisplayTranslations;
+  if (reviewedDisplay) {
+    var translated = reviewedDisplay.translate(entry, source, locale);
+    if (translated !== null) return translated;
+  }
+  // Copies of reviewed abilities share exact translations; new authored text stays intact.
+  var i18n = window.ZargotaI18n;
+  return locale === 'uk' && i18n && (characterEntryUsesUkrainian(entry) ||
+    (typeof i18n.hasContentTranslation === 'function' && i18n.hasContentTranslation(source))) && typeof i18n.translate === 'function'
+    ? i18n.translate(source, 'uk') : source;
 }
 
 function characterEntrySkipAttr(entry) {

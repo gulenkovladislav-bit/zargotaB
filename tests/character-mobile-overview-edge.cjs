@@ -5,6 +5,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
  try{
   const page=await browser.newPage({viewport:{width:390,height:780},hasTouch:true}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
+  const waitPageTurn=()=>page.waitForFunction(()=>!document.querySelector('[data-zg-page-turn]'));
   await page.goto(process.env.ZG_TEST_URL||'http://127.0.0.1:8765');
   await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
   await page.evaluate(()=>{
@@ -37,7 +38,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
    }
   }
   await page.setViewportSize({width:390,height:780});await page.evaluate(()=>ZargotaI18n.setLocale('ru'));
-  await page.evaluate(()=>window.zgPagerNodes=[document.querySelector('.zgmo-states'),document.querySelector('.zgmo-state-heading'),...document.querySelectorAll('.zgmo-state-arrow')]);await page.locator('[data-zgmo=next]:visible').click();assert.ok(await page.evaluate(()=>zgPagerNodes.every(el=>el.isConnected)));assert.equal(await page.locator('.zgmo-states').evaluate(el=>el.getAnimations().filter(a=>a.playState==='running').length),0);await page.locator('[data-zgmo=prev]:visible').click();
+  await page.evaluate(()=>window.zgPagerNodes=[document.querySelector('.zgmo-states'),document.querySelector('.zgmo-state-heading'),...document.querySelectorAll('.zgmo-state-arrow')]);await page.locator('[data-zgmo=next]:visible').click();await waitPageTurn();assert.ok(await page.evaluate(()=>zgPagerNodes.every(el=>el.isConnected)));assert.equal(await page.locator('.zgmo-states').evaluate(el=>el.getAnimations().filter(a=>a.playState==='running').length),0);await page.locator('[data-zgmo=prev]:visible').click();await waitPageTurn();
   await page.waitForTimeout(550);await page.screenshot({path:'/tmp/zargota-mobile-stats-esteros.png'});
   const navStyle=await page.locator('#char-sheet-tab-bar').evaluate(el=>({border:getComputedStyle(el).borderTopWidth,bg:getComputedStyle(el).backgroundColor}));assert.equal(navStyle.border,'0px');assert.equal(navStyle.bg,'rgba(0, 0, 0, 0)');
   assert.equal(await page.locator('.zgmo-nav svg').count(),4);
@@ -57,8 +58,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // Browse the open status without recreating the overlay, frame, portrait or navigation.
   await page.evaluate(()=>window.statusStableNodes=[document.querySelector('#status-info-popup'),document.querySelector('#status-info-popup>.status-info-card'),document.querySelector('.zgmo-portrait-image'),document.querySelector('#char-sheet-tab-bar')]);
   assert.ok(await detail.locator('[data-status-step="-1"]').isHidden());
-  await detail.locator('[data-status-step="1"]').click();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'2 / 6');
-  await detail.locator('[data-status-step="1"]').click();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'3 / 6');
+  await detail.locator('[data-status-step="1"]').click();await waitPageTurn();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'2 / 6');
+  await detail.locator('[data-status-step="1"]').click();await waitPageTurn();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'3 / 6');
   assert.equal(await detail.locator('.zgmo-status-symbol use').getAttribute('href'),'character-status-symbols.svg?v=2026-11-14.13#burn');
   assert.equal(await detail.locator('.zg-status-glyph').count(),0,'No raster atlas in status details');
   assert.equal(await detail.locator('.zgmo-status-symbol').evaluate(el=>getComputedStyle(el).filter),'none');
@@ -66,13 +67,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await detail.locator('[data-status-step="1"]').hover();const arrowTops=await detail.locator('.zgmo-status-browse').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().top));assert.ok(Math.abs(arrowTops[0]-arrowTops[1])<1,'Both arrows remain aligned on hover');
   await page.waitForTimeout(220);await page.screenshot({path:'/tmp/zargota-status-paging.png'});
   const swipe=async(dx,dy=0)=>detail.locator('.zgmo-status-hero').evaluate((el,{dx,dy})=>{const init={bubbles:true,touches:[{clientX:180,clientY:260}]},end={bubbles:true,touches:[],changedTouches:[{clientX:180+dx,clientY:260+dy}]};el.dispatchEvent(new TouchEvent('touchstart',{...init,touches:[new Touch({identifier:1,target:el,...init.touches[0]})]}));el.dispatchEvent(new TouchEvent('touchend',{...end,changedTouches:[new Touch({identifier:1,target:el,...end.changedTouches[0]})]}));},{dx,dy});
-  await swipe(-90);assert.equal(await detail.locator('.zgmo-status-position').innerText(),'4 / 6');
-  await swipe(-10,100);assert.equal(await detail.locator('.zgmo-status-position').innerText(),'4 / 6','Vertical scroll must not change the state');
-  await swipe(90);assert.equal(await detail.locator('.zgmo-status-position').innerText(),'3 / 6');
-  for(let i=0;i<3;i++)await detail.locator('[data-status-step="1"]').click();assert.ok(await detail.locator('[data-status-step="1"]').isHidden());
-  await swipe(-90);assert.equal(await detail.locator('.zgmo-status-position').innerText(),'6 / 6');
-  for(let i=0;i<5;i++)await detail.locator('[data-status-step="-1"]').click();assert.ok(await detail.locator('[data-status-step="-1"]').isHidden());
-  await page.emulateMedia({reducedMotion:'reduce'});await swipe(-90);assert.equal(await detail.evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length),0);await swipe(90);await page.emulateMedia({reducedMotion:'no-preference'});
+  await swipe(-90);await waitPageTurn();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'4 / 6');
+  await swipe(-10,100);await waitPageTurn();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'4 / 6','Vertical scroll must not change the state');
+  await swipe(90);await waitPageTurn();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'3 / 6');
+  for(let i=0;i<3;i++){await detail.locator('[data-status-step="1"]').click();await waitPageTurn();}assert.ok(await detail.locator('[data-status-step="1"]').isHidden());
+  await swipe(-90);await waitPageTurn();assert.equal(await detail.locator('.zgmo-status-position').innerText(),'6 / 6');
+  for(let i=0;i<5;i++){await detail.locator('[data-status-step="-1"]').click();await waitPageTurn();}assert.ok(await detail.locator('[data-status-step="-1"]').isHidden());
+  await page.emulateMedia({reducedMotion:'reduce'});await swipe(-90);await waitPageTurn();assert.equal(await detail.evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length),0);await swipe(90);await waitPageTurn();await page.emulateMedia({reducedMotion:'no-preference'});
   assert.ok(await page.evaluate(()=>statusStableNodes.every(el=>el.isConnected)));
   await page.screenshot({path:'/tmp/zargota-mobile-status-open.png'});
   await detail.click({position:{x:2,y:2}});await detail.waitFor({state:'detached'});
@@ -81,10 +82,10 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.emulateMedia({reducedMotion:'reduce'});await page.locator('#char-sheet-tab-bar button').nth(1).tap();await page.locator('#char-sheet-tab-bar button').first().tap();
   assert.equal(await page.locator('.zgmo-overview').evaluate(el=>el.getAnimations({subtree:true}).filter(a=>a.playState==='running').length),0);await page.emulateMedia({reducedMotion:'no-preference'});
   assert.equal(await page.locator('[data-zgmo=prev]:visible').count(),0);
-  const first=await page.locator('.zgmo-state-cards').textContent();assert.ok(first.includes('2 раунд.')&&first.includes('3 раунд.'));await page.locator('[data-zgmo=next]:visible').click();assert.equal(await page.locator('[data-zgmo=prev]:visible').count(),1);assert.equal(await page.locator('.zgmo-state-cards').evaluate(el=>getComputedStyle(el).overflow),'visible');assert.equal(await page.locator('.zgmo-state-cards').evaluate(el=>el.scrollTop),0);assert.notEqual(await page.locator('.zgmo-state-cards').textContent(),first);await page.locator('[data-zgmo=next]:visible').click();assert.equal(await page.locator('[data-zgmo=next]:visible').count(),0);
+  const first=await page.locator('.zgmo-state-cards').textContent();assert.ok(first.includes('2 раунд.')&&first.includes('3 раунд.'));await page.locator('[data-zgmo=next]:visible').click();await waitPageTurn();assert.equal(await page.locator('[data-zgmo=prev]:visible').count(),1);assert.equal(await page.locator('.zgmo-state-cards').evaluate(el=>getComputedStyle(el).overflow),'visible');assert.equal(await page.locator('.zgmo-state-cards').evaluate(el=>el.scrollTop),0);assert.notEqual(await page.locator('.zgmo-state-cards').textContent(),first);await page.locator('[data-zgmo=next]:visible').click();await waitPageTurn();assert.equal(await page.locator('[data-zgmo=next]:visible').count(),0);
   await page.evaluate(()=>{const c=characters.find(c=>c.id===987654321);c.tempEffects.push({id:99,type:'status',label:'Тестовый эффект',value:'Тестовый эффект',description:"Особое состояние персонажа: 1d4, 1–4, Лин'Ин <script>",remaining:1,duration:1,unit:'rounds'});renderCharSheet();});
-  while(await page.locator('[data-zgmo=prev]:visible').count())await page.locator('[data-zgmo=prev]:visible').click();
-  while(!(await page.locator('[data-zgmo=status][aria-label="Тестовый эффект"]').count())&&await page.locator('[data-zgmo=next]:visible').count())await page.locator('[data-zgmo=next]:visible').click();
+  while(await page.locator('[data-zgmo=prev]:visible').count()){await page.locator('[data-zgmo=prev]:visible').click();await waitPageTurn();}
+  while(!(await page.locator('[data-zgmo=status][aria-label="Тестовый эффект"]').count())&&await page.locator('[data-zgmo=next]:visible').count()){await page.locator('[data-zgmo=next]:visible').click();await waitPageTurn();}
   await page.locator('[data-zgmo=status][aria-label="Тестовый эффект"]').click();assert.ok((await page.locator('#status-info-popup').textContent()).includes('Особое состояние персонажа'));assert.ok((await page.locator('#status-info-popup .zgmo-status-description').textContent()).includes("Лин'Ин <script>"));assert.ok(await page.locator('#status-info-popup strong.zgmo-rule-value').count()>=2);assert.equal(await page.locator('#status-info-popup script').count(),0);await page.keyboard.press('Escape');await page.locator('#status-info-popup').waitFor({state:'detached'});
   await page.locator('#zgmo-str').tap();for(let i=0;i<3;i++)await page.locator('[data-number-key=plus]').tap();await page.locator('[data-number-key=save]').tap();assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654321).stats.str.base),3,'temporary bonus is not written into the base');
   await page.locator('[data-zgmo=temp][data-field=str]').click();assert.equal(await page.locator('#quick-temp-popup').count(),1);await page.evaluate(()=>document.querySelector('#quick-temp-popup').remove());

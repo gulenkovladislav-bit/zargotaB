@@ -2,13 +2,60 @@
 (function(w){
   'use strict';
   var current, pages={}, returnFocus=null, movedStatus=null, lastView=null, previousHP=null;
+  var pageAnimations=new WeakMap();
+  function cancelPageAnimation(node){var pending=node&&pageAnimations.get(node);if(pending)pending.cancel();}
+  // Advance page state before calling. update only renders that state and may return
+  // its mounted container (or a Promise of it). A superseded update is never run.
+  // The returned Promise always settles, including cancellation and screen changes.
+  function animatePage(node,direction,update){
+    if(typeof update!=='function')return Promise.resolve(false);
+    var from=node&&node.isConnected?getComputedStyle(node):null;
+    var startOpacity=from?from.opacity:'1',startTransform=from&&from.transform!=='none'?from.transform:'translateX(0)';
+    cancelPageAnimation(node);
+    if(node&&!node.isConnected)return Promise.resolve(false);
+    if(!node||!node.animate||matchMedia('(prefers-reduced-motion:reduce)').matches){
+      try{return Promise.resolve(update()).then(function(value){return value!==false;});}catch(error){return Promise.reject(error);}
+    }
+    var target=node,state={node:node,animation:null,settled:false},resolveResult,rejectResult;
+    var result=new Promise(function(resolve,reject){resolveResult=resolve;rejectResult=reject;});
+    function blockActivation(ev){if(!ev.target.closest('[data-status-step],.zgmo-status-dismiss')){ev.preventDefault();ev.stopImmediatePropagation();}}
+    function mark(el){el.classList.add('zg-page-turn');el.setAttribute('data-zg-page-turn','out');el.addEventListener('click',blockActivation,true);}
+    function unmark(el){el.classList.remove('zg-page-turn');el.removeAttribute('data-zg-page-turn');el.removeEventListener('click',blockActivation,true);}
+    function currentRun(){return !state.settled&&pageAnimations.get(target)===state;}
+    function finish(ok,error){
+      if(state.settled)return;state.settled=true;
+      if(state.animation)state.animation.cancel();
+      if(pageAnimations.get(target)===state){pageAnimations.delete(target);unmark(target);}
+      if(error)rejectResult(error);else resolveResult(ok);
+    }
+    state.cancel=function(){finish(false);};pageAnimations.set(node,state);mark(node);
+    var distance=direction<0?-16:16;
+    state.animation=node.animate([{opacity:startOpacity,transform:startTransform},{opacity:0,transform:'translateX('+(-distance)+'px)'}],{duration:90,easing:'cubic-bezier(.4,0,.7,1)',fill:'forwards'});
+    state.animation.finished.then(function(){
+      if(!currentRun()||!target.isConnected){finish(false);return;}
+      var updated;try{updated=update();}catch(error){finish(false,error);return;}
+      Promise.resolve(updated).then(function(next){
+        if(!currentRun()){finish(false);return;}
+        if(next===false){finish(false);return;}
+        if(next&&next.nodeType===1&&next!==target){
+          if(!next.isConnected){finish(false);return;}
+          pageAnimations.delete(target);unmark(target);cancelPageAnimation(next);target=next;state.node=next;pageAnimations.set(target,state);mark(target);
+        }
+        if(!target.isConnected){finish(false);return;}
+        state.animation.cancel();mark(target);target.setAttribute('data-zg-page-turn','in');
+        state.animation=target.animate([{opacity:0,transform:'translateX('+distance+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:170,easing:'cubic-bezier(.2,.8,.2,1)'});
+        state.animation.finished.then(function(){finish(target.isConnected);},function(){finish(false);});
+      },function(error){finish(false,error);});
+    },function(){finish(false);});
+    return result;
+  }
   function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
   function e(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function tr(s){return w.ZargotaI18n?w.ZargotaI18n.translate(s):s;}
   function controlMark(plus){return '<svg class="zgmo-control-mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14'+(plus?'M12 5v14':'')+'"/></svg>';}
   function button(action,label,content,extra){if(content==='+'||content==='−')content=controlMark(content==='+');return '<button type="button" data-zgmo="'+action+'" aria-label="'+e(label)+'" '+(extra||'')+'>'+content+'</button>';}
   function character(){return (w.characters||[]).find(function(c){return c.id===current;});}
-  function setActive(on){var page=document.getElementById('page-characters');on=!!on&&w.charView==='sheet'&&page&&page.classList.contains('active');document.body.classList.toggle('zg-stats-overview',!!on);if(!on){close();lastView=null;previousHP=null;}}
+  function setActive(on){var page=document.getElementById('page-characters');on=!!on&&w.charView==='sheet'&&page&&page.classList.contains('active');document.body.classList.toggle('zg-stats-overview',!!on);if(!on){cancelPageAnimation(document.querySelector('.zgmo-state-cards'));close();lastView=null;previousHP=null;}}
   function setInventoryActive(on){if(w.ZargotaMobileInventory)w.ZargotaMobileInventory.setActive(on);var page=document.getElementById('page-characters');document.body.classList.toggle('zg-inventory-view',!!on&&w.charView==='sheet'&&!!page&&page.classList.contains('active'));}
   function inventory(c,content){if(w.ZargotaMobileInventory)return w.ZargotaMobileInventory.render(c);return '<section class="zgmi-sheet"><header class="zgmi-toolbar">'+button('back',t('Назад к персонажам','Назад до персонажів'),'‹')+'<div><h1>'+t('Инвентарь','Інвентар')+'</h1><small>'+e(w.characterEntryText(c,c.name||''))+'</small></div>'+button('menu',t('Действия персонажа','Дії персонажа'),'⋯')+'</header><div class="tab-content-wrap">'+content+'</div></section>';}
   function effects(c){
@@ -29,6 +76,7 @@
       button('next',t('Следующие состояния','Наступні стани'),'›','class="zgmo-state-arrow zgmo-state-next"'+(page<count-1?'':' hidden disabled'))+'</div><span class="zgmo-page-count" aria-live="polite">'+(count>1?(page+1)+' / '+count:'')+'</span></section>';
   }
   function render(c,combat){
+    cancelPageAnimation(document.querySelector('.zgmo-state-cards'));
     current=c.id;
     var labels={str:['Сила','Сила'],dex:['Ловкость','Спритність'],int:['Интеллект','Інтелект'],cha:['Харизма','Харизма'],per:['Восприятие','Сприйняття'],con:['Выносливость','Витривалість']};
     var colors={str:'#ed7676',dex:'#93d18b',int:'#7dc7f0',cha:'#ebbc68',per:'#c59af0',con:'#d7d4cd'};
@@ -43,6 +91,7 @@
   var statusReturnFocus=null;
   function closeStatus(immediate){
     var popup=document.querySelector('#status-info-popup.zgmo-status-dialog');if(!popup)return;
+    cancelPageAnimation(popup.firstElementChild);
     var done=function(){popup.remove();if(statusReturnFocus&&statusReturnFocus.isConnected)statusReturnFocus.focus({preventScroll:true});statusReturnFocus=null;};
     if(immediate||matchMedia('(prefers-reduced-motion:reduce)').matches){done();return;}
     if(popup.classList.contains('zgmo-closing'))return;
@@ -61,11 +110,24 @@
     node.addEventListener('touchcancel',function(){start=null;},{passive:true});
     node.addEventListener('touchend',function(ev){if(!start)return;var first=start;start=null;var touch=ev.changedTouches[0];if(!touch)return;var dx=touch.clientX-first.x,dy=touch.clientY-first.y;if(Date.now()-first.at<900&&Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.4)move(dx<0?1:-1);},{passive:true});
   }
-  function openStatus(c,state,source,direction){
-    var popup=direction&&document.querySelector('#status-info-popup.zgmo-status-dialog'),reuse=!!popup;
+  function openStatus(c,state,source,direction,refreshOnly){
+    var popup=(direction||refreshOnly)&&document.querySelector('#status-info-popup.zgmo-status-dialog'),reuse=!!popup;
     if(!reuse)closeStatus(true);
     var all=effects(c),index=all.findIndex(function(x){return state.effect&&state.effect.id!=null?x.effect&&x.effect.id===state.effect.id:x.key===state.key;});
-    function move(step){var fresh=character();if(!fresh)return;var list=effects(fresh),at=list.findIndex(function(x){return state.effect&&state.effect.id!=null?x.effect&&x.effect.id===state.effect.id:x.key===state.key;});if(at<0){closeStatus(false);return;}if(list[at+step])openStatus(fresh,list[at+step],source,step);}
+    function sameStatus(a,b){return a.effect&&a.effect.id!=null?b.effect&&b.effect.id===a.effect.id:b.key===a.key;}
+    function move(step){
+      var fresh=character();if(!fresh||popup.classList.contains('zgmo-closing'))return;
+      var selected=popup._statusCurrent||state,list=effects(fresh),at=list.findIndex(function(x){return sameStatus(selected,x);});
+      if(at<0){closeStatus(false);return;}if(!list[at+step])return;
+      var nextState=list[at+step];popup._statusCurrent=nextState;
+      popup.querySelectorAll('[data-status-step]').forEach(function(nav){nav.hidden=Number(nav.dataset.statusStep)<0?at+step<=0:at+step>=list.length-1;});
+      animatePage(popup.firstElementChild,step,function(){
+        var latest=character();if(!latest||String(latest.id)!==String(c.id)||!popup.isConnected||popup.classList.contains('zgmo-closing'))return false;
+        var present=effects(latest).find(function(x){return sameStatus(nextState,x);});
+        if(!present){closeStatus(false);return false;}
+        openStatus(latest,present,source,step);return popup.firstElementChild;
+      });
+    }
 
     var st=(w.ALL_STATUSES||[]).find(function(x){return x.key===state.key;})||{},f=state.effect||{};
     var mech=(typeof w.getStatusMechanics==='function'?w.getStatusMechanics():[]).find(function(x){return x.key===state.key;})||{};
@@ -81,6 +143,7 @@
     var hero=popup.querySelector('.zgmo-status-hero');
     [-1,1].forEach(function(step){var nav=document.createElement('button');nav.type='button';nav.className='zgmo-status-browse '+(step<0?'is-prev':'is-next');nav.dataset.statusStep=step;nav.setAttribute('aria-label',step<0?t('Предыдущее состояние','Попередній стан'):t('Следующее состояние','Наступний стан'));nav.textContent=step<0?'‹':'›';nav.hidden=step<0?index<=0:index>=all.length-1;nav.onclick=function(){move(step);};hero.appendChild(nav);});
     statusReturnFocus=source;
+    popup._statusCurrent=state;
     popup._moveStatus=move;
     if(!reuse){
       swipeOn(popup,function(step){if(!popup.classList.contains('zgmo-closing'))popup._moveStatus(step);});
@@ -92,11 +155,25 @@
     popup.querySelector('.zgmo-remove-status').onclick=function(){closeStatus(true);if(state.key)w.removeStatusFromInfo(c.id,state.key);else if(f.id!=null)w.removeEffect(c.id,f.id);};
     popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};
     if(!reuse){document.body.appendChild(popup);popup.querySelector('.zgmo-status-dismiss').focus({preventScroll:true});}
-    else {
+    else if(!refreshOnly){
       var focus=popup.querySelector('[data-status-step="'+direction+'"]:not([hidden])')||popup.querySelector('.zgmo-status-dismiss');focus.focus({preventScroll:true});
-      if(!matchMedia('(prefers-reduced-motion:reduce)').matches)[hero,popup.querySelector('.zgmo-status-body')].forEach(function(node){node.animate([{opacity:.25,transform:'translateX('+direction*12+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:170,easing:'ease-out'});});
     }
   }
+  document.addEventListener('zargota:localechange',function(){
+    cancelPageAnimation(document.querySelector('.zgmo-state-cards'));
+    var popup=document.querySelector('#status-info-popup.zgmo-status-dialog'),c=character();
+    if(!popup||!c||popup.classList.contains('zgmo-closing'))return;
+    cancelPageAnimation(popup.firstElementChild);
+    var selected=popup._statusCurrent,state=selected&&effects(c).find(function(x){return selected.effect&&selected.effect.id!=null?x.effect&&x.effect.id===selected.effect.id:x.key===selected.key;});
+    if(!state){closeStatus(true);return;}
+    var body=popup.querySelector('.zgmo-status-body'),scroll=body?body.scrollTop:0,focus=document.activeElement;
+    var expanded=!popup.querySelector('#zgmo-status-actions').hidden,selector=focus&&focus.hasAttribute('data-status-step')?'[data-status-step="'+focus.dataset.statusStep+'"]':focus&&focus.classList.contains('zgmo-status-tool')?'.zgmo-status-tool':focus&&focus.classList.contains('zgmo-remove-status')?'.zgmo-remove-status':focus&&focus.classList.contains('zgmo-status-dismiss')?'.zgmo-status-dismiss':null;
+    openStatus(c,state,statusReturnFocus,0,true);
+    popup.querySelector('.zgmo-status-body').scrollTop=scroll;
+    popup.querySelector('#zgmo-status-actions').hidden=!expanded;
+    popup.querySelector('.zgmo-status-tool').setAttribute('aria-expanded',String(expanded));
+    if(selector){var nextFocus=popup.querySelector(selector);if(nextFocus)nextFocus.focus({preventScroll:true});}
+  });
   function healthHTML(c){
     var temp=w.readTempHpTotal(c);
     return '<div class="zgmo-health-tools">'+[['hpCur',t('Текущее здоровье','Поточне здоров’я'),c.hpCur||0],['hpMax',t('Максимум здоровья','Максимум здоров’я'),c.hpMax||1]].map(function(x){return button('health-number',x[1],'<span>'+x[1]+'</span><b>'+e(x[2])+'</b>','data-field="'+x[0]+'"');}).join('')+button('health-temp',t('Временные HP','Тимчасові HP'),'<span>'+t('Временные HP','Тимчасові HP')+'</span><b>+'+temp+'</b>')+'</div>';
@@ -215,12 +292,18 @@
     else if(name==='level')w.openLevelManager(c.id);
     else if(name==='health')modal(t('Здоровье','Здоров’я'),healthHTML(c)).dataset.tools='true';
     else if(name==='prev'||name==='next'){
-      pages[c.id]=Math.max(0,(pages[c.id]||0)+(name==='next'?1:-1));
-      var holder=document.createElement('template');holder.innerHTML=states(c);var next=holder.content.firstElementChild,root=document.querySelector('.zgmo-states'),cards=root.querySelector('.zgmo-state-cards');
-      cards.getAnimations().forEach(function(a){a.cancel();});updateMarkup(cards,next.querySelector('.zgmo-state-cards').innerHTML);
-      ['prev','next'].forEach(function(key){var target=root.querySelector('[data-zgmo='+key+']'),source=next.querySelector('[data-zgmo='+key+']');target.hidden=source.hidden;target.disabled=source.disabled;});
-      root.querySelector('.zgmo-page-count').textContent=next.querySelector('.zgmo-page-count').textContent;
-      if(!matchMedia('(prefers-reduced-motion:reduce)').matches&&cards.animate)cards.animate([{opacity:0,transform:'translateX('+(name==='next'?14:-14)+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:230,easing:'cubic-bezier(.2,.8,.2,1)'});
+      var step=name==='next'?1:-1,count=Math.max(1,Math.ceil(effects(c).length/2)),at=pages[c.id]||0,nextPage=Math.max(0,Math.min(count-1,at+step));
+      if(nextPage===at)return;pages[c.id]=nextPage;
+      var root=document.querySelector('.zgmo-states'),cards=root&&root.querySelector('.zgmo-state-cards');
+      if(root){root.querySelector('[data-zgmo=prev]').hidden=nextPage<=0;root.querySelector('[data-zgmo=prev]').disabled=nextPage<=0;root.querySelector('[data-zgmo=next]').hidden=nextPage>=count-1;root.querySelector('[data-zgmo=next]').disabled=nextPage>=count-1;}
+      animatePage(cards,step,function(){
+        var latest=character();if(!latest||String(latest.id)!==String(c.id)||!root.isConnected)return false;
+        var holder=document.createElement('template');holder.innerHTML=states(latest);var next=holder.content.firstElementChild;
+        updateMarkup(cards,next.querySelector('.zgmo-state-cards').innerHTML);
+        ['prev','next'].forEach(function(key){var target=root.querySelector('[data-zgmo='+key+']'),source=next.querySelector('[data-zgmo='+key+']');target.hidden=source.hidden;target.disabled=source.disabled;});
+        root.querySelector('.zgmo-page-count').textContent=next.querySelector('.zgmo-page-count').textContent;
+        return cards;
+      });
     }
     else if(name==='number')openNumber(c,el.dataset.stat,el.getAttribute('aria-label'),el.value,'stat',el);
     else if(name==='status'){var state=effects(c)[Number(el.dataset.index)];if(state)openStatus(c,state,el);}
@@ -259,5 +342,5 @@
     return '<svg class="zgmo-nav-icon" viewBox="0 0 64 64" width="30" height="30" aria-hidden="true" focusable="false" fill="currentColor">'+(shapes[key]||shapes.stats)+'</svg>';
   }
   var mobile=matchMedia('(max-width: 899px)');mobile.addEventListener('change',function(){if(w.charView==='sheet'&&document.getElementById('page-characters').classList.contains('active')){w.renderCharSheet();}else setActive(false);});
-  w.ZargotaMobileSheet={setInventoryActive:setInventoryActive,inventory:inventory,updateMarkup:updateMarkup,render:render,fame:fame,navIcon:navIcon,setActive:setActive,mounted:mounted,openTools:function(){action('health');},openMenu:function(){action('menu');}};
+  w.ZargotaMobileSheet={setInventoryActive:setInventoryActive,inventory:inventory,updateMarkup:updateMarkup,animatePage:animatePage,cancelPageAnimation:cancelPageAnimation,render:render,fame:fame,navIcon:navIcon,setActive:setActive,mounted:mounted,openTools:function(){action('health');},openMenu:function(){action('menu');}};
 })(window);

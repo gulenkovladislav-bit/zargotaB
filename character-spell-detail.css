@@ -628,12 +628,39 @@
 
 /* Personal abilities keep one reading flow and their own real usage limits. */
 #zgms-dialog.zgms-spell-dialog .zgms-simple-panel > header { border-bottom: 1px solid var(--zgms-line); }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-charges { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; flex: 0 0 auto; gap: 10px; margin: 0 18px; padding: 9px 0; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-charges > button { width: 44px; height: 44px; padding: 0; border: 1px solid #8a6c3e; border-radius: 6px 2px; background: #251b0e; color: #e8cc91; font-size: 25px; line-height: 1; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-charges > button:disabled { opacity: .35; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy strong { font-size: 20px; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy small { font-size: 12px; }
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions {
+  display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr);
+  align-items: center; flex: 0 0 auto; gap: 3px 8px;
+  margin: 0 18px; padding: 8px 0; border-bottom: 1px solid var(--zgms-line);
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-apply {
+  grid-column: 2; grid-row: 1; min-width: 0; width: 100%; min-height: 44px;
+  padding: 7px 9px; font-size: 16px; line-height: 1.2;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-restore {
+  grid-column: 1; grid-row: 1; min-height: 44px; width: fit-content; max-width: 100%;
+  padding: 5px 0; border: 0; background: none; box-shadow: none;
+  color: #d7bd84; font: 13px/1.3 Georgia, serif; text-align: left;
+  text-decoration: underline; text-decoration-color: #8a6c3e; text-underline-offset: 3px;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-restore:disabled {
+  color: #827661; text-decoration: none; cursor: default;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charges {
+  display: block; grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  font-size: 11px; line-height: 1.2; text-align: right;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
+#zgms-dialog.zgms-spell-dialog .zgms-personal-recovery {
+  grid-column: 1 / -1; margin: 0; color: var(--zgms-muted); text-align: center;
+  font: 12px/1.3 Georgia, serif; overflow-wrap: anywhere;
+}
+@media (max-width: 359px) {
+  #zgms-dialog.zgms-spell-dialog .zgms-personal-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); margin: 0 14px; gap: 3px 6px; }
+}
 #zgms-dialog.zgms-spell-dialog .zgms-simple-note { margin: 0 0 12px; color: var(--zgms-muted); font: 14px/1.4 Georgia, serif; }
 /* The same authored rule structure also serves the desktop ability reader. */
 .zgms-personal-rules {

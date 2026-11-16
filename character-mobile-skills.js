@@ -80,13 +80,24 @@
   return '<div class="zgms-filter"'+(v.group==='learned'?'':' hidden')+'>'+['equipped','all','unlearned'].map(function(key){var label=key==='equipped'?t('Экипировано','Споряджено'):key==='all'?t('Изучено','Вивчено'):t('Не изучено','Не вивчено');return button('filter',label,label,'data-filter="'+key+'" aria-pressed="'+(v.filter===key)+'"');}).join('')+'</div><div class="zgms-grid" id="zgms-cards">'+(all.length?all.slice(page*4,page*4+4).map(function(row){return card(c,row);}).join(''):'<div class="zgms-empty"><span>◇</span><p>'+empty+'</p>'+(v.group==='learned'&&v.filter==='equipped'?'':button('add',t('Добавить способности','Додати здібності'),t('Добавить','Додати')))+'</div>')+'</div><div class="zgms-pagination">'+button('prev',t('Предыдущая страница','Попередня сторінка'),'‹',page?'':'disabled')+'<span aria-live="polite">'+(page+1)+' / '+count+'</span>'+button('next',t('Следующая страница','Наступна сторінка'),'›',page<count-1?'':'disabled')+'</div>';
  }
  function markup(c){var v=view(),names=labels();return '<section class="zgms-screen" data-zg-i18n-skip><header class="zgms-header">'+button('back',t('Назад к персонажам','Назад до персонажів'),'‹')+'<h1>'+t('Навыки','Навички')+'</h1>'+button('menu',t('Действия раздела','Дії розділу'),'⋯','aria-expanded="false"')+'</header><nav class="zgms-tabs" aria-label="'+t('Разделы навыков','Розділи навичок')+'">'+Object.keys(names).map(function(key){return button('group',names[key],names[key],'data-group="'+key+'" aria-pressed="'+(v.group===key)+'"');}).join('')+'</nav><div class="zgms-content">'+content(c)+'</div></section>';}
- function active(on,forceClose){document.body.classList.toggle('zg-skills-view',!!on);if(!on){if(forceClose||!dialogDesktop)close();document.querySelector('.zgms-menu')?.remove();}}
- function render(c){if(dialogKey&&String(current)!==String(c.id))close();current=c.id;return markup(c);}
+ function cancelPaging(){var sheet=w.ZargotaMobileSheet,grid=document.querySelector('.zgms-grid');if(grid&&sheet&&sheet.cancelPageAnimation)sheet.cancelPageAnimation(grid);}
+ function active(on,forceClose){if(!on)cancelPaging();document.body.classList.toggle('zg-skills-view',!!on);if(!on){if(forceClose||!dialogDesktop)close();document.querySelector('.zgms-menu')?.remove();}}
+ function render(c){if(String(current)!==String(c.id))cancelPaging();if(dialogKey&&String(current)!==String(c.id))close();current=c.id;return markup(c);}
  function refresh(after){
+  cancelPaging();
   if(!document.body.classList.contains('zg-skills-view')&&!dialogKey)return;
   cancelAnimationFrame(refreshFrame);refreshFrame=requestAnimationFrame(function(){var c=char(),root=document.querySelector('.zgms-screen');if(!c)return;if(root&&document.body.classList.contains('zg-skills-view'))w.ZargotaMobileSheet.updateMarkup(root.parentElement,markup(c));if(dialogKey)updateDialog();if(typeof after==='function')after();});
  }
- function page(delta){var v=view(),key=v.group+'-'+v.filter;v.pages[key]=Math.max(0,(v.pages[key]||0)+delta);refresh();requestAnimationFrame(function(){var grid=document.querySelector('.zgms-grid');if(grid&&!matchMedia('(prefers-reduced-motion:reduce)').matches)grid.animate([{opacity:.25,transform:'translateX('+(delta*10)+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:180,easing:'ease-out'});});}
+ function page(delta){
+  var c=char();if(!c)return;var v=view(),key=v.group+'-'+v.filter,previous=v.pages[key]||0,count=Math.max(1,Math.ceil(selected(c).length/4));
+  v.pages[key]=Math.max(0,Math.min(count-1,previous+delta));if(v.pages[key]===previous)return;
+  var grid=document.querySelector('.zgms-grid'),sheet=w.ZargotaMobileSheet;
+  if(grid&&sheet.animatePage)sheet.animatePage(grid,delta,function(){
+   var root=document.querySelector('.zgms-screen'),latest=char();if(!root||!latest||!document.body.classList.contains('zg-skills-view'))return false;
+   sheet.updateMarkup(root.parentElement,markup(latest));return document.querySelector('.zgms-grid');
+  });
+  else refresh();
+ }
  function close(refreshSheet){closeArt(false);skillGesture=null;var redraw=refreshSheet&&dialogDesktop&&dialogDirty&&String(w.viewingCharId)===String(current);var dialog=document.getElementById('zgms-dialog');if(dialog)dialog.remove();dialogKey=null;dialogDesktop=false;dialogDirty=false;detailScroll={};if(redraw&&typeof w.renderCharSheet==='function')w.renderCharSheet();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
  function spellMeta(c,sp){
   var categoryNames={damage:['Урон','Шкода'],aoe:['Область','Область'],control:['Контроль','Контроль'],defense:['Защита','Захист'],heal:['Исцеление','Зцілення'],buff:['Усиление','Посилення'],debuff:['Ослабление','Послаблення'],move:['Движение','Рух'],info:['Информация','Інформація'],illusion:['Иллюзии','Ілюзії'],support:['Вспомогательные','Допоміжні'],summon:['Призыв','Заклик'],transform:['Трансформация','Перетворення'],necro:['Некромантия','Некромантія'],curse:['Проклятия','Прокляття'],risk:['Риск','Ризик']};
@@ -101,12 +112,16 @@
   var viewer=document.getElementById('zgms-art-viewer');if(viewer){viewer.close();viewer.remove();}
   if(restoreFocus&&artReturnFocus&&artReturnFocus.isConnected)artReturnFocus.focus({preventScroll:true});artReturnFocus=null;
  }
+ function artMarkup(c,row){
+  var helper=w.ZargotaSpellDetailContent,captionItem=row.spell?row.item:Object.assign({},row.item,{description:row.description}),caption=helper&&helper.artCaption?helper.artCaption(captionItem,function(value){return !row.spell&&value===row.description?value:text(c,value,row.spell&&row.item);}):'';
+  return button('close-art',t('Закрыть изображение','Закрити зображення'),detailIcon('close'),'autofocus')+'<figure><img src="'+e(row.art.src)+'" alt="'+e(row.name)+'" draggable="false"><figcaption><h2 id="zgms-art-title">'+e(row.name)+'</h2>'+(caption?'<blockquote>«'+e(caption)+'»</blockquote>':'')+'</figcaption></figure>';
+ }
  function previewArt(source){
   var c=char(),row=c&&rows(c).find(function(x){return x.key===dialogKey;});if(!row)return;
   closeArt(false);skillGesture=null;artReturnFocus=source;
-  var helper=w.ZargotaSpellDetailContent,captionItem=row.spell?row.item:Object.assign({},row.item,{description:row.description}),caption=helper.artCaption(captionItem,function(value){return !row.spell&&value===row.description?value:text(c,value,row.spell&&row.item);}),viewer=document.createElement('dialog');
+  var viewer=document.createElement('dialog');
   viewer.id='zgms-art-viewer';viewer.setAttribute('data-zg-i18n-skip','');viewer.setAttribute('aria-labelledby','zgms-art-title');
-  viewer.innerHTML=button('close-art',t('Закрыть изображение','Закрити зображення'),detailIcon('close'),'autofocus')+'<figure><img src="'+e(row.art.src)+'" alt="'+e(row.name)+'" draggable="false"><figcaption><h2 id="zgms-art-title">'+e(row.name)+'</h2>'+(caption?'<blockquote>«'+e(caption)+'»</blockquote>':'')+'</figcaption></figure>';
+  viewer.innerHTML=artMarkup(c,row);
   viewer.addEventListener('cancel',function(ev){ev.preventDefault();closeArt(true);});
   viewer.addEventListener('keydown',function(ev){ev.stopPropagation();if(ev.key==='Escape'){ev.preventDefault();closeArt(true);}else if(ev.key==='Tab'){ev.preventDefault();viewer.querySelector('[data-zgms=close-art]').focus({preventScroll:true});}});
   document.body.appendChild(viewer);viewer.showModal();
@@ -149,11 +164,17 @@
   var helper=w.ZargotaSpellDetailContent,r=row.resource,busy=!!(pending&&String(pending.id)===String(c.id)&&pending.key===row.key),disabled=busy?' disabled aria-busy="true"':'',usage=recoveryLabel(text(c,r.text),r);
   var rules=w.characterAbilityRulesHtml(row.description,row.item);
   var origin=sourceLabel(row),classification=origin+(row.type&&row.type!==origin?' · '+row.type:'')+(row.item.descByLevel?' · '+t('Ур. ','Рів. ')+(c.level||1):'');
-  var charges=r.max?'<div class="zgms-charges zgms-simple-charges'+(!r.remaining?' exhausted':'')+'">'+button('spend',t('Потратить использование','Витратити використання'),'−',disabled+(r.remaining?'':' disabled'))+'<div class="zgms-charge-copy"><span>'+t('Осталось','Залишилось')+' <strong aria-live="polite">'+r.remaining+' / '+r.max+'</strong></span>'+(usage?'<small>'+e(usage)+'</small>':'')+'</div>'+button('restore',t('Вернуть использование','Повернути використання'),'＋',disabled+(r.used?'':' disabled'))+'</div>':'';
+  var applyLabel=r.remaining?t('Применить','Застосувати'):t('Нет зарядов','Немає зарядів');
+  var charges=r.max?'<div class="zgms-personal-actions">'+
+   button('restore',t('Вернуть один заряд','Повернути один заряд'),t('Вернуть заряд','Повернути заряд'),'class="zgms-restore"'+disabled+(r.used?'':' disabled'))+
+   button('spend',applyLabel,applyLabel,'class="zgms-apply"'+disabled+(r.remaining?'':' disabled'))+
+   '<div class="zgms-charges'+(!r.remaining?' exhausted':'')+'"><div class="zgms-charge-copy"><span>'+t('Осталось','Залишилось')+'</span><strong aria-live="polite">'+r.remaining+' / '+r.max+'</strong></div></div>'+
+   (usage?'<small class="zgms-personal-recovery">'+e(usage)+'</small>':'')+'</div>':'';
   return detailHeading(row,classification,'',disabled)+charges+'<div class="zgms-detail-body">'+(!r.max&&usage?'<p class="zgms-simple-note">'+e(usage)+'</p>':'')+'<div class="zgms-rules">'+rules+'</div></div>';
  }
  function details(c,row){
-  if(w.ZargotaSpellDetailContent)return row.spell?spellDetails(c,row):abilityDetails(c,row);
+  if(!row.spell)return abilityDetails(c,row);
+  if(w.ZargotaSpellDetailContent)return spellDetails(c,row);
   var fields=row.spell?[[t('Эффект','Ефект'),row.item.effect],[t('Бой','Бій'),row.item.battle],[t('Проявление','Прояв'),row.item.manifestation],[t('Описание','Опис'),row.item.description],[t('Обучение','Навчання'),row.item.learnText],[t('Ограничения','Обмеження'),row.item.restriction]].concat((row.item.optFields||[]).map(function(f){return [text(c,f.label,row.item),f.text];})):[];
   var r=row.resource,usage=recoveryLabel(text(c,r.text,row.spell&&row.item),r),seen=new Set();
   var rules=row.spell?fields.filter(function(f){if(!f[1])return false;var value=text(c,f[1],row.item).trim();if(seen.has(value))return false;seen.add(value);return true;}).map(function(f){return '<section class="zgms-rule"><h3>'+e(f[0])+'</h3><p>'+e(text(c,f[1],row.item))+'</p></section>';}).join(''):'<div class="zgms-rules">'+w.characterAbilityRulesHtml(row.description,row.item)+'</div>';
@@ -267,6 +288,16 @@
  document.addEventListener('click',function(ev){if(Date.now()<suppressSkillClickUntil&&ev.target.closest('.zgms-grid')){ev.preventDefault();ev.stopImmediatePropagation();}},true);
  document.addEventListener('keydown',function(ev){if(!dialogKey)return;var tab=ev.target.closest('[data-zgms=detail-tab]');if(tab&&['ArrowLeft','ArrowRight','Home','End'].includes(ev.key)){var ids=['use','learn','description'],i=ids.indexOf(detailTab);selectDetailTab(ids[ev.key==='Home'?0:ev.key==='End'?2:(i+(ev.key==='ArrowRight'?1:2))%3],true);ev.preventDefault();return;}if(ev.key==='Escape'){close(true);ev.preventDefault();}if(ev.key==='Tab'){var els=Array.from(document.querySelectorAll('#zgms-dialog button')).filter(function(el){return !el.disabled&&el.getClientRects().length;}),first=els[0],last=els[els.length-1];if(ev.shiftKey&&document.activeElement===first){last.focus();ev.preventDefault();}else if(!ev.shiftKey&&document.activeElement===last){first.focus();ev.preventDefault();}}});
  document.addEventListener('error',function(ev){var img=ev.target;if(img.tagName==='IMG'&&img.closest('.zgms-art,.zgms-detail-art')){img.hidden=true;}},true);
+ document.addEventListener('zargota:localechange',function(){
+  skillGesture=null;
+  document.querySelector('.zgms-menu')?.remove();
+  document.querySelectorAll('[data-zgms][aria-expanded=true]').forEach(function(node){node.setAttribute('aria-expanded','false');});
+  refresh(function(){
+   var viewer=document.getElementById('zgms-art-viewer'),c=char(),row=c&&rows(c).find(function(x){return x.key===dialogKey;});
+   if(viewer&&row)w.ZargotaMobileSheet.updateMarkup(viewer,artMarkup(c,row));
+   var panel=document.querySelector('#zgms-dialog>section');if(panel)panel.setAttribute('aria-label',t('Описание способности','Опис здібності'));
+  });
+ });
  if(w.matchMedia)w.matchMedia('(max-width:899px)').addEventListener('change',function(){if(dialogKey)refresh();});
  w.ZargotaMobileSkills={render:render,setActive:active,refresh:refresh,rows:rows,category:category,resource:resource,openSpell:openSpell};
 })(window);
