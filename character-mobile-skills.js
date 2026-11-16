@@ -147,14 +147,10 @@
  }
  function abilityDetails(c,row){
   var helper=w.ZargotaSpellDetailContent,r=row.resource,busy=!!(pending&&String(pending.id)===String(c.id)&&pending.key===row.key),disabled=busy?' disabled aria-busy="true"':'',usage=recoveryLabel(text(c,r.text),r);
-  var rules=document.createElement('template');rules.innerHTML=w.characterAbilityRulesHtml(row.description,row.item);
-  // Highlight escaped text only; preserve the author's existing sections and list structure.
-  var walker=document.createTreeWalker(rules.content,NodeFilter.SHOW_TEXT),nodes=[],node;
-  while((node=walker.nextNode()))nodes.push(node);
-  nodes.forEach(function(textNode){var marked=document.createElement('template');marked.innerHTML=helper.highlight(textNode.data);textNode.replaceWith(marked.content);});
+  var rules=w.characterAbilityRulesHtml(row.description,row.item);
   var origin=sourceLabel(row),classification=origin+(row.type&&row.type!==origin?' · '+row.type:'')+(row.item.descByLevel?' · '+t('Ур. ','Рів. ')+(c.level||1):'');
   var charges=r.max?'<div class="zgms-charges zgms-simple-charges'+(!r.remaining?' exhausted':'')+'">'+button('spend',t('Потратить использование','Витратити використання'),'−',disabled+(r.remaining?'':' disabled'))+'<div class="zgms-charge-copy"><span>'+t('Осталось','Залишилось')+' <strong aria-live="polite">'+r.remaining+' / '+r.max+'</strong></span>'+(usage?'<small>'+e(usage)+'</small>':'')+'</div>'+button('restore',t('Вернуть использование','Повернути використання'),'＋',disabled+(r.used?'':' disabled'))+'</div>':'';
-  return detailHeading(row,classification,'',disabled)+charges+'<div class="zgms-detail-body">'+(!r.max&&usage?'<p class="zgms-simple-note">'+e(usage)+'</p>':'')+'<div class="zgms-rules">'+rules.innerHTML+'</div></div>';
+  return detailHeading(row,classification,'',disabled)+charges+'<div class="zgms-detail-body">'+(!r.max&&usage?'<p class="zgms-simple-note">'+e(usage)+'</p>':'')+'<div class="zgms-rules">'+rules+'</div></div>';
  }
  function details(c,row){
   if(w.ZargotaSpellDetailContent)return row.spell?spellDetails(c,row):abilityDetails(c,row);

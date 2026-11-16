@@ -635,16 +635,48 @@
 #zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy strong { font-size: 20px; }
 #zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy small { font-size: 12px; }
 #zgms-dialog.zgms-spell-dialog .zgms-simple-note { margin: 0 0 12px; color: var(--zgms-muted); font: 14px/1.4 Georgia, serif; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-section { margin: 12px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #4c3c23; background: none; box-shadow: none; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-copy { display: flex; flex-direction: column; gap: 7px; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-section h4 { margin: 0 0 6px; color: var(--zgms-gold); font: 600 18px/1.3 Georgia, serif; letter-spacing: 0; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-paragraph,
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-copy ul { margin: 0; padding: 0; color: var(--zgms-ink); font: 16px/1.45 Georgia, serif; overflow-wrap: anywhere; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-copy ul { padding-left: 20px; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .outcome-benefit,
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .outcome-danger { border: 0; background: none; box-shadow: none; }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .tone-roleplay .char-ability-rule-paragraph { color: #c5b797; }
+/* The same authored rule structure also serves the desktop ability reader. */
+.zgms-personal-rules {
+  --personal-ink: #eee4cf; --personal-gold: #ddbd77;
+  --personal-benefit: #9cc98e; --personal-danger: #df9a87;
+  --personal-limit: #d7b978; --personal-check: #9ec8d8;
+  display: flex; flex-direction: column; gap: 0;
+}
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules { display: block; gap: 0; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section { margin: 14px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #4c3c23; border-radius: 0; background: none; box-shadow: none; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-copy { display: flex; flex-direction: column; gap: 9px; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules h4 { margin: 0 0 7px; color: var(--personal-gold); font: 600 16px/1.3 Georgia, serif; letter-spacing: 0; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-benefit h4 { color: var(--personal-benefit); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-danger h4 { color: var(--personal-danger); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-limit h4 { color: var(--personal-limit); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-check h4 { color: var(--personal-check); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-paragraph,
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { margin: 0; padding: 0; color: var(--personal-ink); font: 400 16px/1.45 Georgia, serif; overflow-wrap: anywhere; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { display: grid; gap: 8px; list-style: none; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list li { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: baseline; gap: 9px; padding: 0; }
+.zgms-personal-rules .zgms-list-marker { min-width: 12px; color: var(--personal-gold); font-variant-numeric: tabular-nums; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-quote { margin: 1px 0; padding: 2px 0 2px 12px; border: 0; border-left: 1px solid #706044; color: #c7b89c; background: none; font: italic 15px/1.45 Georgia, serif; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-outcome { padding: 5px 0 5px 10px; border: 0; border-left: 2px solid var(--outcome-color); border-radius: 0; background: none; box-shadow: none; }
+.zgms-personal-rules .outcome-benefit { --outcome-color: var(--personal-benefit); }
+.zgms-personal-rules .outcome-danger { --outcome-color: var(--personal-danger); }
+.zgms-personal-rules .zgms-outcome-label { color: var(--outcome-color); font-weight: 600; }
+.zgms-personal-rules .zgms-param,
+.zgms-personal-rules .zgms-number,
+.zgms-personal-rules .zgms-rule-key { font-weight: 600; }
+.zgms-personal-rules .zgms-number { color: #fff0d0; }
+.zgms-personal-rules .stat-str { color: #ed7676; }
+.zgms-personal-rules .stat-dex { color: #93d18b; }
+.zgms-personal-rules .stat-int { color: #7dc7f0; }
+.zgms-personal-rules .stat-cha { color: #ebbc68; }
+.zgms-personal-rules .stat-per { color: #c59af0; }
+.zgms-personal-rules .stat-con { color: #d7d4cd; }
+.zgms-personal-rules .key-benefit { color: var(--personal-benefit); }
+.zgms-personal-rules .key-danger { color: var(--personal-danger); }
+.zgms-personal-rules .key-limit { color: var(--personal-limit); }
+.zgms-personal-rules .key-check,
+#zgms-dialog .zgms-personal-rules .zgms-difficulty,
+.zgms-personal-rules .zgms-difficulty { color: var(--personal-check); }
 
 /* Native modal keeps the sheet inert and returns focus without rebuilding it. */
 #zgms-art-viewer {

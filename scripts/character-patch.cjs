@@ -10,13 +10,31 @@ const ROOT = path.resolve(__dirname, '..');
 const collections = new Set(['skills', 'mastery', 'inventoryItems', 'journalEntries']);
 const record = v => v && typeof v === 'object' && !Array.isArray(v);
 function need(ok, message) { if (!ok) throw Error(message); }
+function projectImagePath(value) {
+  return typeof value === 'string' && /^(?:images|assets)\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp|gif|avif)$/i.test(value) &&
+    value.split('/').every(part => part && part !== '.' && part !== '..');
+}
 
 function mergePatch(character, patch) {
   need(record(patch) && patch.characterId != null && typeof patch.campaignKey === 'string' && patch.campaignKey, 'Specify characterId AND campaignKey');
   need(String(character.id) === String(patch.characterId) && character.campaignKey === patch.campaignKey, 'Character identity mismatch');
-  need(Array.isArray(patch.operations) && patch.operations.length > 0 && patch.operations.length <= 100, 'Invalid operations');
+  const hasPortrait = Object.hasOwn(patch, 'portrait');
+  const operations = patch.operations === undefined && hasPortrait ? [] : patch.operations;
+  need(Array.isArray(operations) && operations.length <= 100 && (operations.length > 0 || hasPortrait), 'Invalid operations');
   const next = structuredClone(character);
-  for (const op of patch.operations) {
+  if (hasPortrait) {
+    const change = patch.portrait;
+    need(record(change) && Object.keys(change).length === 2 && projectImagePath(change.from) && projectImagePath(change.to), 'Portrait needs from/to project-relative image paths');
+    need(next.portrait === change.from || next.portrait === change.to, 'Portrait changed; inspect the current choice before retrying');
+    // A rerun never clears focus or a later explicit choice of the same image.
+    if (next.portrait !== change.to) {
+      need(!next.portraitThumb && !next.portraitChoice, 'Personal portrait or explicit choice must be preserved');
+      next.portrait = change.to;
+      delete next.portraitFocusX;
+      delete next.portraitFocusY;
+    }
+  }
+  for (const op of operations) {
     need(record(op) && collections.has(op.collection) && record(op.match) && record(op.set), 'Invalid entry operation');
     const keys = Object.keys(op.match), key = keys[0];
     need(keys.length === 1 && ['id', 'name'].includes(key) && String(op.match[key] ?? '').length > 0, 'Match one stable id or exact legacy name');

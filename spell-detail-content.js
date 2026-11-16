@@ -60,6 +60,67 @@
  }
  function rules(fields){return fields.map(function(f){return '<section class="zgms-rule">'+(f.heading?'<h3>'+escape(f.heading)+'</h3>':'')+(f.body?paragraphs(f.body).map(function(line){return '<p>'+highlight(line)+'</p>';}).join(''):'')+'</section>';}).join('');}
  function requirements(value){var re=new RegExp('(?<![\\p{L}])(?:'+statPattern+')\\s*[:—-]?\\s*\\d+\\s*\\+','giu');return Array.from(new Set(String(value||'').match(re)||[]));}
+ var personalTerms={
+  benefit:'преимуществ[\\p{L}]*|переваг[\\p{L}]*',
+  danger:'помех[\\p{L}]*|перешкод[\\p{L}]*|штраф[\\p{L}]*',
+  limit:'не\\s+(?:действует|діє|працює|спрацьовує)|требует|потребує|максимум',
+  check:'провер[\\p{L}]*|перевір[\\p{L}]*|спасброс[\\p{L}]*|рятівн[\\p{L}]*'
+ };
+ var personalStatPattern='(?:'+statPattern+')(?:\\s*[:—-]?\\s*(?:\\d+\\s*\\+|[+−–-]\\s*\\d+))?';
+ var personalTokens=new RegExp('(?<![\\p{L}\\p{N}])(?:'+personalStatPattern+'|(?:Сл|КС|DC)\\s*[:.]?\\s*\\d+(?:\\s*[–—-]\\s*\\d+)?\\+?|[+−–-]?(?:\\d+)?[dдк]\\d+|[+−–-]?\\d+(?:\\s*[–—-]\\s*\\d+)?(?:\\s*(?:метр[\\p{L}]*|м|клет[\\p{L}]*|клітин[\\p{L}]*|раунд[\\p{L}]*|ход[\\p{L}]*|хід|хвилин[\\p{L}]*|минут[\\p{L}]*|час(?:а|ов)?|годин[\\p{L}]*|секунд[\\p{L}]*|HP|хп|ОЗ|%))?|'+Object.keys(personalTerms).map(function(k){return personalTerms[k];}).join('|')+')(?![\\p{L}\\p{N}])','giu');
+ function highlightPersonal(value){
+  var str=String(value==null?'':value),out='',last=0;
+  for(var match of str.matchAll(personalTokens)){
+   var stat=stats.find(function(x){return new RegExp('^(?:'+x[1]+')(?![\\p{L}])','iu').test(match[0]);});
+   var term=Object.keys(personalTerms).find(function(k){return new RegExp('^(?:'+personalTerms[k]+')$','iu').test(match[0]);});
+   var cls=stat?'zgms-param stat-'+stat[0]:term?'zgms-rule-key key-'+term:/^(?:Сл|КС|DC)/i.test(match[0])?'zgms-number zgms-difficulty':'zgms-number';
+   out+=escape(str.slice(last,match.index))+'<span class="'+cls+'">'+escape(match[0])+'</span>';last=match.index+match[0].length;
+  }
+  return out+escape(str.slice(last));
+ }
+ function personalRules(value){
+  var sections=[],current=null;
+  function begin(label,tone){current={label:label||'',tone:tone||'neutral',items:[]};sections.push(current);}
+  function tone(label){
+   if(/^(?:бонус|переваг|успех|успіх)/iu.test(label))return 'benefit';
+   if(/^(?:минус|мінус|провал|невдач|побочн|побічн)/iu.test(label))return 'danger';
+   if(/огранич|обмеж|услови|умов/iu.test(label))return 'limit';
+   if(/провер|перевір|спасброс|рятівн/iu.test(label))return 'check';
+   if(/фраза|ролевая|рольова|описание злобы|опис люті/iu.test(label))return 'roleplay';
+   return 'neutral';
+  }
+  function add(kind,text,label,accent){if(!current)begin();current.items.push({kind:kind,text:text,label:label||'',tone:accent||''});}
+  var labels=/^(?:суть|фраза|бонус|минус(?:\s*\([^)]*\))?|мінус(?:\s*\([^)]*\))?|выбрать одно|обрати одне|в природной среде|у природному середовищі|доступ к базовым эффектам|доступ до базових ефектів|возможности|можливості|ограничения|обмеження|условия|умови|сомнение|сумнів|надлом|критический эффект|критичний ефект|урон|шкода|ролевая часть|рольова частина|описание злобы|опис люті|дополнительно|додатково|(?:проверка|перевірка)\s+[^:]{1,50})$/iu;
+  var outcome=/^((?:(?:Если|При|Якщо|У разі)\s+)?(?:Критическ(?:ий|ом)\s+(?:успех|провал)|Критичн(?:ий|ому)\s+(?:успіх|провал)|Успех|Успіх|Провал(?:е)?|Невдача|Побочный эффект|Побічний ефект))(?=\s|:|[—–-]|$)\s*[:—–-]?\s*(.*)$/iu;
+  String(value||'').replace(/\\n/g,'\n').replace(/\r\n?|[\u2028\u2029]/g,'\n').split('\n').forEach(function(raw){
+   var line=raw.trim();if(!line)return;
+   // Strip only decorative leading markers, retaining every authored word and rule.
+   line=line.replace(/^(?:[\p{Extended_Pictographic}\uFE0F\u200D✔✘→]\s*)+/u,'').trim();if(!line)return;
+   if(/^[«“"]/.test(line)){add('quote',line);return;}
+   var bullet=line.match(/^([•▪◦]|(?:[IVX]+|\d+)\s*[.—–)-])\s*(.+)$/u);
+   if(bullet){add('list',bullet[2],bullet[1]);return;}
+   var result=line.match(outcome);
+   if(result){add('outcome',result[2],result[1],/провал|невдач|побочн|побічн/iu.test(result[1])?'danger':'benefit');return;}
+   var colon=line.match(/^([^:]{1,84}):\s*(.*)$/u),label=colon?colon[1]:line;
+   var capitals=label.length<=64&&/\p{Lu}/u.test(label)&&!/[\p{Ll}\d.!?]/u.test(label)&&label.split(/\s+/).length<=7;
+   if((colon&&labels.test(label))||capitals){begin(label,tone(label));if(colon&&colon[2])add('prose',colon[2]);return;}
+   // Level headings remain distinct; Roman numbered effects above never become headings.
+   if(/^\d+\s+(?:уровень|рівень)\s*[—–-]\s*\p{L}/iu.test(line)){begin(line);return;}
+   if(/^(?:или|або)$/iu.test(line)){add('choice',line);return;}
+   add('prose',line);
+  });
+  function body(items){
+   var html='',list=[];
+   function flush(){if(list.length){html+='<ul class="zgms-personal-list">'+list.map(function(item){return '<li><span class="zgms-list-marker">'+escape(item.label)+'</span><span>'+highlightPersonal(item.text)+'</span></li>';}).join('')+'</ul>';list=[];}}
+   items.forEach(function(item){
+    if(item.kind==='list'){list.push(item);return;}flush();
+    if(item.kind==='quote'){html+='<blockquote class="zgms-personal-quote">'+highlightPersonal(item.text)+'</blockquote>';return;}
+    if(item.kind==='choice'){html+='<div class="char-ability-choice-separator">'+escape(item.text)+'</div>';return;}
+    html+='<p class="char-ability-rule-paragraph'+(item.kind==='outcome'?' zgms-personal-outcome outcome-'+item.tone:'')+'">'+(item.kind==='outcome'?'<strong class="zgms-outcome-label">'+escape(item.label)+':</strong> ':'')+highlightPersonal(item.text)+'</p>';
+   });flush();return html;
+  }
+  return '<div class="char-ability-rule-lines zgms-personal-rules">'+sections.map(function(section){return '<section class="char-ability-rule-section tone-'+section.tone+'">'+(section.label?'<h4>'+highlightPersonal(section.label)+'</h4>':'')+'<div class="char-ability-rule-copy">'+body(section.items)+'</div></section>';}).join('')+'</div>';
+ }
  function artCaption(sp,translate){
   function clean(value){return String(translate?translate(value||''):value||'').replace(/\s+/g,' ').trim();}
   var description=clean(sp&&sp.description),manifestation=clean(sp&&sp.manifestation);
@@ -72,6 +133,6 @@
   var sentences=typeof Intl==='object'&&Intl.Segmenter?Array.from(new Intl.Segmenter('ru',{granularity:'sentence'}).segment(source),function(part){return part.segment.trim();}):source.match(/[^.!?…]+(?:[.!?…]+[»”"]?|$)/gu)||[source];
   return sentences.find(function(value){return value.length>=16&&value.length<=240;})||sentences[0]||source;
  }
- var api={highlight:highlight,sections:sections,rules:rules,requirements:requirements,restrictionGroup:restrictionGroup,restrictionParts:restrictionParts,paragraphs:paragraphs,artCaption:artCaption};
+ var api={highlight:highlight,highlightPersonal:highlightPersonal,personalRules:personalRules,sections:sections,rules:rules,requirements:requirements,restrictionGroup:restrictionGroup,restrictionParts:restrictionParts,paragraphs:paragraphs,artCaption:artCaption};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.ZargotaSpellDetailContent=api;
 })(typeof window==='object'?window:globalThis);

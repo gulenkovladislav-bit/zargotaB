@@ -47,6 +47,30 @@ IDs/names stop the operation. Supported collections: skills, mastery,
 inventoryItems, journalEntries (legacy exact-name matching if no `id` exists).
 No whole-sheet replacement or deletion operation is exposed.
 
+For an authorized stock portrait replacement, use the same `apply` command with
+an exact source path and the published replacement:
+
+```json
+{
+  "characterId": 1778221143711,
+  "campaignKey": "lin-yin",
+  "portrait": {
+    "from": "images/portraits/char_1778221143711.png",
+    "to": "images/portraits/defaults/lin-yin-2026-11.png"
+  }
+}
+```
+
+`portrait` accepts only `from` and `to`, both relative raster image paths under
+`images/` or `assets/`; external URLs, traversal and query strings are rejected.
+The current portrait must equal `from`. A thumbnail or saved `portraitChoice`
+blocks replacement, preserving personal uploads and explicit stock/fog choices.
+Only the portrait and its obsolete `portraitFocusX`/`portraitFocusY` change.
+If the current path already equals `to`, the portrait operation is a no-op and
+keeps all focus/choice fields. Entry `operations` may accompany this change or
+be omitted/empty for a portrait-only patch. Preview, revision checks, private
+backup, canonical read-back and master history use the existing save workflow.
+
 Read relevant `GLOBAL_LORE.md` sources before authoring rules/lore. Keep RU/UK
 translations together using the existing character translation sidecar. Images
 must be published and verified at the live URL BEFORE writing their paths. A

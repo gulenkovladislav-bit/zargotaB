@@ -10431,9 +10431,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-16.17';
+var ZG_APP_VERSION = '2026-11-16.19';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {"v": "2026-11-16.19", "notes": "Пять главных героев используют утверждённые новые портреты. Личные навыки, черты и мастерство сохраняют авторские разделы; характеристики, проверки, кубы, бонусы и ограничения выделены цветом. Успех и провал читаются отдельно, без дополнительных вкладок.", "notesUk": "П’ять головних героїв використовують затверджені нові портрети. Особисті навички, риси й майстерність зберігають авторські розділи; характеристики, перевірки, кубики, бонуси й обмеження виділено кольором. Успіх і провал читаються окремо, без додаткових вкладок."},
   {"v": "2026-11-16.17", "notes": "Черты, мастерство и личные навыки открываются одной карточкой без вкладок изучения: компактная шапка, читаемые правила и подсветка чисел и характеристик. Счётчики остаются только у способностей с лимитом применений. Рисунок можно открыть целиком.", "notesUk": "Риси, майстерність і особисті навички відкриваються однією карткою без вкладок вивчення: компактна шапка, читабельні правила та підсвічування чисел і характеристик. Лічильники залишаються лише у здібностей з обмеженням використань. Зображення можна відкрити повністю."},
   {"v": "2026-11-16.15", "notes": "Страницы карточек навыков персонажа на телефоне можно листать горизонтальным свайпом. Нажатие на рисунок открывает его целиком на весь экран с цитатой из описания или проявления; закрытие возвращает к прежнему месту чтения.", "notesUk": "Сторінки карток навичок персонажа на телефоні можна гортати горизонтальним свайпом. Натискання на зображення відкриває його повністю на весь екран із цитатою з опису або прояву; закриття повертає до попереднього місця читання."},
   {"v": "2026-11-16.13", "notes": "Мобильная карточка заклинания стала компактнее: шапка выровнена с рисунком, статус изучения перенесён в свою вкладку, применение и остаток зарядов собраны в один ряд. Условия применения сохранены отдельно от изучения; убраны лишние разрывы текста.", "notesUk": "Мобільна картка заклинання стала компактнішою: шапку вирівняно із зображенням, стан вивчення перенесено у свою вкладку, застосування та решту зарядів зібрано в один ряд. Умови застосування збережено окремо від вивчення; прибрано зайві розриви тексту."},
@@ -26800,9 +26801,9 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-16.11">
-<link rel="stylesheet" href="character-spell-detail.css?v=2026-11-16.17">
-<script defer src="spell-detail-content.js?v=2026-11-16.15"></script>
-<script defer src="character-mobile-skills.js?v=2026-11-16.17"></script>
+<link rel="stylesheet" href="character-spell-detail.css?v=2026-11-16.19">
+<script defer src="spell-detail-content.js?v=2026-11-16.19"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-16.19"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -51986,6 +51987,7 @@ function characterAbilityRuleSectionBodyHtml(lines) {
 }
 
 function characterAbilityRulesHtml(text, item) {
+  if (window.ZargotaSpellDetailContent && window.ZargotaSpellDetailContent.personalRules) return window.ZargotaSpellDetailContent.personalRules(characterAbilityCleanDescription(text, item));
   var sections = characterAbilityRuleSections(text, item);
   return '<div class="char-ability-rule-lines">' + sections.map(function(section) {
     return '<section class="char-ability-rule-section tone-' + section.tone + '">' +
