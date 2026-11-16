@@ -626,6 +626,26 @@
 
 #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button > svg { display: block; width: 24px; height: 24px; margin: auto; pointer-events: none; }
 
+/* Personal abilities keep one reading flow and their own real usage limits. */
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel > header { border-bottom: 1px solid var(--zgms-line); }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-charges { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; flex: 0 0 auto; gap: 10px; margin: 0 18px; padding: 9px 0; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-charges > button { width: 44px; height: 44px; padding: 0; border: 1px solid #8a6c3e; border-radius: 6px 2px; background: #251b0e; color: #e8cc91; font-size: 25px; line-height: 1; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-charges > button:disabled { opacity: .35; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy { display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy strong { font-size: 20px; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-charges .zgms-charge-copy small { font-size: 12px; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-note { margin: 0 0 12px; color: var(--zgms-muted); font: 14px/1.4 Georgia, serif; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-section { margin: 12px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #4c3c23; background: none; box-shadow: none; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-copy { display: flex; flex-direction: column; gap: 7px; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-section h4 { margin: 0 0 6px; color: var(--zgms-gold); font: 600 18px/1.3 Georgia, serif; letter-spacing: 0; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-paragraph,
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-copy ul { margin: 0; padding: 0; color: var(--zgms-ink); font: 16px/1.45 Georgia, serif; overflow-wrap: anywhere; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .char-ability-rule-copy ul { padding-left: 20px; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .outcome-benefit,
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .outcome-danger { border: 0; background: none; box-shadow: none; }
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel .tone-roleplay .char-ability-rule-paragraph { color: #c5b797; }
+
 /* Native modal keeps the sheet inert and returns focus without rebuilding it. */
 #zgms-art-viewer {
   position: fixed;
