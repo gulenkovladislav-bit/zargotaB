@@ -61,10 +61,9 @@
   return match&&Number(match[1])===r.max?usage.slice(match[0].length).replace(/^./,function(c){return c.toUpperCase();}):usage;
  }
  function cardResource(row,usage,status){
-  var r=row.resource;
-  if(!r.max||(row.spell&&!row.learned))return (status?'<span class="zgms-resource">'+e(status)+'</span>':'')+(usage?'<small>'+e(usage)+'</small>':'');
-  var pips=r.max<=8?'<span class="zgms-card-pips" aria-hidden="true">'+Array.from({length:r.max},function(_,i){return '<i'+(i>=r.remaining?' class="spent"':'')+'></i>';}).join('')+'</span>':'<span class="zgms-card-charge-track" aria-hidden="true"><i style="width:'+Math.round(r.remaining/r.max*100)+'%"></i></span>';
-  return '<span class="zgms-resource zgms-resource-meter'+(!r.remaining?' exhausted':'')+'" data-remaining="'+r.remaining+'" data-max="'+r.max+'"><span class="zgms-resource-topline"><span class="zgms-resource-caption">'+(r.remaining?t('Осталось','Залишилось'):t('Нет зарядов','Немає зарядів'))+'</span><span class="zgms-resource-count"><b>'+r.remaining+'</b><span> / '+r.max+'</span></span></span>'+pips+(usage?'<small class="zgms-recovery">'+e(usage)+'</small>':'')+'</span>';
+  var r=row.resource,counted=r.max&&(!row.spell||row.learned),label=e(status);
+  if(counted)label=label.replace(/\d+/g,'<b class="zgms-usage-value">$&</b>');
+  return (status?'<span class="zgms-resource'+(counted&&!r.remaining?' exhausted':'')+'">'+label+'</span>':'')+(usage?'<small>'+e(usage)+'</small>':'');
  }
  function card(c,row){
   var r=row.resource,usage=recoveryLabel(text(c,r.text,row.spell&&row.item),r),status=row.spell&&!row.learned?t('Ещё не изучено','Ще не вивчено'):r.max?t('Осталось ','Залишилось ')+r.remaining+t(' из ',' із ')+r.max:row.passive?t('Пассивная','Пасивна'):row.type;
@@ -72,7 +71,7 @@
   if(!r.max&&/^(?:черта|риса|мастерство|майстерність)$/i.test(status))status='';
   if(usage.toLowerCase()===status.toLowerCase())usage='';
   var origin=sourceLabel(row),sameArt=row.spell&&row.art.src==='images/ui/combat-generated/'+(books[row.item.spellType]||'folio')+'.png';
-  return button('card',[row.name,origin,status,usage].filter(Boolean).join(', '),'<span class="zgms-art '+(row.art.scene?'scene':'symbol')+'"><img src="'+e(row.art.src)+'" alt="" draggable="false">'+(sameArt?'':'<span class="zgms-source" role="img" aria-label="'+e(origin)+'" title="'+e(origin)+'" data-source="'+(row.spell?e(row.item.spellType):row.group)+'">'+source(row)+'</span>')+'</span><span class="zgms-copy"><strong>'+e(row.name||t('Без названия','Без назви'))+'</strong>'+cardResource(row,usage,status)+(row.equipped&&view().filter!=='equipped'?'<em>'+t('Экипировано','Споряджено')+'</em>':'')+'</span>','class="zgms-card'+(row.spell&&!row.learned?' is-unlearned':r.max&&!r.remaining?' is-exhausted':'')+'" data-key="'+e(row.key)+'" style="--tone:'+row.tone+'"');
+  return button('card',[row.name,origin,status,usage].filter(Boolean).join(', '),'<span class="zgms-art '+(row.art.scene?'scene':'symbol')+'"><img src="'+e(row.art.src)+'" alt="" draggable="false">'+(sameArt?'':'<span class="zgms-source" role="img" aria-label="'+e(origin)+'" title="'+e(origin)+'" data-source="'+(row.spell?e(row.item.spellType):row.group)+'">'+source(row)+'</span>')+'</span><span class="zgms-copy"><strong>'+e(row.name||t('Без названия','Без назви'))+'</strong>'+cardResource(row,usage,status)+(row.equipped&&view().filter!=='equipped'?'<em>'+t('Экипировано','Споряджено')+'</em>':'')+'</span>','class="zgms-card'+(row.spell&&!row.learned?' is-unlearned':'')+'" data-key="'+e(row.key)+'" style="--tone:'+row.tone+'"');
  }
  function selected(c){var v=view();return rows(c).filter(function(row){var inGroup=v.group==='features'?(row.group==='traits'||row.group==='mastery'):row.group===v.group;return inGroup&&(row.group!=='learned'||(v.filter==='unlearned'?!row.learned:row.learned&&(v.filter==='all'||row.equipped)));}).sort(function(a,b){return Number(!!b.equipped)-Number(!!a.equipped);});}
  function content(c){
