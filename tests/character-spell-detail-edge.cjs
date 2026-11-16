@@ -14,22 +14,26 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'u
 const catalog = Array.isArray(data.catalog) ? data.catalog : data.catalog.entries;
 const charged = catalog.find(spell => /Ответный Шип/i.test(spell.name));
 const complex = catalog.find(spell => String(spell.id) === '1775564915341');
-assert.ok(charged && complex, 'The fixture uses existing two-use and complex spells');
+const heat = catalog.find(spell => /Жар Пальцев/i.test(spell.name));
+assert.ok(charged && complex && heat, 'The fixture uses existing two-use, complex and Heat Fingers spells');
 assert.match(charged.cd, /2\s*раз/, 'The charge fixture must really allow two uses');
+const screenshotRun = new Date().toISOString().replace(/[^0-9]/g, '');
+const screenshots = {};
 const heroId = 987654341;
 const hero = JSON.parse(JSON.stringify(data.characters.find(character => /Эстерос/.test(character.name)) || data.characters[0]));
 Object.assign(hero, {
   id: heroId,
   name: 'Проверка карточки заклинания',
   nameUk: 'Перевірка картки заклинання',
-  spellRefs: [charged.id, complex.id],
-  spellsLearned: {[charged.id]: true},
+  spellRefs: [charged.id, complex.id, heat.id],
+  spellsLearned: {[charged.id]: true, [heat.id]: true},
   preparedSpells: {kodex: [], folio: [], obrad: []},
-  spellCD: {[charged.id]: {used: 0}},
+  spellCD: {[charged.id]: {used: 0}, [heat.id]: {used: 0}},
   skills: [],
   mastery: []
 });
 hero.preparedSpells[charged.spellType] = [String(charged.id)];
+hero.preparedSpells[heat.spellType].push(String(heat.id));
 delete hero.campaignKey;
 
 async function selectTab(page, tab) {
@@ -37,6 +41,9 @@ async function selectTab(page, tab) {
   await button.click();
   await page.waitForFunction(tab => document.querySelector('#zgms-dialog [data-zgms="detail-tab"][data-tab="' + tab + '"]')?.getAttribute('aria-selected') === 'true', tab);
   await assertTabs(page, tab);
+  if (tab === 'description') {
+    assert.equal(await page.locator('#zgms-panel-description .zgms-description-art').isVisible(), page.viewportSize().width >= 900, 'Large description artwork is desktop-only');
+  }
 }
 
 async function assertTabs(page, selected) {
@@ -70,19 +77,23 @@ async function used(page) {
 }
 
 async function assertMetadata(page, spell, locale = 'ru') {
+  const mobile = page.viewportSize().width < 900;
   const names = {
     damage: ['Урон', 'Шкода'], transform: ['Трансформация', 'Перетворення'], control: ['Контроль', 'Контроль'],
     pierce: ['Колющий', 'Колючий'], slash: ['Рубящий', 'Рубальний'], blunt: ['Дробящий', 'Дробильний'],
-    psych: ['Психический', 'Психічний'], radiant: ['Лучевой', 'Променевий']
+    psych: ['Психический', 'Психічний'], radiant: ['Лучевой', 'Променевий'], fire: ['Огонь', 'Вогонь']
   };
-  const tags = await page.locator('#zgms-dialog #zgms-panel-use .zgms-spell-metadata .zgms-spell-tag').allTextContents();
+  const tags = await page.locator('#zgms-dialog #zgms-panel-use .zgms-spell-metadata .zgms-spell-tag:visible').allTextContents();
   for (const key of [...(spell.categories || []), ...(spell.damageTypes || [])]) {
     const expected = names[key]?.[locale === 'uk' ? 1 : 0];
     assert.ok(expected && tags.some(tag => tag.includes(expected)), 'Catalog metadata missing: ' + key + ' / ' + JSON.stringify(tags));
   }
   if (locale === 'ru') for (const value of [spell.klasse, spell.tip].filter(Boolean)) {
-    assert.ok(tags.some(tag => tag.includes(value)), 'Catalog class/type missing: ' + value);
+    assert.equal(tags.some(tag => tag.includes(value)), !mobile, 'Catalog class/type stays desktop-only: ' + value);
   }
+  assert.equal(tags.length, (spell.categories || []).length + (spell.damageTypes || []).length + (mobile ? 0 : [spell.klasse, spell.tip].filter(Boolean).length), 'Phone keeps only category/damage; desktop retains classifications');
+  const fonts = await page.locator('#zgms-dialog .zgms-spell-tag:visible').evaluateAll(tags => tags.map(tag => parseFloat(getComputedStyle(tag).fontSize)));
+  if (mobile) assert.ok(fonts.every(size => size >= 14), 'Mobile metadata must stay readable');
 }
 
 async function rememberNodes(page) {
@@ -136,7 +147,12 @@ async function assertHeaderControls(page) {
       return {left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height};
     };
     const outer = rect(panel);
-    const heading = rect(panel.querySelector('.zgms-spell-heading'));
+    const art = rect(panel.querySelector('.zgms-detail-art'));
+    const titleNode = panel.querySelector('#zgms-detail-title');
+    const title = rect(titleNode);
+    const titleRange = document.createRange();
+    titleRange.selectNodeContents(titleNode);
+    const titleLines = [...titleRange.getClientRects()].map(box => ({left: box.left, right: box.right, top: box.top, bottom: box.bottom}));
     const controls = ['detail-menu', 'close', 'study-tab'].map(action => {
       const node = panel.querySelector('[data-zgms="' + action + '"]');
       const range = document.createRange();
@@ -152,11 +168,17 @@ async function assertHeaderControls(page) {
         textFits: content.length > 0 && content.every(text => text.width > 0 && text.height > 0 && text.left >= box.left - 1 && text.right <= box.right + 1 && text.top >= box.top - 1 && text.bottom <= box.bottom + 1)
       };
     });
-    return {heading, controls};
+    return {art, title, titleLines, controls, viewportWidth: innerWidth};
   });
   assert.deepEqual(result.controls.map(control => control.action), ['detail-menu', 'close', 'study-tab']);
   assert.ok(result.controls.every(control => control.accessible && control.content && control.insidePanel && control.textFits), 'Header actions and icons must fit: ' + JSON.stringify(result));
-  assert.ok(result.heading.right <= result.controls[0].box.left && result.controls[0].box.right <= result.controls[1].box.left, 'Title, menu and close must not overlap');
+  const overlap = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
+  assert.ok(result.controls[0].box.right <= result.controls[1].box.left, 'Menu and close must not overlap');
+  assert.ok(result.titleLines.every(line => result.controls.slice(0, 2).every(control => !overlap(line, control.box))), 'Title lines must reserve space for the header controls: ' + JSON.stringify(result));
+  assert.ok(result.art.right <= result.title.left && result.controls.slice(0, 2).every(control => !overlap(result.art, control.box)), 'Artwork stays beside the text without covering actions');
+  const artSize = result.viewportWidth >= 900 ? 64 : result.viewportWidth < 360 ? 80 : 100;
+  assert.ok(Math.abs(result.art.width - artSize) <= 1 && Math.abs(result.art.height - artSize) <= 1, 'The mobile thumbnail grows while desktop remains 64px: ' + JSON.stringify(result));
+  assert.ok(Math.abs(result.controls[2].box.left - result.title.left) <= 1, 'Study status aligns with the title, not the thumbnail');
 }
 
 async function settleArt(page) {
@@ -168,6 +190,30 @@ async function settleArt(page) {
   });
   // Screenshots describe the spell, rather than the intentionally rejected-save toast.
   await page.locator('#toast').waitFor({state: 'hidden'});
+}
+
+async function screenshot(page, name) {
+  await settleArt(page);
+  const file = '/tmp/zargota-spell-polish-' + screenshotRun + '-' + name + '.png';
+  await page.screenshot({path: file});
+  screenshots[name] = file;
+}
+
+async function assertHeatConditions(page) {
+  const text = await page.locator('#zgms-dialog').evaluate(dialog => {
+    const panel = key => dialog.querySelector('#zgms-panel-' + key).textContent;
+    return {use: panel('use'), learn: panel('learn'), all: ['use', 'learn', 'description'].map(panel).join('\n')};
+  });
+  const normalize = value => String(value).normalize('NFC').replace(/[^\p{L}\p{N}+]+/gu, ' ').trim().toLowerCase();
+  const conditions = [heat.learnText, heat.restriction].flatMap(value => String(value).split(/[\n\u2028]+/)).map(line => line.replace(/^.*?(?:Совместимость|Охват)\s*:\s*/i, '').replace(/^\s*→\s*/, '').trim()).filter(Boolean);
+  for (const condition of conditions) {
+    assert.ok(normalize(text.all).includes(normalize(condition)), 'Source condition must not disappear: ' + condition);
+    assert.ok(normalize(text.learn).includes(normalize(condition)), 'Learning conditions belong to the learning tab: ' + condition);
+  }
+  assert.doesNotMatch(text.use, /не более 3 фолиантов|Интеллектом 2\+|4 провалов/i, 'Use tab must not repeat learning prerequisites');
+  for (const sentence of String(heat.effect).split(/[\n\u2028]+/).filter(Boolean)) {
+    assert.ok(normalize(text.use).includes(normalize(sentence)), 'Actual application rules must stay in use: ' + sentence);
+  }
 }
 
 async function openSpell(page, spellId, bridge = false) {
@@ -267,8 +313,7 @@ async function desktopPendingClose(page, ok, reopen) {
     await waitCharges(page, 2);
     assert.match(await page.locator('#zgms-dialog .zgms-charge-copy').innerText(), /бой/i, 'Recovery text must retain the real battle limit');
     assert.match(await page.locator('#zgms-dialog [data-zgms="spend"]').innerText(), /Применить/);
-    await settleArt(page);
-    await page.screenshot({path: '/tmp/zargota-spell-detail-mobile.png'});
+    await screenshot(page, 'mobile');
     await rememberNodes(page);
 
     // Only one mutation may enter an unresolved save, even if a second event is dispatched.
@@ -339,16 +384,14 @@ async function desktopPendingClose(page, ok, reopen) {
       return result;
     });
     assert.notDeepEqual(unlearnedAppearance, learnedAppearance, 'Unlearned art must look visibly subdued');
-    await settleArt(page);
-    await page.screenshot({path: '/tmp/zargota-spell-detail-unlearned.png'});
+    await screenshot(page, 'unlearned');
     await rememberNodes(page);
     await page.locator('#zgms-dialog .zgms-study-state[data-zgms="study-tab"]').click();
     await assertTabs(page, 'learn');
     assert.equal(complex.learnType, 'ritual');
     assert.ok((await page.locator('#zgms-panel-learn .zgms-rule h3').allTextContents()).includes('Ритуал изучения'), 'The actual ritual learning type is preserved');
     assert.ok(await page.locator('#zgms-dialog [data-zgms="learn"]').isVisible());
-    await settleArt(page);
-    await page.screenshot({path: '/tmp/zargota-spell-detail-learning.png'});
+    await screenshot(page, 'learning');
     await page.evaluate(() => { window.saveChars = () => Promise.resolve({ok: false}); });
     await page.locator('#zgms-dialog [data-zgms="learn"]').click();
     await page.waitForFunction(() => {
@@ -375,6 +418,17 @@ async function desktopPendingClose(page, ok, reopen) {
     await assertStableNodes(page);
     await page.locator('#zgms-dialog [data-zgms="close"]').click();
 
+    await openSpell(page, heat.id);
+    await assertMetadata(page, heat);
+    await assertHeatConditions(page);
+    await waitCharges(page, 1, 1);
+    for (const tab of ['use', 'learn', 'description']) {
+      await selectTab(page, tab);
+      await assertFits(page, 'Heat Fingers 390×780 ' + tab);
+      await screenshot(page, 'heat-' + tab);
+    }
+    await page.locator('#zgms-dialog [data-zgms="close"]').click();
+
     // Reload the same isolated context without resetting its saved fixture.
     await page.reload();
     await page.locator('#zg-data-loader-splash').waitFor({state: 'hidden', timeout: 45000});
@@ -385,21 +439,24 @@ async function desktopPendingClose(page, ok, reopen) {
       await page.evaluate(locale => ZargotaI18n.setLocale(locale), locale);
       for (const [width, height] of [[320, 568], [390, 780], [430, 932], [1440, 900]]) {
         await page.setViewportSize({width, height});
-        await openSpell(page, complex.id, width >= 1000);
-        await assertMetadata(page, complex, locale);
-        const labels = await page.locator('#zgms-dialog [data-zgms="detail-tab"]').allTextContents();
-        assert.deepEqual(labels.map(label => label.trim()), locale === 'ru' ? ['Применение', 'Изучение', 'Описание'] : ['Застосування', 'Вивчення', 'Опис']);
-        for (const tab of ['use', 'learn', 'description']) {
-          await selectTab(page, tab);
-          await assertFits(page, locale + ' ' + width + '×' + height + ' ' + tab);
-          if (tab === 'learn') assert.ok((await page.locator('#zgms-panel-learn .zgms-rule h3').allTextContents()).includes(locale === 'ru' ? 'Ритуал изучения' : 'Ритуал вивчення'));
+        for (const spell of [complex, heat]) {
+          await openSpell(page, spell.id, width >= 1000);
+          await assertMetadata(page, spell, locale);
+          if (spell === heat && locale === 'ru') await assertHeatConditions(page);
+          if (width === 320 && locale === 'ru') await screenshot(page, (spell === heat ? 'heat' : 'polymorph') + '-320-use');
+          const labels = await page.locator('#zgms-dialog [data-zgms="detail-tab"]').allTextContents();
+          assert.deepEqual(labels.map(label => label.trim()), locale === 'ru' ? ['Применение', 'Изучение', 'Описание'] : ['Застосування', 'Вивчення', 'Опис']);
+          for (const tab of ['use', 'learn', 'description']) {
+            await selectTab(page, tab);
+            await assertFits(page, spell.name + ' ' + locale + ' ' + width + '×' + height + ' ' + tab);
+            if (tab === 'learn' && spell === complex) assert.ok((await page.locator('#zgms-panel-learn .zgms-rule h3').allTextContents()).includes(locale === 'ru' ? 'Ритуал изучения' : 'Ритуал вивчення'));
+          }
+          if (width === 1440 && locale === 'ru' && spell === complex) {
+            await selectTab(page, 'use');
+            await screenshot(page, 'desktop');
+          }
+          await page.locator('#zgms-dialog [data-zgms="close"]').click();
         }
-        if (width === 1440 && locale === 'ru') {
-          await selectTab(page, 'use');
-          await settleArt(page);
-          await page.screenshot({path: '/tmp/zargota-spell-detail-desktop.png'});
-        }
-        await page.locator('#zgms-dialog [data-zgms="close"]').click();
       }
     }
     await page.evaluate(() => ZargotaI18n.setLocale('ru'));
@@ -408,7 +465,7 @@ async function desktopPendingClose(page, ok, reopen) {
       await desktopPendingClose(page, ok, true);
     }
     assert.deepEqual(errors, [], 'No uncaught page errors');
-    console.log(JSON.stringify({result: 'PASS',checks: ['three tabs', 'learned and unlearned', '2→1→0 uses', 'pending duplicate guard', 'failed-save rollback', 'restore one use', 'stable header/art', 'learning and preparation', 'reload persistence', 'catalog metadata and actual learning type', 'desktop pending save close success/failure and reopened dialog', 'RU/UK', '320/390/430/mobile and 1440/desktop bridge'], blockedExternalOrigins: [...blockedOrigins]}));
+    console.log(JSON.stringify({result: 'PASS',checks: ['three tabs', 'learned and unlearned', '2→1→0 uses', 'pending duplicate guard', 'failed-save rollback', 'restore one use', 'stable header/art', 'learning and preparation', 'reload persistence', 'category/damage metadata and actual learning type', '100/80px mobile art and 64px desktop', 'text-only phone description with desktop artwork preserved', 'Heat Fingers learning conditions preserved and separated', 'desktop pending save close success/failure and reopened dialog', 'RU/UK', '320/390/430/mobile and 1440/desktop bridge'], screenshots, blockedExternalOrigins: [...blockedOrigins]}));
   } finally {
     await browser.close();
   }
