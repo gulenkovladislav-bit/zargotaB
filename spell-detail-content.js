@@ -14,18 +14,14 @@
   return out+escape(str.slice(last));
  }
  function restrictionGroup(value){
-  var s=String(value||'').replace(/^[^\p{L}]+/u,'').replace(/\s+/g,' ').trim();
-  // Eligibility is stated explicitly in the catalog; a target's stat is not a caster prerequisite.
-  if(/совместим|сумісн|выуч|изуч|обуч|вивч|навчан|память тела|пам.ять тіла/i.test(s))return 'learn';
-  if(/(?:фолиант|фоліант|обрядник|кодекс|ритуальник|ритуалов|ритуалів)/i.test(s)&&/(?:не более|не більше|до \d|лимит|ліміт|один персонаж)/i.test(s))return 'learn';
-  if(/^(?:только|тільки|лише)\s+(?:для\s+)?персонаж/i.test(s))return 'learn';
-  if(/^(?:(?:требует|требуется|потребує|вимагає|потрібн[аоі]?)\s+)?(?:сил[аыіу]|ловкост|спритн|интеллект|інтелект|харизм|восприяти|сприйнятт|вынослив|витривал|телослож|связ[ьи] с природ|зв[’']яз\S* [із]+ природ)/i.test(s))return 'learn';
-  if(/^(?:не |нельзя|не можна|неможливо|работает|працює|діє|можно |можна |повторн|после |після |если |якщо |цель |ціль |концентрац|применение |застосування |уничтожение|знищення|разрушение|руйнування)/i.test(s))return 'use';
-  if(/^(?:только|тільки|лише)\s+(?:один|одна|одно|одне|1|против|проти|на |для обычных|для звичайних|для немаг|мелкие|дрібні)/i.test(s))return 'use';
-  if(/(?:оруж|збро|стрел|стріл|брон|досп|противник|супротивник|цель|цели|целям|целей|ціл[іь]|существ|істот|свободн.*простран|вільн.*прост|заклинатель.*страдает|заклинач.*страждає|один предмет|одне тіло|одно тело|активн.*(?:аспект|конструкт)|аспект.*актив|иллюзия не|ілюзія не)/i.test(s))return 'use';
-  if(/концентрац|лук|арбалет|при получении урона|при отриманні шкоди|не срабатывает|не спрацьовує|любое действие|будь-яка дія|нельзя|неможливо|невозможно|не различает|не розрізняє/i.test(s))return 'use';
-  // Unknown future formats remain visible under learning rather than guessed into combat rules.
-  return 'learn';
+  var s=String(value||'').replace(/\s+/g,' ').trim();
+  // Caster compatibility and stat thresholds are use requirements, per the author.
+  // Keep mixed clauses visible during use rather than hiding an incompatibility.
+  if(/не\s*совместим|не\s*сумісн/i.test(s))return 'use';
+  if(/выуч|изуч|вивч|обучени[еяию]|навчанн/i.test(s))return 'learn';
+  if(/(?:знать|знати).*(?:фолиант|фоліант|кодекс|обрядник)/i.test(s))return 'learn';
+  // Unknown wording is never silently treated as an acquisition requirement.
+  return 'use';
  }
  function restrictionParts(value){
   return String(value||'').split(/(?=📌)|(?<=[\n\u2028])(?=📘)/).map(function(part){return part.trim();}).filter(Boolean);
@@ -42,8 +38,28 @@
   if(restrictions.use.length)result.use.push({heading:t('Ограничения применения','Обмеження застосування'),body:restrictions.use.join('\n')});
   return result;
  }
- function rules(fields){return fields.map(function(f){return '<section class="zgms-rule">'+(f.heading?'<h3>'+escape(f.heading)+'</h3>':'')+(f.body?f.body.split(/\n+/).map(function(line){return '<p>'+highlight(line)+'</p>';}).join(''):'')+'</section>';}).join('');}
+ function paragraphs(value){
+  var output=[],buffer=[],previous='',plainList=false;
+  function flush(){if(buffer.length)output.push(buffer.join(' '));buffer=[];}
+  // Catalog exports contain both real list breaks and fixed-width prose wrapping.
+  var lines=String(value||'').replace(/\r\n?/g,'\n').replace(/\u2028\n?/g,'\n').replace(/\u2029/g,'\n\n').split('\n');
+  lines.forEach(function(raw){
+   var line=raw.trim();if(!line){flush();previous='';plainList=false;return;}
+   var marker=/^(?:[•→←↪➜✔✘✓✗❌✅☑▶►📌📘]|[-–—]\s+|[+−–-]\s*\d|\d+[.)]\s+|\d\uFE0F?\u20E3|\p{Extended_Pictographic})/u.test(line);
+   // An em dash can also be a wrapped continuation of ordinary prose.
+   if(/^—\s+\p{Ll}/u.test(line)&&!plainList)marker=false;
+   var stage=/^(?:(?:Раунд|Рунд|Ход|Хід|Шаг|Крок|Этап|Етап|Фаза)\s+\d+|(?:HP|AC|ОЗ|КБ)\s*:)/iu.test(line);
+   var afterLabel=/:$/.test(previous),shortListItem=plainList&&previous.length<56&&!/(?:\s|^)(?:в|на|и|і|й|или|або|с|з|из|із|для|до|от|від|по|под|під|при|та)$/iu.test(previous);
+   if(marker||stage||afterLabel||shortListItem)flush();
+   buffer.push(line);
+   if(marker||stage)plainList=false;else if(afterLabel)plainList=true;
+   if(/[.!?]$/.test(line))plainList=false;
+   previous=line;
+  });
+  flush();return output;
+ }
+ function rules(fields){return fields.map(function(f){return '<section class="zgms-rule">'+(f.heading?'<h3>'+escape(f.heading)+'</h3>':'')+(f.body?paragraphs(f.body).map(function(line){return '<p>'+highlight(line)+'</p>';}).join(''):'')+'</section>';}).join('');}
  function requirements(value){var re=new RegExp('(?<![\\p{L}])(?:'+statPattern+')\\s*[:—-]?\\s*\\d+\\s*\\+','giu');return Array.from(new Set(String(value||'').match(re)||[]));}
- var api={highlight:highlight,sections:sections,rules:rules,requirements:requirements,restrictionGroup:restrictionGroup,restrictionParts:restrictionParts};
+ var api={highlight:highlight,sections:sections,rules:rules,requirements:requirements,restrictionGroup:restrictionGroup,restrictionParts:restrictionParts,paragraphs:paragraphs};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.ZargotaSpellDetailContent=api;
 })(typeof window==='object'?window:globalThis);

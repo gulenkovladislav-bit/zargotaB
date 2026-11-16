@@ -40,7 +40,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // A spent equipped ability stays equipped; consuming a charge keeps DOM and pagination stable.
   await page.evaluate(()=>{window.__skillsNav=document.querySelector('.zgmo-nav');window.__skillsHeader=document.querySelector('.zgms-header');});
   await page.locator('.zgms-card').first().click();
-  assert.match(await page.locator('.zgms-charge-copy').innerText(),/за бой/i);
+  assert.match(await page.locator('.zgms-recovery-note').innerText(),/за бой/i);
   assert.equal(await page.locator('.zgms-charges strong').innerText(),'2 / 2');
   await page.locator('[data-zgms=spend]').click();await page.waitForTimeout(250);
   assert.match(await page.locator('.zgms-charges strong').innerText(),/1 \/ 2/);
@@ -73,7 +73,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // Learn/unlearn and preparation use the existing data structure and limits.
   await page.locator('[data-group=learned]').click();await page.locator('[data-filter=unlearned]').click();await page.waitForTimeout(100);
   assert.equal(await page.locator('.zgms-card').count(),1,'Unlearned entries have their own visible filter');
-  await page.locator('.zgms-card').click();assert.equal(await page.locator('[data-zgms=spend]').count(),0);await page.locator('.zgms-study-state[data-zgms=study-tab]').click();
+  await page.locator('.zgms-card').click();assert.equal(await page.locator('[data-zgms=spend]').count(),0);await page.locator('.zgms-compact-actions [data-zgms=study-tab]').click();
   await page.locator('#zgms-dialog').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
   await page.screenshot({path:'/tmp/zargota-skills-study-before.png'});
   // A failed save must not claim that learning succeeded or move the card.

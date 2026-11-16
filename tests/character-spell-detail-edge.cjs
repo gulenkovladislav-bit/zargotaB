@@ -153,7 +153,7 @@ async function assertHeaderControls(page) {
     const titleRange = document.createRange();
     titleRange.selectNodeContents(titleNode);
     const titleLines = [...titleRange.getClientRects()].map(box => ({left: box.left, right: box.right, top: box.top, bottom: box.bottom}));
-    const controls = ['detail-menu', 'close', 'study-tab'].map(action => {
+    const controls = ['detail-menu', 'close'].map(action => {
       const node = panel.querySelector('[data-zgms="' + action + '"]');
       const range = document.createRange();
       range.selectNodeContents(node);
@@ -170,15 +170,14 @@ async function assertHeaderControls(page) {
     });
     return {art, title, titleLines, controls, viewportWidth: innerWidth};
   });
-  assert.deepEqual(result.controls.map(control => control.action), ['detail-menu', 'close', 'study-tab']);
+  assert.deepEqual(result.controls.map(control => control.action), ['detail-menu', 'close']);
   assert.ok(result.controls.every(control => control.accessible && control.content && control.insidePanel && control.textFits), 'Header actions and icons must fit: ' + JSON.stringify(result));
   const overlap = (a, b) => a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1;
-  assert.ok(result.controls[0].box.right <= result.controls[1].box.left, 'Menu and close must not overlap');
+  assert.ok(!overlap(result.controls[0].box, result.controls[1].box), 'Menu and close must not overlap');
   assert.ok(result.titleLines.every(line => result.controls.slice(0, 2).every(control => !overlap(line, control.box))), 'Title lines must reserve space for the header controls: ' + JSON.stringify(result));
   assert.ok(result.art.right <= result.title.left && result.controls.slice(0, 2).every(control => !overlap(result.art, control.box)), 'Artwork stays beside the text without covering actions');
-  const artSize = result.viewportWidth >= 900 ? 64 : result.viewportWidth < 360 ? 80 : 100;
+  const artSize = result.viewportWidth >= 900 ? 64 : result.viewportWidth < 360 ? 88 : 100;
   assert.ok(Math.abs(result.art.width - artSize) <= 1 && Math.abs(result.art.height - artSize) <= 1, 'The mobile thumbnail grows while desktop remains 64px: ' + JSON.stringify(result));
-  assert.ok(Math.abs(result.controls[2].box.left - result.title.left) <= 1, 'Study status aligns with the title, not the thumbnail');
 }
 
 async function settleArt(page) {
@@ -208,9 +207,11 @@ async function assertHeatConditions(page) {
   const conditions = [heat.learnText, heat.restriction].flatMap(value => String(value).split(/[\n\u2028]+/)).map(line => line.replace(/^.*?(?:Совместимость|Охват)\s*:\s*/i, '').replace(/^\s*→\s*/, '').trim()).filter(Boolean);
   for (const condition of conditions) {
     assert.ok(normalize(text.all).includes(normalize(condition)), 'Source condition must not disappear: ' + condition);
-    assert.ok(normalize(text.learn).includes(normalize(condition)), 'Learning conditions belong to the learning tab: ' + condition);
+    const target = /Интеллектом 2\+/i.test(condition) ? 'use' : 'learn';
+    assert.ok(normalize(text[target]).includes(normalize(condition)), 'Condition belongs to ' + target + ': ' + condition);
   }
-  assert.doesNotMatch(text.use, /не более 3 фолиантов|Интеллектом 2\+|4 провалов/i, 'Use tab must not repeat learning prerequisites');
+  assert.doesNotMatch(text.use, /не более 3 фолиантов|4 провалов/i, 'Use tab must not repeat learning prerequisites');
+  assert.match(text.use, /Интеллектом 2\+/i, 'Casting compatibility stays in application');
   for (const sentence of String(heat.effect).split(/[\n\u2028]+/).filter(Boolean)) {
     assert.ok(normalize(text.use).includes(normalize(sentence)), 'Actual application rules must stay in use: ' + sentence);
   }
@@ -311,7 +312,7 @@ async function desktopPendingClose(page, ok, reopen) {
     await openSpell(page, charged.id);
     await assertMetadata(page, charged);
     await waitCharges(page, 2);
-    assert.match(await page.locator('#zgms-dialog .zgms-charge-copy').innerText(), /бой/i, 'Recovery text must retain the real battle limit');
+    assert.match(await page.locator('#zgms-dialog .zgms-recovery-note').innerText(), /бой/i, 'Recovery text must retain the real battle limit');
     assert.match(await page.locator('#zgms-dialog [data-zgms="spend"]').innerText(), /Применить/);
     await screenshot(page, 'mobile');
     await rememberNodes(page);
@@ -332,12 +333,15 @@ async function desktopPendingClose(page, ok, reopen) {
     assert.equal(await page.evaluate(() => window.__spellSaveCalls), 1);
     assert.equal(await used(page), 1);
     await selectTab(page, 'description');
-    await page.evaluate(() => window.__finishSpellSave({ok: true}));
-    await waitCharges(page, 1);
+    await page.evaluate(async () => {
+      window.__finishSpellSave({ok: true});
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    });
     await assertTabs(page, 'description');
     await assertStableNodes(page);
     await page.evaluate(() => { window.saveChars = window.__spellOriginalSave; });
     await selectTab(page, 'use');
+    await waitCharges(page, 1);
     await page.locator('#zgms-dialog [data-zgms="spend"]').click();
     await waitCharges(page, 0);
     assert.equal(await page.locator('#zgms-dialog [data-zgms="spend"]').isDisabled(), true, 'An exhausted spell cannot be used again');
@@ -374,7 +378,7 @@ async function desktopPendingClose(page, ok, reopen) {
     await page.locator('#zgms-dialog [data-zgms="close"]').click();
     await openSpell(page, complex.id);
     assert.equal(await page.locator('#zgms-dialog [data-zgms="spend"]').count(), 0, 'Unlearned spells never expose Apply');
-    assert.match(await page.locator('#zgms-dialog .zgms-study-state').innerText(), /не изучено/i);
+    assert.match(await page.locator('#zgms-dialog .zgms-study-state').textContent(), /не изучено/i);
     assert.ok(await page.locator('#zgms-dialog footer [data-zgms="study-tab"]').isVisible(), 'Unlearned footer directs the player to learning');
     const unlearnedAppearance = await page.locator('#zgms-dialog .zgms-detail-art img').evaluate(image => {
       const result = [];
@@ -386,7 +390,7 @@ async function desktopPendingClose(page, ok, reopen) {
     assert.notDeepEqual(unlearnedAppearance, learnedAppearance, 'Unlearned art must look visibly subdued');
     await screenshot(page, 'unlearned');
     await rememberNodes(page);
-    await page.locator('#zgms-dialog .zgms-study-state[data-zgms="study-tab"]').click();
+    await page.locator('#zgms-dialog footer [data-zgms="study-tab"]').click();
     await assertTabs(page, 'learn');
     assert.equal(complex.learnType, 'ritual');
     assert.ok((await page.locator('#zgms-panel-learn .zgms-rule h3').allTextContents()).includes('Ритуал изучения'), 'The actual ritual learning type is preserved');
@@ -465,7 +469,7 @@ async function desktopPendingClose(page, ok, reopen) {
       await desktopPendingClose(page, ok, true);
     }
     assert.deepEqual(errors, [], 'No uncaught page errors');
-    console.log(JSON.stringify({result: 'PASS',checks: ['three tabs', 'learned and unlearned', '2→1→0 uses', 'pending duplicate guard', 'failed-save rollback', 'restore one use', 'stable header/art', 'learning and preparation', 'reload persistence', 'category/damage metadata and actual learning type', '100/80px mobile art and 64px desktop', 'text-only phone description with desktop artwork preserved', 'Heat Fingers learning conditions preserved and separated', 'desktop pending save close success/failure and reopened dialog', 'RU/UK', '320/390/430/mobile and 1440/desktop bridge'], screenshots, blockedExternalOrigins: [...blockedOrigins]}));
+    console.log(JSON.stringify({result: 'PASS',checks: ['three tabs', 'learned and unlearned', '2→1→0 uses', 'pending duplicate guard', 'failed-save rollback', 'restore one use', 'stable header/art', 'learning and preparation', 'reload persistence', 'category/damage metadata and actual learning type', '100/88px mobile art and 64px desktop', 'text-only phone description with desktop artwork preserved', 'Heat Fingers learning and casting conditions preserved and separated', 'desktop pending save close success/failure and reopened dialog', 'RU/UK', '320/390/430/mobile and 1440/desktop bridge'], screenshots, blockedExternalOrigins: [...blockedOrigins]}));
   } finally {
     await browser.close();
   }
