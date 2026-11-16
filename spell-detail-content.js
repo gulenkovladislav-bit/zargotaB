@@ -60,6 +60,18 @@
  }
  function rules(fields){return fields.map(function(f){return '<section class="zgms-rule">'+(f.heading?'<h3>'+escape(f.heading)+'</h3>':'')+(f.body?paragraphs(f.body).map(function(line){return '<p>'+highlight(line)+'</p>';}).join(''):'')+'</section>';}).join('');}
  function requirements(value){var re=new RegExp('(?<![\\p{L}])(?:'+statPattern+')\\s*[:—-]?\\s*\\d+\\s*\\+','giu');return Array.from(new Set(String(value||'').match(re)||[]));}
- var api={highlight:highlight,sections:sections,rules:rules,requirements:requirements,restrictionGroup:restrictionGroup,restrictionParts:restrictionParts,paragraphs:paragraphs};
+ function artCaption(sp,translate){
+  function clean(value){return String(translate?translate(value||''):value||'').replace(/\s+/g,' ').trim();}
+  var description=clean(sp&&sp.description),manifestation=clean(sp&&sp.manifestation);
+  // Reuse a complete inscription, not quoted terminology or a newly invented speaker.
+  var quotes=Array.from(description.matchAll(/«([^»]+)»|“([^”]+)”|"([^"\n]+)"/gu),function(match){return (match[1]||match[2]||match[3]).trim();});
+  var quote=quotes.find(function(value){return value.length>=16&&value.length<=240&&/^\p{Lu}/u.test(value);});
+  if(quote)return quote;
+  // A short excerpt keeps the image central; never cut a sentence in half.
+  var source=manifestation||description;if(!source)return '';
+  var sentences=typeof Intl==='object'&&Intl.Segmenter?Array.from(new Intl.Segmenter('ru',{granularity:'sentence'}).segment(source),function(part){return part.segment.trim();}):source.match(/[^.!?…]+(?:[.!?…]+[»”"]?|$)/gu)||[source];
+  return sentences.find(function(value){return value.length>=16&&value.length<=240;})||sentences[0]||source;
+ }
+ var api={highlight:highlight,sections:sections,rules:rules,requirements:requirements,restrictionGroup:restrictionGroup,restrictionParts:restrictionParts,paragraphs:paragraphs,artCaption:artCaption};
  if(typeof module==='object'&&module.exports)module.exports=api;else root.ZargotaSpellDetailContent=api;
 })(typeof window==='object'?window:globalThis);

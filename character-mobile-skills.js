@@ -1,7 +1,7 @@
 /* Mobile skills groups. Traits and mastery share a view, not a storage schema. */
 (function(w){
  'use strict';
- var current=null, views={}, dialogKey=null, returnFocus=null, refreshFrame=0, pending=null, detailTab='use', detailScroll={}, dialogDesktop=false, dialogDirty=false;
+ var current=null, views={}, dialogKey=null, returnFocus=null, refreshFrame=0, pending=null, detailTab='use', detailScroll={}, dialogDesktop=false, dialogDirty=false, skillGesture=null, suppressSkillClickUntil=0, artReturnFocus=null;
  var colors={kodex:'#c8d4dc',folio:'#5a9ae0',obrad:'#c03030'};
  var books={kodex:'codex',folio:'folio',obrad:'ritual'};
  function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
@@ -87,7 +87,7 @@
   cancelAnimationFrame(refreshFrame);refreshFrame=requestAnimationFrame(function(){var c=char(),root=document.querySelector('.zgms-screen');if(!c)return;if(root&&document.body.classList.contains('zg-skills-view'))w.ZargotaMobileSheet.updateMarkup(root.parentElement,markup(c));if(dialogKey)updateDialog();if(typeof after==='function')after();});
  }
  function page(delta){var v=view(),key=v.group+'-'+v.filter;v.pages[key]=Math.max(0,(v.pages[key]||0)+delta);refresh();requestAnimationFrame(function(){var grid=document.querySelector('.zgms-grid');if(grid&&!matchMedia('(prefers-reduced-motion:reduce)').matches)grid.animate([{opacity:.25,transform:'translateX('+(delta*10)+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:180,easing:'ease-out'});});}
- function close(refreshSheet){var redraw=refreshSheet&&dialogDesktop&&dialogDirty&&String(w.viewingCharId)===String(current);var dialog=document.getElementById('zgms-dialog');if(dialog)dialog.remove();dialogKey=null;dialogDesktop=false;dialogDirty=false;detailScroll={};if(redraw&&typeof w.renderCharSheet==='function')w.renderCharSheet();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
+ function close(refreshSheet){closeArt(false);skillGesture=null;var redraw=refreshSheet&&dialogDesktop&&dialogDirty&&String(w.viewingCharId)===String(current);var dialog=document.getElementById('zgms-dialog');if(dialog)dialog.remove();dialogKey=null;dialogDesktop=false;dialogDirty=false;detailScroll={};if(redraw&&typeof w.renderCharSheet==='function')w.renderCharSheet();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
  function spellMeta(c,sp){
   var categoryNames={damage:['Урон','Шкода'],aoe:['Область','Область'],control:['Контроль','Контроль'],defense:['Защита','Захист'],heal:['Исцеление','Зцілення'],buff:['Усиление','Посилення'],debuff:['Ослабление','Послаблення'],move:['Движение','Рух'],info:['Информация','Інформація'],illusion:['Иллюзии','Ілюзії'],support:['Вспомогательные','Допоміжні'],summon:['Призыв','Заклик'],transform:['Трансформация','Перетворення'],necro:['Некромантия','Некромантія'],curse:['Проклятия','Прокляття'],risk:['Риск','Ризик']};
   var damageNames={fire:['Огонь','Вогонь'],cold:['Холод','Холод'],elec:['Электро','Електро'],necro:['Некротика','Некротика'],holy:['Святой','Святий'],psych:['Психический','Психічний'],poison:['Яд','Отрута'],pierce:['Колющий','Колючий'],slash:['Рубящий','Рубальний'],blunt:['Дробящий','Дробильний'],acid:['Кислота','Кислота'],radiant:['Лучевой','Променевий'],chaos:['Хаос','Хаос'],sound:['Звуковой','Звуковий']};
@@ -97,6 +97,20 @@
   return cats||dmgs||extra?'<div class="zgms-spell-metadata" aria-label="'+t('Метки каталога','Позначки каталогу')+'">'+(cats||extra?'<div>'+cats+extra+'</div>':'')+(dmgs?'<div><small>'+t('Типы урона:','Типи шкоди:')+'</small>'+dmgs+'</div>':'')+'</div>':'';
  }
  function detailIcon(kind){return kind==='close'?'<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>':'<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="4" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="20" cy="12" r="1.7"/></g></svg>';}
+ function closeArt(restoreFocus){
+  var viewer=document.getElementById('zgms-art-viewer');if(viewer){viewer.close();viewer.remove();}
+  if(restoreFocus&&artReturnFocus&&artReturnFocus.isConnected)artReturnFocus.focus({preventScroll:true});artReturnFocus=null;
+ }
+ function previewArt(source){
+  var c=char(),row=c&&rows(c).find(function(x){return x.key===dialogKey;});if(!row||!row.spell)return;
+  closeArt(false);skillGesture=null;artReturnFocus=source;
+  var helper=w.ZargotaSpellDetailContent,caption=helper.artCaption(row.item,function(value){return text(c,value,row.item);}),viewer=document.createElement('dialog');
+  viewer.id='zgms-art-viewer';viewer.setAttribute('data-zg-i18n-skip','');viewer.setAttribute('aria-labelledby','zgms-art-title');
+  viewer.innerHTML=button('close-art',t('Закрыть изображение','Закрити зображення'),detailIcon('close'),'autofocus')+'<figure><img src="'+e(row.art.src)+'" alt="'+e(row.name)+'" draggable="false"><figcaption><h2 id="zgms-art-title">'+e(row.name)+'</h2>'+(caption?'<blockquote>«'+e(caption)+'»</blockquote>':'')+'</figcaption></figure>';
+  viewer.addEventListener('cancel',function(ev){ev.preventDefault();closeArt(true);});
+  viewer.addEventListener('keydown',function(ev){ev.stopPropagation();if(ev.key==='Escape'){ev.preventDefault();closeArt(true);}else if(ev.key==='Tab'){ev.preventDefault();viewer.querySelector('[data-zgms=close-art]').focus({preventScroll:true});}});
+  document.body.appendChild(viewer);viewer.showModal();
+ }
  function spellDetails(c,row){
   var helper=w.ZargotaSpellDetailContent,r=row.resource,sp=row.item,tx=function(value){return text(c,value,sp);},fields=helper.sections(sp,tx,t),busy=!!(pending&&String(pending.id)===String(c.id)&&pending.key===row.key),disabled=busy?' disabled aria-busy="true"':'',usage=tx(r.text),school=tx(sp.school==='custom'?sp.schoolCustom:sp.school),requirements=helper.requirements(tx(sp.restriction)),learned=row.learned,empty=t('В каталоге пока нет описания этого раздела.','У каталозі поки немає опису цього розділу.'),tabs=[['use',t('Применение','Застосування')],['learn',t('Изучение','Вивчення')],['description',t('Описание','Опис')]];
   var compact=!!(w.matchMedia&&w.matchMedia('(max-width:899px)').matches);
@@ -118,7 +132,7 @@
    tabContent.learn='<div class="zgms-learning-summary">'+status+learningAction+'</div>'+(school?'<p class="zgms-learning-source">'+t('Источник: ','Джерело: ')+e(school)+'</p>':'')+(helper.rules(fields.learn)||'<p>'+empty+'</p>');
    tabContent.description=helper.rules(fields.description.map(function(field){return field.heading===t('Описание','Опис')?{heading:'',body:field.body}:field;}))||'<p>'+empty+'</p>';
   }
-  return '<header><div class="zgms-spell-heading"><div class="zgms-detail-art '+(row.art.scene?'scene':'symbol')+'"><img alt="" src="'+e(row.art.src)+'"></div><div class="zgms-heading-copy"><h2 id="zgms-detail-title">'+e(row.name)+'</h2><span class="zgms-detail-type">'+e(row.type)+(sp.level?' · '+t('Ур. ','Рів. ')+e(sp.level):'')+'</span>'+(!compact&&school?'<small class="zgms-detail-school">'+e(school)+'</small>':'')+(!compact&&requirements.length?'<div class="zgms-requirements">'+requirements.map(helper.highlight).join(' · ')+'</div>':'')+'</div></div>'+button('detail-menu',t('Действия способности','Дії здібності'),detailIcon('menu'),'aria-expanded="false"'+disabled)+button('close',t('Закрыть','Закрити'),detailIcon('close'))+'</header>'+
+  return '<header><div class="zgms-spell-heading">'+button('preview-art',t('Открыть рисунок: ','Відкрити зображення: ')+row.name,'<img alt="" src="'+e(row.art.src)+'" draggable="false">','class="zgms-detail-art '+(row.art.scene?'scene':'symbol')+'" aria-haspopup="dialog"')+'<div class="zgms-heading-copy"><h2 id="zgms-detail-title">'+e(row.name)+'</h2><span class="zgms-detail-type">'+e(row.type)+(sp.level?' · '+t('Ур. ','Рів. ')+e(sp.level):'')+'</span>'+(!compact&&school?'<small class="zgms-detail-school">'+e(school)+'</small>':'')+(!compact&&requirements.length?'<div class="zgms-requirements">'+requirements.map(helper.highlight).join(' · ')+'</div>':'')+'</div></div>'+button('detail-menu',t('Действия способности','Дії здібності'),detailIcon('menu'),'aria-expanded="false"'+disabled)+button('close',t('Закрыть','Закрити'),detailIcon('close'))+'</header>'+
    (compact?'':status)+
    '<nav class="zgms-detail-tabs" role="tablist" aria-label="'+t('Разделы заклинания','Розділи заклинання')+'">'+tabs.map(function(tab){return button('detail-tab',tab[1],tab[1],'id="zgms-tab-'+tab[0]+'" role="tab" data-tab="'+tab[0]+'" aria-controls="zgms-panel-'+tab[0]+'" aria-selected="'+(detailTab===tab[0])+'" tabindex="'+(detailTab===tab[0]?'0':'-1')+'"');}).join('')+'</nav>'+actionPanel+
    '<div class="zgms-detail-body">'+tabs.map(function(tab){return '<section class="zgms-tab-panel" id="zgms-panel-'+tab[0]+'" role="tabpanel" aria-labelledby="zgms-tab-'+tab[0]+'" tabindex="0"'+(detailTab===tab[0]?'':' hidden')+'>'+tabContent[tab[0]]+'</section>';}).join('')+'</div>'+
@@ -216,12 +230,33 @@
   else if(action==='unlearned'){view().filter='unlearned';refresh();}
   else if(action==='prev'||action==='next')page(action==='prev'?-1:1);
   else if(action==='card')open(b.dataset.key,b);
+  else if(action==='preview-art')previewArt(b);
+  else if(action==='close-art')closeArt(true);
   else if(action==='detail-tab')selectDetailTab(b.dataset.tab,false);
   else if(action==='study-tab')selectDetailTab('learn',true);
   else if(action==='back')w.zgCharBack();
   else if(action==='menu'||action==='detail-menu')menu(b,action==='detail-menu');
   else if(action==='close')close(true);else if(action==='add'||action==='add-trait'||action==='add-mastery')add(action==='add-trait'?'traits':action==='add-mastery'?'mastery':null,b);else mutate(action);
  });
+ // A deliberate horizontal drag pages the card collection without opening a card.
+ document.addEventListener('touchstart',function(ev){
+  var grid=ev.target.closest('.zgms-grid'),touch=ev.touches[0],v=current&&view();
+  skillGesture=grid&&innerWidth<900&&ev.touches.length===1&&!dialogKey&&!ev.target.closest('[data-zgms=add]')&&touch.clientX>20&&touch.clientX<innerWidth-20?{x:touch.clientX,y:touch.clientY,dx:0,dy:0,at:Date.now(),id:current,group:v.group,filter:v.filter}:null;
+ },{passive:true});
+ document.addEventListener('touchmove',function(ev){
+  if(!skillGesture)return;if(ev.touches.length!==1){skillGesture=null;return;}
+  var g=skillGesture;g.dx=ev.touches[0].clientX-g.x;g.dy=ev.touches[0].clientY-g.y;
+  if(Math.abs(g.dy)>18&&Math.abs(g.dy)>Math.abs(g.dx)){skillGesture=null;return;}
+  if(Math.abs(g.dx)>18&&Math.abs(g.dx)>Math.abs(g.dy)*1.5&&ev.cancelable)ev.preventDefault();
+ },{passive:false});
+ document.addEventListener('touchend',function(){
+  var g=skillGesture;skillGesture=null;if(!g||dialogKey||g.id!==current||Date.now()-g.at>900||Math.abs(g.dx)<48||Math.abs(g.dx)<Math.abs(g.dy)*1.5)return;
+  var c=char(),v=view();if(!c||g.group!==v.group||g.filter!==v.filter)return;
+  suppressSkillClickUntil=Date.now()+400;var key=v.group+'-'+v.filter,count=Math.max(1,Math.ceil(selected(c).length/4)),delta=g.dx<0?1:-1,next=(v.pages[key]||0)+delta;
+  if(next>=0&&next<count)page(delta);
+ },{passive:true});
+ document.addEventListener('touchcancel',function(){skillGesture=null;},{passive:true});
+ document.addEventListener('click',function(ev){if(Date.now()<suppressSkillClickUntil&&ev.target.closest('.zgms-grid')){ev.preventDefault();ev.stopImmediatePropagation();}},true);
  document.addEventListener('keydown',function(ev){if(!dialogKey)return;var tab=ev.target.closest('[data-zgms=detail-tab]');if(tab&&['ArrowLeft','ArrowRight','Home','End'].includes(ev.key)){var ids=['use','learn','description'],i=ids.indexOf(detailTab);selectDetailTab(ids[ev.key==='Home'?0:ev.key==='End'?2:(i+(ev.key==='ArrowRight'?1:2))%3],true);ev.preventDefault();return;}if(ev.key==='Escape'){close(true);ev.preventDefault();}if(ev.key==='Tab'){var els=Array.from(document.querySelectorAll('#zgms-dialog button')).filter(function(el){return !el.disabled&&el.getClientRects().length;}),first=els[0],last=els[els.length-1];if(ev.shiftKey&&document.activeElement===first){last.focus();ev.preventDefault();}else if(!ev.shiftKey&&document.activeElement===last){first.focus();ev.preventDefault();}}});
  document.addEventListener('error',function(ev){var img=ev.target;if(img.tagName==='IMG'&&img.closest('.zgms-art,.zgms-detail-art')){img.hidden=true;}},true);
  if(w.matchMedia)w.matchMedia('(max-width:899px)').addEventListener('change',function(){if(dialogKey)refresh();});

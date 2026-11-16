@@ -66,4 +66,19 @@ for(const cd of ['2 применения до долгого отдыха','2 и
  const r=sandbox.window.ZargotaMobileSkills.resource({id:5,cd},{spellCD:{5:{used:1}}},true);
  assert.equal(r.max,2,cd);assert.equal(r.remaining,1,cd);assert.equal(r.text,cd);
 }
+const captions={window:{}};
+vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../zargota-i18n-catalog-uk.js'),'utf8'),captions);
+const uk=captions.window.ZargotaI18nCatalogUk;
+for(const locale of ['ru','uk'])for(const spell of catalog){
+ const tx=value=>locale==='uk'&&uk.reviewedEntryIds.includes(String(spell.id))?(uk.translations[value]||value):value;
+ const caption=content.artCaption(spell,tx);
+ assert.ok(caption.length>=16&&caption.length<=240,spell.id+': caption must remain short and complete');
+ assert.ok([spell.description,spell.manifestation].some(source=>whitespace(tx(source)).includes(caption)),spell.id+': caption invented or changed source text');
+}
+assert.equal(content.artCaption({description:'Надпись: «Когда сталь рвёт\nплоть — пусть плоть ударит в ответ»',manifestation:'Маг сжимает руку.'},plain),'Когда сталь рвёт плоть — пусть плоть ударит в ответ');
+assert.equal(content.artCaption({description:'Описаны «жгучие точки».',manifestation:'В 3.5 шагах воздух дрожит. Затем вспышка.'},plain),'В 3.5 шагах воздух дрожит.');
+assert.equal(content.artCaption({description:'Камень хранит тепло огня.'},plain),'Камень хранит тепло огня.');
+assert.equal(content.artCaption({}), '');
+const longSentence='Туман '+('плотный '.repeat(40))+'окружает мага.';
+assert.equal(content.artCaption({manifestation:longSentence},plain),longSentence);
 console.log('PASS: all catalog rule fields preserved; three sections; RU/UK six stats, thresholds, dice and safe escaping');
