@@ -30,7 +30,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
    await page.evaluate(locale=>ZargotaI18n.setLocale(locale),locale);
    for(const [width,height] of [[320,568],[390,700],[390,780],[430,932]]){
     await page.setViewportSize({width,height});await page.waitForTimeout(250);
-    await page.waitForFunction(()=>Math.abs(document.querySelector(".zgms-screen").getBoundingClientRect().top)<0.1);
+    await page.waitForFunction(()=>{const screen=document.querySelector(".zgms-screen"),nav=document.getElementById("char-sheet-tab-bar");return Math.abs(screen.getBoundingClientRect().top)<0.1&&Math.abs(screen.getBoundingClientRect().bottom-nav.getBoundingClientRect().top)<=1;});
     const g=await page.evaluate(()=>{const root=document.querySelector('.zgms-screen'),nav=document.getElementById('char-sheet-tab-bar');return {root:root.scrollHeight-root.clientHeight,body:document.body.scrollHeight-innerHeight,width:document.documentElement.scrollWidth-innerWidth,top:root.getBoundingClientRect().top,end:root.getBoundingClientRect().bottom,nav:nav.getBoundingClientRect().top,cards:[...document.querySelectorAll('.zgms-card')].map(el=>({overflow:el.scrollHeight-el.clientHeight,h:el.clientHeight,art:el.querySelector('.zgms-art').clientHeight})),labels:[...document.querySelectorAll('.zgms-tabs button,.zgms-filter button')].map(el=>el.scrollWidth-el.clientWidth)};});
     assert.ok(g.root<=1&&g.body<=1&&g.width<=1,JSON.stringify({locale,width,height,g}));assert.equal(g.top,0);assert.ok(g.end<=g.nav+1,JSON.stringify(g));assert.ok(g.cards.every(c=>c.overflow<=1&&c.art>=24),JSON.stringify(g));assert.ok(g.labels.every(n=>n<=1),JSON.stringify(g));
    }
@@ -40,7 +40,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // A spent equipped ability stays equipped; consuming a charge keeps DOM and pagination stable.
   await page.evaluate(()=>{window.__skillsNav=document.querySelector('.zgmo-nav');window.__skillsHeader=document.querySelector('.zgms-header');});
   await page.locator('.zgms-card').first().click();
-  assert.match(await page.locator('.zgms-charge-copy').innerText(),/За бой/);
+  assert.match(await page.locator('.zgms-charge-copy').innerText(),/за бой/i);
   assert.equal(await page.locator('.zgms-charges strong').innerText(),'2 / 2');
   await page.locator('[data-zgms=spend]').click();await page.waitForTimeout(250);
   assert.match(await page.locator('.zgms-charges strong').innerText(),/1 \/ 2/);
@@ -73,7 +73,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   // Learn/unlearn and preparation use the existing data structure and limits.
   await page.locator('[data-group=learned]').click();await page.locator('[data-filter=unlearned]').click();await page.waitForTimeout(100);
   assert.equal(await page.locator('.zgms-card').count(),1,'Unlearned entries have their own visible filter');
-  await page.locator('.zgms-card').click();assert.equal(await page.locator('[data-zgms=spend]').count(),0);
+  await page.locator('.zgms-card').click();assert.equal(await page.locator('[data-zgms=spend]').count(),0);await page.locator('.zgms-study-state[data-zgms=study-tab]').click();
   await page.locator('#zgms-dialog').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
   await page.screenshot({path:'/tmp/zargota-skills-study-before.png'});
   // A failed save must not claim that learning succeeded or move the card.
@@ -81,10 +81,10 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.locator('[data-zgms=learn]').click();await page.waitForTimeout(100);
   assert.equal(await page.locator('[data-filter=unlearned]').getAttribute('aria-pressed'),'true');
   assert.ok(await page.locator('[data-zgms=learn]').isEnabled());
-  assert.match(await page.locator('.zgms-study-state').innerText(),/не изучено/);
+  assert.match(await page.locator('.zgms-study-state').innerText(),/не изучено/i);
   await page.locator('#toast').waitFor({state:'hidden'});
   await page.evaluate(()=>window.saveChars=window.__saveChars);
-  await page.locator('[data-zgms=learn]').click();await page.locator('[data-zgms=equip]').waitFor();
+  await page.locator('[data-zgms=learn]').click();await page.locator('[data-zgms=equip]').waitFor();await page.waitForFunction(()=>!document.querySelector('[data-zgms=equip]').disabled);
   assert.ok(await page.locator('[data-zgms=equip]').isEnabled());
   assert.equal(await page.locator('.zgms-filter [data-filter=all]').getAttribute('aria-pressed'),'true');
   assert.ok(await page.evaluate(()=>window.__studyDialog===document.querySelector('#zgms-dialog')&&window.__studyArt===document.querySelector('#zgms-dialog .zgms-detail-art img')&&window.__skillsHeader===document.querySelector('.zgms-header')),'Learning preserves detail image and header nodes');
@@ -92,13 +92,13 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   await page.locator('#zgms-dialog .zgms-study-primary').evaluate(el=>Promise.all(el.getAnimations().map(a=>a.finished)));
   await page.screenshot({path:'/tmp/zargota-skills-study-after.png'});
   await page.locator('[data-zgms=equip]').click();
-  await page.waitForFunction(()=>document.querySelector('.zgms-study-state').textContent==='Экипировано');
+  await page.waitForFunction(()=>document.querySelector('.zgms-equipped-label')?.textContent==='Экипировано');
   await page.locator('[data-zgms=detail-menu]').click();await page.locator('[data-zgms=forget]').click();
-  await page.locator('[data-zgms=learn]').waitFor();
+  await page.locator('[data-zgms=learn]').waitFor();await page.waitForFunction(()=>!document.querySelector('[data-zgms=learn]').disabled);
   assert.equal(await page.locator('.zgms-filter [data-filter=unlearned]').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('[data-zgms=spend]').count(),0);
   assert.ok(await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322),id=document.querySelector('.zgms-card').dataset.key.slice(6);return !c.spellsLearned[id]&&!Object.values(c.preparedSpells).flat().map(String).includes(id);}),'Forgetting removes preparation without deleting the catalog reference');
-  await page.locator('[data-zgms=learn]').click();await page.locator('[data-zgms=equip]').waitFor();
+  await page.locator('[data-zgms=learn]').click();await page.locator('[data-zgms=equip]').waitFor();await page.waitForFunction(()=>!document.querySelector('[data-zgms=equip]').disabled);
   await page.locator('[data-zgms=close]').click();
   // Enforce existing per-type preparation limits through the new detail action.
   const target=await page.evaluate(()=>{const c=characters.find(c=>c.id===987654322),list=c.spellRefs.map(id=>findCharacterCatalogSpell(id)).filter(s=>s.spellType==='kodex'&&c.spellsLearned[s.id]);c.preparedSpells.kodex=list.slice(0,3).map(s=>String(s.id));ZargotaMobileSkills.refresh();return list[3].id;});
@@ -106,7 +106,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   const targetCard=page.locator('.zgms-card[data-key="spell-'+target+'"]');
   while(await page.locator('[data-zgms=prev]').isEnabled()){await page.locator('[data-zgms=prev]').click();await page.waitForTimeout(80);}
   while(!await targetCard.count()&&await page.locator('[data-zgms=next]').isEnabled()){await page.locator('[data-zgms=next]').click();await page.waitForTimeout(80);}
-  await targetCard.click();await page.locator('[data-zgms=equip]').click();
+  await targetCard.click();await page.locator('[data-zgms=detail-tab][data-tab=learn]').click();await page.locator('[data-zgms=equip]').click();
   assert.equal(await page.evaluate(()=>characters.find(c=>c.id===987654322).preparedSpells.kodex.length),3);
   await page.locator('[data-zgms=close]').click();
   await page.locator('[data-group=features]').click();await page.waitForTimeout(150);

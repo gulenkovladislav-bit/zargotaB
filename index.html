@@ -10431,9 +10431,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-16.2';
+var ZG_APP_VERSION = '2026-11-16.7';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {"v": "2026-11-16.7", "notes": "Карточки заклинаний в листе разделены на применение, изучение и описание. Неизученные рисунки приглушены; показаны статус изучения, оставшиеся использования и условие восстановления. Кнопка применения учитывает расход, параметры выделены в тексте.", "notesUk": "Картки заклинань в аркуші розділено на застосування, вивчення й опис. Невивчені зображення приглушено; показано стан вивчення, решту використань та умову відновлення. Кнопка застосування враховує витрату, параметри виділено в тексті."},
   {v:'2026-11-16.2',notes:'Иллюстрации подключены ко всем 116 заклинаниям каталога, включая исправленные рисунки. Уже добавленные навыки получают новые изображения; собственные картинки игроков сохраняются.',notesUk:'Ілюстрації підключено до всіх 116 заклять каталогу, включно з виправленими малюнками. Уже додані навички отримують нові зображення; власні картинки гравців зберігаються.'},
   {v:'2026-11-15.25',notes:'Уменьшен масштаб рисунков в мобильных карточках навыков: иллюстрация помещается целиком без обрезания краёв. Размеры карточек и текста сохранены.',notesUk:'Зменшено масштаб малюнків у мобільних картках навичок: ілюстрація вміщується повністю без обрізання країв. Розміри карток і тексту збережено.'},
   {v:'2026-11-15.24',notes:'Рисунки в мобильных карточках навыков теперь занимают всю карточку, включая область под текстом. Мягкое затемнение сохраняет читаемость названия и зарядов.',notesUk:'Малюнки в мобільних картках навичок тепер займають усю картку, включно з ділянкою під текстом. М’яке затемнення зберігає читабельність назви та зарядів.'},
@@ -26793,7 +26794,9 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
 <script defer src="character-mobile-lore.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-15.25">
-<script defer src="character-mobile-skills.js?v=2026-11-15.60"></script>
+<link rel="stylesheet" href="character-spell-detail.css?v=2026-11-16.1">
+<script defer src="spell-detail-content.js?v=2026-11-16.1"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-16.1"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -43048,7 +43051,7 @@ function pageScrollElement(page) {
 function showPage(name) {
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
   if(name !== "characters" && window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(false);
-  if(name !== "characters" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
+  if(name !== "characters" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false,true);
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   if (name === 'chars') name = 'characters';
   if (name === 'workshop' && !zgGmUnlocked()) {
@@ -51600,7 +51603,7 @@ function switchCharTab(tab) {
 function showCharView(v) {
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
   if(v !== "sheet" && window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(false);
-  if(v !== "sheet" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false);
+  if(v !== "sheet" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false,true);
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setActive(false);
   if(window.ZargotaPersistentCharacters)window.ZargotaPersistentCharacters.refresh();
   if(window.ZargotaCharacterUpdates)window.ZargotaCharacterUpdates.refresh();
@@ -56878,6 +56881,7 @@ function buildSpellRefsList(c) {
 }
 
 function showSpellDetail(charId, spellId) {
+  if (window.ZargotaMobileSkills && window.ZargotaMobileSkills.openSpell(charId, spellId)) return;
   var sp = findCharacterCatalogSpell(spellId);
   if (!sp) return;
   var c = characters.find(function(x){ return x.id === charId; });
