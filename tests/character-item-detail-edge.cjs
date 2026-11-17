@@ -225,9 +225,9 @@ async function saveScreenshot(page, name) {
     // Enlarging the original artwork returns to the same one-page detail.
     await openItem(page, 0);
     await page.locator('[data-zgmi=art]').click();
-    await page.locator('[data-zgmi=art-zoom]').click();
-    assert.ok(await page.locator('.zgmi-art-canvas').evaluate(element => element.scrollWidth > element.clientWidth));
-    await page.locator('[data-zgmi=art-return]').click();
+    assert.equal(await page.locator('#zgmi-art-viewer button').count(),1);
+    await page.locator('#zgmi-art-viewer figure>img').evaluate(img=>img.decode());
+    await page.locator('[data-zgmi=art-close]').click();
     await assertContent(page, 0, 'ru');
 
     // Equipment transitions keep the original instance and its custom metadata.
@@ -315,8 +315,8 @@ async function saveScreenshot(page, name) {
     assert.equal(await page.evaluate(id=>characters.find(character=>character.id===id).inventoryItems.some(item=>item.itemId==='item-detail-fixture-3'),heroId),false,'Last-unit consumption persists after reload');
     assert.deepEqual(errors, []);
     console.log(process.env.ZG_ITEM_ACTIONS_ONLY === '1'
-      ? 'PASS item actions: original artwork/zoom; equip and quantity; consume rollback/retry/double-submit; cloned-save rollback; final-unit removal/restore; catalog preview; local reload; external network blocked'
-      : 'PASS item detail: horizontal rows without inner scroll; concept A art/title/rules order; RU/UK 320/390/430px; truthful equipment, healing and conditional effects; original artwork/zoom; equip and quantity; consume rollback/retry/double-submit; cloned-save rollback; final-unit removal/restore; local reload; external network blocked');
+      ? 'PASS item actions: original artwork/fullscreen; equip and quantity; consume rollback/retry/double-submit; cloned-save rollback; final-unit removal/restore; catalog preview; local reload; external network blocked'
+      : 'PASS item detail: horizontal rows without inner scroll; concept A art/title/rules order; RU/UK 320/390/430px; truthful equipment, healing and conditional effects; original artwork/fullscreen; equip and quantity; consume rollback/retry/double-submit; cloned-save rollback; final-unit removal/restore; local reload; external network blocked');
     console.log(JSON.stringify({screenshots, blockedOrigins: [...blockedOrigins]}, null, 2));
   } finally {
     await browser.close();

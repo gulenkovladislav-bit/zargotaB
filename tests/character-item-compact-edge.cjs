@@ -29,20 +29,28 @@ hero.inventoryItems=hero.inventoryItems.concat(hero.equipItems);hero.equipItems=
    const title=g.title;
    assert.ok(await page.locator('.zgmi-art-hint').isVisible());
    await page.locator('[data-zgmi=art]').tap();
-   const quote=await page.locator('.zgmi-art-quote').innerText();
+   const quote=await page.locator('#zgmi-art-viewer blockquote').innerText();
    assert.match(quote,locale==='ru'?(item==='mortar'?/растёртых трав/:/Вес стали/):(item==='mortar'?/розтертих трав/:/Вага сталі/));
-   const viewer=await page.locator('#zgmi-dialog').boundingBox();assert.ok(Math.abs(viewer.height-height)<1);
-   assert.equal(await page.locator('#zgmi-dialog h2').innerText(),title);
-   await page.locator('.zgmi-art-canvas img[data-zgmi-full]').evaluate(im=>im.decode());
-   const layout=await page.locator('#zgmi-dialog>section').evaluate(el=>({overflow:el.scrollHeight-el.clientHeight,art:el.querySelector('.zgmi-art-canvas').clientHeight}));
+   const viewer=await page.locator('#zgmi-art-viewer').boundingBox();assert.ok(Math.abs(viewer.height-height)<1);
+   assert.equal(await page.locator('#zgmi-art-viewer h2').innerText(),title);
+   await page.locator('#zgmi-art-viewer figure>img').evaluate(im=>im.decode());
+   const layout=await page.locator('#zgmi-art-viewer').evaluate(el=>({overflow:el.scrollHeight-el.clientHeight,art:el.querySelector('figure>img').clientHeight}));
    assert.ok(layout.overflow<=1&&layout.art>=200,JSON.stringify(layout));
    if(width===390)await page.screenshot({path:output+'/'+item+'-art-'+locale+'.png',animations:'disabled'});
-   await page.locator('[data-zgmi=art-zoom]').tap();await page.locator('[data-zgmi=art-zoom]').tap();
+   assert.equal(await page.locator('#zgmi-art-viewer button').count(),1);
+   assert.equal(await page.locator('[data-zgmi=art-zoom],[data-zgmi=art-return]').count(),0);
+   const sameLayout=await page.locator('#zgmi-art-viewer').evaluate(viewer=>{
+    const reference=viewer.cloneNode(true);reference.id='zgms-art-viewer';reference.removeAttribute('open');document.body.appendChild(reference);reference.showModal();
+    const properties=['display','position','width','height','padding','gap','font','color','border','borderRadius','background','objectFit'];
+    const inspect=root=>['','>button','>figure','figure>img','figcaption','h2','blockquote'].map(selector=>{const el=selector?root.querySelector(':scope '+selector):root,style=getComputedStyle(el);return properties.map(key=>style[key]);});
+    const same=JSON.stringify(inspect(viewer))===JSON.stringify(inspect(reference));reference.close();reference.remove();return same;
+   });assert.ok(sameLayout,'Item viewer uses exactly the spell viewer styles');
+   await page.keyboard.press('Tab');assert.ok(await page.locator('#zgmi-art-viewer [data-zgmi=art-close]').evaluate(el=>el===document.activeElement));
    await page.locator('[data-zgmi=art-close]').tap();
    assert.equal(await page.locator('.zgmi-detail-heading h2').innerText(),title);
    await page.locator('[data-zgmi=quantity]').tap();await page.locator('[data-zgmi=quantity-cancel]').first().tap();await paint();
    await page.locator('#zgmi-dialog header [data-zgmi=close]').tap();await paint();
   }
  }
- console.log('PASS: mortar and axe fit without vertical scrolling at 320/390/430px RU/UK; inline quantity editable; opening frames stable; full-screen art, bilingual epigraphs, zoom and return verified. '+output);
+ console.log('PASS: mortar and axe fit without vertical scrolling at 320/390/430px RU/UK; inline quantity editable; opening frames stable; full-screen art, bilingual epigraphs, single close button, spell layout parity, focus and return verified. '+output);
 }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
