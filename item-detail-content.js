@@ -1,9 +1,9 @@
 /* Read-only item presentation. Instance edits outrank its saved definition. */
 (function(root,factory){
-  var api=factory();
+  var api=factory(typeof module==='object'&&module.exports?require('./personal-item-presentation.js'):root.ZargotaPersonalItemPresentation);
   if(typeof module==='object'&&module.exports)module.exports=api;
   else root.ZargotaItemDetailContent=api;
-})(typeof window!=='undefined'?window:globalThis,function(){
+})(typeof window!=='undefined'?window:globalThis,function(personalPresentation){
   'use strict';
   var own=function(object,key){return Object.prototype.hasOwnProperty.call(object,key);};
   var text=function(value){return typeof value==='string'||typeof value==='number'?String(value):'';};
@@ -37,13 +37,14 @@
     alias('range',['range'],['rangeUk']);
     if(!own(out,'description'))out.description='';
     if(!own(out,'effectText'))out.effectText='';
-    return out;
+    return personalPresentation?personalPresentation.enrich(out):out;
   }
   function choose(pair,locale){return pair[locale==='uk'?1:0];}
   function category(item){return String(item.category||item.cat||'').toLowerCase();}
   function tags(item){return Array.isArray(item.tags)?item.tags.join(' ').toLowerCase():String(item.tags||'').toLowerCase();}
   function kind(item,locale){
-    item=item||{};var cat=category(item),slot=String(item.slot||item.preferredSlot||'').toLowerCase(),tag=tags(item);
+    item=item||{};if(item.displayType)return text(locale==='uk'&&item.displayTypeUk?item.displayTypeUk:item.displayType);var cat=category(item),slot=String(item.slot||item.preferredSlot||'').toLowerCase(),tag=tags(item);
+    var slots={gloves:['Перчатки','Рукавички'],cloak:['Плащ','Плащ'],amulet:['Амулет','Амулет']};if(slots[slot])return choose(slots[slot],locale);
     if(slot==='ring'||/(?:^|\s)ring(?:\s|$)/.test(tag))return choose(['Кольцо','Кільце'],locale);
     if(cat==='potion'||/(?:^|\s)potion(?:\s|$)/.test(tag))return choose(['Зелье','Зілля'],locale);
     if(cat==='weapon'&&/sword/.test(tag))return choose(['Меч','Меч'],locale);

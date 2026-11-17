@@ -150,7 +150,7 @@
  #zgmi-dialog .zgmi-detail-toolbar>button{pointer-events:auto;background:#100c07ce;border-radius:50%;width:44px;height:44px;font-size:29px}
  #zgmi-dialog .zgmi-detail-toolbar .zgmi-menu{pointer-events:auto}
  #zgmi-dialog .zgmi-detail-page{padding:0 16px 14px;scroll-padding-top:50px}
- #zgmi-dialog .zgmi-detail-page .zgmi-detail-art{height:clamp(140px,23dvh,218px);margin:0 0 8px;padding:12px 22px 0;box-sizing:border-box;flex-shrink:0}
+ #zgmi-dialog .zgmi-detail-page .zgmi-detail-art{height:clamp(230px,86vw,420px);width:calc(100% + 32px);margin:0 -16px 8px;padding:0;box-sizing:border-box;flex-shrink:0}
  #zgmi-dialog .zgmi-detail-page h2{font:600 clamp(23px,6vw,29px)/1.13 Georgia,serif;margin:0 0 8px;overflow-wrap:anywhere}
  .zgmi-detail-kind{font:14px/1.35 Georgia,serif;color:#bba887;margin-bottom:10px}
  .zgmi-detail-kind .zgmi-equipped{font-size:13px}
@@ -174,3 +174,11 @@
 }
 @media(max-width:360px){#char-sheet .zgmi-grid .zgmi-card{gap:9px}#char-sheet .zgmi-grid .zgmi-art{width:60px;height:60px;flex-basis:60px}#char-sheet .zgmi-grid strong{font-size:16px}.zgmi-card-meta{font-size:12px}#zgmi-dialog .zgmi-detail-page{padding-left:13px;padding-right:13px}}
 @media(max-width:899px) and (prefers-reduced-motion:no-preference){#zgmi-dialog .zgmi-image-stage img{transition:opacity .24s ease,filter .24s ease}.zgmi-art-hint{transition:color .15s,background .15s}.zgmi-catalog-grid .zgmi-card:active{transform:scale(.98);filter:brightness(1.1)}}
+
+/* Full-width illustration blends into the article; the inspected original stays unmasked. */
+@media(max-width:899px){
+ #zgmi-dialog .zgmi-detail-page .zgmi-image-stage{background:radial-gradient(ellipse at center,#51351c33,transparent 72%)}
+ #zgmi-dialog .zgmi-detail-page .zgmi-image-stage img{width:auto;height:100%;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent),linear-gradient(0deg,transparent,#000 12%,#000 94%,transparent);-webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent),linear-gradient(0deg,transparent,#000 12%,#000 94%,transparent);mask-composite:intersect;-webkit-mask-composite:source-in}
+ #zgmi-dialog .zgmi-detail-page .zgmi-art-hint{right:16px;bottom:8px}
+}
+@media(max-width:360px){#zgmi-dialog .zgmi-detail-page .zgmi-detail-art{width:calc(100% + 26px);margin-left:-13px;margin-right:-13px}}

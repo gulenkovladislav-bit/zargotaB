@@ -41,3 +41,22 @@ const frozen=Object.freeze({definitionSnapshot:Object.freeze(definition),require
 api.resolve(frozen,[definition]);
 assert.deepStrictEqual(api.stats({requirements:[{stat:'strength',min:0},{stat:'perception',min:2},{stat:'charisma',min:3},{stat:'constitution',min:1},{stat:'intelligence',min:4},{stat:'unknown',min:5}]},'uk'),['Сила 0+','Сприйняття 2+','Харизма 3+','Витривалість 1+','Інтелект 4+']);
 console.log('item-detail-content: snapshot, override, locale and action checks passed');
+const armory=require('../data.json').armoryItems;
+const personalIds=['imnmnzd94c3k','imo64qkapzvd','imrxoaiz2swy','imrxokx3u57b','imrxomcjft6f','imrxqcnk19m7','imrxqdtf4d9t'];
+for(const id of personalIds){
+ const original=armory.find(x=>x.id===id),view=api.resolve(original);
+ assert.ok(view.image.startsWith('images/items/personal/'));
+ assert.ok(require('fs').existsSync(require('path').join(__dirname,'..',view.image)));
+ for(const key of ['name','description','displayType'])assert.ok(view[key]&&view[key+'Uk']);
+ for(const key of ['damageFormula','acBonus','charges','slot','category'])assert.strictEqual(view[key],original[key]);
+ assert.strictEqual(api.resolve({...original,image:'images/custom.png'}).image,'images/custom.png');
+ assert.strictEqual(api.resolve({...original,icon:'art:axe'}).image,undefined);
+ const edited=api.resolve({...original,description:'Описание мастера',descriptionUk:'Опис майстра',effects:'Новое свойство',displayType:'Свой тип',displayTypeUk:'Свій тип'});
+ assert.strictEqual(edited.description,'Описание мастера');assert.strictEqual(edited.effectText,'Новое свойство');
+ assert.strictEqual(api.kind(edited,'uk'),'Свій тип');
+ assert.strictEqual(api.resolve({...original,name:'Другой предмет'}).image,undefined);
+ assert.deepStrictEqual(api.resolve(view),view);
+}
+assert.strictEqual(api.kind({displayType:'Ступка',displayTypeUk:'Ступка'},'uk'),'Ступка');
+assert.strictEqual(api.kind({slot:'gloves',category:'armor'},'uk'),'Рукавички');
+console.log('Personal equipment: bilingual content, source guards, art preservation and stable mechanics passed');
