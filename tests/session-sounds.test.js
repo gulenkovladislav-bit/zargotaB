@@ -53,6 +53,7 @@ var context = {
     round:function(){calls.push('round');},
     playerActionRequest:function(){calls.push('submitted');},
     gmActionRequest:function(){calls.push('request');},
+    spellLearned:function(){calls.push('learned');},
     actionResolved:function(accepted){calls.push(accepted?'approved':'rejected');}
   }}
 };
@@ -112,4 +113,20 @@ assert.deepStrictEqual(calls, ['request','request'], 'the GM hears a movement re
 assert.match(html, /AUDIO_TAG: PLACEHOLDER_ACTION_REQUEST_PLAYER/, 'player placeholder remains easy to replace');
 assert.match(html, /AUDIO_TAG: PLACEHOLDER_ACTION_REQUEST_GM/, 'GM placeholder remains easy to replace');
 
+calls.length = 0;
+context.sessionSoundState.ready = false;
+var learning = playerSnapshot(0, 'player-a', {id:'study',actionKind:'spell-learning',status:'learning-roll-result'});
+learning.room.combat.active = false;
+context.syncSessionSounds(learning);
+learning.room.members['player-a'].actionRequest.status = 'learning-progress';
+context.syncSessionSounds(learning);
+assert.deepStrictEqual(calls, [], 'partial study is not a learned spell');
+learning.room.members['player-a'].actionRequest.status = 'approved';
+learning.room.members['player-a'].actionRequest.stage = 'learned';
+context.syncSessionSounds(learning);
+context.syncSessionSounds(learning);
+assert.deepStrictEqual(calls, ['learned'], 'confirmed study plays once instead of generic approval');
+context.sessionSoundState.ready = false;
+context.syncSessionSounds(learning);
+assert.deepStrictEqual(calls, ['learned'], 'opening an already completed study stays silent');
 console.log('session sound routing passed');

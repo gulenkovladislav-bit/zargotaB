@@ -226,7 +226,7 @@
   }else return;
   pending={id:c.id,key:row.key};
   updateDialog();
-  var saved;try{saved=await w.saveChars();}catch(error){saved={ok:false};}
+  var saved;try{saved=await w.saveChars({reason:'ability-update',sound:action==='learn'?'spellLearned':''});}catch(error){saved={ok:false};}
   pending=null;
   function refreshClosedDesktop(){if(!dialogKey&&innerWidth>=900&&String(w.viewingCharId)===String(c.id)&&typeof w.renderCharSheet==='function')w.renderCharSheet();}
   if(saved&&saved.ok===false){

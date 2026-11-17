@@ -10433,9 +10433,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-17.9';
+var ZG_APP_VERSION = '2026-11-17.10';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-17.10',notes:'Добавлены звуки изменения монет, успешного изучения заклинания и получения урона в листе персонажа. Звуки учитывают общие настройки и не повторяются при перерисовке.',notesUk:'Додано звуки зміни монет, успішного вивчення закляття й отримання шкоди в аркуші персонажа. Звуки враховують загальні налаштування й не повторюються під час перемальовування.'},
   {v:'2026-11-17.9',notes:'Инвентарь заполняет каждую страницу по доступному месту. Убрано искусственное выравнивание последних страниц, оставлявшее пустоту у персонажей с экипированными предметами.',notesUk:'Інвентар заповнює кожну сторінку за доступним місцем. Прибрано штучне вирівнювання останніх сторінок, що залишало порожнечу в персонажів зі спорядженими предметами.'},
   {v:'2026-11-17.8',notes:'Вместимость страницы инвентаря рассчитывается по свободному месту и реальной высоте строк. Панели браузера и переносы длинных названий учитываются автоматически.',notesUk:'Місткість сторінки інвентарю обчислюється за вільним місцем і фактичною висотою рядків. Панелі браузера й перенесення довгих назв враховуються автоматично.'},
   {v:'2026-11-17.7',notes:'Предметы распределяются по страницам инвентаря равномерно: восемь предметов показываются как 4 + 4 вместо 5 + 3. Размер строк и порядок предметов сохранены.',notesUk:'Предмети розподіляються між сторінками інвентарю рівномірно: вісім предметів показано як 4 + 4 замість 5 + 3. Розмір рядків і порядок предметів збережено.'},
@@ -11365,6 +11366,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var sampleSources = {
     attackSwing:'audio/vtt-actions/attack-swing.mp3',attackMissArrow:'audio/vtt-actions/attack-miss-arrow.mp3',attackMissMagic:'audio/vtt-actions/attack-miss-magic.mp3',attackMagic:'audio/vtt-actions/attack-magic.mp3',
     hitArmor:'audio/vtt-actions/hit-armor.mp3',hitBodySoft:'audio/vtt-actions/hit-body-soft.mp3',hitBodyHeavy:'audio/vtt-actions/hit-body-heavy.mp3',hitPunch:'audio/vtt-actions/hit-punch.mp3',healingMagic:'audio/vtt-actions/healing-magic.mp3',deathDarkMagic:'audio/vtt-actions/death-dark-magic.mp3',
+    coinChange:'assets/stories/cards/tower-claw/audio/candidates-v2/rpg/handleCoins2.mp3',
     diceRoll:'audio/vtt-actions/dice-roll.mp3',
     diceScoreGearClick:'audio/vtt-actions/dice-score-gear-click.mp3',diceScoreThresholdRise:'audio/vtt-actions/dice-score-threshold-rise.mp3',diceScoreFinalTom:'audio/vtt-actions/dice-score-final-tom.mp3',
     d20CriticalSuccess:'audio/vtt-actions/d20-critical-success-fairy.wav',d20CriticalFailure:'audio/vtt-actions/d20-critical-failure-gong.mp3',d20CheckFailure:'audio/vtt-actions/d20-check-failure-wood.mp3',d20AttackMiss:'audio/vtt-actions/d20-attack-miss-sword.mp3',
@@ -11573,6 +11575,17 @@ document.addEventListener('DOMContentLoaded', function(){
     combatHealing: function() {
       playSample(sampleSources.healingMagic,0.62,function(){Sound.heal();},{group:'support-cue',maxDuration:2.15});
     },
+
+    // Character-sheet actions use the same mute, volume and bounded sample channels.
+    coinChange: function() {
+      stopToneGroup('ui');
+      playSample(sampleSources.coinChange,.5,null,{group:'wallet-cue',maxDuration:1.2});
+    },
+    spellLearned: function() {
+      stopToneGroup('ui');
+      playSample(sampleSources.d20CriticalSuccess,.42,function(){Sound.status();},{group:'learning-cue',maxDuration:1.8});
+    },
+    characterDamage: function() { Sound.hit(); },
 
     // ═══ Heal / Damage ═══
     heal: function() {
@@ -22216,6 +22229,7 @@ document.addEventListener('DOMContentLoaded', function(){
       }
       if(session.role==='player'&&ownAction&&ownAction!==sessionSoundState.ownAction&&ownRequest){
         if(ownRequest.status==='pending'&&w.ZargotaSound&&w.ZargotaSound.playerActionRequest)w.ZargotaSound.playerActionRequest();
+        else if(ownRequest.actionKind==='spell-learning'&&ownRequest.status==='approved'&&ownRequest.stage==='learned'&&ownRequest.notifyPlayer!==false&&w.ZargotaSound&&w.ZargotaSound.spellLearned)w.ZargotaSound.spellLearned();
         else if((ownRequest.status==='approved'||ownRequest.status==='rejected')&&ownRequest.notifyPlayer!==false&&w.ZargotaSound&&w.ZargotaSound.actionResolved)w.ZargotaSound.actionResolved(ownRequest.status==='approved');
       }
       if(session.role==='player'&&ownMovement&&ownMovement!==sessionSoundState.ownMovement&&ownMoveRequest){
@@ -26816,7 +26830,7 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-16.11">
 <link rel="stylesheet" href="character-spell-detail.css?v=2026-11-17.6">
 <script defer src="spell-detail-content.js?v=2026-11-16.19"></script>
-<script defer src="character-mobile-skills.js?v=2026-11-16.20"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-17.10"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -50101,6 +50115,10 @@ function saveChars(options) {
         });
       },700);
     }
+    // Explicit local action only: snapshots/rendering never request these cues.
+    if(['coinChange','spellLearned','characterDamage'].indexOf(options.sound)>=0){
+      try{if(window.ZargotaSound&&window.ZargotaSound[options.sound])window.ZargotaSound[options.sound]();}catch(ignore){}
+    }
     if(window.ZargotaCharacterCloud)window.ZargotaCharacterCloud.refresh();
     if(window.ZargotaPersistentCharacters)window.ZargotaPersistentCharacters.saved(characters,options);
     if(window.ZargotaMobileSkills)window.ZargotaMobileSkills.refresh();
@@ -54112,6 +54130,7 @@ function updateStatField(id, stat, field, val) {
 function updateSimpleField(id, field, val) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
+  var beforeHp = Number(c.hpCur)||0;
   ensureCharacterEquipBases(c);
   var eq = calcArenaEquipBonus(c);
   if (field === 'hpMax') {
@@ -54131,7 +54150,7 @@ function updateSimpleField(id, field, val) {
     c[field] = isNaN(val) || val === '' ? val : (field === 'inventory' || field === 'weapon' || field === 'armor' || field === 'speed' ? val : parseInt(val));
   }
   var vitalsField = ['hpCur','hpMax','ac','initiative','speed'].indexOf(field) >= 0;
-  saveChars(vitalsField ? {reason:'vitals-update'} : undefined);
+  saveChars(vitalsField ? {reason:'vitals-update',sound:field==='hpCur'&&Number(c.hpCur)<beforeHp?'characterDamage':''} : undefined);
   if (vitalsField && window.zgVttRefreshDrawer) window.zgVttRefreshDrawer();
   if (field === 'hpCur' || field === 'hpMax') {
     // re-render hp visuals only
@@ -55758,16 +55777,14 @@ function toggleRulesItem(idx) {
 }
 
 function updateCoin(id, coin, val) {
-  var c = characters.find(function(x){ return x.id === id; });
-  if (!c) return;
-  c.coins[coin] = parseInt(val) || 0;
-  saveChars();
+  return setCoin(id, coin, val);
 }
 
 function changeHP(id, dir) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   ensureTempFields(c);
+  var beforeHealth = Number(c.hpCur||0) + readTempHpTotal(c);
   var deltaInp = document.getElementById('hp-delta-' + id);
   var delta = parseInt(deltaInp ? deltaInp.value : 1) || 1;
   var amount = dir * delta; // positive = heal, negative = damage
@@ -55804,7 +55821,7 @@ function changeHP(id, dir) {
   }
 
   c.hpDelta = delta;
-  saveChars();
+  saveChars({reason:'vitals-update',sound:Number(c.hpCur||0)+readTempHpTotal(c)<beforeHealth?'characterDamage':''});
   renderCharSheet();
 }
 
@@ -56318,8 +56335,9 @@ function setCoin(id, coinKey, val) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   if (!c.coins) c.coins = { copper: 0, silver: 0, gold: 0, platinum: 0 };
+  var before = Math.max(0, parseInt(c.coins[coinKey], 10) || 0);
   c.coins[coinKey] = Math.max(0, parseInt(val, 10) || 0);
-  saveChars();
+  return saveChars({reason:'coins-update',sound:c.coins[coinKey]!==before?'coinChange':''});
   // не делаем renderCharSheet() чтобы не терять фокус
 }
 
@@ -56327,8 +56345,7 @@ function addCoin(id, coinKey, delta) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c) return;
   if (!c.coins) c.coins = { copper: 0, silver: 0, gold: 0, platinum: 0 };
-  c.coins[coinKey] = Math.max(0, (parseInt(c.coins[coinKey], 10) || 0) + delta);
-  saveChars();
+  setCoin(id, coinKey, (parseInt(c.coins[coinKey], 10) || 0) + delta);
   renderCharSheet();
   charRefreshInventoryPanel(id);
 }
@@ -57110,7 +57127,7 @@ function toggleSpellLearned(charId, spellId) {
     c.spellsLearned[spellId] = true;
     showToast('🎓 Заклинание изучено');
   }
-  saveChars();
+  saveChars({reason:'spell-learning',sound:!wasLearned?'spellLearned':''});
   rerenderSpellDetailPreservingScroll(charId, spellId);
   renderCharSheet();
 }
