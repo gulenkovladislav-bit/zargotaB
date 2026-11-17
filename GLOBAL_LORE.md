@@ -755,3 +755,10 @@ Large art also exists at `images/shop/zargota-coin-{copper,silver,gold,platinum}
 - **Источник / джерело:** [полный архив Miro / повний архів Miro](lore/miro-2026-09-24/full-board-paste.txt), строки 1001–1049; см. / див. `source.miro-full-paste-documents` и `character.melissa.grove`. Автор подтвердил фирболга, пульс от рогов в лес и внедрение в этом чате 2026-11-15 / автор підтвердив фірболга, пульс від рогів у ліс і впровадження. Точный текст / точний текст: `data.json` → character `1776626039651` → skills `melissa-forest-pulse`.
 - **Спойлер / спойлер:** открытая игроку способность 1 уровня / відкрита гравцеві здібність 1 рівня. Личное видение Мелиссы и неизвестная причина гибели пчёл не раскрываются / особисте видіння Мелісси та невідома причина загибелі бджіл не розкриваються.
 - Implementation boundary: type `Пассивная черта` / `Пасивна риса`, level-one description only. Do not grant archival higher-level effects or add a detection engine. Horns and pulse in artwork are visual interpretation, not extra mechanics.
+
+### character.esteros.portrait-epigraph-20261117 — UI draft — no plot spoilers
+
+- Source: author request on 2026-11-17 for an original portrait quote; voice basis: `character.esteros.voice` and [Esteros source summary](lore/MIRO_STORY_ATLAS.md#miroarcesteros--board-source--board-plan--author-only).
+- RU: «Я всё ещё замечаю цветы у болотной тропы. Значит, не всё во мне привыкло к гнили.»
+- UK: «Я досі помічаю квіти край болотної стежки. Отже, не все в мені звикло до гнилі.»
+- Status: newly authored interface epigraph for review, not a quotation from a played scene or a new biographical event. No family, path, relationship or age facts are changed.

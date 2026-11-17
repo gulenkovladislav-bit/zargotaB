@@ -1,7 +1,7 @@
 /* Mobile lore uses the existing character, family and journal storage. */
 (function(w){
  'use strict';
- var current=null, views={}, focusBack=null, draft=null, fameImages={};
+ var current=null, views={}, focusBack=null, draft=null, fameImages={}, artFocus=null;
  var art='images/ui/character-lore/';
  function t(ru,uk){return w.ZargotaI18n&&w.ZargotaI18n.getLocale()==='uk'?uk:ru;}
  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
@@ -22,6 +22,29 @@
  function kindName(k){return {letter:t('Письмо','Лист'),note:t('Запись','Запис'),image:t('Изображение','Зображення'),place:t('Карта / место','Мапа / місце'),quest:t('Задание','Завдання')}[k]||t('Запись','Запис');}
  function image(url,cls,attributes){url=safeImage(url);return url?'<img class="'+(cls||'')+'" src="'+esc(url)+'" alt="" decoding="async"'+(attributes||'')+'>':'';}
  function portrait(p,context){var attrs=w.ZargotaPortrait?w.ZargotaPortrait.attributes(p,context||(p===c()?'lore':'person')):'';return image(p.portrait||p.image,'',attrs)||'<span class="zgml-silhouette">'+(p.icon?esc(p.icon):icon('person'))+'</span>';}
+ function ageLabel(x){
+  var raw=String(x.age==null?'':x.age).trim(),match=raw.match(/^(\d+)\s*(?:лет|год|года|років|роки|рік)?$/i);
+  if(!raw)return t('Возраст не указан','Вік не вказано');
+  if(!match)return title(raw);
+  var n=Number(match[1]),last=n%10,teen=n%100>=11&&n%100<=14;
+  return n+' '+(teen?t('лет','років'):last===1?t('год','рік'):last>=2&&last<=4?t('года','роки'):t('лет','років'));
+ }
+ function portraitQuote(x){
+  var custom=x.portraitQuote;
+  if(custom&&typeof custom==='object')return String(custom[t('ru','uk')]||'');
+  if(x.campaignKey==='esteros'||String(x.id)==='1776463717210')return t('Я всё ещё замечаю цветы у болотной тропы. Значит, не всё во мне привыкло к гнили.','Я досі помічаю квіти край болотної стежки. Отже, не все в мені звикло до гнилі.');
+  return '';
+ }
+ function closeArt(restore){var viewer=document.getElementById('zgml-art-viewer');if(viewer){viewer.close();viewer.remove();}if(restore&&artFocus&&artFocus.isConnected)artFocus.focus({preventScroll:true});artFocus=null;}
+ function artMarkup(){var x=c(),quote=portraitQuote(x);return btn('art-close',t('Закрыть портрет','Закрити портрет'),'<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>','autofocus')+'<figure><img src="'+esc(safeImage(x.portrait||x.image))+'" alt="'+esc(title(x.name))+'" draggable="false"><figcaption><h2 id="zgml-art-title">'+esc(title(x.name))+'</h2>'+(quote?'<blockquote>«'+esc(quote)+'»</blockquote>':'')+'</figcaption></figure>';}
+ function showArt(){
+  if(!safeImage(c().portrait||c().image))return;
+  closeArt(false);artFocus=document.activeElement;
+  var viewer=document.createElement('dialog');viewer.id='zgml-art-viewer';viewer.setAttribute('data-zg-i18n-skip','');viewer.setAttribute('aria-labelledby','zgml-art-title');viewer.innerHTML=artMarkup();
+  viewer.addEventListener('cancel',function(ev){ev.preventDefault();closeArt(true);});
+  viewer.addEventListener('keydown',function(ev){ev.stopPropagation();if(ev.key==='Escape'){ev.preventDefault();closeArt(true);}else if(ev.key==='Tab'){ev.preventDefault();viewer.querySelector('button').focus({preventScroll:true});}});
+  document.body.appendChild(viewer);viewer.showModal();
+ }
  function fameValue(x,field){return Math.max(0,Math.min(8,parseInt(x[field],10)||0));}
  function renownStyle(x){var world=fameValue(x,'fameMundo')/8,zargota=fameValue(x,'fameZargoty')/8;return '--zgml-world-glow:'+world.toFixed(3)+';--zgml-zargota-glow:'+zargota.toFixed(3)+';--zgml-renown:'+Math.max(world,zargota).toFixed(3);}
  function fameSource(key,value){return 'images/ui/character-mobile/fame-v3/fame-'+key+'-stage-'+Math.max(1,value)+'-v3.png';}
@@ -36,7 +59,7 @@
   return editable?btn('fame',label+': '+value+t(' из 8. Изменить',' з 8. Змінити'),body,attrs+' data-field="'+field+'"'):'<div '+attrs+' role="img" aria-label="'+esc(label+': '+value+t(' из 8',' з 8'))+'">'+body+'</div>';
  }
  function about(){var x=c(),path=x.narrativePath||{};return '<div class="zgml-about">'+
-  '<section class="zgml-portrait">'+portrait(x)+'<div><h2>'+esc(title(x.name))+'</h2><span>'+esc(title(x.race))+(x.klasse?' · '+esc(title(x.klasse)):'')+'</span></div></section>'+
+  '<section class="zgml-portrait">'+btn('portrait',t('Рассмотреть портрет','Роздивитися портрет'),portrait(x),'class="zgml-portrait-open"'+(safeImage(x.portrait||x.image)?'':' disabled'))+'<div><h2>'+esc(title(x.name))+'</h2><span class="zgml-race">'+esc(title(x.race))+'</span><span class="zgml-age">'+esc(ageLabel(x))+'</span>'+(x.klasse?'<span class="zgml-class">'+esc(title(x.klasse))+'</span>':'')+'</div></section>'+
   btn('path',t('Путь персонажа','Шлях персонажа'),'<span class="zgml-path-symbol">'+icon('road')+'</span><span><small>'+t('Путь персонажа','Шлях персонажа')+'</small><strong>'+esc(path.title||t('Путь ещё не определён','Шлях ще не визначено'))+'</strong></span>','class="zgml-path zgml-frame"')+
   '<div class="zgml-fame">'+fameCard(x,'fameMundo','world',t('Мировая слава','Світова слава'))+fameCard(x,'fameZargoty','zargota',t('Слава в Зарготе','Слава в Зарготі'))+'</div>'+
   '<section class="zgml-chronicle"><header><h2>'+t('Моя история','Моя історія')+'</h2>'+btn('tree',t('Древо связей','Дерево зв’язків'),icon('tree')+'<span>'+t('Связи','Зв’язки')+'</span>','class="zgml-story-tree"')+'</header>'+
@@ -64,7 +87,7 @@
  function markup(){var s=v(),x=c(),renown=Math.max(fameValue(x,'fameMundo'),fameValue(x,'fameZargoty'));return '<section class="zgml-sheet" data-zg-i18n-skip data-renown="'+renown+'" style="'+renownStyle(x)+'"><header class="zgml-header">'+btn('back',t('Назад','Назад'),'‹')+'<h1>'+t('Лор','Лор')+'</h1>'+btn('menu',t('Меню персонажа','Меню персонажа'),'⋯')+'</header><nav class="zgml-tabs" aria-label="'+t('Разделы лора','Розділи лору')+'">'+[['about',t('Обо мне','Про мене')],['people',t('Люди','Люди')],['letters',t('Письма','Листи')]].map(function(a){return btn('tab',a[1],esc(a[1]),'data-tab="'+a[0]+'" aria-pressed="'+(s.tab===a[0])+'"');}).join('')+'</nav><div class="zgml-content '+(s.tab==='about'?'is-about':'')+'">'+(s.tab==='about'?about():tools()+'<div class="zgml-results">'+grid()+'</div>')+'</div></section>';}
  function render(x){if(String(current)!==String(x.id))close();current=x.id;return markup();}
  function refresh(onlyResults){var root=document.querySelector(onlyResults?'.zgml-results':'.zgml-sheet');if(!root||!c())return;if(onlyResults)w.ZargotaMobileSheet.updateMarkup(root,grid());else w.ZargotaMobileSheet.updateMarkup(root.parentElement,markup());}
- function close(force){if(draft&&draft.saving&&!force)return;var d=document.getElementById('zgml-dialog');if(d)d.remove();draft=null;if(focusBack&&focusBack.isConnected)focusBack.focus({preventScroll:true});focusBack=null;}
+ function close(force){closeArt(false);if(draft&&draft.saving&&!force)return;var d=document.getElementById('zgml-dialog');if(d)d.remove();draft=null;if(focusBack&&focusBack.isConnected)focusBack.focus({preventScroll:true});focusBack=null;}
  function active(on){var page=document.getElementById('page-characters');on=!!on&&w.charView==='sheet'&&page&&page.classList.contains('active');document.body.classList.toggle('zg-lore-view',!!on);if(!on)close(true);}
  function dialog(heading,body,wide){var d=document.getElementById('zgml-dialog');if(!d){focusBack=document.activeElement;d=document.createElement('dialog');d.id='zgml-dialog';d.setAttribute('data-zg-i18n-skip','');document.body.appendChild(d);d.addEventListener('click',function(ev){if(ev.target===d){var r=d.getBoundingClientRect();if(ev.clientX<r.left||ev.clientX>r.right||ev.clientY<r.top||ev.clientY>r.bottom)close();}});d.addEventListener('cancel',function(ev){ev.preventDefault();close();});}d.className=wide?'zgml-wide':'';d.innerHTML='<header><h2>'+esc(heading)+'</h2>'+btn('close',t('Закрыть','Закрити'),'×')+'</header><div class="zgml-dialog-body">'+body+'</div>';if(!d.open)d.showModal();}
  function field(name,label,value,area){return '<label>'+esc(label)+(area?'<textarea name="'+name+'" rows="4">'+esc(value)+'</textarea>':'<input name="'+name+'" value="'+esc(value)+'" maxlength="200">')+'</label>';}
@@ -83,7 +106,7 @@
  function showPath(){var p=c().narrativePath||{};dialog(p.title||t('Путь ещё не определён','Шлях ще не визначено'),'<div class="zgml-path-detail">'+icon('road')+'</div><p>'+esc(p.description||t('Здесь появится путь, который определит мастер.','Тут з’явиться шлях, який визначить майстер.'))+'</p><h3>'+t('Особенности и развитие','Особливості та розвиток')+'</h3><p>'+esc(p.development||t('Условия и игровые эффекты пока не заданы.','Умови та ігрові ефекти поки не задані.'))+'</p>'+(canMaster()?btn('edit-path',t('Настроить путь','Налаштувати шлях')):''));}
  async function persist(){var result=await w.saveChars({reason:'character-mobile-lore'});if(result&&result.ok===false)throw Error('save');refresh();}
  document.addEventListener('click',function(ev){var b=ev.target.closest('[data-zgml]');if(!b||!c())return;var a=b.dataset.zgml,s=v(),key=b.dataset.key;
-  if(a==='close')close();else if(a==='back')w.zgCharBack();else if(a==='menu')w.ZargotaMobileSheet.openMenu();
+  if(a==='portrait')showArt();else if(a==='art-close')closeArt(true);else if(a==='close')close();else if(a==='back')w.zgCharBack();else if(a==='menu')w.ZargotaMobileSheet.openMenu();
   else if(a==='tab'){close();s.tab=b.dataset.tab;s.page=0;s.filters=false;refresh();}
   else if(a==='reset-filters'){s.query='';s.region='';s.relation='';s.kind='';s.page=0;refresh();}
   else if(a==='remove-image'&&draft){draft.image='';draft.imageRemoved=true;draft.uploadToken={};draft.loading=false;var file=document.querySelector('[data-zgml-upload]');if(file){file.value='';file.nextElementSibling.textContent='';}refreshUpload();}
@@ -132,5 +155,6 @@
  });
  document.addEventListener('load',function(ev){var img=ev.target;if(img.matches&&img.matches('.zgml-fame-art')){fameImages[img.getAttribute('src')]=true;img.parentElement.classList.add('has-art');}},true);
  document.addEventListener('error',function(ev){var img=ev.target;if(img.matches&&img.matches('.zgml-fame-art')){fameImages[img.getAttribute('src')]=false;img.hidden=true;img.parentElement.classList.remove('has-art');}},true);
+ document.addEventListener('zargota:localechange',function(){if(!c())return;refresh();var viewer=document.getElementById('zgml-art-viewer');if(viewer){w.ZargotaMobileSheet.updateMarkup(viewer,artMarkup());}});
  w.ZargotaMobileLore={render:render,setActive:active,refresh:refresh};
 })(window);
