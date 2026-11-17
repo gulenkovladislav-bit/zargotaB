@@ -7,21 +7,52 @@ const os = require('node:os');
 const crypto = require('node:crypto');
 const D = require('../functions/character-domain');
 const ROOT = path.resolve(__dirname, '..');
-const collections = new Set(['skills', 'mastery', 'inventoryItems', 'journalEntries']);
+const collections = new Set(['skills', 'mastery', 'inventoryItems', 'journalEntries', 'family']);
+const familyFields = new Set(['name', 'nameUk', 'relation', 'relationUk', 'region', 'regionUk',
+  'knownInfo', 'knownInfoUk', 'note', 'noteUk', 'relationshipLevel', 'parentId', 'dir',
+  'portrait', 'image', 'icon', 'lifeStatus', 'dead']);
+const lifeStatuses = new Set(['alive', 'dead', 'unknown', 'undead']);
 const record = v => v && typeof v === 'object' && !Array.isArray(v);
 function need(ok, message) { if (!ok) throw Error(message); }
 function projectImagePath(value) {
   return typeof value === 'string' && /^(?:images|assets)\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp|gif|avif)$/i.test(value) &&
     value.split('/').every(part => part && part !== '.' && part !== '..');
 }
+function validateFamilyFields(fields, defaults = false) {
+  need(record(fields), 'Invalid family fields');
+  for (const [key, value] of Object.entries(fields)) {
+    if (defaults && key === 'id') continue; // Existing create identity check applies below.
+    if (key === 'dead') {
+      need(typeof value === 'boolean', 'Family dead must be a boolean');
+      continue;
+    }
+    need(familyFields.has(key) && typeof value === 'string', 'Unsupported family field or value');
+    if (key === 'lifeStatus') need(lifeStatuses.has(value), 'Invalid family lifeStatus');
+    if (key === 'relationshipLevel') need(['', 'hostile', 'wary', 'neutral', 'trust', 'close'].includes(value), 'Invalid relationshipLevel');
+  }
+}
 
 function mergePatch(character, patch) {
   need(record(patch) && patch.characterId != null && typeof patch.campaignKey === 'string' && patch.campaignKey, 'Specify characterId AND campaignKey');
   need(String(character.id) === String(patch.characterId) && character.campaignKey === patch.campaignKey, 'Character identity mismatch');
   const hasPortrait = Object.hasOwn(patch, 'portrait');
-  const operations = patch.operations === undefined && hasPortrait ? [] : patch.operations;
-  need(Array.isArray(operations) && operations.length <= 100 && (operations.length > 0 || hasPortrait), 'Invalid operations');
+  const hasBiography = Object.hasOwn(patch, 'biography');
+  const operations = patch.operations === undefined && (hasPortrait || hasBiography) ? [] : patch.operations;
+  need(Array.isArray(operations) && operations.length <= 100 && (operations.length > 0 || hasPortrait || hasBiography), 'Invalid operations');
   const next = structuredClone(character);
+  if (hasBiography) {
+    const change = patch.biography;
+    need(record(change) && Object.keys(change).length === 4 &&
+      ['from', 'fromUk'].every(key => Object.hasOwn(change, key) && (change[key] === null || typeof change[key] === 'string')) &&
+      ['ru', 'uk'].every(key => typeof change[key] === 'string'), 'Biography needs from/fromUk and ru/uk strings; null means absent source');
+    const ru = next.biography ?? null, uk = next.biographyUk ?? null;
+    // Check the pair together: a later edit of either language blocks a stale replacement.
+    if (ru !== change.ru || uk !== change.uk) {
+      need(ru === change.from && uk === change.fromUk, 'Biography changed; inspect both current locales before retrying');
+      next.biography = change.ru;
+      next.biographyUk = change.uk;
+    }
+  }
   if (hasPortrait) {
     const change = patch.portrait;
     need(record(change) && Object.keys(change).length === 2 && projectImagePath(change.from) && projectImagePath(change.to), 'Portrait needs from/to project-relative image paths');
@@ -39,6 +70,11 @@ function mergePatch(character, patch) {
     const keys = Object.keys(op.match), key = keys[0];
     need(keys.length === 1 && ['id', 'name'].includes(key) && String(op.match[key] ?? '').length > 0, 'Match one stable id or exact legacy name');
     need(!Object.hasOwn(op.set, 'id'), 'Entry identity cannot be changed');
+    if (op.collection === 'family') {
+      need(key === 'id', 'Family updates require a stable id');
+      validateFamilyFields(op.set);
+      if (Object.hasOwn(op, 'create')) validateFamilyFields(op.create, true);
+    }
     const entries = next[op.collection] ?? [];
     need(Array.isArray(entries), 'Collection is not an array');
     const matches = entries.map((entry, i) => record(entry) && String(entry[key]) === String(op.match[key]) ? i : -1).filter(i => i >= 0);
@@ -49,6 +85,7 @@ function mergePatch(character, patch) {
       need(key === 'id' && record(op.create), 'Entry missing; creation needs a stable id and create defaults');
       need(op.create.id == null || String(op.create.id) === String(op.match.id), 'Create identity mismatch');
       const entry = {...op.create, ...op.set, id: op.match.id};
+      if (op.collection === 'family') need(typeof entry.name === 'string' && entry.name.trim(), 'New family entry needs a name');
       need(!entries.some(e => record(e) && e.name && e.name === entry.name), 'An entry with this name already exists; inspect it before adding');
       entries.push(entry);
     }

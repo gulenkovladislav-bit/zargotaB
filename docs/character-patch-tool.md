@@ -44,7 +44,8 @@ with approved name/type/description/art and `create` with initial defaults, e.g.
 `{"cdMax":0,"cdUsed":0,"usages":""}`. Defaults apply only on insertion. A later
 update leaves current uses, cooldown and all unspecified fields intact. Duplicate
 IDs/names stop the operation. Supported collections: skills, mastery,
-inventoryItems, journalEntries (legacy exact-name matching if no `id` exists).
+inventoryItems, journalEntries (legacy exact-name matching if no `id` exists),
+and family (stable-ID matching only).
 No whole-sheet replacement or deletion operation is exposed.
 
 For an authorized stock portrait replacement, use the same `apply` command with
@@ -71,8 +72,66 @@ keeps all focus/choice fields. Entry `operations` may accompany this change or
 be omitted/empty for a portrait-only patch. Preview, revision checks, private
 backup, canonical read-back and master history use the existing save workflow.
 
+## Biography and close connections
+
+For an approved biography, provide both locales and the exact text observed in
+the live sheet. `null` as a source means the field was absent or null; it does
+not match an existing empty string. This narrow operation changes only
+`biography` and `biographyUk`, never `currentGoal`, other lore, or the full sheet.
+
+```json
+{
+  "characterId": 1778221143711,
+  "campaignKey": "lin-yin",
+  "biography": {
+    "from": "",
+    "fromUk": null,
+    "ru": "Approved Russian biography.",
+    "uk": "Approved Ukrainian biography."
+  },
+  "operations": [
+    {
+      "collection": "family",
+      "match": {"id": "known-person-stable-id"},
+      "create": {"parentId": "root", "dir": "other", "relationshipLevel": ""},
+      "set": {
+        "name": "Established Russian name",
+        "nameUk": "Established Ukrainian name",
+        "relation": "Established relationship in Russian",
+        "relationUk": "Established relationship in Ukrainian",
+        "knownInfo": "Player-known facts in Russian",
+        "knownInfoUk": "Player-known facts in Ukrainian",
+        "lifeStatus": "unknown"
+      }
+    }
+  ]
+}
+```
+
+`biography` accepts exactly `from`, `fromUk`, `ru`, and `uk`. If both current
+texts already equal the requested targets, the biography operation is a no-op.
+Otherwise both must match their sources; a change to either locale stops the
+operation for inspection. `operations` may be omitted for a biography-only
+patch, and a biography may be combined with a portrait or entry patch.
+
+Add/update connections individually by their actual stable IDs. An insertion
+requires a non-empty name; an existing same-name person blocks accidental
+duplication. Accepted family fields are `name`, `nameUk`, `relation`,
+`relationUk`, `region`, `regionUk`, `knownInfo`, `knownInfoUk`, `note`, `noteUk`,
+`relationshipLevel`, `parentId`, `dir`, `portrait`, `image`, `icon`, and
+`lifeStatus`, and the classic compatibility field `dead`. All except `dead`
+must be strings; `dead` must be a boolean. Keep it `true` only when `lifeStatus`
+is `dead`, and `false` for the other explicit statuses; it does not establish that
+an unknown person is alive. `lifeStatus` is one of `alive`,
+`dead`, `unknown`, `undead`; do not infer that someone is alive merely because
+no death was recorded. `relationshipLevel` uses the existing values `""`,
+`hostile`, `wary`, `neutral`, `trust`, or `close`. Family tree cycles are rejected
+by the existing character validator. Other people and all unspecified fields,
+including personal notes and portraits, remain untouched.
+
 Read relevant `GLOBAL_LORE.md` sources before authoring rules/lore. Keep RU/UK
-translations together using the existing character translation sidecar. Images
+translations together: ability text uses the existing character translation
+sidecar; biographies and family records use the explicit locale fields above. Images
 must be published and verified at the live URL BEFORE writing their paths. A
 local PNG or Git commit alone is not proof of a served asset. Do not embed full
 PNG files in sheets. A personal upgrade does not change other players/catalog.

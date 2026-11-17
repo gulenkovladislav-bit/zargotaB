@@ -124,3 +124,43 @@
  .zgml-portrait>div{pointer-events:none}
  .zgml-portrait .zgml-age::before,.zgml-portrait .zgml-class::before{content:' · '}
 }
+
+/* Family and close connections share one movable, localized tree. */
+@media(max-width:899px){
+ #zgml-dialog .zgml-story-full>p{font-size:17px;line-height:1.62;margin:0 0 18px;white-space:pre-line;color:#eadcc1}
+ #zgml-dialog .zgml-story-full>p:first-child:first-letter{font-size:1.8em;line-height:1;color:#e5bf7c}
+ .zgml-story-current{border-top:1px solid #78603a;padding-top:2px;margin:20px 0 8px}
+ #zgml-dialog .zgml-story-current p{font-size:15px;color:#cab896;margin-bottom:12px}
+ .zgml-life-badge{display:inline-flex;align-items:center;gap:5px;width:fit-content;font:12px/1.2 Georgia,serif;color:#c4b69c;white-space:nowrap}
+ .zgml-life-badge::before{content:'?';font-size:12px;color:#b6a382}
+ .zgml-life-badge[data-life=alive]::before{content:'•';color:#a8b798}
+ .zgml-life-badge[data-life=dead]::before{content:'†';font-size:16px;color:#b5ad9e}
+ .zgml-life-badge[data-life=undead]::before{content:'◇';color:#b795ce}
+ [data-life=dead]>.zgml-person-art,[data-life=dead]>.zgml-detail-portrait,.zgml-tree button[data-life=dead]>img,.zgml-tree button[data-life=dead]>.zgml-silhouette{filter:grayscale(1);opacity:.7}
+ .zgml-tree button[data-life=dead]{border-color:#756f61!important}
+ .zgml-person-copy>.zgml-life-badge{font-size:11px}
+ #zgml-dialog .zgml-life-open{display:flex;align-items:center;justify-content:space-between;min-width:150px;padding:8px 12px;margin:0 0 10px;background:#18140e;border-color:#766040}
+ .zgml-life-open .zgml-life-badge{font-size:15px}
+ .zgml-life-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:14px}
+ .zgml-life-options[hidden]{display:none}
+ #zgml-dialog .zgml-life-options button{margin:0;font-size:14px;padding:8px 6px}
+ #zgml-dialog .zgml-life-options [aria-pressed=true]{border-color:#d9b46f;background:#503c20;color:#f4dfb0}
+ .zgml-life-error{color:#e6aa93;font-size:14px}.zgml-life-error:empty{display:none}
+ .zgml-person-detail .zgml-detail-portrait:has(.zgml-silhouette){height:88px}
+ #zgml-dialog .zgml-person-relation{font-size:14px;color:#bfa887;margin:10px 0}
+ .zgml-person-facts p{font-size:16px;line-height:1.5}.zgml-person-facts small{display:block;color:#bda57c;font-size:12px}
+ #zgml-dialog .zgml-return-tree{margin:0 0 10px;padding:4px 0;border:0;background:none;color:#d3b67e}
+ .zgml-tree-tools{display:flex;align-items:center;justify-content:center;gap:8px;flex:none}
+ #zgml-dialog .zgml-tree-tools button{margin:0;padding:6px 12px;min-width:44px;min-height:44px}
+ #zgml-dialog .zgml-tree-tools button:disabled{opacity:.4}
+ #zgml-dialog .zgml-tree-hint{flex:none;margin:8px 5px;font-size:12px;line-height:1.35;color:#b5a386;text-align:center}
+ .zgml-tree-scroll{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;border:1px solid #64523566;border-radius:6px;background:radial-gradient(ellipse at 50% 0,#69512d1a,transparent 65%)}
+ .zgml-tree-scroll.is-dragging,.zgml-tree-scroll.is-dragging *{cursor:grabbing!important}
+ .zgml-tree-scroll:focus-visible{outline:2px solid #bd985c;outline-offset:-2px}
+ .zgml-tree img{-webkit-user-drag:none;pointer-events:none}
+ .zgml-tree{padding:20px 28px 36px}
+ .zgml-tree-root{position:relative;box-shadow:0 0 20px #c3932922}.zgml-tree-root::after{content:'';position:absolute;top:100%;left:50%;height:25px;border-left:1px solid #8b7046}
+ #zgml-dialog .zgml-tree button{min-height:144px;justify-content:flex-start}
+ .zgml-tree .zgml-life-badge{margin-top:auto;font-size:11px}
+ #zgml-dialog[aria-busy=true] button{cursor:wait}
+}

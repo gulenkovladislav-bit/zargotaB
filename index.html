@@ -10433,9 +10433,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-17.13';
+var ZG_APP_VERSION = '2026-11-17.19';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-17.19',notes:'В лоре добавлены истории пяти героев и семейные связи. Древо можно перемещать и увеличивать; статус близкого меняется коротким выбором. Истории и связи переключаются вместе с языком сайта.',notesUk:'У лорі додано історії п’ятьох героїв і родинні зв’язки. Дерево можна переміщувати й збільшувати; статус близької людини змінюється коротким вибором. Історії та зв’язки перемикаються разом із мовою сайту.'},
   {v:'2026-11-17.13',notes:'В лоре возвращён широкий портрет с именем, расой и возрастом поверх изображения. Просмотр на весь экран сохранён.',notesUk:'У лорі повернуто широкий портрет з ім’ям, расою та віком поверх зображення. Повноекранний перегляд збережено.'},
   {v:'2026-11-17.12',notes:'В лоре возраст показан рядом с расой. Портрет открывается на весь экран; у Эстероса появилась отдельная атмосферная цитата.',notesUk:'У лорі вік показано поруч із расою. Портрет відкривається на весь екран; в Естероса з’явилася окрема атмосферна цитата.'},
   {v:'2026-11-17.11',notes:'Установлены выбранные звуки монет и урона. При надевании и снятии предметов звучит шорох ткани.',notesUk:'Встановлено вибрані звуки монет і шкоди. Під час спорядження та зняття предметів лунає шурхіт тканини.'},
@@ -26833,10 +26834,10 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="personal-item-presentation.js?v=2026-11-17.3"></script>
 <script defer src="item-detail-content.js?v=2026-11-17.5"></script>
 <script defer src="character-mobile-inventory.js?v=2026-11-17.11"></script>
-<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-17.13">
+<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-17.19">
 <link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-17.3">
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
-<script defer src="character-mobile-lore.js?v=2026-11-17.12"></script>
+<script defer src="character-mobile-lore.js?v=2026-11-17.19"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-16.11">
 <link rel="stylesheet" href="character-spell-detail.css?v=2026-11-17.12">
 <script defer src="spell-detail-content.js?v=2026-11-16.19"></script>
@@ -55352,6 +55353,7 @@ var RULES_QUICK_SECTIONS = [
 
 function buildJournalSection(c) {
   var journalUkrainian = characterEntryUsesUkrainian(c);
+  var biographyField = window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' ? 'biographyUk' : 'biography';
   return '<div class="sheet-journal">' +
     '<div class="sheet-journal-grid">' +
       '<div class="journal-card large">' +
@@ -55379,7 +55381,7 @@ function buildJournalSection(c) {
       '</div>' +
       '<div class="journal-card" style="grid-column:1 / -1">' +
         '<div class="journal-title">Биография</div>' +
-        '<textarea class="journal-area" rows="14" placeholder="' + (journalUkrainian ? 'Історія, зв’язки, важливі події, світогляд, звички…' : 'История, связи, важные события, мировоззрение, привычки...') + '" oninput="autoResize(this);updateSimpleField(' + c.id + ',\'biography\',this.value)">' + escHTML(c.biography || '') + '</textarea>' +
+        '<textarea class="journal-area" rows="14" placeholder="' + (journalUkrainian ? 'Історія, зв’язки, важливі події, світогляд, звички…' : 'История, связи, важные события, мировоззрение, привычки...') + '" oninput="autoResize(this);updateSimpleField(' + c.id + ',\'' + biographyField + '\',this.value)">' + escHTML(c[biographyField] == null ? (c.biography || '') : c[biographyField]) + '</textarea>' +
       '</div>' +
     '</div>' +
   '</div>';
@@ -55439,7 +55441,7 @@ function zgFamilyTier(m) {
   return 'other';
 }
 function zgFamNodeHtml(c, m) {
-  var dead = !!m.dead;
+  var dead = m.lifeStatus ? m.lifeStatus === 'dead' : !!m.dead;
   var edit = !!_famEditMode[c.id];
   var dir = zgFamilyTier(m);
   var dirInfo = FAMILY_DIRS.find(function(d){ return d.key === dir; }) || FAMILY_DIRS[3];
@@ -55469,7 +55471,7 @@ function zgFamilyView(charId, famId) {
   if (!c || !Array.isArray(c.family)) return;
   var m = c.family.find(function(x){ return x.id === famId; });
   if (!m) return;
-  var dead = !!m.dead;
+  var dead = m.lifeStatus ? m.lifeStatus === 'dead' : !!m.dead;
   var old = document.getElementById('fam-view-popup'); if (old) old.remove();
   var isMobile = window.innerWidth < 600;
   var bd = document.createElement('div');
@@ -55729,7 +55731,8 @@ function zgFamilyToggleDead(charId, famId) {
   if (!c || !Array.isArray(c.family)) return;
   var m = c.family.find(function(x){ return x.id === famId; });
   if (!m) return;
-  m.dead = !m.dead;
+  m.dead = !(m.lifeStatus ? m.lifeStatus === 'dead' : m.dead);
+  m.lifeStatus = m.dead ? 'dead' : 'alive';
   saveChars();
   if (typeof renderCharSheet === 'function') { try { renderCharSheet(); } catch(e) {} }
 }

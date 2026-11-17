@@ -251,3 +251,110 @@ test('a concurrent player portrait change rejects stale save and is preserved on
   assert.equal(JSON.parse(f.sheet.state.characterJson).portrait, custom);
   assert.equal(JSON.parse(f.sheet.state.characterJson).hpCur, 5);
 });
+
+const biographyPatch = () => ({characterId: hero().id, campaignKey: hero().campaignKey,
+  biography: {from: '', fromUk: null, ru: 'Approved history.', uk: 'Approved translated history.'}});
+
+test('biography pair replaces only exact expected prose and preserves other live fields', () => {
+  const current = {...hero(), biography: '', currentGoal: 'Player goal', notes: 'Player notes'}, before = clone(current);
+  const result = mergePatch(current, biographyPatch());
+  assert.equal(result.biography, biographyPatch().biography.ru);
+  assert.equal(result.biographyUk, biographyPatch().biography.uk);
+  assert.equal(result.currentGoal, current.currentGoal);
+  assert.equal(result.notes, current.notes);
+  assert.deepEqual(result.skills, current.skills);
+  assert.deepEqual(current, before);
+  assert.deepEqual(mergePatch(result, biographyPatch()), result, 'repeating an accepted pair is a no-op');
+  assert.throws(() => mergePatch({...current, biography: 'Player replacement'}, biographyPatch()), /Biography changed/);
+  assert.throws(() => mergePatch({...current, biographyUk: 'Player translation'}, biographyPatch()), /Biography changed/);
+  assert.throws(() => mergePatch({...result, biographyUk: 'Newer translation'}, biographyPatch()), /Biography changed/);
+});
+
+test('biography sources distinguish absent text from empty text and require both locales', () => {
+  const absent = {...biographyPatch(), biography: {...biographyPatch().biography, from: null}};
+  assert.equal(mergePatch(hero(), absent).biography, absent.biography.ru);
+  assert.equal(mergePatch({...hero(), biography: null, biographyUk: null}, absent).biographyUk, absent.biography.uk);
+  assert.throws(() => mergePatch({...hero(), biography: ''}, absent), /Biography changed/);
+  for (const biography of [null, {}, {from: '', ru: 'x', uk: 'y'},
+    {from: '', fromUk: null, ru: 'x'}, {from: '', fromUk: null, ru: 'x', uk: 4},
+    {...biographyPatch().biography, currentGoal: 'Overwrite'},
+    {...biographyPatch().biography, from: 42}]) {
+    assert.throws(() => mergePatch({...hero(), biography: ''}, {...biographyPatch(), biography}), /Biography needs/);
+  }
+  assert.throws(() => mergePatch({...hero(), biography: ''}, {...biographyPatch(),
+    biography: {...biographyPatch().biography, uk: '<script>bad()</script>'}}), /unsafe-character-content/);
+});
+
+test('biography save records both locales in existing master history and rerun makes no write', async () => {
+  const f = fixture({character: {...hero(), biography: '', currentGoal: 'Keep this'}}), backups = [];
+  assert.equal((await applyPatch(f.transport, biographyPatch())).status, 'preview');
+  assert.equal(f.calls.length, 0);
+  assert.equal((await applyPatch(f.transport, biographyPatch(), {write: true, backup: async x => backups.push(clone(x))})).status, 'saved');
+  assert.equal(backups.length, 1);
+  assert.equal(JSON.parse(backups[0].state.characterJson).biography, '');
+  assert.deepEqual(JSON.parse(f.sheet.history['000000000002'].changesJson).map(c => c.field).sort(), ['biography', 'biographyUk']);
+  assert.equal(JSON.parse(f.sheet.state.characterJson).currentGoal, 'Keep this');
+  assert.equal((await applyPatch(f.transport, biographyPatch(), {write: true})).status, 'unchanged');
+  assert.equal(f.calls.length, 1);
+});
+
+test('concurrent biography editing blocks stale write and retry without touching player changes', async () => {
+  const f = fixture({character: {...hero(), biography: ''}, beforeSave: sheet => {
+    const current = JSON.parse(sheet.state.characterJson);
+    current.biographyUk = 'Player wrote this meanwhile';
+    current.hpCur = 7;
+    return D.commit(sheet, 'player_uid', {character: current, expectedRevision: 1, operationId: 'player_biography_001'}, 200);
+  }});
+  await assert.rejects(applyPatch(f.transport, biographyPatch(), {write: true}), /revision-conflict/);
+  await assert.rejects(applyPatch(f.transport, biographyPatch(), {write: true}), /Biography changed/);
+  assert.equal(f.calls.length, 1);
+  assert.equal(JSON.parse(f.sheet.state.characterJson).biographyUk, 'Player wrote this meanwhile');
+  assert.equal(JSON.parse(f.sheet.state.characterJson).hpCur, 7);
+});
+
+test('family insert and status edits use stable IDs and preserve other people and their notes', async () => {
+  const existing = {id: 'friend', name: 'Friend', note: 'Personal memory', lifeStatus: 'unknown', customFlag: true};
+  const current = {...hero(), biography: '', family: [existing]};
+  const request = {...biographyPatch(), operations: [
+    {collection: 'family', match: {id: 'friend'}, set: {lifeStatus: 'dead', dead: true}},
+    {collection: 'family', match: {id: 'mother'}, create: {parentId: 'root', dir: 'other', relationshipLevel: ''},
+      set: {name: 'Mother', nameUk: 'Translated mother', relation: 'Parent', relationUk: 'Translated parent',
+        knownInfo: 'Known biography', knownInfoUk: 'Translated known biography', lifeStatus: 'unknown', dead: false}}
+  ]};
+  const f = fixture({character: current});
+  const result = await applyPatch(f.transport, request, {write: true});
+  assert.equal(result.status, 'saved');
+  const saved = JSON.parse(f.sheet.state.characterJson);
+  assert.equal(saved.family.length, 2);
+  assert.deepEqual(saved.family[0], {...existing, lifeStatus: 'dead', dead: true});
+  assert.equal(saved.family[1].nameUk, 'Translated mother');
+  assert.equal(saved.family[1].parentId, 'root');
+  assert.equal(saved.family[1].dead, false);
+  assert.equal(saved.biographyUk, request.biography.uk);
+  assert.deepEqual(current.family, [existing]);
+  assert.equal((await applyPatch(f.transport, request, {write: true})).status, 'unchanged');
+  assert.equal(f.calls.length, 1);
+});
+
+test('family mutations reject ambiguous identity, invalid status, unsupported fields and graph cycles', () => {
+  const current = {...hero(), family: [{id: 'mother', name: 'Mother', parentId: 'root'}]};
+  const operation = {collection: 'family', match: {id: 'mother'}, set: {lifeStatus: 'dead'}};
+  for (const bad of [
+    {...operation, match: {name: 'Mother'}},
+    {...operation, set: {lifeStatus: 'deceased'}},
+    {...operation, set: {dead: 'true'}},
+    {...operation, set: {dead: 0}},
+    {...operation, set: {knownInfoUk: {uk: 'Wrong shape'}}},
+    {...operation, set: {relationshipLevel: 'best'}},
+    {...operation, set: {parentId: 'mother'}},
+    {...operation, match: {id: 'new'}, create: {name: 'New', unsupported: 'bad'}},
+    {...operation, match: {id: 'new'}, create: {}},
+    {...operation, match: {id: 'new'}, create: {name: 'Mother'}}
+  ]) assert.throws(() => mergePatch(current, patch([bad])));
+  assert.throws(() => mergePatch({...current, family: [...current.family, clone(current.family[0])]}, patch([operation])), /Ambiguous/);
+  for (const lifeStatus of ['alive', 'dead', 'unknown', 'undead']) {
+    assert.equal(mergePatch(current, patch([{...operation, set: {lifeStatus}}])).family[0].lifeStatus, lifeStatus);
+  }
+  assert.equal(mergePatch(current, patch([{...operation, match: {id: 'new'}, set: {name: 'New'}, create: {dead: false}}])).family[1].dead, false);
+  assert.throws(() => mergePatch(current, patch([{...operation, match: {id: 'new'}, set: {name: 'New'}, create: {dead: null}}])), /boolean/);
+});
