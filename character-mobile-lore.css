@@ -174,3 +174,16 @@
  #zgml-dialog.zgml-story-dialog>.zgml-story-actions{flex:none;display:flex;gap:8px;padding:9px 12px max(9px,env(safe-area-inset-bottom,0px));border-top:1px solid #675238;background:#19140d}
  #zgml-dialog.zgml-story-dialog>.zgml-story-actions button{margin:0;min-height:42px;border:1px solid #886a3d;border-radius:7px 2px;background:#251b0e;font:14px Georgia,serif;color:#eadcbd}
 }
+
+/* Compact contact notebook; family details remain in the relationship tree. */
+@media(max-width:899px){
+ .zgml-people{gap:6px}.zgml-person-art{width:25%;max-width:100px}.zgml-person-copy{gap:4px;padding:7px 10px}.zgml-person-copy strong{font-size:18px;-webkit-line-clamp:1}.zgml-person-copy .zgml-known{margin:0;padding-top:3px;font-size:12px;display:block}
+ .zgml-chronicle .zgml-story-tree{min-height:44px;padding:8px 14px;gap:8px;border:1px solid #aa8647;border-radius:8px 3px;background:linear-gradient(120deg,#4a351b,#261c10);color:#f6dfae;font-size:16px!important;box-shadow:inset 0 1px #d6b56d33}
+ .zgml-chronicle .zgml-story-tree svg{width:25px;height:25px}
+ #zgml-dialog.zgml-story-dialog>.zgml-story-actions [data-zgml=tree]{flex:1.3;min-height:48px;background:linear-gradient(120deg,#4a351b,#261c10);border-color:#b28d4c;font-size:16px}
+ #zgml-dialog .zgml-filter-options{border:0;padding:0;margin:0 0 16px;display:flex;flex-wrap:wrap;gap:7px}
+ #zgml-dialog .zgml-filter-options legend{padding:0 0 8px;color:#d9b876;font-size:16px}
+ #zgml-dialog .zgml-filter-options button{margin:0;min-height:40px;padding:7px 12px;font-size:14px;border:1px solid #705833;border-radius:7px;background:#20190e}
+ #zgml-dialog .zgml-filter-options [aria-pressed=true]{border-color:#d3aa60;background:#48351c;color:#ffe6b5}
+ #zgml-dialog .zgml-note-open{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border:1px solid #9b7a43;border-radius:7px;background:#342613}
+}
