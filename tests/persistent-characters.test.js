@@ -145,3 +145,27 @@ test('existing progression notes survive create and save without weakening text 
  assert.throws(()=>D.clean({...hero,notes:[]}));
  assert.throws(()=>D.clean({...hero,inventoryItems:[{notes:[]}]}));
 });
+
+test('independent local note and remote bilingual biography/family merge without data loss',()=>{
+ const e=entry(),base={...hero,notes:'',biography:'',biographyUk:''};e.base={revision:1,characterJson:JSON.stringify(base)};
+ const local={...base,notes:'Keep my note',hpCur:4};C.draft(e,local,()=> 'local_note_1');
+ const remote={...base,biography:'История',biographyUk:'Історія',family:[{id:'mother',name:'Мать'}]},packet={revision:2,characterJson:JSON.stringify(remote)};
+ const merged=C.mergeRemote(e,packet,local);assert.equal(merged.notes,'Keep my note');assert.equal(merged.hpCur,4);assert.equal(merged.biography,'История');assert.equal(merged.biographyUk,'Історія');assert.deepEqual(merged.family,remote.family);assert.equal(e.base.revision,1,'pure merge does not acknowledge before local persistence');
+ const sheet=D.initial(base,'master','player',D.code(),1),updated=D.commit(sheet,'master',input(remote),2);
+ const final=D.commit(updated,'master',input(merged,2,'rebased_note_1'),3);assert.equal(JSON.parse(final.state.characterJson).biography,'История');assert.equal(JSON.parse(final.state.characterJson).notes,'Keep my note');
+});
+test('different changes to the same prose or family stay conflicts, including empty deletions',()=>{
+ const e=entry(),base={...hero,notes:'base',family:[{id:'one',name:'A'}]};e.base={revision:1,characterJson:JSON.stringify(base)};
+ const packet=c=>({revision:2,characterJson:JSON.stringify(c)});
+ assert.equal(C.mergeRemote(e,packet({...base,notes:'remote'}),{...base,notes:'local'}),null);
+ assert.equal(C.mergeRemote(e,packet({...base,family:[{id:'one',name:'B'}]}),{...base,family:[]}),null);
+ assert.equal(C.mergeRemote(e,packet({...base,notes:''}),{...base,notes:'local'}),null);
+});
+test('independent field removal, same edits, identity mapping and metadata survive rebase',()=>{
+ const e=entry(),base={...hero,notes:'delete me',biography:''};e.base={revision:1,characterJson:JSON.stringify(base)};
+ const local={...base,id:99,revision:55,_updatedAt:123};delete local.notes;
+ const remote={...base,biography:'server'};const result=C.mergeRemote(e,{revision:2,characterJson:JSON.stringify(remote)},local);
+ assert.ok(!Object.hasOwn(result,'notes'));assert.equal(result.id,7);assert.equal(result.campaignKey,'hero-seven');assert.equal(result.biography,'server');assert.ok(!Object.hasOwn(result,'revision'));
+ assert.deepEqual(C.mergeRemote(e,{revision:2,characterJson:JSON.stringify(remote)},remote),remote);
+ assert.equal(C.mergeRemote(e,{revision:1,characterJson:JSON.stringify(remote)},local),null);
+});

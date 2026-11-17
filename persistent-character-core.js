@@ -12,6 +12,21 @@
     if(!entry.pending&&!same(next,JSON.parse(entry.base.characterJson)))entry.pending={operationId:newId(),expectedRevision:entry.base.revision,character:clone(next),source:entry.source};
     return entry;
   }
+  // Rebase whole fields only when their edits do not overlap. Lists remain atomic.
+  // A local note must not block a remote biography or family update.
+  function mergeRemote(entry,packet,character){
+    if(!entry.base||!character||!packet||packet.revision<=entry.base.revision)return null;
+    var base=clean(JSON.parse(entry.base.characterJson)),remote=clean(JSON.parse(packet.characterJson)),local=clean(character),merged=clone(remote);
+    local.id=entry.remoteId;if(entry.remoteKey)local.campaignKey=entry.remoteKey;else delete local.campaignKey;
+    var own=function(o,k){return Object.prototype.hasOwnProperty.call(o,k);};
+    var sameField=function(a,b,k){return own(a,k)===own(b,k)&&equal(a[k],b[k]);};
+    for(var k of new Set(Object.keys(base).concat(Object.keys(local),Object.keys(remote)))){
+      if(sameField(local,base,k))continue;
+      if(!sameField(remote,base,k)&&!sameField(remote,local,k))return null;
+      if(own(local,k))merged[k]=clone(local[k]);else delete merged[k];
+    }
+    return merged;
+  }
   function incoming(entry,packet,editing){
     if(!packet||packet.revision<entry.base.revision)return 'old';
     if(entry.pending&&packet.operationId===entry.pending.operationId)return 'own';
@@ -32,5 +47,5 @@
     if(entry.remote&&entry.remote.revision>packet.revision)entry.conflict=true;
     if(entry.draft&&!same(entry.draft,JSON.parse(packet.characterJson)))draft(entry,entry.draft,newId,entry.source);
   }
-  return {clone:clone,clean:clean,equal:equal,same:same,draft:draft,incoming:incoming,acknowledged:acknowledged};
+  return {clone:clone,clean:clean,equal:equal,same:same,draft:draft,incoming:incoming,mergeRemote:mergeRemote,acknowledged:acknowledged};
 });

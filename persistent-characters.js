@@ -93,9 +93,9 @@
     if(w.ZargotaMobileSheet)w.ZargotaMobileSheet.updateMarkup(node,html);
     else if(node.innerHTML!==html)node.innerHTML=html;
   }
-  async function apply(sid,packet,initial){
+  async function apply(sid,packet,initial,merged){
     var generation=authGeneration,entry=records[sid];if(!state.enabled||!entry)return;
-    var remote=JSON.parse(packet.characterJson),before=character(entry.localId),value=C.clone(remote);
+    var remote=JSON.parse(packet.characterJson),before=character(entry.localId),value=C.clone(merged||remote);
     value.id=entry.localId;value._updatedAt=Date.now();value.revision=Math.max(Number(before&&before.revision)||0,packet.revision)+1;
     var result=await w.ZargotaCharacterStore.saveCharacter(value.id,value,w.characters,{replace:true});
     // A delayed local write must not repaint a sheet after a cross-tab signout.
@@ -111,9 +111,11 @@
     }
     var index=w.characters.findIndex(function(c){return String(c.id)===String(value.id);});if(index<0)w.characters.push(value);else w.characters[index]=value;
     entry.base=C.clone(packet);entry.remote=null;entry.draft=null;entry.conflict=false;
+    if(merged){entry.pending=null;entry.error='';C.draft(entry,value,newId,entry.source);}
     if(!persist())return;
     if(!initial&&before&&packet.updatedBy!==uid&&w.ZargotaCharacterUpdates)w.ZargotaCharacterUpdates.receive({characterId:value.id,before:before,after:value,channel:'cloud',revision:'persistent:'+sid+':'+packet.revision,author:packet.writerRole==='master'?'master':'shared'});
     redraw(value.id);
+    if(merged&&entry.pending)queue(sid);
   }
   async function receive(sid,packet){
     if(!state.enabled||!packet)return;
@@ -126,9 +128,13 @@
       if(character(entry.localId))entry.backup=C.clone(character(entry.localId));
       await apply(sid,packet,true);return;
     }
-    var action=C.incoming(entry,packet,editing(entry)||entry.localSaving||entry.dirtyInput||inSession(entry));
+    var busy=editing(entry)||entry.localSaving||entry.dirtyInput||inSession(entry)||sending[sid];
+    var action=C.incoming(entry,packet,busy);
     if(action==='apply')await apply(sid,packet,false);
-    else if(action==='deferred'){persist();render();}
+    else if(action==='deferred'){
+      var merged=!busy&&C.mergeRemote(entry,packet,character(entry.localId));
+      if(merged)await apply(sid,packet,false,merged);else{persist();render();}
+    }
     else if((action==='same'||action==='own')&&entry.pending)queue(sid);
   }
   function stop(){if(w.ZargotaPlayerMessages)w.ZargotaPlayerMessages.stop();stops.forEach(function(fn){fn();});stops=[];subscribedUid='';tableSeen.clear();Object.values(sendTimers).forEach(clearTimeout);sendTimers={};retryAttempts={};}
@@ -203,7 +209,11 @@
         queue(sid,Math.min(60000,1500*Math.pow(2,Math.min(attempt,6))));
       }
       persist();
-    }finally{delete sending[sid];render();if(entry.pending&&!entry.conflict&&!entry.error)queue(sid);}
+    }finally{
+      delete sending[sid];
+      if(state.enabled&&records[sid]===entry&&entry.remote)await receiveInOrder(sid,entry,entry.remote);
+      render();if(entry.pending&&!entry.conflict&&!entry.error)queue(sid);
+    }
   }
   function saved(chars,options){
     if(!cacheReady){boot.then(function(){saved(chars,options);});return;}
@@ -217,13 +227,13 @@
       if(entry.remote&&entry.remote.revision>entry.base.revision)entry.conflict=true;
       C.draft(entry,c,newId,options&&options.sync===false?'session':'sheet');
       changed=true;if(entry.pending&&!entry.conflict)queue(sid);
-    });if(changed)persist();render();
+    });if(changed)persist();render();resume().catch(failed);
   }
   async function resume(){
     if(!state.enabled)return;
     for(var sid of Object.keys(records)){
       var entry=records[sid];
-      if(entry.remote&&!entry.pending&&!entry.conflict&&!entry.localSaving&&!entry.dirtyInput&&!editing(entry)&&!inSession(entry))await apply(sid,entry.remote,false);
+      if(entry.remote&&!entry.localSaving&&!entry.dirtyInput&&!editing(entry)&&!inSession(entry)&&!sending[sid])await receiveInOrder(sid,entry,entry.remote);
     }
   }
   function status(entry,sid){

@@ -15,7 +15,7 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('node:ass
   assert.equal(before,0,'Fresh local hero must reproduce the missing family case');
   await page.evaluate(id=>{window._charSheetTab='lore';openCharSheet(id)},hero.id);
   await page.locator('[data-zgml=tree]').first().tap();
-  assert.equal(await page.locator('.zgml-tree [data-key]').count(),counts[hero.campaignKey]);
+  assert.equal(await page.locator('.zgml-tree [data-key]').count(),0,'No invented family fallback for a cached sheet');
   await page.waitForTimeout(250);if(hero.campaignKey==='lin-yin')await page.screenshot({path:'/private/tmp/zg-lore-local-family-fixed.png'});
   await page.locator('#zgml-dialog [data-zgml=close]').tap();
   for(const locale of ['ru','uk']){
@@ -24,11 +24,11 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('node:ass
    const quoteBox=await page.locator('#zgml-art-viewer figcaption').boundingBox();assert.ok(quoteBox.y+quoteBox.height<=844);
    await page.locator('[data-zgml=art-close]').tap();
   }
-  console.log(hero.campaignKey+': local starter family '+counts[hero.campaignKey]+', portrait quotes RU/UK');
+  console.log(hero.campaignKey+': empty family stays empty, portrait quotes RU/UK');
  }
  assert.equal(await page.evaluate(()=>window._loreSaves),0,'Viewing must not save or replace live sheets');
  const lin=originals.find(c=>c.campaignKey==='lin-yin');
- await page.evaluate(id=>{window._charSheetTab='lore';openCharSheet(id)},lin.id);
+ await page.evaluate(id=>{characters.find(c=>c.id===id).family=[{id:'parent-a',name:'Родитель',relation:'Семья'},{id:'parent-b',name:'Родитель',relation:'Семья'}];window._charSheetTab='lore';openCharSheet(id)},lin.id);
  await page.locator('[data-zgml=tree]').first().tap();await page.locator('.zgml-tree [data-key]').first().click();await page.locator('[data-zgml=life-picker]').tap();await page.locator('[data-zgml=life-set][data-life=alive]').tap();
  assert.equal(await page.evaluate(id=>characters.find(c=>c.id===id).family[0].lifeStatus,lin.id),'alive');assert.equal(await page.evaluate(()=>window._loreSaves),1);
  await page.locator('#zgml-dialog [data-zgml=close]').tap();
@@ -37,7 +37,7 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('node:ass
   await page.locator('[data-zgml=tree]').first().tap();await page.locator('.zgml-tree [data-key]').first().click();
   await page.locator('#zgml-dialog details summary').click();await page.locator('[data-zgml=remove-person]').click();await page.locator('[data-zgml=confirm-delete]').click();
  }
- assert.equal(await page.evaluate(id=>characters.find(c=>c.id===id).familyInitialized,lin.id),true);
+ assert.equal(await page.evaluate(id=>characters.find(c=>c.id===id).family.length,lin.id),0);
  await page.locator('[data-zgml=tree]').first().tap();assert.equal(await page.locator('.zgml-tree [data-key]').count(),0);await page.locator('#zgml-dialog [data-zgml=close]').tap();
  await page.evaluate(id=>{characters.find(c=>c.id===id).family=[{id:'custom',name:'Своя запись',relation:'Семья'}];ZargotaMobileLore.refresh()},lin.id);
  await page.locator('[data-zgml=tree]').first().tap();assert.equal(await page.locator('.zgml-tree [data-key]').count(),1);await page.locator('#zgml-dialog [data-zgml=close]').tap();
@@ -57,6 +57,6 @@ const {chromium}=require('playwright'),fs=require('fs'),assert=require('node:ass
   }
   console.log(size.width+'x'+size.height+': five complete stories, reachable endings, separate footer, portrait quotes fit');
  }
- assert.deepEqual(errors,[]);console.log('PASS local families, edit persistence, explicit empty/custom collection preservation and five mobile biographies/quotes');
+ assert.deepEqual(errors,[]);console.log('PASS authoritative families, edit persistence, explicit empty/custom collection preservation and five mobile biographies/quotes');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

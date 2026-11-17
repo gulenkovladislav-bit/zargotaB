@@ -67,7 +67,7 @@ function mount({role='visitor',available=true,online=true,pending=false,loginGat
   vm.runInNewContext(views,context);vm.runInNewContext(source,context);
   async function click(action){const button=make('button');button.setAttribute('data-pc-action',action);const ev={target:button,preventDefault(){},stopPropagation(){}};(events.click||[]).forEach(fn=>fn(ev));await tick();await tick();return button;}
   async function submit(){const form=document.getElementById('pc-login-form');assert.ok(form,'login is a real form');const ev={target:form,preventDefault(){},stopPropagation(){}};(events.submit||[]).forEach(fn=>fn(ev));await tick();return ev;}
-  return {w,document,pages,sheets,windows,writes,click,submit,logins:()=>logins,logouts:()=>logouts,starts:()=>starts,saved:()=>saved,entry,storeWrites:()=>storeWrites,
+  return {w,api,document,pages,sheets,windows,writes,click,submit,logins:()=>logins,logouts:()=>logouts,starts:()=>starts,saved:()=>saved,entry,storeWrites:()=>storeWrites,
     async receive(packet){watchers.get('mine')(packet);await tick();},
     async externalAuth(uid){authUid=uid;(windowEvents['zargota:persistent-auth-change']||[]).forEach(fn=>fn({detail:{uid}}));await tick();},
     async ready(){await tick();},async setCode(){await click('menu');document.getElementById('persistent-login-code').value='player-code';}};
@@ -169,4 +169,36 @@ test('the gear switches from accounts to general settings, with no duplicate gen
   f.w.zgSessionMonitorToggle(null,false);f.w.zgSessionMonitorToggle(event);
   assert(panel.classList.contains('open'));assert(!panel.classList.contains('pc-players-open'),'gear never reopens stale accounts');
   assert(!source.includes("button('control-general'"),'no General button is generated for accounts');
+});
+
+test('typing during a rebase is preserved, then unrelated server fields apply after save',async()=>{
+ let release;const gate=new Promise(resolve=>{release=resolve;});
+ const f=mount({role:'player',online:false,storeGate:gate});await f.ready();await f.w.ZargotaPersistentCharacters.start();
+ f.w.characters[0].notes='Local draft';f.w.ZargotaPersistentCharacters.saved(f.w.characters,{});
+ await f.receive({characterJson:JSON.stringify({id:42,name:'Assigned hero',hpCur:12,hpMax:14,biography:'Server history',family:[{id:'parent',name:'Parent'}]}),revision:2});
+ f.w.characters[0].notes='New typing during IndexedDB write';f.w.ZargotaPersistentCharacters.beforeSave();
+ release();await tick();await tick();
+ assert.equal(f.w.characters[0].biography,undefined,'must defer while local input is being saved');
+ assert.equal(f.w.characters[0].notes,'New typing during IndexedDB write');
+ f.w.ZargotaPersistentCharacters.saved(f.w.characters,{});await tick();await tick();
+ assert.equal(f.w.characters[0].biography,'Server history');
+ assert.equal(f.w.characters[0].notes,'New typing during IndexedDB write');
+ const e=f.w.ZargotaPersistentCharacters.status().records.mine;
+ assert.equal(e.base.revision,2);assert.equal(e.pending.expectedRevision,2);assert.equal(e.conflict,false);
+});
+
+test('server update during an outgoing save rebases only after its response and retries at new revision',async()=>{
+ const f=mount({role:'player'});await f.ready();await f.w.ZargotaPersistentCharacters.start();
+ const packet={characterJson:JSON.stringify({id:42,name:'Assigned hero',hpCur:12,hpMax:14,biography:'Server history'}),revision:2};
+ let release,started;const gate=new Promise(resolve=>release=resolve),began=new Promise(resolve=>started=resolve),calls=[];
+ f.api.read=async()=>packet;
+ f.api.call=async req=>{calls.push(req);if(calls.length===1){started();await gate;throw Error('revision-conflict');}return {state:{characterJson:JSON.stringify(req.character),revision:3,operationId:req.operationId}};};
+ f.w.characters[0].notes='Local note';f.w.ZargotaPersistentCharacters.saved(f.w.characters,{});
+ await began;await f.receive(packet);
+ assert.equal(f.w.ZargotaPersistentCharacters.status().records.mine.pending.expectedRevision,1,'do not replace in-flight operation');
+ release();await new Promise(resolve=>setTimeout(resolve,800));
+ assert.equal(calls.length,2);assert.equal(calls[1].expectedRevision,2);assert.notEqual(calls[1].operationId,calls[0].operationId);
+ assert.equal(calls[1].character.biography,'Server history');assert.equal(calls[1].character.notes,'Local note');
+ const e=f.w.ZargotaPersistentCharacters.status().records.mine;
+ assert.equal(e.base.revision,3);assert.equal(e.pending,null);assert.equal(e.conflict,false);
 });
