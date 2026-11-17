@@ -26,12 +26,6 @@
   var pages=[],page=[],used=0;
   list.forEach(function(row,i){var height=heights[i]+(page.length?gap:0);if(page.length&&used+height>available+.5){pages.push(page);page=[];used=0;height=heights[i];}page.push(row);used+=height;});
   if(page.length)pages.push(page);
-  // Balance only the final two pages; a tall late item must not empty the first page.
-  if(pages.length>1){
-   var last=pages.length-1,total=pages[last-1].length+pages[last].length,start=list.length-total,split=start+Math.ceil(total/2);
-   function fits(a,b){return heights.slice(a,b).reduce(function(sum,h){return sum+h;},0)+Math.max(0,b-a-1)*gap<=available+.5;}
-   if(fits(start,split)&&fits(split,list.length)){pages[last-1]=list.slice(start,split);pages[last]=list.slice(split);}
-  }
   return pages;
  }
  function observeGrid(){var grid=document.querySelector('#char-sheet .zgmi-v2 .zgmi-grid');if(!w.ResizeObserver||grid===observedGrid)return;if(gridObserver)gridObserver.disconnect();observedGrid=grid;if(grid){gridObserver=new ResizeObserver(function(){refresh();});gridObserver.observe(grid);}}
