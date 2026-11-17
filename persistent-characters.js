@@ -16,6 +16,13 @@
   }
   function character(id){return (w.characters||[]).find(function(c){return String(c.id)===String(id);});}
   function binding(id){return state.enabled&&Object.keys(records).find(function(sid){return String(records[sid].localId)===String(id);});}
+  // Older clients cloned a linked hero when its display name changed. Keep that
+  // local copy intact, but open the authoritative sheet from either entry point.
+  function resolveCharacterId(id){
+    if(!state.enabled||binding(id))return id;
+    var matches=Object.values(records).filter(function(e){return e.allowed&&e.base&&String(e.remoteId)===String(id)&&character(e.localId);});
+    return matches.length===1?matches[0].localId:id;
+  }
   // The in-person table observes the same acknowledged sheet as the player.
   // Cached presence alone must never unlock an edit after a reload or account change.
   var tableSeen=new Set(),tableWrites=new Set(),tablePackets=new WeakMap(),incomingTasks=new Map();
@@ -85,6 +92,7 @@
   function failed(e){error=explain(e);render();var alert=document.querySelector('#persistent-character-dialog [role=alert]')||document.querySelector('#pc-account-popover [role=alert]')||document.querySelector('#pc-control-accounts [role=alert]');if(alert)alert.textContent=error;}
   function redraw(id){
     if(w.charView==='sheet'){
+      w.viewingCharId=resolveCharacterId(w.viewingCharId);
       if((id==null||String(w.viewingCharId)===String(id))&&typeof w.renderCharSheet==='function')w.renderCharSheet();
     }else if(w.charView==='list'&&typeof w.renderCharList==='function')w.renderCharList();
     render();
@@ -124,7 +132,8 @@
     if(!entry.base){
       var remote=JSON.parse(packet.characterJson),local=character(remote.id),collision=Object.keys(records).some(function(k){return k!==sid&&String(records[k].localId)===String(remote.id);});
       entry.remoteId=remote.id;entry.remoteKey=remote.campaignKey||'';
-      entry.localId=collision||local&&local.name!==remote.name?Date.now():remote.id;
+      var sameHero=local&&local.campaignKey&&local.campaignKey===remote.campaignKey;
+      entry.localId=collision||local&&local.name!==remote.name&&!sameHero?Date.now():remote.id;
       if(character(entry.localId))entry.backup=C.clone(character(entry.localId));
       await apply(sid,packet,true);return;
     }
@@ -416,7 +425,18 @@
     if(reviewed){var result=await transport.call({action:'review',sheetId:sid,revision:reviewed});records[sid].activity=result.activity;render();}
   }
   function conflictDialog(sid){var entry=records[sid];dialog(t('Лист изменился','Аркуш змінився'),'<p>'+t('На другом устройстве сохранена новая версия. Ваш черновик остаётся на этом устройстве.','На іншому пристрої збережено нову версію. Ваша чернетка залишається на цьому пристрої.')+'</p>'+button('take-remote',t('Получить новую версию','Отримати нову версію'),'data-sheet="'+sid+'"')+button('replace-confirm',t('Сохранить мой черновик вместо неё','Зберегти мою чернетку замість неї'),'data-sheet="'+sid+'"'));}
+  function renderAccessNotice(){
+    var logged=state.enabled&&account.role!=='visitor',loading=!cacheReady||state.enabled&&starting&&account.role==='visitor';
+    ['char-list-view','char-sheet-view'].forEach(function(id){
+      var host=document.getElementById(id);if(!host)return;
+      var note=document.getElementById('pc-access-'+id);
+      if(!note){note=document.createElement('aside');note.id='pc-access-'+id;note.className='pc-access-notice';note.setAttribute('data-zg-i18n-skip','');host.insertBefore(note,host.firstChild);}
+      note.hidden=!!logged;
+      if(!logged)markup(note,'<span role="status">'+(loading?t('Подключаем листы аккаунта…','Підключаємо аркуші акаунта…'):t('Вход не выполнен · показаны локальные листы','Вхід не виконано · показано локальні аркуші'))+'</span>'+(loading?'':button('entry',t('Войти','Увійти'))));
+    });
+  }
   function render(){
+    renderAccessNotice();
     if(typeof w.zgIrlSharedHpChanged==='function')w.zgIrlSharedHpChanged();
     var nav=document.getElementById('nav'),tools=document.querySelector('.zg-control-tools');if(!nav||!tools)return;
     var loginButton=document.getElementById('persistent-entry');if(!loginButton){loginButton=document.createElement('button');loginButton.id='persistent-entry';loginButton.type='button';loginButton.dataset.pcAction='entry';nav.insertBefore(loginButton,nav.querySelector('.zg-net-monitor'));}
@@ -552,5 +572,5 @@
   var resizeTimer;w.addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(render,100);});
   w.addEventListener('zargota-room-state',function(){resume().catch(failed);});
   document.addEventListener('DOMContentLoaded',function(){boot.then(function(){render();if(state.enabled)connect().catch(failed);});var shared=new URLSearchParams(location.search).get('character');if(shared)sharedView(shared);});
-  w.ZargotaPersistentCharacters={tableHeroes:tableHeroes,tableHp:tableHp,start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
+  w.ZargotaPersistentCharacters={resolveCharacterId:resolveCharacterId,tableHeroes:tableHeroes,tableHp:tableHp,start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){if(String(resolveCharacterId(c.id))!==String(c.id))return false;var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
 })(window);

@@ -6,6 +6,31 @@ const source=fs.readFileSync(path.join(__dirname,'../persistent-characters.js'),
 const views=fs.readFileSync(path.join(__dirname,'../persistent-account-views.js'),'utf8');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 
+test('a renamed campaign hero reuses its original identity and preserves a backup',async()=>{
+ const f=mount({role:'admin',online:false});await f.ready();
+ delete f.entry.base;f.w.characters[0].campaignKey='lin-yin';
+ f.w.characters[0].name='Old spelling';
+ await f.w.ZargotaPersistentCharacters.start();
+ await f.receive({revision:2,characterJson:JSON.stringify({id:42,campaignKey:'lin-yin',name:'New spelling',biography:'Saved history',family:[{id:'mother'}]})});
+ assert.equal(f.w.characters.length,1);
+ assert.equal(f.w.characters[0].biography,'Saved history');
+ assert.equal(f.w.ZargotaPersistentCharacters.status().records.mine.backup.name,'Old spelling');
+});
+
+test('an old original ID resolves to its linked sheet, without deleting either copy',async()=>{
+ const f=mount({role:'admin',online:false});await f.ready();
+ f.entry.localId=99;f.entry.role='master';
+ f.w.characters.push({id:99,name:'Linked hero',biography:'Saved history',family:[{id:'mother'}]});
+ const api=f.w.ZargotaPersistentCharacters;
+ assert.equal(api.resolveCharacterId(42),99);
+ assert.equal(api.visible(f.w.characters[0]),false);
+ assert.equal(api.visible(f.w.characters[1]),true);
+ assert.equal(f.w.characters.length,2,'original copy remains recoverable');
+ f.entry.allowed=false;
+ assert.equal(api.resolveCharacterId(42),42,'revoked records must not redirect');
+ assert.equal(api.visible(f.w.characters[0]),true);
+});
+
 // A small DOM fixture for exercising event routes and persistence boundaries.
 // Layout, native focus and browser animations are checked separately in Edge.
 function mount({role='visitor',available=true,online=true,pending=false,loginGate=null,storeGate=null,locale='ru'}={}){
