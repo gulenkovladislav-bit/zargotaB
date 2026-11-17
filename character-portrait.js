@@ -27,6 +27,14 @@
   const selector = 'img[data-zg-portrait]';
   const tracked = new Set();
   const clamp = value => Math.max(0, Math.min(100, value));
+  // Only immutable project portraits: uploaded images keep their own sources.
+  function sources(person, context) {
+    const path = String(person && (person.portrait || person.image) || '');
+    if (!/^images\/portraits\/defaults\/(evan|melissa|esteros|vrotik|lin-yin)-(2026-11|classic)\.png$/.test(path)) return null;
+    const base = path.slice(0, -4);
+    return {srcset: base + '-thumb.jpg 384w, ' + base + '-display.jpg 1024w',
+      sizes: context === 'thumb' ? '98px' : '(max-width: 899px) 100vw, 480px'};
+  }
   function point(person) {
     const source = String(person.portrait || person.image || '').split(/[?#]/)[0].split('/').pop();
     const preset = presets[source] || [50, 35];
@@ -36,7 +44,11 @@
   function attributes(person, context) {
     const [x, y] = point(person || {});
     return ' data-zg-portrait="' + (Object.hasOwn(targets, context) ? context : 'person') +
-      '" data-portrait-x="' + x + '" data-portrait-y="' + y + '"';
+      '" data-portrait-x="' + x + '" data-portrait-y="' + y + '"' + sourceAttributes(person, context);
+  }
+  function sourceAttributes(person, context) {
+    const source = sources(person, context);
+    return source ? ' decoding="async" srcset="' + source.srcset + '" sizes="' + source.sizes + '"' : '';
   }
   function position(box, scaled, focal, target) {
     return Math.abs(box - scaled) < .1 ? 50 : clamp(100 * (box * target - scaled * focal / 100) / (box - scaled));
@@ -86,7 +98,7 @@
       attributeFilter: ['src', 'data-zg-portrait', 'data-portrait-x', 'data-portrait-y']});
     w.addEventListener('resize', () => tracked.forEach(fit), {passive: true});
   }
-  w.ZargotaPortrait = Object.freeze({attributes, point, position, refresh});
+  w.ZargotaPortrait = Object.freeze({attributes, sources, sourceAttributes, point, position, refresh});
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once: true});
   else start();
 })(window);

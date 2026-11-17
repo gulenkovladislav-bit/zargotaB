@@ -60,3 +60,18 @@ for(const id of personalIds){
 assert.strictEqual(api.kind({displayType:'Ступка',displayTypeUk:'Ступка'},'uk'),'Ступка');
 assert.strictEqual(api.kind({slot:'gloves',category:'armor'},'uk'),'Рукавички');
 console.log('Personal equipment: bilingual content, source guards, art preservation and stable mechanics passed');
+const melissa=require('../data.json').characters.find(x=>x.id===1776626039651);
+const hive=melissa.equipItems.find(x=>x.name.includes('улей'));
+const hiveBefore=JSON.stringify(hive), hiveView=api.resolve(hive,[],melissa);
+assert.strictEqual(hiveView.image,'images/items/personal/melissa-hive.jpg');
+assert.strictEqual(hiveView.name,'Маленький переносной улей');
+assert.strictEqual(hiveView.nameUk,'Маленький переносний вулик');
+assert.strictEqual(JSON.stringify(hive),hiveBefore,'Reading legacy equipment must never mutate saved data');
+assert.strictEqual(api.resolve(hive,[],{id:42}).image,undefined,'No upgrades by generic item name on another hero');
+assert.strictEqual(api.resolve({...hive,description:'Моя новая версия'},[],melissa).description,'Моя новая версия');
+assert.strictEqual(api.resolve({...hive,description:'Моя новая версия'},[],melissa).image,undefined);
+assert.strictEqual(api.resolve({...hive,image:'images/custom-hive.png'},[],melissa).image,'images/custom-hive.png');
+assert.strictEqual(api.resolve({...hive,nameUk:'Мій вулик'},[],melissa).nameUk,'Мій вулик');
+for(const key of ['qty','charges','maxCharges','equipped','damageFormula','acBonus'])assert.strictEqual(hiveView[key],hive[key]);
+assert.deepStrictEqual(api.resolve(hiveView,[],melissa),hiveView,'The legacy presentation is idempotent');
+console.log('Legacy local inventory: owner/prose guards, no writes, preserved charges and personal uploads passed');

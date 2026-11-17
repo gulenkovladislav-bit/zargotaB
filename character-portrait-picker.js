@@ -80,8 +80,11 @@
         }
       });
       b.setAttribute('aria-pressed',String(c.portrait===option.src));
-      var img=document.createElement('img');img.src=option.src;img.alt='';
+      var img=document.createElement('img');img.alt='';img.decoding='async';
       var sample={portrait:option.src};
+      var sources=w.ZargotaPortrait&&w.ZargotaPortrait.sources(sample,'thumb');
+      if(sources){img.srcset=sources.srcset;img.sizes=sources.sizes;}
+      img.src=option.src;
       var point=w.ZargotaPortrait?w.ZargotaPortrait.point(sample):[50,35];
       img.setAttribute('data-zg-portrait','thumb');img.dataset.portraitX=point[0];img.dataset.portraitY=point[1];
       b.appendChild(img);var label=document.createElement('span');label.textContent=option.label;b.appendChild(label);grid.appendChild(b);

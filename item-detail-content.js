@@ -11,7 +11,7 @@
     for(var i=0;i<keys.length;i++)if(own(layer,keys[i])&&(!stringsOnly||keys[i]!=='effects'||typeof layer[keys[i]]==='string'))return keys[i];
     return null;
   }
-  function resolve(item,catalogItems){
+  function resolve(item,catalogItems,owner){
     item=item&&typeof item==='object'?item:{};
     var id=item.definitionId||item.catalogItemId||item.id;
     var catalog=(Array.isArray(catalogItems)?catalogItems:[]).find(function(entry){return id&&entry&&String(entry.id)===String(id);})||{};
@@ -37,7 +37,7 @@
     alias('range',['range'],['rangeUk']);
     if(!own(out,'description'))out.description='';
     if(!own(out,'effectText'))out.effectText='';
-    return personalPresentation?personalPresentation.enrich(out):out;
+    return personalPresentation?personalPresentation.enrich(out,owner):out;
   }
   function choose(pair,locale){return pair[locale==='uk'?1:0];}
   function category(item){return String(item.category||item.cat||'').toLowerCase();}

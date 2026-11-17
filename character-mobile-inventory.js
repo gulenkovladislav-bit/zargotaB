@@ -9,7 +9,7 @@
  function state(){return views[current]||(views[current]={group:'bag',sort:'manual',page:0});}
  function capacity(){var height=w.visualViewport?w.visualViewport.height:w.innerHeight;return height>=920?6:height>=700?5:3;}
  function primaryProperty(c,row){var stats=itemStats(c,row);if(stats.length)return kind(row)==='Броня'?stats[0].replace(/^Броня\s*/,''):stats[0];return label(c,row,row.item.effectText||'').replace(/^(?:Короткое действие|Коротка дія|Коротку дію)\s*[·:]\s*/iu,'');}
- function displayRow(row){var model=w.ZargotaItemDetailContent;if(!model)return row;return Object.assign({},row,{item:model.resolve(row.item,typeof w.loadShopItems==='function'?w.loadShopItems():[])});}
+ function displayRow(row){var model=w.ZargotaItemDetailContent;if(!model)return row;return Object.assign({},row,{item:model.resolve(row.item,typeof w.loadShopItems==='function'?w.loadShopItems():[],row.catalog?null:character())});}
  function kind(row){return w.ZargotaItemDetailContent?w.ZargotaItemDetailContent.kind(row.item,t('ru','uk')):categoryName(categoryOf(row.item));}
  function itemStats(c,row){return w.ZargotaItemDetailContent?w.ZargotaItemDetailContent.stats(row.item,t('ru','uk')).map(function(value){return label(c,row,value);}):[];}
  function rich(value){var formatter=w.ZargotaSpellDetailContent,html=formatter?formatter.highlightPersonal(value):e(value);return html.replace(/(раз за сцену|раз на сцену|реакцией|реакцією|короткое действие|коротка дія)/giu,'<span class="zgmi-key">$1</span>');}

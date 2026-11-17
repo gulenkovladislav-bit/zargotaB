@@ -10,7 +10,8 @@
   }
   function avatar(hero,admin){
     var image=hero&&safeImage(hero.portrait),letter=admin?'♛':String(hero&&hero.name||'?').trim().slice(0,1);
-    return '<span class="pc-avatar'+(admin?' pc-avatar-admin':'')+'" aria-hidden="true">'+(image?'<img src="'+esc(image)+'" alt="" loading="lazy" decoding="async">':esc(letter))+'</span>';
+    var source=w.ZargotaPortrait&&w.ZargotaPortrait.sources(hero,'thumb');
+    return '<span class="pc-avatar'+(admin?' pc-avatar-admin':'')+'" aria-hidden="true">'+(image?'<img'+(source?' srcset="'+source.srcset+'" sizes="'+source.sizes+'"':'')+' src="'+esc(image)+'" alt="" loading="lazy" decoding="async">':esc(letter))+'</span>';
   }
   function accountCard(item,manage){
     var hero=item.hero||{},sid=item.sid,admin=item.admin;
