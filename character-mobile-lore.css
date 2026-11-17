@@ -164,3 +164,12 @@
  .zgml-tree .zgml-life-badge{margin-top:auto;font-size:11px}
  #zgml-dialog[aria-busy=true] button{cursor:wait}
 }
+
+/* A story owns the viewport; its action row stays outside the reading area. */
+@media(max-width:899px){
+ #zgml-dialog.zgml-story-dialog{box-sizing:border-box;height:calc(var(--zg-viewport-height,100dvh) - 16px);max-height:calc(var(--zg-viewport-height,100dvh) - 16px);margin:8px auto;width:calc(100% - 16px)}
+ #zgml-dialog.zgml-story-dialog .zgml-dialog-body{flex:1 1 0%;min-height:0;overflow-x:hidden;overflow-y:auto;padding:14px 16px 20px;scrollbar-width:thin;scrollbar-color:#9a7b49 transparent;-webkit-overflow-scrolling:touch}
+ #zgml-dialog.zgml-story-dialog .zgml-story-full>p{font-weight:400;font-size:17px;line-height:1.55;margin-bottom:18px}
+ #zgml-dialog.zgml-story-dialog>.zgml-story-actions{flex:none;display:flex;gap:8px;padding:9px 12px max(9px,env(safe-area-inset-bottom,0px));border-top:1px solid #675238;background:#19140d}
+ #zgml-dialog.zgml-story-dialog>.zgml-story-actions button{margin:0;min-height:42px;border:1px solid #886a3d;border-radius:7px 2px;background:#251b0e;font:14px Georgia,serif;color:#eadcbd}
+}

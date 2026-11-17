@@ -848,3 +848,31 @@ Large art also exists at `images/shop/zargota-coin-{copper,silver,gold,platinum}
 - RU: Близкий круг для первоначального заполнения: Эстерос — мать Лиарна Тихоня, отец Клементий Забродник, друг Мартюк Кривозуб, питомец Лупоглазик; Еван — отец Остен Лукавый и мать Мира Лукавая; Мелисса — отец Дарвин, мать Элина и сестра без установленного имени; Вротик — мать Силь и брат Скиф; Лин’Ин — отец Таэрил Верелай и мать Эллеара. Лиарна и Мартюк умерли; Лупоглазик — нежить. Для остальных в текущем игроковом изложении судьба не подтверждена. Новых знакомых и имён сестре не придумывать.
 - UK: Близьке коло для початкового заповнення: Естерос — мати Ліарна Тихоня, батько Клементій Забродник, друг Мартюк Кривозуб, улюбленець Лупоглазик; Еван — батько Остен Лукавий і мати Міра Лукава; Мелісса — батько Дарвін, мати Еліна та сестра без встановленого імені; Вротік — мати Сіль та брат Скіф; Лін’Ін — батько Таеріл Верелай і мати Еллеара. Ліарна та Мартюк померли; Лупоглазик — нежить. Для решти в поточному гравцевому викладі долю не підтверджено. Нових знайомих та імені сестрі не вигадувати.
 - Boundary: unknown is not a claim of death or disappearance. The roster is deliberately limited to family and close ties. Archived episode drafts of additional acquaintances are not promoted to canon by this import. Portrait derivatives reuse existing project art without establishing new visual canon.
+
+### character.evan.portrait-epigraph-20261117 — UI draft — player-visible, no plot spoilers
+
+- Source: author request for first-person portrait quotes in this chat, 2026-11-17; approved biographies and close connections above; `character.evan.biography-20261117`.
+- RU: «Если уж судьба ставит на меня, я хотя бы хочу видеть кости.»
+- UK: «Якщо вже доля ставить на мене, я хоча б хочу бачити кості.»
+- Status: deliberately authored interface epigraph for review; not dialogue from a played scene, a new event, or evidence of hidden lore. Vrotik’s phrasing does not grant him an independent voice.
+
+### character.melissa.portrait-epigraph-20261117 — UI draft — player-visible, no plot spoilers
+
+- Source: author request for first-person portrait quotes in this chat, 2026-11-17; approved biographies and close connections above; `character.melissa.biography-20261117`.
+- RU: «Я слышу, когда лесу больно. Труднее объяснить это тем, кто привык к тишине.»
+- UK: «Я чую, коли лісові боляче. Важче пояснити це тим, хто звик до тиші.»
+- Status: deliberately authored interface epigraph for review; not dialogue from a played scene, a new event, or evidence of hidden lore. Vrotik’s phrasing does not grant him an independent voice.
+
+### character.vrotik.portrait-epigraph-20261117 — UI draft — player-visible, no plot spoilers
+
+- Source: author request for first-person portrait quotes in this chat, 2026-11-17; approved biographies and close connections above; `character.vrotik.biography-20261117`.
+- RU: «Чужих голосов у меня хватит на целый город. Вот бы среди них найти слова для себя.»
+- UK: «Чужих голосів у мене вистачить на ціле місто. От би серед них знайти слова для себе.»
+- Status: deliberately authored interface epigraph for review; not dialogue from a played scene, a new event, or evidence of hidden lore. Vrotik’s phrasing does not grant him an independent voice.
+
+### character.lin-yin.portrait-epigraph-20261117 — UI draft — player-visible, no plot spoilers
+
+- Source: author request for first-person portrait quotes in this chat, 2026-11-17; approved biographies and close connections above; `character.lin-in.alter-memory` (subjective memory only).
+- RU: «Я привыкла замечать трещины раньше других. Особенно в том, что они называют истиной.»
+- UK: «Я звикла помічати тріщини раніше за інших. Особливо в тому, що вони називають істиною.»
+- Status: deliberately authored interface epigraph for review; not dialogue from a played scene, a new event, or evidence of hidden lore. Vrotik’s phrasing does not grant him an independent voice.
