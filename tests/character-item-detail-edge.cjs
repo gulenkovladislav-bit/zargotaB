@@ -101,7 +101,7 @@ async function assertGeometry(page, context) {
       navBottom: rect(document.querySelector('.zgmo-nav')).bottom,
       viewportHeight: innerHeight,
       toolbar: [...panel.querySelectorAll('header>button')].map(button => ({top: rect(button).top, bottom: rect(button).bottom, visible: getComputedStyle(button).visibility !== 'hidden' && getComputedStyle(button).display !== 'none'})),
-      artBeforeTitle: !!artRect && !!titleRect && artRect.bottom <= titleRect.top + 1,
+      titleOverlap: artRect && titleRect ? artRect.bottom - titleRect.top : null,
       titleBeforeRules: !!title && !!panel.querySelector('.zgmi-item-effect') && !!(title.compareDocumentPosition(panel.querySelector('.zgmi-item-effect')) & Node.DOCUMENT_POSITION_FOLLOWING),
       tabs: panel.querySelectorAll('[role=tab],[role=tablist],details').length,
       image: image ? {fit: getComputedStyle(image).objectFit, transform: getComputedStyle(image).transform, complete: image.complete && image.naturalWidth > 0, inside: rect(image).left >= artRect.left - 1 && rect(image).right <= artRect.right + 1 && rect(image).top >= artRect.top - 1 && rect(image).bottom <= artRect.bottom + 1} : null,
@@ -112,7 +112,7 @@ async function assertGeometry(page, context) {
   assert.ok(geometry.top >= 0 && geometry.bottom <= geometry.navTop + 1, JSON.stringify({context, geometry}));
   assert.ok(geometry.navBottom <= geometry.viewportHeight + 1 && geometry.bottom <= geometry.viewportHeight, JSON.stringify({context, geometry}));
   assert.ok(geometry.toolbar.every(button => button.visible && button.top >= 0 && button.bottom <= geometry.viewportHeight), JSON.stringify({context, geometry}));
-  assert.equal(geometry.artBeforeTitle, true, 'Concept A artwork must precede the title: ' + context);
+  assert.ok(geometry.titleOverlap > 20 && geometry.titleOverlap < 48, 'Title should slightly overlap only the lower artwork edge: ' + JSON.stringify({context,geometry}));
   assert.equal(geometry.titleBeforeRules, true, 'Concept A title must precede the human-readable rules: ' + context);
   assert.equal(geometry.tabs, 0, 'Concept A is one page, not tabs or accordions');
   assert.ok(geometry.buttons.every(button => button.width >= 44 && button.height >= 44 && button.overflow <= 1), JSON.stringify({context, geometry}));

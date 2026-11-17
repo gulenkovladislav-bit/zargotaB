@@ -37,7 +37,7 @@ const heroes=data.characters.filter(c=>keys[c.id]).map(c=>({...c,portrait:'image
   await page.locator('.zgmi-groups [data-group=equipment]').tap();await paint();
   const hive=page.locator('.zgmi-card').filter({hasText:locale==='ru'?'Маленький переносной улей':'Маленький переносний вулик'});await hive.tap();await paint();
   const img=page.locator('#zgmi-dialog img[data-zgmi-full]');await img.evaluate(im=>im.decode());assert.ok((await img.getAttribute('src')).endsWith('melissa-hive.jpg'));
-  assert.ok((await page.locator('.zgmi-detail-art').boundingBox()).height>=300);
+  assert.ok((await page.locator('.zgmi-detail-art').boundingBox()).height>=165);
   await page.locator('#zgmi-dialog').evaluate(async root=>{await Promise.allSettled(root.getAnimations({subtree:true}).map(a=>a.finished));});await page.screenshot({path:output+'/hive-'+locale+'.png',animations:'disabled'});
   await page.locator('#zgmi-dialog header [data-zgmi=close]').tap();await paint();
  }
