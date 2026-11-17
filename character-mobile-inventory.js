@@ -187,7 +187,7 @@
   }
   if(action==='confirm-remove'){c[row.field].splice(row.index,1);w.saveChars({reason:'inventory-remove'});close();refresh();return;}
   if(action==='equip'){
-   if(row.armory){delete c.arenaEquipSlots[row.slot];w.saveChars({reason:'inventory-equip'});w.renderCharSheet();}
+   if(row.armory){delete c.arenaEquipSlots[row.slot];w.saveChars({reason:'inventory-equip',sound:'equipmentChange'});w.renderCharSheet();}
    else if(row.field==='equipItems')w.toggleEquip(c.id,row.index);else w.toggleInventoryEquip(c.id,row.index);
    close();refresh();return;
   }

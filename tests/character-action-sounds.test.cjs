@@ -8,11 +8,11 @@ const ctx={console:{error(){}},characters:[c],window:{},document:{getElementById
  ensureCharacterEquipBases(){},applyCharacterEquipmentBonuses(){},ensureTempFields(){},calcArenaEquipBonus(){return{};},
  ensurePreparedSpellsForCharacter(c){return c.preparedSpells||(c.preparedSpells={folio:[],kodex:[],obrad:[]});},
  readTempHpTotal(c){return c.tempEffects.reduce((sum,e)=>sum+(e.type==='hp'?parseInt(e.value)||0:0),0);},
- renderCharSheet(){},charRefreshInventoryPanel(){},showToast(){},rerenderSpellDetailPreservingScroll(){}};
-ctx.window.ZargotaSound=Object.fromEntries(['coinChange','spellLearned','characterDamage'].map(k=>[k,()=>calls.push(k)]));
+ renderCharSheet(){},charRefreshInventoryPanel(){},charRefreshInventoryLaunch(){},refreshActiveCharacterSheet(){},_renderCharEquipModal(){},_charEquipModalId:1,showToast(){},rerenderSpellDetailPreservingScroll(){}};
+ctx.window.ZargotaSound=Object.fromEntries(['coinChange','spellLearned','characterDamage','equipmentChange'].map(k=>[k,()=>calls.push(k)]));
 ctx.window.ZargotaCharacterStore={prepareCollectionForSave(){return{changedIds:['1']};},persistCollection(){return result==='pending'?new Promise(r=>{resolveSave=r;}):Promise.resolve(result);}};
 vm.createContext(ctx);
-['saveChars','setCoin','addCoin','updateCoin','changeHP','updateSimpleField','toggleSpellLearned'].forEach(n=>vm.runInContext(source(n),ctx));
+['saveChars','setCoin','addCoin','updateCoin','changeHP','updateSimpleField','toggleSpellLearned','toggleEquip','toggleInventoryEquip','charEquipItem','charUnequipSlot'].forEach(n=>vm.runInContext(source(n),ctx));
 const settle=()=>new Promise(r=>setImmediate(r));
 (async()=>{
  await ctx.setCoin(1,'gold',6);assert.deepEqual(calls.splice(0),['coinChange']);
@@ -31,5 +31,14 @@ const settle=()=>new Promise(r=>setImmediate(r));
  ctx.toggleSpellLearned(1,'test');await settle();assert.deepEqual(calls.splice(0),['spellLearned']);
  ctx.toggleSpellLearned(1,'test');await settle();assert.deepEqual(calls,[],'forgetting is silent');
  result={ok:false};ctx.toggleSpellLearned(1,'test');await settle();assert.deepEqual(calls,[],'failed learning save is silent');
+ result={ok:true};c.inventoryItems=[{name:'QA coat',equipped:false}];c.equipItems=[{name:'QA belt',equipped:false}];
+ ctx.toggleInventoryEquip(1,0);await settle();assert.deepEqual(calls.splice(0),['equipmentChange']);
+ ctx.toggleInventoryEquip(1,0);await settle();assert.deepEqual(calls.splice(0),['equipmentChange']);
+ ctx.toggleEquip(1,0);await settle();assert.deepEqual(calls.splice(0),['equipmentChange']);
+ ctx.charEquipItem('qa-sword','main_hand');await settle();assert.deepEqual(calls.splice(0),['equipmentChange']);
+ ctx.charEquipItem('qa-sword','main_hand');await settle();assert.deepEqual(calls,[],'same armory slot stays silent');
+ ctx.charUnequipSlot('main_hand');await settle();assert.deepEqual(calls.splice(0),['equipmentChange']);
+ ctx.charUnequipSlot('main_hand');await settle();assert.deepEqual(calls,[],'empty armory slot stays silent');
+ result={ok:false};ctx.toggleInventoryEquip(1,0);await settle();assert.deepEqual(calls,[],'failed equipment save stays silent');
  console.log('PASS: coin changes, actual HP loss including shields, study, delayed/failed saves and no-op/sync silence');
 })().catch(e=>{console.error(e);process.exitCode=1;});

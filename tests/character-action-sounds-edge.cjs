@@ -11,9 +11,9 @@ assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname),'Synthetic 
   await page.goto(base);await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:60000});
   await page.evaluate(async spellId=>{
    await zgCharacterLoadPromise;window.ZargotaCharacterCloud=null;window.ZargotaPersistentCharacters=null;
-   const c=JSON.parse(JSON.stringify(characters[0]));Object.assign(c,{id:987654389,name:'Sound QA',coins:{gold:5},hpCur:10,hpMax:20,baseHpMax:20,tempEffects:[],effectHistory:[],spellsLearned:{},preparedSpells:{folio:[],kodex:[],obrad:[]}});delete c.campaignKey;characters.push(c);window.qaSoundHero=c.id;
+   const c=JSON.parse(JSON.stringify(characters[0]));Object.assign(c,{id:987654389,name:'Sound QA',coins:{gold:5},hpCur:10,hpMax:20,baseHpMax:20,inventoryItems:[{name:'QA coat',equipped:false,qty:1}],equipItems:[],arenaEquipSlots:{},tempEffects:[],effectHistory:[],spellsLearned:{},preparedSpells:{folio:[],kodex:[],obrad:[]}});delete c.campaignKey;characters.push(c);window.qaSoundHero=c.id;
    c.spellRefs=[spellId];window.qaSoundSpell=spellId;
-   window.qaCues=[];for(const key of ['coinChange','spellLearned','characterDamage']){const play=ZargotaSound[key];ZargotaSound[key]=()=>{qaCues.push(key);play();};}
+   window.qaCues=[];for(const key of ['coinChange','spellLearned','characterDamage','equipmentChange']){const play=ZargotaSound[key];ZargotaSound[key]=()=>{qaCues.push(key);play();};}
    if(ZargotaSound.isMuted())ZargotaSound.toggleMute();showPage('characters');_charSheetTab='inventory';openCharSheet(c.id);
   },spellId);
   await page.locator('[data-zgmi=coin][data-coin=gold]').tap();await page.locator('[data-zgmi=coin-plus]').tap();
@@ -31,8 +31,11 @@ assert.ok(['127.0.0.1','localhost'].includes(new URL(base).hostname),'Synthetic 
   plays=await page.evaluate(()=>ZargotaSound.diagnostics().plays);
   await page.evaluate(()=>changeHP(qaSoundHero,-1));await page.waitForFunction(n=>ZargotaSound.diagnostics().plays>n,plays);
   assert.deepEqual(await page.evaluate(()=>qaCues),['coinChange','spellLearned','characterDamage']);
+  plays=await page.evaluate(()=>ZargotaSound.diagnostics().plays);
+  await page.evaluate(()=>toggleInventoryEquip(qaSoundHero,0));await page.waitForFunction(n=>ZargotaSound.diagnostics().plays>n,plays);
+  assert.deepEqual(await page.evaluate(()=>qaCues),['coinChange','spellLearned','characterDamage','equipmentChange']);
   const muted=await page.evaluate(async()=>{ZargotaSound.toggleMute();const before=ZargotaSound.diagnostics().plays;await setCoin(qaSoundHero,'gold',8);return{before,after:ZargotaSound.diagnostics().plays,state:ZargotaSound.diagnostics().contextState};});
   assert.equal(muted.after,muted.before);assert.equal(muted.state,'muted');
-  console.log('PASS: mobile coin save and study taps plus HP loss start decoded audio; redraw silent; mute respected');
+  console.log('PASS: mobile coin save and study taps plus HP loss and equipment start decoded audio; redraw silent; mute respected');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

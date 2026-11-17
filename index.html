@@ -10433,9 +10433,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-17.10';
+var ZG_APP_VERSION = '2026-11-17.11';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-17.11',notes:'Установлены выбранные звуки монет и урона. При надевании и снятии предметов звучит шорох ткани.',notesUk:'Встановлено вибрані звуки монет і шкоди. Під час спорядження та зняття предметів лунає шурхіт тканини.'},
   {v:'2026-11-17.10',notes:'Добавлены звуки изменения монет, успешного изучения заклинания и получения урона в листе персонажа. Звуки учитывают общие настройки и не повторяются при перерисовке.',notesUk:'Додано звуки зміни монет, успішного вивчення закляття й отримання шкоди в аркуші персонажа. Звуки враховують загальні налаштування й не повторюються під час перемальовування.'},
   {v:'2026-11-17.9',notes:'Инвентарь заполняет каждую страницу по доступному месту. Убрано искусственное выравнивание последних страниц, оставлявшее пустоту у персонажей с экипированными предметами.',notesUk:'Інвентар заповнює кожну сторінку за доступним місцем. Прибрано штучне вирівнювання останніх сторінок, що залишало порожнечу в персонажів зі спорядженими предметами.'},
   {v:'2026-11-17.8',notes:'Вместимость страницы инвентаря рассчитывается по свободному месту и реальной высоте строк. Панели браузера и переносы длинных названий учитываются автоматически.',notesUk:'Місткість сторінки інвентарю обчислюється за вільним місцем і фактичною висотою рядків. Панелі браузера й перенесення довгих назв враховуються автоматично.'},
@@ -11366,7 +11367,7 @@ document.addEventListener('DOMContentLoaded', function(){
   var sampleSources = {
     attackSwing:'audio/vtt-actions/attack-swing.mp3',attackMissArrow:'audio/vtt-actions/attack-miss-arrow.mp3',attackMissMagic:'audio/vtt-actions/attack-miss-magic.mp3',attackMagic:'audio/vtt-actions/attack-magic.mp3',
     hitArmor:'audio/vtt-actions/hit-armor.mp3',hitBodySoft:'audio/vtt-actions/hit-body-soft.mp3',hitBodyHeavy:'audio/vtt-actions/hit-body-heavy.mp3',hitPunch:'audio/vtt-actions/hit-punch.mp3',healingMagic:'audio/vtt-actions/healing-magic.mp3',deathDarkMagic:'audio/vtt-actions/death-dark-magic.mp3',
-    coinChange:'assets/stories/cards/tower-claw/audio/candidates-v2/rpg/handleCoins2.mp3',
+    coinChange:'audio/vtt-actions/coin-change-approved.mp3',
     diceRoll:'audio/vtt-actions/dice-roll.mp3',
     diceScoreGearClick:'audio/vtt-actions/dice-score-gear-click.mp3',diceScoreThresholdRise:'audio/vtt-actions/dice-score-threshold-rise.mp3',diceScoreFinalTom:'audio/vtt-actions/dice-score-final-tom.mp3',
     d20CriticalSuccess:'audio/vtt-actions/d20-critical-success-fairy.wav',d20CriticalFailure:'audio/vtt-actions/d20-critical-failure-gong.mp3',d20CheckFailure:'audio/vtt-actions/d20-check-failure-wood.mp3',d20AttackMiss:'audio/vtt-actions/d20-attack-miss-sword.mp3',
@@ -11585,7 +11586,14 @@ document.addEventListener('DOMContentLoaded', function(){
       stopToneGroup('ui');
       playSample(sampleSources.d20CriticalSuccess,.42,function(){Sound.status();},{group:'learning-cue',maxDuration:1.8});
     },
-    characterDamage: function() { Sound.hit(); },
+    characterDamage: function() {
+      stopToneGroup('ui');
+      playSample(sampleSources.hitBodyHeavy,.65,null,{group:'impact',maxDuration:1.1});
+    },
+    equipmentChange: function() {
+      stopToneGroup('ui');
+      playSample('assets/stories/audio/heavy-cloth-rustle-jacobzeier-163164.mp3',.18,null,{group:'equipment-cue',maxDuration:1.75});
+    },
 
     // ═══ Heal / Damage ═══
     heal: function() {
@@ -26822,7 +26830,7 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-17.6">
 <script defer src="personal-item-presentation.js?v=2026-11-17.3"></script>
 <script defer src="item-detail-content.js?v=2026-11-17.5"></script>
-<script defer src="character-mobile-inventory.js?v=2026-11-17.9"></script>
+<script defer src="character-mobile-inventory.js?v=2026-11-17.11"></script>
 <link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-05.3">
 <link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-17.3">
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
@@ -50116,7 +50124,7 @@ function saveChars(options) {
       },700);
     }
     // Explicit local action only: snapshots/rendering never request these cues.
-    if(['coinChange','spellLearned','characterDamage'].indexOf(options.sound)>=0){
+    if(['coinChange','spellLearned','characterDamage','equipmentChange'].indexOf(options.sound)>=0){
       try{if(window.ZargotaSound&&window.ZargotaSound[options.sound])window.ZargotaSound[options.sound]();}catch(ignore){}
     }
     if(window.ZargotaCharacterCloud)window.ZargotaCharacterCloud.refresh();
@@ -52637,7 +52645,7 @@ function toggleEquip(id, idx) {
   var c = characters.find(function(x){ return x.id === id; });
   if (!c || !c.equipItems || !c.equipItems[idx]) return;
   c.equipItems[idx].equipped = !c.equipItems[idx].equipped;
-  saveChars({reason:'inventory-equip'});
+  saveChars({reason:'inventory-equip',sound:'equipmentChange'});
   var div = document.getElementById('equip-list-' + id);
   if (div) div.innerHTML = buildEquipList(c);
   charRefreshInventoryPanel(id);
@@ -52650,7 +52658,7 @@ function toggleInventoryEquip(id, idx) {
   if (!item) return;
   item.equipped = !item.equipped;
   if (!item.equipped) delete item.slot;
-  saveChars({reason:'inventory-equip'});
+  saveChars({reason:'inventory-equip',sound:'equipmentChange'});
   var div = document.getElementById('equip-list-' + id);
   if (div) div.innerHTML = buildEquipList(c);
   charRefreshInventoryPanel(id);
@@ -55103,9 +55111,10 @@ function charEquipItem(itemId, slotKey) {
   var c = characters.find(function(x){ return x.id === _charEquipModalId; });
   if (!c) return;
   if (!c.arenaEquipSlots) c.arenaEquipSlots = {};
+  var changed = c.arenaEquipSlots[slotKey] !== itemId;
   Object.keys(c.arenaEquipSlots).forEach(function(k){ if (c.arenaEquipSlots[k] === itemId) delete c.arenaEquipSlots[k]; });
   c.arenaEquipSlots[slotKey] = itemId;
-  saveChars();
+  saveChars({reason:'inventory-equip',sound:changed?'equipmentChange':''});
   var div = document.getElementById('equip-list-' + _charEquipModalId);
   if (div) div.innerHTML = buildEquipList(c);
   refreshActiveCharacterSheet(c.id);
@@ -55116,9 +55125,9 @@ function charEquipItem(itemId, slotKey) {
 
 function charUnequipSlot(slotKey) {
   var c = characters.find(function(x){ return x.id === _charEquipModalId; });
-  if (!c || !c.arenaEquipSlots) return;
+  if (!c || !c.arenaEquipSlots || !c.arenaEquipSlots[slotKey]) return;
   delete c.arenaEquipSlots[slotKey];
-  saveChars();
+  saveChars({reason:'inventory-equip',sound:'equipmentChange'});
   // Update equip-list div on sheet if visible
   var div = document.getElementById('equip-list-' + _charEquipModalId);
   if (div) div.innerHTML = buildEquipList(c);
