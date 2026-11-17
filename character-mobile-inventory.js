@@ -64,7 +64,9 @@
  function card(c,row){var view=displayRow(row),qty=Math.max(1,parseInt(row.item.qty,10)||1),primary=primaryProperty(c,view);return button('item',name(c,view),'<span class="zgmi-art">'+art(c,view)+'</span><span class="zgmi-card-copy"><strong>'+e(name(c,view).replace(/^(?:\p{Extended_Pictographic}|\uFE0F|\s)+/u,''))+'</strong><span class="zgmi-card-meta"><span>'+e(kind(view))+'</span>'+(primary?'<span class="zgmi-card-property">'+rich(primary)+'</span>':'')+'</span>'+(row.equipped?'<span class="zgmi-card-equipped"><i aria-hidden="true">✓</i>'+t('Экипировано','Споряджено')+'</span>':'')+'</span>'+(qty>1?'<span class="zgmi-qty">×'+qty+'</span>':''),'class="zgmi-card" data-key="'+e(row.key)+'"');}
  function markup(c){
   var v=state(),list=selected(c),size=capacity(),count=Math.max(1,Math.ceil(list.length/size));v.page=Math.min(v.page,count-1);
-  var cards=list.slice(v.page*size,v.page*size+size).map(function(row){return card(c,row);});
+  // Keep the same page count, but distribute spare rows across pages (8 items: 4 + 4).
+  var perPage=Math.floor(list.length/count),extra=list.length%count,start=v.page*perPage+Math.min(v.page,extra);
+  var cards=list.slice(start,start+perPage+(v.page<extra?1:0)).map(function(row){return card(c,row);});
   if(!cards.length)cards.push(button('add',t('Добавить предмет','Додати предмет'),mark(true)+'<span>'+t('Добавить предмет','Додати предмет')+'</span>','class="zgmi-card zgmi-add"'));
   return '<section class="zgmi-sheet zgmi-v2" data-zg-i18n-skip><header class="zgmi-toolbar">'+button('back',t('Назад к персонажам','Назад до персонажів'),'‹')+'<h1>'+t('Инвентарь','Інвентар')+'</h1>'+button('add',t('Добавить предмет','Додати предмет'),mark(true))+button('menu',t('Действия инвентаря','Дії інвентарю'),'⋯','aria-expanded="false"')+'</header>'+
    '<div class="zgmi-wallet">'+currencies.map(function(x){var value=Math.max(0,parseInt((c.coins||{})[x[0]],10)||0);return button('coin',t(x[3],x[4])+': '+value,w.zgCoinIconHtml(x[1],24)+'<span>'+x[2]+'</span><b>'+value+'</b>','data-coin="'+x[0]+'"');}).join('')+'</div>'+
