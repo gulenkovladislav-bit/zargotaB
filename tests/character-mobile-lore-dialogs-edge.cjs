@@ -13,6 +13,7 @@ const url=process.env.ZG_TEST_URL||'http://127.0.0.1:8880';
     hero.biography=text;hero.biographyUk=text;
     hero.narrativePath={title:'Проверка длинного пути',description:text,development:text};
     hero.family=[{id:'relative',name:'Близкий человек',nameUk:'Близька людина',relation:'Семья',relationUk:'Родина',knownInfo:text,note:text,portrait:hero.portrait}];
+    hero.family.push({id:'relative-two',name:'Второй близкий',relation:'Родина'});
     hero.journalEntries=[{journalId:'test-letter',title:'Проверочное письмо',kind:'letter',text,updatedBy:'local'}];
     characters=[hero];window._charSheetTab='lore';showPage('characters');openCharSheet(hero.id);
    });
@@ -28,7 +29,7 @@ const url=process.env.ZG_TEST_URL||'http://127.0.0.1:8880';
     tree:async()=>{await about();await action('tree').first().tap();},
     person,
     'person-status':async()=>{await person();await action('life-picker').tap();},
-    'person-edit':async()=>{await person();await page.locator('#zgml-dialog details summary').tap();await action('edit-person').tap();},
+    'person-edit':async()=>{await person();await action('edit-person').tap();},
     'people-card':async()=>{await page.locator('[data-zgml=tab][data-tab=people]').tap();await action('person').first().tap();},
     story:async()=>{await about();await action('story').tap();},
     'story-edit':async()=>{await about();await action('story').tap();await action('biography').tap();},
@@ -37,7 +38,7 @@ const url=process.env.ZG_TEST_URL||'http://127.0.0.1:8880';
    async function check(name,limitTop,limitBottom){
     await page.waitForTimeout(230);
     const dimensions=await page.locator('#zgml-dialog').evaluate(d=>{
-     const b=d.querySelector('.zgml-dialog-body'),header=d.querySelector('header'),r=d.getBoundingClientRect(),br=b.getBoundingClientRect();
+     const b=d.querySelector('.zgml-form-fields')||d.querySelector('.zgml-dialog-body'),header=d.querySelector('header'),r=d.getBoundingClientRect(),br=b.getBoundingClientRect();
      b.scrollTop=b.scrollHeight;
      const last=b.lastElementChild,lr=last.getBoundingClientRect();
      return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,body:br.height,bodyBottom:br.bottom,header:header.getBoundingClientRect().height,scroll:b.scrollHeight,client:b.clientHeight,end:lr.bottom,scrollAtEnd:b.scrollTop+b.clientHeight>=b.scrollHeight-2,width:innerWidth};
@@ -46,12 +47,16 @@ const url=process.env.ZG_TEST_URL||'http://127.0.0.1:8880';
     assert.ok(dimensions.left>=0&&dimensions.right<=dimensions.width,engine+' '+name+' width');
     // Original WebKit failure: auto-sized flex dialog was 92px, body only 28px.
     assert.ok(dimensions.body>=110,engine+' '+name+' collapsed '+JSON.stringify(dimensions));
+    if(name==='tree'){const tails=await page.locator('.zgml-tree>ul>li').evaluateAll(es=>[getComputedStyle(es[0],'::before').borderTopWidth,getComputedStyle(es.at(-1),'::after').borderTopWidth]);assert.deepEqual(tails,['0px','0px'],'Tree has protruding connector tails');}
     assert.ok(dimensions.scrollAtEnd,engine+' '+name+' unreachable scroll end');
     if(name!=='tree')assert.ok(dimensions.end<=dimensions.bodyBottom+2,engine+' '+name+' clipped content '+JSON.stringify(dimensions));
     assert.ok(await page.locator('#zgml-dialog>header [data-zgml=close]').isVisible());
+    const edit=page.locator('#zgml-dialog>.zgml-detail-actions');if(await edit.count()){const r=await edit.boundingBox();assert.ok(r.y>=limitTop&&r.y+r.height<=limitBottom+1,'Edit footer clipped');}
     if(name==='path-edit'||name==='person-edit'||name==='story-edit'){
      const input=page.locator('#zgml-dialog textarea').last();await input.fill('Новая запись / Новий запис');
-     await page.locator('#zgml-form [type=submit]').scrollIntoViewIfNeeded();
+     const before=await page.locator('#zgml-form [type=submit]').boundingBox();
+     await page.locator('.zgml-form-fields').evaluate(e=>e.scrollTop=0);
+     const after=await page.locator('#zgml-form [type=submit]').boundingBox();assert.ok(Math.abs(before.y-after.y)<1,'Save moved with form scrolling');
      const rect=await page.locator('#zgml-form [type=submit]').boundingBox();assert.ok(rect.y>=limitTop&&rect.y+rect.height<=limitBottom+1);
     }
    }

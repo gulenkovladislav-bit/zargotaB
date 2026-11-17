@@ -187,3 +187,26 @@
  #zgml-dialog .zgml-filter-options [aria-pressed=true]{border-color:#d3aa60;background:#48351c;color:#ffe6b5}
  #zgml-dialog .zgml-note-open{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border:1px solid #9b7a43;border-radius:7px;background:#342613}
 }
+
+/* Connect at node centres, without horizontal tails beyond the outer nodes. */
+@media(max-width:899px){
+ .zgml-tree-root::after{content:none}
+ .zgml-tree ul{position:relative}
+ .zgml-tree ul::before{content:'';position:absolute;left:50%;top:0;height:25px;border-left:1px solid #8b7046}
+ .zgml-tree li{border-top:0}
+ .zgml-tree li::before,.zgml-tree li::after{content:'';position:absolute;top:0;height:15px;width:50%;box-sizing:border-box;border:0;border-top:1px solid #8b7046}
+ .zgml-tree li::before{left:0;border-right:1px solid #8b7046}
+ .zgml-tree li::after{left:50%}
+ .zgml-tree li:first-child::before,.zgml-tree li:last-child::after{border-top:0}
+ /* The action area is outside the scrolling fields/content, including in WebKit. */
+ #zgml-dialog:has(#zgml-form){height:calc(var(--zg-viewport-height,100dvh) - 20px);max-height:calc(var(--zg-viewport-height,100dvh) - 20px)}
+ #zgml-dialog:has(#zgml-form)>.zgml-dialog-body{display:flex;flex-direction:column;flex:1 1 0%;min-height:0;padding:0;overflow:hidden}
+ #zgml-dialog #zgml-form{display:flex;flex-direction:column;flex:1;min-height:0;margin:0;overflow:hidden}
+ #zgml-dialog .zgml-form-fields{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px;scroll-padding:14px}
+ #zgml-dialog #zgml-form>footer,#zgml-dialog>.zgml-detail-actions{flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px max(10px,env(safe-area-inset-bottom,0px));border-top:1px solid #675238;background:#21190f}
+ #zgml-dialog #zgml-form>footer .zgml-save-error{flex:0 0 100%;margin:0;grid-column:auto}
+ #zgml-dialog .zgml-save-error:empty{display:none}
+ #zgml-dialog #zgml-form>footer button,#zgml-dialog>.zgml-detail-actions button{flex:1;min-height:44px;margin:0;padding:8px 12px;border:1px solid #9d7a42;border-radius:7px 2px;background:#342613;color:#eddbb4;font:16px Georgia,serif}
+ #zgml-dialog>.zgml-detail-actions .zgml-note-open{width:auto}
+ #zgml-dialog:has(>.zgml-detail-actions){max-height:calc(var(--zg-viewport-height,100dvh) - 20px)}
+}
