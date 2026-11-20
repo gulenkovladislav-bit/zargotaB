@@ -87,7 +87,7 @@
     }finally{opening=false;}
   }
   function render(rows,state,helpers){
-    if(!document.body.classList.contains('zg-irl-table-view')){unmountSheet();selected='';w.ZargotaGmParticipants?.close();return;}
+    if(!document.body.classList.contains('zg-irl-table-view')){unmountSheet();selected='';w.ZargotaGmParticipants?.close();w.ZargotaGmStatusLibrary?.close();return;}
     var shared=w.ZargotaPersistentCharacters?w.ZargotaPersistentCharacters.tableHeroes():[];
     var participants=w.ZargotaGmParticipants?.rows(rows);
     rows=participants||rows.filter(function(row){return row.key.indexOf('sheet-')!==0;}).map(function(row){var c=hero(row),linked=c&&shared.find(function(s){return String(s.localId)===String(c.id);});return Object.assign({},row,{shared:linked||row.shared});});
@@ -110,6 +110,7 @@
       w.ZargotaGmParticipants.refresh();
     }
     if(markup!==signature){dock.innerHTML=markup;signature=markup;}
+    w.ZargotaGmStatusLibrary?.refreshTargets();
     card.classList.toggle('open',!!selected);
     if(selected){
       mountSheet(card);card.querySelector('[data-gm-close]').setAttribute('aria-label',t('Закрыть лист','Закрити аркуш'));var c=current();card.querySelector('strong').textContent=c?c.name:t('Персонаж недоступен','Персонаж недоступний');
@@ -121,6 +122,29 @@
     if(row.shared){w.ZargotaPersistentCharacters.tableHp(c.id,delta);return;}
     c.hpCur=Math.max(0,Math.min(Math.max(1,Number(c.hpMax)||1),(Number(c.hpCur)||0)+delta));
     Promise.resolve(w.saveChars()).then(refresh);refresh();
+  }
+  function targets(){return roster.map(function(row){var c=hero(row);return {key:row.key,id:c&&c.id,name:c&&c.name||row.meta.name,shared:!!row.shared,ready:!!c&&(!row.shared||row.shared.ready)};});}
+  var statusWrites=new Set();
+  async function statusWrite(target,key,options,receipt){
+    var row=roster.find(function(r){return r.key===target.key;}),c=row&&hero(row);
+    if(!c||String(c.id)!==String(target.id)||statusWrites.has(String(c.id)))return {ok:false,reason:'not-ready'};
+    if(row.shared||w.ZargotaPersistentCharacters?.usesCharacter(c.id)){
+      return receipt?w.ZargotaPersistentCharacters.tableUndoStatus(c.id,receipt):w.ZargotaPersistentCharacters.tableStatus(c.id,key,options);
+    }
+    var def=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).find(function(s){return s.key===key&&s.enabled!==false;});
+    if(!receipt&&!def)return {ok:false,reason:'unknown-status'};
+    var before=JSON.parse(JSON.stringify(c)),result=receipt?w.ZargotaCharacterStatus.undo(c,receipt):w.ZargotaCharacterStatus.apply(c,def,options);
+    if(!result.changed)return Object.assign({ok:true},result);
+    statusWrites.add(String(c.id));
+    try{
+      var saved=await w.saveChars({reason:'gm-table-status'});
+      if(!saved||!saved.ok)throw Error('local-save-failed');
+      return Object.assign({ok:true},result);
+    }catch(err){
+      // Restore only this operation's fields, never replace the full character.
+      ['tempEffects','statuses'].forEach(function(field){if(before[field]===undefined)delete c[field];else c[field]=before[field];});
+      return {ok:false,reason:'local-save-failed'};
+    }finally{statusWrites.delete(String(c.id));refresh();}
   }
   function init(){
     if(w.ZG_APP_CHANGELOG&&w.ZG_APP_CHANGELOG[0]){w.ZG_APP_CHANGELOG[0].notes+=' Стол мастера: спокойный картографический фон, широкие карточки героев и открытие существующего мобильного листа поверх доски. Лист встроен как компонент текущей страницы без повторной загрузки сайта. На столе оставлены имена и панель героев; убраны старые инструменты, случайное выделение и перетаскивание изображений. Сохранённые имена доступны внутри генератора. Кнопка ＋ позволяет выбрать аккаунты игроков для стола; используются их существующие синхронизируемые листы. При пяти героях плюс скрыт; меню правой кнопки показывает связь и позволяет убрать карточку со стола.';w.ZG_APP_CHANGELOG[0].notesUk+=' Стіл майстра: спокійне картографічне тло, широкі картки героїв і відкриття наявного мобільного аркуша поверх дошки. Аркуш вбудовано як компонент поточної сторінки без повторного завантаження сайту. На столі залишено імена й панель героїв; прибрано старі інструменти, випадкове виділення та перетягування зображень. Збережені імена доступні всередині генератора. Кнопка ＋ дозволяє вибрати акаунти гравців для столу; використовуються їхні наявні синхронізовані аркуші. За п’яти героїв плюс приховано; меню правої кнопки показує зв’язок і дозволяє прибрати картку зі столу.';}
@@ -165,13 +189,13 @@
     function endDrag(){if(drag)drag.card.classList.remove('is-dragging');drag=null;}
     w.addEventListener('resize',function(){var card=document.getElementById('zg-irl-character-card');if(!host||!card.style.left)return;var r=card.getBoundingClientRect();card.style.left=Math.max(8,Math.min(innerWidth-r.width-8,r.left))+'px';card.style.top=Math.max(8,Math.min(innerHeight-r.height-parseFloat(getComputedStyle(document.body).getPropertyValue('--gm-dock-height'))-12,r.top))+'px';});
     document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
-    document.addEventListener('keydown',function(event){if(event.key==='Escape'&&!document.querySelector('dialog.zg-gm-participants[open],.zg-gm-participant-menu,dialog.zg-gm-reminder[open]')&&selected&&document.body.classList.contains('zg-irl-table-view')&&host&&!host.querySelector('[role=dialog],dialog[open],#status-popup,#quick-temp-popup'))close();},true);
+    document.addEventListener('keydown',function(event){if(event.key==='Escape'&&!w.ZargotaGmStatusLibrary?.isActive()&&!document.querySelector('dialog.zg-gm-participants[open],.zg-gm-participant-menu,dialog.zg-gm-reminder[open]')&&selected&&document.body.classList.contains('zg-irl-table-view')&&host&&!host.querySelector('[role=dialog],dialog[open],#status-popup,#quick-temp-popup'))close();},true);
     document.addEventListener('zargota:localechange',function(){signature='';if(isOpen())w.renderCharSheet();refresh();});
     refresh();
   }
   // Legacy sheet dialogs also stay in the same component. Never adopt unrelated
   // editor/game overlays; only these character-owned roots are eligible.
   new MutationObserver(function(records){if(!isOpen())return;records.forEach(function(record){record.addedNodes.forEach(function(node){if(node.nodeType===1&&node.matches('#status-popup,#quick-temp-popup,#status-info-popup,#char-sheet-tab-bar'))host.appendChild(node);});});}).observe(document.body,{childList:true});
-  w.ZargotaGmTable={render:render,refresh:refresh,isEditing:isEditing,isOpen:isOpen,portal:portal,presentDialog:presentDialog,unmount:unmountSheet};
+  w.ZargotaGmTable={render:render,refresh:refresh,isEditing:isEditing,isOpen:isOpen,portal:portal,presentDialog:presentDialog,unmount:unmountSheet,targets:targets,status:function(target,key,options){return statusWrite(target,key,options);},undoStatus:function(target,receipt){return statusWrite(target,receipt.key,null,receipt);}};
   if(document.readyState==='complete')init();else document.addEventListener('DOMContentLoaded',init,{once:true});
 })(window);

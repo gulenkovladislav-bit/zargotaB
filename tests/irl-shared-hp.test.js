@@ -38,6 +38,8 @@ async function fixture(uid = 'gm', accountRole = 'admin', sheetRole = 'master') 
     characters: [], crypto: webcrypto, addEventListener() {}, showToast: msg => toasts.push(msg),
     ZargotaPersistentTransport: {start: async () => api},
     ZargotaPersistentCore: core,
+    ZargotaCharacterStatus: require('../character-status-operations'),
+    zgGmStatusCatalog: () => [{key:'bleed',label:'Кровотечение',icon:'✦',color:'#c02020'},{key:'fear',label:'Страх',icon:'✦',color:'#9060c0'}],
     ZargotaPersistentCache: {read: async () => undefined, write: async () => {}},
     ZargotaCharacterStore: {saveCharacter: async () => ({ok: true})}
   };
@@ -111,5 +113,33 @@ test('only an admin who owns this sheet has access through the table', async () 
     assert.equal(f.table.tableHeroes().length, 0);
     assert.equal(f.table.tableHp(hero.id, -1), false);
     assert.equal(f.writes.length, 0);
+  }
+});
+
+test('table status writes share revision protection and do not publish unrelated local drafts',async()=>{
+  const f=await fixture();f.window.characters[0].notes='unsaved private draft';
+  const pending=f.table.tableStatus(hero.id,'bleed',{unit:'rounds',duration:3,id:12345});
+  assert.equal((await f.table.tableStatus(hero.id,'bleed',{unit:'rounds',duration:3})).ok,false);
+  const applied=await pending;assert.equal(applied.ok,true);
+  const saved=JSON.parse(f.server().state.characterJson);
+  assert.equal(saved.notes,'original');assert.deepEqual(saved.statuses,['bleed']);assert.equal(saved.tempEffects[0].tickValue,-1);
+  assert.equal(f.writes[0].expectedRevision,1);
+  assert.equal((await f.table.tableUndoStatus(hero.id,applied.receipt)).ok,true);
+  assert.equal(JSON.parse(f.server().state.characterJson).tempEffects,undefined);
+});
+test('status conflicts never retry or overwrite a phone edit',async()=>{
+  const f=await fixture();f.playerEdits({notes:'phone change'});
+  const reply=await f.table.tableStatus(hero.id,'fear',{unit:'rounds',duration:2});
+  assert.equal(reply.ok,false);assert.equal(reply.reason,'conflict');assert.equal(f.writes.length,1);
+  assert.equal(JSON.parse(f.server().state.characterJson).notes,'phone change');
+  assert.equal(JSON.parse(f.server().state.characterJson).statuses,undefined);
+});
+test('offline master and non-owner cannot send statuses; offline player can receive a saved status',async()=>{
+  const f=await fixture();f.navigator.onLine=false;
+  assert.equal((await f.table.tableStatus(hero.id,'fear',{unit:'rounds',duration:2})).ok,false);assert.equal(f.writes.length,0);
+  f.navigator.onLine=true;f.presence({gm:{laptop:{online:true}}});
+  assert.equal((await f.table.tableStatus(hero.id,'fear',{unit:'rounds',duration:2})).ok,true);
+  for(const identity of [['player','player','player'],['other','admin','master']]){
+    const blocked=await fixture(...identity);assert.equal((await blocked.table.tableStatus(hero.id,'fear',{unit:'rounds',duration:2})).ok,false);assert.equal(blocked.writes.length,0);
   }
 });

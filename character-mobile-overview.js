@@ -76,6 +76,7 @@
       button('next',t('Следующие состояния','Наступні стани'),'›','class="zgmo-state-arrow zgmo-state-next"'+(page<count-1?'':' hidden disabled'))+'</div><span class="zgmo-page-count" aria-live="polite">'+(count>1?(page+1)+' / '+count:'')+'</span></section>';
   }
   function render(c,combat){
+    closeStatusMenu(false);
     cancelPageAnimation(document.querySelector('.zgmo-state-cards'));
     current=c.id;
     var labels={str:['Сила','Сила'],dex:['Ловкость','Спритність'],int:['Интеллект','Інтелект'],cha:['Харизма','Харизма'],per:['Восприятие','Сприйняття'],con:['Выносливость','Витривалість']};
@@ -86,8 +87,41 @@
     return '<div class="zgmo-overview" data-zg-i18n-skip><input type="file" id="sheet-portrait-input" accept="image/*" hidden onchange="handleSheetPortrait('+c.id+',event)"><section class="zgmo-portrait">'+(c.portrait?'<img'+(w.ZargotaPortrait?w.ZargotaPortrait.attributes(c,'sheet'):'')+' class="zgmo-portrait-image" src="'+e(c.portrait)+'" alt="'+e(w.characterEntryText(c,c.name))+'">':'')+'<div class="zgmo-top">'+button('back',t('Назад','Назад'),'‹')+'<div>'+button('updates',t('Обновления персонажа','Оновлення персонажа'),'<svg viewBox="0 0 24 32" aria-hidden="true"><path d="M9 2h6l-1 19h-4Z"/><path d="m12 25 3 3-3 3-3-3Z"/></svg>','class="zgmo-sync" hidden')+button('menu',t('Меню персонажа','Меню персонажа'),'⋯')+'</div></div><div class="zgmo-identity"><h1>'+e(w.characterEntryText(c,c.name))+'</h1><div><span>'+e(w.characterEntryText(c,c.race||''))+' · '+e(w.characterEntryText(c,c.klasse||''))+'</span>'+button('level',t('Управление уровнем','Керування рівнем'),t('Ур. ','Рів. ')+(c.level||1)+(c.unspentStatPoints?' ✦'+c.unspentStatPoints:''))+'</div></div></section><div class="zgmo-hp">'+button('damage',t('Убрать 1 HP','Зняти 1 HP'),'−','class="zgmo-damage"')+button('health',t('Здоровье','Здоров’я'),'<b>♥ '+(c.hpCur||0)+' / '+(c.hpMax||0)+(tmp?' <small>+'+tmp+'</small>':'')+'</b><span class="zgmo-hp-track"><span style="width:'+hp+'%"></span></span>','class="zgmo-hp-value"')+button('heal',t('Восстановить 1 HP','Відновити 1 HP'),'+','class="zgmo-heal"')+'</div><div class="zgmo-derived">'+derived+'</div><section class="zgmo-stats" aria-label="'+t('Характеристики','Характеристики')+'">'+stats+'</section>'+states(c)+'</div>';
   }
   function fame(c){return '<section class="zgmo-fame"><h3>'+t('Слава','Слава')+'</h3>'+[['fameMundo',t('Мировая слава','Світова слава')],['fameZargoty',t('Слава в Зарготе','Слава в Зарготі')]].map(function(x){return '<div><span>'+x[1]+'</span><div>'+Array.from({length:8},function(_,i){return '<button aria-label="'+x[1]+': '+(i+1)+'" aria-pressed="'+(i<(c[x[0]]||0))+'" onclick="toggleFame('+c.id+',\''+x[0]+'\','+i+')">'+(i<(c[x[0]]||0)?'◆':'◇')+'</button>';}).join('')+'</div></div>';}).join('')+'</section>';}
-  function close(){closeNumber();closeStatus(true);var modal=document.getElementById('zgmo-modal');if(movedStatus){var sheet=document.getElementById('char-sheet-view');sheet.prepend(movedStatus);movedStatus=null;}if(modal)modal.remove();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
+  function close(){closeStatusMenu(false);closeNumber();closeStatus(true);var modal=document.getElementById('zgmo-modal');if(movedStatus){var sheet=document.getElementById('char-sheet-view');sheet.prepend(movedStatus);movedStatus=null;}if(modal)modal.remove();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
   function modal(title,html){close();returnFocus=document.activeElement;var el=document.createElement('div');el.id='zgmo-modal';el.innerHTML='<section role="dialog" aria-modal="true" aria-label="'+e(title)+'"><header><h2>'+e(title)+'</h2>'+button('close',t('Закрыть','Закрити'),'×')+'</header><div class="zgmo-modal-body">'+html+'</div></section>';el.addEventListener('click',function(ev){if(ev.target===el)close();});(w.ZargotaGmTable?.portal()||document.body).appendChild(el);el.querySelector('button').focus();return el;}
+  function editableGestureTarget(target){return !!target.closest('input:not([readonly]),textarea:not([readonly]),select,[contenteditable]:not([contenteditable="false"])');}
+  function protectedGestureSurface(){return document.body.classList.contains('zg-irl-table-view')||(matchMedia('(max-width:900px), (pointer:coarse)').matches&&!!document.querySelector('#page-characters.active'));}
+  // Cancel browser defaults only; custom context menus still receive the event.
+  ['contextmenu','selectstart','dragstart'].forEach(function(type){document.addEventListener(type,function(ev){if(protectedGestureSurface()&&!editableGestureTarget(ev.target))ev.preventDefault();},true);});
+  var statusMenu=null,statusMenuSource=null;
+  function closeStatusMenu(restore){
+    if(statusMenu)statusMenu.remove();statusMenu=null;
+    if(restore&&statusMenuSource?.isConnected)statusMenuSource.focus({preventScroll:true});statusMenuSource=null;
+  }
+  document.addEventListener('contextmenu',function(ev){
+    var source=ev.target.closest('[data-zgmo="status"]');
+    if(!source||!source.closest('.zgmo-overview'))return;
+    var c=character(),state=c&&effects(c)[Number(source.dataset.index)];if(!state)return;
+    ev.preventDefault();ev.stopPropagation();closeStatusMenu(false);
+    statusMenuSource=source;var menu=document.createElement('div');statusMenu=menu;menu.id='zgmo-status-menu';menu.setAttribute('role','menu');menu.setAttribute('data-zg-i18n-skip','');menu.setAttribute('aria-label',t('Действия с состоянием','Дії зі станом'));
+    menu.innerHTML='<button type="button" role="menuitem">'+t('Убрать','Прибрати')+'</button>';document.body.appendChild(menu);
+    var rect=source.getBoundingClientRect(),x=ev.clientX||rect.left,y=ev.clientY||rect.bottom;
+    menu.style.left=Math.max(8,Math.min(x,innerWidth-menu.offsetWidth-8))+'px';menu.style.top=Math.max(8,Math.min(y,innerHeight-menu.offsetHeight-8))+'px';
+    menu.querySelector('button').onclick=function(){
+      var latest=character();closeStatusMenu(false);
+      if(!latest||latest.id!==c.id)return;
+      var stillPresent=effects(latest).some(function(item){return state.effect?.id!=null?item.effect?.id===state.effect.id:item.key===state.key;});
+      if(!stillPresent)return;
+      if(state.key)w.removeStatusFromInfo(c.id,state.key);else if(state.effect?.id!=null)w.removeEffect(c.id,state.effect.id);
+    };
+    menu.querySelector('button').focus({preventScroll:true});
+  });
+  document.addEventListener('pointerdown',function(ev){if(statusMenu&&!statusMenu.contains(ev.target))closeStatusMenu(false);},true);
+  document.addEventListener('keydown',function(ev){if(!statusMenu)return;if(ev.key==='Escape'){ev.preventDefault();ev.stopImmediatePropagation();closeStatusMenu(true);}else if(ev.key==='Tab')closeStatusMenu(false);},true);
+  document.addEventListener('scroll',function(){closeStatusMenu(false);},true);
+  document.addEventListener('zargota:localechange',function(){closeStatusMenu(false);});
+  w.addEventListener('resize',function(){closeStatusMenu(false);});w.addEventListener('blur',function(){closeStatusMenu(false);});
+  w.addEventListener('zargota:persistent-auth-change',function(){closeStatusMenu(false);});
   var statusReturnFocus=null;
   function closeStatus(immediate){
     var popup=document.querySelector('#status-info-popup.zgmo-status-dialog');if(!popup)return;

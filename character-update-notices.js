@@ -12,7 +12,7 @@
     spellRefs:['Карточки','Картки'], spellsLearned:['Изученные карточки','Вивчені картки'], spellCD:['Ресурсы карточек','Ресурси карток'],
     preparedSpells:['Подготовленные карточки','Підготовлені картки'], coins:['Монеты','Монети'], statuses:['Состояния','Стани'],
     tempEffects:['Временные эффекты','Тимчасові ефекти'], injuries:['Травмы','Травми'], deathSaves:['Спасброски','Рятівні кидки'],
-    journalEntries:['Записи персонажа','Записи персонажа'], notes:['Записи персонажа','Записи персонажа'], biography:['Биография','Біографія'],
+    family:['Люди и связи','Люди та зв’язки'], journalEntries:['Записи персонажа','Записи персонажа'], notes:['Записи персонажа','Записи персонажа'], biography:['Биография','Біографія'],
     description:['Описание','Опис'], currentGoal:['Цель персонажа','Мета персонажа'], progressionPlan:['Развитие персонажа','Розвиток персонажа'],
     battleEcho:['След боя','Слід бою'], portrait:['Портрет','Портрет'], fameMundo:['Слава в мире','Слава у світі'], fameZargoty:['Слава в Зарготе','Слава в Зарготі']
   };
@@ -50,16 +50,41 @@
     });
     return rows;
   }
+  var contentFields=['inventoryItems','equipItems','spellRefs','spellsLearned','skills','mastery','journalEntries','notes','family','statuses','tempEffects'];
+  function contentChanges(before,after){
+    return summary(before,after).filter(function(row){
+      if(!contentFields.includes(row.field))return false;
+      if(row.field==='tempEffects'){
+        function states(c){return (c.tempEffects||[]).filter(function(e){return e.type==='status';}).map(function(e){return {key:e.statusKey,id:e.id,label:e.label,stacks:e.stacks||1};});}
+        return !equal(states(before),states(after));
+      }
+      return true;
+    });
+  }
   function record(entries,event,now) {
-    var changes=summary(event.before,event.after);
+    var changes=event.changes||summary(event.before,event.after);
     if (!changes.length || event.characterId==null || event.own) return entries;
     var channel=event.channel==='room'?'room':'cloud';
     var token=channel+':'+String(event.revision||JSON.stringify(changes));
     var previous=entries.find(function(entry){return entry.token===token;});
     var status=['pending','review'].indexOf(event.status)>=0?event.status:'applied';
     if (previous && previous.status===status) return entries;
-    var next={token:token,channel:channel,status:status,author:event.author==='master'?'master':'shared',at:now,changes:changes,read:false};
+    var next={token:token,channel:channel,status:status,author:event.author==='master'?'master':'shared',at:now,changes:changes,contentOnly:!!event.changes,read:false};
     return [next].concat(entries.filter(function(entry){return entry.token!==token && !(entry.channel===channel&&entry.status==='pending');})).slice(0,12);
+  }
+  // Detect semantic grants, not renders, timer ticks or status removals.
+  function statusGrants(before,after) {
+    function collect(c){
+      var map=Object.create(null);
+      (c&&c.tempEffects||[]).filter(function(e){return e.type==='status';}).forEach(function(e){var key=e.statusKey||('effect:'+e.id);map[key]=e;});
+      (c&&c.statuses||[]).forEach(function(key){if(!map[key])map[key]={statusKey:key};});
+      return map;
+    }
+    var old=collect(before),next=collect(after);
+    return Object.keys(next).filter(function(key){
+      var a=old[key],b=next[key];
+      return !a || (a.id!=null&&b.id!=null&&a.id!==b.id) || (Number(b.stacks)||1)>(Number(a.stacks)||1);
+    }).map(function(key){return next[key];});
   }
   function mount(w) {
     var doc=w.document,storageKey='zargota_character_updates_v1',history=Object.create(null),timer;
@@ -68,7 +93,8 @@
     try {var stored=JSON.parse(w.localStorage.getItem(storageKey)||'{}');Object.keys(stored).slice(0,100).forEach(function(id){if(Array.isArray(stored[id]))history[id]=stored[id].filter(function(e){return e&&Array.isArray(e.changes)&&typeof e.token==='string';}).slice(0,12);});}catch(_){}
     function persist(){try{w.localStorage.setItem(storageKey,JSON.stringify(history));}catch(_){} }
     function activeId(){return w.viewingCharId==null?'':String(w.viewingCharId);}
-    function entries(id){return history[id]||[];}
+    function visibleChanges(entry){return entry.changes.filter(function(row){return contentFields.includes(row.field)&&(row.field!=='tempEffects'||entry.contentOnly||entry.changes.some(function(r){return r.field==='statuses';}));});}
+    function entries(id){return (history[id]||[]).filter(function(entry){return entry.author==='master'&&visibleChanges(entry).length;});}
     function unread(id){return entries(id).filter(function(e){return !e.read;});}
     function label(row){return row.label[t('ru','uk')==='uk'?1:0];}
     function title(entry) {
@@ -77,7 +103,36 @@
       return entry.author==='master'?t('Мастер обновил лист','Майстер оновив аркуш'):t('Лист обновлён','Аркуш оновлено');
     }
     function refresh(){clearTimeout(timer);timer=setTimeout(function(){render();doc.dispatchEvent(new CustomEvent('zargota:character-updates'));},0);}
-    function receive(event){var id=String(event.characterId),old=entries(id),next=record(old,event,Date.now());if(next!==old){history[id]=next;persist();refresh();}}
+    function receive(event){if(event.author!=='master')return;var id=String(event.characterId),old=entries(id),next=record(old,Object.assign({},event,{changes:contentChanges(event.before,event.after)}),Date.now());if(next!==old){history[id]=next;persist();refresh();announceGrants(event);}}
+    var grantQueue=[],grantCurrent=null,grantTimer=null,grantExit=null;
+    function clearGrants(){clearTimeout(grantTimer);clearTimeout(grantExit);grantQueue=[];grantCurrent=null;doc.getElementById('character-status-arrival')?.remove();}
+    function drawGrant(){
+      if(!grantCurrent)return;
+      var effect=grantCurrent,definition=(w.zgGmStatusCatalog?.()||[]).find(function(s){return s.key===effect.statusKey;})||{};
+      var text=t(effect.label||definition.label||effect.statusKey||'Состояние',effect.labelUk||definition.labelUk||w.ZargotaI18n?.translate(effect.label||definition.label||effect.statusKey)||'Стан');
+      var duration=effect.unit==='manual'||effect.remaining==null?t('До снятия','До зняття'):String(effect.remaining)+' '+({rounds:t('раунд.','раунд.'),minutes:t('мин.','хв.'),hours:t('ч.','год.'),days:t('дн.','дн.')}[effect.unit]||'');
+      var node=doc.getElementById('character-status-arrival');
+      if(!node){node=doc.createElement('aside');node.id='character-status-arrival';node.setAttribute('role','status');node.setAttribute('aria-live','polite');node.setAttribute('aria-atomic','true');node.setAttribute('data-zg-i18n-skip','');doc.body.appendChild(node);}
+      node.innerHTML=(w.zgStatusGlyphMarkup?.(Object.assign({},definition,effect,{key:effect.statusKey}),text,'character-status-arrival-icon')||'<span aria-hidden="true">✦</span>')+'<div><strong>'+esc(text)+(Number(effect.stacks)>1?' ×'+Number(effect.stacks):'')+'</strong><span>'+esc(duration)+'</span></div>';
+    }
+    function nextGrant(){
+      if(grantCurrent||doc.hidden||!grantQueue.length)return;
+      grantCurrent=grantQueue.shift();drawGrant();
+      grantTimer=setTimeout(function(){
+        doc.getElementById('character-status-arrival')?.classList.add('is-leaving');
+        grantExit=setTimeout(function(){doc.getElementById('character-status-arrival')?.remove();grantCurrent=null;nextGrant();},220);
+      },4200);
+    }
+    function announceGrants(event){
+      if(!event.notifyStatuses||event.own||event.author!=='master'||['pending','review'].includes(event.status))return;
+      grantQueue=grantQueue.concat(statusGrants(event.before,event.after).map(function(e){return JSON.parse(JSON.stringify(e));})).slice(-20);nextGrant();
+    }
+    doc.addEventListener('visibilitychange',function(){
+      if(doc.hidden&&grantCurrent){var pending=grantCurrent;clearTimeout(grantTimer);clearTimeout(grantExit);doc.getElementById('character-status-arrival')?.remove();grantCurrent=null;grantQueue.unshift(pending);}
+      else nextGrant();
+    });
+    w.addEventListener('zargota:persistent-auth-change',clearGrants);
+    doc.addEventListener('zargota:localechange',drawGrant);
     function settle(id,channel,revision){id=String(id);var token=channel+':'+revision;history[id]=entries(id).filter(function(entry){return entry.token!==token||entry.status!=='pending';});persist();refresh();}
     function pending(){return t('Обновление ещё не применено. Текущий ввод не заменён. Завершите редактирование и откройте синхронизацию через лампочку.','Оновлення ще не застосовано. Поточне введення не замінено. Завершіть редагування й відкрийте синхронізацію через індикатор.');}
     function brief(row) {
@@ -93,7 +148,7 @@
       if(help)html+='<p>'+t('Метка ↻ возле характеристики означает, что её значение обновилось при синхронизации. Нажмите на метку, чтобы увидеть, что изменилось.','Позначка ↻ біля характеристики означає, що її значення оновилося під час синхронізації. Натисніть на позначку, щоб побачити, що змінилося.')+'</p><p>'+t('«Есть обновление» означает, что новые данные ещё ожидают применения. Уведомление не заменяет ваш ввод и не подтверждает отправку ваших изменений. Состояние синхронизации доступно через лампочку.','«Є оновлення» означає, що нові дані ще очікують застосування. Сповіщення не замінює ваше введення й не підтверджує надсилання ваших змін. Стан синхронізації доступний через індикатор.')+'</p>';
       if(!records.length)html+='<p>'+t('Полученных обновлений пока нет.','Отриманих оновлень поки немає.')+'</p>';
       records.forEach(function(entry){
-        var changes=entry.changes.filter(function(row){return !field||row.field===field;});if(!changes.length)return;
+        var changes=visibleChanges(entry).filter(function(row){return !field||row.field===field;});if(!changes.length)return;
         html+='<section class="character-update-entry"><h3>'+esc(title(entry))+'</h3><time>'+esc(new Date(entry.at).toLocaleString(t('ru-RU','uk-UA')))+'</time>';
         if(entry.status==='pending')html+='<p>'+pending()+'</p>';
         if(entry.status==='review')html+='<p>'+t('Новая версия получена, но часть полей отличается от вашего черновика. Ваши правки сохранены; откройте синхронизацию для согласования. Ниже показаны изменения общей версии.','Нову версію отримано, але частина полів відрізняється від вашої чернетки. Ваші правки збережено; відкрийте синхронізацію для узгодження. Нижче показано зміни спільної версії.')+'</p>';
@@ -110,45 +165,11 @@
       dialog.showModal();
     }
     function render() {
-      var id=activeId(),sheet=doc.getElementById('char-sheet'),view=doc.getElementById('char-sheet-view'),editor=doc.getElementById('char-editor-view'),bar=doc.getElementById('chars-back-bar');
-      if(!sheet||!view||!bar)return;
-      var editing=editor&&editor.style.display!=='none',show=view.style.display!=='none';
-      var currentId=editing&&w.editingCharId!=null?String(w.editingCharId):id;
-      var help=doc.getElementById('character-update-help');
-      if(!help){help=doc.createElement('button');help.type='button';help.id='character-update-help';help.textContent='?';help.addEventListener('click',function(){details(help.dataset.character,true);});bar.appendChild(help);}
-      help.hidden=!show&&!editing;help.dataset.character=currentId;help.setAttribute('aria-label',t('Как работают обновления листа','Як працюють оновлення аркуша'));help.setAttribute('aria-haspopup','dialog');
-      var notice=doc.querySelector('.character-update-notice');
-      if(!show&&!editing){if(notice)notice.remove();sheet.querySelectorAll('.character-update-marker').forEach(function(el){el.remove();});return;}
-      var updates=unread(currentId),latest=updates[0];
-      if(latest&&!doc.body.classList.contains('zg-stats-overview')){
-        if(!notice)notice=doc.createElement('section');notice.className='character-update-notice';notice.setAttribute('aria-label',t('Обновления листа','Оновлення аркуша'));
-        var noticeHTML='<div role="status"><strong>'+esc(title(latest))+'</strong><span>'+esc(latest.status==='pending'?t('Ваш ввод не заменён','Ваше введення не замінено'):brief(latest.changes[0]))+(updates.length>1?' · '+t('ещё обновлений: ','ще оновлень: ')+(updates.length-1):latest.changes.length>1?' · +'+(latest.changes.length-1):'')+'</span></div><button type="button">'+t('Подробнее','Докладніше')+'</button>';
-        if(notice.innerHTML!==noticeHTML)notice.innerHTML=noticeHTML;
-        notice.querySelector('button').onclick=function(){details(currentId,false);};
-        var host=editing?editor.querySelector('.char-editor'):sheet.querySelector('.tab-content-wrap')||sheet;
-        if(host&&notice.parentNode!==host)host.insertBefore(notice,host.firstChild);
-      }else if(notice)notice.remove();
-      if(!show)return;
-      sheet.querySelectorAll('.character-update-marker').forEach(function(marker){
-        if(marker.dataset.character!==id||!updates.some(function(entry){return entry.status==='applied'&&entry.changes.some(function(row){return row.field==='stats.'+marker.dataset.stat;});}))marker.remove();
-      });
-      Object.keys(stats).forEach(function(stat){
-        var changed=updates.some(function(entry){return entry.status==='applied'&&entry.changes.some(function(row){return row.field==='stats.'+stat;});});
-        if(!changed)return;
-        sheet.querySelectorAll('input[onchange]').forEach(function(input){
-          var handler=input.getAttribute('onchange');if(handler.indexOf('updateStatField(')<0||handler.indexOf("'"+stat+"'")<0)return;
-          var container=input.closest('.stat-block')||input.parentElement;
-          if(container.querySelector('.character-update-marker[data-stat="'+stat+'"]'))return;
-          var marker=doc.createElement('button');marker.dataset.stat=stat;marker.dataset.character=id;marker.className='character-update-marker';marker.type='button';marker.textContent='↻';
-          marker.setAttribute('aria-label',t('Что изменилось: ','Що змінилося: ')+stats[stat][t('ru','uk')==='uk'?1:0]);marker.setAttribute('aria-haspopup','dialog');
-          marker.addEventListener('click',function(){details(id,false,'stats.'+stat);});
-          var desktopStat=input.closest('.stat-block');
-          if(desktopStat)desktopStat.appendChild(marker);else input.insertAdjacentElement('afterend',marker);
-        });
-      });
+      // The overview owns the only update indicator. No inserted layout blocks.
+      doc.querySelectorAll('.character-update-notice,.character-update-marker,#character-update-help').forEach(function(node){node.remove();});
     }
     doc.addEventListener('DOMContentLoaded',refresh);doc.addEventListener('zargota:localechange',refresh);
     return {receive:receive,settle:settle,refresh:refresh,unread:function(id){return unread(String(id)).length;},open:function(id){details(String(id),false);}};
   }
-  return {summary:summary,record:record,mount:mount};
+  return {contentChanges:contentChanges,summary:summary,record:record,statusGrants:statusGrants,mount:mount};
 });

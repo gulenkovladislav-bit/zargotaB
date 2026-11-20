@@ -40,8 +40,8 @@
 <script src="spell-automation.js?v=2026-08-30.5"></script>
 <script src="zargota-network.js?v=2026-11-18-native-sheet-1"></script>
   <script src="character-review.js?v=2026-09-27.1"></script>
-  <script src="character-update-notices.js?v=2026-11-14.11"></script>
-  <link rel="stylesheet" href="character-update-notices.css?v=2026-11-14.11">
+  <script src="character-update-notices.js?v=2026-11-21-content-notices-1"></script>
+  <link rel="stylesheet" href="character-update-notices.css?v=2026-11-21-status-feedback-1">
   <script src="persistent-character-core.js?v=2026-11-17.22"></script>
   <script src="persistent-character-cache.js?v=2026-10-26.15"></script>
   <script src="persistent-character-transport.js?v=2026-11-14.9"></script>
@@ -49,7 +49,8 @@
   <script src="persistent-account-views.js?v=2026-11-17.3"></script>
   <script src="player-messages.js?v=2026-11-14.10"></script>
   <link rel="stylesheet" href="player-messages.css?v=2026-11-14.10">
-  <script src="persistent-characters.js?v=2026-11-20-table-participants-2"></script>
+  <script src="character-status-operations.js?v=2026-11-21.1"></script>
+  <script src="persistent-characters.js?v=2026-11-21-status-feedback-1"></script>
   <link rel="stylesheet" href="persistent-characters.css?v=2026-11-18.2">
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
   <script src="character-cloud.js?v=2026-11-18-native-sheet-1"></script>
@@ -10433,9 +10434,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-20.2';
+var ZG_APP_VERSION = '2026-11-21.1';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+{v:'2026-11-21.1',notes:'Хранилище состояний на столе мастера: выдача перетаскиванием одному герою или всем. Уведомление игроку с иконкой и длительностью, снятие состояния правой кнопкой. Убраны всплывающие отчёты, обновления содержимого доступны на характеристиках. Мобильный лист запоминает вкладку между перезапусками.',notesUk:'Сховище станів на столі майстра: надання перетягуванням одному герою або всім. Сповіщення гравцю зі значком і тривалістю, зняття стану правою кнопкою. Прибрано спливні звіти, оновлення вмісту доступні на характеристиках. Мобільний аркуш запам’ятовує вкладку між перезапусками.'},
   {v:'2026-11-20.2',notes:'На карточках игроков появился знак вопроса: памятка мастера с редактируемыми блоками. Личные правки сохраняются в этом браузере.',notesUk:'На картках гравців з’явився знак питання: пам’ятка майстра з редагованими блоками. Особисті зміни зберігаються в цьому браузері.'},
   {v:'2026-11-20.1',notes:'Стол мастера: выбор существующих профилей игроков, состояние связи и меню правой кнопки. При пяти карточках плюс скрыт. Открытый лист получает изменения игрока; исправлено перекрытие редактора диалогов.',notesUk:'Стіл майстра: вибір наявних профілів гравців, стан зв’язку та меню правої кнопки. За п’яти карток плюс приховано. Відкритий аркуш отримує зміни гравця; виправлено перекриття редактора діалогів.'},
   {v:'2026-11-18.12',notes:'Лор: аккуратные линии дерева связей. Кнопки сохранения и редактирования закреплены внизу окон.',notesUk:'Лор: охайні лінії дерева зв’язків. Кнопки збереження та редагування закріплено внизу вікон.'},
@@ -26838,8 +26840,8 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="mobile-shell.js?v=2026-11-05.3"></script>
 <link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-20-dialog-scope">
 <script defer src="character-portrait-picker.js?v=2026-11-17.3"></script>
-<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-16.20">
-<script defer src="character-mobile-overview.js?v=2026-11-18-native-sheet-1"></script>
+<link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-21-gestures-1">
+<script defer src="character-mobile-overview.js?v=2026-11-21-gestures-1"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-17.6">
 <script defer src="personal-item-presentation.js?v=2026-11-17.3"></script>
 <script defer src="item-detail-content.js?v=2026-11-17.5"></script>
@@ -29811,11 +29813,14 @@ window.zgEnsurePortableCharacterMedia = function(character) {
 
 <link rel="stylesheet" href="irl-session-prep.css">
 <link rel="stylesheet" href="gm-clean-table.css?v=2026-11-20-table-participants-2">
-<script defer src="gm-sheet-styles.js?v=2026-11-18-native-sheet-1"></script>
+<script defer src="gm-sheet-styles.js?v=2026-11-21-gestures-1"></script>
 <script defer src="gm-table-participants.js?v=2026-11-20-2"></script>
 <link rel="stylesheet" href="gm-hero-reminders.css?v=2026-11-20.2">
 <script defer src="gm-hero-reminders.js?v=2026-11-20.2"></script>
-<script defer src="gm-clean-table.js?v=2026-11-20.2"></script>
+<script defer src="gm-clean-table.js?v=2026-11-20-status-library-1"></script>
+<link rel="stylesheet" href="gm-status-library.css?v=2026-11-21-quiet-grants-1">
+<script defer src="gm-status-library.js?v=2026-11-21.1"></script>
+<script defer src="character-session-resume.js?v=2026-11-21.1"></script>
 <script src="js/irl-morelesye-data.js"></script>
 <script src="js/irl-session-prep.js"></script>
 <script src="js/irl-name-catalog.js"></script>
@@ -55939,19 +55944,7 @@ function applyStatus(charId, key) {
   var unit = window._spUnit || 'rounds';
   var tickType = document.getElementById('sp-tick-type').value;
   var tickVal = parseInt(document.getElementById('sp-tick-val').value) || 0;
-  var tickDice = '';
-  if (key === 'burn') { tickType = 'hp'; tickVal = 0; tickDice = '1d4'; }
-  if (key === 'poison' || key === 'bleed') { tickType = 'hp'; tickVal = -1; }
-
-  var UNIT_TO_MINS = {minutes:1,hours:60,days:1440};
-  c.tempEffects.push({
-    id: Date.now(), type:'status', statusKey:key,
-    label: st.label, value: st.label, icon: st.icon, iconKey: st.key,
-    color: st.color, bg: st.bg,
-    unit: unit, duration: dur, remaining: dur,
-    remainingMins: unit !== 'rounds' ? dur * (UNIT_TO_MINS[unit]||1) : undefined,
-    tickType: tickType || '', tickValue: tickVal || 0, tickDice: tickDice, stacks: 1,
-  });
+  c.tempEffects.push(window.ZargotaCharacterStatus.create(st,{duration:dur,unit:unit,tickType:tickType,tickValue:tickVal}));
   // Also add to legacy array for backward compat
   if (!c.statuses) c.statuses = [];
   if (c.statuses.indexOf(key) < 0) c.statuses.push(key);
@@ -56115,7 +56108,7 @@ function showStatusInfoPopup(charId, statusKey) {
   var durationTxt = '';
   if (eff) {
     var unitLabel = {rounds:'раунд.',minutes:'мин.',hours:'ч.',days:'дн.'}[eff.unit] || eff.unit || '';
-    durationTxt = eff.remaining + ' ' + unitLabel + (eff.duration && eff.duration !== eff.remaining ? ' / из ' + eff.duration : '');
+    durationTxt = eff.unit === 'manual' ? (window.ZargotaI18n && window.ZargotaI18n.getLocale() === 'uk' ? 'До зняття' : 'До снятия') : eff.remaining + ' ' + unitLabel + (eff.duration && eff.duration !== eff.remaining ? ' / из ' + eff.duration : '');
   }
   var tickTxt = (eff && eff.tickType) ? ((eff.tickValue>0?'+':'') + eff.tickValue + ' к ' + eff.tickType + ' каждый раунд') : '';
 
@@ -57685,7 +57678,7 @@ function advanceGlobalTime(unit, amount, id) {
   var expired = [];
 
   c.tempEffects.forEach(function(eff) {
-    if (eff.unit === 'rounds') return;
+    if (eff.unit === 'rounds' || eff.unit === 'manual') return;
     // Initialize remainingMins on first encounter
     if (eff.remainingMins === undefined) {
       eff.remainingMins = eff.remaining * (UNIT_TO_MINS[eff.unit] || 1);
@@ -69319,7 +69312,7 @@ function getStatusMechanics() {
   });
 }
 // Экспорт для движка (он живёт в отдельном IIFE)
-if (typeof window !== 'undefined') { window.getStatusMechanics = getStatusMechanics; }
+if (typeof window !== 'undefined') { window.getStatusMechanics = getStatusMechanics; window.getDefaultStatusMechanics = getDefaultStatusMechanics; }
 
 // ═══════════════════════════════════════════════════════════════
 //  MANUAL PAGE — Правила Зарготы для игроков (Канон v1)

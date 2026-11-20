@@ -384,3 +384,13 @@
 /* Shared page turns animate the real mounted surface, never cloned controls. */
 .zg-page-turn{will-change:transform,opacity}
 @media(prefers-reduced-motion:reduce){.zg-page-turn{will-change:auto}}
+
+/* Pointer context action also works for the same sheet mounted on the GM table. */
+#zgmo-status-menu{position:fixed;z-index:200110;min-width:150px;padding:5px;border:1px solid #a38144;border-radius:10px;background:#1c150b;box-shadow:0 8px 24px #000a;color:#ead6ab;font:16px 'Lora',serif}
+#zgmo-status-menu button{display:block;width:100%;min-height:44px;padding:10px 18px;background:transparent;border:0;border-radius:6px;color:inherit;font:inherit;text-align:left;cursor:pointer}
+#zgmo-status-menu button:hover,#zgmo-status-menu button:focus-visible{background:#392916;outline:1px solid #b78e46;outline-offset:-1px}
+
+@media(max-width:900px),(pointer:coarse){
+ body:has(#page-characters.active),body:has(#page-characters.active) *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+ body:has(#page-characters.active) :is(input:not([readonly]),textarea:not([readonly]),select,[contenteditable]:not([contenteditable="false"])),body:has(#page-characters.active) [contenteditable]:not([contenteditable="false"]) *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+}

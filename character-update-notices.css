@@ -20,3 +20,14 @@
 .character-update-dialog-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:16px}
 @media(max-width:420px){.character-update-notice{margin:8px;padding:9px;gap:8px}.character-update-notice button{padding:8px}#character-update-help{flex-basis:40px;width:40px;height:40px}}
 @media(pointer:coarse){#char-sheet .character-update-marker{width:44px;height:44px;flex-basis:44px}#character-update-help{flex-basis:44px;width:44px;height:44px}}
+
+/* Transient grant notice: no focus, clicks or layout displacement. */
+#character-status-arrival{position:fixed;z-index:200100;top:calc(var(--zg-viewport-top,0px) + env(safe-area-inset-top,0px) + 12px);left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:14px;width:max-content;max-width:calc(100vw - 28px);box-sizing:border-box;padding:14px 22px;border:1px solid #ad8947;border-radius:16px;background:linear-gradient(135deg,#302311,#100d07);box-shadow:0 10px 32px #0009;color:#eddbaf;font:16px/1.4 'Lora',serif;pointer-events:none;animation:zg-status-arrive .28s ease-out both}
+#character-status-arrival>div{min-width:0;overflow-wrap:anywhere}
+#character-status-arrival strong{display:block;font-size:19px}
+#character-status-arrival div>span{display:block;color:#c7ae7c;font-size:14px;margin-top:3px}
+#character-status-arrival .character-status-arrival-icon{flex:0 0 48px;width:48px!important;height:48px!important}
+#character-status-arrival.is-leaving{animation:zg-status-depart .2s ease-in both}
+@keyframes zg-status-arrive{from{opacity:0;transform:translate(-50%,-110%)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes zg-status-depart{to{opacity:0;transform:translate(-50%,-110%)}}
+@media(prefers-reduced-motion:reduce){#character-status-arrival,#character-status-arrival.is-leaving{animation:none}}
