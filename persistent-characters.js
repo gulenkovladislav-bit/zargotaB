@@ -41,6 +41,9 @@
     return {id:e.localId,localId:e.localId,sheetId:sid,name:c.name,character:c,state:status,ready:status==='ready',online:!!(connected&&Object.keys(presence[e.meta.playerUid]||{}).length)};
   }
   function tableHeroes(){return Object.keys(records).map(tableHero).filter(Boolean);}
+  // A small identity snapshot for the table; do not clone every cached sheet on
+  // presence updates or expose login codes to the participant picker.
+  function tableIdentity(){return {uid:uid,role:account.role,enabled:state.enabled,loading:!cacheReady||!!starting,error:error};}
   function tableHp(localId,delta){
     var row=tableHeroes().find(function(hero){return String(hero.localId)===String(localId);}),sid=row&&row.sheetId;
     if(!row||!row.ready||(delta!==1&&delta!==-1))return false;
@@ -66,6 +69,7 @@
     return task.finally(function(){if(incomingTasks.get(e)===task)incomingTasks.delete(e);});
   }
   function editing(entry){
+    if(w.ZargotaGmTable&&w.ZargotaGmTable.isEditing(entry.localId))return true;
     var editor=document.getElementById('char-editor-view');
     if(editor && editor.style.display!=='none' && String(w.editingCharId)===String(entry.localId))return true;
     if(String(w.viewingCharId)!==String(entry.localId))return false;
@@ -572,5 +576,5 @@
   var resizeTimer;w.addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(render,100);});
   w.addEventListener('zargota-room-state',function(){resume().catch(failed);});
   document.addEventListener('DOMContentLoaded',function(){boot.then(function(){render();if(state.enabled)connect().catch(failed);});var shared=new URLSearchParams(location.search).get('character');if(shared)sharedView(shared);});
-  w.ZargotaPersistentCharacters={resolveCharacterId:resolveCharacterId,tableHeroes:tableHeroes,tableHp:tableHp,start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){if(String(resolveCharacterId(c.id))!==String(c.id))return false;var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
+  w.ZargotaPersistentCharacters={resolveCharacterId:resolveCharacterId,tableHeroes:tableHeroes,tableIdentity:tableIdentity,tableHp:tableHp,start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){if(String(resolveCharacterId(c.id))!==String(c.id))return false;var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
 })(window);

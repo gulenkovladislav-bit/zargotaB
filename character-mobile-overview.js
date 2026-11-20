@@ -87,7 +87,7 @@
   }
   function fame(c){return '<section class="zgmo-fame"><h3>'+t('Слава','Слава')+'</h3>'+[['fameMundo',t('Мировая слава','Світова слава')],['fameZargoty',t('Слава в Зарготе','Слава в Зарготі')]].map(function(x){return '<div><span>'+x[1]+'</span><div>'+Array.from({length:8},function(_,i){return '<button aria-label="'+x[1]+': '+(i+1)+'" aria-pressed="'+(i<(c[x[0]]||0))+'" onclick="toggleFame('+c.id+',\''+x[0]+'\','+i+')">'+(i<(c[x[0]]||0)?'◆':'◇')+'</button>';}).join('')+'</div></div>';}).join('')+'</section>';}
   function close(){closeNumber();closeStatus(true);var modal=document.getElementById('zgmo-modal');if(movedStatus){var sheet=document.getElementById('char-sheet-view');sheet.prepend(movedStatus);movedStatus=null;}if(modal)modal.remove();if(returnFocus&&returnFocus.isConnected)returnFocus.focus({preventScroll:true});returnFocus=null;}
-  function modal(title,html){close();returnFocus=document.activeElement;var el=document.createElement('div');el.id='zgmo-modal';el.innerHTML='<section role="dialog" aria-modal="true" aria-label="'+e(title)+'"><header><h2>'+e(title)+'</h2>'+button('close',t('Закрыть','Закрити'),'×')+'</header><div class="zgmo-modal-body">'+html+'</div></section>';el.addEventListener('click',function(ev){if(ev.target===el)close();});document.body.appendChild(el);el.querySelector('button').focus();return el;}
+  function modal(title,html){close();returnFocus=document.activeElement;var el=document.createElement('div');el.id='zgmo-modal';el.innerHTML='<section role="dialog" aria-modal="true" aria-label="'+e(title)+'"><header><h2>'+e(title)+'</h2>'+button('close',t('Закрыть','Закрити'),'×')+'</header><div class="zgmo-modal-body">'+html+'</div></section>';el.addEventListener('click',function(ev){if(ev.target===el)close();});(w.ZargotaGmTable?.portal()||document.body).appendChild(el);el.querySelector('button').focus();return el;}
   var statusReturnFocus=null;
   function closeStatus(immediate){
     var popup=document.querySelector('#status-info-popup.zgmo-status-dialog');if(!popup)return;
@@ -154,7 +154,7 @@
     popup.querySelector('.zgmo-status-tool').onclick=function(){var extra=popup.querySelector('#zgmo-status-actions');extra.hidden=!extra.hidden;this.setAttribute('aria-expanded',String(!extra.hidden));};
     popup.querySelector('.zgmo-remove-status').onclick=function(){closeStatus(true);if(state.key)w.removeStatusFromInfo(c.id,state.key);else if(f.id!=null)w.removeEffect(c.id,f.id);};
     popup.onclick=function(ev){if(ev.target===popup)closeStatus(false);};
-    if(!reuse){document.body.appendChild(popup);popup.querySelector('.zgmo-status-dismiss').focus({preventScroll:true});}
+    if(!reuse){(w.ZargotaGmTable?.portal()||document.body).appendChild(popup);popup.querySelector('.zgmo-status-dismiss').focus({preventScroll:true});}
     else if(!refreshOnly){
       var focus=popup.querySelector('[data-status-step="'+direction+'"]:not([hidden])')||popup.querySelector('.zgmo-status-dismiss');focus.focus({preventScroll:true});
     }
@@ -242,7 +242,7 @@
     var popup=document.createElement('div');popup.id='zgmo-number-pad';popup.style.setProperty('--tone',getComputedStyle(source.closest('.zgmo-stat')||source).getPropertyValue('--tone')||'#c5a56a');
     function keyButton(key,text,label){return '<button type="button" data-number-key="'+key+'"'+(label?' aria-label="'+e(label)+'"':'')+'>'+text+'</button>';}
     popup.innerHTML='<section role="dialog" aria-modal="true" aria-labelledby="zgmo-number-title"><header><h2 id="zgmo-number-title">'+e(label)+'</h2>'+(kind==='vital'?keyButton('temp','⌛',t('Временный эффект','Тимчасовий ефект')):'')+keyButton('cancel','×',t('Закрыть','Закрити'))+'</header><div class="zgmo-number-stepper">'+keyButton('minus',controlMark(false),t('Уменьшить на 1','Зменшити на 1'))+'<output aria-live="polite">'+e(value)+'</output>'+keyButton('plus',controlMark(true),t('Увеличить на 1','Збільшити на 1'))+'</div><footer>'+keyButton('cancel',t('Отмена','Скасувати'))+keyButton('save',t('Сохранить','Зберегти'))+'</footer></section>';
-    popup.onclick=function(ev){if(ev.target===popup){closeNumber();return;}var b=ev.target.closest('[data-number-key]');if(b)numberKey(b.dataset.numberKey);};document.body.appendChild(popup);popup.querySelector('[data-number-key=save]').focus({preventScroll:true});
+    popup.onclick=function(ev){if(ev.target===popup){closeNumber();return;}var b=ev.target.closest('[data-number-key]');if(b)numberKey(b.dataset.numberKey);};(w.ZargotaGmTable?.portal()||document.body).appendChild(popup);popup.querySelector('[data-number-key=save]').focus({preventScroll:true});
   }
   document.addEventListener('keydown',function(ev){
     var popup=document.getElementById('zgmo-number-pad');

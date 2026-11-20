@@ -38,7 +38,7 @@
 <link rel="stylesheet" href="spell-art.css?v=2026-11-15.21">
 <script src="spell-art.js?v=2026-11-16.116"></script>
 <script src="spell-automation.js?v=2026-08-30.5"></script>
-<script src="zargota-network.js?v=2026-10-26.15"></script>
+<script src="zargota-network.js?v=2026-11-18-native-sheet-1"></script>
   <script src="character-review.js?v=2026-09-27.1"></script>
   <script src="character-update-notices.js?v=2026-11-14.11"></script>
   <link rel="stylesheet" href="character-update-notices.css?v=2026-11-14.11">
@@ -49,10 +49,10 @@
   <script src="persistent-account-views.js?v=2026-11-17.3"></script>
   <script src="player-messages.js?v=2026-11-14.10"></script>
   <link rel="stylesheet" href="player-messages.css?v=2026-11-14.10">
-  <script src="persistent-characters.js?v=2026-11-18.2"></script>
+  <script src="persistent-characters.js?v=2026-11-20-table-participants-2"></script>
   <link rel="stylesheet" href="persistent-characters.css?v=2026-11-18.2">
   <script src="character-cloud-store.js?v=2026-09-27.1"></script>
-  <script src="character-cloud.js?v=2026-10-26.15"></script>
+  <script src="character-cloud.js?v=2026-11-18-native-sheet-1"></script>
   <link rel="stylesheet" href="character-cloud.css?v=2026-10-26.20">
 <script defer src="arena-v2-workspace.js?v=2026-11-15.21"></script>
 <link rel="stylesheet" href="gm-delivery.css?v=2026-08-21.1">
@@ -10433,9 +10433,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-18.12';
+var ZG_APP_VERSION = '2026-11-20.1';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-20.1',notes:'Стол мастера: выбор существующих профилей игроков, состояние связи и меню правой кнопки. При пяти карточках плюс скрыт. Открытый лист получает изменения игрока; исправлено перекрытие редактора диалогов.',notesUk:'Стіл майстра: вибір наявних профілів гравців, стан зв’язку та меню правої кнопки. За п’яти карток плюс приховано. Відкритий аркуш отримує зміни гравця; виправлено перекриття редактора діалогів.'},
   {v:'2026-11-18.12',notes:'Лор: аккуратные линии дерева связей. Кнопки сохранения и редактирования закреплены внизу окон.',notesUk:'Лор: охайні лінії дерева зв’язків. Кнопки збереження та редагування закріплено внизу вікон.'},
   {v:'2026-11-18.3',notes:'Люди: четыре компактные карточки, фильтры по регионам и отдельная личная заметка. Кнопка связей увеличена; цель скрыта без удаления записанного текста.',notesUk:'Люди: чотири компактні картки, фільтри за регіонами й окрема особиста нотатка. Кнопку зв’язків збільшено; мету приховано без видалення записаного тексту.'},
   {v:'2026-11-18.2',notes:'Исправлен выбор старых локальных копий персонажей: общий список открывает привязанный лист с сохранённой историей и связями. Переименование героя больше не создаёт лишнюю копию. При отсутствии входа локальные листы явно помечены, рядом доступна кнопка входа.',notesUk:'Виправлено вибір старих локальних копій персонажів: загальний список відкриває прив’язаний аркуш зі збереженою історією та зв’язками. Перейменування героя більше не створює зайву копію. За відсутності входу локальні аркуші явно позначені, поруч доступна кнопка входу.'},
@@ -10930,6 +10931,8 @@ var ZG_APP_CHANGELOG = [
   { v: '2026-05-09.5', notes: 'Лог боя 180px высоты, 6 событий' },
   { v: '2026-05-09.4', notes: 'Переключатель Гримуар/Все заклинания · «Боевая связка» → лог боя' }
 ];
+ZG_APP_CHANGELOG[0].notes += ' Исправлено перекрытие вкладки диалогов окном выбора портрета.';
+ZG_APP_CHANGELOG[0].notesUk += ' Виправлено перекриття вкладки діалогів вікном вибору портрета.';
 ZG_APP_CHANGELOG[0].notes += ' Исправлен звук змеи при локальном запуске. В настройках мини-игры доступны файл, громкость и ускорение звука; повторные условия учитываются перед её запуском.';
 ZG_APP_CHANGELOG[0].notesUk += ' Виправлено звук змії за локального запуску. У налаштуваннях мінігри доступні файл, гучність і прискорення звуку; повторні умови враховуються перед її запуском.';
 ZG_APP_CHANGELOG[0].notes += ' Рамка вида игрока учитывает заполнение экрана и положение камеры, как в игре. В параметрах сцены доступны заполнение экрана и положение кадра по вертикали.';
@@ -26832,22 +26835,22 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <link rel="stylesheet" href="mobile-shell.css?v=2026-11-05.3">
 <link rel="stylesheet" href="home-mobile-atlas.css?v=2026-11-05.3">
 <script defer src="mobile-shell.js?v=2026-11-05.3"></script>
-<link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-14.1">
+<link rel="stylesheet" href="character-portrait-picker.css?v=2026-11-20-dialog-scope">
 <script defer src="character-portrait-picker.js?v=2026-11-17.3"></script>
 <link rel="stylesheet" href="character-mobile-overview.css?v=2026-11-16.20">
-<script defer src="character-mobile-overview.js?v=2026-11-16.20"></script>
+<script defer src="character-mobile-overview.js?v=2026-11-18-native-sheet-1"></script>
 <link rel="stylesheet" href="character-mobile-inventory.css?v=2026-11-17.6">
 <script defer src="personal-item-presentation.js?v=2026-11-17.3"></script>
 <script defer src="item-detail-content.js?v=2026-11-17.5"></script>
-<script defer src="character-mobile-inventory.js?v=2026-11-17.11"></script>
-<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-18.12">
+<script defer src="character-mobile-inventory.js?v=2026-11-18-native-sheet-1"></script>
+<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-20.1">
 <link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-17.3">
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
-<script defer src="character-mobile-lore.js?v=2026-11-18.12"></script>
+<script defer src="character-mobile-lore.js?v=2026-11-18-native-sheet-1"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-16.11">
 <link rel="stylesheet" href="character-spell-detail.css?v=2026-11-17.12">
 <script defer src="spell-detail-content.js?v=2026-11-16.19"></script>
-<script defer src="character-mobile-skills.js?v=2026-11-17.10"></script>
+<script defer src="character-mobile-skills.js?v=2026-11-18-native-sheet-1"></script>
 </head>
 <body>
 <!-- Data loader: fetches manifest.json and data.json from GitHub -->
@@ -29806,6 +29809,10 @@ window.zgEnsurePortableCharacterMedia = function(character) {
 </div>
 
 <link rel="stylesheet" href="irl-session-prep.css">
+<link rel="stylesheet" href="gm-clean-table.css?v=2026-11-20-table-participants-2">
+<script defer src="gm-sheet-styles.js?v=2026-11-18-native-sheet-1"></script>
+<script defer src="gm-table-participants.js?v=2026-11-20-2"></script>
+<script defer src="gm-clean-table.js?v=2026-11-20-table-participants-2"></script>
 <script src="js/irl-morelesye-data.js"></script>
 <script src="js/irl-session-prep.js"></script>
 <script src="js/irl-name-catalog.js"></script>
@@ -30018,6 +30025,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   function renderIrlCharacters(preserveOpenCard){
     var dock=el('zg-irl-character-dock'),card=el('zg-irl-character-card');if(!dock||!card)return;
     var consoleState=irlConsoleState(),heroes=irlHeroList();
+    if(w.ZargotaGmTable){w.ZargotaGmTable.render(heroes,consoleState,{portrait:irlPortrait,statuses:irlStatuses,badge:irlSharedBadge});return;}
     irlRenderedRoster=irlRosterKey(heroes);dock.classList.toggle('many-heroes',heroes.length>5);
     if(irlAttentionPopoverKey&&!consoleState.attentionByKey[irlAttentionPopoverKey])irlAttentionPopoverKey='';if(!irlAttentionPopoverKey){heroes.some(function(entry){var timer=consoleState.attentionByKey[entry.key];if(timer&&irlAttentionSnapshot(timer,Date.now()).due){irlAttentionPopoverKey=entry.key;return true;}return false;});}
     dock.innerHTML=heroes.map(function(entry){var character=entry.character,name=character&&character.name||entry.meta.name,hp=irlCurrentHp(entry,consoleState),ac=Math.max(0,Number(character&&character.ac)||10),active=consoleState.selectedKey===entry.key,timer=consoleState.attentionByKey[entry.key],attention=irlAttentionTimerHtml(entry.key,name,timer);return'<div class="'+attention.classes+'" style="'+attention.style+'" data-irl-attention-key="'+entry.key+'"><button type="button" class="zg-irl-hero-button'+(active?' active':'')+'" onclick="zgIrlCharacterToggle(\''+entry.key+'\')" aria-label="'+(active?esc(irlTranslate('Свернуть карточку'))+' ':esc(irlTranslate('Открыть карточку'))+' ')+esc(name)+'" aria-expanded="'+(active?'true':'false')+'"><span class="zg-irl-attention-ring" aria-hidden="true"></span>'+irlPortrait(character,entry.meta,'')+irlSharedBadge(entry.shared)+'<span class="zg-irl-hero-vitals"><span class="zg-irl-hero-hp" aria-label="HP '+hp+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21S3 15.6 3 8.6C3 5.4 5.2 3 8.2 3c1.7 0 3.1.8 3.8 2 0 0 1.5-2 3.8-2C18.8 3 21 5.4 21 8.6 21 15.6 12 21 12 21Z"/></svg><b>'+hp+'</b></span><span class="zg-irl-hero-ac" aria-label="AC '+ac+'"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 20 5v6c0 5.2-3.2 8.6-8 11-4.8-2.4-8-5.8-8-11V5l8-3Zm0 4.1L8 7.6v3.2c0 3.1 1.5 5.3 4 7 2.5-1.7 4-3.9 4-7V7.6l-4-1.5Z"/></svg><b>'+ac+'</b></span></span><span class="zg-irl-attention-time">'+esc(attention.label)+'</span></button><button type="button" class="zg-irl-attention-trigger" onclick="zgIrlAttentionMenu(\''+entry.key+'\',event)" aria-label="'+esc(irlTranslate('Таймер внимания'))+': '+esc(name)+'" aria-expanded="'+(attention.menuOpen?'true':'false')+'">⌛</button>'+attention.menu+attention.due+'</div>';}).join('');ensureIrlAttentionTicker();
@@ -30040,6 +30048,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   }
   // A heartbeat or HP update must not replace an open form, scroll position or timer.
   w.zgIrlSharedHpChanged=function(){
+    if(w.ZargotaGmTable){if(document.body.classList.contains('zg-irl-table-view'))renderIrlCharacters(true);return;}
     if(!document.body.classList.contains('zg-irl-table-view'))return;
     var dock=el('zg-irl-character-dock'),card=el('zg-irl-character-card');
     if(!dock||!card)return;
@@ -30249,7 +30258,7 @@ window.zgEnsurePortableCharacterMedia = function(character) {
   function renderNote(){var panel=el('zg-irl-note-panel');if(!panel)return;var state=workspace(),scene=currentScene(state),notes=normalizeIrlSceneNotes(scene.gmNotes),definition=IRL_SCENE_NOTE_FIELDS[irlSceneNoteTab]||IRL_SCENE_NOTE_FIELDS.description,name=el('zg-irl-scene-note-scene'),label=el('zg-irl-scene-note-label'),hint=el('zg-irl-scene-note-hint'),input=el('zg-irl-scene-note-input');if(name)name.textContent=tr(scene.name||'Активная сцена');if(label){label.textContent=definition.icon+' '+tr(definition.label);label.style.color=definition.color;}if(hint)hint.textContent=tr(definition.hint);if(input){input.maxLength=definition.limit;input.placeholder=tr(definition.placeholder);input.style.setProperty('--note-accent',definition.color);if(input.value!==notes[irlSceneNoteTab])input.value=notes[irlSceneNoteTab];}Array.prototype.forEach.call(panel.querySelectorAll('[data-irl-scene-note-tab]'),function(button){var key=button.dataset.irlSceneNoteTab,active=key===irlSceneNoteTab,field=IRL_SCENE_NOTE_FIELDS[key];button.classList.toggle('active',active);button.setAttribute('aria-selected',active?'true':'false');if(field)button.style.setProperty('--note-accent',field.color);});irlSceneNoteStatus(scene.gmNotesUpdatedAt?'Сохранено для мастера':'Заметка сохраняется в сцене','saved');}
   function applySceneBackground(state,scene){var table=document.querySelector('.zg-irl-table'),backdrop=el('zg-irl-scene-backdrop'),preview=el('zg-irl-background-preview'),source=String(scene&&scene.background||''),scale=clampNumber(scene&&scene.backgroundScale,100,160,100),dim=clampNumber(scene&&scene.backgroundDim,0,80,38),request=++backgroundRequest;if(!table||!backdrop)return;backdrop.style.transform='scale('+(scale/100)+')';backdrop.style.filter='brightness('+((100-dim)/100)+')';if(preview)preview.style.setProperty('--irl-preview-dim',String(dim/100));function apply(url){if(request!==backgroundRequest)return;var css=url?'url('+JSON.stringify(url)+')':'';backdrop.style.backgroundImage=css;if(preview)preview.style.backgroundImage=css;table.classList.toggle('has-scene-background',!!url);}if(!source){apply('');return;}if(/^(?:data:|blob:|https?:|\/)/i.test(source)){apply(source);return;}if(w.zgImageStore&&typeof w.zgImageStore.getBlobUrl==='function')w.zgImageStore.getBlobUrl(source,function(url){apply(url||source);});else apply(source);}
   function renderPins(){var host=el('zg-irl-pin-layer');if(!host)return;var state=workspace(),html='',n=state.pinnedNpcId&&npcRows().find(function(item){return String(item.id)===state.pinnedNpcId;}),event=state.events.find(function(item){return item.id===state.pinnedEventId;});if(n)html+='<article class="zg-irl-pinned-card npc" data-irl-draggable data-irl-window-key="pin-npc"><header class="zg-irl-pinned-head" data-irl-drag-handle>'+npcAvatar(n)+'<span><small>'+esc(tr('NPC · цель и поведение'))+'</small><strong>'+esc(npcLabel(n,n.name||'NPC'))+'</strong></span><button type="button" onclick="zgIrlNpcPin(\'\')" aria-label="'+esc(tr('Убрать карточку'))+'">×</button></header><div class="zg-irl-pinned-copy"><b>'+esc(tr('Цель:'))+'</b> '+esc(npcGoal(n))+'<br><span class="zg-irl-behavior">'+esc(npcCue(n))+'</span></div><footer class="zg-irl-pinned-actions"><button type="button" data-id="'+esc(String(n.id))+'" onclick="zgIrlNpcOpen(this.dataset.id)">↗ '+esc(tr('Полная карточка'))+'</button></footer></article>';if(event){var type=EVENT_TYPES[event.type],sections=[['Завязка',event.trigger,''],['Развитие',event.outcome,''],['Мастеру',event.gmNote,'gm'],['Подробности',event.details&&event.details!==event.summary?event.details:'','']].filter(function(part){return !!part[1];}),body='<div class="zg-irl-event-card-detail"><small>'+esc(tr('Событие'))+'</small><span>'+esc(event.summary||event.details||tr('Описание не добавлено.'))+'</span></div>'+sections.map(function(part){return'<div class="zg-irl-event-card-detail '+part[2]+'"><small>'+esc(tr(part[0]))+'</small><span>'+esc(part[1])+'</span></div>';}).join('');html+='<article class="zg-irl-pinned-card event" data-irl-draggable data-irl-window-key="pin-event" style="--event-accent:'+type.color+'"><header class="zg-irl-pinned-head" data-irl-drag-handle><span class="zg-irl-event-icon">'+eventTypeIcon(event.type)+'</span><span><small>'+esc(tr(type.label))+'</small><strong>'+esc(event.title)+'</strong></span><button type="button" onclick="zgIrlEventPin(\'\')" aria-label="'+esc(tr('Убрать карточку'))+'">×</button></header><div class="zg-irl-pinned-copy">'+body+'</div></article>';}host.innerHTML=html;if(typeof w.zgIrlWindowsSync==='function')w.zgIrlWindowsSync();}
-  function render(){var state=workspace(),scene=currentScene(state),name=el('zg-irl-scene-name'),count=el('zg-irl-event-count');if(name)name.textContent=tr(scene.name);if(count)count.textContent=String(state.events.filter(function(item){return item.sceneIds.indexOf(scene.id)>=0;}).length);applySceneBackground(state,scene);renderSceneMemo();renderNpc();renderEvents();renderScenes();renderNote();renderPins();syncPanels();if(typeof w.zgIrlWindowsSync==='function')w.zgIrlWindowsSync();}
+  function render(){if(!el('zg-irl-scene-switch'))return;var state=workspace(),scene=currentScene(state),name=el('zg-irl-scene-name'),count=el('zg-irl-event-count');if(name)name.textContent=tr(scene.name);if(count)count.textContent=String(state.events.filter(function(item){return item.sceneIds.indexOf(scene.id)>=0;}).length);applySceneBackground(state,scene);renderSceneMemo();renderNpc();renderEvents();renderScenes();renderNote();renderPins();syncPanels();if(typeof w.zgIrlWindowsSync==='function')w.zgIrlWindowsSync();}
   w.zgIrlWorkspaceClosePanels=function(){openPanel='';syncPanels();};
   w.zgIrlWorkspaceToggle=function(kind){kind=['npc','event','scene','note'].indexOf(kind)>=0?kind:'';closeLegacy();openPanel=openPanel===kind?'':kind;render();if(openPanel==='note'){resetIrlSceneNoteAi();renderNote();w.setTimeout(function(){var input=el('zg-irl-scene-note-input');if(input)input.focus();},30);}};
   w.zgIrlRulesOpen=function(){w.zgIrlWorkspaceClosePanels();if(typeof w.showPage==='function')w.showPage('manual');};
@@ -30585,20 +30594,9 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
   <!-- ══ СТОЛ МАСТЕРА · РЕАЛЬНАЯ ИГРА ══ -->
   <div class="page" id="page-gm-table">
     <div class="zg-irl-table">
-      <div id="zg-irl-scene-backdrop" class="zg-irl-scene-backdrop" aria-hidden="true"></div>
       <button type="button" class="zg-irl-table-back" onclick="showPage('home')">← На главную</button>
-      <button type="button" id="zg-irl-scene-switch" class="zg-irl-scene-switch" onclick="zgIrlWorkspaceToggle('scene')"><i aria-hidden="true">⌘</i><span><small>ТЕКУЩАЯ СЦЕНА</small><strong id="zg-irl-scene-name">Без названия</strong></span><i aria-hidden="true">⌄</i></button>
-      <aside id="zg-irl-scene-memo" class="zg-irl-scene-memo empty" aria-live="polite" data-irl-draggable data-irl-window-key="scene-memo">
-        <header class="zg-irl-scene-memo-head" data-irl-drag-handle><i aria-hidden="true">✦</i><span><small>ПАМЯТКА СЦЕНЫ</small><strong id="zg-irl-scene-memo-name">Без названия</strong></span><button type="button" onclick="zgIrlSceneNoteOpen()" title="Редактировать памятку" aria-label="Редактировать памятку сцены">✎</button></header>
-        <div id="zg-irl-scene-memo-body" class="zg-irl-scene-memo-body"></div>
-      </aside>
       <nav class="zg-irl-tool-rail" aria-label="Инструменты Стола мастера">
-        <button type="button" id="zg-irl-name-tool" class="zg-irl-name-tool" onclick="zgIrlWorkspaceClosePanels();zgIrlNamesToggle()" aria-expanded="false" aria-controls="zg-irl-name-popover"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c3-1 5-3 6-6l5-9 3 3-9 5c-3 1-5 3-6 6l1 1Z"/><path d="m13 7 4 4"/></svg><span>Имена</span></button>
-        <button type="button" id="zg-irl-npc-tool" class="zg-irl-tool" onclick="zgIrlWorkspaceToggle('npc')" aria-expanded="false" aria-controls="zg-irl-npc-panel"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20c0-5 2-8 6-8s6 3 6 8M14 14c4-1 7 1 7 6"/></svg><span>NPC</span></button>
-        <button type="button" id="zg-irl-event-tool" class="zg-irl-tool" onclick="zgIrlWorkspaceToggle('event')" aria-expanded="false" aria-controls="zg-irl-event-panel"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 7v6c0 4 3 7 8 8 5-1 8-4 8-8V7Z"/><path d="m8 12 3 3 5-6"/></svg><span>События</span><b id="zg-irl-event-count">0</b></button>
-        <button type="button" class="zg-irl-tool" onclick="zgIrlRulesOpen()"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5c3-1 5 0 7 2v13c-2-2-4-3-7-2ZM19 5c-3-1-5 0-7 2v13c2-2 4-3 7-2Z"/></svg><span>Правила</span></button>
-        <button type="button" id="zg-irl-scene-tool" class="zg-irl-tool" onclick="zgIrlWorkspaceToggle('scene')" aria-expanded="false" aria-controls="zg-irl-scene-panel"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 16 5-5 4 4 3-3 4 4M8 9h.01"/></svg><span>Сцена</span></button>
-        <button type="button" id="zg-irl-note-tool" class="zg-irl-tool" onclick="zgIrlWorkspaceToggle('note')" aria-expanded="false" aria-controls="zg-irl-note-panel"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Заметка</span></button>
+        <button type="button" id="zg-irl-name-tool" class="zg-irl-name-tool" onclick="zgIrlNamesToggle()" aria-expanded="false" aria-controls="zg-irl-name-popover"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c3-1 5-3 6-6l5-9 3 3-9 5c-3 1-5 3-6 6l1 1Z"/><path d="m13 7 4 4"/></svg><span>Имена</span></button>
       </nav>
       <button type="button" id="zg-irl-saved-tool" class="zg-irl-saved-tool" onclick="zgIrlSavedToggle()" aria-expanded="false" aria-controls="zg-irl-saved"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Z"/></svg><span>Сохранённые</span><b id="zg-irl-saved-count">0</b></button>
       <section id="zg-irl-name-popover" class="zg-irl-name-popover" aria-label="Генератор имён" data-irl-draggable data-irl-window-key="names">
@@ -30627,21 +30625,8 @@ ZG_APP_CHANGELOG[0].notesUk += ' Наближення й віддалення д
         <div class="zg-irl-name-actions"><button type="button" class="primary" onclick="zgIrlNamesGenerate()"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5"/><path d="M19 12a7 7 0 1 0-2 5"/></svg><span>Ещё имя</span></button><button type="button" id="zg-irl-name-save" onclick="zgIrlNamesSave()"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16l-6-4-6 4Z"/></svg><span>Сохранить</span></button></div>
       </section>
       <aside id="zg-irl-saved" class="zg-irl-saved" aria-hidden="true" data-irl-draggable data-irl-window-key="saved-names"><div class="zg-irl-saved-head" data-irl-drag-handle><h2>Сохранённые имена</h2><button type="button" class="zg-irl-saved-close" onclick="zgIrlSavedToggle(false)" aria-label="Свернуть сохранённые имена"><svg class="zg-irl-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div><div id="zg-irl-saved-list" class="zg-irl-saved-list"></div></aside>
-      <aside id="zg-irl-npc-panel" class="zg-irl-drawer" aria-hidden="true" data-irl-draggable data-irl-window-key="npc-drawer"><header class="zg-irl-drawer-head" data-irl-drag-handle><i aria-hidden="true">♟</i><span><small>БЫСТРЫЙ РЕЕСТР</small><strong>NPC</strong></span><button type="button" class="zg-irl-drawer-close" onclick="zgIrlWorkspaceClosePanels()" aria-label="Закрыть">×</button></header><div id="zg-irl-npc-body" class="zg-irl-drawer-body"></div></aside>
-      <aside id="zg-irl-event-panel" class="zg-irl-drawer" aria-hidden="true" data-irl-draggable data-irl-window-key="event-drawer"><header class="zg-irl-drawer-head" data-irl-drag-handle><i aria-hidden="true">◇</i><span><small>ЗАГОТОВКИ МАСТЕРА</small><strong>События</strong></span><button type="button" class="zg-irl-drawer-close" onclick="zgIrlWorkspaceClosePanels()" aria-label="Закрыть">×</button></header><div id="zg-irl-event-body" class="zg-irl-drawer-body"></div></aside>
-      <aside id="zg-irl-scene-panel" class="zg-irl-drawer" aria-hidden="true" data-irl-draggable data-irl-window-key="scene-drawer"><header class="zg-irl-drawer-head" data-irl-drag-handle><i aria-hidden="true">▧</i><span><small>РАБОЧЕЕ ПРОСТРАНСТВО</small><strong>Сцены и фон</strong></span><button type="button" class="zg-irl-drawer-close" onclick="zgIrlWorkspaceClosePanels()" aria-label="Закрыть">×</button></header><div id="zg-irl-scene-body" class="zg-irl-drawer-body"></div></aside>
-      <aside id="zg-irl-note-panel" class="zg-scene-gm-note zg-irl-scene-note-dialog" role="dialog" aria-modal="true" aria-label="Памятка мастера об активной сцене" aria-hidden="true">
-        <header><span><small>ПАМЯТКА МАСТЕРА</small><b id="zg-irl-scene-note-scene">Активная сцена</b></span><button type="button" onclick="zgIrlWorkspaceClosePanels()" aria-label="Закрыть памятку">×</button></header>
-        <nav role="tablist" aria-label="Разделы памятки"><button type="button" class="active" data-irl-scene-note-tab="description" role="tab" aria-selected="true" onclick="zgIrlSceneNoteTab('description',event)"><i>✦</i><span>Речь</span></button><button type="button" data-irl-scene-note-tab="temperature" role="tab" aria-selected="false" onclick="zgIrlSceneNoteTab('temperature',event)"><i>◒</i><span>Климат</span></button><button type="button" data-irl-scene-note-tab="environment" role="tab" aria-selected="false" onclick="zgIrlSceneNoteTab('environment',event)"><i>⌁</i><span>Среда</span></button><button type="button" data-irl-scene-note-tab="scent" role="tab" aria-selected="false" onclick="zgIrlSceneNoteTab('scent',event)"><i>≈</i><span>Запах</span></button><button type="button" data-irl-scene-note-tab="important" role="tab" aria-selected="false" onclick="zgIrlSceneNoteTab('important',event)"><i>!</i><span>Важно</span></button></nav>
-        <div class="zg-scene-gm-note-tools"><button type="button" onclick="zgIrlSceneNoteAiCopy(event)"><i>⧉</i><span><b>Скопировать промпт</b><small>Вставьте и продолжите голосом</small></span></button><button type="button" id="zg-irl-scene-note-ai-toggle" onclick="zgIrlSceneNoteAiToggle(event)" aria-expanded="false" aria-controls="zg-irl-scene-note-ai"><i>↧</i><span><b>Вставить ответ ИИ</b><small>Разложить по пяти разделам</small></span></button></div>
-        <section class="zg-scene-gm-note-editor"><label id="zg-irl-scene-note-label" for="zg-irl-scene-note-input">✦ Описание</label><small id="zg-irl-scene-note-hint">Как представить локацию игрокам</small><textarea id="zg-irl-scene-note-input" maxlength="1200" oninput="zgIrlSceneNoteInput(this.value)" placeholder="Короткое вступление, первая фраза, что сразу бросается в глаза…"></textarea></section>
-        <section class="zg-scene-gm-note-ai" id="zg-irl-scene-note-ai" hidden><header><i>✦</i><span><b>Ответ ИИ</b><small>Поддерживается JSON и текст с заголовками разделов</small></span></header><textarea id="zg-irl-scene-note-ai-input" spellcheck="false" placeholder='Вставьте ответ ИИ сюда. Например: {"description":"…","temperature":"…"}'></textarea><p id="zg-irl-scene-note-ai-error" role="status"></p><div><button type="button" onclick="zgIrlSceneNoteAiToggle(event,false)">Отмена</button><button type="button" class="primary" onclick="zgIrlSceneNoteAiApply(event)">Распределить по памятке</button></div></section>
-        <footer><span><i></i><b id="zg-irl-scene-note-status">Заметка сохраняется в сцене</b></span><small>ТОЛЬКО ГМ</small></footer>
-      </aside>
-      <section id="zg-irl-pin-layer" class="zg-irl-pin-layer" aria-live="polite"></section>
       <section id="zg-irl-character-card" class="zg-irl-character-card" aria-live="polite" aria-label="Карточка персонажа" data-irl-draggable data-irl-window-key="character"></section>
       <nav id="zg-irl-character-dock" class="zg-irl-character-dock" aria-label="Персонажи партии"></nav>
-      <div id="zg-irl-attention-toast" class="zg-irl-attention-toast" role="status" aria-live="polite"><i aria-hidden="true">⌛</i><span></span></div>
     </div>
   </div>
 
@@ -43100,6 +43085,7 @@ function pageScrollElement(page) {
 }
 
 function showPage(name) {
+  if(window.ZargotaGmTable?.isOpen())window.ZargotaGmTable.unmount();
   if(name !== "characters" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
   if(name !== "characters" && window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(false);
   if(name !== "characters" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false,true);
@@ -50139,6 +50125,7 @@ function saveChars(options) {
     if(window.ZargotaCharacterCloud)window.ZargotaCharacterCloud.refresh();
     if(window.ZargotaPersistentCharacters)window.ZargotaPersistentCharacters.saved(characters,options);
     if(window.ZargotaMobileSkills)window.ZargotaMobileSkills.refresh();
+    if(window.ZargotaGmTable)window.ZargotaGmTable.refresh();
     return result;
   });
 }
@@ -51663,6 +51650,7 @@ function switchCharTab(tab) {
 }
 
 function showCharView(v) {
+  if(window.ZargotaGmTable?.isOpen()&&v==='list'){window.zgIrlCharacterClose();return;}
   if(v !== "sheet" && window.ZargotaMobileSheet) window.ZargotaMobileSheet.setInventoryActive(false);
   if(v !== "sheet" && window.ZargotaMobileLore) window.ZargotaMobileLore.setActive(false);
   if(v !== "sheet" && window.ZargotaMobileSkills) window.ZargotaMobileSkills.setActive(false,true);
@@ -52925,7 +52913,7 @@ function renderCharSheet() {
 
   // ── ДЕСКТОП: старый трёхколоночный вид ──
   // Надёжное определение мобайла: тач + узкий экран
-  var isMobileDevice = window.innerWidth < 900;
+  var isMobileDevice = window.innerWidth < 900 || !!window.ZargotaGmTable?.isOpen();
   var isCompactDesktopSheet = window.innerWidth < 1120;
   if (isMobileDevice) {
     combatModeActive = false;
@@ -53421,7 +53409,7 @@ function renderCharSheet() {
   tabBarEl.id = 'char-sheet-tab-bar';
   tabBarEl.className = 'zgmo-nav';
   window.ZargotaMobileSheet.updateMarkup(tabBarEl,tabBarHTML);
-  if(charView === 'sheet' && document.getElementById('page-characters').classList.contains('active')) { if(!tabBarEl.isConnected) document.body.appendChild(tabBarEl); }
+  if(charView === 'sheet' && document.getElementById('page-characters').classList.contains('active')) { if(!tabBarEl.isConnected) (window.ZargotaGmTable?.portal()||document.body).appendChild(tabBarEl); }
   if(window.ZargotaMobileSheet) window.ZargotaMobileSheet.mounted();
 
   setTimeout(function() {

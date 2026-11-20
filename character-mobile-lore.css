@@ -59,7 +59,7 @@
  .zgml-detail-portrait{height:180px;overflow:hidden;border-radius:8px}.zgml-detail-portrait img{width:100%;height:100%;object-fit:cover;object-position:center 35%}.zgml-paper-symbol{height:100px;text-align:center}.zgml-paper-symbol img{height:100%;max-width:100%;object-fit:contain}.zgml-path-detail{text-align:center;color:#d4b077}.zgml-path-detail svg{width:55px;height:55px}#zgml-dialog .zgml-entry-image{width:100%;padding:0;border:0;margin:0;background:none}.zgml-entry-image img{max-height:260px;max-width:100%;object-fit:contain}
  #zgml-dialog.zgml-wide{max-width:none;height:calc(var(--zg-viewport-height,100dvh) - var(--zgmo-nav-height,76px) - env(safe-area-inset-bottom,0px) - 20px)}.zgml-wide .zgml-dialog-body{display:flex;flex-direction:column;padding:8px;overflow:hidden}.zgml-image-scroll,.zgml-tree-scroll{flex:1;overflow:auto;min-height:0;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior:contain}.zgml-image-scroll img{width:100%;display:block}.zgml-zoom-tools{display:flex;justify-content:center;flex-shrink:0}
  .zgml-tree{width:max-content;min-width:100%;padding:16px;box-sizing:border-box;text-align:center}.zgml-tree ul{display:flex;justify-content:center;list-style:none;margin:0;padding:25px 0 0}.zgml-tree li{position:relative;list-style:none;padding:15px 8px 0;border-top:1px solid #8b7046}.zgml-tree li:before{content:'';position:absolute;top:0;left:50%;height:15px;border-left:1px solid #8b7046}.zgml-tree-root,#zgml-dialog .zgml-tree button{display:flex;flex-direction:column;align-items:center;width:120px;margin:0 auto;padding:10px;gap:5px}.zgml-tree-root{border:1px solid #b58d45;border-radius:8px;background:#3a2a12}.zgml-tree img,.zgml-tree .zgml-silhouette{width:60px;height:60px;object-fit:cover;border:1px solid #8f764c;border-radius:50%}.zgml-tree strong{font:16px Georgia,serif;overflow-wrap:anywhere;max-width:100%}.zgml-tree small{font-size:12px;color:#b9a17b}
- @media(prefers-reduced-motion:no-preference){.zgml-tabs button,.zgml-frame{transition:filter .18s,box-shadow .18s}.zgml-frame:active{filter:brightness(1.12)}#zgml-dialog[open]{animation:zgml-enter .2s ease-out}.zgml-content{animation:zgml-enter .2s ease-out}@keyframes zgml-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+ @media(prefers-reduced-motion:no-preference){.zgml-tabs button,.zgml-frame{transition:filter .18s,box-shadow .18s}.zgml-frame:active{filter:brightness(1.12)}#zgml-dialog[open]{animation:zgml-enter .2s ease-out}@keyframes zgml-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 }
 @media(max-width:360px){.zgml-tabs button{font-size:16px}.zgml-tools h2{font-size:18px}.zgml-person-copy strong{font-size:18px}.zgml-person-copy{padding:7px;gap:3px}.zgml-fame svg{width:28px;height:28px}.zgml-fame-copy{font-size:11px}.zgml-path strong{font-size:15px}.zgml-story h2{font-size:18px}}
 @media(max-width:899px) and (max-height:650px){#char-sheet .zgml-sheet{gap:4px}.zgml-content,.zgml-about{gap:4px}.zgml-about{grid-template-rows:minmax(80px,1.4fr) 48px 65px 70px 48px}.zgml-path small{font-size:10px}.zgml-person-copy .zgml-known{display:none}.zgml-tabs{flex-basis:38px}.zgml-fame b{font-size:22px}.zgml-portrait h2{font-size:23px}}
@@ -71,6 +71,36 @@
  .zgml-upload-preview{display:flex;align-items:center;gap:10px;margin-bottom:10px}.zgml-upload-preview:empty{display:none}.zgml-upload-preview img{width:80px;height:80px;object-fit:contain;border:1px solid #715637;border-radius:8px;background:#0c0a06}
  .zgml-zoom-tools{align-items:center;gap:4px}#zgml-dialog .zgml-zoom-tools button{margin:0;white-space:nowrap}.zgml-zoom-tools [data-zgml=return-record]{margin-right:auto!important}
  .zgml-empty p{max-width:240px;padding:0 8px}.zgml-filters select{font-size:16px}
+}
+
+@media(max-width:899px){
+ #zgml-dialog{border-radius:16px 4px;background:linear-gradient(150deg,#292113,#16110c 62%,#100d09)}
+ #zgml-dialog>header{padding:8px 14px;background:linear-gradient(110deg,#41311c77,transparent 80%)}
+ #zgml-dialog>header h2::before{content:'';display:inline-block;width:7px;height:7px;transform:rotate(45deg);border:1px solid #bc985e;margin:0 11px 3px 1px}
+ #zgml-dialog>header button{border-radius:50%;color:#d4bf9a}
+ #zgml-dialog .zgml-dialog-body:has(>#zgml-form){padding:0;display:flex;flex-direction:column;overflow:hidden}
+ #zgml-form{display:flex;flex-direction:column;min-height:0;margin:0}
+ .zgml-form-fields{min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding:12px;padding:14px 16px 4px}
+ #zgml-form fieldset{border:0;border-top:1px solid #604b30;min-inline-size:0;margin:0 0 8px;padding:8px 0 0}
+ #zgml-form legend{padding:0 8px 0 0;color:#dfbf87;font:600 14px Georgia,serif;letter-spacing:.035em}
+ .zgml-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ #zgml-form label{color:#cabda7;min-width:0}#zgml-form input:not([type=file]),#zgml-form select,#zgml-form textarea{min-height:44px;border-color:#605038;border-radius:8px 3px;background:#100d09;box-shadow:inset 0 1px 4px #0005}
+ #zgml-form :is(input,select,textarea):focus-visible,.zgml-search:focus-within{outline:2px solid #c79e5b;outline-offset:1px}
+ #zgml-form .zgml-upload{position:relative;display:block;cursor:pointer}.zgml-upload>span{display:flex;align-items:center;justify-content:center;min-height:44px;gap:8px;color:#e4c999;background:#322719;border:1px dashed #826c49;border-radius:8px 3px}
+ #zgml-dialog .zgml-upload svg{width:16px;height:16px}
+ #zgml-form .zgml-upload input{position:absolute;inset:0;width:100%;height:44px;opacity:0;cursor:pointer;margin:0}
+ .zgml-upload:focus-within>span{outline:2px solid #dfbb76}
+ #zgml-dialog #zgml-form footer{flex:none;display:grid;grid-template-columns:1fr 1.4fr;gap:8px;padding:10px 14px;border-top:1px solid #665034;background:#1c160e}
+ #zgml-dialog #zgml-form footer button{margin:0;border-radius:8px 3px;min-height:44px}
+ #zgml-form footer .zgml-save-error{grid-column:1/-1;margin:0}.zgml-save-error:empty{display:none}
+ #zgml-dialog #zgml-form [type=submit]{background:linear-gradient(120deg,#574023,#332515)!important}
+ @media(prefers-reduced-motion:no-preference){
+  #zgml-dialog::backdrop{animation:zgml-dim 160ms ease-out}
+  .zgml-paper-symbol img,.zgml-entry-image img{transform-origin:center 85%;animation:zgml-unfold 240ms cubic-bezier(.2,.75,.25,1)}
+  .zgml-dialog-body:has(form){animation:zgml-enter 150ms ease-out}
+  @keyframes zgml-dim{from{opacity:0}to{opacity:1}}
+  @keyframes zgml-unfold{from{opacity:.45;transform:perspective(600px) rotateX(9deg) scale(.97)}to{opacity:1;transform:none}}
+ }
 }
 
 /* Fame changes light, not the layout or the saved character values. */
