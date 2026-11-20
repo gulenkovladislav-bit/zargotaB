@@ -91,6 +91,7 @@
     var shared=w.ZargotaPersistentCharacters?w.ZargotaPersistentCharacters.tableHeroes():[];
     var participants=w.ZargotaGmParticipants?.rows(rows);
     rows=participants||rows.filter(function(row){return row.key.indexOf('sheet-')!==0;}).map(function(row){var c=hero(row),linked=c&&shared.find(function(s){return String(s.localId)===String(c.id);});return Object.assign({},row,{shared:linked||row.shared});});
+    w.ZargotaGmReminders?.refresh();
     roster=rows;selected=rows.some(function(row){return row.key===state.selectedKey&&hero(row);})?state.selectedKey:'';
     var dock=document.getElementById('zg-irl-character-dock'),card=document.getElementById('zg-irl-character-card');
     if(!dock||!card)return;
@@ -100,7 +101,7 @@
       return '<article class="zg-gm-hero'+(active?' is-selected':'')+'" data-gm-key="'+e(row.key)+'">'+
         '<button type="button" class="zg-gm-hero-open" data-gm-open="'+e(row.key)+'" aria-expanded="'+active+'" aria-label="'+e(t('Открыть лист: ','Відкрити аркуш: ')+name)+'"'+(!c?' disabled':'')+'>'+helpers.portrait(c,row.meta,'zg-gm-hero-portrait')+'<strong>'+e(name)+'</strong></button>'+
         '<div class="zg-gm-hero-data">'+helpers.badge(row.shared)+'<div class="zg-gm-hp"><button type="button" data-gm-hp="-1" aria-label="'+e(t('Уменьшить HP: ','Зменшити HP: ')+name)+'"'+(locked||hp<=0?' disabled':'')+'>−</button><span aria-label="HP"><i aria-hidden="true">♥</i> <b>'+hp+'</b><small> / '+max+'</small></span><button type="button" data-gm-hp="1" aria-label="'+e(t('Увеличить HP: ','Збільшити HP: ')+name)+'"'+(locked||hp>=max?' disabled':'')+'>+</button></div><span class="zg-gm-armor">♢ '+t('КД','КЗ')+' '+ac+'</span>'+
-        '<div class="zg-gm-statuses">'+statuses.slice(0,2).map(function(s){return '<span title="'+e(tr(s.name))+'">'+e(s.icon)+' '+e(tr(s.name))+'</span>';}).join('')+(statuses.length>2?'<span>+'+(statuses.length-2)+'</span>':'')+'</div></div></article>';
+        '<div class="zg-gm-statuses">'+statuses.slice(0,2).map(function(s){return '<span title="'+e(tr(s.name))+'">'+e(s.icon)+' '+e(tr(s.name))+'</span>';}).join('')+(statuses.length>2?'<span>+'+(statuses.length-2)+'</span>':'')+'</div></div>'+(!c?'':'<button type="button" class="zg-gm-reminder-button" data-gm-reminder="'+e(row.key)+'" aria-label="'+e(t('Памятка мастера: ','Пам’ятка майстра: ')+name)+'">?</button>')+'</article>';
     }).join('');
     if(w.ZargotaGmParticipants){
       var showAdd=rows.length<5;
@@ -138,6 +139,8 @@
     table.addEventListener('dragover',blockCanvasDrop);
     table.addEventListener('drop',blockCanvasDrop);
     document.addEventListener('click',function(event){
+      var reminder=event.target.closest('[data-gm-reminder]');
+      if(reminder){var row=roster.find(function(r){return r.key===reminder.dataset.gmReminder;});if(row&&hero(row))w.ZargotaGmReminders?.open(row,hero(row),reminder);return;}
       var open=event.target.closest('[data-gm-open]'),hp=event.target.closest('[data-gm-hp]');
       if(open){w.zgIrlCharacterToggle(open.dataset.gmOpen);return;}
       if(hp){changeHp(hp.closest('[data-gm-key]').dataset.gmKey,Number(hp.dataset.gmHp));return;}
@@ -162,7 +165,7 @@
     function endDrag(){if(drag)drag.card.classList.remove('is-dragging');drag=null;}
     w.addEventListener('resize',function(){var card=document.getElementById('zg-irl-character-card');if(!host||!card.style.left)return;var r=card.getBoundingClientRect();card.style.left=Math.max(8,Math.min(innerWidth-r.width-8,r.left))+'px';card.style.top=Math.max(8,Math.min(innerHeight-r.height-parseFloat(getComputedStyle(document.body).getPropertyValue('--gm-dock-height'))-12,r.top))+'px';});
     document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
-    document.addEventListener('keydown',function(event){if(event.key==='Escape'&&!document.querySelector('dialog.zg-gm-participants[open],.zg-gm-participant-menu')&&selected&&document.body.classList.contains('zg-irl-table-view')&&host&&!host.querySelector('[role=dialog],dialog[open],#status-popup,#quick-temp-popup'))close();},true);
+    document.addEventListener('keydown',function(event){if(event.key==='Escape'&&!document.querySelector('dialog.zg-gm-participants[open],.zg-gm-participant-menu,dialog.zg-gm-reminder[open]')&&selected&&document.body.classList.contains('zg-irl-table-view')&&host&&!host.querySelector('[role=dialog],dialog[open],#status-popup,#quick-temp-popup'))close();},true);
     document.addEventListener('zargota:localechange',function(){signature='';if(isOpen())w.renderCharSheet();refresh();});
     refresh();
   }

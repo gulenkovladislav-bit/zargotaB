@@ -145,3 +145,12 @@ existing five-hero/four-tab/four-viewport Edge regression passed, including the
 unsaved editor field. All 32 focused persistent-session/character/shared-HP tests,
 JS syntax, generated sheet CSS freshness and index diff whitespace checks passed.
 No production writes, account changes, commit or publish were performed.
+
+
+## Editable GM reminders (2026-11-20)
+
+The small question mark in each dock card opens the existing curated `IRL_GM_FOCUS` entries. `zgIrlGmFocusData` returns a localized copy; the source lore is not changed. `gm-hero-reminders.js` permits editing titles, categories and text, adding or deleting blocks. Actions remain pinned below the scrolling editor.
+
+Edits are local to this browser, namespaced by master UID, persistent sheet ID (local character ID in offline mode), and RU/UK locale. They never call `saveChars`, write player data or publish private notes. Failed local storage writes retain the draft and show an error. This is not cross-device synchronization.
+
+Validation: `tests/gm-reminders-edge.cjs` covers seeded entries, per-character storage, edit/save/reload/cancel/add, escaping, RU/UK, the footer on a short viewport and Escape with a sheet open.

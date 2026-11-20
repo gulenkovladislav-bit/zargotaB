@@ -10433,9 +10433,10 @@ window.addEventListener('load', function(){
 //  Формат: YYYY-MM-DD.N (N = номер выгрузки в этот день, начиная с 1)
 //  Друг видит её в шапке и может понять «дошло ли до меня обновление от Кинзы».
 // ═══════════════════════════════════════════════════════════════════
-var ZG_APP_VERSION = '2026-11-20.1';
+var ZG_APP_VERSION = '2026-11-20.2';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-20.2',notes:'На карточках игроков появился знак вопроса: памятка мастера с редактируемыми блоками. Личные правки сохраняются в этом браузере.',notesUk:'На картках гравців з’явився знак питання: пам’ятка майстра з редагованими блоками. Особисті зміни зберігаються в цьому браузері.'},
   {v:'2026-11-20.1',notes:'Стол мастера: выбор существующих профилей игроков, состояние связи и меню правой кнопки. При пяти карточках плюс скрыт. Открытый лист получает изменения игрока; исправлено перекрытие редактора диалогов.',notesUk:'Стіл майстра: вибір наявних профілів гравців, стан зв’язку та меню правої кнопки. За п’яти карток плюс приховано. Відкритий аркуш отримує зміни гравця; виправлено перекриття редактора діалогів.'},
   {v:'2026-11-18.12',notes:'Лор: аккуратные линии дерева связей. Кнопки сохранения и редактирования закреплены внизу окон.',notesUk:'Лор: охайні лінії дерева зв’язків. Кнопки збереження та редагування закріплено внизу вікон.'},
   {v:'2026-11-18.3',notes:'Люди: четыре компактные карточки, фильтры по регионам и отдельная личная заметка. Кнопка связей увеличена; цель скрыта без удаления записанного текста.',notesUk:'Люди: чотири компактні картки, фільтри за регіонами й окрема особиста нотатка. Кнопку зв’язків збільшено; мету приховано без видалення записаного тексту.'},
@@ -29812,7 +29813,9 @@ window.zgEnsurePortableCharacterMedia = function(character) {
 <link rel="stylesheet" href="gm-clean-table.css?v=2026-11-20-table-participants-2">
 <script defer src="gm-sheet-styles.js?v=2026-11-18-native-sheet-1"></script>
 <script defer src="gm-table-participants.js?v=2026-11-20-2"></script>
-<script defer src="gm-clean-table.js?v=2026-11-20-table-participants-2"></script>
+<link rel="stylesheet" href="gm-hero-reminders.css?v=2026-11-20.2">
+<script defer src="gm-hero-reminders.js?v=2026-11-20.2"></script>
+<script defer src="gm-clean-table.js?v=2026-11-20.2"></script>
 <script src="js/irl-morelesye-data.js"></script>
 <script src="js/irl-session-prep.js"></script>
 <script src="js/irl-name-catalog.js"></script>
@@ -30012,6 +30015,11 @@ window.zgEnsurePortableCharacterMedia = function(character) {
     var iconHtml=isAbility?'<span class="zg-irl-ability-visual">'+(item.iconAsset?'<img src="'+esc(item.iconAsset)+'" alt="">':esc(item.icon||'✦'))+'</span>':'<span class="zg-irl-row-icon">'+(typeof w.zgStatusGlyphMarkup==='function'?w.zgStatusGlyphMarkup(item,item.name,'irl-status-icon'):'')+'</span>',copyHtml=isAbility?'<span class="zg-irl-entry-copy"><small class="zg-irl-ability-kind">'+esc(visual.label||item.type)+'</small><strong>'+esc(item.name)+'</strong><small>'+esc(item.isSpell?'Заклинание из общего гримуара':item.uses||'Нажмите, чтобы открыть')+'</small></span>':'<span class="zg-irl-entry-copy"><strong>'+esc(item.name)+'</strong><small>'+esc(item.duration||item.summary||item.type||'Активное состояние')+'</small></span>',rightHtml=isAbility?irlAbilityResourceHtml(item):'';
     var seenMeta={};meta=meta.filter(function(value){if(!value)return false;var key=irlCompactText(value).toLowerCase(),visualKey=irlCompactText(visual.label).toLowerCase();if(!key||key===visualKey||seenMeta[key])return false;seenMeta[key]=true;return true;});var detailHtml=(meta.length?'<div class="zg-irl-entry-meta">'+meta.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'')+(isAbility?irlAbilityCooldownHtml(item,heroKey):'')+(isAbility?(item.description||item.sections&&item.sections.length?'<div class="zg-irl-entry-description">'+irlAbilityDescriptionHtml(item)+'</div>':'<div class="zg-irl-entry-no-description">В листе нет отдельного описания.</div>'):(item.description?'<div class="zg-irl-entry-description">'+esc(item.description)+'</div>':'<div class="zg-irl-entry-no-description">В листе нет отдельного описания.</div>'))+(rules.length?'<div class="zg-irl-status-rules">'+rules.map(function(value){return'<span>'+esc(value)+'</span>';}).join('')+'</div>':'');if(!isAbility)return'<article class="'+articleClass+'"><div class="zg-irl-entry-toggle">'+iconHtml+copyHtml+'</div><div id="'+id+'" class="zg-irl-entry-detail">'+detailHtml+'</div></article>';return'<article class="'+articleClass+'"><button type="button" class="zg-irl-entry-toggle" onclick="zgIrlCharacterEntryToggle(\''+kind+'\','+item.index+')" aria-expanded="'+(open?'true':'false')+'" aria-controls="'+id+'">'+iconHtml+copyHtml+'<span class="zg-irl-ability-use">'+rightHtml+'</span><span class="zg-irl-entry-chevron">⌄</span></button><div id="'+id+'" class="zg-irl-entry-detail"'+(open?'':' hidden')+'>'+detailHtml+'</div></article>';
   }
+  w.zgIrlGmFocusData=function(character){
+    var source=IRL_GM_FOCUS[irlHeroKey(character)];
+    if(!source)return {title:character.name||'',items:[]};
+    return {title:irlTranslate(source.title),items:source.items.map(function(item){var copy=Object.assign({},item);['kind','title','text'].forEach(function(key){copy[key]=irlTranslate(copy[key]);});return copy;})};
+  };
   function irlGmFocusHtml(heroKey,heroName){
     var focus=IRL_GM_FOCUS[heroKey],title=focus&&focus.title||heroName,items=focus&&Array.isArray(focus.items)?focus.items:[];
     return'<section class="zg-irl-gm-focus" aria-label="Фокус мастера: '+esc(heroName)+'"><header class="zg-irl-gm-focus-head"><span class="zg-irl-gm-focus-glyph">◉</span><span><small>Что сыграть сейчас</small><h3>'+esc(title)+'</h3></span>'+(items.length?'<b class="zg-irl-gm-focus-count">'+items.length+' напоминания</b>':'')+'</header>'+(items.length?'<div class="zg-irl-gm-focus-grid">'+items.map(function(item){return'<article class="zg-irl-gm-note'+(item.priority?' priority':'')+(item.tone?' tone-'+esc(item.tone):'')+'"><span class="zg-irl-gm-note-icon">'+esc(item.icon||'✦')+'</span><small>'+esc(item.kind||'Заметка')+'</small><h4>'+esc(item.title||'Без названия')+'</h4><p>'+esc(item.text||'')+'</p></article>';}).join('')+'</div>':'<div class="zg-irl-gm-focus-empty"><b>Памятка ещё не собрана.</b> Добавим её вместе, когда определим главные триггеры и то, что мастер должен держать в голове во время сцены.</div>')+'</section>';
