@@ -52,13 +52,14 @@
  #zgml-dialog{position:fixed;inset:var(--zg-viewport-top,0px) 0 auto;margin:10px auto;width:calc(100% - 20px);max-width:600px;max-height:calc(var(--zg-viewport-height,100dvh) - var(--zgmo-nav-height,76px) - env(safe-area-inset-bottom,0px) - 20px);padding:0;border:1px solid #a4824e;border-top:2px solid #c5a063;border-radius:12px 3px;background:linear-gradient(145deg,#251d10f5,#100d08fa);color:#ebdcba;font:16px/1.5 Georgia,serif;box-shadow:0 12px 50px #000b;overflow:hidden}
  #zgml-dialog[open]{display:flex;flex-direction:column}#zgml-dialog::backdrop{background:#080704a0;backdrop-filter:blur(4px)}
  #zgml-dialog>header{display:flex;gap:8px;padding:8px 12px;align-items:center;flex-shrink:0;border-bottom:1px solid #5c472a}#zgml-dialog h2{font:24px/1.15 Georgia,serif;margin:0;flex:1;overflow-wrap:anywhere}#zgml-dialog header button{width:44px;height:44px;background:none;border:0;padding:0;font-size:30px}
- .zgml-dialog-body{overflow:auto;overscroll-behavior:contain;padding:14px;min-height:0;flex:1}.zgml-dialog-body p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 18px}.zgml-dialog-body h3{font:18px Georgia,serif;color:#c8a467;margin:14px 0 5px}
+ /* Auto basis lets WebKit measure content in height:auto dialogs before shrinking it. */
+ .zgml-dialog-body{overflow:auto;overscroll-behavior:contain;padding:14px;min-height:0;flex:1 1 auto}.zgml-dialog-body p{white-space:pre-wrap;overflow-wrap:anywhere;margin:8px 0 18px}.zgml-dialog-body h3{font:18px Georgia,serif;color:#c8a467;margin:14px 0 5px}
  #zgml-dialog label{display:block;margin:0 0 12px;font-size:14px;color:#c9b38b}#zgml-dialog input:not([type=file]),#zgml-dialog textarea,#zgml-dialog select{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid #775b36;border-radius:6px 2px;background:#0c0a06;color:#f2e2c0;padding:10px;font:16px/1.4 Georgia,serif}#zgml-dialog textarea{resize:vertical;min-height:110px}#zgml-dialog input[type=file]{display:block;max-width:100%;font-size:14px;margin-top:5px}#zgml-dialog small[data-upload-state]{display:block}
  #zgml-dialog .zgml-dialog-body button{min-height:44px;background:#251b0e;border:1px solid #886a3d;padding:9px 15px;border-radius:7px 2px;margin:3px}#zgml-dialog form footer{display:flex;gap:8px}#zgml-dialog form footer button{flex:1}#zgml-dialog [type=submit]{border-color:#d2a85a!important;color:#f8dc91;background:#54391944!important}.zgml-save-error{color:#f0aa94}.zgml-dialog-body details{margin-top:16px;border-top:1px solid #524024;padding-top:12px}.zgml-dialog-body summary{cursor:pointer;min-height:44px;color:#bda780}
  .zgml-detail-portrait{height:180px;overflow:hidden;border-radius:8px}.zgml-detail-portrait img{width:100%;height:100%;object-fit:cover;object-position:center 35%}.zgml-paper-symbol{height:100px;text-align:center}.zgml-paper-symbol img{height:100%;max-width:100%;object-fit:contain}.zgml-path-detail{text-align:center;color:#d4b077}.zgml-path-detail svg{width:55px;height:55px}#zgml-dialog .zgml-entry-image{width:100%;padding:0;border:0;margin:0;background:none}.zgml-entry-image img{max-height:260px;max-width:100%;object-fit:contain}
  #zgml-dialog.zgml-wide{max-width:none;height:calc(var(--zg-viewport-height,100dvh) - var(--zgmo-nav-height,76px) - env(safe-area-inset-bottom,0px) - 20px)}.zgml-wide .zgml-dialog-body{display:flex;flex-direction:column;padding:8px;overflow:hidden}.zgml-image-scroll,.zgml-tree-scroll{flex:1;overflow:auto;min-height:0;touch-action:pan-x pan-y pinch-zoom;overscroll-behavior:contain}.zgml-image-scroll img{width:100%;display:block}.zgml-zoom-tools{display:flex;justify-content:center;flex-shrink:0}
  .zgml-tree{width:max-content;min-width:100%;padding:16px;box-sizing:border-box;text-align:center}.zgml-tree ul{display:flex;justify-content:center;list-style:none;margin:0;padding:25px 0 0}.zgml-tree li{position:relative;list-style:none;padding:15px 8px 0;border-top:1px solid #8b7046}.zgml-tree li:before{content:'';position:absolute;top:0;left:50%;height:15px;border-left:1px solid #8b7046}.zgml-tree-root,#zgml-dialog .zgml-tree button{display:flex;flex-direction:column;align-items:center;width:120px;margin:0 auto;padding:10px;gap:5px}.zgml-tree-root{border:1px solid #b58d45;border-radius:8px;background:#3a2a12}.zgml-tree img,.zgml-tree .zgml-silhouette{width:60px;height:60px;object-fit:cover;border:1px solid #8f764c;border-radius:50%}.zgml-tree strong{font:16px Georgia,serif;overflow-wrap:anywhere;max-width:100%}.zgml-tree small{font-size:12px;color:#b9a17b}
- @media(prefers-reduced-motion:no-preference){.zgml-tabs button,.zgml-frame{transition:filter .18s,box-shadow .18s}.zgml-frame:active{filter:brightness(1.12)}#zgml-dialog[open]{animation:zgml-enter .2s ease-out}.zgml-content{animation:zgml-enter .2s ease-out}@keyframes zgml-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
+ @media(prefers-reduced-motion:no-preference){.zgml-tabs button,.zgml-frame{transition:filter .18s,box-shadow .18s}.zgml-frame:active{filter:brightness(1.12)}#zgml-dialog[open]{animation:zgml-enter .2s ease-out}@keyframes zgml-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}}
 }
 @media(max-width:360px){.zgml-tabs button{font-size:16px}.zgml-tools h2{font-size:18px}.zgml-person-copy strong{font-size:18px}.zgml-person-copy{padding:7px;gap:3px}.zgml-fame svg{width:28px;height:28px}.zgml-fame-copy{font-size:11px}.zgml-path strong{font-size:15px}.zgml-story h2{font-size:18px}}
 @media(max-width:899px) and (max-height:650px){#char-sheet .zgml-sheet{gap:4px}.zgml-content,.zgml-about{gap:4px}.zgml-about{grid-template-rows:minmax(80px,1.4fr) 48px 65px 70px 48px}.zgml-path small{font-size:10px}.zgml-person-copy .zgml-known{display:none}.zgml-tabs{flex-basis:38px}.zgml-fame b{font-size:22px}.zgml-portrait h2{font-size:23px}}
@@ -70,6 +71,36 @@
  .zgml-upload-preview{display:flex;align-items:center;gap:10px;margin-bottom:10px}.zgml-upload-preview:empty{display:none}.zgml-upload-preview img{width:80px;height:80px;object-fit:contain;border:1px solid #715637;border-radius:8px;background:#0c0a06}
  .zgml-zoom-tools{align-items:center;gap:4px}#zgml-dialog .zgml-zoom-tools button{margin:0;white-space:nowrap}.zgml-zoom-tools [data-zgml=return-record]{margin-right:auto!important}
  .zgml-empty p{max-width:240px;padding:0 8px}.zgml-filters select{font-size:16px}
+}
+
+@media(max-width:899px){
+ #zgml-dialog{border-radius:16px 4px;background:linear-gradient(150deg,#292113,#16110c 62%,#100d09)}
+ #zgml-dialog>header{padding:8px 14px;background:linear-gradient(110deg,#41311c77,transparent 80%)}
+ #zgml-dialog>header h2::before{content:'';display:inline-block;width:7px;height:7px;transform:rotate(45deg);border:1px solid #bc985e;margin:0 11px 3px 1px}
+ #zgml-dialog>header button{border-radius:50%;color:#d4bf9a}
+ #zgml-dialog .zgml-dialog-body:has(>#zgml-form){padding:0;display:flex;flex-direction:column;overflow:hidden}
+ #zgml-form{display:flex;flex-direction:column;min-height:0;margin:0}
+ .zgml-form-fields{min-height:0;overflow-y:auto;overscroll-behavior:contain;scroll-padding:12px;padding:14px 16px 4px}
+ #zgml-form fieldset{border:0;border-top:1px solid #604b30;min-inline-size:0;margin:0 0 8px;padding:8px 0 0}
+ #zgml-form legend{padding:0 8px 0 0;color:#dfbf87;font:600 14px Georgia,serif;letter-spacing:.035em}
+ .zgml-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ #zgml-form label{color:#cabda7;min-width:0}#zgml-form input:not([type=file]),#zgml-form select,#zgml-form textarea{min-height:44px;border-color:#605038;border-radius:8px 3px;background:#100d09;box-shadow:inset 0 1px 4px #0005}
+ #zgml-form :is(input,select,textarea):focus-visible,.zgml-search:focus-within{outline:2px solid #c79e5b;outline-offset:1px}
+ #zgml-form .zgml-upload{position:relative;display:block;cursor:pointer}.zgml-upload>span{display:flex;align-items:center;justify-content:center;min-height:44px;gap:8px;color:#e4c999;background:#322719;border:1px dashed #826c49;border-radius:8px 3px}
+ #zgml-dialog .zgml-upload svg{width:16px;height:16px}
+ #zgml-form .zgml-upload input{position:absolute;inset:0;width:100%;height:44px;opacity:0;cursor:pointer;margin:0}
+ .zgml-upload:focus-within>span{outline:2px solid #dfbb76}
+ #zgml-dialog #zgml-form footer{flex:none;display:grid;grid-template-columns:1fr 1.4fr;gap:8px;padding:10px 14px;border-top:1px solid #665034;background:#1c160e}
+ #zgml-dialog #zgml-form footer button{margin:0;border-radius:8px 3px;min-height:44px}
+ #zgml-form footer .zgml-save-error{grid-column:1/-1;margin:0}.zgml-save-error:empty{display:none}
+ #zgml-dialog #zgml-form [type=submit]{background:linear-gradient(120deg,#574023,#332515)!important}
+ @media(prefers-reduced-motion:no-preference){
+  #zgml-dialog::backdrop{animation:zgml-dim 160ms ease-out}
+  .zgml-paper-symbol img,.zgml-entry-image img{transform-origin:center 85%;animation:zgml-unfold 240ms cubic-bezier(.2,.75,.25,1)}
+  .zgml-dialog-body:has(form){animation:zgml-enter 150ms ease-out}
+  @keyframes zgml-dim{from{opacity:0}to{opacity:1}}
+  @keyframes zgml-unfold{from{opacity:.45;transform:perspective(600px) rotateX(9deg) scale(.97)}to{opacity:1;transform:none}}
+ }
 }
 
 /* Fame changes light, not the layout or the saved character values. */
@@ -115,4 +146,97 @@
  @media(max-height:650px){.zgml-about{gap:5px;grid-template-rows:minmax(70px,1fr) 62px 106px 105px}.zgml-path{padding:7px 10px}.zgml-path strong{font-size:17px}.zgml-path small{margin-bottom:3px}.zgml-path-symbol svg{width:36px;height:36px}.zgml-fame-card{padding:6px 7px 9px}.zgml-fame-copy{font-size:11px}.zgml-fame b{font-size:27px}.zgml-chronicle h2{font-size:20px}.zgml-chronicle .zgml-story-preview{-webkit-line-clamp:1}.zgml-portrait h2{font-size:23px}}
  @media(max-height:500px){.zgml-content.is-about{overflow:auto}.zgml-about{flex:0 0 480px}}
  @media(prefers-reduced-motion:no-preference){.zgml-fame-card{transition:filter .2s ease}.zgml-fame-card:active{filter:brightness(1.15)}.zgml-fame-editor-art{animation:zgml-emblem-reveal .25s ease-out}@keyframes zgml-emblem-reveal{from{opacity:.3;transform:scale(.94)}to{opacity:1;transform:scale(1)}}}
+}
+
+/* Keep the original wide portrait and caption overlay; tap opens the artwork. */
+@media(max-width:899px){
+ .zgml-portrait-open{position:absolute;inset:0;display:block;width:100%;height:100%;min-height:0;overflow:hidden;border:0;border-radius:inherit;padding:0;background:none}
+ .zgml-portrait-open img{display:block;width:100%;height:100%;object-fit:cover}
+ .zgml-portrait>div{pointer-events:none}
+ .zgml-portrait .zgml-age::before,.zgml-portrait .zgml-class::before{content:' · '}
+}
+
+/* Family and close connections share one movable, localized tree. */
+@media(max-width:899px){
+ #zgml-dialog .zgml-story-full>p{font-size:17px;line-height:1.62;margin:0 0 18px;white-space:pre-line;color:#eadcc1}
+ #zgml-dialog .zgml-story-full>p:first-child:first-letter{font-size:1.8em;line-height:1;color:#e5bf7c}
+ .zgml-story-current{border-top:1px solid #78603a;padding-top:2px;margin:20px 0 8px}
+ #zgml-dialog .zgml-story-current p{font-size:15px;color:#cab896;margin-bottom:12px}
+ .zgml-life-badge{display:inline-flex;align-items:center;gap:5px;width:fit-content;font:12px/1.2 Georgia,serif;color:#c4b69c;white-space:nowrap}
+ .zgml-life-badge::before{content:'?';font-size:12px;color:#b6a382}
+ .zgml-life-badge[data-life=alive]::before{content:'•';color:#a8b798}
+ .zgml-life-badge[data-life=dead]::before{content:'†';font-size:16px;color:#b5ad9e}
+ .zgml-life-badge[data-life=undead]::before{content:'◇';color:#b795ce}
+ [data-life=dead]>.zgml-person-art,[data-life=dead]>.zgml-detail-portrait,.zgml-tree button[data-life=dead]>img,.zgml-tree button[data-life=dead]>.zgml-silhouette{filter:grayscale(1);opacity:.7}
+ .zgml-tree button[data-life=dead]{border-color:#756f61!important}
+ .zgml-person-copy>.zgml-life-badge{font-size:11px}
+ #zgml-dialog .zgml-life-open{display:flex;align-items:center;justify-content:space-between;min-width:150px;padding:8px 12px;margin:0 0 10px;background:#18140e;border-color:#766040}
+ .zgml-life-open .zgml-life-badge{font-size:15px}
+ .zgml-life-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:14px}
+ .zgml-life-options[hidden]{display:none}
+ #zgml-dialog .zgml-life-options button{margin:0;font-size:14px;padding:8px 6px}
+ #zgml-dialog .zgml-life-options [aria-pressed=true]{border-color:#d9b46f;background:#503c20;color:#f4dfb0}
+ .zgml-life-error{color:#e6aa93;font-size:14px}.zgml-life-error:empty{display:none}
+ .zgml-person-detail .zgml-detail-portrait:has(.zgml-silhouette){height:88px}
+ #zgml-dialog .zgml-person-relation{font-size:14px;color:#bfa887;margin:10px 0}
+ .zgml-person-facts p{font-size:16px;line-height:1.5}.zgml-person-facts small{display:block;color:#bda57c;font-size:12px}
+ #zgml-dialog .zgml-return-tree{margin:0 0 10px;padding:4px 0;border:0;background:none;color:#d3b67e}
+ .zgml-tree-tools{display:flex;align-items:center;justify-content:center;gap:8px;flex:none}
+ #zgml-dialog .zgml-tree-tools button{margin:0;padding:6px 12px;min-width:44px;min-height:44px}
+ #zgml-dialog .zgml-tree-tools button:disabled{opacity:.4}
+ #zgml-dialog .zgml-tree-hint{flex:none;margin:8px 5px;font-size:12px;line-height:1.35;color:#b5a386;text-align:center}
+ .zgml-tree-scroll{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;border:1px solid #64523566;border-radius:6px;background:radial-gradient(ellipse at 50% 0,#69512d1a,transparent 65%)}
+ .zgml-tree-scroll.is-dragging,.zgml-tree-scroll.is-dragging *{cursor:grabbing!important}
+ .zgml-tree-scroll:focus-visible{outline:2px solid #bd985c;outline-offset:-2px}
+ .zgml-tree img{-webkit-user-drag:none;pointer-events:none}
+ .zgml-tree{padding:20px 28px 36px}
+ .zgml-tree-root{position:relative;box-shadow:0 0 20px #c3932922}.zgml-tree-root::after{content:'';position:absolute;top:100%;left:50%;height:25px;border-left:1px solid #8b7046}
+ #zgml-dialog .zgml-tree button{min-height:144px;justify-content:flex-start}
+ .zgml-tree .zgml-life-badge{margin-top:auto;font-size:11px}
+ #zgml-dialog[aria-busy=true] button{cursor:wait}
+}
+
+/* A story owns the viewport; its action row stays outside the reading area. */
+@media(max-width:899px){
+ #zgml-dialog.zgml-story-dialog{box-sizing:border-box;height:calc(var(--zg-viewport-height,100dvh) - 16px);max-height:calc(var(--zg-viewport-height,100dvh) - 16px);margin:8px auto;width:calc(100% - 16px)}
+ #zgml-dialog.zgml-story-dialog .zgml-dialog-body{flex:1 1 0%;min-height:0;overflow-x:hidden;overflow-y:auto;padding:14px 16px 20px;scrollbar-width:thin;scrollbar-color:#9a7b49 transparent;-webkit-overflow-scrolling:touch}
+ #zgml-dialog.zgml-story-dialog .zgml-story-full>p{font-weight:400;font-size:17px;line-height:1.55;margin-bottom:18px}
+ #zgml-dialog.zgml-story-dialog>.zgml-story-actions{flex:none;display:flex;gap:8px;padding:9px 12px max(9px,env(safe-area-inset-bottom,0px));border-top:1px solid #675238;background:#19140d}
+ #zgml-dialog.zgml-story-dialog>.zgml-story-actions button{margin:0;min-height:42px;border:1px solid #886a3d;border-radius:7px 2px;background:#251b0e;font:14px Georgia,serif;color:#eadcbd}
+}
+
+/* Compact contact notebook; family details remain in the relationship tree. */
+@media(max-width:899px){
+ .zgml-people{gap:6px}.zgml-person-art{width:25%;max-width:100px}.zgml-person-copy{gap:4px;padding:7px 10px}.zgml-person-copy strong{font-size:18px;-webkit-line-clamp:1}.zgml-person-copy .zgml-known{margin:0;padding-top:3px;font-size:12px;display:block}
+ .zgml-chronicle .zgml-story-tree{min-height:44px;padding:8px 14px;gap:8px;border:1px solid #aa8647;border-radius:8px 3px;background:linear-gradient(120deg,#4a351b,#261c10);color:#f6dfae;font-size:16px!important;box-shadow:inset 0 1px #d6b56d33}
+ .zgml-chronicle .zgml-story-tree svg{width:25px;height:25px}
+ #zgml-dialog.zgml-story-dialog>.zgml-story-actions [data-zgml=tree]{flex:1.3;min-height:48px;background:linear-gradient(120deg,#4a351b,#261c10);border-color:#b28d4c;font-size:16px}
+ #zgml-dialog .zgml-filter-options{border:0;padding:0;margin:0 0 16px;display:flex;flex-wrap:wrap;gap:7px}
+ #zgml-dialog .zgml-filter-options legend{padding:0 0 8px;color:#d9b876;font-size:16px}
+ #zgml-dialog .zgml-filter-options button{margin:0;min-height:40px;padding:7px 12px;font-size:14px;border:1px solid #705833;border-radius:7px;background:#20190e}
+ #zgml-dialog .zgml-filter-options [aria-pressed=true]{border-color:#d3aa60;background:#48351c;color:#ffe6b5}
+ #zgml-dialog .zgml-note-open{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;border:1px solid #9b7a43;border-radius:7px;background:#342613}
+}
+
+/* Connect at node centres, without horizontal tails beyond the outer nodes. */
+@media(max-width:899px){
+ .zgml-tree-root::after{content:none}
+ .zgml-tree ul{position:relative}
+ .zgml-tree ul::before{content:'';position:absolute;left:50%;top:0;height:25px;border-left:1px solid #8b7046}
+ .zgml-tree li{border-top:0}
+ .zgml-tree li::before,.zgml-tree li::after{content:'';position:absolute;top:0;height:15px;width:50%;box-sizing:border-box;border:0;border-top:1px solid #8b7046}
+ .zgml-tree li::before{left:0;border-right:1px solid #8b7046}
+ .zgml-tree li::after{left:50%}
+ .zgml-tree li:first-child::before,.zgml-tree li:last-child::after{border-top:0}
+ /* The action area is outside the scrolling fields/content, including in WebKit. */
+ #zgml-dialog:has(#zgml-form){height:calc(var(--zg-viewport-height,100dvh) - 20px);max-height:calc(var(--zg-viewport-height,100dvh) - 20px)}
+ #zgml-dialog:has(#zgml-form)>.zgml-dialog-body{display:flex;flex-direction:column;flex:1 1 0%;min-height:0;padding:0;overflow:hidden}
+ #zgml-dialog #zgml-form{display:flex;flex-direction:column;flex:1;min-height:0;margin:0;overflow:hidden}
+ #zgml-dialog .zgml-form-fields{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:14px;scroll-padding:14px}
+ #zgml-dialog #zgml-form>footer,#zgml-dialog>.zgml-detail-actions{flex:none;display:flex;flex-wrap:wrap;gap:8px;padding:10px 14px max(10px,env(safe-area-inset-bottom,0px));border-top:1px solid #675238;background:#21190f}
+ #zgml-dialog #zgml-form>footer .zgml-save-error{flex:0 0 100%;margin:0;grid-column:auto}
+ #zgml-dialog .zgml-save-error:empty{display:none}
+ #zgml-dialog #zgml-form>footer button,#zgml-dialog>.zgml-detail-actions button{flex:1;min-height:44px;margin:0;padding:8px 12px;border:1px solid #9d7a42;border-radius:7px 2px;background:#342613;color:#eddbb4;font:16px Georgia,serif}
+ #zgml-dialog>.zgml-detail-actions .zgml-note-open{width:auto}
+ #zgml-dialog:has(>.zgml-detail-actions){max-height:calc(var(--zg-viewport-height,100dvh) - 20px)}
 }

@@ -145,6 +145,84 @@
           }
         }
       }
+    },
+    "persistentCharacters": {
+      "$sheet": {
+        ".write": false,
+        "meta": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/locked').val() === false)"
+        },
+        "state": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/locked').val() === false)"
+        },
+        "history": {
+          ".read": "auth != null && root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid"
+        },
+        "activity": {
+          ".read": "auth != null && root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid"
+        },
+        "lastSeen": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+            ".validate": "newData.isNumber() && newData.val() === now"
+          }
+        },
+        "private": {
+          ".read": false
+        },
+        "receipts": {
+          ".read": false
+        },
+        "presence": {
+          ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+          "$uid": {
+            "$connection": {
+              ".write": "auth != null && auth.uid === $uid && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+              ".validate": "newData.hasChildren(['online','at']) && newData.child('online').val() === true && newData.child('at').isNumber() && newData.child('at').val() <= now + 1000",
+              "online": {},
+              "at": {},
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "persistentCharacterUsers": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+    "persistentCharacterAdmins": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentCharacterCodes": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentCharacterAccounts": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentLoginLimits": {
+      ".read": false,
+      ".write": false
+    },
+    "persistentCharacterMessages": {
+      "$sheet": {
+        ".read": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid)",
+        ".write": false,
+        "read": {
+          "$uid": {
+            ".write": "auth != null && (root.child('persistentCharacters').child($sheet).child('meta/ownerUid').val() === auth.uid || root.child('persistentCharacters').child($sheet).child('meta/playerUid').val() === auth.uid) && auth.uid === $uid",
+            ".validate": "newData.isNumber() && newData.val() <= now && (!data.exists() || newData.val() >= data.val())"
+          }
+        }
+      }
     }
   }
 }

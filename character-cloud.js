@@ -8,7 +8,7 @@
   try{var saved=JSON.parse(localStorage.getItem(key)||'null');if(saved&&saved.records&&Array.isArray(saved.pending))state=saved;}catch(_){}
   function persist(){localStorage.setItem(key,JSON.stringify(state));}
   function character(){var view=document.getElementById('char-sheet-view');if(!view||view.style.display==='none')return null;return (w.characters||[]).find(function(c){return String(c.id)===String(w.viewingCharId);});}
-  function binding(c){if(!c)return null;return Object.keys(state.records).find(function(sid){return String(state.records[sid].characterId)===String(c.id);})||null;}
+  function binding(c){if(!c||w.ZargotaPersistentCharacters&&w.ZargotaPersistentCharacters.usesCharacter(c.id))return null;return Object.keys(state.records).find(function(sid){return String(state.records[sid].characterId)===String(c.id);})||null;}
   function message(e){var code=String(e&&e.code||e&&e.message||e);
     if(/permission.denied|PERMISSION_DENIED/i.test(code))return t('Нет доступа к синхронизации. Уточните приглашение у мастера. Локальные персонажи доступны.','Немає доступу до синхронізації. Уточніть запрошення в майстра. Локальні персонажі доступні.');
     if(code==='review-conflict')return t('Данные изменились во время просмотра. Откройте сравнение заново.','Дані змінилися під час перегляду. Відкрийте порівняння знову.');
@@ -20,7 +20,7 @@
   function run(fn){if(busy)return;busy=true;error='';errorCause=null;render();Promise.resolve().then(fn).catch(fail).finally(function(){busy=false;render();});}
   function changed(c){var sid=binding(c),record=sid&&state.records[sid];return !!(record&&record.base&&R.diff(record.base,c).length);}
   function prepareLocal(chars){chars.forEach(function(c,index){if(binding(c))Object.assign(c,R.prepare(c,id));});}
-  function saveLocal(sid,data,base){
+  function saveLocal(sid,data,base,onSaved){
     var record=state.records[sid],chars=w.characters||[],index=chars.findIndex(function(c){return String(c.id)===String(data.id);});
     var previous=index<0?null:R.clone(chars[index]),oldBase=R.clone(record.base),oldId=record.characterId;
     if(index<0)chars.push(data);else chars[index]=data;
@@ -29,20 +29,31 @@
     data._updatedAt=Date.now();data.revision=Math.max(Number(data.revision)||0,Number(previous&&previous.revision)||0)+1;
     return w.ZargotaCharacterStore.saveCharacter(data.id,data,chars,{replace:true}).then(function(result){
       if(!result.ok){record.base=oldBase;record.characterId=oldId;persist();if(index>=0)chars[index]=previous;else chars.splice(chars.indexOf(data),1);throw Error('local-storage-failed');}
+      if(onSaved)onSaved(previous,data);
       if(String(w.viewingCharId)===String(data.id)&&typeof w.renderCharSheet==='function')w.renderCharSheet();
       if(typeof w.renderCharList==='function')w.renderCharList();render();
     });
   }
   function receive(sid,approved){
     var record=state.records[sid],current=(w.characters||[]).find(function(c){return String(c.id)===String(record.characterId);});
-    if(!approved||!record.base)return;
+    if(!approved||!record.base||w.ZargotaPersistentCharacters&&w.ZargotaPersistentCharacters.usesCharacter(record.characterId))return;
+    var remoteBefore=R.clone(record.base);
+    function notify(before,after,status){if(w.ZargotaCharacterUpdates)w.ZargotaCharacterUpdates.receive({characterId:record.characterId,before:before,after:after,channel:'cloud',revision:sid+':'+approved.revision,author:live[sid]&&live[sid].master?'shared':'master',status:status});}
     // Do not replace a sheet while the editor holds unsaved form values or a live room owns its runtime.
     var editor=document.getElementById('char-editor-view'),session=w.ZargotaRooms.getSnapshot().session;
-    if((editor&&editor.style.display!=='none')||session||document.getElementById('character-cloud-dialog')||(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)&&document.activeElement.closest('#char-sheet'))){record.deferred=true;render();return;}
+    if((editor&&editor.style.display!=='none')||session||document.getElementById('character-cloud-dialog')||(document.activeElement&&/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)&&document.activeElement.closest('#char-sheet'))){record.deferred=true;notify(remoteBefore,approved.data,'pending');render();return;}
     var merged=current?R.rebase(record.base,current,approved.data):{base:approved.data,character:approved.data};
     record.deferred=false;
-    if(current&&R.equal(current,merged.character)){record.base=R.clone(merged.base);persist();render();return;}
-    saveLocal(sid,merged.character,merged.base).catch(fail);
+    if(current&&R.equal(current,merged.character)){
+      record.base=R.clone(merged.base);persist();
+      if(merged.conflicts&&merged.conflicts.length)notify(remoteBefore,approved.data,'review');
+      else if(w.ZargotaCharacterUpdates)w.ZargotaCharacterUpdates.settle(record.characterId,'cloud',sid+':'+approved.revision);
+      render();return;
+    }
+    saveLocal(sid,merged.character,merged.base,function(before,after){
+      if(merged.conflicts&&merged.conflicts.length)notify(remoteBefore,approved.data,'review');
+      else notify(before,after,'applied');
+    }).catch(fail);
   }
   function watch(sid){
     if(live[sid])return;live[sid]={requests:{},joins:{}};
@@ -87,6 +98,7 @@
     var description=document.getElementById('character-cloud-status');if(description)description.textContent=status.label;
   }
   function render(){
+    if(w.ZargotaPersistentCharacters)w.ZargotaPersistentCharacters.refresh();
     var panel=document.getElementById('character-cloud-panel');if(!panel)return;
     if(errorCause)error=message(errorCause);
     var c=character(),sid=binding(c),item=sid&&live[sid],record=sid&&state.records[sid],dirty=record&&record.base&&c?R.diff(record.base,c).length:0;

@@ -83,3 +83,13 @@ License summaries:
 
 - Pixabay Content License: https://pixabay.com/service/license-summary/
 - Mixkit Sound Effects Free License: https://mixkit.co/license/#sfxFree
+
+## Character-sheet selection, 2026-11-17
+
+- `coin-change-approved.mp3`: Mixkit "Clinking coins", asset 1993; original MP3 preview, unchanged.
+  - Source: https://mixkit.co/free-sound-effects/money/
+  - Download: https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3
+  - License: https://mixkit.co/license/#sfxFree
+  - User selected coin option 1 in the audition.
+- Character HP loss uses the existing `hit-body-heavy.mp3`, user-selected damage option 2.
+- Equipping/unequipping uses the existing `assets/stories/audio/heavy-cloth-rustle-jacobzeier-163164.mp3`; CC0 source details are in the neighboring `heavy-cloth-rustle-source.json`. User selected the equipment cloth sample.

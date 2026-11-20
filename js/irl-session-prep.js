@@ -70,7 +70,7 @@
     if(w.zgIrlWorkspaceClosePanels)w.zgIrlWorkspaceClosePanels();panel.hidden=false;panel.querySelector('#irl-prep-search').value=query;panel.querySelector('#irl-prep-place').value=place;render();panel.querySelector('[data-prep-close]').focus();
   };
   function mount(){
-    register();var table=document.querySelector('#page-gm-table .zg-irl-table');if(!table)return;
+    register();var table=document.querySelector('#page-gm-table .zg-irl-table');if(!table||!document.getElementById('zg-irl-npc-panel'))return;
     var button=document.createElement('button');button.type='button';button.className='irl-prep-launch';button.id='irl-prep-launch';button.textContent=tr('Подготовка партии')+' · '+tr('Морелесье');button.onclick=function(){w.zgIrlPrepOpen();};table.appendChild(button);
     var panel=document.createElement('section');panel.id='irl-prep-panel';panel.className='irl-prep-panel';panel.hidden=true;panel.setAttribute('aria-label',tr('Подготовка партии'));panel.setAttribute('data-zg-i18n-skip','true');
     table.appendChild(panel);

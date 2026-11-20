@@ -1,0 +1,780 @@
+/* Spell detail keeps its heading and actions fixed while each tab reads as one document. */
+#zgms-dialog.zgms-spell-dialog {
+  --zgms-paper: #100d08;
+  --zgms-ink: #eee4cf;
+  --zgms-muted: #b9aa8e;
+  --zgms-gold: #ddbd77;
+  --zgms-line: #5c4829;
+  position: fixed;
+  z-index: 8000;
+  inset: var(--zg-viewport-top, 0px) 0 auto;
+  width: 100%;
+  height: var(--zg-viewport-height, 100dvh);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: hidden;
+  background: #050403b8;
+  backdrop-filter: blur(6px);
+  color: var(--zgms-ink);
+  font: 16px/1.55 Georgia, 'Times New Roman', serif;
+  animation: zgms-spell-appear .16s ease-out;
+}
+
+#zgms-dialog.zgms-spell-dialog *,
+#zgms-dialog.zgms-spell-dialog *::before,
+#zgms-dialog.zgms-spell-dialog *::after { box-sizing: border-box; }
+
+#zgms-dialog.zgms-spell-dialog > .zgms-spell-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  height: min(820px, 90dvh);
+  max-height: 90dvh;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #79603a;
+  border-radius: 10px 3px;
+  background: radial-gradient(ellipse at 12% 0, #3b2a121f, transparent 55%), var(--zgms-paper);
+  box-shadow: 0 22px 80px #0009;
+}
+
+#zgms-dialog.zgms-spell-dialog button {
+  max-width: 100%;
+  margin: 0;
+  font-family: inherit;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+  touch-action: manipulation;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#zgms-dialog.zgms-spell-dialog button:focus-visible {
+  outline: 2px solid #f0d18b;
+  outline-offset: -3px;
+}
+
+#zgms-dialog.zgms-spell-dialog button:disabled {
+  cursor: default;
+  transform: none;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px 40px;
+  align-items: start;
+  flex: 0 0 auto;
+  gap: 12px;
+  padding: 22px 22px 10px;
+  border: 0;
+  background: none;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-heading {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+  gap: 12px;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-heading > div { min-width: 0; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-art {
+  display: block;
+  width: 64px;
+  height: 64px;
+  min-width: 64px;
+  flex: 0 0 64px;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #927442;
+  border-radius: 7px 2px;
+  background: #19130b;
+  box-shadow: none;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-art.symbol img { object-fit: contain; padding: 4px; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-heading h2 {
+  margin: 0 0 5px;
+  padding: 0;
+  font: 600 27px/1.13 Georgia, 'Times New Roman', serif;
+  letter-spacing: 0;
+  color: #f5ecd9;
+  overflow-wrap: anywhere;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-type {
+  display: block;
+  font: 14px/1.45 Georgia, 'Times New Roman', serif;
+  color: var(--zgms-muted);
+  overflow-wrap: anywhere;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-school {
+  display: block;
+  margin-top: 2px;
+  color: #d3bc90;
+  font: 13px/1.4 Georgia, 'Times New Roman', serif;
+  overflow-wrap: anywhere;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-requirements {
+  margin-top: 5px;
+  color: #d3c5a8;
+  font: 14px/1.35 Georgia, 'Times New Roman', serif;
+  overflow-wrap: anywhere;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-type img,
+#zgms-dialog.zgms-spell-dialog .zgms-detail-type svg {
+  display: inline-block;
+  width: 23px;
+  height: 23px;
+  margin-right: 4px;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button {
+  width: 40px;
+  min-width: 40px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: #d9c9a8;
+  font-size: 27px;
+  line-height: 44px;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  gap: 7px 12px;
+  min-height: 31px;
+  padding: 0 22px 12px 98px;
+  color: var(--zgms-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-status:empty { display: none; }
+#zgms-dialog.zgms-spell-dialog .zgms-equipped-label { color: #c3bb93; font-size: 12px; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-study-state {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  width: auto;
+  padding: 4px 9px;
+  border: 1px solid #685331;
+  border-radius: 4px 1px;
+  background: #b58a3010;
+  box-shadow: none;
+  color: #d9c393;
+  font: 13px/1.35 Georgia, 'Times New Roman', serif;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex: 0 0 auto;
+  margin: 0 22px;
+  padding: 0;
+  border-bottom: 1px solid var(--zgms-line);
+  background: none;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  min-height: 48px;
+  height: auto;
+  padding: 11px 4px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: #bcac8b;
+  font: 16px/1.3 Georgia, 'Times New Roman', serif;
+  white-space: normal;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button[aria-selected=true] {
+  color: #fff0cd;
+  font-weight: 600;
+  background: linear-gradient(0deg, #b8871c12, transparent 75%);
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button[aria-selected=true]::after {
+  position: absolute;
+  content: '';
+  right: 3px;
+  bottom: -1px;
+  left: 3px;
+  height: 2px;
+  background: #e4c273;
+  box-shadow: 0 0 8px #e4b75340;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-detail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  padding: 20px 26px 26px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: #8e7544 transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-tab-panel {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+#zgms-dialog.zgms-spell-dialog [hidden] { display: none !important; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-charges {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 0 0 20px;
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--zgms-line);
+  background: none;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-charge-copy {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  justify-content: start;
+  gap: 3px 9px;
+  min-width: 0;
+  text-align: left;
+  color: var(--zgms-muted);
+  font: 14px/1.35 Georgia, 'Times New Roman', serif;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-charge-copy strong {
+  min-width: 0;
+  margin: 0;
+  text-align: left;
+  color: #f2ddb0;
+  font: 600 26px/1.15 Georgia, 'Times New Roman', serif;
+  white-space: nowrap;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-charge-copy small {
+  grid-column: 1 / -1;
+  color: var(--zgms-muted);
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-charges.exhausted strong { color: #d7a38b; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-usage-note {
+  margin: 0 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--zgms-line);
+  color: var(--zgms-muted);
+  font: 14px/1.45 Georgia, 'Times New Roman', serif;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--zgms-line);
+  color: var(--zgms-muted);
+  font: 12px/1.45 Georgia, 'Times New Roman', serif;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; min-width: 0; }
+#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata small { color: inherit; font: inherit; }
+#zgms-dialog.zgms-spell-dialog .zgms-spell-tag { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; color: inherit; overflow-wrap: anywhere; }
+#zgms-dialog.zgms-spell-dialog .zgms-spell-tag img { display: block; flex: 0 0 22px; width: 22px; height: 22px; margin: 0; object-fit: contain; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-use-pips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  max-width: 45%;
+  padding: 5px 2px;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-use-pips > span {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 1px solid #d1af68;
+  border-radius: 1px;
+  background: #c29c4e;
+  box-shadow: 0 0 5px #d8ad4426;
+  transform: rotate(45deg);
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-use-pips > span.spent {
+  border-color: #665638;
+  background: transparent;
+  box-shadow: none;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-rule {
+  margin: 20px 0 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid #4c3c23;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--zgms-ink);
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-rule:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+#zgms-dialog.zgms-spell-dialog .zgms-charges + .zgms-rule,
+#zgms-dialog.zgms-spell-dialog .zgms-usage-note + .zgms-rule,
+#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata + .zgms-rule { margin-top: 0; padding-top: 0; border-top: 0; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-rule h3 {
+  margin: 0 0 8px;
+  padding: 0;
+  color: var(--zgms-gold);
+  font: 600 20px/1.25 Georgia, 'Times New Roman', serif;
+  letter-spacing: 0;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-rule p,
+#zgms-dialog.zgms-spell-dialog .zgms-rule li {
+  margin: 0;
+  color: var(--zgms-ink);
+  font: 17px/1.58 Georgia, 'Times New Roman', serif;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-rule p + p { margin-top: 10px; }
+#zgms-dialog.zgms-spell-dialog .zgms-rule ul { margin: 8px 0 0; padding-left: 22px; }
+#zgms-dialog.zgms-spell-dialog .zgms-rule blockquote { margin: 14px 0 0; color: #dcc58f; font-style: italic; }
+#zgms-dialog.zgms-spell-dialog .zgms-number { color: #fff0d0; font-weight: 600; }
+#zgms-dialog.zgms-spell-dialog .zgms-param { font-weight: 600; }
+#zgms-dialog.zgms-spell-dialog .zgms-param.stat-str { color: #ed7676; }
+#zgms-dialog.zgms-spell-dialog .zgms-param.stat-dex { color: #93d18b; }
+#zgms-dialog.zgms-spell-dialog .zgms-param.stat-int { color: #7dc7f0; }
+#zgms-dialog.zgms-spell-dialog .zgms-param.stat-cha { color: #ebbc68; }
+#zgms-dialog.zgms-spell-dialog .zgms-param.stat-per { color: #c59af0; }
+#zgms-dialog.zgms-spell-dialog .zgms-param.stat-con { color: #d7d4cd; }
+#zgms-dialog.zgms-spell-dialog .zgms-param .zgms-number { color: inherit; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-description-art {
+  margin: 0 0 20px;
+  overflow: hidden;
+  border: 1px solid #776038;
+  border-radius: 9px 2px;
+  background: #17120b;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-description-art img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: contain;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-description-art + .zgms-rule { margin-top: 0; padding-top: 0; border-top: 0; }
+#zgms-dialog.zgms-spell-dialog .is-unlearned .zgms-detail-art img,
+#zgms-dialog.zgms-spell-dialog .is-unlearned .zgms-description-art img,
+.zgms-card.is-unlearned .zgms-art > img { filter: grayscale(1) brightness(.72); }
+
+#zgms-dialog.zgms-spell-dialog .zgms-learning-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--zgms-line);
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-learning-actions > small {
+  flex-basis: 100%;
+  color: var(--zgms-muted);
+  font: 13px/1.45 Georgia, 'Times New Roman', serif;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-study-primary,
+#zgms-dialog.zgms-spell-dialog .zgms-apply {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 140px;
+  min-height: 46px;
+  height: auto;
+  padding: 10px 20px;
+  border: 1px solid #a78a4e;
+  border-radius: 6px 2px;
+  background: linear-gradient(180deg, #312310, #21180d);
+  box-shadow: inset 0 1px #e3bc5420;
+  color: #f3dcaa;
+  font: 600 16px/1.3 Georgia, 'Times New Roman', serif;
+  transition: background .16s ease, border-color .16s ease;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-study-primary:disabled,
+#zgms-dialog.zgms-spell-dialog .zgms-apply:disabled {
+  border-color: #514631;
+  background: #211c13;
+  box-shadow: none;
+  color: #9d927c;
+  opacity: 1;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-study-primary[aria-busy=true],
+#zgms-dialog.zgms-spell-dialog .zgms-apply[aria-busy=true] { opacity: .65; cursor: wait; }
+
+#zgms-dialog.zgms-spell-dialog .zgms-use-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  gap: 10px 18px;
+  margin: 0;
+  padding: 13px 26px 16px;
+  border-top: 1px solid var(--zgms-line);
+  background: #120e08;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-use-footer small {
+  min-width: 0;
+  max-width: 55%;
+  color: var(--zgms-muted);
+  font: 12px/1.4 Georgia, 'Times New Roman', serif;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* The spell menu is also available above the desktop breakpoint. */
+#zgms-dialog.zgms-spell-dialog .zgms-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% - 6px);
+  right: 14px;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(310px, calc(100vw - 32px));
+  margin: 0;
+  padding: 5px;
+  border: 1px solid #8a6d3e;
+  border-radius: 6px 2px;
+  background: #1c160d;
+  box-shadow: 0 10px 28px #000b;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-menu > button {
+  width: 100%;
+  min-height: 44px;
+  height: auto;
+  padding: 11px 13px;
+  border: 0;
+  border-bottom: 1px solid #4a3921;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: #e7d7b6;
+  text-align: left;
+  font: 15px/1.4 Georgia, 'Times New Roman', serif;
+  white-space: normal;
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-menu > button:last-child { border-bottom: 0; }
+#zgms-dialog.zgms-spell-dialog .zgms-menu > button:disabled { opacity: .5; }
+
+@media (hover: hover) {
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button:hover,
+  #zgms-dialog.zgms-spell-dialog .zgms-menu > button:not(:disabled):hover { background: #b9914020; color: #fff0ca; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button:hover { color: #f6dfb1; }
+  #zgms-dialog.zgms-spell-dialog .zgms-study-primary:not(:disabled):hover,
+  #zgms-dialog.zgms-spell-dialog .zgms-apply:not(:disabled):hover { border-color: #ddba70; background: #392a14; }
+}
+
+@media (max-width: 899px) {
+  #zgms-dialog.zgms-spell-dialog {
+    height: calc(var(--zg-viewport-height, 100dvh) - var(--zgmo-nav-height, 76px) - env(safe-area-inset-bottom, 0px));
+    align-items: stretch;
+    padding: 0;
+    background: var(--zgms-paper);
+    backdrop-filter: none;
+  }
+
+  #zgms-dialog.zgms-spell-dialog > .zgms-spell-panel {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header {
+    --zgms-portrait-size: 100px;
+    grid-template-columns: minmax(0, 1fr) 36px;
+    grid-template-rows: 1fr 1fr;
+    gap: 0 8px;
+    padding: max(12px, env(safe-area-inset-top, 0px)) 12px 10px;
+  }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-heading { grid-column: 1; grid-row: 1 / 3; grid-template-columns: var(--zgms-portrait-size) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+  #zgms-dialog.zgms-spell-dialog .zgms-heading-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-height: var(--zgms-portrait-size); }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-art { width: var(--zgms-portrait-size); height: var(--zgms-portrait-size); min-width: var(--zgms-portrait-size); }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-heading h2 { flex: 0 0 auto; margin: 0; padding: 0; min-height: 0; font-size: clamp(18px, 5.1vw, 21px); line-height: 1.12; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-type { font-size: 12px; line-height: 1.25; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button { position: static; grid-column: 2; width: 36px; min-width: 36px; min-height: 36px; height: 36px; line-height: 36px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > [data-zgms="close"] { grid-row: 1; align-self: start; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > [data-zgms="detail-menu"] { grid-row: 2; align-self: end; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-classification { display: none; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs { margin: 0 12px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button { min-height: 40px; padding: 7px 3px; font-size: clamp(13px, 3.8vw, 16px); }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-body { padding: 12px 18px 18px; scrollbar-gutter: auto; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 0 0 10px; padding: 0 0 8px; font-size: 14px; line-height: 1.35; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata > div { display: contents; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata small { display: none; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-tag img { flex-basis: 20px; width: 20px; height: 20px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-rule { margin-top: 12px; padding-top: 12px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-rule:first-child,
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata + .zgms-rule { margin-top: 0; padding-top: 0; }
+  #zgms-dialog.zgms-spell-dialog .zgms-rule h3 { margin-bottom: 6px; font-size: 18px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-rule p,
+  #zgms-dialog.zgms-spell-dialog .zgms-rule li { font-size: 16px; line-height: 1.45; }
+  #zgms-dialog.zgms-spell-dialog .zgms-rule p + p { margin-top: 7px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: center; flex: 0 0 auto; gap: 4px 8px; margin: 0 12px; padding: 7px 6px; border-bottom: 1px solid var(--zgms-line); }
+  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-apply { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; min-height: 40px; padding: 7px 9px; font-size: 16px; line-height: 1.2; }
+  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-charges { display: block; grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0; }
+  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-charge-copy { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 11px; line-height: 1.2; text-align: right; }
+  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
+  #zgms-dialog.zgms-spell-dialog .zgms-recovery-note { grid-column: 1; grid-row: 1; color: var(--zgms-muted); font: 12px/1.3 Georgia, serif; overflow-wrap: anywhere; }
+  #zgms-dialog.zgms-spell-dialog .zgms-recovery-note.is-long { grid-column: 1 / -1; grid-row: 2; text-align: center; }
+  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary .zgms-spell-status { padding: 0; margin: 0; gap: 4px 9px; min-height: 0; }
+  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary .zgms-study-state { min-height: 0; padding: 0; border: 0; background: none; font-size: 14px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary .zgms-study-primary { min-height: 38px; min-width: 0; padding: 7px 12px; font-size: 14px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-learning-source { margin: 0 0 12px; color: #cbb58c; font: 13px/1.4 Georgia, serif; }
+}
+
+@media (max-width: 359px) {
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header { --zgms-portrait-size: 88px; padding-left: 11px; padding-right: 9px; column-gap: 6px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-heading { gap: 9px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button { font-size: 13px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-body { padding-right: 14px; padding-left: 14px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); padding-left: 2px; padding-right: 2px; }
+}
+
+@media (max-width: 899px) and (max-height: 560px) {
+  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
+}
+
+@keyframes zgms-spell-appear { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  #zgms-dialog.zgms-spell-dialog { animation: none; }
+  #zgms-dialog.zgms-spell-dialog button { transition: none; }
+}
+
+#zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button > svg { display: block; width: 24px; height: 24px; margin: auto; pointer-events: none; }
+
+/* Personal abilities keep one reading flow and their own real usage limits. */
+#zgms-dialog.zgms-spell-dialog .zgms-simple-panel > header { border-bottom: 1px solid var(--zgms-line); }
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions {
+  display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr);
+  align-items: center; flex: 0 0 auto; gap: 3px 8px;
+  margin: 0 18px; padding: 8px 0; border-bottom: 1px solid var(--zgms-line);
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-apply {
+  grid-column: 2; grid-row: 1; min-width: 0; width: 100%; min-height: 44px;
+  padding: 7px 9px; font-size: 16px; line-height: 1.2;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-restore {
+  grid-column: 1; grid-row: 1; min-height: 44px; width: fit-content; max-width: 100%;
+  padding: 5px 0; border: 0; background: none; box-shadow: none;
+  color: #d7bd84; font: 13px/1.3 Georgia, serif; text-align: left;
+  text-decoration: underline; text-decoration-color: #8a6c3e; text-underline-offset: 3px;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-restore:disabled {
+  color: #827661; text-decoration: none; cursor: default;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charges {
+  display: block; grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  font-size: 11px; line-height: 1.2; text-align: right;
+}
+#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
+#zgms-dialog.zgms-spell-dialog .zgms-personal-recovery {
+  grid-column: 1 / -1; margin: 0; color: var(--zgms-muted); text-align: center;
+  font: 12px/1.3 Georgia, serif; overflow-wrap: anywhere;
+}
+@media (max-width: 359px) {
+  #zgms-dialog.zgms-spell-dialog .zgms-personal-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); margin: 0 14px; gap: 3px 6px; }
+}
+#zgms-dialog.zgms-spell-dialog .zgms-simple-note { margin: 0 0 12px; color: var(--zgms-muted); font: 14px/1.4 Georgia, serif; }
+/* The same authored rule structure also serves the desktop ability reader. */
+.zgms-personal-rules {
+  --personal-ink: #eee4cf; --personal-gold: #ddbd77;
+  --personal-benefit: #9cc98e; --personal-danger: #df9a87;
+  --personal-limit: #d7b978; --personal-check: #9ec8d8;
+  display: flex; flex-direction: column; gap: 0;
+}
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules { display: block; gap: 0; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section { margin: 14px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #4c3c23; border-radius: 0; background: none; box-shadow: none; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-copy { display: flex; flex-direction: column; gap: 9px; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules h4 { margin: 0 0 7px; color: var(--personal-gold); font: 600 16px/1.3 Georgia, serif; letter-spacing: 0; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-benefit h4 { color: var(--personal-benefit); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-danger h4 { color: var(--personal-danger); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-limit h4 { color: var(--personal-limit); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-check h4 { color: var(--personal-check); }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-paragraph,
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { margin: 0; padding: 0; color: var(--personal-ink); font: 400 16px/1.45 Georgia, serif; overflow-wrap: anywhere; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { display: grid; gap: 8px; list-style: none; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list li { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: baseline; gap: 9px; padding: 0; }
+.zgms-personal-rules .zgms-list-marker { min-width: 12px; color: var(--personal-gold); font-variant-numeric: tabular-nums; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-quote { margin: 1px 0; padding: 2px 0 2px 12px; border: 0; border-left: 1px solid #706044; color: #c7b89c; background: none; font: italic 15px/1.45 Georgia, serif; }
+:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-outcome { padding: 5px 0 5px 10px; border: 0; border-left: 2px solid var(--outcome-color); border-radius: 0; background: none; box-shadow: none; }
+.zgms-personal-rules .outcome-benefit { --outcome-color: var(--personal-benefit); }
+.zgms-personal-rules .outcome-danger { --outcome-color: var(--personal-danger); }
+.zgms-personal-rules .zgms-outcome-label { color: var(--outcome-color); font-weight: 600; }
+.zgms-personal-rules .zgms-param,
+.zgms-personal-rules .zgms-number,
+.zgms-personal-rules .zgms-rule-key { font-weight: 600; }
+.zgms-personal-rules .zgms-number { color: #fff0d0; }
+.zgms-personal-rules .stat-str { color: #ed7676; }
+.zgms-personal-rules .stat-dex { color: #93d18b; }
+.zgms-personal-rules .stat-int { color: #7dc7f0; }
+.zgms-personal-rules .stat-cha { color: #ebbc68; }
+.zgms-personal-rules .stat-per { color: #c59af0; }
+.zgms-personal-rules .stat-con { color: #d7d4cd; }
+.zgms-personal-rules .key-benefit { color: var(--personal-benefit); }
+.zgms-personal-rules .key-danger { color: var(--personal-danger); }
+.zgms-personal-rules .key-limit { color: var(--personal-limit); }
+.zgms-personal-rules .key-check,
+#zgms-dialog .zgms-personal-rules .zgms-difficulty,
+.zgms-personal-rules .zgms-difficulty { color: var(--personal-check); }
+
+/* Native modal keeps the sheet inert and returns focus without rebuilding it. */
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) {
+  position: fixed;
+  inset: var(--zg-viewport-top, 0px) 0 auto;
+  width: 100%;
+  height: var(--zg-viewport-height, 100dvh);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 42%, #241b12, #080706 75%);
+  color: #eee1c7;
+  animation: zgms-spell-appear .18s ease-out;
+}
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer)::backdrop { background: #080706; }
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer), :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) * { box-sizing: border-box; }
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) > figure {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 24px;
+  width: min(1100px, 100%);
+  height: 100%;
+  margin: 0 auto;
+  padding: max(60px, calc(env(safe-area-inset-top, 0px) + 48px)) 16px max(26px, calc(env(safe-area-inset-bottom, 0px) + 18px));
+}
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) figure > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: none;
+  object-fit: contain;
+  filter: none;
+  user-select: none;
+}
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) figcaption { width: min(620px, 100%); justify-self: center; text-align: center; }
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) h2 { margin: 0 0 12px; padding: 0; color: #dfbf7d; font: 600 21px/1.2 Georgia, serif; overflow-wrap: anywhere; }
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) blockquote { margin: 0; padding: 0; border: 0; color: #e5dac4; font: italic 19px/1.5 Georgia, serif; overflow-wrap: anywhere; }
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) > button {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top, 0px));
+  right: max(10px, env(safe-area-inset-right, 0px));
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #79613d;
+  border-radius: 50%;
+  background: #171109e6;
+  color: #e6ce9d;
+  box-shadow: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) > button svg { display: block; width: 24px; height: 24px; pointer-events: none; }
+:is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) > button:focus-visible { outline: 2px solid #f0d18b; outline-offset: 3px; }
+@media (max-width: 359px), (max-height: 600px) {
+  :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) > figure { gap: 14px; padding-top: 54px; padding-bottom: max(16px, env(safe-area-inset-bottom, 0px)); }
+  :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) h2 { font-size: 18px; margin-bottom: 8px; }
+  :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) blockquote { font-size: 16px; line-height: 1.4; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) > figure { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); padding: 16px 64px 16px 16px; }
+  :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) figcaption { align-self: center; }
+}
+@media (prefers-reduced-motion: reduce) { :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) { animation: none; } }
