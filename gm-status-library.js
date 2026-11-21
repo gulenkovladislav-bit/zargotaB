@@ -1,23 +1,30 @@
 (function(w){
   'use strict';
   var panel,launcher,allTarget,resultBox,drag=null,ghost=null,activeKey='',tab='favorites',busy=false,receipts=[],suppressUntil=0,authEpoch=0;
+  var kind='statuses',category='';
   var defaults=['bleed','stun','poison','fear','burn','shield'];
   function t(ru,uk){return w.ZargotaI18n?.getLocale()==='uk'?uk:ru;}
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function tr(s){return w.ZargotaI18n?.translate(s)||s;}
   function label(s){return w.ZargotaI18n?.getLocale()==='uk'&&s.labelUk?s.labelUk:tr(s.label||s.key);}
-  function catalog(){return (w.zgGmStatusCatalog?.()||[]).filter(function(s){return s&&s.key&&s.enabled!==false;});}
+  function catalog(section){if((section||kind)==='items')return (w.loadShopItems?.()||[]).filter(function(i){return i&&i.id&&i.name&&!['service','services'].includes(i.category||i.cat);}).map(function(i){return Object.assign({},i,{key:String(i.id),label:i.name,labelUk:i.nameUk,description:i.description||i.desc||'',_item:true});});return (w.zgGmStatusCatalog?.()||[]).filter(function(s){return s&&s.key&&s.enabled!==false;});}
   function definition(key){return catalog().find(function(s){return s.key===key;});}
-  function glyph(s){return w.zgStatusGlyphMarkup?.(s,label(s),'gms-icon')||'<span class="gms-icon">'+esc(s.icon||'✦')+'</span>';}
-  function favoriteKey(){return 'zg-gm-status-favorites-v1:'+String(w.ZargotaPersistentCharacters?.tableIdentity().uid||'local');}
-  function favorites(){try{var value=JSON.parse(localStorage.getItem(favoriteKey()));if(Array.isArray(value))return value;}catch(_){}return defaults.slice();}
+  function glyph(s){if(s._item){var src=s.imageThumb||s.image||w.ZargotaItemIcons?.pathFor(s)||'';return /^(https?:\/\/|images\/|assets\/|data:image\/)/i.test(src)?'<img class="gms-icon gms-item-art" src="'+esc(src)+'" alt="" draggable="false">':'<span class="gms-icon">◇</span>';}return w.zgStatusGlyphMarkup?.(s,label(s),'gms-icon')||'<span class="gms-icon">'+esc(s.icon||'✦')+'</span>';}
+  function favoriteKey(){return 'zg-gm-'+(kind==='items'?'item':'status')+'-favorites-v1:'+String(w.ZargotaPersistentCharacters?.tableIdentity().uid||'local');}
+  function favorites(){try{var value=JSON.parse(localStorage.getItem(favoriteKey()));if(Array.isArray(value))return value;}catch(_){}return kind==='items'?[]:defaults.slice();}
   function targets(){return w.ZargotaGmTable?.targets()||[];}
+  var categories={currency:['Монеты','Монети'],weapon:['Оружие','Зброя'],armor:['Броня','Броня'],shield:['Щиты','Щити'],potion:['Зелья','Зілля'],consumable:['Расходники','Витратні предмети'],food:['Еда и быт','Їжа й побут'],magic:['Магическое','Магічне'],accessory:['Украшения','Прикраси'],tool:['Инструменты','Інструменти'],mount:['Транспорт','Транспорт'],property:['Жильё','Житло'],material:['Материалы','Матеріали'],contraband:['Подпольное','Підпільне'],other:['Разное','Різне']};
+  function itemCategory(item){var key=item.category==='currency'?'currency':item.cat||item.category||'other';key=({artifact:'magic',clothing:'armor',item:'other'})[key]||key;return categories[key]?key:'other';}
+  function filterMarkup(){
+    var values=new Set(catalog().map(itemCategory));
+    return '<div class="gms-filters">'+(kind==='items'?'<select data-gms-category aria-label="'+t('Категория предметов','Категорія предметів')+'"><option value="">'+t('Все категории','Усі категорії')+'</option>'+Object.keys(categories).filter(function(key){return values.has(key);}).map(function(key){return '<option value="'+key+'"'+(category===key?' selected':'')+'>'+t(categories[key][0],categories[key][1])+'</option>';}).join('')+'</select>':'')+'<button type="button" data-gms-favorites aria-pressed="'+(tab==='favorites')+'" aria-label="'+t('Только избранное','Лише обране')+'" title="'+t('Только избранное','Лише обране')+'">★</button></div>';
+  }
   function paintList(){
     if(!panel||panel.hidden)return;
     var query=panel.querySelector('input[type=search]').value.toLocaleLowerCase().trim(),favs=favorites();
-    var list=catalog().filter(function(s){return query?[label(s),s.label,s.labelUk,s.key].join(' ').toLocaleLowerCase().includes(query):tab==='all'||favs.includes(s.key);});
+    var list=catalog().filter(function(s){return (tab!=='favorites'||favs.includes(s.key))&&(kind!=='items'||!category||itemCategory(s)===category)&&(!query||[label(s),s.label,s.labelUk,s.key].join(' ').toLocaleLowerCase().includes(query));});
     panel.querySelector('[data-gms-list]').innerHTML=list.map(function(s){var starred=favs.includes(s.key);return '<article class="gms-tile'+(activeKey===s.key?' is-selected':'')+'"><button type="button" data-gms-drag="'+esc(s.key)+'" aria-label="'+esc(label(s))+'">'+glyph(s)+'<span>'+esc(label(s))+'</span></button><button type="button" class="gms-star" data-gms-star="'+esc(s.key)+'" aria-pressed="'+starred+'" aria-label="'+esc(starred?t('Убрать из избранного','Прибрати з обраного'):t('В избранное','До обраного'))+'">'+(starred?'★':'☆')+'</button></article>';}).join('')||'<p class="gms-empty">'+t('Ничего не найдено','Нічого не знайдено')+'</p>';
-    panel.querySelectorAll('[data-gms-tab]').forEach(function(el){el.setAttribute('aria-pressed',el.dataset.gmsTab===tab);});
+    panel.querySelector('[data-gms-favorites]').setAttribute('aria-pressed',tab==='favorites');
   }
   var defaultDescriptionsUk={
     stun:'Втрачає довгу дію та реакцію. Перешкода на атаки й більшість перевірок. На початку ходу — Сл 14 Витривалості для зняття.',
@@ -61,6 +68,7 @@
     box.querySelector('p').textContent=description(def);
   }
   function optionsFor(def){
+    if(def._item){var qty=Number(panel.querySelector('[data-gms-qty]').value);return Number.isInteger(qty)&&qty>0&&qty<=999?{qty:qty}:null;}
     var unit=panel.querySelector('[data-gms-unit]').value,amount=Number(panel.querySelector('[data-gms-duration]').value);
     if(unit==='default'){amount=Math.max(0,Number(def.defaultDuration)||0);unit=amount?'rounds':'manual';}
     if(unit!=='manual'&&(!Number.isInteger(amount)||amount<1||amount>999))return null;
@@ -75,29 +83,33 @@
     unconfirmed:t('Нет подтверждения — проверьте лист','Немає підтвердження — перевірте аркуш'),
     'changed-since':t('Эффект уже изменён — отмена пропущена','Ефект уже змінено — скасування пропущено'),
     'local-save-failed':t('Не удалось сохранить на устройстве','Не вдалося зберегти на пристрої'),
-    'unknown-status':t('Статус больше недоступен','Стан більше недоступний')
+    'unknown-item':t('Предмет больше недоступен','Предмет більше недоступний'),'invalid-quantity':t('Количество: от 1 до 999','Кількість: від 1 до 999'),'inventory-full':t('Достигнут предел записей инвентаря','Досягнуто межі записів інвентарю'),'receipt-limit':t('Игроку нужно просмотреть прошлые выдачи','Гравцеві потрібно переглянути минулі надходження'),'unknown-status':t('Статус больше недоступен','Стан більше недоступний')
   })[reason]||t('Не удалось применить','Не вдалося застосувати');}
   function showResults(title,results){
     var failed=results.filter(function(r){return !r.ok;});
+    if(failed.length&&panel.hidden)open();
     resultBox.hidden=!failed.length;
-    resultBox.textContent=failed.map(function(r){return r.target.name+': '+reasonText(r.reason);}).join(' · ');
+    resultBox.textContent=failed.map(function(r){return r.target.name+(r.entry?' · '+r.entry:'')+': '+reasonText(r.reason);}).join(' · ');
   }
-  async function deliver(def,chosen,options){
+  async function deliver(def,chosen,options,bundle){
     if(busy||!chosen.length)return;
     busy=true;receipts=[];panel.setAttribute('aria-busy','true');
     resultBox.hidden=true;resultBox.textContent='';
-    var result=[],epoch=authEpoch;
+    var result=[],epoch=authEpoch,operations=bundle||[{def:def,options:options}];
     try{
       // Fixed recipient set for this gesture. Each write checks current access,
       // saves against the latest acknowledged revision and reports independently.
       for(var target of chosen){
+       for(var operation of operations){
+        var def=operation.def,options=operation.options;
         if(epoch!==authEpoch)return;
         var response;
-        try{response=await w.ZargotaGmTable.status(target,def.key,options);}
+        try{response=def._item?await w.ZargotaGmTable.item(target,(w.loadShopItems?.()||[]).find(function(i){return String(i.id)===def.key;}),options.qty,w.crypto.randomUUID()):await w.ZargotaGmTable.status(target,def.key,options);}
         catch(_){response={ok:false,reason:'unconfirmed'};}
         if(epoch!==authEpoch)return;
         if(response.ok&&response.changed)receipts.push({target:target,receipt:response.receipt});
-        result.push(Object.assign({target:target},response));
+        result.push(Object.assign({target:target,entry:label(def)},response));
+       }
       }
       showResults(label(def),result);
     }finally{busy=false;panel.setAttribute('aria-busy','false');}
@@ -120,7 +132,7 @@
   function clearHover(){document.querySelectorAll('.gms-drop-hover').forEach(function(el){el.classList.remove('gms-drop-hover');});}
   function cancel(){
     if(drag?.started)suppressUntil=Date.now()+400;
-    drag=null;ghost?.remove();ghost=null;clearHover();if(allTarget)allTarget.hidden=true;
+    drag?.hooks?.cancel();drag=null;ghost?.remove();ghost=null;clearHover();if(allTarget)allTarget.hidden=true;
     if(document.body.classList.contains('gms-dragging'))document.body.classList.remove('gms-dragging');
     document.querySelectorAll('.gms-unavailable').forEach(function(el){el.classList.remove('gms-unavailable');});
   }
@@ -133,11 +145,6 @@
   }
   function open(){if(!panel)return;panel.hidden=false;launcher.setAttribute('aria-expanded','true');paintList();panel.querySelector('input[type=search]').focus();}
   function close(){cancel();if(panel)panel.hidden=true;if(launcher)launcher.setAttribute('aria-expanded','false');}
-  function chooseRecipients(){
-    var def=definition(activeKey);if(!def||busy)return;
-    var box=panel.querySelector('[data-gms-recipients]');box.hidden=!box.hidden;
-    if(!box.hidden)box.innerHTML='<span>'+t('Кому выдать','Кому надати')+'</span><button type="button" data-gms-send="all">'+t('Всем на столе','Усім на столі')+'</button>'+targets().map(function(target){return '<button type="button" data-gms-send="'+esc(target.key)+'"'+(!target.ready?' disabled':'')+'>'+esc(target.name)+'</button>';}).join('');
-  }
   function init(){
     var table=document.querySelector('#page-gm-table .zg-irl-table');if(!table)return;
     launcher=document.createElement('button');launcher.type='button';launcher.className='gms-launcher';launcher.setAttribute('aria-controls','gms-library');launcher.setAttribute('aria-expanded','false');launcher.setAttribute('data-zg-i18n-skip','');table.appendChild(launcher);
@@ -146,53 +153,63 @@
     resultBox=document.createElement('section');resultBox.className='gms-result';resultBox.hidden=true;resultBox.setAttribute('role','status');resultBox.setAttribute('aria-live','polite');resultBox.setAttribute('data-zg-i18n-skip','');panel.appendChild(resultBox);
     function localize(){
       cancel();launcher.textContent=t('Хранилище','Сховище');
-      panel.innerHTML='<header><h2 id="gms-title">'+t('Хранилище','Сховище')+'</h2><button type="button" data-gms-close aria-label="'+t('Закрыть хранилище','Закрити сховище')+'">×</button></header><div class="gms-controls"><b>'+t('Статусы','Стани')+'</b><input type="search" autocomplete="off" placeholder="'+t('Найти статус…','Знайти стан…')+'" aria-label="'+t('Поиск статусов','Пошук станів')+'"><nav aria-label="'+t('Каталог статусов','Каталог станів')+'"><button type="button" data-gms-tab="favorites">'+t('Избранное','Обране')+'</button><button type="button" data-gms-tab="all">'+t('Все статусы','Усі стани')+'</button></nav></div><div class="gms-list" data-gms-list></div><div class="gms-detail" data-gms-detail hidden><strong></strong><p></p><button type="button" data-gms-choose>'+t('Выдать…','Надати…')+'</button><div data-gms-recipients hidden></div></div><footer><label>'+t('Длительность','Тривалість')+'<select data-gms-unit><option value="default">'+t('По правилу статуса','За правилом стану')+'</option><option value="rounds">'+t('Раунды','Раунди')+'</option><option value="minutes">'+t('Минуты','Хвилини')+'</option><option value="hours">'+t('Часы','Години')+'</option><option value="days">'+t('Дни','Дні')+'</option><option value="manual">'+t('До снятия','До зняття')+'</option></select></label><input type="number" data-gms-duration min="1" max="999" value="3" hidden aria-label="'+t('Количество','Кількість')+'"></footer>';
+      panel.innerHTML='<header><h2 id="gms-title">'+t('Хранилище','Сховище')+'</h2><button type="button" data-gms-close aria-label="'+t('Закрыть хранилище','Закрити сховище')+'">×</button></header><div class="gms-controls"><nav class="gms-kinds"><button type="button" data-gms-kind="statuses" aria-pressed="'+(kind==='statuses')+'">'+t('Статусы','Стани')+'</button><button type="button" data-gms-kind="items" aria-pressed="'+(kind==='items')+'">'+t('Предметы','Предмети')+'</button></nav><input type="search" autocomplete="off" placeholder="'+(kind==='items'?t('Найти предмет…','Знайти предмет…'):t('Найти статус…','Знайти стан…'))+'" aria-label="'+t('Поиск в хранилище','Пошук у сховищі')+'">'+filterMarkup()+'</div><div class="gms-list" data-gms-list></div><div class="gms-detail" data-gms-detail hidden><strong></strong><p></p></div><footer><label>'+t('Длительность','Тривалість')+'<select data-gms-unit><option value="default">'+t('По правилу статуса','За правилом стану')+'</option><option value="rounds">'+t('Раунды','Раунди')+'</option><option value="minutes">'+t('Минуты','Хвилини')+'</option><option value="hours">'+t('Часы','Години')+'</option><option value="days">'+t('Дни','Дні')+'</option><option value="manual">'+t('До снятия','До зняття')+'</option></select></label><input type="number" data-gms-duration min="1" max="999" value="3" hidden aria-label="'+t('Количество','Кількість')+'"></footer>';
+      if(kind==='items')panel.querySelector('footer').innerHTML='<label>'+t('Количество каждому','Кількість кожному')+'<input type="number" data-gms-qty min="1" max="999" value="1"></label>';
       panel.appendChild(resultBox);
       allTarget.innerHTML='<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="9" r="4"/><path d="M9 26v-4a7 7 0 0 1 14 0v4M6 9a3 3 0 1 0 0 6m20-6a3 3 0 1 1 0 6M2 26v-4a5 5 0 0 1 5-5m23 9v-4a5 5 0 0 0-5-5"/></svg><b>'+t('Всем','Усім')+'</b><small></small>';
       allTarget.title=t('Всем персонажам на этом столе','Усім персонажам на цьому столі');paintList();selected();
     }
     localize();launcher.addEventListener('click',function(){if(panel.hidden)open();else close();});
     panel.addEventListener('input',function(e){if(e.target.type==='search')paintList();});
-    panel.addEventListener('change',function(e){if(e.target.matches('[data-gms-unit]'))panel.querySelector('[data-gms-duration]').hidden=['default','manual'].includes(e.target.value);});
+    panel.addEventListener('change',function(e){if(e.target.matches('[data-gms-category]')){category=e.target.value;activeKey='';selected();paintList();}if(e.target.matches('[data-gms-unit]'))panel.querySelector('[data-gms-duration]').hidden=['default','manual'].includes(e.target.value);});
     panel.addEventListener('click',function(e){
       var button=e.target.closest('button');if(!button)return;
       if(button.hasAttribute('data-gms-close')){close();launcher.focus();}
-      else if(button.dataset.gmsTab){tab=button.dataset.gmsTab;paintList();}
+      else if(button.dataset.gmsKind&&!busy){kind=button.dataset.gmsKind;activeKey='';tab=kind==='items'?'all':'favorites';localize();}
+      else if(button.hasAttribute('data-gms-favorites')){tab=tab==='favorites'?'all':'favorites';paintList();}
       else if(button.dataset.gmsStar){var fav=favorites(),key=button.dataset.gmsStar;try{localStorage.setItem(favoriteKey(),JSON.stringify(fav.includes(key)?fav.filter(function(k){return k!==key;}):fav.concat(key)));}catch(_){}paintList();}
       else if(button.dataset.gmsDrag){activeKey=button.dataset.gmsDrag;selected();paintList();}
-      else if(button.hasAttribute('data-gms-choose'))chooseRecipients();
-      else if(button.dataset.gmsSend){var def=definition(activeKey),opts=def&&optionsFor(def);if(!opts){panel.querySelector('[data-gms-duration]').reportValidity();return;}panel.querySelector('[data-gms-recipients]').hidden=true;deliver(def,button.dataset.gmsSend==='all'?targets():targets().filter(function(r){return r.key===button.dataset.gmsSend;}),opts);}
     });
     panel.addEventListener('pointerdown',function(e){
       var button=e.target.closest('[data-gms-drag]');if(!button||e.button!==0||busy)return;
-      var def=definition(button.dataset.gmsDrag),opts=def&&optionsFor(def);if(!opts){panel.querySelector('[data-gms-duration]').reportValidity();return;}
+      var def=definition(button.dataset.gmsDrag),opts=def&&optionsFor(def);if(!opts){panel.querySelector(kind==='items'?'[data-gms-qty]':'[data-gms-duration]').reportValidity();return;}
       drag={id:e.pointerId,x:e.clientX,y:e.clientY,def:def,options:opts,targets:targets(),started:false};button.setPointerCapture(e.pointerId);
     });
     document.addEventListener('pointermove',function(e){
       if(!drag||drag.id!==e.pointerId)return;
       if(!drag.started&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<7)return;
-      if(!drag.started){drag.started=true;document.body.classList.add('gms-dragging');allTarget.hidden=!drag.targets.length;refreshTargets();ghost=document.createElement('div');ghost.className='gms-ghost';ghost.innerHTML=glyph(drag.def)+'<span>'+esc(label(drag.def))+'</span>';document.body.appendChild(ghost);}
-      e.preventDefault();ghost.style.left=(e.clientX+16)+'px';ghost.style.top=(e.clientY-30)+'px';clearHover();var dest=destination(e.clientX,e.clientY);dest?.node.classList.add('gms-drop-hover');
+      if(!drag.started){drag.started=true;document.body.classList.add('gms-dragging');allTarget.hidden=!drag.targets.length;refreshTargets();if(!drag.hooks){ghost=document.createElement('div');ghost.className='gms-ghost';ghost.innerHTML=glyph(drag.def)+'<span>'+esc(label(drag.def))+'</span>';document.body.appendChild(ghost);}}
+      if(drag.hooks)drag.hooks.move(e.clientX,e.clientY);
+      e.preventDefault();if(ghost){ghost.style.left=(e.clientX+16)+'px';ghost.style.top=(e.clientY-30)+'px';}clearHover();var dest=destination(e.clientX,e.clientY);dest?.node.classList.add('gms-drop-hover');
     },{passive:false});
     document.addEventListener('pointerup',function(e){
       if(!drag||drag.id!==e.pointerId)return;
       if(!drag.started){cancel();return;}
-      var dest=destination(e.clientX,e.clientY),def=drag.def,opts=drag.options;suppressUntil=Date.now()+400;cancel();
-      if(dest)deliver(def,dest.targets,opts);
+      var dest=destination(e.clientX,e.clientY),def=drag.def,opts=drag.options,prepared=drag.prepared,bundle=drag.bundle;drag.hooks?.drop(e.clientX,e.clientY,!!dest);suppressUntil=Date.now()+400;cancel();
+      if(dest)deliver(def,dest.targets,opts,bundle);
+      else if(!prepared)w.ZargotaTableObjects?.place(def,opts,e.clientX,e.clientY);
     });
-    document.addEventListener('click',function(e){if(Date.now()<suppressUntil&&e.target.closest('[data-gms-drag],#zg-irl-character-dock,[data-gms-all]')){suppressUntil=0;e.preventDefault();e.stopImmediatePropagation();}},true);
+    document.addEventListener('click',function(e){if(Date.now()<suppressUntil&&e.target.closest('[data-gms-drag],[data-table-object],#zg-irl-character-dock,[data-gms-all]')){suppressUntil=0;e.preventDefault();e.stopImmediatePropagation();}},true);
     document.addEventListener('pointercancel',cancel);w.addEventListener('blur',cancel);
     document.addEventListener('visibilitychange',function(){if(document.hidden)cancel();});
     document.addEventListener('keydown',function(e){if(e.key==='Escape'&&(drag||!panel.hidden)){e.preventDefault();e.stopPropagation();if(drag)cancel();else{close();launcher.focus();}}},true);
     resultBox.addEventListener('click',function(e){if(e.target.closest('[data-gms-undo]'))undo();if(e.target.closest('[data-gms-result-close]'))resultBox.hidden=true;});
-    document.addEventListener('zargota:localechange',function(){localize();resultBox.hidden=true;});
+    document.addEventListener('zargota:localechange',function(){var query=panel.querySelector('input[type=search]').value,qty=panel.querySelector('[data-gms-qty]')?.value,unit=panel.querySelector('[data-gms-unit]')?.value,duration=panel.querySelector('[data-gms-duration]')?.value;localize();panel.querySelector('input[type=search]').value=query;if(qty)panel.querySelector('[data-gms-qty]').value=qty;if(unit){panel.querySelector('[data-gms-unit]').value=unit;panel.querySelector('[data-gms-duration]').value=duration;panel.querySelector('[data-gms-duration]').hidden=['default','manual'].includes(unit);}paintList();resultBox.hidden=true;});
     w.addEventListener('zargota:persistent-auth-change',function(){authEpoch++;close();receipts=[];resultBox.hidden=true;});
     new MutationObserver(function(){if(!document.body.classList.contains('zg-irl-table-view'))close();}).observe(document.body,{attributes:true,attributeFilter:['class']});
     if(w.ZG_APP_CHANGELOG?.[0]){
+      w.ZG_APP_CHANGELOG[0].notes+=' Монеты со стола зачисляются в кошелёк. Принятие выдачи сопровождается звуком монет или предмета. Правый клик по предмету позволяет удалить выбранное количество, а старые стопки монет — перенести в кошелёк. Исправлено пустое название при отсутствии перевода.';
+      w.ZG_APP_CHANGELOG[0].notes+=' В хранилище убраны кнопка выдачи и список получателей: предметы и статусы выдаются перетаскиванием, нажатие показывает описание.';
+      w.ZG_APP_CHANGELOG[0].notes+=' Фильтры хранилища упрощены: категории предметов и компактная звезда избранного вместо второго ряда вкладок. Подписи следуют общему языку сайта.';
+      w.ZG_APP_CHANGELOG[0].notes+=' В хранилище добавлены предметы из общего каталога: выдача перетаскиванием одному или всем, с количеством каждому. Полученные предметы показываются в листе игрока на весь экран, со стрелками и кнопкой «Принять»; непросмотренные выдачи сохраняются до следующего входа.';
       w.ZG_APP_CHANGELOG[0].notes+=' На столе мастера добавлено хранилище статусов с поиском, избранным и длительностью. Статус можно перетащить на героя или на временную зону «Всем» слева; сохранение подтверждается для каждого листа, успешная выдача проходит без всплывающего отчёта. Игрок видит сверху значок полученного состояния, название и длительность; правый клик по состоянию в листе открывает «Убрать». На столе отключено меню браузера, в мобильных листах — случайное выделение; поля ввода сохраняют выделение и вставку. Обновления содержимого доступны через восклицательный знак на характеристиках; большой баннер и уведомления о HP убраны. На телефоне после перезапуска восстанавливаются последний лист и вкладка, если версия сайта не изменилась.';
+      w.ZG_APP_CHANGELOG[0].notesUk+=' Монети зі столу зараховуються до гаманця. Прийняття надходження супроводжується звуком монет або предмета. Правий клік по предмету дозволяє видалити вибрану кількість, а старі стоси монет — перенести до гаманця. Виправлено порожню назву за відсутності перекладу.';
+      w.ZG_APP_CHANGELOG[0].notesUk+=' У сховищі прибрано кнопку надання та список одержувачів: предмети й стани надаються перетягуванням, натискання показує опис.';
+      w.ZG_APP_CHANGELOG[0].notesUk+=' Фільтри сховища спрощено: категорії предметів і компактна зірка обраного замість другого ряду вкладок. Підписи відповідають загальній мові сайту.';
+      w.ZG_APP_CHANGELOG[0].notesUk+=' У сховищі додано предмети зі спільного каталогу: надання перетягуванням одному або всім, із кількістю кожному. Отримані предмети показуються в аркуші гравця на весь екран, зі стрілками та кнопкою «Прийняти»; непереглянуті надходження зберігаються до наступного входу.';
       w.ZG_APP_CHANGELOG[0].notesUk+=' На столі майстра додано сховище станів із пошуком, обраним і тривалістю. Стан можна перетягнути на героя або на тимчасову зону «Усім» ліворуч; збереження підтверджується для кожного аркуша, успішне надання відбувається без спливного звіту. Гравець бачить угорі значок отриманого стану, назву й тривалість; правий клік по стану в аркуші відкриває «Прибрати». На столі вимкнено меню браузера, у мобільних аркушах — випадкове виділення; поля введення зберігають виділення та вставлення. Оновлення вмісту доступні через знак оклику на характеристиках; великий банер і сповіщення про HP прибрано. На телефоні після перезапуску відновлюються останній аркуш і вкладка, якщо версія сайту не змінилася.';
     }
   }
-  w.ZargotaGmStatusLibrary={open:open,close:close,refreshTargets:refreshTargets,isActive:function(){return !!drag||!!panel&&!panel.hidden;}};
+  w.ZargotaGmStatusLibrary={lookup:function(section,key){return catalog(section).find(function(s){return s.key===key;});},label:label,glyph:glyph,description:description,beginPrepared:function(event,section,key,options,hooks,bundle){if(busy)return;var def=catalog(section).find(function(s){return s.key===key;});if(!def)return;var operations=(bundle||[{kind:section,key:key,options:options}]).map(function(entry){return {def:catalog(entry.kind).find(function(d){return d.key===entry.key;}),options:JSON.parse(JSON.stringify(entry.options))};});if(operations.some(function(entry){return !entry.def;})){w.showToast?.(t('Часть выбранных карточек больше недоступна в каталоге.','Частина вибраних карток більше недоступна в каталозі.'));return;}drag={id:event.pointerId,x:event.clientX,y:event.clientY,def:def,options:JSON.parse(JSON.stringify(options)),targets:targets(),started:false,prepared:true,hooks:hooks,bundle:operations};event.target.closest('[data-table-object]').setPointerCapture(event.pointerId);},cancelDrag:cancel,open:open,close:close,refreshTargets:refreshTargets,isActive:function(){return !!drag||!!panel&&!panel.hidden;}};
   if(document.readyState==='complete')init();else document.addEventListener('DOMContentLoaded',init,{once:true});
 })(window);

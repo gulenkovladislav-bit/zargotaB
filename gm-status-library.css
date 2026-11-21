@@ -24,14 +24,10 @@
 .gms-icon:before{width:100%;height:100%}
 .gms-empty{grid-column:1/-1;text-align:center;color:#ac9875;font-size:14px}
 .gms-detail{flex:0 1 auto;min-height:0;padding:10px 18px;border-top:1px solid #594425;max-height:32%;overflow:auto;font-size:13px;scrollbar-width:thin}
-.gms-detail{display:grid;grid-template-columns:1fr auto;align-items:start;gap:6px 8px}
+.gms-detail{display:block}
 .gms-detail>strong{grid-column:1;grid-row:1}
-.gms-detail>[data-gms-choose]{grid-column:2;grid-row:1}
 .gms-detail>p{grid-column:1/-1;grid-row:2}
-.gms-detail>[data-gms-recipients]{grid-column:1/-1}
 .gms-detail p{margin:6px 0 8px;color:#bba987}
-.gms-detail [data-gms-recipients]{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.gms-detail [data-gms-recipients]>span{width:100%}
 .gms-library footer{display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:10px 18px 14px;border-top:1px solid #594425;background:#161007;flex-shrink:0}
 .gms-library footer label{flex:1;min-width:0;font-size:12px;color:#c4af83}
 .gms-library footer select{margin-top:4px}
@@ -56,3 +52,10 @@ body.gms-dragging #page-gm-table .zg-irl-character-dock{padding-left:100px;trans
 @media(max-height:800px){.gms-library header{padding:10px 18px}.gms-controls{padding-top:8px}.gms-controls nav{margin-top:5px}.gms-list{padding-top:10px;padding-bottom:10px}.gms-tile{min-height:94px}.gms-tile [data-gms-drag]{height:92px}.gms-library .gms-icon{width:44px!important;height:44px!important}.gms-library footer{padding-top:8px;padding-bottom:8px}.gms-detail{max-height:110px}}
 
 .gms-library>.gms-result{position:static;flex:0 0 auto;width:auto;max-width:none;max-height:90px;margin:0;border:0;border-top:1px solid #715831;border-radius:0;box-shadow:none;font-size:12px;color:#e1a58f}
+.gms-item-art{object-fit:contain;filter:drop-shadow(0 3px 8px #0008)}
+.gms-controls .gms-kinds{margin:0 0 10px}
+.gms-library footer [data-gms-qty]{display:block;width:100%;margin-top:5px}
+.gms-filters{display:flex;align-items:center;gap:8px;margin-top:10px}
+.gms-filters select{flex:1;min-width:0}
+.gms-filters [data-gms-favorites]{flex:0 0 38px;min-height:36px;padding:2px;font-size:22px;color:#9c8964;background:transparent}
+.gms-filters [data-gms-favorites][aria-pressed=true]{color:#f0ce77;border-color:#d4aa58;background:#3a2b13}

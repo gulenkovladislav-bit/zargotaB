@@ -1,0 +1,48 @@
+.gmt-objects{position:absolute;inset:72px 20px calc(var(--gm-dock-height) + 16px);pointer-events:none;z-index:45}
+.gmt-object{position:absolute;pointer-events:auto;box-sizing:border-box;border:1px solid #ac8b4c;border-radius:8px;background:#171107;box-shadow:0 5px 18px #0006;color:#ecd8a6}
+.gmt-face{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;height:100%;padding:8px 7px 14px;border:0;background:none;color:inherit;font:13px/1.15 Georgia,serif;cursor:grab;touch-action:none}
+.gmt-face>.gms-icon{width:60%!important;height:55%!important;min-height:0;object-fit:contain}
+.gmt-face strong{font-weight:500;font-size:clamp(10px,1vw,14px);max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.gmt-face small{color:#c8af77;font-size:11px}
+.gmt-resize{position:absolute;right:0;bottom:0;width:25px;height:25px;padding:0;border:0;background:transparent;color:#b08a47;cursor:nwse-resize;touch-action:none;font-size:20px;opacity:.5}
+.gmt-object:hover .gmt-resize,.gmt-resize:focus-visible{opacity:1;color:#ffe09a}
+.gmt-popup{position:absolute;z-index:78;width:280px;max-width:calc(100% - 16px);max-height:60%;overflow:auto;box-sizing:border-box;padding:16px;border:1px solid #987540;border-radius:12px;background:#1d150afc;color:#e8d4a5;font:15px/1.4 Georgia,serif;box-shadow:0 10px 30px #0008}
+.gmt-popup strong{display:block;padding-right:25px}.gmt-popup p{color:#bfad88;font-size:14px;white-space:pre-line}.gmt-popup label{display:block;font-size:13px}
+.gmt-popup button,.gmt-popup input{min-height:36px;border:1px solid #856534;border-radius:7px;background:#110d07;color:inherit;padding:6px 10px;font:inherit}
+.gmt-popup input{width:100%;box-sizing:border-box;margin-top:6px}
+.gmt-popup .gmt-dismiss{position:absolute;right:6px;top:6px;border:0;background:none;font-size:22px}
+.gmt-popup button{cursor:pointer}.gmt-face:focus-visible,.gmt-resize:focus-visible{outline:2px solid #f0ce78;border-radius:10px}
+
+/* Keep the face inside the single outer frame, including inherited button styles. */
+.gmt-object .gmt-face{box-sizing:border-box;min-width:0;min-height:0;margin:0;border:0;border-radius:11px;box-shadow:none;outline-offset:-3px}
+.gmt-object .gmt-resize{box-sizing:border-box;min-width:0;min-height:0;margin:0;border:0;border-radius:0 0 10px 0;box-shadow:none;font-size:0}
+.gmt-resize::after{content:"";position:absolute;right:5px;bottom:5px;width:12px;height:12px;background:repeating-linear-gradient(135deg,transparent 0 3px,currentColor 3px 4px,transparent 4px 7px);clip-path:polygon(100% 0,100% 100%,0 100%)}
+.gmt-popup h3{margin:12px 0 4px;font-size:14px;color:#e8d4a5}
+.gmt-popup section p{margin:0 0 12px}
+.gmt-context{padding:5px;width:230px}
+.gmt-context button{box-sizing:border-box;width:100%;border:0;background:transparent;text-align:left}
+.gmt-context button:hover{background:#b98a3025}
+
+.gmt-popup:not(.gmt-context){width:340px;max-height:calc(100% - var(--gm-dock-height) - 90px);scrollbar-width:thin;scrollbar-color:#765b31 transparent}
+.gmt-detail-art{display:flex;align-items:center;justify-content:center;height:155px;margin:-6px 0 12px;background:radial-gradient(ellipse,#72552a25,transparent 70%);overflow:hidden}
+.gmt-detail-art>.gms-icon{width:auto!important;height:auto!important;max-width:100%;max-height:100%;object-fit:contain;font-size:75px;-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent),linear-gradient(0deg,transparent,#000 18%,#000 82%,transparent);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent),linear-gradient(0deg,transparent,#000 18%,#000 82%,transparent);mask-composite:intersect}
+.gmt-popup .gmt-detail-kind{margin:3px 0 12px;color:#b9a47d;font-size:12px}
+.gmt-detail-stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.gmt-detail-stats>span{padding:5px 8px;border:1px solid #80633c88;border-radius:6px;background:#0c090655;color:#e2d3b5;font-size:14px}
+.gmt-popup .zgms-number,.gmt-popup .zgms-rule-key{font-weight:600;color:#e5bf70}
+.gmt-popup .zgms-param{font-weight:600;color:var(--stat-color,#e5bf70)}
+.gmt-popup>section{border-top:1px solid #80633c55;margin-top:10px}
+
+/* Prepared cards retain the horizontal silhouette of the dragged preview. */
+.gmt-object .gmt-face{flex-direction:row;justify-content:flex-start;gap:10px;padding:7px 18px 7px 8px;border-radius:7px}
+.gmt-face>.gms-icon{flex:0 0 auto;width:auto!important;height:100%!important;max-width:32%;aspect-ratio:1;object-fit:contain}
+.gmt-copy{flex:1;min-width:0;text-align:left;display:flex;flex-direction:column;gap:4px}
+.gmt-face .gmt-copy strong{font-size:var(--gmt-label-size,14px);font-weight:600;line-height:1.2;color:#f4dfad;-webkit-line-clamp:3;overflow-wrap:anywhere}
+.gmt-face .gmt-copy small{font-size:12px;color:#bfa876}
+
+.gmt-objects.is-dragging{z-index:200001;overflow:visible}
+.gmt-object.is-dragging{z-index:1}
+.gmt-object.is-dragging .gmt-face{outline:none;cursor:grabbing}
+
+.gmt-object.is-selected{border-color:#f0d17a;box-shadow:0 0 0 2px #d4af5555,0 5px 18px #0006}
+.gmt-marquee{position:absolute;pointer-events:none;z-index:2;box-sizing:border-box;border:1px solid #f0d17a;background:#dbb85b20;border-radius:3px}

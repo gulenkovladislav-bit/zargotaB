@@ -39,6 +39,8 @@ async function fixture(uid = 'gm', accountRole = 'admin', sheetRole = 'master') 
     ZargotaPersistentTransport: {start: async () => api},
     ZargotaPersistentCore: core,
     ZargotaCharacterStatus: require('../character-status-operations'),
+    ZargotaItemGrants: require('../character-item-grants'),
+    ZargotaItemEconomy: require('../item-economy'),
     zgGmStatusCatalog: () => [{key:'bleed',label:'Кровотечение',icon:'✦',color:'#c02020'},{key:'fear',label:'Страх',icon:'✦',color:'#9060c0'}],
     ZargotaPersistentCache: {read: async () => undefined, write: async () => {}},
     ZargotaCharacterStore: {saveCharacter: async () => ({ok: true})}
@@ -52,7 +54,7 @@ async function fixture(uid = 'gm', accountRole = 'admin', sheetRole = 'master') 
   await deliver();
   presence({gm: {laptop: {online: true}}, player: {phone: {online: true}}});
   return {
-    window, navigator, table, writes, toasts, presence, deliver, server: () => sheet,
+    window, navigator, table, writes, toasts, presence, deliver, api, server: () => sheet,
     playerEdits(patch) {
       const prior = JSON.parse(sheet.state.characterJson);
       sheet = domain.commit(sheet, 'player', {
@@ -142,4 +144,26 @@ test('offline master and non-owner cannot send statuses; offline player can rece
   for(const identity of [['player','player','player'],['other','admin','master']]){
     const blocked=await fixture(...identity);assert.equal((await blocked.table.tableStatus(hero.id,'fear',{unit:'rounds',duration:2})).ok,false);assert.equal(blocked.writes.length,0);
   }
+});
+
+const itemDefinition={id:'test-potion',name:'Potion',desc:'Test only',stackable:true};
+test('table items commit inventory and receipt together; lost acknowledgement reads back without retry',async()=>{
+ const f=await fixture();const call=f.api.call;f.api.call=async req=>{await call(req);throw Error('lost-response');};
+ f.window.characters[0].notes='unsaved draft';
+ const result=await f.table.tableItem(hero.id,itemDefinition,2,'test-grant');
+ assert.equal(result.ok,true);assert.equal(f.writes.length,1);
+ const c=JSON.parse(f.server().state.characterJson);
+ assert.equal(c.inventoryItems[0].qty,2);assert.equal(c.gmItemGrants[0].id,'test-grant');assert.equal(c.notes,'original');
+});
+test('item conflict preserves phone edits, never appends an unconfirmed receipt',async()=>{
+ const f=await fixture();f.playerEdits({inventoryItems:[{name:'From phone',qty:1}]});
+ const result=await f.table.tableItem(hero.id,itemDefinition,1,'test-conflict');
+ assert.equal(result.ok,false);assert.equal(result.reason,'conflict');assert.equal(f.writes.length,1);
+ const c=JSON.parse(f.server().state.characterJson);assert.equal(c.inventoryItems.length,1);assert.equal(c.gmItemGrants,undefined);
+});
+test('player cannot grant items and disconnected master cannot write',async()=>{
+ const player=await fixture('player','player','player');
+ assert.equal((await player.table.tableItem(hero.id,itemDefinition,1,'unauthorized')).ok,false);assert.equal(player.writes.length,0);
+ const gm=await fixture();gm.presence({});
+ assert.equal((await gm.table.tableItem(hero.id,itemDefinition,1,'offline')).ok,false);assert.equal(gm.writes.length,0);
 });

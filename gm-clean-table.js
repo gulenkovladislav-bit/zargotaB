@@ -146,6 +146,17 @@
       return {ok:false,reason:'local-save-failed'};
     }finally{statusWrites.delete(String(c.id));refresh();}
   }
+  async function itemWrite(target,definition,qty,grantId){
+    var row=roster.find(function(r){return r.key===target.key;}),c=row&&hero(row);
+    if(!c||String(c.id)!==String(target.id)||statusWrites.has(String(c.id)))return {ok:false,reason:'not-ready'};
+    if(row.shared||w.ZargotaPersistentCharacters?.usesCharacter(c.id))return w.ZargotaPersistentCharacters.tableItem(c.id,definition,qty,grantId);
+    var before=JSON.parse(JSON.stringify(c)),result=w.ZargotaItemGrants.apply(c,definition,qty,grantId,w.ZargotaItemEconomy?.definitionToInventorySnapshot);
+    if(!result.changed)return Object.assign({ok:result.reason==='already-granted'},result);
+    statusWrites.add(String(c.id));
+    try{var saved=await w.saveChars({reason:'gm-table-item'});if(!saved?.ok)throw Error();return Object.assign({ok:true},result);}
+    catch(_){['inventoryItems','coins','gmItemGrants','gmItemAccepted'].forEach(function(k){if(before[k]===undefined)delete c[k];else c[k]=before[k];});return {ok:false,reason:'local-save-failed'};}
+    finally{statusWrites.delete(String(c.id));refresh();}
+  }
   function init(){
     if(w.ZG_APP_CHANGELOG&&w.ZG_APP_CHANGELOG[0]){w.ZG_APP_CHANGELOG[0].notes+=' Стол мастера: спокойный картографический фон, широкие карточки героев и открытие существующего мобильного листа поверх доски. Лист встроен как компонент текущей страницы без повторной загрузки сайта. На столе оставлены имена и панель героев; убраны старые инструменты, случайное выделение и перетаскивание изображений. Сохранённые имена доступны внутри генератора. Кнопка ＋ позволяет выбрать аккаунты игроков для стола; используются их существующие синхронизируемые листы. При пяти героях плюс скрыт; меню правой кнопки показывает связь и позволяет убрать карточку со стола.';w.ZG_APP_CHANGELOG[0].notesUk+=' Стіл майстра: спокійне картографічне тло, широкі картки героїв і відкриття наявного мобільного аркуша поверх дошки. Аркуш вбудовано як компонент поточної сторінки без повторного завантаження сайту. На столі залишено імена й панель героїв; прибрано старі інструменти, випадкове виділення та перетягування зображень. Збережені імена доступні всередині генератора. Кнопка ＋ дозволяє вибрати акаунти гравців для столу; використовуються їхні наявні синхронізовані аркуші. За п’яти героїв плюс приховано; меню правої кнопки показує зв’язок і дозволяє прибрати картку зі столу.';}
     var rail=document.querySelector('.zg-irl-tool-rail'),table=document.querySelector('.zg-irl-table');if(!rail||!table)return;
@@ -196,6 +207,6 @@
   // Legacy sheet dialogs also stay in the same component. Never adopt unrelated
   // editor/game overlays; only these character-owned roots are eligible.
   new MutationObserver(function(records){if(!isOpen())return;records.forEach(function(record){record.addedNodes.forEach(function(node){if(node.nodeType===1&&node.matches('#status-popup,#quick-temp-popup,#status-info-popup,#char-sheet-tab-bar'))host.appendChild(node);});});}).observe(document.body,{childList:true});
-  w.ZargotaGmTable={render:render,refresh:refresh,isEditing:isEditing,isOpen:isOpen,portal:portal,presentDialog:presentDialog,unmount:unmountSheet,targets:targets,status:function(target,key,options){return statusWrite(target,key,options);},undoStatus:function(target,receipt){return statusWrite(target,receipt.key,null,receipt);}};
+  w.ZargotaGmTable={item:itemWrite,render:render,refresh:refresh,isEditing:isEditing,isOpen:isOpen,portal:portal,presentDialog:presentDialog,unmount:unmountSheet,targets:targets,status:function(target,key,options){return statusWrite(target,key,options);},undoStatus:function(target,receipt){return statusWrite(target,receipt.key,null,receipt);}};
   if(document.readyState==='complete')init();else document.addEventListener('DOMContentLoaded',init,{once:true});
 })(window);
