@@ -38,3 +38,13 @@ assert.ok(N.contentChanges(before,after).some(r=>r.field==='inventoryItems'));
 assert.ok(!N.contentChanges(before,after).some(r=>r.field==='hpCur'||r.field.startsWith('stats.')));
 assert.deepEqual(N.contentChanges(state,{...state,tempEffects:[{...bleed,remaining:2}]}),[],'countdown does not light content indicator');
 assert.ok(N.contentChanges({}, {family:[{id:1,name:'Friend'}]}).some(r=>r.field==='family'));
+
+{
+ const updates=require('../character-update-notices');
+ const before={inspiration:1,injuries:[]},after={inspiration:3,injuries:[{id:'trauma-one',name:'Test injury',iconPath:'images/vtt-injuries/broken-arm.png'}]};
+ const grants=updates.statusGrants(before,after);
+ assert.equal(grants.find(g=>g.statusKey==='inspiration').stacks,2);
+ assert.equal(grants.filter(g=>g.statusKey==='injury').length,1);
+ assert.equal(updates.statusGrants(after,after).length,0);
+ assert.equal(updates.statusGrants(after,before).length,0);
+}

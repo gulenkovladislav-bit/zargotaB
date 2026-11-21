@@ -105,10 +105,17 @@
  function equipmentAction(row){return row.equipped||row.armory||row.field==='equipItems'||!!(w.ZargotaItemDetailContent&&w.ZargotaItemDetailContent.canEquip(displayRow(row).item));}
  function useAction(row){return row.field==='inventoryItems'&&w.ZargotaItemDetailContent&&w.ZargotaItemDetailContent.useMode(displayRow(row).item)==='unit';}
  function quantityButton(row){return button('quantity',t('Изменить количество','Змінити кількість'),'<span>'+(row.equipped?t('Количество','Кількість'):t('В сумке','У сумці'))+'</span><b>× '+Math.max(1,parseInt(row.item.qty,10)||1)+'</b>','class="zgmi-quantity-link"');}
+ function rarityInfo(item){
+  var key=String(item.rarity||'common').toLowerCase();key=({legendary:'legend','very-rare':'epic',very_rare:'epic'})[key]||key;
+  var definitions={common:['Простое','Просте','#8a7a5e'],uncommon:['Добротное','Добротне','#6fcb83'],rare:['Редкое','Рідкісне','#7a9ae0'],epic:['Реликтовое','Реліктове','#a07fd4'],legend:['Легендарное','Легендарне','#e8c060']};
+  if(!definitions[key])key='common';var entry=definitions[key],shop=w.SHOP_RARITY?.find(function(r){return r.key===key;}),color=shop?.color||entry[2];
+  if(!/^#[0-9a-f]{6}$/i.test(color))color=entry[2];
+  return {key:key,label:t(entry[0],entry[1]),rgb:[1,3,5].map(function(i){return parseInt(color.slice(i,i+2),16);}).join(',')};
+ }
  function itemPage(c,row,inlineQuantity){
-  var view=displayRow(row),item=view.item,description=label(c,view,item.description||''),effect=label(c,view,item.effectText||''),stats=itemStats(c,view),type=kind(view);
+  var view=displayRow(row),item=view.item,description=label(c,view,item.description||''),effect=label(c,view,item.effectText||''),stats=itemStats(c,view),type=kind(view),rarity=rarityInfo(item);
   if(item.handsRequired>0)type+=' · '+(item.handsRequired===1?t('1 рука','1 рука'):t('2 руки','2 руки'));
-  return '<div class="zgmi-detail-scroll zgmi-detail-page">'+detailArt(c,view)+'<div class="zgmi-detail-heading"><h2>'+e(name(c,view))+'</h2><div class="zgmi-detail-meta"><div class="zgmi-detail-kind">'+e(type)+(row.equipped?' <span class="zgmi-equipped">· '+t('Экипировано','Споряджено')+'</span>':'')+'</div>'+(inlineQuantity?quantityButton(row):'')+'</div></div>'+(stats.length?'<div class="zgmi-item-stats">'+stats.map(function(text){return '<span>'+rich(text)+'</span>';}).join('')+'</div>':'')+(effect?'<section class="zgmi-item-section"><h3>'+t('Свойства','Властивості')+'</h3><div class="zgmi-item-effect">'+ruleText(effect)+'</div></section>':'')+(description&&description!==effect?'<section class="zgmi-item-section zgmi-description-section"><h3>'+t('Описание','Опис')+'</h3><div class="zgmi-description">'+ruleText(description)+'</div></section>':'')+(!description&&!effect?'<p class="zgmi-description zgmi-empty-description">'+t('Описание пока не добавлено.','Опис ще не додано.')+'</p>':'')+'</div>';
+  return '<div class="zgmi-detail-scroll zgmi-detail-page" data-rarity="'+e(rarity.key)+'" style="--zgmi-rarity:'+rarity.rgb+'">'+detailArt(c,view)+'<div class="zgmi-detail-heading"><span class="zgmi-rarity">'+e(rarity.label)+'</span><h2>'+e(name(c,view))+'</h2><div class="zgmi-detail-meta"><div class="zgmi-detail-kind">'+e(type)+(row.equipped?' <span class="zgmi-equipped">· '+t('Экипировано','Споряджено')+'</span>':'')+'</div>'+(inlineQuantity?quantityButton(row):'')+'</div></div>'+(stats.length?'<div class="zgmi-item-stats">'+stats.map(function(text){return '<span>'+rich(text)+'</span>';}).join('')+'</div>':'')+(effect?'<section class="zgmi-item-section"><h3>'+t('Свойства','Властивості')+'</h3><div class="zgmi-item-effect">'+ruleText(effect)+'</div></section>':'')+(description&&description!==effect?'<section class="zgmi-item-section zgmi-description-section"><h3>'+t('Описание','Опис')+'</h3><div class="zgmi-description">'+ruleText(description)+'</div></section>':'')+(!description&&!effect?'<p class="zgmi-description zgmi-empty-description">'+t('Описание пока не добавлено.','Опис ще не додано.')+'</p>':'')+'</div>';
  }
  function detailHTML(c,row){
   var equipLabel=row.equipped?t('Снять','Зняти'):t('Экипировать','Спорядити');
@@ -271,5 +278,6 @@
  function resizeInventory(){refresh();}
  w.addEventListener('resize',resizeInventory);
  if(w.visualViewport)w.visualViewport.addEventListener('resize',resizeInventory);
+ document.addEventListener('DOMContentLoaded',function(){if(w.ZG_APP_CHANGELOG?.[0]){w.ZG_APP_CHANGELOG[0].notes+=' В просмотре предметов инвентаря показана редкость, добавлены мягкие неровные края изображения и подсветка по редкости.';w.ZG_APP_CHANGELOG[0].notesUk+=' У перегляді предметів інвентарю показано рідкість, додано м’які нерівні краї зображення та підсвічування за рідкістю.';}});
  w.ZargotaMobileInventory={render:render,refresh:refresh,setActive:active,rows:rows};
 })(window);

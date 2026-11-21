@@ -394,3 +394,45 @@
  body:has(#page-characters.active),body:has(#page-characters.active) *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
  body:has(#page-characters.active) :is(input:not([readonly]),textarea:not([readonly]),select,[contenteditable]:not([contenteditable="false"])),body:has(#page-characters.active) [contenteditable]:not([contenteditable="false"]) *{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 }
+
+/* Exhaustion shares the health row; no additional vertical space. */
+@media(max-width:899px){
+ .zgmo-hp:has(.zgmo-exhaustion){grid-template-columns:44px 32px minmax(0,1fr) 32px 44px;gap:4px}
+ .zgmo-hp>.zgmo-exhaustion{display:flex;align-items:center;justify-content:center;gap:2px;padding:2px;border:0;background:none;color:#c3a363;border-radius:0;--edge:#786035;--surface:#171108;min-height:44px;font:600 14px Georgia,serif;opacity:.65}
+ .zgmo-hp>.zgmo-exhaustion.is-active{opacity:1;--edge:#c29b4b;--surface:#302311}
+ .zgmo-exhaustion img{width:23px;height:23px;object-fit:contain}.zgmo-exhaustion small{font-size:10px}
+ .zgmo-exhaustion-detail{font:16px/1.5 Georgia,serif;color:#e3d2ad}
+ .zgmo-exhaustion-meter{display:flex;align-items:center;justify-content:center;gap:14px}.zgmo-exhaustion-meter img{width:48px;height:48px;object-fit:contain}.zgmo-exhaustion-meter strong{font-size:28px;color:#edcf83}
+ .zgmo-exhaustion-pips{display:flex;justify-content:center;gap:10px;margin:14px 0}.zgmo-exhaustion-pips i{width:13px;height:13px;border:1px solid #a88748;border-radius:50%;background:#110d07}.zgmo-exhaustion-pips i.filled{background:radial-gradient(circle at 35% 30%,#f8df8a,#ac7a22)}
+ .zgmo-exhaustion-detail h3{text-align:center;font-size:23px;margin:10px 0}.zgmo-exhaustion-label{text-align:center;font-style:italic;color:#baa67c;margin:0 0 12px}.zgmo-exhaustion-detail ul{margin:0;padding-left:22px}.zgmo-exhaustion-detail li+li{margin-top:8px}.zgmo-exhaustion-detail section{border-top:1px solid #796036;margin-top:18px;padding-top:12px}.zgmo-exhaustion-detail h4{margin:0 0 6px;font-size:18px}.zgmo-exhaustion-detail p{margin:6px 0}
+}
+
+/* Special resources use the same single chamfered outline as HP. */
+@media(max-width:899px){
+ .zgmo-hp>.zgmo-injuries{display:flex;align-items:center;justify-content:center;gap:2px;border:0;border-radius:0;background:none;--edge:#786035;--surface:#171108;color:#c3a363;font:600 14px Georgia,serif;min-height:44px;opacity:.65}
+ .zgmo-hp>.zgmo-injuries.is-active{opacity:1;--edge:#b46d55;--surface:#361b14;color:#e3ad95}
+ .zgmo-injuries img{width:25px;height:27px;object-fit:contain}
+ .zgmo-hp-value b{font-size:clamp(17px,5vw,22px);white-space:nowrap}
+ .zgmo-overview .zgmo-inspiration{position:absolute;right:12px;top:calc(57px + env(safe-area-inset-top,0px));width:48px;height:54px;border:0;border-radius:0;background:none;isolation:isolate;display:flex;align-items:center;justify-content:center;color:#cbb783}
+ .zgmo-inspiration:before,.zgmo-inspiration:after{content:'';position:absolute;inset:0;z-index:-2;clip-path:var(--zgmo-cut);background:#70552c;pointer-events:none}
+ .zgmo-inspiration:after{inset:1px;z-index:-1;background:#110d08df}
+ .zgmo-inspiration img{width:35px;height:40px;object-fit:contain;opacity:.4;filter:grayscale(.6)}
+ .zgmo-inspiration b{position:absolute;bottom:1px;right:5px;font-size:14px;text-shadow:0 1px 3px #000}
+ .zgmo-inspiration.is-active img{opacity:1;filter:drop-shadow(0 0 5px #ebb44977)}
+ .zgmo-inspiration.is-active:before{background:#c69b4b}
+ .zgmo-inspiration-feedback{position:absolute;right:68px;top:73px;max-width:calc(100% - 100px);padding:8px 12px;border-left:2px solid #e8bf6a;background:#1b140bea;color:#ffe0a0;font:14px/1.3 Georgia,serif;pointer-events:none;z-index:3}
+}
+.zgmo-inspiration-detail{text-align:center;padding:8px 0 18px}.zgmo-inspiration-detail>img{display:block;width:120px;height:140px;object-fit:contain;margin:auto;filter:drop-shadow(0 0 22px #c58b343b)}.zgmo-inspiration-detail>strong{font-size:36px;color:#f3d28b}.zgmo-inspiration-detail>p{color:#b7a17a}.zgmo-inspiration-detail .zgmo-spend{width:100%;min-height:48px!important;border-color:#b79047!important;background:linear-gradient(135deg,#44321a,#1d150b)!important}.zgmo-spend:disabled{opacity:.4}
+.zgmo-injury-summary{display:flex;align-items:baseline;gap:12px}.zgmo-injury-summary strong{font:30px Georgia,serif;color:#e5b29b}.zgmo-injury-detail>p{color:#bba88a}.zgmo-injury-detail article{padding:12px;margin-top:12px;background:#1c140c;border:1px solid #66472f;border-radius:0;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+#zgmo-modal .zgmo-injury-detail article header{padding:0 0 10px;border:0}.zgmo-injury-art{width:54px;height:54px;object-fit:contain}.zgmo-injury-detail h3{margin:0 0 4px;font-size:19px}.zgmo-injury-detail small{color:#be9981}.zgmo-injury-detail h4{margin:14px 0 4px;color:#d7bd92}.zgmo-injury-detail p{line-height:1.5;white-space:pre-line;margin:6px 0}.zgmo-injury-detail .zgmo-critical{color:#ed9a83;border-left:2px solid #ab5946;padding-left:10px}
+@media(prefers-reduced-motion:no-preference){.zgmo-inspiration.is-active img{animation:zgmo-inspiration-breathe 4s ease-in-out infinite}.zgmo-inspiration-detail>img{animation:zgmo-inspiration-breathe 4s ease-in-out infinite}}
+@keyframes zgmo-inspiration-breathe{0%,100%{filter:drop-shadow(0 0 4px #ebb44955);transform:translateY(0)}50%{filter:drop-shadow(0 0 9px #ebb44988);transform:translateY(-1px)}}
+.zgmo-inspiration-detail>p{margin:12px 0 18px!important}
+#zgmo-modal:is([data-injuries],[data-inspiration],[data-exhaustion])>section,.zgmo-injury-detail article{position:relative;isolation:isolate;border:0;border-radius:0;background:none;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px)}
+#zgmo-modal:is([data-injuries],[data-inspiration],[data-exhaustion])>section:before,#zgmo-modal:is([data-injuries],[data-inspiration],[data-exhaustion])>section:after,.zgmo-injury-detail article:before,.zgmo-injury-detail article:after{content:'';position:absolute;inset:0;z-index:-2;background:#92703a;clip-path:inherit;pointer-events:none}
+#zgmo-modal:is([data-injuries],[data-inspiration],[data-exhaustion])>section:after,.zgmo-injury-detail article:after{inset:1px;z-index:-1;background:#130f08}
+.zgmo-injury-detail article:before{background:#66472f}.zgmo-injury-detail article:after{background:#1c140c}
+#zgmo-modal .zgmo-inspiration-feedback{top:66px;right:16px;left:16px;max-width:none;text-align:center}
+/* Inspiration is a floating candle and counter, without a tile. */
+.zgmo-overview .zgmo-inspiration:before,.zgmo-overview .zgmo-inspiration:after{display:none}
+.zgmo-overview .zgmo-inspiration{background:none!important;border:0!important;box-shadow:none!important}

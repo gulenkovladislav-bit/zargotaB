@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+ <defs><filter id="edge" x="0" y="0" width="512" height="512" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+  <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="17" result="grain"/>
+  <feDisplacementMap in="SourceGraphic" in2="grain" scale="24" xChannelSelector="R" yChannelSelector="G"/>
+  <feGaussianBlur stdDeviation="3.5"/>
+ </filter></defs>
+ <rect x="21" y="21" width="470" height="470" rx="31" fill="white" filter="url(#edge)"/>
+</svg>

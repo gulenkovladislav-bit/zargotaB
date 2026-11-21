@@ -2,7 +2,16 @@
 (function(root,factory){var api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.ZargotaItemGrants=api;})(typeof window==='object'?window:globalThis,function(){
  'use strict';
  var clone=function(v){return JSON.parse(JSON.stringify(v));};
- function pending(c){var seen=c.gmItemAccepted||{};return (c.gmItemGrants||[]).filter(function(r){return r&&r.id&&!seen[r.id];});}
+ function pending(c){
+  var seen=c.gmItemAccepted||{},inventory=(c.inventoryItems||[]).concat(c.equipItems||[]);
+  return (c.gmItemGrants||[]).filter(function(r){return r&&r.id&&!seen[r.id];}).map(function(r){
+   if(r.currency)return r;
+   var matches=inventory.filter(function(i){return i&&(i.itemId===r.itemId||(String(i.itemId||'').indexOf('gm-item-'+r.id+'-')===0&&/^\d+$/.test(String(i.itemId).slice(('gm-item-'+r.id+'-').length))));});
+   var qty=matches.reduce(function(total,i){return total+Math.max(0,Number(i.qty==null?1:i.qty)||0);},0);
+   if(!qty)return null;
+   return Object.assign({},r,{qty:Math.min(r.qty,qty),rarity:r.rarity||matches[0].rarity||matches[0].definitionSnapshot?.rarity||'common'});
+  }).filter(Boolean);
+ }
  function currency(item){return ({shp_currency_copper:'copper',shp_currency_silver:'silver',shp_currency_gold:'gold',shp_currency_platinum:'platinum'})[String(item.definitionId||item.catalogItemId||item.id||'')]||'';}
  function apply(c,definition,qty,id,convert){
   qty=Number(qty);
@@ -24,7 +33,7 @@
    item.equipped=false;additions.push(item);
   }
   var display=additions[0];
-  var receipt={id:id,at:Date.now(),itemId:display.itemId,definitionId:String(definition.id),name:display.name,nameUk:display.nameUk,description:display.description,descriptionUk:display.descriptionUk,image:display.image||'',icon:display.icon||'',qty:qty};
+  var receipt={id:id,at:Date.now(),itemId:display.itemId,definitionId:String(definition.id),name:display.name,nameUk:display.nameUk,description:display.description,descriptionUk:display.descriptionUk,image:display.image||'',icon:display.icon||'',qty:qty,rarity:definition.rarity||'common'};
   // Never overwrite customized/equipped copies. Each grant is its own stack.
   if(money){c.coins=Object.assign({},c.coins);c.coins[money]=(Number(c.coins[money])||0)+qty;receipt.currency=money;}
   else c.inventoryItems=items.concat(additions);

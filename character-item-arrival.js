@@ -35,6 +35,11 @@
  function paint(){
   if(!dialog)return;var index=items.findIndex(function(r){return r.id===current;}),r=items[index];if(!r)return;
   var signature=JSON.stringify([items.map(function(x){return x.id;}),r,w.ZargotaI18n?.getLocale(),busy]);if(signature===lastPaint)return;lastPaint=signature;
+  var rarity=String(r.rarity||'common').toLowerCase();rarity=({legendary:'legend','very-rare':'epic',very_rare:'epic'})[rarity]||rarity;
+  // Workshop palette fallback for player-only shells where shop code is not initialized.
+  var palette=Array.isArray(w.SHOP_RARITY)?w.SHOP_RARITY:[{key:'common',color:'#8a7a5e'},{key:'uncommon',color:'#6fcb83'},{key:'rare',color:'#7a9ae0'},{key:'epic',color:'#a07fd4'},{key:'legend',color:'#e8c060'}],rarityEntry=palette.find(function(entry){return entry.key===rarity;})||palette[0],color=rarityEntry?.color||'#8a7a5e';
+  dialog.dataset.rarity=rarityEntry?.key||'common';
+  if(/^#[0-9a-f]{6}$/i.test(color))dialog.style.setProperty('--gia-glow',[1,3,5].map(function(offset){return parseInt(color.slice(offset,offset+2),16);}).join(','));
   dialog.querySelector('.gia-eyebrow').textContent=t('Вы получили предмет','Ви отримали предмет');
   dialog.querySelector('h2').textContent=text(localized(r,'name'));
   dialog.querySelector('.gia-description').textContent=text(localized(r,'description'));
@@ -64,6 +69,7 @@
   lastPaint='';sync();
  }
  w.ZargotaItemArrival={refresh:refresh};
+ document.addEventListener('DOMContentLoaded',function(){if(w.ZG_APP_CHANGELOG?.[0]){w.ZG_APP_CHANGELOG[0].notes+=' Окно получения предмета: мягкие неровные края изображения, спокойное движение и свечение по редкости. Название не перекрывается картинкой; удалённые вещи исчезают из очереди уведомлений.';w.ZG_APP_CHANGELOG[0].notesUk+=' Вікно отримання предмета: м’які нерівні краї зображення, спокійний рух і світіння за рідкістю. Назва не перекривається картинкою; видалені речі зникають із черги сповіщень.';}});
  // Lightweight route checks also cover the classic sheet navigation, which has
  // no shared route event. Inbox access reads only one acknowledged sheet.
  setInterval(function(){if(eligible()||dialog||scope)sync();},700);

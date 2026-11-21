@@ -59,7 +59,7 @@ async function presenceChanged(){await Promise.all(pages.filter(p=>!p.isClosed()
    }};`}));
   await p.goto(url);
   if(role==='admin')await p.evaluate(()=>{window.loadShopItems=()=>[
-   {id:'test-item-potion',cat:'potion',name:'Тестовое зелье',nameUk:'Тестове зілля',desc:'Описание тестового предмета.',descUk:'Опис тестового предмета.',effect:'Восстанавливает 1d4 здоровья.',effectUk:'Відновлює 1d4 здоров’я.',range:'1 клетка',image:'images/ui/item-icons/potion.png',stackable:true},
+   {id:'test-item-potion',cat:'potion',rarity:'rare',name:'Тестовое зелье',nameUk:'Тестове зілля',desc:'Описание тестового предмета.',descUk:'Опис тестового предмета.',effect:'Восстанавливает 1d4 здоровья.',effectUk:'Відновлює 1d4 здоров’я.',range:'1 клетка',image:'images/ui/item-icons/potion.png',stackable:true},
    {id:'shp_currency_copper',cat:'other',category:'currency',name:'Медная монета',nameUk:'',desc:'Монеты',image:'images/shop/zargota-coin-copper.webp'},
    {id:'test-item-sword',cat:'weapon',name:'Тестовый меч',nameUk:'Тестовий меч',desc:'Описание меча.',descUk:'Опис меча.',stackable:false}
   ];});await p.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:60000});
@@ -198,6 +198,11 @@ async function presenceChanged(){await Promise.all(pages.filter(p=>!p.isClosed()
   await player.locator('[data-arrival-next]').click();
   assert.equal(await player.locator('#gia-title').textContent(),'Тестовый меч');
   await player.locator('[data-arrival-prev]').click();
+  await player.waitForTimeout(1000);
+  const artLayout=await player.evaluate(()=>{const img=document.querySelector('#character-item-arrival .gia-art img'),a=img.getBoundingClientRect(),t=document.querySelector('#gia-title').getBoundingClientRect(),style=getComputedStyle(img);return {bottom:a.bottom,titleTop:t.top,mask:style.maskImage||style.webkitMaskImage,animation:style.animationName,rarity:document.querySelector('#character-item-arrival').dataset.rarity};});
+  assert.ok(artLayout.bottom<artLayout.titleTop,'image never overlaps item name');
+  assert.match(artLayout.mask,/item-arrival-edge/);assert.equal(artLayout.animation,'gia-drift');assert.equal(artLayout.rarity,'rare');
+  assert.equal(await player.locator('#character-item-arrival').evaluate(el=>el.style.getPropertyValue('--gia-glow')),'122,154,224','rarity uses workshop palette');
   await player.screenshot({path:out+'/item-arrival-ru.png'});
   await player.evaluate(()=>ZargotaI18n.setLocale('uk'));
   await player.waitForFunction(()=>document.querySelector('#gia-title')?.textContent==='Тестове зілля');
@@ -303,6 +308,9 @@ async function presenceChanged(){await Promise.all(pages.filter(p=>!p.isClosed()
   await gm.locator('[data-gms-kind="statuses"]').click();
   await start('fear');await gm.mouse.move(800,560,{steps:10});await gm.mouse.up();
   await gm.locator('[data-gms-kind="items"]').click();
+  await gm.locator('[data-gms-category]').selectOption('');
+  await gm.locator('#gms-library input[type=search]').fill('');
+  if(await gm.locator('[data-gms-favorites]').getAttribute('aria-pressed')==='true')await gm.locator('[data-gms-favorites]').click();
   await start('test-item-sword');await gm.mouse.move(1300,300,{steps:10});await gm.mouse.up();
   assert.equal(await gm.locator('[data-table-object]').count(),3);
   const allTiles=gm.locator('[data-table-object]');
@@ -347,7 +355,80 @@ async function presenceChanged(){await Promise.all(pages.filter(p=>!p.isClosed()
   assert.equal(await gm.locator('.gms-ghost').count(),0);
   assert.deepEqual(await allTiles.evaluateAll(nodes=>nodes.map(n=>({x:n.offsetLeft,y:n.offsetTop}))),pairAfter,'grant keeps prepared group on table');
   await gm.mouse.click(550,200);assert.equal(await gm.locator('.gmt-object.is-selected').count(),0,'blank click clears selection');
+  await marqueePair();
+  const retainedId=await allTiles.last().getAttribute('data-table-object'),beforeDeleteCalls=calls.length;
+  await allTiles.first().click({button:'right',position:{x:24,y:24}});
+  assert.match(await gm.locator('[data-table-remove]').innerText(),/\(2\)/);
+  await gm.screenshot({path:out+'/prepared-group-remove.png'});
+  await gm.locator('[data-table-remove]').click();
+  assert.equal(await allTiles.count(),1);assert.equal(await allTiles.first().getAttribute('data-table-object'),retainedId);
+  assert.equal(await gm.locator('.gmt-object.is-selected').count(),0);assert.equal(calls.length,beforeDeleteCalls,'table deletion never changes sheets');
+  assert.equal(await gm.evaluate(()=>JSON.parse(localStorage.getItem('zg-gm-table-objects-v1:test-gm')).length),1,'group deletion persisted');
+  await allTiles.first().click({modifiers:['Shift'],position:{x:24,y:24}});
+  await gm.mouse.click(550,200,{button:'right'});
+  assert.equal(await gm.locator('[data-table-remove]').count(),1,'selected cards can be removed from blank table context menu');
+  await gm.locator('[data-table-remove]').click();assert.equal(await allTiles.count(),0);
   console.log('PASS marquee: mixed selection, modifier toggle, group movement/spacing, Escape rollback, mixed item/status grant, blank deselection.');
+  await late.evaluate(()=>{showPage('home');});await late.waitForTimeout(800);
+  const liveCharacter=JSON.parse(server[sid].state.characterJson);
+  liveCharacter.inventoryItems=[];
+  liveCharacter.gmItemAccepted={};
+  server[sid]=D.commit(server[sid],'test-gm',{operationId:'test-arrival-remove',expectedRevision:server[sid].state.revision,source:'sheet',character:liveCharacter},Date.now());
+  await broadcast(sid);
+  await late.evaluate(()=>{showPage('characters');openCharSheet(characters.find(c=>c.campaignKey==='esteros').id);});await late.waitForTimeout(1000);
+  assert.equal(await late.evaluate(()=>ZargotaPersistentCharacters.itemInbox(viewingCharId).items.filter(r=>!r.currency).length),0,'deleted items not announced on return');
+  console.log('PASS arrival polish: masked artwork, rarity, gentle loop, no title overlap; removed grants excluded on phone.');
+  await gm.locator('[data-gms-kind="special"]').click();
+  assert.equal(await gm.locator('[data-gms-drag]').count(),22);
+  await late.evaluate(()=>{document.getElementById('character-item-arrival')?.remove();window._charSheetTab='stats';openCharSheet(characters.find(c=>c.campaignKey==='esteros').id);});
+  for(let level=1;level<=2;level++){
+   await start('exhausted');const box=await gm.locator('[data-gm-key="sheet-test-esteros"]').boundingBox();await gm.mouse.move(box.x+40,box.y+40,{steps:12});await gm.mouse.up();
+   await gm.waitForFunction(()=>document.querySelector('#gms-library').getAttribute('aria-busy')==='false');
+   await late.waitForFunction(level=>document.querySelector('.zgmo-exhaustion')?.textContent===level+'/5',level);
+  }
+  await late.locator('[data-zgmo=exhaustion]').click();await late.waitForTimeout(500);
+  assert.equal(await late.locator('.zgmo-exhaustion-pips .filled').count(),2);
+  await late.screenshot({path:out+'/exhaustion-player.png'});
+  console.log('PASS Special: actual exhaustion drag twice, shared sheet level and mobile popup.');
+  await late.locator('#zgmo-modal [data-zgmo=close]').click();
+  async function specialDrop(key){await start(key);const box=await gm.locator('[data-gm-key="sheet-test-esteros"]').boundingBox();await gm.mouse.move(box.x+40,box.y+40,{steps:12});await gm.mouse.up();await gm.waitForFunction(()=>document.querySelector('#gms-library').getAttribute('aria-busy')==='false');}
+  await specialDrop('inspiration');
+  await late.waitForFunction(()=>document.querySelector('.zgmo-inspiration b')?.textContent==='1');
+  await late.locator('.zgmo-inspiration-feedback').waitFor();
+  await late.waitForFunction(()=>/Натхнення|Вдохновение/.test(document.querySelector('#character-status-arrival')?.textContent||''));
+  await late.locator('[data-zgmo=inspiration]').click();
+  await late.locator('[data-zgmo=spend-inspiration]').click();
+  await late.waitForFunction(()=>document.querySelector('.zgmo-inspiration b')?.textContent==='0');
+  assert.equal(JSON.parse(server[sid].state.characterJson).inspiration,0);
+  assert.ok(await late.locator('#zgmo-modal .zgmo-inspiration-feedback').count(),'spending feedback appears inside the open popup');
+  assert.equal(await late.locator('[data-zgmo=spend-inspiration]').isDisabled(),true);
+  await late.locator('#zgmo-modal [data-zgmo=close]').click();
+  await specialDrop('injury:broken-arm');
+  await late.waitForFunction(()=>document.querySelector('.zgmo-injuries span')?.textContent==='1');
+  await late.waitForFunction(()=>/Отримано травму|Получена травма/.test(document.querySelector('#character-status-arrival')?.textContent||''));
+  await late.locator('[data-zgmo=injuries]').click();
+  assert.equal(await late.locator('.zgmo-injury-detail article').count(),1);
+  assert.equal(await late.locator('[data-zgmo=remove-injury]').count(),0,'player cannot remove assigned injury');
+  await late.waitForTimeout(500);await late.screenshot({path:out+'/injuries-player.png'});
+  await late.locator('#zgmo-modal [data-zgmo=close]').click();
+  await specialDrop('inspiration');
+  await late.waitForFunction(()=>document.querySelector('.zgmo-inspiration b')?.textContent==='1');
+  await late.waitForTimeout(2600);await late.screenshot({path:out+'/special-player.png'});
+  assert.equal(await late.locator('.zgmo-exhaustion').evaluate(el=>getComputedStyle(el).borderTopWidth),'0px');
+  await late.reload();await late.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:60000});
+  await late.waitForFunction(()=>document.querySelector('.zgmo-inspiration b')?.textContent==='1');
+  assert.equal(await late.locator('.zgmo-inspiration-feedback').count(),0,'received animation is not replayed on refresh');
+  const injuryId=JSON.parse(server[sid].state.characterJson).injuries[0].id;
+  const removed=await gm.evaluate(async id=>{const row=ZargotaPersistentCharacters.tableHeroes().find(r=>r.sheetId==='test-esteros');return ZargotaPersistentCharacters.specialWrite(row.localId,'remove-injury',id);},injuryId);
+  assert.equal(removed.ok,true);await late.waitForFunction(()=>document.querySelector('.zgmo-injuries span')?.textContent==='0');
+  await start('inspiration');await gm.mouse.move(1000,300,{steps:12});await gm.mouse.up();
+  const prepared=gm.locator('.gmt-object').filter({hasText:/Вдохновение|Натхнення/}).last();await prepared.waitFor();
+  const pb=await prepared.locator('.gmt-face').boundingBox();
+  await gm.mouse.move(pb.x+20,pb.y+20);await gm.mouse.down();await gm.mouse.move(pb.x+80,pb.y+80,{steps:5});await gm.locator('.gms-all').waitFor({state:'visible'});
+  const recipient=await gm.locator('[data-gm-key="sheet-test-esteros"]').boundingBox();await gm.mouse.move(recipient.x+70,recipient.y+35,{steps:15});await gm.mouse.up();
+  await late.waitForFunction(()=>document.querySelector('.zgmo-inspiration b')?.textContent==='2');
+  console.log('PASS master injury removal and prepared inspiration drag from table.');
+  console.log('PASS special: real injury/inspiration drops, player spend, zero floor, persistent reload, single frame and once-only feedback.');
   assert.deepEqual(errors,[]);
   console.log('PASS table preparation: placement, left-drag, corner resize, quantity, reusable grant, removal, reload, Escape; items: real drag, canonical inventory+receipt, batch arrows, one animation, accept/reload, RU/UK, offline fresh client, all recipients; no live accounts.');
  }catch(e){console.error(e);for(let i=0;i<pages.length;i++)if(!pages[i].isClosed())await pages[i].screenshot({path:out+'/failure-'+i+'.png'}).catch(()=>{});throw e;}finally{await browser.close();}

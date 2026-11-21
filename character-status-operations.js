@@ -1,6 +1,6 @@
 (function(root,factory){
-  var api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.ZargotaCharacterStatus=api;
-})(typeof window==='object'?window:globalThis,function(){
+  var api=factory(typeof module==='object'&&module.exports?require('./character-special.js'):root.ZargotaCharacterSpecial);if(typeof module==='object'&&module.exports)module.exports=api;else root.ZargotaCharacterStatus=api;
+})(typeof window==='object'?window:globalThis,function(special){
   'use strict';
   var lastId=0;
   function nextId(){lastId=Math.max(Date.now()*1000,lastId+1);return lastId;}
@@ -28,21 +28,28 @@
     return effect;
   }
   function apply(character,def,options){
+    if(def._special)return special.grant(character,def);
     var effects=character.tempEffects||[],statuses=character.statuses||[],key=def.key;
     var matches=effects.filter(function(e){return e.type==='status'&&e.statusKey===key;}),before=matches[0];
     if(matches.length>1)return {changed:false,reason:'duplicate-existing'};
-    if((before||statuses.includes(key))&&key!=='bleed')return {changed:false,reason:'already-active'};
-    if(before&&Number(before.stacks)>=20)return {changed:false,reason:'stack-limit'};
-    var effect=before?clone(before):create(def,options);
-    if(before)effect.stacks=Math.min(20,Math.max(1,Number(before.stacks)||1)+1);
+    if((before||statuses.includes(key))&&!['bleed','exhausted'].includes(key))return {changed:false,reason:'already-active'};
+    var amount=key==='exhausted'?Number(options?.levels??1):1;
+    if(!Number.isInteger(amount)||amount<1||amount>5)throw Error('invalid-levels');
+    var limit=key==='exhausted'?5:20;
+    if(before&&Number(before.stacks)>=limit)return {changed:false,reason:'stack-limit'};
+    var effect=before?clone(before):create(def,key==='exhausted'?Object.assign({},options,{unit:'manual',duration:0}):options);
+    if(key==='exhausted'){effect.unit='manual';effect.duration=null;effect.remaining=null;delete effect.remainingMins;}
+    if(before)effect.stacks=Math.min(limit,Math.max(1,Number(before.stacks)||1)+amount);
     // A legacy bleed marker represents one existing stack too.
-    else if(statuses.includes(key))effect.stacks=2;
+    else if(statuses.includes(key))effect.stacks=Math.min(limit,1+amount);
+    else if(key==='exhausted')effect.stacks=amount;
     var receipt={key:key,before:before?clone(before):null,after:clone(effect),hadLegacy:statuses.includes(key),hadEffects:Array.isArray(character.tempEffects),hadStatuses:Array.isArray(character.statuses)};
     character.tempEffects=before?effects.map(function(e){return e===before?effect:e;}):effects.concat(effect);
     character.statuses=statuses.includes(key)?statuses.slice():statuses.concat(key);
     return {changed:true,reason:before?'stacked':'added',receipt:receipt};
   }
   function undo(character,receipt){
+    if(receipt&&receipt.special)return special.undo(character,receipt);
     if(!receipt||!receipt.after)return {changed:false,reason:'changed-since'};
     var effects=character.tempEffects||[],matches=effects.filter(function(e){return e.type==='status'&&e.statusKey===receipt.key;});
     // Never undo a player's later duration/stack edit or a different application.

@@ -65,7 +65,7 @@
     var row=tableHeroes().find(function(hero){return String(hero.localId)===String(localId);});
     if(!row||!row.ready)return {ok:false,reason:'not-ready'};
     var e=records[row.sheetId],base=e.base,next=JSON.parse(base.characterJson),operation=w.ZargotaCharacterStatus;
-    var definition=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).find(function(s){return s.key===key&&s.enabled!==false;});
+    var definition=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE)).find(function(s){return s.key===key&&s.enabled!==false;});
     if(!operation||(!receipt&&!definition))return {ok:false,reason:'unknown-status'};
     var result=receipt?operation.undo(next,receipt):operation.apply(next,definition,options);
     if(!result.changed)return Object.assign({ok:true},result);
@@ -100,6 +100,21 @@
       try{var packet=await transport.read(sid);await receiveInOrder(sid,e,packet);var saved=JSON.parse(packet.characterJson);
         if(acceptedIds?acceptedIds.every(function(id){return saved.gmItemAccepted?.[id];}):(saved.gmItemGrants||[]).some(function(r){return r.id===grantId;}))return Object.assign({ok:true},result);
       }catch(_){}
+      return {ok:false,reason:/revision-conflict/.test(String(err))?'conflict':'unconfirmed'};
+    }finally{tableWrites.delete(e);render();}
+  }
+  async function specialWrite(localId,action,id){
+    var sid=binding(localId),e=sid&&records[sid];
+    if(!e||!e.allowed||!e.base||!tableSeen.has(e)||tableWrites.has(e)||e.pending||e.remote||e.conflict||e.localSaving||e.dirtyInput||editing(e)||inSession(e)||!navigator.onLine)return {ok:false,reason:'not-ready'};
+    if(action!=='spend-inspiration'&&!(action==='remove-injury'&&e.role==='master'))return {ok:false,reason:'not-ready'};
+    var base=e.base,next=JSON.parse(base.characterJson),result=action==='spend-inspiration'?w.ZargotaCharacterSpecial.spend(next):w.ZargotaCharacterSpecial.remove(next,id);
+    if(!result.changed)return Object.assign({ok:true},result);
+    tableWrites.add(e);render();
+    try{
+      var response=await transport.call({action:'save',sheetId:sid,operationId:newId(),expectedRevision:base.revision,source:'sheet',character:next});
+      await receiveInOrder(sid,e,response.state);return Object.assign({ok:true},result);
+    }catch(err){
+      try{await receiveInOrder(sid,e,await transport.read(sid));}catch(_){}
       return {ok:false,reason:/revision-conflict/.test(String(err))?'conflict':'unconfirmed'};
     }finally{tableWrites.delete(e);render();}
   }
@@ -624,5 +639,5 @@
   var resizeTimer;w.addEventListener('resize',function(){clearTimeout(resizeTimer);resizeTimer=setTimeout(render,100);});
   w.addEventListener('zargota-room-state',function(){resume().catch(failed);});
   document.addEventListener('DOMContentLoaded',function(){boot.then(function(){render();if(state.enabled)connect().catch(failed);});var shared=new URLSearchParams(location.search).get('character');if(shared)sharedView(shared);});
-  w.ZargotaPersistentCharacters={itemInbox:itemInbox,tableItem:function(id,def,qty,grantId){return itemWrite(id,def,qty,grantId);},acceptItems:function(id,ids){return itemWrite(id,null,null,null,ids);},resolveCharacterId:resolveCharacterId,tableHeroes:tableHeroes,tableIdentity:tableIdentity,tableHp:tableHp,tableStatus:function(id,key,options){return tableStatusWrite(id,key,options);},tableUndoStatus:function(id,receipt){return tableStatusWrite(id,receipt.key,null,receipt);},start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){if(String(resolveCharacterId(c.id))!==String(c.id))return false;var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
+  w.ZargotaPersistentCharacters={specialWrite:specialWrite,itemInbox:itemInbox,tableItem:function(id,def,qty,grantId){return itemWrite(id,def,qty,grantId);},acceptItems:function(id,ids){return itemWrite(id,null,null,null,ids);},resolveCharacterId:resolveCharacterId,tableHeroes:tableHeroes,tableIdentity:tableIdentity,tableHp:tableHp,tableStatus:function(id,key,options){return tableStatusWrite(id,key,options);},tableUndoStatus:function(id,receipt){return tableStatusWrite(id,receipt.key,null,receipt);},start:enable,login:login,create:create,saved:saved,beforeSave:function(){Object.values(records).forEach(function(e){e.localSaving=(e.localSaving||0)+1;});},saveFailed:function(){Object.values(records).forEach(function(e){e.localSaving=Math.max(0,(e.localSaving||0)-1);});},usesCharacter:function(id){return !!binding(id);},refresh:function(){setTimeout(render,0);},settings:settings,showGeneralSettings:showGeneralSettings,accountMenu:accountMenu,logout:logout,status:function(){return {account:C.clone(account),uid:uid,enabled:state.enabled,records:C.clone(records),error:error};},visible:function(c){if(String(resolveCharacterId(c.id))!==String(c.id))return false;var roles=Object.values(records).map(function(e){return e.role;});return !state.enabled||!roles.length||roles.includes('master')||!!binding(c.id);}};
 })(window);

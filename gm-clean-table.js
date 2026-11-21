@@ -100,7 +100,7 @@
       var statuses=c?helpers.statuses(c):[],active=selected===row.key,locked=!c||row.shared&&!row.shared.ready;
       return '<article class="zg-gm-hero'+(active?' is-selected':'')+'" data-gm-key="'+e(row.key)+'">'+
         '<button type="button" class="zg-gm-hero-open" data-gm-open="'+e(row.key)+'" aria-expanded="'+active+'" aria-label="'+e(t('Открыть лист: ','Відкрити аркуш: ')+name)+'"'+(!c?' disabled':'')+'>'+helpers.portrait(c,row.meta,'zg-gm-hero-portrait')+'<strong>'+e(name)+'</strong></button>'+
-        '<div class="zg-gm-hero-data">'+helpers.badge(row.shared)+'<div class="zg-gm-hp"><button type="button" data-gm-hp="-1" aria-label="'+e(t('Уменьшить HP: ','Зменшити HP: ')+name)+'"'+(locked||hp<=0?' disabled':'')+'>−</button><span aria-label="HP"><i aria-hidden="true">♥</i> <b>'+hp+'</b><small> / '+max+'</small></span><button type="button" data-gm-hp="1" aria-label="'+e(t('Увеличить HP: ','Збільшити HP: ')+name)+'"'+(locked||hp>=max?' disabled':'')+'>+</button></div><span class="zg-gm-armor">♢ '+t('КД','КЗ')+' '+ac+'</span>'+
+        '<div class="zg-gm-hero-data">'+helpers.badge(row.shared)+'<div class="zg-gm-hp"><button type="button" data-gm-hp="-1" aria-label="'+e(t('Уменьшить HP: ','Зменшити HP: ')+name)+'"'+(locked||hp<=0?' disabled':'')+'>−</button><span aria-label="HP"><i aria-hidden="true">♥</i> <b>'+hp+'</b><small> / '+max+'</small></span><button type="button" data-gm-hp="1" aria-label="'+e(t('Увеличить HP: ','Збільшити HP: ')+name)+'"'+(locked||hp>=max?' disabled':'')+'>+</button></div>'+resources(c,ac)+''+
         '<div class="zg-gm-statuses">'+statuses.slice(0,2).map(function(s){return '<span title="'+e(tr(s.name))+'">'+e(s.icon)+' '+e(tr(s.name))+'</span>';}).join('')+(statuses.length>2?'<span>+'+(statuses.length-2)+'</span>':'')+'</div></div>'+(!c?'':'<button type="button" class="zg-gm-reminder-button" data-gm-reminder="'+e(row.key)+'" aria-label="'+e(t('Памятка мастера: ','Пам’ятка майстра: ')+name)+'">?</button>')+'</article>';
     }).join('');
     if(w.ZargotaGmParticipants){
@@ -117,6 +117,12 @@
       updateSheet();
     }else unmountSheet();
   }
+  function resources(c,ac){
+    var inspiration=w.ZargotaCharacterSpecial?.count(c||{})||0,level=Math.min(5,Math.max((c?.statuses||[]).includes('exhausted')?1:0,...(c?.tempEffects||[]).filter(function(f){return f.type==='status'&&f.statusKey==='exhausted';}).map(function(f){return Math.max(1,Number(f.stacks)||1);})));
+    function badge(cls,src,title,value){return '<span class="'+cls+'" title="'+e(title)+'" aria-label="'+e(title)+'"><img src="'+src+'" alt="">'+value+'</span>';}
+    return '<div class="zg-gm-resources">'+badge('zg-gm-armor','images/character-derived/armor-v3.webp',t('Броня','Броня')+': '+ac,ac)+(inspiration?badge('zg-gm-inspiration','images/ui/character-mobile/inspiration-candle-v1.png',t('Вдохновение','Натхнення')+': '+inspiration,inspiration):'')+(level?badge('zg-gm-exhaustion','images/ui/character-mobile/exhaustion-traveller-v1.png',t('Истощение','Виснаження')+': '+level+' / 5',level+'/5'):'')+'</div>';
+  }
+  document.addEventListener('DOMContentLoaded',function(){if(w.ZG_APP_CHANGELOG?.[0]){w.ZG_APP_CHANGELOG[0].notes+=' Карточки мастера: значок брони вместо КД, свеча со счётчиком вдохновения и путник с уровнем истощения. Нулевые счётчики скрыты; вдохновение без рамки.';w.ZG_APP_CHANGELOG[0].notesUk+=' Картки майстра: значок броні замість КЗ, свічка з лічильником натхнення та мандрівник із рівнем виснаження. Нульові лічильники приховані; натхнення без рамки.';}});
   function changeHp(key,delta){
     var row=roster.find(function(r){return r.key===key;}),c=row&&hero(row);if(!c)return;
     if(row.shared){w.ZargotaPersistentCharacters.tableHp(c.id,delta);return;}
@@ -131,7 +137,7 @@
     if(row.shared||w.ZargotaPersistentCharacters?.usesCharacter(c.id)){
       return receipt?w.ZargotaPersistentCharacters.tableUndoStatus(c.id,receipt):w.ZargotaPersistentCharacters.tableStatus(c.id,key,options);
     }
-    var def=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).find(function(s){return s.key===key&&s.enabled!==false;});
+    var def=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE)).find(function(s){return s.key===key&&s.enabled!==false;});
     if(!receipt&&!def)return {ok:false,reason:'unknown-status'};
     var before=JSON.parse(JSON.stringify(c)),result=receipt?w.ZargotaCharacterStatus.undo(c,receipt):w.ZargotaCharacterStatus.apply(c,def,options);
     if(!result.changed)return Object.assign({ok:true},result);
@@ -142,7 +148,7 @@
       return Object.assign({ok:true},result);
     }catch(err){
       // Restore only this operation's fields, never replace the full character.
-      ['tempEffects','statuses'].forEach(function(field){if(before[field]===undefined)delete c[field];else c[field]=before[field];});
+      ['tempEffects','statuses','inspiration','inspirationEvent','injuries','baseHpMax','hpMax','hpCur'].forEach(function(field){if(before[field]===undefined)delete c[field];else c[field]=before[field];});
       return {ok:false,reason:'local-save-failed'};
     }finally{statusWrites.delete(String(c.id));refresh();}
   }

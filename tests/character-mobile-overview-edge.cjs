@@ -8,6 +8,8 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
   const waitPageTurn=()=>page.waitForFunction(()=>!document.querySelector('[data-zg-page-turn]'));
   await page.goto(process.env.ZG_TEST_URL||'http://127.0.0.1:8765');
   await page.locator('#zg-data-loader-splash').waitFor({state:'hidden',timeout:45000});
+  // This local-only layout fixture excludes the signed-out account banner; authenticated sync is covered by gm-item-library-edge.
+  await page.addStyleTag({content:'.pc-access-notice{display:none!important}'});
   await page.evaluate(()=>{
    const c=JSON.parse(JSON.stringify(characters.find(c=>c.name==='Эстерос')||characters[0]));
    c.id=987654321;c.name='Эстерос';c.nameUk='Естерос';c.hpCur=12;c.hpMax=12;c.baseHpMax=12;
@@ -31,7 +33,7 @@ const {chromium}=require('playwright'),assert=require('node:assert/strict');
     assert.ok(await page.locator('.zgmo-nav button>span:last-child').evaluateAll(els=>els.every(el=>el.scrollWidth<=el.parentElement.clientWidth)), 'Navigation labels fit');
     const centers=await page.locator('.zgmo-stat').evaluateAll(els=>els.map(el=>{const card=el.getBoundingClientRect(),input=el.querySelector('input').getBoundingClientRect(),style=getComputedStyle(el.querySelector('input'));return {delta:card.x+card.width/2-input.x-input.width/2,align:style.textAlign,width:input.width,grid:style.gridColumn,justify:style.justifySelf};}));assert.ok(centers.every(x=>Math.abs(x.delta)<1&&x.align==='center'), JSON.stringify({width,height,centers}));
     const activeNav=await page.locator('.zgmo-nav button[aria-current=page]').evaluate(el=>{const d=getComputedStyle(el.querySelector('.zgmo-diamond')),m=new DOMMatrix(d.transform);return {scale:Math.hypot(m.a,m.b),underline:getComputedStyle(el.querySelector('span:last-child'),'::after').content,glow:d.boxShadow};});assert.ok(activeNav.scale>1.09,JSON.stringify(activeNav));assert.equal(activeNav.underline,'none');assert.notEqual(activeNav.glow,'none');
-    assert.equal(await page.locator('.zgmo-hp>button').count(),3);
+    assert.equal(await page.locator('.zgmo-hp>button').count(),5);
     assert.equal(await page.locator('.zgmo-overview button').evaluateAll(els=>els.filter(el=>el.textContent==='⋯').length),1);
     assert.ok(await page.locator('.zgmo-control-mark').evaluateAll(els=>els.every(el=>{const a=el.getBoundingClientRect(),b=el.parentElement.getBoundingClientRect();return Math.abs(a.x+a.width/2-b.x-b.width/2)<1&&Math.abs(a.y+a.height/2-b.y-b.height/2)<1;})), 'Plus/minus marks center in their controls');
     assert.equal(await page.locator('#char-sheet-tab-bar button').count(),4);assert.equal(await page.locator('.zgmo-state-cards>button').count(),2);

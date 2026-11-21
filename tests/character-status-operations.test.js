@@ -34,3 +34,17 @@ test('legacy bleeding and invalid duplicate collections are handled without hidi
   c.tempEffects.push({...c.tempEffects[0],id:9});assert.equal(S.apply(c,def,options).reason,'duplicate-existing');
   assert.equal(c.tempEffects.length,2);
 });
+test('exhaustion increments existing canonical levels to five, stays until removed, supports undo',()=>{
+ const c={statuses:['exhausted']},ex={key:'exhausted',label:'Истощён'};
+ const applied=S.apply(c,ex,{unit:'rounds',duration:2});assert.equal(c.tempEffects[0].stacks,2);assert.equal(c.tempEffects[0].unit,'manual');
+ assert.equal(S.undo(c,applied.receipt).changed,true);assert.deepEqual(c.statuses,['exhausted']);
+ for(let n=2;n<=5;n++){assert.equal(S.apply(c,ex,{unit:'manual'}).changed,true);assert.equal(c.tempEffects[0].stacks,n);}
+ assert.equal(S.apply(c,ex,{unit:'manual'}).reason,'stack-limit');assert.equal(c.tempEffects.length,1);assert.equal(c.tempEffects[0].stacks,5);
+});
+
+test('bulk exhaustion is one undoable change, respects existing levels and never exceeds five',()=>{
+ const c={tempEffects:[{id:1,type:'status',statusKey:'exhausted',stacks:2,unit:'manual'}],statuses:['exhausted']};
+ const api=require('../character-status-operations');const result=api.apply(c,{key:'exhausted',label:'Exhausted'},{levels:4});
+ assert.equal(c.tempEffects.length,1);assert.equal(c.tempEffects[0].stacks,5);assert.equal(api.undo(c,result.receipt).changed,true);assert.equal(c.tempEffects[0].stacks,2);
+ assert.throws(()=>api.apply(c,{key:'exhausted'},{levels:0}),/invalid-levels/);
+});

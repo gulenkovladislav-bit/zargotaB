@@ -11,7 +11,7 @@
     inventoryItems:['Инвентарь','Інвентар'], equipItems:['Экипировка','Спорядження'], skills:['Навыки','Навички'], mastery:['Позиции','Позиції'],
     spellRefs:['Карточки','Картки'], spellsLearned:['Изученные карточки','Вивчені картки'], spellCD:['Ресурсы карточек','Ресурси карток'],
     preparedSpells:['Подготовленные карточки','Підготовлені картки'], coins:['Монеты','Монети'], statuses:['Состояния','Стани'],
-    tempEffects:['Временные эффекты','Тимчасові ефекти'], injuries:['Травмы','Травми'], deathSaves:['Спасброски','Рятівні кидки'],
+    tempEffects:['Временные эффекты','Тимчасові ефекти'], injuries:['Травмы','Травми'], inspiration:['Вдохновение','Натхнення'], deathSaves:['Спасброски','Рятівні кидки'],
     family:['Люди и связи','Люди та зв’язки'], journalEntries:['Записи персонажа','Записи персонажа'], notes:['Записи персонажа','Записи персонажа'], biography:['Биография','Біографія'],
     description:['Описание','Опис'], currentGoal:['Цель персонажа','Мета персонажа'], progressionPlan:['Развитие персонажа','Розвиток персонажа'],
     battleEcho:['След боя','Слід бою'], portrait:['Портрет','Портрет'], fameMundo:['Слава в мире','Слава у світі'], fameZargoty:['Слава в Зарготе','Слава в Зарготі']
@@ -50,7 +50,7 @@
     });
     return rows;
   }
-  var contentFields=['inventoryItems','equipItems','spellRefs','spellsLearned','skills','mastery','journalEntries','notes','family','statuses','tempEffects'];
+  var contentFields=['inventoryItems','equipItems','spellRefs','spellsLearned','skills','mastery','journalEntries','notes','family','statuses','tempEffects','injuries','inspiration'];
   function contentChanges(before,after){
     return summary(before,after).filter(function(row){
       if(!contentFields.includes(row.field))return false;
@@ -81,10 +81,16 @@
       return map;
     }
     var old=collect(before),next=collect(after);
-    return Object.keys(next).filter(function(key){
+    var grants=Object.keys(next).filter(function(key){
       var a=old[key],b=next[key];
       return !a || (a.id!=null&&b.id!=null&&a.id!==b.id) || (Number(b.stacks)||1)>(Number(a.stacks)||1);
     }).map(function(key){return next[key];});
+    var delta=(Number(after?.inspiration)||0)-(Number(before?.inspiration)||0);
+    if(delta>0)grants.push({statusKey:'inspiration',label:'Вдохновение',labelUk:'Натхнення',stacks:delta,iconPath:'images/ui/character-mobile/inspiration-candle-v1.png',noticeRu:'Всего: '+after.inspiration,noticeUk:'Усього: '+after.inspiration});
+    var oldInjuries=new Set((before?.injuries||[]).map(function(i){return i.id||JSON.stringify(i);}));
+    (after?.injuries||[]).forEach(function(i){if(!oldInjuries.has(i.id||JSON.stringify(i)))grants.push({statusKey:'injury',label:i.name||'Травма',labelUk:i.nameUk,iconPath:i.iconPath,noticeRu:'Получена травма',noticeUk:'Отримано травму'});});
+    return grants;
+
   }
   function mount(w) {
     var doc=w.document,storageKey='zargota_character_updates_v1',history=Object.create(null),timer;
@@ -111,9 +117,11 @@
       var effect=grantCurrent,definition=(w.zgGmStatusCatalog?.()||[]).find(function(s){return s.key===effect.statusKey;})||{};
       var text=t(effect.label||definition.label||effect.statusKey||'Состояние',effect.labelUk||definition.labelUk||w.ZargotaI18n?.translate(effect.label||definition.label||effect.statusKey)||'Стан');
       var duration=effect.unit==='manual'||effect.remaining==null?t('До снятия','До зняття'):String(effect.remaining)+' '+({rounds:t('раунд.','раунд.'),minutes:t('мин.','хв.'),hours:t('ч.','год.'),days:t('дн.','дн.')}[effect.unit]||'');
+      if(effect.noticeRu)duration=t(effect.noticeRu,effect.noticeUk);
+      if(effect.statusKey==='exhausted'){effect.iconPath='images/ui/character-mobile/exhaustion-traveller-v1.png';duration=t('Уровень: ','Рівень: ')+(Number(effect.stacks)||1)+' / 5';}
       var node=doc.getElementById('character-status-arrival');
       if(!node){node=doc.createElement('aside');node.id='character-status-arrival';node.setAttribute('role','status');node.setAttribute('aria-live','polite');node.setAttribute('aria-atomic','true');node.setAttribute('data-zg-i18n-skip','');doc.body.appendChild(node);}
-      node.innerHTML=(w.zgStatusGlyphMarkup?.(Object.assign({},definition,effect,{key:effect.statusKey}),text,'character-status-arrival-icon')||'<span aria-hidden="true">✦</span>')+'<div><strong>'+esc(text)+(Number(effect.stacks)>1?' ×'+Number(effect.stacks):'')+'</strong><span>'+esc(duration)+'</span></div>';
+      node.innerHTML=(effect.iconPath&&/^images\/[a-zA-Z0-9_/.\-]+$/.test(effect.iconPath)?'<img class="character-status-arrival-icon" style="object-fit:contain" src="'+esc(effect.iconPath)+'" alt="">':w.zgStatusGlyphMarkup?.(Object.assign({},definition,effect,{key:effect.statusKey}),text,'character-status-arrival-icon')||'<span aria-hidden="true">✦</span>')+'<div><strong>'+esc(text)+(Number(effect.stacks)>1?' ×'+Number(effect.stacks):'')+'</strong><span>'+esc(duration)+'</span></div>';
     }
     function nextGrant(){
       if(grantCurrent||doc.hidden||!grantQueue.length)return;
