@@ -51,7 +51,22 @@ d.querySelector('[data-close]').onclick=function(){d.remove();};d.oncancel=funct
     };
   }
   function seedDocument(){var flag=templatesKey()+':sample-document-v1';try{if(localStorage.getItem(flag))return;var list=templates();list.push({key:'document:sample-v1',_special:'document',label:'Тестовое письмо',labelUk:'Тестовий лист',ability:{name:'Тестовое письмо',nameUk:'Тестовий лист',description:'Это пример письма. Здесь будет ваш текст.',descriptionUk:'Це приклад листа. Тут буде ваш текст.',kind:'letter',paper:'parchment'},document:{kind:'letter',title:'Тестовое письмо',titleUk:'Тестовий лист',text:'Это пример письма. Здесь будет ваш текст.',textUk:'Це приклад листа. Тут буде ваш текст.',paper:'parchment'},iconPath:'images/ui/character-lore/letter.webp'});localStorage.setItem(templatesKey(),JSON.stringify(list));localStorage.setItem(flag,'1');}catch(_){}}
-  function catalog(section){if((section||kind)==='people')return templates().filter(function(d){return d._special==='person';});if((section||kind)==='maps')return templates().filter(function(d){return d._special==='document'&&['place','map'].includes(d.document?.kind);});if((section||kind)==='spells')return abilityCatalog().filter(function(d){return !['document','person'].includes(d._special);});if((section||kind)==='documents'){seedDocument();return templates().filter(function(d){return d._special==='document';});}if((section||kind)==='items')return (w.loadShopItems?.()||[]).filter(function(i){return i&&i.id&&i.name&&!['service','services'].includes(i.category||i.cat);}).map(function(i){return Object.assign({},i,{key:String(i.id),label:i.name,labelUk:i.nameUk,description:i.description||i.desc||'',_item:true});});var states=(w.zgGmStatusCatalog?.()||[]).filter(function(s){return s&&s.key&&s.enabled!==false;});return (section||kind)==='special'?states.filter(function(s){return s.key==='exhausted';}).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE)):states;}
+  function seedVillageMap(){
+    var flag=templatesKey()+':village-handout-v1';
+    try{
+      if(localStorage.getItem(flag))return;
+      var list=templates(),key='document:ebg-handout-v1';
+      if(!list.some(d=>d.key===key||d.key==='document:ebg-map-v1')){
+        var name='Ебатьэтогденск',nameUk='Ебатьєтогденськ',image='images/maps/ebatyetogdensk-painted-v1.webp';
+        list.push({key:key,_special:'document',label:name,labelUk:nameUk,iconPath:image,
+          ability:{kind:'place',name:name,nameUk:nameUk,iconAsset:image},
+          document:{kind:'place',title:name,titleUk:nameUk,image:image,paper:'parchment'}});
+        localStorage.setItem(templatesKey(),JSON.stringify(list));
+      }
+      localStorage.setItem(flag,'1');
+    }catch(_){}
+  }
+  function catalog(section){if((section||kind)==='people')return templates().filter(function(d){return d._special==='person';});if((section||kind)==='maps'){seedVillageMap();return templates().filter(function(d){return d._special==='document'&&['place','map'].includes(d.document?.kind);});}if((section||kind)==='spells')return abilityCatalog().filter(function(d){return !['document','person'].includes(d._special);});if((section||kind)==='documents'){seedDocument();return templates().filter(function(d){return d._special==='document';});}if((section||kind)==='items')return (w.loadShopItems?.()||[]).filter(function(i){return i&&i.id&&i.name&&!['service','services'].includes(i.category||i.cat);}).map(function(i){return Object.assign({},i,{key:String(i.id),label:i.name,labelUk:i.nameUk,description:i.description||i.desc||'',_item:true});});var states=(w.zgGmStatusCatalog?.()||[]).filter(function(s){return s&&s.key&&s.enabled!==false;});return (section||kind)==='special'?states.filter(function(s){return s.key==='exhausted';}).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE)):states;}
   function definition(key){return catalog().find(function(s){return s.key===key;});}
   function glyph(s){if(s._special==='person'&&!s.iconPath)return '<span class="gms-icon" aria-hidden="true">♙</span>';if(s._special)return '<img class="gms-icon" src="'+esc(s.iconPath)+'" alt="" draggable="false">';if(s.key==='exhausted')return '<img class="gms-icon" src="images/ui/character-mobile/exhaustion-traveller-v1.png" alt="" draggable="false">';if(s._item){var src=s.imageThumb||s.image||w.ZargotaItemIcons?.pathFor(s)||'';return /^(https?:\/\/|images\/|assets\/|data:image\/)/i.test(src)?'<img class="gms-icon gms-item-art" src="'+esc(src)+'" alt="" draggable="false">':'<span class="gms-icon">◇</span>';}return w.zgStatusGlyphMarkup?.(s,label(s),'gms-icon')||'<span class="gms-icon">'+esc(s.icon||'✦')+'</span>';}
   function favoriteKey(){return 'zg-gm-'+(kind==='items'?'item':kind==='spells'?'spell':['people','maps'].includes(kind)?kind:'status')+'-favorites-v1:'+String(w.ZargotaPersistentCharacters?.tableIdentity().uid||'local');}
@@ -108,7 +123,7 @@ d.querySelector('[data-close]').onclick=function(){d.remove();};d.oncancel=funct
   }
   function inspectCard(tile){
     var key=tile.dataset.gmsDrag,def=definition(key);if(!def)return;
-    w.ZargotaTableObjects.preview(kind,key,optionsFor(def)||{unit:'manual',duration:0},tile.parentElement);
+    w.ZargotaTableObjects.preview(kind==='maps'?'documents':kind,key,optionsFor(def)||{unit:'manual',duration:0},tile.parentElement);
   }
   function closeCardMenu(){panel?.querySelector('.gms-card-menu')?.remove();}
   function showCardMenu(tile,x,y){
@@ -245,7 +260,7 @@ d.querySelector('[data-close]').onclick=function(){d.remove();};d.oncancel=funct
       else if(button.dataset.gmsKind&&!busy){savePreferences();kind=button.dataset.gmsKind;activeKey='';localize();savePreferences();}
       else if(button.hasAttribute('data-gms-favorites')){tab=tab==='favorites'?'all':'favorites';savePreferences();paintList();}
       else if(button.dataset.gmsStar){var fav=favorites(),key=button.dataset.gmsStar;try{localStorage.setItem(favoriteKey(),JSON.stringify(fav.includes(key)?fav.filter(function(k){return k!==key;}):fav.concat(key)));}catch(_){}paintList();}
-      else if(button.dataset.gmsDrag){activeKey=button.dataset.gmsDrag;paintList();var tile=panel.querySelector('.is-selected [data-gms-drag]');if(kind==='documents'&&tile)inspectCard(tile);}
+      else if(button.dataset.gmsDrag){activeKey=button.dataset.gmsDrag;paintList();var tile=panel.querySelector('.is-selected [data-gms-drag]');if(['documents','maps'].includes(kind)&&tile)inspectCard(tile);}
     });
     panel.addEventListener('contextmenu',function(ev){
       var tile=ev.target.closest('.gms-tile')?.querySelector('[data-gms-drag]');if(!tile)return;
