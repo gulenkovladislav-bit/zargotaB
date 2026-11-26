@@ -103,3 +103,26 @@ dialog.zg-gm-participants::backdrop{background:#080705b8;backdrop-filter:blur(5p
 .zg-gm-resources>span{display:inline-flex;align-items:center;gap:4px;font-size:14px;line-height:1;margin:0}
 .zg-gm-resources img{width:23px;height:25px;object-fit:contain;flex-shrink:0}
 .zg-gm-inspiration{color:#f1cf83}.zg-gm-exhaustion{color:#c7ad7e}
+
+.zg-gm-statuses,.zg-gm-exhaustion{cursor:pointer}.zg-gm-state-list{position:fixed;inset:auto 20px calc(var(--gm-dock-height,150px) + 24px) auto;margin:0;width:min(390px,calc(100vw - 32px));max-height:65vh;overflow:auto;background:#171107;color:#e5d3a3;border:1px solid #a88642;border-radius:16px;padding:18px;z-index:100100;box-shadow:0 12px 40px #0009}.zg-gm-state-list header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.zg-gm-state-list button{color:inherit;background:#241c10;border:1px solid #806636;border-radius:8px;padding:8px 12px;cursor:pointer}.zg-gm-state-list details{padding:12px 0;border-top:1px solid #80663666}.zg-gm-state-list summary{cursor:pointer}.zg-gm-state-list p{white-space:pre-line}.zg-gm-state-list::backdrop{background:#0003}
+.zg-gm-hero .zg-gm-statuses,.zg-gm-hero .zg-gm-exhaustion{pointer-events:auto;position:relative;z-index:3}
+.zg-gm-state-list{font:16px/1.45 Georgia,serif}.zg-gm-state-list button{font:inherit}.zg-gm-state-list small{color:#bca777}.zg-gm-state-list summary:focus-visible,.zg-gm-statuses:focus-visible{outline:2px solid #e4c575;outline-offset:3px}
+
+/* Compact, movable list anchored to the selected hero in the dock. */
+#zg-gm-state-list{inset:auto;width:300px;max-width:calc(100vw - 16px);max-height: min(440px,65vh);padding:10px 12px;background:#171107;box-sizing:border-box;font:14px/1.4 Georgia,serif;overflow:auto;scrollbar-width:none;backdrop-filter:none}
+#zg-gm-state-list header{gap:8px;margin:0 0 8px;min-height:32px;cursor:move;touch-action:none;user-select:none}
+#zg-gm-state-list header:before{content:'⠿';color:#b49455}
+#zg-gm-state-list header strong{flex:1;font-size:15px}
+#zg-gm-state-list button{font:13px Georgia,serif;padding:6px 9px;min-height:30px}
+#zg-gm-state-list header button{border:0;background:none;font-size:22px;padding:0 5px}
+#zg-gm-state-list details{border:0;padding:0;margin:6px 0}
+#zg-gm-state-list summary{padding:7px 9px;border:1px solid var(--state-color);border-left:3px solid var(--state-color);border-radius:6px;background:#241b10;color:var(--state-color);font-weight:600}
+#zg-gm-state-list summary small{display:block;padding-left:13px;color:#bda97e;font:12px Georgia,serif;margin-top:3px}
+#zg-gm-state-list details p{margin:8px 2px;line-height:1.45}
+#zg-gm-state-list [role=status]:empty{display:none}
+#zg-gm-state-list::-webkit-scrollbar{display:none}
+
+/* Reserve a separate hit area for the reminder beside status chips. */
+.zg-gm-hero .zg-gm-statuses{margin-right:40px;min-width:0}
+.zg-gm-hero .zg-gm-statuses span{min-width:0}
+.zg-gm-hero .zg-gm-statuses span:last-child{flex-shrink:0}

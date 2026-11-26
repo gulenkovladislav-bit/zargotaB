@@ -28,7 +28,7 @@
     return effect;
   }
   function apply(character,def,options){
-    if(def._special)return special.grant(character,def);
+    if(def._special)return special.grant(character,def,options);
     var effects=character.tempEffects||[],statuses=character.statuses||[],key=def.key;
     var matches=effects.filter(function(e){return e.type==='status'&&e.statusKey===key;}),before=matches[0];
     if(matches.length>1)return {changed:false,reason:'duplicate-existing'};

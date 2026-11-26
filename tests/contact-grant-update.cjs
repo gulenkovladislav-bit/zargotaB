@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict');
+const special=require('../character-special.js');
+const def={key:'person:test',_special:'person',ability:{name:'Кузнец',nameUk:'Коваль',description:'Общие сведения',descriptionUk:'Спільні відомості',relation:'Мастер',relationUk:'Майстер',lastKnownPlace:'Кузница',lastKnownPlaceUk:'Кузня',iconAsset:'images/test.png'}};
+const c={family:[]};
+assert.equal(special.grant(c,def,{updateOnly:true}).changed,false);
+assert.equal(c.family.length,0);
+assert.equal(special.grant(c,def).changed,true);
+Object.assign(c.family[0],{note:'Личная заметка',noteUk:'Особиста нотатка',relationshipLevel:'trust',parentId:'custom',alive:false});
+const before=JSON.parse(JSON.stringify(c));
+def.ability.lastKnownPlace='Рынок';
+const result=special.grant(c,def,{updateOnly:true});
+assert.equal(result.changed,true);assert.equal(c.family.length,1);
+for(const key of ['id','note','noteUk','relationshipLevel','parentId','alive'])assert.deepEqual(c.family[0][key],before.family[0][key]);
+assert.equal(c.family[0].lastKnownPlace,'Рынок');
+assert.equal(special.grant(c,def).changed,false);
+assert.equal(special.undo(c,result.receipt).changed,true);assert.deepEqual(c,before);
+const next=special.grant(c,def);c.family[0].note='Новая заметка';assert.equal(special.undo(c,next.receipt).changed,false);
+console.log('PASS contact grants update shared fields, preserve personal fields, avoid duplicates and support safe undo');

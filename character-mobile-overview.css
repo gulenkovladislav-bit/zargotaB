@@ -134,8 +134,8 @@
  .zgmo-state-cards b{font-size:11px}.zgmo-state-cards small{font-size:10px}
  .zgmo-derived span{display:flex;align-items:center;justify-content:center;gap:5px}.zgmo-vital-icon{display:block;flex:0 0 34px;width:34px;height:34px;object-fit:contain;pointer-events:none;user-select:none}
  /* Leave the bottom diamonds outside the detail overlay and its hit area. */
- #status-info-popup.zgmo-status-dialog{top:var(--zg-viewport-top)!important;bottom:auto!important;height:calc(var(--zg-viewport-height) - var(--zgmo-nav-height) - env(safe-area-inset-bottom,0px));padding:12px!important;background:#05040380!important;backdrop-filter:blur(3px);align-items:stretch!important}
- #status-info-popup.zgmo-status-dialog>.status-info-card{position:relative;display:flex;flex-direction:column;min-width:0!important;max-width:520px!important;max-height:none!important;width:100%;height:100%;box-sizing:border-box;padding:18px!important;overflow:hidden!important;border:1px solid #776346!important;border-radius:12px 3px!important;background:linear-gradient(145deg,#211a10eb,#0c0a07ed)!important;box-shadow:0 12px 30px #0007!important}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog{top:var(--zg-viewport-top)!important;bottom:auto!important;height:calc(var(--zg-viewport-height) - var(--zgmo-nav-height) - env(safe-area-inset-bottom,0px));padding:12px!important;background:#05040380!important;backdrop-filter:blur(3px);align-items:stretch!important}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog>.status-info-card{position:relative;display:flex;flex-direction:column;min-width:0!important;max-width:520px!important;max-height:none!important;width:100%;height:100%;box-sizing:border-box;padding:18px!important;overflow:hidden!important;border:1px solid #776346!important;border-radius:12px 3px!important;background:linear-gradient(145deg,#211a10eb,#0c0a07ed)!important;box-shadow:0 12px 30px #0007!important}
  .zgmo-status-hero{flex-shrink:0;padding:22px 14px 14px!important;border-bottom:1px solid #77634640}
  .zgmo-status-hero>div:first-child{width:72px!important;height:72px!important}.zgmo-status-hero .zg-status-glyph{width:68px!important;height:68px!important}
  .zgmo-status-hero>div:nth-child(2){font-size:22px!important;line-height:1.25!important}.zgmo-status-hero>div:nth-child(n+3){font-size:14px!important}
@@ -155,12 +155,12 @@
 @keyframes zgmo-status-out{to{opacity:0;transform:translateY(8px)}}
 @media(prefers-reduced-motion:reduce){.zgmo-status-dialog,.zgmo-status-dialog>.status-info-card,.zgmo-nav-icon{animation:none!important;transition:none!important}}
 @media(max-width:899px){
- #status-info-popup.zgmo-status-dialog{position:fixed;left:0;right:0;z-index:9999;display:flex;justify-content:center;box-sizing:border-box}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog{position:fixed;left:0;right:0;z-index:9999;display:flex;justify-content:center;box-sizing:border-box}
  .zgmo-status-body>div{white-space:pre-wrap}
 }
 @media(max-width:899px){
- #status-info-popup.zgmo-status-dialog{background:#05040350!important;backdrop-filter:blur(2px)}
- #status-info-popup.zgmo-status-dialog>.status-info-card{background:linear-gradient(145deg,#211a10d9,#0c0a07e8)!important}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog{background:#05040350!important;backdrop-filter:blur(2px)}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog>.status-info-card{background:linear-gradient(145deg,#211a10d9,#0c0a07e8)!important}
  .zgmo-status-body>div:first-child{font-size:16px!important;color:#cfbb97!important}
  .zgmo-status-rules{padding:10px 0;border-top:1px solid #4a3b26}.zgmo-status-rules summary{font-size:14px;color:#b2a17f;padding:8px 0;cursor:pointer}.zgmo-status-rules[open]>div{margin-top:10px}
 }
@@ -288,8 +288,8 @@
 @media(max-width:899px){
  .zgmo-state-cards{overflow:visible;padding:1px 0;box-sizing:border-box}
  .zgmo-state-cards>button:before{inset:0;transform:translateZ(0)}
- #status-info-popup.zgmo-status-dialog{align-items:center!important}
- #status-info-popup.zgmo-status-dialog>.status-info-card{height:auto;max-height:100%!important}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog{align-items:center!important}
+ :is(#status-info-popup,.gmt-reader-status).zgmo-status-dialog>.status-info-card{height:auto;max-height:100%!important}
  .zgmo-status-hero{padding:14px 28px 12px!important;margin-bottom:8px!important}
  .zgmo-status-hero>div:first-child{width:56px!important;height:56px!important}
  .zgmo-status-hero .zg-status-glyph,.zgmo-detail-icon{display:block;width:54px!important;height:54px!important;object-fit:contain;margin:auto}

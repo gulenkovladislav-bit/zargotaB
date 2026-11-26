@@ -1,5 +1,5 @@
 /* Spell detail keeps its heading and actions fixed while each tab reads as one document. */
-#zgms-dialog.zgms-spell-dialog {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog {
   --zgms-paper: #100d08;
   --zgms-ink: #eee4cf;
   --zgms-muted: #b9aa8e;
@@ -23,11 +23,11 @@
   animation: zgms-spell-appear .16s ease-out;
 }
 
-#zgms-dialog.zgms-spell-dialog *,
-#zgms-dialog.zgms-spell-dialog *::before,
-#zgms-dialog.zgms-spell-dialog *::after { box-sizing: border-box; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog *,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog *::before,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog *::after { box-sizing: border-box; }
 
-#zgms-dialog.zgms-spell-dialog > .zgms-spell-panel {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog > .zgms-spell-panel {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -42,7 +42,7 @@
   box-shadow: 0 22px 80px #0009;
 }
 
-#zgms-dialog.zgms-spell-dialog button {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog button {
   max-width: 100%;
   margin: 0;
   font-family: inherit;
@@ -55,17 +55,17 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-#zgms-dialog.zgms-spell-dialog button:focus-visible {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog button:focus-visible {
   outline: 2px solid #f0d18b;
   outline-offset: -3px;
 }
 
-#zgms-dialog.zgms-spell-dialog button:disabled {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog button:disabled {
   cursor: default;
   transform: none;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header {
   position: relative;
   z-index: 3;
   display: grid;
@@ -78,7 +78,7 @@
   background: none;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-heading {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   align-items: start;
@@ -86,9 +86,9 @@
   gap: 12px;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-heading > div { min-width: 0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading > div { min-width: 0; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-art {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-art {
   display: block;
   width: 64px;
   height: 64px;
@@ -104,7 +104,7 @@
   box-shadow: none;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-art img {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-art img {
   display: block;
   width: 100%;
   height: 100%;
@@ -113,9 +113,9 @@
   object-position: center;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-art.symbol img { object-fit: contain; padding: 4px; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-art.symbol img { object-fit: contain; padding: 4px; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-heading h2 {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading h2 {
   margin: 0 0 5px;
   padding: 0;
   font: 600 27px/1.13 Georgia, 'Times New Roman', serif;
@@ -124,14 +124,14 @@
   overflow-wrap: anywhere;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-type {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-type {
   display: block;
   font: 14px/1.45 Georgia, 'Times New Roman', serif;
   color: var(--zgms-muted);
   overflow-wrap: anywhere;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-school {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-school {
   display: block;
   margin-top: 2px;
   color: #d3bc90;
@@ -139,15 +139,15 @@
   overflow-wrap: anywhere;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-requirements {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-requirements {
   margin-top: 5px;
   color: #d3c5a8;
   font: 14px/1.35 Georgia, 'Times New Roman', serif;
   overflow-wrap: anywhere;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-type img,
-#zgms-dialog.zgms-spell-dialog .zgms-detail-type svg {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-type img,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-type svg {
   display: inline-block;
   width: 23px;
   height: 23px;
@@ -156,7 +156,7 @@
   vertical-align: middle;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header > button {
   width: 40px;
   min-width: 40px;
   height: 44px;
@@ -171,7 +171,7 @@
   line-height: 44px;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-status {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-status {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -184,10 +184,10 @@
   line-height: 1.35;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-status:empty { display: none; }
-#zgms-dialog.zgms-spell-dialog .zgms-equipped-label { color: #c3bb93; font-size: 12px; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-status:empty { display: none; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-equipped-label { color: #c3bb93; font-size: 12px; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-study-state {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-study-state {
   display: inline-flex;
   align-items: center;
   min-height: 30px;
@@ -201,7 +201,7 @@
   font: 13px/1.35 Georgia, 'Times New Roman', serif;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   flex: 0 0 auto;
@@ -211,7 +211,7 @@
   background: none;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button {
   position: relative;
   min-width: 0;
   width: 100%;
@@ -227,13 +227,13 @@
   white-space: normal;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button[aria-selected=true] {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button[aria-selected=true] {
   color: #fff0cd;
   font-weight: 600;
   background: linear-gradient(0deg, #b8871c12, transparent 75%);
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button[aria-selected=true]::after {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button[aria-selected=true]::after {
   position: absolute;
   content: '';
   right: 3px;
@@ -244,7 +244,7 @@
   box-shadow: 0 0 8px #e4b75340;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-detail-body {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-body {
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
@@ -258,7 +258,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-tab-panel {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-tab-panel {
   display: block;
   min-width: 0;
   margin: 0;
@@ -268,9 +268,9 @@
   box-shadow: none;
 }
 
-#zgms-dialog.zgms-spell-dialog [hidden] { display: none !important; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog [hidden] { display: none !important; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-charges {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-charges {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -283,7 +283,7 @@
   background: none;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-charge-copy {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-charge-copy {
   display: grid;
   grid-template-columns: auto auto;
   align-items: baseline;
@@ -295,7 +295,7 @@
   font: 14px/1.35 Georgia, 'Times New Roman', serif;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-charge-copy strong {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-charge-copy strong {
   min-width: 0;
   margin: 0;
   text-align: left;
@@ -304,7 +304,7 @@
   white-space: nowrap;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-charge-copy small {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-charge-copy small {
   grid-column: 1 / -1;
   color: var(--zgms-muted);
   font-size: 13px;
@@ -312,9 +312,9 @@
   overflow-wrap: anywhere;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-charges.exhausted strong { color: #d7a38b; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-charges.exhausted strong { color: #d7a38b; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-usage-note {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-usage-note {
   margin: 0 0 18px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--zgms-line);
@@ -322,7 +322,7 @@
   font: 14px/1.45 Georgia, 'Times New Roman', serif;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata {
   display: grid;
   gap: 6px;
   margin: 0 0 18px;
@@ -332,12 +332,12 @@
   font: 12px/1.45 Georgia, 'Times New Roman', serif;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; min-width: 0; }
-#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata small { color: inherit; font: inherit; }
-#zgms-dialog.zgms-spell-dialog .zgms-spell-tag { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; color: inherit; overflow-wrap: anywhere; }
-#zgms-dialog.zgms-spell-dialog .zgms-spell-tag img { display: block; flex: 0 0 22px; width: 22px; height: 22px; margin: 0; object-fit: contain; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata > div { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; min-width: 0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata small { color: inherit; font: inherit; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-tag { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; min-width: 0; color: inherit; overflow-wrap: anywhere; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-tag img { display: block; flex: 0 0 22px; width: 22px; height: 22px; margin: 0; object-fit: contain; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-use-pips {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-use-pips {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -346,7 +346,7 @@
   padding: 5px 2px;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-use-pips > span {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-use-pips > span {
   display: block;
   width: 11px;
   height: 11px;
@@ -357,13 +357,13 @@
   transform: rotate(45deg);
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-use-pips > span.spent {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-use-pips > span.spent {
   border-color: #665638;
   background: transparent;
   box-shadow: none;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-rule {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule {
   margin: 20px 0 0;
   padding: 16px 0 0;
   border: 0;
@@ -374,12 +374,12 @@
   color: var(--zgms-ink);
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-rule:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-#zgms-dialog.zgms-spell-dialog .zgms-charges + .zgms-rule,
-#zgms-dialog.zgms-spell-dialog .zgms-usage-note + .zgms-rule,
-#zgms-dialog.zgms-spell-dialog .zgms-spell-metadata + .zgms-rule { margin-top: 0; padding-top: 0; border-top: 0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-charges + .zgms-rule,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-usage-note + .zgms-rule,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata + .zgms-rule { margin-top: 0; padding-top: 0; border-top: 0; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-rule h3 {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule h3 {
   margin: 0 0 8px;
   padding: 0;
   color: var(--zgms-gold);
@@ -387,8 +387,8 @@
   letter-spacing: 0;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-rule p,
-#zgms-dialog.zgms-spell-dialog .zgms-rule li {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule p,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule li {
   margin: 0;
   color: var(--zgms-ink);
   font: 17px/1.58 Georgia, 'Times New Roman', serif;
@@ -396,20 +396,20 @@
   overflow-wrap: anywhere;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-rule p + p { margin-top: 10px; }
-#zgms-dialog.zgms-spell-dialog .zgms-rule ul { margin: 8px 0 0; padding-left: 22px; }
-#zgms-dialog.zgms-spell-dialog .zgms-rule blockquote { margin: 14px 0 0; color: #dcc58f; font-style: italic; }
-#zgms-dialog.zgms-spell-dialog .zgms-number { color: #fff0d0; font-weight: 600; }
-#zgms-dialog.zgms-spell-dialog .zgms-param { font-weight: 600; }
-#zgms-dialog.zgms-spell-dialog .zgms-param.stat-str { color: #ed7676; }
-#zgms-dialog.zgms-spell-dialog .zgms-param.stat-dex { color: #93d18b; }
-#zgms-dialog.zgms-spell-dialog .zgms-param.stat-int { color: #7dc7f0; }
-#zgms-dialog.zgms-spell-dialog .zgms-param.stat-cha { color: #ebbc68; }
-#zgms-dialog.zgms-spell-dialog .zgms-param.stat-per { color: #c59af0; }
-#zgms-dialog.zgms-spell-dialog .zgms-param.stat-con { color: #d7d4cd; }
-#zgms-dialog.zgms-spell-dialog .zgms-param .zgms-number { color: inherit; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule p + p { margin-top: 10px; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule ul { margin: 8px 0 0; padding-left: 22px; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule blockquote { margin: 14px 0 0; color: #dcc58f; font-style: italic; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-number { color: #fff0d0; font-weight: 600; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param { font-weight: 600; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param.stat-str { color: #ed7676; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param.stat-dex { color: #93d18b; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param.stat-int { color: #7dc7f0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param.stat-cha { color: #ebbc68; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param.stat-per { color: #c59af0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param.stat-con { color: #d7d4cd; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-param .zgms-number { color: inherit; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-description-art {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-description-art {
   margin: 0 0 20px;
   overflow: hidden;
   border: 1px solid #776038;
@@ -417,7 +417,7 @@
   background: #17120b;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-description-art img {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-description-art img {
   display: block;
   width: 100%;
   height: auto;
@@ -425,12 +425,12 @@
   object-fit: contain;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-description-art + .zgms-rule { margin-top: 0; padding-top: 0; border-top: 0; }
-#zgms-dialog.zgms-spell-dialog .is-unlearned .zgms-detail-art img,
-#zgms-dialog.zgms-spell-dialog .is-unlearned .zgms-description-art img,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-description-art + .zgms-rule { margin-top: 0; padding-top: 0; border-top: 0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .is-unlearned .zgms-detail-art img,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .is-unlearned .zgms-description-art img,
 .zgms-card.is-unlearned .zgms-art > img { filter: grayscale(1) brightness(.72); }
 
-#zgms-dialog.zgms-spell-dialog .zgms-learning-actions {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -440,14 +440,14 @@
   border-top: 1px solid var(--zgms-line);
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-learning-actions > small {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-actions > small {
   flex-basis: 100%;
   color: var(--zgms-muted);
   font: 13px/1.45 Georgia, 'Times New Roman', serif;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-study-primary,
-#zgms-dialog.zgms-spell-dialog .zgms-apply {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-study-primary,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-apply {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -464,8 +464,8 @@
   transition: background .16s ease, border-color .16s ease;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-study-primary:disabled,
-#zgms-dialog.zgms-spell-dialog .zgms-apply:disabled {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-study-primary:disabled,
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-apply:disabled {
   border-color: #514631;
   background: #211c13;
   box-shadow: none;
@@ -473,10 +473,10 @@
   opacity: 1;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-study-primary[aria-busy=true],
-#zgms-dialog.zgms-spell-dialog .zgms-apply[aria-busy=true] { opacity: .65; cursor: wait; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-study-primary[aria-busy=true],
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-apply[aria-busy=true] { opacity: .65; cursor: wait; }
 
-#zgms-dialog.zgms-spell-dialog .zgms-use-footer {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-use-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -488,7 +488,7 @@
   background: #120e08;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-use-footer small {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-use-footer small {
   min-width: 0;
   max-width: 55%;
   color: var(--zgms-muted);
@@ -498,7 +498,7 @@
 }
 
 /* The spell menu is also available above the desktop breakpoint. */
-#zgms-dialog.zgms-spell-dialog .zgms-menu {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-menu {
   position: absolute;
   z-index: 10;
   top: calc(100% - 6px);
@@ -516,7 +516,7 @@
   box-shadow: 0 10px 28px #000b;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-menu > button {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-menu > button {
   width: 100%;
   min-height: 44px;
   height: auto;
@@ -532,19 +532,19 @@
   white-space: normal;
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-menu > button:last-child { border-bottom: 0; }
-#zgms-dialog.zgms-spell-dialog .zgms-menu > button:disabled { opacity: .5; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-menu > button:last-child { border-bottom: 0; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-menu > button:disabled { opacity: .5; }
 
 @media (hover: hover) {
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button:hover,
-  #zgms-dialog.zgms-spell-dialog .zgms-menu > button:not(:disabled):hover { background: #b9914020; color: #fff0ca; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button:hover { color: #f6dfb1; }
-  #zgms-dialog.zgms-spell-dialog .zgms-study-primary:not(:disabled):hover,
-  #zgms-dialog.zgms-spell-dialog .zgms-apply:not(:disabled):hover { border-color: #ddba70; background: #392a14; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header > button:hover,
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-menu > button:not(:disabled):hover { background: #b9914020; color: #fff0ca; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button:hover { color: #f6dfb1; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-study-primary:not(:disabled):hover,
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-apply:not(:disabled):hover { border-color: #ddba70; background: #392a14; }
 }
 
 @media (max-width: 899px) {
-  #zgms-dialog.zgms-spell-dialog {
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog {
     height: calc(var(--zg-viewport-height, 100dvh) - var(--zgmo-nav-height, 76px) - env(safe-area-inset-bottom, 0px));
     align-items: stretch;
     padding: 0;
@@ -552,7 +552,7 @@
     backdrop-filter: none;
   }
 
-  #zgms-dialog.zgms-spell-dialog > .zgms-spell-panel {
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog > .zgms-spell-panel {
     width: 100%;
     height: 100%;
     max-height: none;
@@ -561,107 +561,107 @@
     box-shadow: none;
   }
 
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header {
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header {
     --zgms-portrait-size: 100px;
     grid-template-columns: minmax(0, 1fr) 36px;
     grid-template-rows: 1fr 1fr;
     gap: 0 8px;
     padding: max(12px, env(safe-area-inset-top, 0px)) 12px 10px;
   }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-heading { grid-column: 1; grid-row: 1 / 3; grid-template-columns: var(--zgms-portrait-size) minmax(0, 1fr); gap: 12px; align-items: stretch; }
-  #zgms-dialog.zgms-spell-dialog .zgms-heading-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-height: var(--zgms-portrait-size); }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-art { width: var(--zgms-portrait-size); height: var(--zgms-portrait-size); min-width: var(--zgms-portrait-size); }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-heading h2 { flex: 0 0 auto; margin: 0; padding: 0; min-height: 0; font-size: clamp(18px, 5.1vw, 21px); line-height: 1.12; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-type { font-size: 12px; line-height: 1.25; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button { position: static; grid-column: 2; width: 36px; min-width: 36px; min-height: 36px; height: 36px; line-height: 36px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > [data-zgms="close"] { grid-row: 1; align-self: start; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > [data-zgms="detail-menu"] { grid-row: 2; align-self: end; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-classification { display: none; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs { margin: 0 12px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button { min-height: 40px; padding: 7px 3px; font-size: clamp(13px, 3.8vw, 16px); }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-body { padding: 12px 18px 18px; scrollbar-gutter: auto; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 0 0 10px; padding: 0 0 8px; font-size: 14px; line-height: 1.35; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata > div { display: contents; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata small { display: none; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-tag img { flex-basis: 20px; width: 20px; height: 20px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-rule { margin-top: 12px; padding-top: 12px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-rule:first-child,
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-metadata + .zgms-rule { margin-top: 0; padding-top: 0; }
-  #zgms-dialog.zgms-spell-dialog .zgms-rule h3 { margin-bottom: 6px; font-size: 18px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-rule p,
-  #zgms-dialog.zgms-spell-dialog .zgms-rule li { font-size: 16px; line-height: 1.45; }
-  #zgms-dialog.zgms-spell-dialog .zgms-rule p + p { margin-top: 7px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: center; flex: 0 0 auto; gap: 4px 8px; margin: 0 12px; padding: 7px 6px; border-bottom: 1px solid var(--zgms-line); }
-  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-apply { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; min-height: 40px; padding: 7px 9px; font-size: 16px; line-height: 1.2; }
-  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-charges { display: block; grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0; }
-  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-charge-copy { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 11px; line-height: 1.2; text-align: right; }
-  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
-  #zgms-dialog.zgms-spell-dialog .zgms-recovery-note { grid-column: 1; grid-row: 1; color: var(--zgms-muted); font: 12px/1.3 Georgia, serif; overflow-wrap: anywhere; }
-  #zgms-dialog.zgms-spell-dialog .zgms-recovery-note.is-long { grid-column: 1 / -1; grid-row: 2; text-align: center; }
-  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary .zgms-spell-status { padding: 0; margin: 0; gap: 4px 9px; min-height: 0; }
-  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary .zgms-study-state { min-height: 0; padding: 0; border: 0; background: none; font-size: 14px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-learning-summary .zgms-study-primary { min-height: 38px; min-width: 0; padding: 7px 12px; font-size: 14px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-learning-source { margin: 0 0 12px; color: #cbb58c; font: 13px/1.4 Georgia, serif; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading { grid-column: 1; grid-row: 1 / 3; grid-template-columns: var(--zgms-portrait-size) minmax(0, 1fr); gap: 12px; align-items: stretch; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-heading-copy { display: flex; flex-direction: column; justify-content: space-between; gap: 6px; min-height: var(--zgms-portrait-size); }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-art { width: var(--zgms-portrait-size); height: var(--zgms-portrait-size); min-width: var(--zgms-portrait-size); }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading h2 { flex: 0 0 auto; margin: 0; padding: 0; min-height: 0; font-size: clamp(18px, 5.1vw, 21px); line-height: 1.12; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-type { font-size: 12px; line-height: 1.25; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header > button { position: static; grid-column: 2; width: 36px; min-width: 36px; min-height: 36px; height: 36px; line-height: 36px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header > [data-zgms="close"] { grid-row: 1; align-self: start; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header > [data-zgms="detail-menu"] { grid-row: 2; align-self: end; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-classification { display: none; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs { margin: 0 12px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button { min-height: 40px; padding: 7px 3px; font-size: clamp(13px, 3.8vw, 16px); }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-body { padding: 12px 18px 18px; scrollbar-gutter: auto; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 0 0 10px; padding: 0 0 8px; font-size: 14px; line-height: 1.35; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata > div { display: contents; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata small { display: none; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-tag img { flex-basis: 20px; width: 20px; height: 20px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule { margin-top: 12px; padding-top: 12px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule:first-child,
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-metadata + .zgms-rule { margin-top: 0; padding-top: 0; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule h3 { margin-bottom: 6px; font-size: 18px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule p,
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule li { font-size: 16px; line-height: 1.45; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-rule p + p { margin-top: 7px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-compact-actions { display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); align-items: center; flex: 0 0 auto; gap: 4px 8px; margin: 0 12px; padding: 7px 6px; border-bottom: 1px solid var(--zgms-line); }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-compact-actions .zgms-apply { grid-column: 2; grid-row: 1; width: 100%; min-width: 0; min-height: 40px; padding: 7px 9px; font-size: 16px; line-height: 1.2; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-compact-actions .zgms-charges { display: block; grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-compact-actions .zgms-charge-copy { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 11px; line-height: 1.2; text-align: right; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-compact-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-recovery-note { grid-column: 1; grid-row: 1; color: var(--zgms-muted); font: 12px/1.3 Georgia, serif; overflow-wrap: anywhere; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-recovery-note.is-long { grid-column: 1 / -1; grid-row: 2; text-align: center; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 10px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-summary .zgms-spell-status { padding: 0; margin: 0; gap: 4px 9px; min-height: 0; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-summary .zgms-study-state { min-height: 0; padding: 0; border: 0; background: none; font-size: 14px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-summary .zgms-study-primary { min-height: 38px; min-width: 0; padding: 7px 12px; font-size: 14px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-learning-source { margin: 0 0 12px; color: #cbb58c; font: 13px/1.4 Georgia, serif; }
 }
 
 @media (max-width: 359px) {
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header { --zgms-portrait-size: 88px; padding-left: 11px; padding-right: 9px; column-gap: 6px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-heading { gap: 9px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button { font-size: 13px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-body { padding-right: 14px; padding-left: 14px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-compact-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); padding-left: 2px; padding-right: 2px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header { --zgms-portrait-size: 88px; padding-left: 11px; padding-right: 9px; column-gap: 6px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading { gap: 9px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button { font-size: 13px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-body { padding-right: 14px; padding-left: 14px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-compact-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); padding-left: 2px; padding-right: 2px; }
 }
 
 @media (max-width: 899px) and (max-height: 560px) {
-  #zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
-  #zgms-dialog.zgms-spell-dialog .zgms-detail-tabs > button { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header { padding-top: max(8px, env(safe-area-inset-top, 0px)); padding-bottom: 6px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-detail-tabs > button { min-height: 36px; padding-top: 5px; padding-bottom: 5px; }
 }
 
 @keyframes zgms-spell-appear { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  #zgms-dialog.zgms-spell-dialog { animation: none; }
-  #zgms-dialog.zgms-spell-dialog button { transition: none; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog { animation: none; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog button { transition: none; }
 }
 
-#zgms-dialog.zgms-spell-dialog .zgms-spell-panel > header > button > svg { display: block; width: 24px; height: 24px; margin: auto; pointer-events: none; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel > header > button > svg { display: block; width: 24px; height: 24px; margin: auto; pointer-events: none; }
 
 /* Personal abilities keep one reading flow and their own real usage limits. */
-#zgms-dialog.zgms-spell-dialog .zgms-simple-panel > header { border-bottom: 1px solid var(--zgms-line); }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-simple-panel > header { border-bottom: 1px solid var(--zgms-line); }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions {
   display: grid; grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr);
   align-items: center; flex: 0 0 auto; gap: 3px 8px;
   margin: 0 18px; padding: 8px 0; border-bottom: 1px solid var(--zgms-line);
 }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-apply {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions .zgms-apply {
   grid-column: 2; grid-row: 1; min-width: 0; width: 100%; min-height: 44px;
   padding: 7px 9px; font-size: 16px; line-height: 1.2;
 }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-restore {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions .zgms-restore {
   grid-column: 1; grid-row: 1; min-height: 44px; width: fit-content; max-width: 100%;
   padding: 5px 0; border: 0; background: none; box-shadow: none;
   color: #d7bd84; font: 13px/1.3 Georgia, serif; text-align: left;
   text-decoration: underline; text-decoration-color: #8a6c3e; text-underline-offset: 3px;
 }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-restore:disabled {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions .zgms-restore:disabled {
   color: #827661; text-decoration: none; cursor: default;
 }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charges {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions .zgms-charges {
   display: block; grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0;
 }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy {
   display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
   font-size: 11px; line-height: 1.2; text-align: right;
 }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
-#zgms-dialog.zgms-spell-dialog .zgms-personal-recovery {
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions .zgms-charge-copy strong { font-size: 18px; line-height: 1.15; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-recovery {
   grid-column: 1 / -1; margin: 0; color: var(--zgms-muted); text-align: center;
   font: 12px/1.3 Georgia, serif; overflow-wrap: anywhere;
 }
 @media (max-width: 359px) {
-  #zgms-dialog.zgms-spell-dialog .zgms-personal-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); margin: 0 14px; gap: 3px 6px; }
+  :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-personal-actions { grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1fr); margin: 0 14px; gap: 3px 6px; }
 }
-#zgms-dialog.zgms-spell-dialog .zgms-simple-note { margin: 0 0 12px; color: var(--zgms-muted); font: 14px/1.4 Georgia, serif; }
+:is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-simple-note { margin: 0 0 12px; color: var(--zgms-muted); font: 14px/1.4 Georgia, serif; }
 /* The same authored rule structure also serves the desktop ability reader. */
 .zgms-personal-rules {
   --personal-ink: #eee4cf; --personal-gold: #ddbd77;
@@ -669,22 +669,22 @@
   --personal-limit: #d7b978; --personal-check: #9ec8d8;
   display: flex; flex-direction: column; gap: 0;
 }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules { display: block; gap: 0; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section { margin: 14px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #4c3c23; border-radius: 0; background: none; box-shadow: none; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-copy { display: flex; flex-direction: column; gap: 9px; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules h4 { margin: 0 0 7px; color: var(--personal-gold); font: 600 16px/1.3 Georgia, serif; letter-spacing: 0; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-benefit h4 { color: var(--personal-benefit); }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-danger h4 { color: var(--personal-danger); }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-limit h4 { color: var(--personal-limit); }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-check h4 { color: var(--personal-check); }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-paragraph,
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { margin: 0; padding: 0; color: var(--personal-ink); font: 400 16px/1.45 Georgia, serif; overflow-wrap: anywhere; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { display: grid; gap: 8px; list-style: none; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list li { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: baseline; gap: 9px; padding: 0; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules { display: block; gap: 0; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section { margin: 14px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #4c3c23; border-radius: 0; background: none; box-shadow: none; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-copy { display: flex; flex-direction: column; gap: 9px; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules h4 { margin: 0 0 7px; color: var(--personal-gold); font: 600 16px/1.3 Georgia, serif; letter-spacing: 0; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-benefit h4 { color: var(--personal-benefit); }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-danger h4 { color: var(--personal-danger); }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-limit h4 { color: var(--personal-limit); }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .tone-check h4 { color: var(--personal-check); }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .char-ability-rule-paragraph,
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { margin: 0; padding: 0; color: var(--personal-ink); font: 400 16px/1.45 Georgia, serif; overflow-wrap: anywhere; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list { display: grid; gap: 8px; list-style: none; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-list li { display: grid; grid-template-columns: auto minmax(0,1fr); align-items: baseline; gap: 9px; padding: 0; }
 .zgms-personal-rules .zgms-list-marker { min-width: 12px; color: var(--personal-gold); font-variant-numeric: tabular-nums; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-quote { margin: 1px 0; padding: 2px 0 2px 12px; border: 0; border-left: 1px solid #706044; color: #c7b89c; background: none; font: italic 15px/1.45 Georgia, serif; }
-:is(#zgms-dialog, .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-outcome { padding: 5px 0 5px 10px; border: 0; border-left: 2px solid var(--outcome-color); border-radius: 0; background: none; box-shadow: none; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-quote { margin: 1px 0; padding: 2px 0 2px 12px; border: 0; border-left: 1px solid #706044; color: #c7b89c; background: none; font: italic 15px/1.45 Georgia, serif; }
+:is(:is(#zgms-dialog,.gmt-reader-skills), .skill-card-popup, .zg-innate-ability-modal) .zgms-personal-rules .zgms-personal-outcome { padding: 5px 0 5px 10px; border: 0; border-left: 2px solid var(--outcome-color); border-radius: 0; background: none; box-shadow: none; }
 .zgms-personal-rules .outcome-benefit { --outcome-color: var(--personal-benefit); }
 .zgms-personal-rules .outcome-danger { --outcome-color: var(--personal-danger); }
 .zgms-personal-rules .zgms-outcome-label { color: var(--outcome-color); font-weight: 600; }
@@ -702,7 +702,7 @@
 .zgms-personal-rules .key-danger { color: var(--personal-danger); }
 .zgms-personal-rules .key-limit { color: var(--personal-limit); }
 .zgms-personal-rules .key-check,
-#zgms-dialog .zgms-personal-rules .zgms-difficulty,
+:is(#zgms-dialog,.gmt-reader-skills) .zgms-personal-rules .zgms-difficulty,
 .zgms-personal-rules .zgms-difficulty { color: var(--personal-check); }
 
 /* Native modal keeps the sheet inert and returns focus without rebuilding it. */
@@ -778,3 +778,13 @@
   :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) figcaption { align-self: center; }
 }
 @media (prefers-reduced-motion: reduce) { :is(#zgms-art-viewer, #zgmi-art-viewer, #zgml-art-viewer) { animation: none; } }
+
+/* Detail settings and close share one corner on mobile as well as desktop. */
+@media(max-width:899px){
+ :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel>header{grid-template-columns:minmax(0,1fr);grid-template-rows:auto}
+ :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-heading{grid-column:1;grid-row:1}
+ :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-heading-copy{padding-top:42px;box-sizing:border-box}
+ :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel>header>[data-zgms=close],
+ :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel>header>[data-zgms=detail-menu]{position:absolute;grid-area:auto;align-self:start;top:max(8px,env(safe-area-inset-top,0px));right:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center}
+ :is(#zgms-dialog,.gmt-reader-skills).zgms-spell-dialog .zgms-spell-panel>header>[data-zgms=detail-menu]{right:56px}
+}

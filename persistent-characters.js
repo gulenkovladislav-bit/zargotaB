@@ -65,7 +65,7 @@
     var row=tableHeroes().find(function(hero){return String(hero.localId)===String(localId);});
     if(!row||!row.ready)return {ok:false,reason:'not-ready'};
     var e=records[row.sheetId],base=e.base,next=JSON.parse(base.characterJson),operation=w.ZargotaCharacterStatus;
-    var definition=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE)).find(function(s){return s.key===key&&s.enabled!==false;});
+    var definition=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE),w.ZargotaGmStatusLibrary?.abilityCatalog()||[]).find(function(s){return s.key===key&&s.enabled!==false;});
     if(!operation||(!receipt&&!definition))return {ok:false,reason:'unknown-status'};
     var result=receipt?operation.undo(next,receipt):operation.apply(next,definition,options);
     if(!result.changed)return Object.assign({ok:true},result);
@@ -106,8 +106,8 @@
   async function specialWrite(localId,action,id){
     var sid=binding(localId),e=sid&&records[sid];
     if(!e||!e.allowed||!e.base||!tableSeen.has(e)||tableWrites.has(e)||e.pending||e.remote||e.conflict||e.localSaving||e.dirtyInput||editing(e)||inSession(e)||!navigator.onLine)return {ok:false,reason:'not-ready'};
-    if(action!=='spend-inspiration'&&!(action==='remove-injury'&&e.role==='master'))return {ok:false,reason:'not-ready'};
-    var base=e.base,next=JSON.parse(base.characterJson),result=action==='spend-inspiration'?w.ZargotaCharacterSpecial.spend(next):w.ZargotaCharacterSpecial.remove(next,id);
+    if(action!=='spend-inspiration'&&action!=='reduce-exhaustion'&&!(['remove-injury','remove-status'].includes(action)&&e.role==='master'))return {ok:false,reason:'not-ready'};
+    var base=e.base,next=JSON.parse(base.characterJson),result=action==='reduce-exhaustion'?w.ZargotaCharacterSpecial.removeStatus(next,'exhausted',true):action==='remove-status'?w.ZargotaCharacterSpecial.removeStatus(next,id,false):action==='spend-inspiration'?w.ZargotaCharacterSpecial.spend(next):w.ZargotaCharacterSpecial.remove(next,id);
     if(!result.changed)return Object.assign({ok:true},result);
     tableWrites.add(e);render();
     try{

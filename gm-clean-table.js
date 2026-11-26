@@ -97,11 +97,12 @@
     if(!dock||!card)return;
     var markup=rows.map(function(row){
       var c=hero(row),name=c&&c.name||row.meta.name,hp=Math.max(0,Number(c&&c.hpCur)||0),max=Math.max(1,Number(c&&c.hpMax)||1),ac=Number(c&&c.ac)||0;
-      var statuses=c?helpers.statuses(c):[],active=selected===row.key,locked=!c||row.shared&&!row.shared.ready;
+      // Sheet states are statuses + status tempEffects; statusEffects is a separate legacy/combat snapshot.
+      var statuses=c?helpers.statuses(Object.assign({},c,{statusEffects:[]})):[],active=selected===row.key,locked=!c||row.shared&&!row.shared.ready;
       return '<article class="zg-gm-hero'+(active?' is-selected':'')+'" data-gm-key="'+e(row.key)+'">'+
         '<button type="button" class="zg-gm-hero-open" data-gm-open="'+e(row.key)+'" aria-expanded="'+active+'" aria-label="'+e(t('Открыть лист: ','Відкрити аркуш: ')+name)+'"'+(!c?' disabled':'')+'>'+helpers.portrait(c,row.meta,'zg-gm-hero-portrait')+'<strong>'+e(name)+'</strong></button>'+
         '<div class="zg-gm-hero-data">'+helpers.badge(row.shared)+'<div class="zg-gm-hp"><button type="button" data-gm-hp="-1" aria-label="'+e(t('Уменьшить HP: ','Зменшити HP: ')+name)+'"'+(locked||hp<=0?' disabled':'')+'>−</button><span aria-label="HP"><i aria-hidden="true">♥</i> <b>'+hp+'</b><small> / '+max+'</small></span><button type="button" data-gm-hp="1" aria-label="'+e(t('Увеличить HP: ','Збільшити HP: ')+name)+'"'+(locked||hp>=max?' disabled':'')+'>+</button></div>'+resources(c,ac)+''+
-        '<div class="zg-gm-statuses">'+statuses.slice(0,2).map(function(s){return '<span title="'+e(tr(s.name))+'">'+e(s.icon)+' '+e(tr(s.name))+'</span>';}).join('')+(statuses.length>2?'<span>+'+(statuses.length-2)+'</span>':'')+'</div></div>'+(!c?'':'<button type="button" class="zg-gm-reminder-button" data-gm-reminder="'+e(row.key)+'" aria-label="'+e(t('Памятка мастера: ','Пам’ятка майстра: ')+name)+'">?</button>')+'</article>';
+        '<div class="zg-gm-statuses" role="button" tabindex="0" data-gm-statuses="'+e(row.key)+'">'+statuses.slice(0,2).map(function(s){var key=s.key||s.statusKey||statusList(c).find(function(k){var def=(w.ALL_STATUSES||[]).find(function(d){return d.key===k;}),f=(c.tempEffects||[]).find(function(f){return f.statusKey===k;});return tr(def?.label||f?.label||k)===tr(s.name);})||'';return '<span data-dock-status="'+e(key)+'" title="'+e(tr(s.name))+'">'+e(s.icon)+' '+e(tr(s.name))+'</span>';}).join('')+(statuses.length>2?'<span>+'+(statuses.length-2)+'</span>':'')+'</div></div>'+(!c?'':'<button type="button" class="zg-gm-reminder-button" data-gm-reminder="'+e(row.key)+'" aria-label="'+e(t('Памятка мастера: ','Пам’ятка майстра: ')+name)+'">?</button>')+'</article>';
     }).join('');
     if(w.ZargotaGmParticipants){
       var showAdd=rows.length<5;
@@ -122,7 +123,41 @@
     function badge(cls,src,title,value){return '<span class="'+cls+'" title="'+e(title)+'" aria-label="'+e(title)+'"><img src="'+src+'" alt="">'+value+'</span>';}
     return '<div class="zg-gm-resources">'+badge('zg-gm-armor','images/character-derived/armor-v3.webp',t('Броня','Броня')+': '+ac,ac)+(inspiration?badge('zg-gm-inspiration','images/ui/character-mobile/inspiration-candle-v1.png',t('Вдохновение','Натхнення')+': '+inspiration,inspiration):'')+(level?badge('zg-gm-exhaustion','images/ui/character-mobile/exhaustion-traveller-v1.png',t('Истощение','Виснаження')+': '+level+' / 5',level+'/5'):'')+'</div>';
   }
-  document.addEventListener('DOMContentLoaded',function(){if(w.ZG_APP_CHANGELOG?.[0]){w.ZG_APP_CHANGELOG[0].notes+=' Карточки мастера: значок брони вместо КД, свеча со счётчиком вдохновения и путник с уровнем истощения. Нулевые счётчики скрыты; вдохновение без рамки.';w.ZG_APP_CHANGELOG[0].notesUk+=' Картки майстра: значок броні замість КЗ, свічка з лічильником натхнення та мандрівник із рівнем виснаження. Нульові лічильники приховані; натхнення без рамки.';}});
+  document.addEventListener('DOMContentLoaded',function(){if(w.ZG_APP_CHANGELOG?.[0]){w.ZG_APP_CHANGELOG[0].notes+=' Документы: создание писем, записок и объявлений, выдача перетаскиванием, три оформления бумаги и звук открытия.';w.ZG_APP_CHANGELOG[0].notesUk+=' Документи: створення листів, записок і оголошень, надання перетягуванням, три оформлення паперу та звук відкриття.';w.ZG_APP_CHANGELOG[0].notes+=' Хранилище: выдача заклинаний, шаблоны своих черт и мастерства, подготовка на столе.';w.ZG_APP_CHANGELOG[0].notesUk+=' Сховище: надання заклинань, шаблони власних рис і майстерності, підготовка на столі.';w.ZG_APP_CHANGELOG[0].notes+=' Общий список состояний на карточке, снятие одного уровня истощения или всех уровней, Shift + ПКМ для снятия у всех и восстановление одного уровня истощения игроком.';w.ZG_APP_CHANGELOG[0].notesUk+=' Спільний список станів на картці, зняття одного рівня виснаження або всіх рівнів, Shift + ПКМ для зняття в усіх та відновлення одного рівня виснаження гравцем.';w.ZG_APP_CHANGELOG[0].notes+=' Карточки мастера: значок брони вместо КД, свеча со счётчиком вдохновения и путник с уровнем истощения. Нулевые счётчики скрыты; вдохновение без рамки.';w.ZG_APP_CHANGELOG[0].notesUk+=' Картки майстра: значок броні замість КЗ, свічка з лічильником натхнення та мандрівник із рівнем виснаження. Нульові лічильники приховані; натхнення без рамки.';}});
+  function statusList(c){var keys=Array.from(new Set((c.statuses||[]).concat((c.tempEffects||[]).filter(function(f){return f.type==='status';}).map(function(f){return f.statusKey;}))));return keys.filter(Boolean);}
+  function openStates(key){
+    var row=roster.find(function(r){return r.key===key;}),c=row&&hero(row);if(!c)return;
+    document.querySelector('#zg-gm-state-list')?.remove();var d=document.createElement('dialog');d.id='zg-gm-state-list';d.className='zg-gm-state-list';d.setAttribute('data-zg-i18n-skip','');
+    d.innerHTML='<header><strong>'+e(c.name)+' · '+t('Состояния','Стани')+'</strong><button data-close>×</button></header><div class="zg-gm-state-list-body">'+statusList(c).map(function(k){var f=(c.tempEffects||[]).find(function(f){return f.type==='status'&&f.statusKey===k;})||{},def=(w.zgGmStatusCatalog?.()||w.ALL_STATUSES||[]).find(function(x){return x.key===k;})||{};return '<details style="--state-color:'+e(/^#[0-9a-f]{3,8}$/i.test(f.color||def.color||'')?(f.color||def.color):'#c6a465')+'" data-state="'+e(k)+'"><summary>'+e(tr(f.label||def.label||k))+(f.stacks>1?' ×'+f.stacks:'')+'<small>'+e(f.remaining!=null?String(f.remaining)+' '+({rounds:t('раунд.','раунд.'),minutes:t('мин.','хв.'),hours:t('ч.','год.'),days:t('дн.','дн.')}[f.unit]||''):t('До снятия','До зняття'))+'</small></summary><p>'+(w.ZargotaSpellDetailContent?.highlightPersonal(tr(f.description||def.description||''))||e(tr(f.description||def.description||'')))+'</p><button data-detail="'+e(k)+'">'+t('Подробнее','Докладніше')+'</button> '+(k==='exhausted'?'<button data-remove="exhausted" data-one>'+t('Снять 1 уровень','Зняти 1 рівень')+'</button> ':'')+'<button data-remove="'+e(k)+'">'+(k==='exhausted'?t('Снять полностью','Зняти повністю'):t('Убрать','Прибрати'))+'</button></details>';}).join('')+'</div><p role="status"></p>';
+    document.body.appendChild(d);d.show();positionStates(d,key);d.querySelector('[data-close]').onclick=function(){d.remove();};d.addEventListener('cancel',function(){d.remove();});
+    d.onclick=async function(ev){var remove=ev.target.closest('[data-remove]'),detail=ev.target.closest('[data-detail]');if(detail){d.remove();w.showStatusInfoPopup(c.id,detail.dataset.detail);return;}if(remove){remove.disabled=true;var result=await removeDockStatus(row,remove.dataset.remove,remove.hasAttribute('data-one'));if(result.ok){d.remove();openStates(key);}else{remove.disabled=false;d.querySelector('[role=status]').textContent=t('Не удалось сохранить. Повторите после синхронизации.','Не вдалося зберегти. Повторіть після синхронізації.');}}};
+    d.oncontextmenu=function(ev){var node=ev.target.closest('[data-state]');if(node&&ev.shiftKey){ev.preventDefault();statusMenu(node.dataset.state,ev);}};
+  }
+  function positionStates(d,key){
+    var card=Array.from(document.querySelectorAll('[data-gm-key]')).find(function(n){return n.dataset.gmKey===key;}),anchor=card?.getBoundingClientRect(),rect=d.getBoundingClientRect();
+    d.style.left=Math.max(8,Math.min(innerWidth-rect.width-8,anchor?anchor.left:20))+'px';
+    d.style.top=Math.max(8,(anchor?anchor.top:innerHeight)-rect.height-12)+'px';
+    var header=d.querySelector('header'),motion=null;
+    header.addEventListener('pointerdown',function(ev){if(ev.button!==0||ev.target.closest('button'))return;ev.preventDefault();var box=d.getBoundingClientRect();motion={id:ev.pointerId,x:ev.clientX,y:ev.clientY,left:box.left,top:box.top};header.setPointerCapture(ev.pointerId);});
+    header.addEventListener('pointermove',function(ev){if(!motion||motion.id!==ev.pointerId)return;d.style.left=Math.max(8,Math.min(innerWidth-d.offsetWidth-8,motion.left+ev.clientX-motion.x))+'px';d.style.top=Math.max(8,Math.min(innerHeight-44,motion.top+ev.clientY-motion.y))+'px';});
+    function stop(){if(motion&&header.hasPointerCapture(motion.id))header.releasePointerCapture(motion.id);motion=null;}
+    header.addEventListener('pointerup',stop);header.addEventListener('pointercancel',stop);header.addEventListener('lostpointercapture',function(){motion=null;});
+  }
+  async function removeDockStatus(row,key,one){
+    one=key==='exhausted'&&!!one;
+    var c=hero(row);if(!c)return {ok:false};
+    if(row.shared||w.ZargotaPersistentCharacters?.usesCharacter(c.id))return w.ZargotaPersistentCharacters.specialWrite(c.id,one?'reduce-exhaustion':'remove-status',key);
+    if(statusWrites.has(String(c.id)))return {ok:false};statusWrites.add(String(c.id));var before={tempEffects:c.tempEffects,statuses:c.statuses};
+    try{var result=w.ZargotaCharacterSpecial.removeStatus(c,key,one);if(!result.changed)return {ok:true};var saved=await w.saveChars({reason:'gm-remove-status'});if(!saved?.ok)throw Error('save');return {ok:true};}catch(_){c.tempEffects=before.tempEffects;c.statuses=before.statuses;return {ok:false};}finally{statusWrites.delete(String(c.id));refresh();}
+  }
+  function statusMenu(key,event){
+    if(!document.body.classList.contains('zg-irl-table-view'))return;
+    document.querySelector('#zg-gm-status-menu')?.remove();var menu=document.createElement('dialog');menu.id='zg-gm-status-menu';menu.className='zg-gm-state-list';menu.setAttribute('data-zg-i18n-skip','');
+    var def=(w.ALL_STATUSES||[]).find(function(s){return s.key===key;})||{};
+    menu.innerHTML='<header><strong>'+e(tr(def.label||key))+'</strong><button data-close>×</button></header>'+(key==='exhausted'?'<button data-all data-one>'+t('Снять 1 уровень у всех','Зняти 1 рівень в усіх')+'</button> ':'')+'<button data-all>'+(key==='exhausted'?t('Снять полностью у всех','Зняти повністю в усіх'):t('Снять у всех на столе','Зняти в усіх на столі'))+'</button><p role="status"></p>';document.body.appendChild(menu);presentDialog(menu);menu.querySelector('[data-close]').onclick=function(){menu.remove();};menu.addEventListener('cancel',function(){menu.remove();});
+    menu.querySelectorAll('[data-all]').forEach(function(button){button.onclick=async function(){var one=this.hasAttribute('data-one');menu.querySelectorAll('[data-all]').forEach(function(b){b.disabled=true;});var failed=0;for(var row of roster.slice()){var c=hero(row);if(c&&statusList(c).includes(key)){var result=await removeDockStatus(row,key,one);if(!result.ok)failed++;}}if(failed){menu.querySelector('[role=status]').textContent=t('Не удалось снять у героев: ','Не вдалося зняти в героїв: ')+failed;}else{menu.remove();document.querySelector('#zg-gm-state-list')?.remove();}};});
+  }
+  document.addEventListener('keydown',function(ev){var el=ev.target.closest?.('[data-gm-statuses]');if(el&&(ev.key==='Enter'||ev.key===' ')){ev.preventDefault();openStates(el.dataset.gmStatuses);}});
   function changeHp(key,delta){
     var row=roster.find(function(r){return r.key===key;}),c=row&&hero(row);if(!c)return;
     if(row.shared){w.ZargotaPersistentCharacters.tableHp(c.id,delta);return;}
@@ -137,7 +172,7 @@
     if(row.shared||w.ZargotaPersistentCharacters?.usesCharacter(c.id)){
       return receipt?w.ZargotaPersistentCharacters.tableUndoStatus(c.id,receipt):w.ZargotaPersistentCharacters.tableStatus(c.id,key,options);
     }
-    var def=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE)).find(function(s){return s.key===key&&s.enabled!==false;});
+    var def=(w.zgGmStatusCatalog?w.zgGmStatusCatalog():[]).concat(w.ZargotaCharacterSpecial.catalog(w.ZARGOTA_INJURY_TABLE),w.ZargotaGmStatusLibrary?.abilityCatalog()||[]).find(function(s){return s.key===key&&s.enabled!==false;});
     if(!receipt&&!def)return {ok:false,reason:'unknown-status'};
     var before=JSON.parse(JSON.stringify(c)),result=receipt?w.ZargotaCharacterStatus.undo(c,receipt):w.ZargotaCharacterStatus.apply(c,def,options);
     if(!result.changed)return Object.assign({ok:true},result);
@@ -148,7 +183,7 @@
       return Object.assign({ok:true},result);
     }catch(err){
       // Restore only this operation's fields, never replace the full character.
-      ['tempEffects','statuses','inspiration','inspirationEvent','injuries','baseHpMax','hpMax','hpCur'].forEach(function(field){if(before[field]===undefined)delete c[field];else c[field]=before[field];});
+      ['family','journalEntries','spellRefs','spellsLearned','spellGrantCatalog','preparedSpells','mastery','tempEffects','statuses','inspiration','inspirationEvent','injuries','baseHpMax','hpMax','hpCur'].forEach(function(field){if(before[field]===undefined)delete c[field];else c[field]=before[field];});
       return {ok:false,reason:'local-save-failed'};
     }finally{statusWrites.delete(String(c.id));refresh();}
   }
@@ -181,6 +216,7 @@
     table.addEventListener('drop',blockCanvasDrop);
     document.addEventListener('click',function(event){
       var reminder=event.target.closest('[data-gm-reminder]');
+      var states=event.target.closest('[data-gm-statuses],.zg-gm-exhaustion');if(states){openStates(states.closest('[data-gm-key]').dataset.gmKey);return;}
       if(reminder){var row=roster.find(function(r){return r.key===reminder.dataset.gmReminder;});if(row&&hero(row))w.ZargotaGmReminders?.open(row,hero(row),reminder);return;}
       var open=event.target.closest('[data-gm-open]'),hp=event.target.closest('[data-gm-hp]');
       if(open){w.zgIrlCharacterToggle(open.dataset.gmOpen);return;}
@@ -190,7 +226,7 @@
     document.addEventListener('contextmenu',function(event){
       var el=event.target.closest('.zg-gm-hero[data-gm-key]');
       if(!el||!document.body.classList.contains('zg-irl-table-view'))return;
-      var row=roster.find(function(r){return r.key===el.dataset.gmKey;});if(!row||!w.ZargotaGmParticipants)return;
+      var row=roster.find(function(r){return r.key===el.dataset.gmKey;});var chip=event.target.closest('[data-dock-status]');if(event.shiftKey&&(event.target.closest('.zg-gm-exhaustion')||chip?.dataset.dockStatus)){event.preventDefault();statusMenu(chip?.dataset.dockStatus||'exhausted',event);return;}if(!row||!w.ZargotaGmParticipants)return;
       event.preventDefault();w.ZargotaGmParticipants.context(row,event);
     });
     document.addEventListener('pointerdown',function(event){
@@ -213,6 +249,6 @@
   // Legacy sheet dialogs also stay in the same component. Never adopt unrelated
   // editor/game overlays; only these character-owned roots are eligible.
   new MutationObserver(function(records){if(!isOpen())return;records.forEach(function(record){record.addedNodes.forEach(function(node){if(node.nodeType===1&&node.matches('#status-popup,#quick-temp-popup,#status-info-popup,#char-sheet-tab-bar'))host.appendChild(node);});});}).observe(document.body,{childList:true});
-  w.ZargotaGmTable={item:itemWrite,render:render,refresh:refresh,isEditing:isEditing,isOpen:isOpen,portal:portal,presentDialog:presentDialog,unmount:unmountSheet,targets:targets,status:function(target,key,options){return statusWrite(target,key,options);},undoStatus:function(target,receipt){return statusWrite(target,receipt.key,null,receipt);}};
+  w.ZargotaGmTable={statusMenu:statusMenu,item:itemWrite,render:render,refresh:refresh,isEditing:isEditing,isOpen:isOpen,portal:portal,presentDialog:presentDialog,unmount:unmountSheet,targets:targets,status:function(target,key,options){return statusWrite(target,key,options);},undoStatus:function(target,receipt){return statusWrite(target,receipt.key,null,receipt);}};
   if(document.readyState==='complete')init();else document.addEventListener('DOMContentLoaded',init,{once:true});
 })(window);

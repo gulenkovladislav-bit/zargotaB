@@ -107,7 +107,7 @@
   var extra=[sp.klasse,sp.tip].filter(Boolean).map(function(value){return '<span class="zgms-spell-tag zgms-spell-classification">'+e(text(c,value,sp))+'</span>';}).join('');
   return cats||dmgs||extra?'<div class="zgms-spell-metadata" aria-label="'+t('Метки каталога','Позначки каталогу')+'">'+(cats||extra?'<div>'+cats+extra+'</div>':'')+(dmgs?'<div><small>'+t('Типы урона:','Типи шкоди:')+'</small>'+dmgs+'</div>':'')+'</div>':'';
  }
- function detailIcon(kind){return kind==='close'?'<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>':'<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="4" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="20" cy="12" r="1.7"/></g></svg>';}
+ function detailIcon(kind){return kind==='close'?'<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false"><path d="M6 6L18 18M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>':w.ZargotaMobileSheet.settingsIcon();}
  function closeArt(restoreFocus){
   var viewer=document.getElementById('zgms-art-viewer');if(viewer){viewer.close();viewer.remove();}
   if(restoreFocus&&artReturnFocus&&artReturnFocus.isConnected)artReturnFocus.focus({preventScroll:true});artReturnFocus=null;
@@ -179,7 +179,7 @@
   var r=row.resource,usage=recoveryLabel(text(c,r.text,row.spell&&row.item),r),seen=new Set();
   var rules=row.spell?fields.filter(function(f){if(!f[1])return false;var value=text(c,f[1],row.item).trim();if(seen.has(value))return false;seen.add(value);return true;}).map(function(f){return '<section class="zgms-rule"><h3>'+e(f[0])+'</h3><p>'+e(text(c,f[1],row.item))+'</p></section>';}).join(''):'<div class="zgms-rules">'+w.characterAbilityRulesHtml(row.description,row.item)+'</div>';
   var origin=sourceLabel(row),kind=row.type&&row.type!==origin?' · '+row.type:'';
-  return '<header><h2>'+e(row.name)+'</h2>'+button('detail-menu',t('Действия способности','Дії здібності'),'⋯','aria-expanded="false"')+button('close',t('Закрыть','Закрити'),'×')+'</header>'+
+  return '<header><h2>'+e(row.name)+'</h2>'+button('detail-menu',t('Действия способности','Дії здібності'),detailIcon('menu'),'aria-expanded="false"')+button('close',t('Закрыть','Закрити'),'×')+'</header>'+
    '<div class="zgms-detail-summary"><div class="zgms-detail-art '+(row.art.scene?'scene':'symbol')+'"><img alt="" src="'+e(row.art.src)+'"></div><div><span class="zgms-detail-type">'+e(origin+kind)+'</span>'+(row.item.descByLevel?'<small>'+t('На уровне персонажа: ','На рівні персонажа: ')+e(c.level||1)+'</small>':'')+(!r.max&&usage?'<small>'+e(usage)+'</small>':'')+'</div></div>'+
    (r.max&&(!row.spell||row.learned)?'<div class="zgms-charges'+(!r.remaining?' exhausted':'')+'">'+button('spend',t('Потратить использование','Витратити використання'),'−',r.remaining?'':'disabled')+'<div class="zgms-charge-copy"><span>'+t('Осталось','Залишилось')+' <strong aria-live="polite">'+r.remaining+' / '+r.max+'</strong></span>'+(usage?'<small>'+e(usage)+'</small>':'')+(!r.remaining?'<small class="zgms-exhausted-label">'+t('Всё потрачено','Усе витрачено')+'</small>':'')+'</div>'+button('restore',t('Вернуть использование','Повернути використання'),'＋',r.used?'':'disabled')+'</div>':'')+
    '<div class="zgms-detail-body">'+rules+'</div>'+(row.spell?'<footer class="zgms-study-actions"><span class="zgms-study-state" aria-live="polite">'+(row.equipped?t('Экипировано','Споряджено'):row.learned?t('Изучено','Вивчено'):t('Ещё не изучено','Ще не вивчено'))+'</span>'+button(row.learned?'equip':'learn',row.learned?(row.equipped?t('Снять','Зняти'):t('Экипировать','Спорядити')):t('Изучить','Вивчити'),'<span aria-hidden="true">'+(row.learned?(row.equipped?'◇':'◆'):'✦')+'</span> '+(row.learned?(row.equipped?t('Снять','Зняти'):t('Экипировать','Спорядити')):t('Изучить','Вивчити')),'class="zgms-study-primary"'+(pending&&String(pending.id)===String(c.id)&&pending.key===row.key?' disabled aria-busy="true"':''))+'</footer>':'');
@@ -299,5 +299,9 @@
   });
  });
  if(w.matchMedia)w.matchMedia('(max-width:899px)').addEventListener('change',function(){if(dialogKey)refresh();});
- w.ZargotaMobileSkills={render:render,setActive:active,refresh:refresh,rows:rows,category:category,resource:resource,openSpell:openSpell};
+ function previewMarkup(def,tab){var c={id:'table-preview',level:1,skills:[],mastery:[],spellRefs:[],preparedSpells:{kodex:[],folio:[],obrad:[]},spellsLearned:{},spellCD:{}},row;
+ if(def.spell){var item=def.spell;row={key:'preview',spell:true,item:item,name:w.characterAbilityDisplayName(text(c,item.name,item)),tone:colors[item.spellType]||'#c7a451',art:artwork(item,true),resource:resource(item,c,true),learned:false,equipped:false,type:({kodex:t('Боевой кодекс','Бойовий кодекс'),folio:t('Фолиант','Фоліант'),obrad:t('Обрядник','Обрядник')})[item.spellType]||''};}
+ else{c[def._special==='mastery'?'mastery':'skills']=[JSON.parse(JSON.stringify(def.ability||{}))];row=rows(c)[0];}
+ if(!row)return '';var old=detailTab,desktop=dialogDesktop;detailTab=tab||'use';dialogDesktop=false;try{return details(c,row);}finally{detailTab=old;dialogDesktop=desktop;}}
+ w.ZargotaMobileSkills={previewMarkup:previewMarkup,render:render,setActive:active,refresh:refresh,rows:rows,category:category,resource:resource,openSpell:openSpell};
 })(window);
