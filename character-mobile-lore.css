@@ -333,3 +333,31 @@
 
 #zgml-dialog.is-choosing-relationship .zgml-relationship-picker button[data-level="hate"]{background:#450b13;border-color:#b91c2b;color:#ff6262}
 #zgml-dialog.is-choosing-relationship .zgml-relationship-picker button[data-level="hate"][aria-pressed=true]{background:#650e1b;box-shadow:inset 0 0 0 1px #ef3646}
+/* A folded note uses the dialog only for focus, dismissal and its backdrop. */
+#zgml-dialog.zgml-folded-reader[open]{inset:0;margin:auto;width:min(94vw,480px);height:fit-content;min-height:0;max-height:90dvh;overflow:visible;border:0;background:none;box-shadow:none;animation:none}
+#zgml-dialog.zgml-folded-reader::backdrop{background:radial-gradient(ellipse at center,#130f0ac9,#080705e8);backdrop-filter:blur(3px)}
+#zgml-dialog.zgml-folded-reader>header{background:none;border:0;padding:0 12px;justify-content:flex-end}
+#zgml-dialog.zgml-folded-reader>header h2{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#zgml-dialog.zgml-folded-reader .zgml-dialog-body{padding:3px 4px 12px;overflow:visible;flex:none}
+.zgml-note-stage{position:relative;perspective:900px;filter:drop-shadow(1px 6px 9px #0007)}
+.zgml-note-leaf{--paper:#ecdfc3;--ink:#44311e;position:relative;background-color:var(--paper);background-image:linear-gradient(178deg,transparent 48%,#68513118 49.6%,#fff7d94d 50%,transparent 52%),url('images/ui/character-lore/document-paper-v1.webp');background-size:100% 100%,520px;background-blend-mode:normal,multiply;color:var(--ink);/* Keep the writing visible even when the decorative edge fails to load. */
+ mask:linear-gradient(#000 0 0) center/calc(100% - 10px) calc(100% - 10px) no-repeat,url('images/ui/character-lore/note-edge.png') center/100% 100% no-repeat;padding:12px 0}
+.zgml-note-leaf.paper-dark{--paper:#544435;--ink:#fff0d8}.zgml-note-leaf.paper-gray{--paper:#cecac0;--ink:#333536}
+.zgml-note-writing{box-sizing:border-box;min-height:min(320px,52dvh);max-height:calc(82dvh - 80px);overflow:auto;padding:clamp(22px,7vw,42px);overscroll-behavior:contain;scrollbar-width:thin}
+:is(#zgml-dialog,.gmt-reader-documents) .zgml-note-writing h3{color:inherit;font:italic 600 clamp(24px,6vw,32px)/1.17 Georgia,serif;margin:0 0 1em;overflow-wrap:anywhere}
+:is(#zgml-dialog,.gmt-reader-documents) .zgml-note-writing p{color:inherit;font:18px/1.6 Georgia,serif;white-space:pre-wrap;margin:0;overflow-wrap:anywhere}
+.zgml-note-writing footer{font:italic 17px/1.4 Georgia,serif;text-align:right;margin:1.4em 0 0}
+.zgml-note-parcel{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;visibility:hidden}
+.zgml-note-parcel img{width:80px;height:80px;object-fit:contain}
+@media(prefers-reduced-motion:no-preference){
+ .zgml-note-parcel{animation:zgml-note-parcel .38s ease-out}
+ .zgml-note-leaf{animation:zgml-note-spread .9s cubic-bezier(.22,.7,.24,1) both}
+ .zgml-note-writing{animation:zgml-note-ink .84s ease-out both}
+ @keyframes zgml-note-ink{0%,42%{opacity:0}78%{opacity:.92}100%{opacity:1}}
+ .zgml-note-leaf::before{content:"";position:absolute;z-index:2;inset:0 0 50%;transform-origin:center bottom;background:linear-gradient(#a88f6860,#58402250),var(--paper) url('images/ui/character-lore/document-paper-v1.webp') center/520px;background-blend-mode:multiply;animation:zgml-note-flap .88s ease-out both;pointer-events:none}
+ @keyframes zgml-note-parcel{0%,45%{visibility:visible;opacity:1;transform:rotate(-6deg) scale(.84)}100%{visibility:hidden;opacity:0;transform:rotate(-2deg) scale(1.16)}}
+ @keyframes zgml-note-spread{0%,18%{opacity:0;clip-path:inset(43% 32%);transform:rotate(-6deg) scale(.78)}38%{opacity:1;clip-path:inset(24% 8%)}70%{clip-path:inset(0);transform:rotate(-.8deg) scale(.99)}100%{clip-path:inset(0);transform:none}}
+ @keyframes zgml-note-flap{0%,26%{opacity:1;transform:perspective(640px) rotateX(-158deg)}79%{opacity:.65;transform:perspective(640px) rotateX(-12deg)}100%{opacity:0;transform:none}}
+}
+
+.gmt-reader-documents:has(.zgml-note-stage) header h2{visibility:hidden}
