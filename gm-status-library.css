@@ -88,3 +88,11 @@ body.gms-dragging #page-gm-table .zg-irl-character-dock{padding-left:100px;trans
 .gms-card-menu{position:fixed;inset:auto;margin:0;padding:4px;max-width:min(270px,92vw);max-height:85vh;overflow:auto;border:1px solid #987643;border-radius:9px;background:#21190e;color:#ead7ac;box-shadow:0 6px 18px #0007;font:15px/1.3 Georgia,serif}
 .gms-library .gms-card-menu button{display:block;width:100%;text-align:left;background:transparent;border:0;padding:7px 12px}
 .gms-card-menu button:is(:hover,:focus-visible){background:#49371f}
+
+.gms-people-filter{position:relative;min-width:0;flex:1;color:#ead6a5}
+.gms-people-filter summary{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:36px;padding:6px 10px;border:1px solid #806333;background:#171109;border-radius:6px;cursor:pointer;list-style:none}
+.gms-people-filter summary::-webkit-details-marker{display:none}
+.gms-people-filter summary::after{content:'⌄';color:#c9aa70}
+.gms-people-filter[open]>div{position:absolute;inset:calc(100% + 3px) 0 auto;z-index:12;display:grid;padding:4px;max-height:230px;overflow:auto;background:#20180e;border:1px solid #97763b;border-radius:6px;box-shadow:0 5px 15px #0009}
+.gms-library .gms-people-filter button{border:0;text-align:left;background:transparent;line-height:1.2}
+.gms-library .gms-people-filter button:hover,.gms-library .gms-people-filter button[aria-pressed=true]{color:#ffe1a0;background:#382912}

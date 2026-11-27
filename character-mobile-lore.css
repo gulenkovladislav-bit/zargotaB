@@ -383,3 +383,14 @@
     100% { opacity: 1; transform: none; }
   }
 }
+
+/* Contact previews contain only a name, role and readable relationship. */
+.zgml-person-copy{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;justify-content:stretch;align-content:center;align-items:center;gap:5px;padding:6px 9px;overflow:hidden}
+.zgml-person-copy>strong{line-height:1.2;margin:0;font-size:18px;min-height:22px}
+.zgml-person-meta{display:flex;flex-direction:column;align-items:flex-start;gap:5px;min-width:0;overflow:hidden}
+.zgml-person-meta>small{min-width:0;max-width:100%;font-size:15px;line-height:1.2}
+.zgml-person-meta>small:empty{display:none}
+.zgml-person-meta .zgml-relationship-badge{flex:none;min-width:0;font-size:17px;line-height:1.2;padding:3px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+
+.zgml-person .zgml-person-copy{gap:2px;padding-block:3px}
+.zgml-person .zgml-person-meta{gap:2px}

@@ -50,7 +50,7 @@
   <script src="player-messages.js?v=2026-11-14.10"></script>
   <link rel="stylesheet" href="player-messages.css?v=2026-11-14.10">
   <script src="character-item-grants.js?v=2026-11-26-contacts-1"></script>
-  <script src="character-special.js?v=2026-11-26-contacts-1"></script>
+  <script src="character-special.js?v=2026-11-27-people-filter"></script>
   <script src="character-status-operations.js?v=2026-11-26-contacts-1"></script>
   <script src="persistent-characters.js?v=2026-11-26-contacts-1"></script>
   <link rel="stylesheet" href="persistent-characters.css?v=2026-11-18.2">
@@ -10439,6 +10439,7 @@ window.addEventListener('load', function(){
 var ZG_APP_VERSION = '2026-11-21.3';
 var ZG_PERSISTENT_BACKEND_ENABLED = true;
 var ZG_APP_CHANGELOG = [
+  {v:'2026-11-27.people',notes:'В разделе «Люди» можно отобрать знакомства по месту и отношениям. Статус виден на каждой карточке.',notesUk:'У розділі «Люди» можна відібрати знайомих за місцем і стосунками. Статус видно на кожній картці.'},
 {"v": "2026-11-21.3", "notes": "Истощение, травмы и вдохновение: выдача из Особого, счётчики и верхние уведомления игроку. Фильтры хранилища сохраняются, количество уровней истощения выбирается перед выдачей. Обновлены иконки, рамки и оформление предметов.", "notesUk": "Виснаження, травми й натхнення: надання з Особливого, лічильники та верхні сповіщення гравцю. Фільтри сховища зберігаються, кількість рівнів виснаження обирається перед наданням. Оновлено іконки, рамки та оформлення предметів."},
 {"v": "2026-11-21.2", "notes": "Стол мастера: предметы и статусы можно разложить, выделить рамкой и выдать группой. Карточки перемещаются левой кнопкой, открываются одним кликом, меняют размер за угол. Игрок получает предметы с полноэкранной анимацией и просмотром очереди; принятие сопровождается звуком. Монеты поступают в кошелёк. В инвентаре доступно удаление выбранного количества правой кнопкой.", "notesUk": "Стіл майстра: предмети й стани можна розкласти, виділити рамкою та надати групою. Картки пересуваються лівою кнопкою, відкриваються одним кліком, змінюють розмір за кут. Гравець отримує предмети з повноекранною анімацією та переглядом черги; прийняття супроводжується звуком. Монети надходять до гаманця. В інвентарі доступне видалення вибраної кількості правою кнопкою."},
 {v:'2026-11-21.1',notes:'Хранилище состояний на столе мастера: выдача перетаскиванием одному герою или всем. Уведомление игроку с иконкой и длительностью, снятие состояния правой кнопкой. Убраны всплывающие отчёты, обновления содержимого доступны на характеристиках. Мобильный лист запоминает вкладку между перезапусками.',notesUk:'Сховище станів на столі майстра: надання перетягуванням одному герою або всім. Сповіщення гравцю зі значком і тривалістю, зняття стану правою кнопкою. Прибрано спливні звіти, оновлення вмісту доступні на характеристиках. Мобільний аркуш запам’ятовує вкладку між перезапусками.'},
@@ -26850,10 +26851,10 @@ document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { p
 <script defer src="personal-item-presentation.js?v=2026-11-17.3"></script>
 <script defer src="item-detail-content.js?v=2026-11-17.5"></script>
 <script defer src="character-mobile-inventory.js?v=2026-11-26-contacts-1"></script>
-<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-26-torn-note">
+<link rel="stylesheet" href="character-mobile-lore.css?v=2026-11-27-people-filter">
 <link rel="stylesheet" href="character-mobile-roster.css?v=2026-11-17.3">
 <script defer src="character-mobile-roster.js?v=2026-11-05.3"></script>
-<script defer src="character-mobile-lore.js?v=handwritten-note-1"></script>
+<script defer src="character-mobile-lore.js?v=2026-11-27-people-filter"></script>
 <link rel="stylesheet" href="character-mobile-skills.css?v=2026-11-26-contacts-1">
 <link rel="stylesheet" href="character-spell-detail.css?v=2026-11-26-contacts-1">
 <script defer src="spell-detail-content.js?v=2026-11-16.19"></script>
@@ -29817,17 +29818,18 @@ window.zgEnsurePortableCharacterMedia = function(character) {
 
 <link rel="stylesheet" href="irl-session-prep.css">
 <link rel="stylesheet" href="gm-clean-table.css?v=2026-11-26-contacts-1">
-<script defer src="gm-sheet-styles.js?v=2026-11-26-torn-note"></script>
+<script defer src="gm-sheet-styles.js?v=2026-11-27-people-filter"></script>
 <script defer src="gm-table-participants.js?v=2026-11-20-2"></script>
 <link rel="stylesheet" href="gm-hero-reminders.css?v=2026-11-20.2">
 <script defer src="gm-hero-reminders.js?v=2026-11-20.2"></script>
 <link rel="stylesheet" href="gm-enemy-dock.css?v=encounter-rounds-1">
 <script defer src="gm-enemy-dock.js?v=encounter-rounds-2"></script>
 <script defer src="gm-clean-table.js?v=encounter-rounds-1"></script>
-<link rel="stylesheet" href="gm-status-library.css?v=2026-11-26-paper-release">
+<link rel="stylesheet" href="gm-status-library.css?v=2026-11-27-people-filter">
 <link rel="stylesheet" href="character-item-arrival.css?v=2026-11-26-contacts-1">
 <script defer src="character-item-arrival.js?v=2026-11-26-contacts-1"></script>
-<script defer src="gm-status-library.js?v=handwritten-note-1"></script>
+<script defer src="gm-campaign-seeds.js?v=2026-11-27-people-oil"></script>
+<script defer src="gm-status-library.js?v=2026-11-27-people-oil-2"></script>
 <link rel="stylesheet" href="gm-table-objects.css?v=2026-11-26-contacts-1">
 <script defer src="gm-table-objects.js?v=encounter-rounds-1"></script>
 <script defer src="character-session-resume.js?v=2026-11-21.1"></script>

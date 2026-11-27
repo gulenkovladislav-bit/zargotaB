@@ -13,7 +13,32 @@
   function tr(s){return w.ZargotaI18n?.translate(s)||s;}
   function label(s){return w.ZargotaI18n?.getLocale()==='uk'&&s.labelUk?s.labelUk:tr(s.label||s.key);}
   function templatesKey(){return 'zg-gm-ability-templates-v1:'+String(w.ZargotaPersistentCharacters?.tableIdentity().uid||'local');}
-  function templates(){try{var list=JSON.parse(localStorage.getItem(templatesKey())||'[]');return Array.isArray(list)?list.filter(function(d){return d&&d.key&&d.ability&&['trait','mastery','document','person'].includes(d._special);}):[];}catch(_){return [];}}
+  function upgradePeople(list){
+    var seeds=new Map((w.ZargotaCampaignSeeds||[]).filter(d=>d._special==='person').map(d=>[d.key,d]));
+    for(var contact of list){
+      var seed=seeds.get(contact?.key);
+      if(!seed||!contact.ability)continue;
+      if(seed.gmProfile&&!contact.gmProfile)contact.gmProfile=seed.gmProfile;
+      var oldPortraits=seed.previousPortraits||[];
+      var paths=[contact.iconPath,contact.ability.iconAsset].filter(Boolean);
+      var custom=paths.find(path=>path!==seed.iconPath&&!oldPortraits.includes(path));
+      if(!custom||paths.length<2||paths.some(path=>oldPortraits.includes(path))){
+        contact.iconPath=contact.ability.iconAsset=custom||seed.iconPath;
+      }
+    }
+    return list;
+  }
+  function migratePeople(list){
+    var flag=templatesKey()+':people-oil-v2';
+    if(!w.ZargotaCampaignSeeds?.length||localStorage.getItem(flag))return;
+    var existing=new Set(list.map(item=>item.key));
+    var previouslySeeded=localStorage.getItem(templatesKey()+':people-oil-v1');
+    if(!previouslySeeded)list.push(...w.ZargotaCampaignSeeds.filter(item=>item._special==='person'&&!existing.has(item.key)));
+    upgradePeople(list);
+    localStorage.setItem(templatesKey(),JSON.stringify(list));
+    localStorage.setItem(flag,'1');
+  }
+  function templates(){try{var list=JSON.parse(localStorage.getItem(templatesKey())||'[]');if(Array.isArray(list))migratePeople(list);return Array.isArray(list)?list.filter(function(d){return d&&d.key&&d.ability&&['trait','mastery','document','person'].includes(d._special);}):[];}catch(_){return [];}}
   function spellCatalog(){return (w.getCharacterSpellCatalogEntries?.()||[]).filter(function(s){return s&&s.id!=null&&s.name;}).map(function(s){return {key:'spell:'+s.id,_special:'spell',spell:s,label:s.name,labelUk:s.nameUk,description:s.description||s.desc||'',descriptionUk:s.descriptionUk||s.descUk,iconPath:w.ZargotaSpellArt?.resolve(s)||s.iconAsset||s.image||'images/ui/combat-generated/folio.png'};});}
   function abilityCatalog(){return spellCatalog().concat(templates());}
 
@@ -74,14 +99,34 @@ d.querySelector('[data-close]').onclick=function(){d.remove();};d.oncancel=funct
   function targets(){return w.ZargotaGmTable?.targets()||[];}
   var categories={currency:['Монеты','Монети'],weapon:['Оружие','Зброя'],armor:['Броня','Броня'],shield:['Щиты','Щити'],potion:['Зелья','Зілля'],consumable:['Расходники','Витратні предмети'],food:['Еда и быт','Їжа й побут'],magic:['Магическое','Магічне'],accessory:['Украшения','Прикраси'],tool:['Инструменты','Інструменти'],mount:['Транспорт','Транспорт'],property:['Жильё','Житло'],material:['Материалы','Матеріали'],contraband:['Подпольное','Підпільне'],other:['Разное','Різне']};
   function itemCategory(item){var key=item.category==='currency'?'currency':item.cat||item.category||'other';key=({artifact:'magic',clothing:'armor',item:'other'})[key]||key;return categories[key]?key:'other';}
+  function hasStats(person){return Object.keys(person.gmProfile?.stats||{}).some(key=>key!=='age');}
+  function personPlace(person){return person.ability.lastKnownPlace||person.ability.lastKnownPlaceUk||'';}
+  function matchesPerson(person){
+    if(!category)return true;
+    if(category==='stats')return hasStats(person);
+    if(category==='traits')return !!person.gmProfile?.traits?.length;
+    return category==='place:'+personPlace(person);
+  }
+  function peopleFilters(){
+    var places=new Map();
+    for(var person of catalog('people')){
+      var place=personPlace(person);
+      if(place)places.set('place:'+place,t(place,person.ability.lastKnownPlaceUk||place));
+    }
+    var options=[['',t('Все люди','Усі люди')],['stats',t('С характеристиками','З характеристиками')],['traits',t('С чертами','З рисами')],...places];
+    var selected=options.find(option=>option[0]===category)||options[0];
+    category=selected[0];
+    return '<details class="gms-people-filter"><summary aria-label="'+t('Фильтр людей','Фільтр людей')+'">'+esc(selected[1])+'</summary><div>'+options.map(([value,name])=>
+      '<button type="button" data-person-filter="'+esc(value)+'" aria-pressed="'+(value===category)+'">'+esc(name)+'</button>').join('')+'</div></details>';
+  }
   function filterMarkup(){
     var values=new Set(catalog().map(itemCategory));var spellTypes={spell:t('Заклинания','Заклинання'),trait:t('Черты','Риси'),mastery:t('Мастерство','Майстерність'),kodex:t('Боевой кодекс','Бойовий кодекс'),folio:t('Фолиант','Фоліант'),obrad:t('Обрядник','Обрядник')};
-    return '<div class="gms-filters">'+(kind==='documents'?'<select data-gms-category aria-label="'+t('Тип документа','Тип документа')+'"><option value="">'+t('Все документы','Усі документи')+'</option>'+[['letter',t('Письма','Листи')],['note',t('Записки','Записки')],['announcement',t('Объявления','Оголошення')]].map(function(a){return '<option value="'+a[0]+'"'+(category===a[0]?' selected':'')+'>'+a[1]+'</option>';}).join('')+'</select>':'')+(kind==='spells'?'<select data-gms-category aria-label="'+t('Тип способности','Тип здібності')+'"><option value="">'+t('Все типы','Усі типи')+'</option>'+Object.keys(spellTypes).map(function(k){return '<option value="'+k+'"'+(category===k?' selected':'')+'>'+spellTypes[k]+'</option>';}).join('')+'</select>':'')+(kind==='items'?'<select data-gms-category aria-label="'+t('Категория предметов','Категорія предметів')+'"><option value="">'+t('Все категории','Усі категорії')+'</option>'+Object.keys(categories).filter(function(key){return values.has(key);}).map(function(key){return '<option value="'+key+'"'+(category===key?' selected':'')+'>'+t(categories[key][0],categories[key][1])+'</option>';}).join('')+'</select>':'')+'<button type="button" data-gms-favorites aria-pressed="'+(tab==='favorites')+'" aria-label="'+t('Только избранное','Лише обране')+'" title="'+t('Только избранное','Лише обране')+'">★</button></div>';
+    return '<div class="gms-filters">'+(kind==='people'?peopleFilters():'')+(kind==='documents'?'<select data-gms-category aria-label="'+t('Тип документа','Тип документа')+'"><option value="">'+t('Все документы','Усі документи')+'</option>'+[['letter',t('Письма','Листи')],['note',t('Записки','Записки')],['announcement',t('Объявления','Оголошення')]].map(function(a){return '<option value="'+a[0]+'"'+(category===a[0]?' selected':'')+'>'+a[1]+'</option>';}).join('')+'</select>':'')+(kind==='spells'?'<select data-gms-category aria-label="'+t('Тип способности','Тип здібності')+'"><option value="">'+t('Все типы','Усі типи')+'</option>'+Object.keys(spellTypes).map(function(k){return '<option value="'+k+'"'+(category===k?' selected':'')+'>'+spellTypes[k]+'</option>';}).join('')+'</select>':'')+(kind==='items'?'<select data-gms-category aria-label="'+t('Категория предметов','Категорія предметів')+'"><option value="">'+t('Все категории','Усі категорії')+'</option>'+Object.keys(categories).filter(function(key){return values.has(key);}).map(function(key){return '<option value="'+key+'"'+(category===key?' selected':'')+'>'+t(categories[key][0],categories[key][1])+'</option>';}).join('')+'</select>':'')+'<button type="button" data-gms-favorites aria-pressed="'+(tab==='favorites')+'" aria-label="'+t('Только избранное','Лише обране')+'" title="'+t('Только избранное','Лише обране')+'">★</button></div>';
   }
   function paintList(){
     if(!panel||panel.hidden)return;
     var query=panel.querySelector('input[type=search]').value.toLocaleLowerCase().trim(),favs=favorites();
-    var list=catalog().filter(function(s){return (kind!=='documents'||!['place','map'].includes(s.document?.kind))&&(tab!=='favorites'||favs.includes(s.key))&&(kind!=='items'||!category||itemCategory(s)===category)&&(kind!=='documents'||!category||s.document?.kind===category)&&(kind!=='spells'||!category||s._special===category||s.spell?.spellType===category)&&(!query||[label(s),s.label,s.labelUk,s.key].join(' ').toLocaleLowerCase().includes(query));});
+    var list=catalog().filter(function(s){return (kind!=='documents'||!['place','map'].includes(s.document?.kind))&&(tab!=='favorites'||favs.includes(s.key))&&(kind!=='people'||matchesPerson(s))&&(kind!=='items'||!category||itemCategory(s)===category)&&(kind!=='documents'||!category||s.document?.kind===category)&&(kind!=='spells'||!category||s._special===category||s.spell?.spellType===category)&&(!query||[label(s),s.label,s.labelUk,s.key,...(kind==='people'?[s.ability.relation,s.ability.relationUk,personPlace(s),s.ability.lastKnownPlaceUk]:[])].join(' ').toLocaleLowerCase().includes(query));});
     panel.querySelector('[data-gms-list]').innerHTML=list.map(function(s){var starred=favs.includes(s.key);return '<article class="gms-tile'+(activeKey===s.key?' is-selected':'')+'"><button type="button" data-gms-drag="'+esc(s.key)+'" aria-label="'+esc(label(s))+'">'+glyph(s)+'<span>'+esc(label(s))+'</span></button><button type="button" class="gms-star" data-gms-star="'+esc(s.key)+'" aria-pressed="'+starred+'" aria-label="'+esc(starred?t('Убрать из избранного','Прибрати з обраного'):t('В избранное','До обраного'))+'">'+(starred?'★':'☆')+'</button></article>';}).join('')||'<p class="gms-empty">'+t('Ничего не найдено','Нічого не знайдено')+'</p>';
     panel.querySelector('[data-gms-favorites]').setAttribute('aria-pressed',tab==='favorites');
   }
@@ -141,7 +186,7 @@ d.querySelector('[data-close]').onclick=function(){d.remove();};d.oncancel=funct
     menu.querySelector('button').focus({preventScroll:true});
     menu.addEventListener('toggle',()=>{if(!menu.matches(':popover-open'))menu.remove();});
   }
-  async function updateKnownContacts(button){if(busy)return;var key=button.dataset.contactUpdate,def=definition(key);if(def?._special!=='person')return;var chosen=targets().filter(function(target){var c=(w.characters||[]).find(function(c){return String(c.id)===String(target.id);});return target.ready&&(c?.family||[]).some(function(p){return p.grantTemplateId===key;});}),box=button.parentElement,message=document.createElement('p');message.dataset.contactResult='';message.setAttribute('role','status');box.querySelector('[data-contact-result]')?.remove();box.appendChild(message);if(!chosen.length){message.textContent=t('На столе ещё никто не знаком с этим контактом.','На столі ще ніхто не знайомий із цим контактом.');return;}busy=true;button.disabled=true;var updated=0,failed=0,epoch=authEpoch;
+  async function updateKnownContacts(button){if(busy)return;var key=button.dataset.contactUpdate,def=definition(key);if(def?._special!=='person')return;var chosen=targets().filter(function(target){var c=(w.characters||[]).find(function(c){return String(c.id)===String(target.id);});return target.ready&&(c?.family||[]).concat(c?.contacts||[]).some(function(p){return p.grantTemplateId===key;});}),box=button.parentElement,message=document.createElement('p');message.dataset.contactResult='';message.setAttribute('role','status');box.querySelector('[data-contact-result]')?.remove();box.appendChild(message);if(!chosen.length){message.textContent=t('На столе ещё никто не знаком с этим контактом.','На столі ще ніхто не знайомий із цим контактом.');return;}busy=true;button.disabled=true;var updated=0,failed=0,epoch=authEpoch;
     try{for(var target of chosen){if(epoch!==authEpoch)return;try{var result=await w.ZargotaGmTable.status(target,key,{unit:'manual',duration:0,updateOnly:true});if(result.ok){if(result.changed)updated++;}else failed++;}catch(_){failed++;}}message.textContent=t('Обновлено: ','Оновлено: ')+updated+(failed?t('. Не удалось: ','. Не вдалося: ')+failed:'');}finally{busy=false;button.disabled=false;}}
   function optionsFor(def){
     if(def.key==='exhausted'){var levels=Number(panel.querySelector('[data-gms-levels]')?.value||1);return Number.isInteger(levels)&&levels>=1&&levels<=5?{unit:'manual',duration:0,levels:levels}:null;}
@@ -243,12 +288,25 @@ d.querySelector('[data-close]').onclick=function(){d.remove();};d.oncancel=funct
       allTarget.title=t('Всем персонажам на этом столе','Усім персонажам на цьому столі');paintList();closeCardMenu();
     }
     localize();launcher.addEventListener('click',function(){if(panel.hidden)open();else close();});
+    document.addEventListener('pointerdown',function(e){
+      var filter=panel.querySelector('.gms-people-filter[open]');
+      if(filter&&!filter.contains(e.target))filter.open=false;
+    });
+    panel.addEventListener('keydown',function(e){
+      var filter=e.target.closest('.gms-people-filter[open]');
+      if(e.key==='Escape'&&filter){e.preventDefault();e.stopPropagation();filter.open=false;filter.querySelector('summary').focus();}
+    });
     panel.addEventListener('input',function(e){if(e.target.type==='search'){savePreferences();paintList();}});
     panel.addEventListener('change',function(e){if(e.target.matches('[data-gms-category]')){category=e.target.value;activeKey='';savePreferences();closeCardMenu();paintList();}if(e.target.matches('[data-gms-unit]'))panel.querySelector('[data-gms-duration]').hidden=['default','manual'].includes(e.target.value);});
     panel.addEventListener('click',function(e){
       var button=e.target.closest('button');if(!button)return;
       if(button.hasAttribute('data-gms-close')){close();launcher.focus();}
       else if(button.hasAttribute('data-template-new'))editTemplate();
+      else if(button.hasAttribute('data-person-filter')){
+        category=button.dataset.personFilter;activeKey='';savePreferences();
+        panel.querySelector('.gms-people-filter').outerHTML=peopleFilters();
+        panel.querySelector('.gms-people-filter summary').focus();paintList();
+      }
       else if(button.dataset.gmsInspect){
         var tile=Array.from(panel.querySelectorAll('[data-gms-drag]')).find(b=>b.dataset.gmsDrag===button.dataset.gmsInspect);
         closeCardMenu();if(tile)inspectCard(tile);

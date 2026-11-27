@@ -9,15 +9,16 @@
  function catalog(table){return [{key:'inspiration',_special:'inspiration',label:'Вдохновение',labelUk:'Натхнення',iconPath:'images/ui/character-mobile/inspiration-candle-v1.png',description:'Одно очко вдохновения. Герой может израсходовать его в своём листе.',descriptionUk:'Одне очко натхнення. Герой може витратити його у своєму аркуші.'}].concat((table||[]).map(function(d){return {key:'injury:'+d.key,_special:'injury',label:d.name,iconPath:d.iconPath,description:d.effect+'\n'+d.treatment,injury:copy(d)};}));}
  function snapshot(c,fields){var out={};fields.forEach(function(k){out[k]=c[k]===undefined?null:copy(c[k]);});return out;}
  function grant(c,def,options){
-  var fields=def._special==='person'?['family']:def._special==='document'?['journalEntries']:def._special==='spell'?['spellRefs','spellsLearned','spellGrantCatalog','preparedSpells']:['trait','mastery'].includes(def._special)?['mastery']:def._special==='inspiration'?['inspiration','inspirationEvent']:['injuries','baseHpMax','hpMax','hpCur'];
+  var personField=(c.family||[]).some(function(p){return p.grantTemplateId===def.key;})?'family':'contacts';
+  var fields=def._special==='person'?[personField]:def._special==='document'?['journalEntries']:def._special==='spell'?['spellRefs','spellsLearned','spellGrantCatalog','preparedSpells']:['trait','mastery'].includes(def._special)?['mastery']:def._special==='inspiration'?['inspiration','inspirationEvent']:['injuries','baseHpMax','hpMax','hpCur'];
   var before=snapshot(c,fields);
   if(def._special==='person'&&def.ability){
-    var a=def.ability,existing=(c.family||[]).find(function(p){return p.grantTemplateId===def.key;});
+    var a=def.ability,existing=(c[personField]||[]).find(function(p){return p.grantTemplateId===def.key;});
     if(options?.updateOnly&&!existing)return {changed:false,reason:'not-known'};
     var shared={name:a.name||'',nameUk:a.nameUk||a.name||'',knownInfo:a.description||'',knownInfoUk:a.descriptionUk||a.description||'',portrait:a.iconAsset||''};
     ['relation','lastKnownPlace'].forEach(function(k){if(Object.prototype.hasOwnProperty.call(a,k))shared[k]=a[k];if(Object.prototype.hasOwnProperty.call(a,k+'Uk'))shared[k+'Uk']=a[k+'Uk'];});
-    if(existing){if(Object.keys(shared).every(function(k){return (existing[k]||'')===shared[k];}))return {changed:false,reason:'already-active'};c.family=c.family.map(function(p){return p===existing?Object.assign({},p,shared):p;});}
-    else c.family=(c.family||[]).concat(Object.assign({id:'person-'+Date.now()+'-'+Math.random().toString(36).slice(2),grantTemplateId:def.key,parentId:'root'},shared));
+    if(existing){if(Object.keys(shared).every(function(k){return (existing[k]||'')===shared[k];}))return {changed:false,reason:'already-active'};c[personField]=c[personField].map(function(p){return p===existing?Object.assign({},p,shared):p;});}
+    else c[personField]=(c[personField]||[]).concat(Object.assign({id:'person-'+Date.now()+'-'+Math.random().toString(36).slice(2),grantTemplateId:def.key,parentId:'root'},shared));
   }
   else if(def._special==='document'&&def.document){if((c.journalEntries||[]).some(function(e){return e.grantTemplateId===def.key&&!e.deletedAt;}))return {changed:false,reason:'already-active'};var entry=copy(def.document);entry.journalId='doc-'+Date.now()+'-'+Math.random().toString(36).slice(2);entry.grantTemplateId=def.key;entry.updatedBy='gm';entry.createdAt=Date.now();entry.updatedAt=entry.createdAt;c.journalEntries=(c.journalEntries||[]).concat(entry);}
   else if(def._special==='spell'&&def.spell){var sid=String(def.spell.id);if((c.spellRefs||[]).some(function(id){return String(id)===sid;}))return {changed:false,reason:'already-active'};c.spellRefs=(c.spellRefs||[]).slice();if(!c.spellRefs.some(function(id){return String(id)===sid;}))c.spellRefs.push(def.spell.id);c.spellGrantCatalog=Object.assign({},c.spellGrantCatalog,{[sid]:copy(def.spell)});}
