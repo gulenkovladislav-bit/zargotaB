@@ -191,10 +191,26 @@
     const current=order.findIndex(actor=>actor.id===state.turn);
     const next=(current+1)%order.length;
     state.turn=order[next].id;
-    if(current>=0 && next===0)state.round++;
+    if(current>=0 && next===0){
+      state.round++;
+      for(const row of state.rows){
+        row.statuses=row.statuses.filter(key=>{
+          const remaining=row.statusRounds?.[key];
+          if(!Number.isSafeInteger(remaining))return true;
+          if(remaining>1){row.statusRounds[key]=remaining-1;return true;}
+          delete row.statusRounds[key];
+          return false;
+        });
+      }
+    }
     state.started=true;
     const enemy=state.rows.find(row=>row.id===state.turn);
-    if(enemy)enemy.used=[];
+    if(enemy){
+      enemy.used=[];
+      const reminders=statusDefs().filter(status=>enemy.statuses.includes(status.key) && status.startOfTurnEffect==='damage')
+        .map(status=>local(status,'label')+' · '+(status.startOfTurnDice || status.startOfTurnValue || 0)+' '+t('урона','шкоди'));
+      if(reminders.length)window.showToast?.(name(enemy,definition(enemy))+' — '+reminders.join(', '));
+    }
   }
   function sort(){state.rows.sort((a,b)=>b.init-a.init);}
   root.onchange=e=>{
@@ -380,6 +396,6 @@
   render();
   document.addEventListener('DOMContentLoaded',()=>{
     const log=window.ZG_APP_CHANGELOG?.[0];
-    if(log){log.notes+=' При удалении противника ход переходит по очереди инициативы. Длительность статуса можно изменить через правую кнопку. Раунд, карточки участников и переход хода собраны в верхней полосе. Перед боем мастер выбирает участников и задаёт инициативу. Папку с существами можно перенести на бой. При изменении HP сохраняется положение очереди. В листе врага действия, черты и описание открываются отдельными страницами.';log.notesUk+=' Після вилучення ворога хід переходить за чергою ініціативи. Тривалість стану можна змінити правою кнопкою. Раунд, картки учасників і перехід ходу зібрано у верхній смузі. Перед боєм майстер вибирає учасників і задає ініціативу. Папку з істотами можна перетягнути на бій. Під час зміни HP зберігається положення черги. В аркуші ворога дії, риси й опис відкриваються окремими сторінками.';}
+    if(log){log.notes+=' В конце раунда истекают временные статусы врагов. В начале хода появляется подсказка об уроне. При удалении противника ход переходит по очереди инициативы. Длительность статуса можно изменить через правую кнопку. Раунд, карточки участников и переход хода собраны в верхней полосе. Перед боем мастер выбирает участников и задаёт инициативу. Папку с существами можно перенести на бой. При изменении HP сохраняется положение очереди. В листе врага действия, черты и описание открываются отдельными страницами.';log.notesUk+=' Наприкінці раунду спливають тимчасові стани ворогів. На початку ходу з’являється підказка про шкоду. Після вилучення ворога хід переходить за чергою ініціативи. Тривалість стану можна змінити правою кнопкою. Раунд, картки учасників і перехід ходу зібрано у верхній смузі. Перед боєм майстер вибирає учасників і задає ініціативу. Папку з істотами можна перетягнути на бій. Під час зміни HP зберігається положення черги. В аркуші ворога дії, риси й опис відкриваються окремими сторінками.';}
   });
 })();
