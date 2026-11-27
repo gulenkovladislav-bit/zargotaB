@@ -92,7 +92,7 @@
     var participants=w.ZargotaGmParticipants?.rows(rows);
     rows=participants||rows.filter(function(row){return row.key.indexOf('sheet-')!==0;}).map(function(row){var c=hero(row),linked=c&&shared.find(function(s){return String(s.localId)===String(c.id);});return Object.assign({},row,{shared:linked||row.shared});});
     w.ZargotaGmReminders?.refresh();
-    roster=rows;selected=rows.some(function(row){return row.key===state.selectedKey&&hero(row);})?state.selectedKey:'';
+    roster=rows;w.ZargotaEnemyDock?.refresh();selected=rows.some(function(row){return row.key===state.selectedKey&&hero(row);})?state.selectedKey:'';
     var dock=document.getElementById('zg-irl-character-dock'),card=document.getElementById('zg-irl-character-card');
     if(!dock||!card)return;
     var markup=rows.map(function(row){
